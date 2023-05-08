@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1404,6 +1390,20 @@
           
         </ul>
       </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
     </li>
   
 
@@ -2207,30 +2207,32 @@
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>curl -s http://localhost:9100/eth/v1/node/version
 </code></pre></div>
 <h3 id="why-are-metrics-not-working">Why are metrics not working?</h3>
-<p>The metrics server is disabled by default: enable it by passing <code>--metrics</code> to the run command:</p>
+<p>The metrics server is disabled by default
+Enable it by passing <code>--metrics</code> to the run command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node --metrics ...
 </code></pre></div>
 <h3 id="why-is-the-rest-server-not-working">Why is the REST server not working?</h3>
-<p>The REST server is disabled by default: enable it by passing <code>--rest</code> to the run command:</p>
+<p>The REST server is disabled by default.
+Enable it by passing <code>--rest</code> to the run command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/nimbus_beacon_node --rest ...
 </code></pre></div>
 <h3 id="why-does-my-validator-miss-two-epochs-of-attestations-after-restarting">Why does my validator miss two epochs of attestations after restarting?</h3>
 <p>When a validator is started (or restarted) it prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself.</p>
-<p>In sum, it's a simple way of handling the case where one validator comes online with the same key as another validator that's already online (i.e one device was started without switching the other off).</p>
+<p>In sum, it's a simple way of handling the case where one validator comes online with the same key as another validator that's already online (i.e. one device was started without switching the other off).</p>
 <p>While this strategy requires the client to wait two whole epochs on restart before attesting, a couple of missed attestations is a very minor price to pay in exchange for significantly reducing the risk of an accidental slashing.</p>
-<p>You can think of it as a small penalty that you pay only on first launch and restarts. When you take into account the total runtime of your validator, the impact should be minimal.</p>
+<p>You can think of it as a small penalty that you pay only on first launch and restarts.
+When you take into account the total runtime of your validator, the impact should be minimal.</p>
 <p>While we strongly recommend it, you can disable it with an explicit flag (<code>--doppelganger-detection=false</code>) if you don't plan on moving your setup.</p>
 <h3 id="whats-the-best-way-to-stress-test-my-execution-consensus-setup-before-committing-with-real-eth">What's the best way to stress test my execution + consensus setup before committing with real ETH?</h3>
-<p>We recommend running <a href="quick-start.html">a Nimbus beacon node</a> on <a href="prater.html">Prater</a> and a mainnet <a href="eth1.html">execution client</a> on the same machine - this will simulate the load of running a mainnet validator.</p>
-<p>To stress test it, add <code>--subscribe-all-subnets</code> to the <a href="options.html">beacon node options</a>. This simulates the maximum load that the consensus layer will put on the machine should you run 64 validators or more on it.</p>
+<p>We recommend running <a href="quick-start.html">a Nimbus beacon node</a> on <a href="prater.html">Prater</a> and a mainnet <a href="eth1.html">execution client</a> on the same machine.
+This will simulate the load of running a mainnet validator.</p>
+<p>To stress test it, add <code>--subscribe-all-subnets</code> to the <a href="options.html">beacon node options</a>.
+This simulates the maximum load that the consensus layer will put on the machine should you run 64 validators or more on it.</p>
 <h3 id="how-do-i-add-an-additional-validator">How do I add an additional validator?</h3>
-<p>To add an additional validator, follow <a href="keys.html">the same steps</a> as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Note that a single Nimbus instance is able to handle multiple validators.</p>
-</div>
+<p>See the information <a href="additional-validator.html">here</a>.</p>
 <h3 id="what-does-syncedopt-mean-in-the-slot-start-message">What does <code>synced/opt</code> mean, in the "Slot start" message?</h3>
-<p>When <code>/opt</code> is present in the "Slot start" message, it means the node is <a href="optimistic-sync.html">optimistically synced</a> and is waiting for the execution client to finish its syncing process - until that happens, validator duties are disabled.</p>
+<p>When <code>/opt</code> is present in the "Slot start" message, it means the node is <a href="optimistic-sync.html">optimistically synced</a> and is waiting for the execution client to finish its syncing process.
+Until that happens, validator duties are disabled.</p>
 <h2 id="networking">Networking</h2>
 <h3 id="how-can-i-improve-my-peer-count">How can I improve my peer count?</h3>
 <p>See <a href="networking.html">the networking guide</a>.</p>
@@ -2239,10 +2241,12 @@
 </code></pre></div>
 <p>It's possible that your ISP has changed your dynamic IP address without you knowing.</p>
 <p>The first thing to do it to try relaunching the beacon node with <code>--enr-auto-update</code> (pass it as an option in the command line).</p>
-<p>If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use <a href="https://www.yougetsignal.com/tools/open-ports/">https://www.yougetsignal.com/tools/open-ports/</a>.  Note that Nimbus <code>TCP</code> and <code>UDP</code> ports are both set to <code>9000</code> by default.</p>
-<p>See <a href="health.html#set-up-port-forwarding">here</a>, for how to set up port forwarding.</p>
+<p>If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection: you can use <a href="https://www.yougetsignal.com/tools/open-ports/">https://www.yougetsignal.com/tools/open-ports/</a>.
+Note that Nimbus <code>TCP</code> and <code>UDP</code> ports are both set to <code>9000</code> by default.</p>
+<p>See <a href="health.html#set-up-port-forwarding">here</a> for how to set up port forwarding.</p>
 <h2 id="folder-permissions">Folder Permissions</h2>
-<p>To protect against key loss, Nimbus requires that files and directories be owned by the user running the application. Furthermore, they should not be readable by others.</p>
+<p>To protect against key loss, Nimbus requires that files and directories be owned by the user running the application.
+Furthermore, they should not be readable by others.</p>
 <p>It may happen that the wrong permissions are applied, particularly when creating the directories manually.</p>
 <p>The following errors are a sign of this:</p>
 <ul>
@@ -2254,7 +2258,8 @@
 <h2 id="validating">Validating</h2>
 <h3 id="what-exactly-is-a-validator">What exactly is a validator?</h3>
 <p>A validator is an entity that participates in the consensus of the Ethereum protocol, and has staked 32 ETH to do so.</p>
-<p>Or in plain english, a human running a computer process. This process proposes and vouches for new blocks to be added to the blockchain.</p>
+<p>Or, in plain English, a human running a computer process.
+This process proposes and vouches for new blocks to be added to the blockchain.</p>
 <p>In other words, <strong>you can think of a validator as a voter for new blocks.</strong> The more votes a block gets, the more likely it is to be added to the chain.</p>
 <p>Importantly, a validator's vote is weighted by the amount it has at stake.</p>
 <h3 id="what-is-the-deposit-contract">What is the deposit contract?</h3>
@@ -2264,15 +2269,18 @@
 <p>Validators need to have funds at stake so they can be penalized for behaving dishonestly.</p>
 <p>In other words, to keep them honest, their actions need to have financial consequences.</p>
 <h3 id="how-much-eth-does-a-validator-need-to-stake">How much ETH does a validator need to stake?</h3>
-<p>Before a validator can start to secure the network, they need to stake <strong>32 ETH</strong>. This forms the validator's initial balance.</p>
+<p>Before a validator can start to secure the network, they need to stake <strong>32 ETH</strong>.
+This forms the validator's initial balance.</p>
 <h3 id="is-there-any-advantage-to-having-more-than-32-eth-at-stake">Is there any advantage to having more than 32 ETH at stake?</h3>
-<p>No. There is no advantage to having more than 32 ETH staked.</p>
+<p>No.
+There is no advantage to having more than 32 ETH staked.</p>
 <p>Limiting the maximum stake to 32 ETH encourages decentralization of power as it prevents any single validator from having an excessively large vote on the state of the chain.</p>
-<blockquote>
+<div class="admonition note">
 <p>Remember that a validator’s vote is weighted by the amount it has at stake.</p>
-</blockquote>
+</div>
 <h3 id="can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again">Can I stop my validator for a few days and then start it back up again?</h3>
-<p>Yes but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period. In other words, if you stood to earn ≈0.01 ETH, you would instead be penalised ≈0.01 ETH.</p>
+<p>Yes but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period.
+In other words, if you stood to earn ≈0.01 ETH, you would instead be penalized ≈0.01 ETH.</p>
 <h3 id="i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed">I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?</h3>
 <p>We recommend waiting 2 epochs (around 15 minutes), before restarting Nimbus on a different machine.</p>
 <h3 id="when-should-i-top-up-my-validators-balance">When should I top up my validator's balance?</h3>
@@ -2280,38 +2288,45 @@
 <p>You should certainly top up if your balance is close to 16 ETH: this is to ensure you don't get removed from the validator set (which automatically happens if your balance falls below 16 ETH).</p>
 <p>At the other end of the spectrum, if your balance is closer to 31 ETH, it's probably not worth your while adding the extra ETH required to get back to 32.</p>
 <h3 id="when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing">When can I withdraw my funds, and what's the difference between exiting and withdrawing?</h3>
-<p>After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use 0x01 withdrawal credentials will have their funds automatically withdrawn. Please see our dedicated <a href="withdrawals.html">guide for withdrawals</a> for further information.</p>
+<p>After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use <code>0x01</code> withdrawal credentials will have their funds automatically withdrawn.
+Please see our dedicated <a href="withdrawals.html">guide for withdrawals</a> for further information.</p>
 <h3 id="how-are-validators-incentivized-to-stay-active-and-honest">How are validators incentivized to stay active and honest?</h3>
-<p>In addition to being penalized for being offline, validators are penalized for behaving maliciously – for example attesting to invalid or contradicting blocks.</p>
+<p>In addition to being penalized for being offline, validators are penalized for behaving maliciously.
+For example, attesting to invalid or contradicting blocks.</p>
 <p>On the other hand, they are rewarded for proposing / attesting to blocks that are included in the chain.</p>
 <p>The key concept is the following:</p>
 <ul>
-<li>Rewards are given for actions that help the network reach consensus</li>
-<li>Minor penalties are given for inadvertant actions (or inactions) that hinder consensus</li>
-<li>And major penalities -- or <strong>slashings</strong> -- are given for malicious actions</li>
+<li>Rewards are given for actions that help the network reach consensus.</li>
+<li>Minor penalties are given for inadvertent actions (or inactions) that hinder consensus.</li>
+<li>And major penalties — or <strong>slashings</strong> — are given for malicious actions.</li>
 </ul>
 <p>In other words, validators that maximize their rewards also provide the greatest benefit to the network as a whole.</p>
 <h3 id="how-are-rewardspenalties-issued">How are rewards/penalties issued?</h3>
-<p>Remember that each validator has its own balance -- with the initial balance outlined in the deposit contract.</p>
-<p>This balance is updated periodically by the Ethereum network rules as the validator carries (or fails to carry) out his or her responsibilities.</p>
+<p>Remember that each validator has its own balance, with the initial balance outlined in the deposit contract.
+This balance is updated periodically by the Ethereum network rules as the validator carries (or fails to carry) out his or her responsibilities.</p>
 <p>Put another way, rewards and penalties are reflected in the validator's balance over time.</p>
 <h3 id="how-often-are-rewardspenalties-issued">How often are rewards/penalties issued?</h3>
-<p>Approximately every six and a half minutes -- a period of time known as an epoch.</p>
+<p>Approximately every six and a half minutes — a period of time known as an epoch.</p>
 <p>Every epoch, the network measures the actions of each validator and issues rewards or penalties appropriately.</p>
 <h3 id="how-large-are-the-rewardspenalties">How large are the rewards/penalties?</h3>
 <p>There is no easy answer to this question as there are many factors that go into this calculation.</p>
-<p>Arguably the most impactful factor on rewards earned for validating transactions is the total amount of stake in the network. In other words, the total amount of validators. Depending on this figure the max annual return rate for a validator can be anywhere between 2 and 20%.</p>
-<p>Given a fixed total number of validators, the rewards/penalties predominantly scale with the balance of the validator -- attesting with a higher balance results in larger rewards/penalties whereas attesting with a lower balance results in lower rewards/penalties.</p>
-<blockquote>
-<p>Note however that this scaling mechanism works in a non-obvious way. To understand the precise details of how it works requires understanding a concept called <strong>effective balance</strong>. If you're not yet familiar with this concept, we recommend you read through this <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/">excellent post</a>.</p>
-</blockquote>
+<p>Arguably the most impactful factor on rewards earned for validating transactions is the total amount of stake in the network.
+In other words, the total amount of validators.
+Depending on this figure the max annual return rate for a validator can be anywhere between 2 and 20%.</p>
+<p>Given a fixed total number of validators, the rewards/penalties predominantly scale with the balance of the validator: attesting with a higher balance results in larger rewards/penalties whereas attesting with a lower balance results in lower rewards/penalties.</p>
+<p>Note however that this scaling mechanism works in a non-obvious way.
+To understand the precise details of how it works requires understanding a concept called <strong>effective balance</strong>.
+If you're not yet familiar with this concept, we recommend you read through this <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/">excellent post</a>.</p>
 <h3 id="why-do-rewards-depend-on-the-total-number-of-validators-in-the-network">Why do rewards depend on the total number of validators in the network?</h3>
 <p>Block rewards are calculated using a sliding scale based on the total amount of ETH staked on the network.</p>
 <p>In plain english: if the total amount of ETH staked is low, the reward (interest rate) is high, but as the total stake rises, the reward (interest) paid out to each validator starts to fall.</p>
-<p>Why a sliding scale? While we won't get into the gory details here, the basic intution is that there needs to be a minimum number of validators (and hence a minimum amount of ETH staked) for the network to function properly. So, to incentivize more validators to join, it's important that the interest rate remains high until this minimum number is reached.</p>
+<p>Why a sliding scale?
+While we won't get into the gory details here, the basic intuition is that there needs to be a minimum number of validators (and hence a minimum amount of ETH staked) for the network to function properly.
+So, to incentivize more validators to join, it's important that the interest rate remains high until this minimum number is reached.</p>
 <p>Afterwards, validators are still encouraged to join (the more validators the more decentralized the network), but it's not absolutely essential that they do so (so the interest rate can fall).</p>
 <h3 id="how-badly-will-a-validator-be-penalized-for-being-offline">How badly will a validator be penalized for being offline?</h3>
-<p>It depends. In addition to <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/#the-impact-of-effective-balance-on-validating">the impact of effective balance</a> there are two important scenarios to be aware of:</p>
+<p>It depends.
+In addition to <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/#the-impact-of-effective-balance-on-validating">the impact of effective balance</a>, there are two important scenarios to be aware of:</p>
 <ol>
 <li>
 <p>Being offline while a supermajority (2/3) of validators is still online leads to relatively small penalties as there are still enough validators online for the chain to finalize. <strong>This is the expected scenario.</strong></p>
@@ -2320,38 +2335,50 @@
 <p>Being offline at the same time as more than 1/3 of the total number of validators leads to harsher penalties, since blocks do not finalize anymore. <strong>This scenario is very extreme and unlikely to happen.</strong></p>
 </li>
 </ol>
-<blockquote>
-<p>Note that in the second (unlikely) scenario, validators stand to progressively lose up to 50% (16 ETH) of their stake over 21 days. After 21 days they are ejected out of the validator pool. This ensures that blocks start finalizing again at some point.</p>
-</blockquote>
+<p>Note that in the second (unlikely) scenario, validators stand to progressively lose up to 50% (16 ETH) of their stake over 21 days.
+After 21 days they are ejected out of the validator pool.
+This ensures that blocks start finalizing again at some point.</p>
 <h3 id="how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable">How great does an honest validator's uptime need to be for it to be net profitable?</h3>
 <p>Overall, validators are expected to be net profitable as long as their uptime is <a href="https://blog.ethereum.org/2020/01/13/validated-staking-on-eth2-1-incentives/">greater than 50%</a>.</p>
 <p>This means that validators need not go to extreme lengths with backup clients or redundant internet connections as the repercussions of being offline are not so severe.</p>
 <h3 id="how-much-will-a-validator-be-penalized-for-acting-maliciously">How much will a validator be penalized for acting maliciously?</h3>
-<p>Again, it depends. Behaving maliciously – for example attesting to invalid or contradicting blocks, will lead to a validator's stake being slashed.</p>
-<p>The minimum amount that can be slashed is 1 ETH, but <strong>this number increases if other validators are slashed at the same time.</strong></p>
-<p>The idea behind this is to minimize the losses from honest mistakes, but strongly disincentivize coordinated attacks.</p>
+<p>Again, it depends.
+Behaving maliciously, e.g. attesting to invalid or contradicting blocks, will lead to a validator's stake being slashed.</p>
+<p>If a malicious behavior is detected, 1/32 of validator's staked ether (up to a maximum of 1 ETH) is immediately slashed and a 36-day removal period begins.
+During this period, the validator's stake is gradually slashed and at day 18 an additional penalty is applied: the amount depends on the number of other slashed validators — the more validators are slashed, the magnitude of the slash increases.</p>
+<p>The idea behind this is to minimize the losses from honest mistakes, but strongly discouraging coordinated attacks.</p>
 <h3 id="what-exactly-is-slashing">What exactly is slashing?</h3>
-<p>Slashing has two purposes: (1) to make it prohibitively expensive to attack eth2, and (2) to stop validators from being lazy by checking that they actually perform their duties. Slashing a validator is to destroy (a portion of) the validator’s stake if they act in a provably destructive manner.</p>
+<p>Slashing has two purposes:</p>
+<ol>
+<li>to make it prohibitively expensive to attack eth2, and</li>
+<li>to stop validators from being lazy by checking that they actually perform their duties.</li>
+</ol>
+<p>Slashing a validator is to destroy (a portion of) the validator’s stake if they act in a provably destructive manner.</p>
 <p>Validators that are slashed are prevented from participating in the protocol further and are forcibly exited.</p>
 <h3 id="what-happens-i-lose-my-signing-key">What happens I lose my signing key?</h3>
 <p>If the signing key is lost, the validator can no longer propose or attest.</p>
-<p>Over time, the validator's balance will decrease as he or she is punished for not participating in the consensus process. When the validator's balance reaches 16 Eth, he or she will be automatically exited from the validator pool.</p>
-<blockquote>
-<p>However, all is not lost. Assuming validators derive their keys using <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP2334</a> (as per the default onboarding flow)then <strong>validators can always recalculate their signing key from their withdrawal key</strong>.</p>
-</blockquote>
-<p>The 16 Eth can then be withdrawn -- with the withdrawal key -- after a delay of around a day.</p>
-<blockquote>
-<p>Note that this delay can be longer if many others are exiting or being kicked out at the same time.</p>
-</blockquote>
+<p>However, all is not lost.
+Assuming validators derive their keys using <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP2334</a> (as per the default onboarding flow) then <strong>validators can always recalculate their signing key from their withdrawal key</strong>.</p>
 <h3 id="what-happens-if-i-lose-my-withdrawal-key">What happens if I lose my withdrawal key?</h3>
-<p>If the withdrawal key is lost, there is no way to obtain access to the funds held by the validator.</p>
-<p>As such, it's a good idea to create your keys from mnemonics which act as another backup. This will be the default for validators who join via this site's onboarding process.</p>
+<p>If the withdrawal key is lost, there is no way to obtain access to the funds held by the validator.
+As such, it's a good idea to create your keys from mnemonics which act as another backup.
+This will be the default for validators who join via this site's onboarding process.</p>
+<p>If the validator can no longer propose or attest, their balance will decrease over time as they are punished for not participating in the consensus process.
+When the validator's balance reaches 16 ETH, they will be automatically exited from the validator pool, and 16 ETH will be transfered to their withdrawal address (as long it's specified).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use <code>0x01</code> withdrawal credentials will have their funds automatically withdrawn.
+Please see our dedicated <a href="withdrawals.html">guide for withdrawals</a> for further information.</p>
+</div>
 <h3 id="what-happens-if-my-withdrawal-key-is-stolen">What happens if my withdrawal key is stolen?</h3>
 <p>If the withdrawal key is stolen, the thief can transfer the validator’s balance, but only once the validator has exited.</p>
 <p>If the signing key is not under the thief’s control, the thief cannot exit the validator.</p>
-<p>The user with the signing key could attempt to quickly exit the validator and then transfer the funds -- with the withdrawal key -- before the thief.</p>
+<p>The user with the signing key could attempt to quickly exit the validator and then transfer the funds — with the withdrawal key — before the thief.</p>
 <h3 id="why-two-keys-instead-of-one">Why two keys instead of one?</h3>
-<p>In a nutshell, security. The signing key must be available at all times. As such, it will need to be held online. Since anything online is vulnerable to being hacked, it's not a good idea to use the same key for withdrawals.</p>
+<p>In a nutshell, security.
+The signing key must be available at all times.
+As such, it will need to be held online.
+Since anything online is vulnerable to being hacked, it's not a good idea to use the same key for withdrawals.</p>
 
               
             </article>

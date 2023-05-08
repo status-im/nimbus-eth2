@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1527,6 +1513,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1822,17 +1822,20 @@
 
 
 <h1 id="networking">Networking</h1>
-<p>Nimbus will automatically connect to peers based on the health and quality of peers that it's already connected to. Depending on the network and the number of validators attached to the node, Nimbus may need anywhere from 10 to 60 peers connected to operate well.</p>
-<p>In addition to making outgoing connections, the beacon node node works best when others can connect to it - this speeds up the process of finding good peers.</p>
-<p>To allow incoming connections, the node must be reachable via a public IP address. It must also be aware of this address, so that it can advertise it to its peers.</p>
+<p>Nimbus will automatically connect to peers based on the health and quality of peers that it's already connected to.
+Depending on the network and the number of validators attached to the node, Nimbus may need anywhere from 10 to 60 peers connected to operate well.</p>
+<p>In addition to making outgoing connections, the beacon node node works best when others can connect to it — this speeds up the process of finding good peers.</p>
+<p>To allow incoming connections, the node must be reachable via a public IP address.
+It must also be aware of this address, so that it can advertise it to its peers.</p>
 <h2 id="upnp">UPnP</h2>
-<p>By default, Nimbus uses <a href="https://en.wikipedia.org/wiki/Universal_Plug_and_Play">UPnP</a> to set up port forwarding and detect your external IP address. If you do not have UPnP enabled, you may need to pass additional command-line options to the node, as explained in subsequent sections.</p>
-<p>Enabling UPnP is usually as simple as checking a box in your router's configuration. Unless it's a FRITZ!Box router, that is.</p>
-<p>With this brand, you will also need to edit individual connections - in "Home Network" -&gt; "Network" -&gt; edit icon -&gt; "Permit independent port sharing for this device". You might also want to enable "Always assign this network device the same IPv4 address", in case the setting is associated with IPs instead of MACs.</p>
+<p>By default, Nimbus uses <a href="https://en.wikipedia.org/wiki/Universal_Plug_and_Play">UPnP</a> to set up port forwarding and detect your external IP address.
+If you do not have UPnP enabled, you may need to pass additional command-line options to the node, as explained in the subsequent sections.</p>
+<p>Enabling UPnP is usually as simple as checking a box in your router's configuration.</p>
 <h2 id="monitor-your-peer-count">Monitor your Peer count</h2>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>As of <code>v1.7.0</code>, peer scoring has been fine-tuned. As such <code>--max-peers</code> should not be set below 70. Note that Lowering <code>max-peers</code> does not significantly improve bandwidth usage, but does increase the risk of missed attestations.</p>
+<p>The <code>--max-peers</code> setting should not be set below 70.
+Lowering <code>max-peers</code> does not significantly improve bandwidth usage, but does increase the risk of missed attestations.</p>
 </div>
 <p>If your Peer count is low (less than <code>15</code>) and/or you repeatedly see either of the following warnings:</p>
 <p><code>Peer count low, no new peers discovered...</code></p>
@@ -1844,23 +1847,28 @@
 <p>The first step however, is to check for incoming connections.</p>
 <h2 id="check-for-incoming-connections">Check for incoming connections</h2>
 <p>To check if you have incoming connections set, run:</p>
+<!-- TODO: It would be very sweet if we can create some kind of CI tests that verify that these instructions work -->
+
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl -s http://localhost:8008/metrics | grep libp2p_open_streams
 </code></pre></div>
 <p>In the output, look for a line that looks like:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>libp2p_open_streams{type=&quot;ChronosStream&quot;,dir=&quot;in&quot;}
 </code></pre></div>
-<p>If there are no <code>dir=in</code> ChronosStreams , incoming connections are not working.</p>
-<blockquote>
-<p><strong>N.B</strong> you need to run the client with the <code>--metrics</code> option enabled in order for this to work</p>
-</blockquote>
+<p>If there are no <code>dir=in</code> ChronosStreams, incoming connections are not working.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You need to run the client with the <code>--metrics</code> option enabled in order for this to work</p>
+</div>
 <h2 id="set-an-explicit-external-ip">Set an explicit external IP</h2>
-<p>If you have a static public IP address, use the <code>--nat:extip:$EXT_IP_ADDRESS</code> option to pass it to the client,  where <code>$EXT_IP_ADDRESS</code> is your public IP (see <a href="networking.html#determine-your-public-ip-address">here</a> for how to determine your public IP address). For example, if your public IP address is <code>1.2.3.4</code>, you'd run:</p>
+<p>If you have a static public IP address, use the <code>--nat:extip:$EXT_IP_ADDRESS</code> option to pass it to the client,  where <code>$EXT_IP_ADDRESS</code> is your public IP.
+See <a href="networking.html#determine-your-public-ip-address">here</a> for how to determine your public IP address.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>If you have a dynamic IP, you can use <code>extip</code> the initial setting, but should also enable <code>--enr-auto-update</code> to keep it up-to-date.</p>
 </div>
 <h2 id="set-enr-auto-update">Set ENR auto update</h2>
-<p>The <code>--enr-auto-update</code> feature keeps your external IP address up to date based on information received from other peers on the network. This option is useful with ISPs that assign IP addresses dynamically.</p>
+<p>The <code>--enr-auto-update</code> feature keeps your external IP address up to date based on information received from other peers on the network.
+This option is useful with ISPs that assign IP addresses dynamically.</p>
 <p>In practice this means relaunching the beacon node with <code>--enr-auto-update:true</code> (pass it as an option in the command line).</p>
 <h2 id="set-up-port-forwarding">Set up port forwarding</h2>
 <p>If you're running on a home network and want to ensure you are able to receive incoming connections you may need to set up port forwarding (though some routers automagically set this up for you).</p>
@@ -1872,19 +1880,23 @@
 <ol>
 <li>Determine your <a href="networking.html#determine-your-public-ip-address">public IP address</a></li>
 <li>Determine your <a href="networking.html#determine-your-private-ip-address">private IP address</a></li>
-<li>Browse to the management website for your home router (<a href="http://192.168.1.1">http://192.168.1.1</a> for most routers, <a href="https://192.168.178.1">https://192.168.178.1</a> for FRITZ!Box)</li>
+<li>Browse to the management website for your home router (<a href="http://192.168.1.1">http://192.168.1.1</a> for most routers)</li>
 <li>Log in as admin</li>
 <li>Find the section to configure port forwarding</li>
-<li>Configure a port forwarding rule with the following values:</li>
+<li>Configure a port forwarding rule with the following values:<ul>
 <li>External port: <code>9000</code></li>
 <li>Internal port: <code>9000</code></li>
 <li>Protocol: <code>TCP</code></li>
 <li>IP Address: Private IP address of the computer running Nimbus</li>
-<li>Configure a second port forwarding rule with the following values:</li>
+</ul>
+</li>
+<li>Configure a second port forwarding rule with the following values:<ul>
 <li>External port: <code>9000</code></li>
 <li>Internal port: <code>9000</code></li>
 <li>Protocol: <code>UDP</code></li>
 <li>IP Address: Private IP address of the computer running Nimbus</li>
+</ul>
+</li>
 </ol>
 <h3 id="determine-your-public-ip-address">Determine your public IP address</h3>
 <p>To determine your public IP address, visit <a href="http://v4.ident.me/">http://v4.ident.me/</a> or run this command:</p>
@@ -1911,15 +1923,29 @@
 <h2 id="check-open-ports-on-your-connection">Check open ports on your connection</h2>
 <p>Use <a href="https://www.yougetsignal.com/tools/open-ports/">this tool</a> to check your external (public) IP address and detect open ports on your connection (Nimbus TCP and UDP ports are both set to <code>9000</code> by default).</p>
 <h2 id="reading-the-logs">Reading the logs</h2>
+<ul>
+<li>
 <p><code>No peers for topic, skipping publish...</code></p>
-<p>This is printed when the client lacks quality peers to publish attestations to - this is the most important indication that the node is having trouble keeping up. If you see this, you are missing attestations.</p>
+<p>This is printed when the client lacks quality peers to publish attestations to - this is the most important indication that the node is having trouble keeping up.
+If you see this, you are missing attestations.</p>
+</li>
+<li>
 <p><code>Peer count low, no new peers discovered...</code></p>
 <p>This is a sign that you may be missing attestations.</p>
+</li>
+<li>
 <p><code>No external IP provided for the ENR...</code></p>
 <p>This message basically means that the software did not manage to find a public IP address (by either looking at your routed interface IP address, and/or by attempting to get it from your gateway through UPnP or NAT-PMP).</p>
+</li>
+<li>
 <p><code>Discovered new external address but ENR auto update is off...</code></p>
-<p>It's possible that your ISP has changed your IP address without you knowing. The first thing to do it to try relaunching the beacon node with with <code>--enr-auto-update:true</code> (pass it as an option in the command line).</p>
-<p>If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use <a href="https://www.yougetsignal.com/tools/open-ports/">this site</a>.  Note that Nimbus <code>TCP</code> and <code>UDP</code> ports are both set to <code>9000</code> by default. See above for how to set up port forwarding.</p>
+<p>It's possible that your ISP has changed your IP address without you knowing.
+The first thing to do it to try relaunching the beacon node with with <code>--enr-auto-update:true</code> (pass it as an option in the command line).</p>
+<p>If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use <a href="https://www.yougetsignal.com/tools/open-ports/">this site</a>.
+Note that Nimbus <code>TCP</code> and <code>UDP</code> ports are both set to <code>9000</code> by default.
+See above for how to set up port forwarding.</p>
+</li>
+</ul>
 
               
             </article>

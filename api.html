@@ -605,20 +605,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -944,7 +930,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1411,6 +1397,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1834,11 +1834,11 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#valdiator-api" class="md-nav__link">
-    Valdiator API
+  <a href="#validator-api" class="md-nav__link">
+    Validator API
   </a>
   
-    <nav class="md-nav" aria-label="Valdiator API">
+    <nav class="md-nav" aria-label="Validator API">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2088,7 +2088,8 @@
 <h1 id="json-rpc-api-deprecated">JSON-RPC API (deprecated)</h1>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>As of v22.6.0, the Nimbus JSON-RPC interface has been <strong>removed</strong> following an extended deprecation period. You are encouraged to migrate your applications to the <a href="rest-api.html">REST API</a>.</p>
+<p>As of v22.6.0, the Nimbus JSON-RPC interface has been <strong>removed</strong> following an extended deprecation period. 
+You are encouraged to migrate your applications to the <a href="rest-api.html">REST API</a>.</p>
 </div>
 <p>The JSON-RPC API pre-dated the REST API and was based on early designs of the beacon chain.</p>
 <p>This guide is kept for historical reference, as well as to aid migration.</p>
@@ -2257,7 +2258,7 @@
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>curl http://localhost:5052/eth/v1/node/health -s -w &quot;%{http_code}&quot;
 </code></pre></div>
-<h2 id="valdiator-api">Valdiator API</h2>
+<h2 id="validator-api">Validator API</h2>
 <h3 id="get_v1_validator_duties_attester"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getAttesterDuties"><code>get_v1_validator_duties_attester</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_duties_attester&quot;,&quot;params&quot;:[1,[&quot;a7a0502eae26043d1ac39a39457a6cdf68fae2055d89c7dc59092c25911e4ee55c4e7a31ade61c39480110a393be28e8&quot;,&quot;a1826dd94cd96c48a81102d316a2af4960d19ca0b574ae5695f2d39a88685a43997cef9a5c26ad911847674d20c46b75&quot;]],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
@@ -2380,8 +2381,8 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-89-1" name="__codelineno-89-1" href="#__codelineno-89-1"></a>curl -X POST http://localhost:5052/nimbus/v1/chronicles/settings -d &quot;DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none&quot; -s | jq
 </code></pre></div>
 <h3 id="setgraffiti">setGraffiti</h3>
-<p>Set the graffiti bytes that will be included in proposed blocks. The graffiti bytes can be
-specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying raw bytes.</p>
+<p>Set the graffiti bytes that will be included in proposed blocks.
+The graffiti bytes can be specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying raw bytes.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-90-1" name="__codelineno-90-1" href="#__codelineno-90-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;setGraffiti&quot;,&quot;params&quot;:[&quot;Mr F was here&quot;] }&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>

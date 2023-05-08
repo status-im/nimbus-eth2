@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1485,6 +1471,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1739,22 +1739,24 @@
 
 <h1 id="keymanager-api">Keymanager API</h1>
 <p>The standardized <a href="https://ethereum.github.io/keymanager-APIs/">Keymanager API</a> can be used to add, remove, or <a href="migration.html">migrate</a> validators on the fly while the beacon node is running.</p>
-<p>As of <code>v1.7.0</code> it supports <code>web3signer</code> keystores.</p>
 <h2 id="configuration">Configuration</h2>
-<p>By default, we disable the Keymanager API. To enable it, start the beacon node with the <code>--keymanager</code> option enabled:</p>
+<p>By default, we disable the Keymanager API.
+To enable it, start the beacon node with the <code>--keymanager</code> option enabled:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-prater-beacon-node.sh --keymanager
 </code></pre></div>
-<p>Once the node is running, you'll be able to access the API from <a href="http://localhost:5052/">http://localhost:5052/</a></p>
+<p>Once the node is running, you'll be able to access the API from <a href="http://localhost:5052/">http://localhost:5052/</a>.</p>
 <h3 id="authorization-bearer-scheme">Authorization: Bearer scheme</h3>
 <p>All requests must be authorized through the <code>Authorization: Bearer</code> scheme with a token matching the contents of a file provided at the start of the node through the <code>--keymanager-token-file</code> parameter.</p>
 <h3 id="enabling-connections-from-outside-machines">Enabling connections from outside machines</h3>
-<p>By default, only connections from the same machine are entertained. If you wish to change this you can configure the port and listening address with the <code>--keymanager-port</code> and <code>--keymanager-address</code> options respectively.</p>
+<p>By default, only connections from the same machine are entertained.
+If you wish to change this you can configure the port and listening address with the <code>--keymanager-port</code> and <code>--keymanager-address</code> options respectively.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>The Keymanager API port should only be exposed through a secure channel (e.g. HTTPS, an SSH tunnel, a VPN, etc.)</p>
 </div>
 <h2 id="specification">Specification</h2>
-<p>The specification is documented <a href="https://ethereum.github.io/keymanager-APIs/">here</a>. The  README is also extremely useful and is documented <a href="https://github.com/ethereum/keymanager-APIs/">here</a>.</p>
+<p>The specification is documented <a href="https://ethereum.github.io/keymanager-APIs/">here</a>.
+The  README is also extremely useful and is documented <a href="https://github.com/ethereum/keymanager-APIs/">here</a>.</p>
 
               
             </article>

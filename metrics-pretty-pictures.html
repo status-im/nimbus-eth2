@@ -544,26 +544,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#enabling-mobile-alerts" class="md-nav__link">
-    Enabling mobile alerts
-  </a>
-  
-    <nav class="md-nav" aria-label="Enabling mobile alerts">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#telegram" class="md-nav__link">
-    Telegram
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -711,20 +691,6 @@
     <li class="md-nav__item">
       <a href="trusted-node-sync.html" class="md-nav__link">
         Sync from a trusted node
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
       </a>
     </li>
   
@@ -1056,7 +1022,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1523,6 +1489,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1777,26 +1757,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#enabling-mobile-alerts" class="md-nav__link">
-    Enabling mobile alerts
-  </a>
-  
-    <nav class="md-nav" aria-label="Enabling mobile alerts">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#telegram" class="md-nav__link">
-    Telegram
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1850,6 +1810,8 @@ You should see a plaintext page that looks something like this:</p>
 <p>Metrics are by default only accessible from the same machine as the beacon node is running on.
 To fetch metrics from a remote machine, an SSH tunnel is recommended.</p>
 </div>
+<!-- TODO: Create a reference page with all metrics for each of the products (beacon node and validator client) -->
+
 <p>The metrics server offers one snapshot in time of the state of the beacon node.
 Metrics, however, are at their most useful when collected over time — for this, we'll need to set up two more pieces of software: Prometheus and Grafana.</p>
 <h2 id="prometheus-and-grafana">Prometheus and Grafana</h2>
@@ -1857,12 +1819,13 @@ Metrics, however, are at their most useful when collected over time — for this
 <h3 id="steps">Steps</h3>
 <h4 id="1-download-prometheus">1. Download Prometheus</h4>
 <p>Use your favourite package manager to download Prometheus: for example <code>apt-get install prometheus</code> on Ubuntu, or <code>brew install prometheus</code> on MacOS, should do the trick.</p>
-<blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
 <p>If you don't use a package manager, you can download the <a href="https://prometheus.io/download/">latest release</a> of directly from Prometheus website. To extract it, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>tar xvfz prometheus-*.tar.gz
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>cd prometheus-*
 </code></pre></div>
-</blockquote>
+</div>
 <h4 id="2-copy-the-binary">2. Copy the binary</h4>
 <p>The Prometheus server is a single binary called prometheus (or prometheus.exe on Microsoft Windows).
 Copy it over to <a href="https://unix.stackexchange.com/questions/4186/what-is-usr-local-bin"><code>/usr/local/bin</code></a>:</p>
@@ -1887,7 +1850,7 @@ Copy it over to <a href="https://unix.stackexchange.com/questions/4186/what-is-u
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>level=info ts=2021-01-22T14:52:10.604Z caller=main.go:673 msg=&quot;Server is ready to receive web requests.&quot;
 </code></pre></div>
 <h4 id="4-download-grafana">4. Download Grafana</h4>
-<p><a href="(https://grafana.com/grafana/download?platform=linux)">Download the latest release</a> of Grafana for your platform.
+<p><a href="https://grafana.com/grafana/download?platform=linux">Download the latest release</a> of Grafana for your platform.
 You need version 7.2 or newer.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1945,9 +1908,6 @@ But keep an eye out for additional metrics in the near future.</p>
 <p>Note that this dashboard does rely heavily on three prometheus exporter tools: <code>node_exporter</code> for system metrics, <code>json_exporter</code> for ETH price, and <code>blackbox_exporter</code> for ping times.</p>
 <p>The good news is that you don't need to use all these tools, as long as you take care of removing the related panels.</p>
 <p>See <a href="https://github.com/metanull-operator/eth2-grafana/tree/master/nimbus">here</a> for a detailed guide explaining how to use it.</p>
-<h2 id="enabling-mobile-alerts">Enabling mobile alerts</h2>
-<h3 id="telegram">Telegram</h3>
-<p>TODO</p>
 
               
             </article>

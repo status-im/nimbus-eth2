@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1472,6 +1458,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1712,14 +1712,11 @@
 
 
 <h1 id="logging">Logging</h1>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>The logging options outlined here are based on a preview feature, and are subject to change</p>
-</div>
-<p>Nimbus offers several options for logging - by default, logs are written to stdout using the <a href="https://github.com/status-im/nim-chronicles#introduction">chronicles</a> <code>textlines</code> format which is convenient to read and can be used with tooling for <a href="https://brandur.org/logfmt">heroku/logfmt</a>.</p>
+<p>Nimbus offers several options for logging.
+By default, logs are written to stdout using the <a href="https://github.com/status-im/nim-chronicles#introduction">chronicles</a> <code>textlines</code> format which is convenient to read and can be used with tooling for <a href="https://brandur.org/logfmt">heroku/logfmt</a>.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p><code>NOT</code> at the beginning of a log line means 'NOTICE`</p>
+<p><code>NOT</code> at the beginning of a log line means <code>NOTICE</code>.</p>
 </div>
 <h2 id="change-log-level">Change log level</h2>
 <p>You can customise Nimbus' verbosity with the <code>--log-level</code> option.</p>
@@ -1738,7 +1735,8 @@
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>NONE
 </code></pre></div>
 <h2 id="change-logging-style">Change logging style</h2>
-<p>Nimbus supports three log formats: <code>colors</code>, <code>nocolors</code> and <code>json</code>. In <code>auto</code> mode, logs will be printed using either <code>colors</code> or <code>nocolors</code>.</p>
+<p>Nimbus supports three log formats: <code>colors</code>, <code>nocolors</code> and <code>json</code>.
+In <code>auto</code> mode, logs will be printed using either <code>colors</code> or <code>nocolors</code>.</p>
 <p>You can choose a log format with the <code>--log-format</code> option, which also understands <code>auto</code> and <code>none</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./run-mainnet-beacon-node.sh --log-format=none # disable logging to std out
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./run-mainnet-beacon-node.sh --log-format=json # print json logs, one line per item
@@ -1748,7 +1746,8 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a># log json to filename.jsonl
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>./run-mainnet-beacon-node.sh --log-format=json &gt; filename.jsonl
 </code></pre></div>
-<p>We recommend keeping an eye on the growth of this file with a <a href="log-rotate.html">log rotator</a>. Logs are written in the "JSON Lines" format - one <code>json</code> entry per line.</p>
+<p>We recommend keeping an eye on the growth of this file with a <a href="log-rotate.html">log rotator</a>.
+Logs are written in the "JSON Lines" format - one <code>json</code> entry per line.</p>
 
               
             </article>

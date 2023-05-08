@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1499,6 +1485,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1766,11 +1766,13 @@
 
 
 <h1 id="beacon-api">Beacon API</h1>
-<p>Nimbus exposes an <strong>extremely fast</strong> implementation of the standard <a href="https://ethereum.github.io/beacon-APIs/">Beacon API</a>. The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers as well as your own monitoring infrastructure.</p>
-<p>The Beacon API is a <code>REST</code> interface accessed via <code>http</code>. If you wish to expose the beacon node to the public internet, it is recommended to use a proxy such as <code>nginx</code> to provide caching and SSL support.</p>
+<p>Nimbus exposes an <strong>extremely fast</strong> implementation of the standard <a href="https://ethereum.github.io/beacon-APIs/">Beacon API</a>.
+The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers, as well as your own monitoring infrastructure.</p>
+<p>The Beacon API is a <code>REST</code> interface accessed via <code>http</code>.
+If you wish to expose the beacon node to the public internet, it is recommended to use a proxy such as <code>nginx</code> to provide caching and SSL support.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>If you are running validators with your beacon node, do not expose the REST API to the public internet or use the same beacon node for deep historical queries - doing so may negatively affect validator performance.</p>
+<p>If you are running validators with your beacon node, do not expose the REST API to the public internet or use the same beacon node for deep historical queries: doing so may negatively affect validator performance.</p>
 </div>
 <h2 id="test-your-tooling-against-our-servers">Test your tooling against our servers</h2>
 <p>The API is available from:</p>
@@ -1780,84 +1782,138 @@
 <li><code>http://unstable.prater.beacon-api.nimbus.team/</code></li>
 </ul>
 <p>You can make requests as follows (here we are requesting the version the Nimbus software version of the node in question):</p>
-<h4 id="mainnet-testing-branch">Mainnet testing branch</h4>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet testing branch</label><label for="__tabbed_1_2">Mainnet unstable branch</label><label for="__tabbed_1_3">Prater unstable branch</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/node/version
 </code></pre></div>
-<h4 id="mainnet-unstable-branch">Mainnet unstable branch</h4>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/version
 </code></pre></div>
-<h4 id="prater-unstable-branch">Prater unstable branch</h4>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl -X GET  http://unstable.prater.beacon-api.nimbus.team/eth/v1/node/version
 </code></pre></div>
-<p>The test endpoints are part of pre-release testing and run an unstable version of Nimbus - we welcome reports about any problems you might have with them.</p>
-<p>They may also be unresponsive at times - so <strong>please do not rely on them for validation</strong>. We may also disable them at any time without warning.</p>
+</div>
+</div>
+</div>
+<p>The test endpoints are part of pre-release testing and run an unstable version of Nimbus.
+We welcome reports about any problems you might have with them.</p>
+<p>They may also be unresponsive at times: <strong>please do not rely on them for validation</strong>.
+We may also disable them at any time without warning.</p>
 <h2 id="configure-your-node-to-run-a-local-rest-server">Configure your node to run a local REST server</h2>
-<p>By default, the REST interface is disabled. To enable it, start the beacon node with the <code>--rest</code> option:</p>
+<p>By default, the REST interface is disabled.
+To enable it, start the beacon node with the <code>--rest</code> option:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./run-mainnet-beacon-node.sh --rest
 </code></pre></div>
-<p>Then access the API from <code>http://localhost:5052/</code>. For example, to get the version of the Nimbus software your node is running:</p>
+<p>Then access the API from <code>http://localhost:5052/</code>.
+For example, to get the version of the Nimbus software your node is running:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>curl -X GET http://localhost:5052/eth/v1/node/version
 </code></pre></div>
-<p>By default, only connections from the same machine are entertained. The port and listening address can be further configured through the options <code>--rest-port</code> and <code>--rest-address</code>.</p>
-<blockquote>
-<p><strong>Warning:</strong> If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to <code>v1.5.5</code>,  then you will need to launch the node with the <code>--subscribe-all-subnets</code> option enabled (in addition to the <code>--rest</code> option).</p>
-</blockquote>
+<p>By default, only connections from the same machine are entertained.
+The port and listening address can be further configured through the options <code>--rest-port</code> and <code>--rest-address</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to <code>v1.5.5</code>, then you will need to launch the node with the <code>--subscribe-all-subnets</code> option enabled (in addition to the <code>--rest</code> option).</p>
+</div>
 <h2 id="some-useful-commands">Some useful commands</h2>
 <h3 id="standard-endpoints">Standard endpoints</h3>
-<p>While these are all well documented in the <a href="https://ethereum.github.io/beacon-APIs/">official docs</a> here are a handful of simple examples to get you started:</p>
+<p>While these are all well documented in the <a href="https://ethereum.github.io/beacon-APIs/">official docs</a>, here are a handful of simple examples to get you started:</p>
 <h4 id="genesis">Genesis</h4>
 <p>Retrieve details of the chain's genesis which can be used to identify chain.</p>
-<p><em>With our mainnet testing server</em>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">With our mainnet testing server</label><label for="__tabbed_2_2">With your own local server</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/beacon/genesis
-</code></pre></div></p>
-<p><em>With your own local server</em>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>curl -X GET http://localhost:5052/eth/v1/beacon/genesis
-</code></pre></div></p>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h4 id="deposit-contract">Deposit contract</h4>
 <p>Get deposit contract address (retrieve Eth1 deposit contract address and chain ID).</p>
-<p><em>With our mainnet testing server</em>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">With our mainnet testing server</label><label for="__tabbed_3_2">With your own local server</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/config/deposit_contract
-</code></pre></div></p>
-<p><em>With your own local server</em>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl -X GET http://localhost:5052/eth/v1/config/deposit_contract
-</code></pre></div></p>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h4 id="peer-count">Peer count</h4>
-<p>Get peer count</p>
-<p><em>With our mainnet testing server</em>
+<p>Get peer count:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">With our mainnet testing server</label><label for="__tabbed_4_2">With your own local server</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/peer_count
-</code></pre></div></p>
-<p><em>With your own local server</em>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>curl -X GET http://localhost:5052/eth/v1/node/peer_count
-</code></pre></div></p>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h4 id="syncing-status">Syncing status</h4>
 <p>Get node syncing status (requests the beacon node to describe if it's currently syncing or not, and if it is, what block it is up to)</p>
-<p><em>With our mainnet testing server</em>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">With our mainnet testing server</label><label for="__tabbed_5_2">With your own local server</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/syncing
-</code></pre></div></p>
-<p><em>With your own local server</em>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>curl -X GET http://localhost:5052/eth/v1/node/syncing
-</code></pre></div></p>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h4 id="fork-schedule">Fork schedule</h4>
 <p>Get scheduled upcoming forks (retrieve all forks, past present and future, of which this node is aware)</p>
-<p><em>With our mainnet testing server</em>
+<div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">With our mainnet testing server</label><label for="__tabbed_6_2">With your own local server</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/config/fork_schedule
-</code></pre></div></p>
-<p><em>With your own local server</em>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>curl -X GET http://localhost:5052/eth/v1/config/fork_schedule
-</code></pre></div></p>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h3 id="nimbus-specific-endpoints">Nimbus specific endpoints</h3>
 <p>In addition to supporting the standard endpoints, Nimbus has a set of specific endpoints which augment the standard API.</p>
 <h4 id="check-graffiti-string">Check Graffiti String</h4>
-<p><em>With our mainnet testing server</em></p>
+<div class="tabbed-set tabbed-alternate" data-tabs="7:2"><input checked="checked" id="__tabbed_7_1" name="__tabbed_7" type="radio" /><input id="__tabbed_7_2" name="__tabbed_7" type="radio" /><div class="tabbed-labels"><label for="__tabbed_7_1">With our mainnet testing server</label><label for="__tabbed_7_2">With your own local server</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>curl -X GET http://testing.mainnet.beacon-api.nimbus.team/nimbus/v1/graffiti
 </code></pre></div>
-<p><em>With your own local server</em>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>curl -X GET http://localhost:5052/nimbus/v1/graffiti
-</code></pre></div></p>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h4 id="set-graffiti-string">Set Graffiti String</h4>
-<p><em>With your own local server</em>
+<div class="tabbed-set tabbed-alternate" data-tabs="8:1"><input checked="checked" id="__tabbed_8_1" name="__tabbed_8" type="radio" /><div class="tabbed-labels"><label for="__tabbed_8_1">With your own local server</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>curl -X POST http://localhost:5052/nimbus/v1/graffiti -H  &quot;Content-Type: text/plain&quot; -d &quot;new graffiti&quot;
-</code></pre></div></p>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h4 id="set-log-level">Set Log Level</h4>
 <p><em>TBA</em></p>
 <h2 id="specification">Specification</h2>

@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1479,6 +1465,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1728,14 +1728,18 @@
 <h1 id="era-store">Era store</h1>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>This feature is currently in BETA - nodes using era files may need to be resynced as the data format is not yet considered stable.</p>
+<p>This feature is currently in BETA!
+Nodes using era files may need to be resynced as the data format is not yet considered stable.</p>
 </div>
-<p>Era files are a long-term archival format for Ethereum data. They are used to provide an easy interchange medium that clients interested in deep ethereum history can use to recreate past states.</p>
+<p>Era files are a long-term archival format for Ethereum data.
+They are used to provide an easy interchange medium that clients interested in deep ethereum history can use to recreate past states.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>For more information about era files, see <a href="https://ethresear.ch/t/era-archival-files-for-block-and-consensus-data/13526">this post</a>.</p>
 </div>
-<p>Each era file contains the blocks of 8192 slots (~27 hours). Blocks in era files are considered finalized - since the history no longer is subject to change, the files are suitable to be archived for long-term storage, history recreation and other uses and can be shared using traditional mediums such as <code>http</code> and <code>bittorrent</code>.</p>
+<p>Each era file contains the blocks of 8192 slots (~27 hours).
+Blocks in era files are considered finalized.
+Since the history no longer is subject to change, the files are suitable to be archived for long-term storage, history recreation and other uses, and can be shared using traditional mediums such as <code>http</code> and <code>bittorrent</code>.</p>
 <p>Nimbus can both create and use era files as a starting point to regenerate past history as well as to serve blocks.</p>
 <h2 id="importing-era-files">Importing era files</h2>
 <p>To import an era archive, place the files in a folder called <code>era</code> in the <a href="data-dir.html">data directory</a>:</p>
@@ -1750,11 +1754,13 @@
 </code></pre></div>
 <p>With the era files present, perform a <a href="trusted-node-sync.html">trusted node sync</a> to complete the import, possibly with <code>--reindex</code> in order to create an <a href="history.html">archive node</a>.</p>
 <h2 id="generating-era-files">Generating era files</h2>
-<p>To generate era files, you need to first <a href="build.html">build</a> Nimbus from source and <a href="start-syncing.html">sync</a> the node using full sync. A checkpoint-synced node can be used to generate era files from the checkpoint onwards.</p>
+<p>To generate era files, you need to first <a href="build.html">build</a> Nimbus from source and <a href="start-syncing.html">sync</a> the node using full sync.
+A checkpoint-synced node can be used to generate era files from the checkpoint onwards.</p>
 <p>After that, build the additional <code>ncli_db</code> tool:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make ncli_db
 </code></pre></div>
-<p>The era export tool works by reading an existing Nimbus database and creating an era store. Every time the tool is run, it will check the existing store and export any new data to it.</p>
+<p>The era export tool works by reading an existing Nimbus database and creating an era store.
+Every time the tool is run, it will check the existing store and export any new data to it.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Go to the data directory of nimbus (the directory passed to --data-dir)</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">cd</span> build/data/shared_mainnet_0/
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
@@ -1765,11 +1771,13 @@
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Launch the era export</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>../../../ncli_db exportEra --db:../db
 </code></pre></div>
-<p>The first time the export is run, full history is exported which may take some time. Subsequent runs will top up the era store with new blocks.</p>
+<p>The first time the export is run, full history is exported which may take some time.
+Subsequent runs will top up the era store with new blocks.</p>
 <p>It is recommended to set up a cron job or a timer, and run the export command every hour - doing so will ensure that era files are created on a timely basis.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>You do not need to stop Nimbus to generate era files - it is however not recommended to run era file generation on a node that is also serving validators.</p>
+<p>You do not need to stop Nimbus to generate era files.
+It is however not recommended to run era file generation on a node that is also serving validators.</p>
 </div>
 <h2 id="sharing-era-files">Sharing era files</h2>
 <p>Era files can be shared directly from the <code>era</code> folder using a web server, or simply by copying them to a new location.</p>
@@ -1779,7 +1787,7 @@
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Multiple nimbus beacon node instances can share the same era store</p>
+<p>Multiple nimbus beacon node instances can share the same era store.</p>
 </div>
 
               

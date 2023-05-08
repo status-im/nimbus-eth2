@@ -609,20 +609,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -1011,7 +997,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1478,6 +1464,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1725,11 +1725,12 @@
 
 <h1 id="keep-an-eye-on-your-validator">Keep an eye on your validator</h1>
 <p>Once your validator has been activated, you can set up <a href="validator-monitor.html">validator monitoring</a> together with a <a href="metrics-pretty-pictures.html">dashboard</a> to keep track of its performance.</p>
-<p>Another way of keeping track is using an online service such as beaconcha.in - <a href="https://beaconcha.in/">Mainnet</a> or <a href="https://prater.beaconcha.in">Prater</a>.</p>
+<p>Another way of keeping track is using an online service such as beaconcha.in: <a href="https://beaconcha.in/">Mainnet</a> or <a href="https://prater.beaconcha.in">Prater</a>.</p>
 <p>Both online services and dashboards allow setting up alerts for when the validator is offline.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <h3 id="make-sure-your-validator-is-attached">Make sure your validator is attached</h3>
-<p>On startup, you should see a log message that reads <code>Local validator attached</code>. This has a <code>pubkey</code> field which should the public key of your validator.</p>
+<p>On startup, you should see a log message that reads <code>Local validator attached</code>.
+This has a <code>pubkey</code> field which should be the public key of your validator.</p>
 <h3 id="keep-track-of-your-syncing-progress">Keep track of your syncing progress</h3>
 <p>To keep track of your sync progress, pay attention to the <code>Slot start</code> messages in your logs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>INF 2022-06-16 13:23:11.008+02:00 Slot start
@@ -1745,10 +1746,10 @@
 <p>Where:</p>
 <ul>
 <li><code>slot</code> is the current time on the beacon chain, measured in "slots"</li>
-<li><code>epoch</code> shows the current epoch - each epoch has 32 slots, and each validator performs one attestation per epoch</li>
-<li><code>peers</code> tells you how many peers you're currently connected to - depending on the number of attached validators, you may need anywhere from 10 to 60 peers connected</li>
+<li><code>epoch</code> shows the current epoch: each epoch has 32 slots, and each validator performs one attestation per epoch</li>
+<li><code>peers</code> tells you how many peers you're currently connected to: depending on the number of attached validators, you may need anywhere from 10 to 60 peers connected</li>
 <li><code>sync</code> tells you if your client is synced and can perform duties, or how long it will take to get there</li>
-<li><code>/opt</code> means that the node is <a href="optimistic-sync.html">optimistically synced</a> - it is waiting for the execution client to finish syncing</li>
+<li><code>/opt</code> means that the node is <a href="optimistic-sync.html">optimistically synced</a>: it is waiting for the execution client to finish syncing</li>
 <li>in the case of <a href="trusted-node-sync.html">trusted node sync</a> it may also show <code>backfill</code> in which case duties are being performed but more bandwidth than usual is being used to download historical blocks</li>
 <li><code>head</code> tells you the most recent block you've synced to so far (<code>5d59aba3</code> is the first part of the block hash, <code>4021234</code> is the slot number)</li>
 <li><code>finalized</code> tells you the most recent finalized epoch you've synced to so far (<code>125661</code> is the epoch, <code>82616f78</code> is the checkpoint hash)</li>

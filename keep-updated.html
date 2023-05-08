@@ -609,20 +609,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -1005,7 +991,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1472,6 +1458,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1712,7 +1712,9 @@
 
 
 <h1 id="upgrade-downgrade">Upgrade / downgrade</h1>
-<p>Make sure you stay on the lookout for any critical updates to Nimbus. The best way to do so is through the <strong>announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>. The release page can be found <a href="https://github.com/status-im/nimbus-eth2/releases/">here</a>.</p>
+<p>Make sure you stay on the lookout for any critical updates to Nimbus.
+The best way to do so is through the <strong>announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>.
+The release page can be found <a href="https://github.com/status-im/nimbus-eth2/releases/">here</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>If your beacon node is already running, you'll need to restart it for the changes to take effect.</p>
@@ -1749,7 +1751,7 @@
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>If you want to minimise downtime, you can build Nimbus while the node is running!</p>
+<p>If you want to minimize downtime, you can build Nimbus while the node is running!</p>
 </div>
 </div>
 </div>
@@ -1757,11 +1759,19 @@
 <p>Complete the upgrade by restarting the node!</p>
 <h2 id="urgency-guidelines">Urgency guidelines</h2>
 <p>As of <code>v1.4.0</code>, releases are marked with the following tags:</p>
+<ul>
+<li>
 <p><code>low-urgency</code>: update at your own convenience, sometime within our normal update cycle of two weeks</p>
+</li>
+<li>
 <p><code>medium-urgency</code>: may contain an important stability fix, it is better to update sooner rather than later</p>
+</li>
+<li>
 <p><code>high-urgency</code>: update as soon as you can, this is a critical update required for Nimbus to function correctly</p>
+</li>
+</ul>
 <h2 id="install-a-specific-version">Install a specific version</h2>
-<p><em>Occassionally you may need to either upgrade or downgrade to a specific version of Nimbus.</em></p>
+<p>Occasionally, you may need to either upgrade or downgrade to a specific version of Nimbus.</p>
 <p>Nimbus can safely be downgraded to any version targeting the current hard fork of the chain, unless otherwise noted among the release notes.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:3"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Manual installation</label><label for="__tabbed_2_2">Debian / Ubuntu</label><label for="__tabbed_2_3">Build from source</label></div>
 <div class="tabbed-content">

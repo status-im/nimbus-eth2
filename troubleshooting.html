@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1404,6 +1390,20 @@
           
         </ul>
       </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
     </li>
   
 
@@ -1902,22 +1902,28 @@
 <h1 id="troubleshooting">Troubleshooting</h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The commands on this page refer to mainnet. If you're running on <code>prater</code> or another testnet, replace <code>mainnet</code> accordingly</p>
+<p>The commands on this page refer to mainnet.
+If you're running on <code>prater</code> or another testnet, replace <code>mainnet</code> accordingly.</p>
 </div>
-<p>We are continuously making improvements to both stability and resource usage. If you run into any problem with Nimbus and are not running the latest version, chances are they have already been fixed - see the <a href="keep-updated.html">update guide</a> for instructions of how to upgrade.</p>
-<p>If you can't find a solution to your problem here, get in touch with us on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
+<p>We are continuously making improvements to both stability and resource usage.
+If you run into any problem with Nimbus and are not running the latest version, chances are they have already been fixed.
+See the <a href="keep-updated.html">update guide</a> for instructions of how to upgrade.</p>
+<p>If you can't find a solution to your problem here, get in touch with us on our <a href="https://discord.com/invite/XRxWahP">discord</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>When installing Nimbus, you will typically be using the latest <code>stable</code> release.</p>
-<p>However, the latest changes happen in the <code>unstable</code> branch - if you're looking to test the chaings coming to the <em>next</em> Nimbus release, consider building Nimbus from <a href="keep-updated.html#build-from-source">source</a> using the <code>unstable</code> branch.</p>
+<p>However, the latest changes happen in the <code>unstable</code> branch.
+If you're looking to test the changes coming to the <em>next</em> Nimbus release, consider building Nimbus from <a href="keep-updated.html#build-from-source">source</a> using the <code>unstable</code> branch.</p>
 </div>
 <h2 id="networking">Networking</h2>
-<p>A correctly configured network is key to getting good performance - the <a href="networking.html">networking guide</a> details everything you need to know!</p>
+<p>A correctly configured network is key to getting good performance: the <a href="networking.html">networking guide</a> details everything you need to know!</p>
 <h3 id="low-peer-count">Low peer count</h3>
 <p>If you see a message that looks like the following in your logs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Peer count low, no new peers discovered...
 </code></pre></div>
-<p>Your node is finding it hard to find peers. It's possible that you  may be behind a firewall. Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-mainnet-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>1.2.3.4</code>, you'd run:</p>
+<p>Your node is finding it hard to find peers.
+It's possible that you  may be behind a firewall.
+Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-mainnet-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>1.2.3.4</code>, you'd run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./run-mainnet-beacon-node.sh --nat:extip:1.2.3.4
 </code></pre></div>
 <p>If this doesn't improve things, you may need to <a href="networking.html#set-enr-auto-update">set enr-auto-update</a> and/or <a href="networking.html#set-up-port-forwarding">set up port forwarding</a>.</p>
@@ -1926,10 +1932,14 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>No peers for topic, skipping publish...
 </code></pre></div>
 <p>This means you've missed an attestation because either your peer count is too low, or the quality of your peers is lacking.</p>
-<p>There can be several reasons behind why this is the case. The first thing to check is that your max peer count (<code>--max-peers</code>) hasn't been set too low. In order to ensure your attestations are published correctly, <code>--max-peers</code> should be set to 70, at the <em>very least</em>.</p>
-<blockquote>
-<p>Note that Nimbus manages peers slightly differently to other clients (we automatically connect to more peers than we actually use, in order not to have to do costly reconnects). As such, <code>--max-peers</code> is set to 160 by default.</p>
-</blockquote>
+<p>There can be several reasons behind why this is the case.
+The first thing to check is that your max peer count (<code>--max-peers</code>) hasn't been set too low.
+In order to ensure your attestations are published correctly, <code>--max-peers</code> should be set to 70, at the <em>very least</em>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Nimbus manages peers slightly differently to other clients (we automatically connect to more peers than we actually use, in order not to have to do costly reconnects).
+As such, <code>--max-peers</code> is set to 160 by default.</p>
+</div>
 <p>If this doesn't fix the problem, please double check your node is able to <a href="networking.html#check-for-incoming-connections">receive incoming connections</a>.</p>
 <h2 id="misc">Misc</h2>
 <h3 id="console-hanging-for-too-long-on-update">Console hanging for too long on update</h3>
@@ -1941,17 +1951,21 @@
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>./run-mainnet-beacon-node.sh # Restart using same keys as last run
 </code></pre></div>
 <p>If you find that <code>make update</code> causes the console to hang for too long, try running <code>make update V=1</code> or <code>make update V=2</code> instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).</p>
-<blockquote>
-<p><strong>Note:</strong> rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.</p>
-</blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.</p>
+</div>
 <h3 id="starting-over-after-importing-wrong-keys">Starting over after importing wrong keys</h3>
-<p>Your keys and secrets are stored in the <a href="data-dir.html">data directory</a> (usually <code>build/data/shared_mainnet_0</code>). If you imported the wrong keys, simply remove them from <code>validators</code> and <code>secrets</code> found in the data directory.</p>
+<p>Your keys and secrets are stored in the <a href="data-dir.html">data directory</a> (usually <code>build/data/shared_mainnet_0</code>).
+If you imported the wrong keys, simply remove them from <code>validators</code> and <code>secrets</code> found in the data directory.</p>
 <h3 id="sync-problems">Sync problems</h3>
 <p>If you’re experiencing sync problems, make sure that your network is healthy and that you have a recent version installed.</p>
-<p>In rare cases, such as after an unclean shutdown, it may happen that the database has been corrupted and you need to restart the sync - to do so, remove the <code>db</code> folder from the <a href="data-dir.html">data directory</a> and restart the node. You can get re-synced faster using <a href="trusted-node-sync.html">trusted node sync</a>.</p>
+<p>In rare cases, such as after an unclean shutdown, it may happen that the database has been corrupted and you need to restart the sync.
+To do so, remove the <code>db</code> folder from the <a href="data-dir.html">data directory</a> and restart the node.
+You can get re-synced faster using <a href="trusted-node-sync.html">trusted node sync</a>.</p>
 <h3 id="nocommand-does-not-accept-arguments">noCommand does not accept arguments</h3>
-<p>If, on start,  you see <code>The command 'noCommand' does not accept arguments</code></p>
-<p>Double check to see if your command line flags are in the correct format, i.e. <code>--foo=bar</code>, <code>--baz</code>, or <code>--foo-bar=qux</code>.</p>
+<p>If, on start,  you see <code>The command 'noCommand' does not accept arguments</code>.</p>
+<p>Double check to see if your command line flags are in the correct format, e.g. <code>--foo=bar</code>, <code>--baz</code>, or <code>--foo-bar=qux</code>.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>All options accepting values need a <code>=</code> between the option name and the value!</p>
@@ -1960,24 +1974,31 @@
 <p>If you're seeing an error that looks like:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Error: unhandled exception: (98) Address already in use [TransportOsError]
 </code></pre></div>
-<p>It means that you're running another node that is using the same port as the one you're trying to start (or that you're trying to start a second instance of the same node).</p>
+<p>It means that you're running another node that is using the same port as the one you're trying to start or that you're trying to start a second instance of the same node.</p>
 <p>To change the base port, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 </code></pre></div>
-<p>(You can replace <code>9100</code> with a port of your choosing)</p>
+<p>You can replace <code>9100</code> with a port of your choosing.</p>
 <h3 id="catching-up-on-validator-duties">Catching up on validator duties</h3>
-<p>If you're being flooded with <code>Catching up on validator duties</code> messages, your CPU is probably too slow to run Nimbus. Please check that your setup matches our <a href="hardware.html">system requirements</a>.</p>
+<p>If you're being flooded with <code>Catching up on validator duties</code> messages, your CPU is probably too slow to run Nimbus.
+Please check that your setup matches our <a href="hardware.html">system requirements</a>.</p>
 <h3 id="eth1-chain-monitor-failure">Eth1 chain monitor failure</h3>
+<!-- TODO: This error message has changed -->
+
 <p>If you see an error that looks like the following:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>{&quot;lvl&quot;:&quot;ERR&quot;,&quot;ts&quot;:&quot;2021-05-11 09:05:53.547+00:00&quot;,&quot;msg&quot;:&quot;Eth1 chain monitoring failure, restarting&quot;,&quot;topics&quot;:&quot;eth1&quot;,&quot;tid&quot;:1,&quot;err&quot;:&quot;Trying to access value with err: Failed to setup web3 connection&quot;}
 </code></pre></div>
-<p>It's because your node can't connect to the web3 provider you have specified. Please double check that you've correctly specified your provider. If you haven't done so already, we recommend <a href="web3-backup.html">adding a backup</a>.</p>
+<p>It is because your node can't connect to the web3 provider you have specified.
+Please double check that you've correctly specified your provider.</p>
+<p>If you haven't done so already, we recommend <a href="eth1.html#running-multiple-execution-clients">allowing multiple execution clients</a>.</p>
 <h3 id="discovered-new-external-address-warning-log">Discovered new external address warning log</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>WRN 2021-03-11 13:26:25.943-08:00
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>Discovered new external address but ENR auto update is off
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>topics=&quot;discv5&quot; tid=77655 file=protocol.nim:940 majority=Some(&quot;myIPaddressHere&quot;:9000) previous=None[Address]
 </code></pre></div>
-<p>This message is displayed regularly when Nimbus canot detect your correct IP address. It may be a sign that you have a dynamic IP address that keeps changing. Or that Nimbus is unable to get your IP from the <a href="https://en.wikipedia.org/wiki/Universal_Plug_and_Play">UPnP</a>.</p>
+<p>This message is displayed regularly when Nimbus cannot detect your correct IP address.
+It may be a sign that you have a dynamic IP address that keeps changing.
+Or that Nimbus is unable to get your IP from the <a href="https://en.wikipedia.org/wiki/Universal_Plug_and_Play">UPnP</a>.</p>
 <p>The first step is to try relaunching the beacon node with the <code>--enr-auto-update</code> option.</p>
 <p>If that doesn't fix the problem, double check that your <a href="https://www.yougetsignal.com/tools/open-ports/">ports are open</a> and that you have <a href="https://www.computerhope.com/issues/ch001201.htm">port forwarding</a> enabled on your gateway (assuming that you are behind a <a href="https://en.wikipedia.org/wiki/Network_address_translation">NAT</a>).</p>
 <p>See our page on <a href="health.html">monitoring the health of your node</a> for more.</p>

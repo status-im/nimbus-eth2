@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1472,6 +1458,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1712,12 +1712,10 @@
 
 
 <h1 id="validator-monitoring">Validator monitoring</h1>
-<div class="admonition note">
-<p>This feature is available from <code>v23.1.0</code> onwards - earlier Nimbus versions included a preview version this feature behind a feature flag without enabling it by default.</p>
-</div>
-<p>The validator monitoring feature allows for tracking the life cycle and performance of one or more validators in detail.</p>
-<p>Monitoring can be carried out for any validator, with slightly more detail for validators that are running in the same beacon node.</p>
-<p>Every time the validator performs a duty, the duty is recorded and the monitor keeps track of the reward-related events for having performed it. For example:</p>
+<p>The validator monitoring feature allows for tracking the life cycle and performance of one or more validators in detail.
+Monitoring can be carried out for any validator, with slightly more detail for validators that are running in the same beacon node.</p>
+<p>Every time the validator performs a duty, the duty is recorded and the monitor keeps track of the reward-related events for having performed it.
+For example:</p>
 <ul>
 <li>When attesting, the attestation is added to an aggregate, then a block, before a reward is applied to the state</li>
 <li>When performing sync committee duties, likewise</li>
@@ -1725,11 +1723,14 @@
 <p>Validator actions can be traced either through logging, or comprehensive metrics that allow for creating alerts in monitoring tools.</p>
 <p>The metrics are broadly compatible with <a href="https://lighthouse-book.sigmaprime.io/validator-monitoring.html">Lighthouse</a>, thus dashboards and alerts can be used with either client with minor adjustments.</p>
 <h2 id="command-line-options">Command line options</h2>
-<p>The monitor is by default enabled for all keys that are validating via the beacon node. It can also be configured to monitor a specific list of validators, or be disabled entirely with <code>--validator-monitor-auto=false</code>.</p>
-<p>The <code>--validator-monitor-details</code> flag can be used to enable the detailed monitor mode - in this mode, the performance of each validator is monitored individually in metrics leading to a more detailed view of performance.</p>
+<p>The monitor is by default enabled for all keys that are validating via the beacon node.
+It can also be configured to monitor a specific list of validators, or be disabled entirely with <code>--validator-monitor-auto=false</code>.</p>
+<p>The <code>--validator-monitor-details</code> flag can be used to enable the detailed monitor mode.
+In this mode, the performance of each validator is monitored individually in metrics leading to a more detailed view of performance.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>The detailed mode significantly increases the total number of published metrics for each monitored validator - when used with more than 10 validators, it may adversely impact performance of metrics collection and display</p>
+<p>The detailed mode significantly increases the total number of published metrics for each monitored validator.
+When used with more than 10 validators, it may adversely impact performance of metrics collection and display.</p>
 </div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Disable automatic monitoring of all validators used with this beacon node beacon node</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./run-mainnet-beacon-node.sh --validator-monitor-auto<span class="o">=</span><span class="nb">false</span> ...
@@ -1743,8 +1744,11 @@
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>./run-mainnet-beacon-node.sh --validator-monitor-details ...
 </code></pre></div>
 <h2 id="understanding-monitoring">Understanding monitoring</h2>
-<p>When a validator performs a duty, such as signing an attestation or a sync committee message, this is broadcast to the network. Other nodes pick it up and package the message into an aggregate and later a block. The block is included in the canonical chain and a reward is given two epochs (~13 minutes) later.</p>
-<p>The monitor tracks each of these actions and will in detailed mode log each step at the <code>INF</code> level. If any step is missed (irrespective of detail mode), a <code>NOT</code> log is shown instead.</p>
+<p>When a validator performs a duty, such as signing an attestation or a sync committee message, this is broadcast to the network.
+Other nodes pick it up and package the message into an aggregate and later a block.
+The block is included in the canonical chain and a reward is given two epochs (~13 minutes) later.</p>
+<p>The monitor tracks each of these actions and will in detailed mode log each step at the <code>INF</code> level.
+If any step is missed (irrespective of detail mode), a <code>NOT</code> log is shown instead.</p>
 <p>The typical life cycle of an attestation might look something like the following:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>INF 2021-11-22 11:32:44.228+01:00 Attestation seen                           topics=&quot;val_mon&quot; attestation=&quot;(aggregation_bits: 0b0000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, data: (slot: 2656363, index: 11, beacon_block_root: \&quot;bbe7fc25\&quot;, source: \&quot;83010:a8a1b125\&quot;, target: \&quot;83011:6db281cd\&quot;), signature: \&quot;b88ef2f2\&quot;)&quot; src=api epoch=83011 validator=b93c290b
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>INF 2021-11-22 11:32:51.293+01:00 Attestation included in aggregate          topics=&quot;val_mon&quot; aggregate=&quot;(aggregation_bits: 0b1111111101011111001101111111101100111111110100111011111110110101110111111010111111011101111011101111111111101111100001111111100111, data: (slot: 2656363, index: 11, beacon_block_root: \&quot;bbe7fc25\&quot;, source: \&quot;83010:a8a1b125\&quot;, target: \&quot;83011:6db281cd\&quot;), signature: \&quot;8576b3fc\&quot;)&quot; src=gossip epoch=83011 validator=b93c290b
@@ -1754,13 +1758,18 @@
 <p>Failures at any point are recorded at a higher logging level, such as <code>NOT</code>(ice):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>NOT 2021-11-17 20:53:42.108+01:00 Attestation failed to match head           topics=&quot;chaindag&quot; epoch=81972 validator=...
 </code></pre></div>
-<p>Failures are reported with a lag of two epochs (~13 minutes) - to examine the log for potential root causes, the logs from the epoch in the failure message should be looked at.</p>
+<p>Failures are reported with a lag of two epochs (~13 minutes).
+To examine the log for potential root causes, the logs from the epoch in the failure message should be looked at.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>It should be noted that metrics are tracked for the current history - in the case of a reorg on the chain - in particular a deep reorg - no attempt is made to revisit previously reported values. In the case that finality is delayed, the risk of stale metrics increases.</p>
+<p>It should be noted that metrics are tracked for the current history.
+In the case of a reorg on the chain — in particular a deep reorg — no attempt is made to revisit previously reported values.
+In the case that finality is delayed, the risk of stale metrics increases.</p>
 </div>
-<p>Likewise, many metrics, such as aggregation inclusion, reflect conditions on the network - it may happen that the same message is counted more than once under certain conditions.</p>
+<p>Likewise, many metrics, such as aggregation inclusion, reflect conditions on the network.
+It may happen that the same message is counted more than once under certain conditions.</p>
 <h2 id="monitoring-metrics">Monitoring metrics</h2>
+<p>For instructions on how to use Prometheus and Grafana, see <a href="metrics-pretty-pictures.html">these instructions</a>.</p>
 <p>The full list of metrics supported by the validator monitoring feature can be seen in the <a href="https://github.com/status-im/nimbus-eth2/blob/unstable/beacon_chain/validators/validator_monitor.nim">source code</a> or by examining the metrics output:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl -s localhost:8008/metrics <span class="p">|</span> grep HELP.*validator_
 </code></pre></div>

@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1415,6 +1401,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1507,6 +1507,13 @@
         <li class="md-nav__item">
   <a href="#helpful-resources" class="md-nav__link">
     Helpful resources
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nim-programming-language" class="md-nav__link">
+    Nim programming language
   </a>
   
 </li>
@@ -1774,6 +1781,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#nim-programming-language" class="md-nav__link">
+    Nim programming language
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#code-style" class="md-nav__link">
     Code style
   </a>
@@ -1907,9 +1921,13 @@
 <h2 id="helpful-resources">Helpful resources</h2>
 <ul>
 <li><a href="https://github.com/ethereum/consensus-specs/">Ethereum consensus spec</a></li>
-<li><a href="hhttps://eth2book.info/bellatrix/">Ben Edgington's annotated spec</a></li>
+<li><a href="https://eth2book.info/bellatrix/">Ben Edgington's annotated spec</a></li>
 <li><a href="https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md">Vitalik's annotated spec</a></li>
 </ul>
+<h2 id="nim-programming-language">Nim programming language</h2>
+<p>Nimbus is built in the <a href="https://nim-lang.org">Nim language</a>.
+The compiler is automatically installed when building the project for the first time.</p>
+<p>More information — in particular security-related information about the language — can be found in the <a href="https://nimbus.guide/auditors-book/">Auditor Handbook</a>.</p>
 <h2 id="code-style">Code style</h2>
 <p>The code follows the <a href="https://status-im.github.io/nim-style-guide/">Status Nim Style Guide</a>.</p>
 <h2 id="branch-lifecycle">Branch lifecycle</h2>
@@ -1950,7 +1968,8 @@
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>make update
 </code></pre></div>
 <h2 id="environment">Environment</h2>
-<p>Nimbus comes with a build environment similar to Python venv - this helps ensure that the correct version of Nim is used and that all dependencies can be found.</p>
+<p>Nimbus comes with a build environment similar to Python venv.
+This helps ensure that the correct version of Nim is used and that all dependencies can be found.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./env.sh bash <span class="c1"># start a new interactive shell with the right env vars set</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>which nim
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>nim --version <span class="c1"># Nimbus is tested and supported on 1.2.12 at the moment</span>
@@ -1964,116 +1983,122 @@
 </code></pre></div>
 <h2 id="makefile-tips-and-tricks-for-developers">Makefile tips and tricks for developers</h2>
 <ul>
-<li>build all those tools known to the Makefile:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># $(nproc) corresponds to the number of cores you have</span>
+<li>
+<p>build all those tools known to the Makefile:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># $(nproc) corresponds to the number of cores you have</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>make -j <span class="k">$(</span>nproc<span class="k">)</span>
-</code></pre></div>
-<ul>
-<li>build a specific tool:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make state_sim
-</code></pre></div>
-<ul>
-<li>you can control the Makefile's verbosity with the V variable (defaults to 0):</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make <span class="nv">V</span><span class="o">=</span><span class="m">1</span> <span class="c1"># verbose</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>build a specific tool:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make state_sim
+</code></pre></div></p>
+</li>
+<li>
+<p>you can control the Makefile's verbosity with the V variable (defaults to 0):
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make <span class="nv">V</span><span class="o">=</span><span class="m">1</span> <span class="c1"># verbose</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>make <span class="nv">V</span><span class="o">=</span><span class="m">2</span> <span class="nb">test</span> <span class="c1"># even more verbose</span>
-</code></pre></div>
-<ul>
-<li>same for the <a href="https://github.com/status-im/nim-chronicles#chronicles_log_level">Chronicles log level</a>:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make <span class="nv">LOG_LEVEL</span><span class="o">=</span>DEBUG bench_bls_sig_agggregation <span class="c1"># this is the default</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>same for the <a href="https://github.com/status-im/nim-chronicles#chronicles_log_level">Chronicles log level</a>:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make <span class="nv">LOG_LEVEL</span><span class="o">=</span>DEBUG bench_bls_sig_aggregation <span class="c1"># this is the default</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>make <span class="nv">LOG_LEVEL</span><span class="o">=</span>TRACE nimbus_beacon_node <span class="c1"># log everything</span>
-</code></pre></div>
-<ul>
-<li>pass arbitrary parameters to the Nim compiler:</li>
+</code></pre></div></p>
+</li>
+<li>
+<p>pass arbitrary parameters to the Nim compiler:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>you can freely combine those variables on the <code>make</code> command line:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>make -j<span class="k">$(</span>nproc<span class="k">)</span> <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span> <span class="nv">USE_MULTITAIL</span><span class="o">=</span>yes local-testnet-minimal
+</code></pre></div></p>
+</li>
+<li>
+<p>don't use the <a href="https://github.com/status-im/nimbus-eth2/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>make <span class="nv">USE_LIBBACKTRACE</span><span class="o">=</span><span class="m">0</span> <span class="c1"># expect the resulting binaries to be 2-3 times slower</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>disable <code>-march=native</code> because you want to run the binary on a different machine than the one you're building it on:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableMarchNative&quot;</span> nimbus_beacon_node
+</code></pre></div></p>
+</li>
+<li>
+<p>disable link-time optimization (LTO):
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableLTO&quot;</span> nimbus_beacon_node
+</code></pre></div></p>
+</li>
+<li>
+<p>show C compiler warnings:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:cwarnings&quot;</span> nimbus_beacon_node
+</code></pre></div></p>
+</li>
+<li>
+<p>limit stack usage to 1 MiB per C function (static analysis - see the <a href="https://gcc.gnu.org/onlinedocs/gnat_ugn/Static-Stack-Usage-Analysis.html">GCC docs</a>; if LTO is enabled, it works without <code>-d:cwarnings</code>):
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:limitStackUsage&quot;</span> nimbus_beacon_node
+</code></pre></div></p>
+</li>
+<li>
+<p>build a static binary:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;--passL:-static&quot;</span> nimbus_beacon_node
+</code></pre></div></p>
+</li>
+<li>
+<p>publish a book using <a href="https://github.com/rust-lang/mdBook">mdBook</a> from sources in "docs/" to GitHub pages:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make publish-book
+</code></pre></div></p>
+</li>
+<li>
+<p>create a binary distribution:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make dist
+</code></pre></div></p>
+</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span>
-</code></pre></div>
-<ul>
-<li>you can freely combine those variables on the <code>make</code> command line:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>make -j<span class="k">$(</span>nproc<span class="k">)</span> <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span> <span class="nv">USE_MULTITAIL</span><span class="o">=</span>yes eth2_network_simulation
-</code></pre></div>
-<ul>
-<li>don't use the <a href="https://github.com/status-im/nimbus-eth2/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>make <span class="nv">USE_LIBBACKTRACE</span><span class="o">=</span><span class="m">0</span> <span class="c1"># expect the resulting binaries to be 2-3 times slower</span>
-</code></pre></div>
-<ul>
-<li>disable <code>-march=native</code> because you want to run the binary on a different machine than the one you're building it on:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableMarchNative&quot;</span> nimbus_beacon_node
-</code></pre></div>
-<ul>
-<li>disable link-time optimisation (LTO):</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableLTO&quot;</span> nimbus_beacon_node
-</code></pre></div>
-<ul>
-<li>show C compiler warnings:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:cwarnings&quot;</span> nimbus_beacon_node
-</code></pre></div>
-<ul>
-<li>limit stack usage to 1 MiB per C function (static analysis - see the <a href="https://gcc.gnu.org/onlinedocs/gnat_ugn/Static-Stack-Usage-Analysis.html">GCC docs</a>; if LTO is enabled, it works without <code>-d:cwarnings</code>):</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:limitStackUsage&quot;</span> nimbus_beacon_node
-</code></pre></div>
-<ul>
-<li>build a static binary:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;--passL:-static&quot;</span> nimbus_beacon_node
-</code></pre></div>
-<ul>
-<li>publish a book using <a href="https://github.com/rust-lang/mdBook">mdBook</a> from sources in "docs/" to GitHub pages:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make publish-book
-</code></pre></div>
-<ul>
-<li>create a binary distribution:</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make dist
-</code></pre></div>
 <h2 id="multi-client-interop-scripts">Multi-client interop scripts</h2>
-<p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.</p>
+<p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios).
+It mostly helps us find and debug issues.</p>
 <h2 id="stress-testing-the-client-by-limiting-the-cpu-power">Stress-testing the client by limiting the CPU power</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>make prater <span class="nv">CPU_LIMIT</span><span class="o">=</span><span class="m">20</span>
 </code></pre></div>
-<p>The limiting is provided by the cpulimit utility, available on Linux and macOS.
-The specified value is a percentage of a single CPU core. Usually 1 - 100, but can be higher on multi-core CPUs.</p>
+<p>The limiting is provided by the <code>cpulimit</code> utility, available on Linux and macOS.
+The specified value is a percentage of a single CPU core.
+Usually 1 - 100, but can be higher on multi-core CPUs.</p>
 <h2 id="build-and-run-the-local-beacon-chain-simulation">Build and run the local beacon chain simulation</h2>
 <p>The beacon chain simulation runs several beacon nodes on the local machine, attaches several local validators to each, and builds a beacon chain between them.</p>
 <p>To run the simulation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>make update
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>make eth2_network_simulation
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>make local-testnet-minimal
 </code></pre></div>
 <p>To clean the previous run's data:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>make clean_eth2_network_simulation_all
 </code></pre></div>
 <p>To change the number of validators and nodes:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Clear data files from your last run and start the simulation with a new genesis block:</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>make <span class="nv">VALIDATORS</span><span class="o">=</span><span class="m">192</span> <span class="nv">NODES</span><span class="o">=</span><span class="m">6</span> <span class="nv">USER_NODES</span><span class="o">=</span><span class="m">1</span> eth2_network_simulation
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>make <span class="nv">VALIDATORS</span><span class="o">=</span><span class="m">192</span> <span class="nv">NODES</span><span class="o">=</span><span class="m">6</span> <span class="nv">USER_NODES</span><span class="o">=</span><span class="m">1</span> local-testnet-minimal
 </code></pre></div>
 <p>If you’d like to see the nodes running on separated sub-terminals inside one big window, install <a href="https://www.vanheusden.com/multitail/index.php">Multitail</a> (if you're on a Mac, follow the instructions <a href="https://brewinstall.org/Install-multitail-on-Mac-with-Brew/">here</a>), then:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>USE_MULTITAIL=&quot;yes&quot; make eth2_network_simulation
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>USE_MULTITAIL=&quot;yes&quot; make local-testnet-minimal
 </code></pre></div>
 <p>You’ll get something like this (click for full size):</p>
 <p><a href="https://i.imgur.com/Pc99VDO.png"><img alt="" src="https://i.imgur.com/Pc99VDO.png" /></a></p>
 <p>You can find out more about the beacon node simulation <a href="https://our.status.im/nimbus-development-update-03/#beaconsimulation">here</a>.</p>
 <h2 id="build-and-run-the-local-state-transition-simulation">Build and run the local state transition simulation</h2>
 <p>This simulation is primarily designed for researchers, but we'll cover it briefly here in case you're curious :)</p>
-<p>The <a href="https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#beacon-chain-state-transition-function">state transition</a> simulation quickly runs the beacon chain state transition function in isolation and outputs JSON snapshots of the state (directly to the <code>nimbus-eth2</code> directory). It runs without networking and blocks are processed without slot time delays.</p>
+<p>The <a href="https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#beacon-chain-state-transition-function">state transition</a> simulation quickly runs the beacon chain state transition function in isolation and outputs JSON snapshots of the state (directly to the <code>nimbus-eth2</code> directory).
+It runs without networking and blocks are processed without slot time delays.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># build the state simulator, then display its help (&quot;-d:release&quot; speeds it</span>
 <a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="c1"># up substantially, allowing the simulation of longer runs in reasonable time)</span>
 <a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span> state_sim
 <a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>build/state_sim --help
 </code></pre></div>
-<p>Use the output of the <code>help</code> command to pass desired values to the simulator - experiment with changing the number of slots, validators, , etc. to get different results.</p>
+<p>Use the output of the <code>help</code> command to pass desired values to the simulator.
+Experiment with changing the number of slots, validators, etc. to get different results.</p>
 <p>The most important options are:</p>
 <ul>
-<li><code>slots</code> : the number of slots to run the simulation for (default 192)</li>
+<li><code>slots</code>: the number of slots to run the simulation for (default 192)</li>
 <li><code>validators</code>: the number of validators (default 6400)</li>
 <li><code>attesterRatio</code>: the expected fraction of attesters that actually do their work for every slot (default 0.73)</li>
 <li><code>json_interval</code>: how often JSON snapshots of the state are outputted (default every 32 slots -- or once per epoch)</li>

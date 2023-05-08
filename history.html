@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1472,6 +1458,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1713,31 +1713,36 @@
 
 <h1 id="historical-data">Historical data</h1>
 <div class="admonition note">
-<p>This feature is available from <code>v23.1.0</code> onwards</p>
+<p>This feature is available from Nimbus <code>v23.1.0</code> onwards.</p>
 </div>
 <p>In order for the network to remain healthy, each node must keep a minimum of 5 months of historical block data.</p>
 <p>Nimbus can be configured to either retain or remove historical data past that point using the <code>--history</code> option.</p>
 <div class="admonition note">
 <p class="admonition-title">Default mode</p>
-<p>Nimbus currently retains full history by default - after the <code>Capella</code> hard fork, this will change to pruning.</p>
+<p>Nimbus currently retains full history by default.
+After the <code>Capella</code> hard fork, this will change to pruning.</p>
 </div>
 <h2 id="history-modes">History modes</h2>
-<p>The history mode controls how far back Nimbus supports answering historical queries in the <a href="rest-api.html">REST API</a> - it does not affect the ability to perform validator duties.</p>
+<p>The history mode controls how far back Nimbus supports answering historical queries in the <a href="rest-api.html">REST API</a>.
+It does not affect the ability to perform validator duties.</p>
 <p>In <code>prune</code> mode, blocks and states past that point are removed from the database continuously and the freed space is reused for more recent data.</p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
-<p>Although blocks and states are pruned, the database will not shrink in size - instead, the freed space is reused for new data</p>
+<p>Although blocks and states are pruned, the database will not shrink in size: instead, the freed space is reused for new data.</p>
 </div>
-<p>In <code>archive</code> mode, queries can be as far back as the state that the database was created with - the checkpoint state in the case of trusted node sync or genesis.</p>
+<p>In <code>archive</code> mode, queries can be as far back as the state that the database was created with — the checkpoint state in the case of trusted node sync or genesis.</p>
 <h2 id="switching-between-modes">Switching between modes</h2>
 <p>It is possible to switch between <code>prune</code> and <code>archive</code> modes.</p>
-<p>When switching to <code>prune</code> mode, deep history will be removed from the database and the prune point will be updated continuously as usual. As noted above, the database will not shrink in size - to reclaim space, perform a <a href="trusted-node-sync.html">trusted node sync</a> on a fresh database instead.</p>
+<p>When switching to <code>prune</code> mode, deep history will be removed from the database and the prune point will be updated continuously as usual.
+As noted above, the database will not shrink in size.
+To reclaim space, perform a <a href="trusted-node-sync.html">trusted node sync</a> on a fresh database instead.</p>
 <div class="admonition warning">
 <p class="admonition-title">Backwards compatiblity</p>
-<p>Versions prior to v23.1.0 do not fully support pruned databases - to downgrade, you may need to perform a <a href="trusted-node-sync.html">trusted node sync</a>.</p>
+<p>Versions prior to Nimbus <code>v23.1.0</code> do not fully support pruned databases!
+To downgrade, you may need to perform a <a href="trusted-node-sync.html">trusted node sync</a>.</p>
 </div>
 <p>When switching to <code>archive</code> mode, the node will start keeping history from the most recent prune point, but will not recreate deep history.</p>
-<p>In order to recreate deep history in a pruned node, downloading the <a href="era-store.html">era archive of deep history</a> and reindexing the database using <a href="trusted-node-sync.html">trusted node sync</a> with the <code>--reindex</code> option is necessary - this is a lengthy operation.</p>
+<p>In order to recreate deep history in a pruned node, downloading the <a href="era-store.html">era archive of deep history</a> and reindexing the database using <a href="trusted-node-sync.html">trusted node sync</a> with the <code>--reindex</code> option is necessary — this is a lengthy operation.</p>
 <h2 id="command-line">Command line</h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label></div>
 <div class="tabbed-content">
@@ -1789,13 +1794,13 @@
       
       
         
-        <a href="migration-options.html" class="md-footer__link md-footer__link--next" aria-label="Next: Client migration (advanced)" rel="next">
+        <a href="web3signer.html" class="md-footer__link md-footer__link--next" aria-label="Next: Web3Signer" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              Client migration (advanced)
+              Web3Signer
             </div>
           </div>
           <div class="md-footer__button md-icon">

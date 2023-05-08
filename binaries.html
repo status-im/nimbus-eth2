@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1413,6 +1399,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1684,11 +1684,11 @@
 <h1 id="binaries">Binaries</h1>
 <p>Binary releases are available from <a href="https://github.com/status-im/nimbus-eth2/releases/latest">GitHub</a> and our <a href="https://apt.status.im/">APT repository</a> (Debian/Ubuntu).</p>
 <p>We currently have binaries available for Linux <code>AMD64</code>, <code>ARM</code> and <code>ARM64</code>, Windows <code>AMD64</code> and macOS (<code>AMD64</code> and <code>ARM64</code>).</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Manual installation</label><label for="__tabbed_1_2">Debain / Ubuntu</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Manual installation</label><label for="__tabbed_1_2">Debian / Ubuntu</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>The latest release is always available from <a href="https://github.com/status-im/nimbus-eth2/releases/latest">Github</a> under the <strong>Assets</strong> header at the bottom of the page.</p>
-<p>To install or upgrade a binary release, simply unpack the archive appropriate for your operating system and architecture in a directory of your choice, and run the binary.</p>
+<p>To install or upgrade a binary release, unpack the archive appropriate for your operating system and architecture in a directory of your choice, and run the binary.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Create a directory that can hold the beacon chain data and applications - this should be a fast SSD</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mkdir -p nimbus-eth2
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Unpack the archive into the `nimbus-eth2` directory you just created</span>
@@ -1709,17 +1709,20 @@
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Helper scripts</p>
-<p>When installing via package manager, replace <code>run-mainnet-beacon-node.sh</code> and similar helper scripts used in this guide with <code>nimbus_beacon_node</code> - blockchain data will be written to the default <a href="data-dir.html">data directory</a> unless changed with <code>--data-dir</code>.</p>
+<p>When installing via package manager, replace <code>run-mainnet-beacon-node.sh</code> and similar helper scripts used in this guide with <code>nimbus_beacon_node</code>: blockchain data will be written to the default <a href="data-dir.html">data directory</a> unless changed with <code>--data-dir</code>.</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title"><code>systemd</code></p>
-<p>Packages include <code>systemd</code> service unit files - see the <a href="beacon-node-systemd.html">systemd guide</a> for usage instructions - the <code>nimbus</code> user is created as part of the installation process!</p>
+<p>Packages include <code>systemd</code> service unit files: see the <a href="beacon-node-systemd.html">systemd guide</a> for usage instructions.
+The <code>nimbus</code> user is created as part of the installation process!</p>
 </div>
 </div>
 </div>
 </div>
 <h2 id="reproducible-builds">Reproducible builds</h2>
-<p>We've designed the build process to be reproducible. In practice, this means that anyone can verify that these exact binaries were produced from the corresponding source code commits. For more about the philosophy and importance of this feature see <a href="https://reproducible-builds.org/">reproducible-builds.org</a>.</p>
+<p>We've designed the build process to be reproducible.
+In practice, this means that anyone can verify that these exact binaries were produced from the corresponding source code commits.
+For more about the philosophy and importance of this feature see <a href="https://reproducible-builds.org/">reproducible-builds.org</a>.</p>
 <p>For instructions on how to reproduce those binaries, see "README.md" inside the archive, as well as the <a href="distribution_internals.html">in-depth guide</a>.</p>
 
               

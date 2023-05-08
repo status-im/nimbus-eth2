@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1458,6 +1444,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1687,7 +1687,8 @@
 <p>Doppelganger detection is a safety feature for preventing slashing in the event that two setups are using the same validator keys, for example after a migration of keys from one setup to another.</p>
 <p>Doppelganger detection works by monitoring network activity for a short period for each validator while preventing duties from being performed.</p>
 <p>If any activity is detected, the node shuts down with exit code 129.</p>
-<p>Because detection depends on network detection, there are cases where it may fail to find duplicate validators even though they are live - you should never use it as a mechanism for running redundant setups!</p>
+<p>Because detection depends on network detection, there are cases where it may fail to find duplicate validators even though they are live.
+You should never use it as a mechanism for running redundant setups!</p>
 <h2 id="command-line">Command line</h2>
 <p>Doppelganger detection is turned on by default - disable it with:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Beacon node</label><label for="__tabbed_1_2">Validator client</label></div>

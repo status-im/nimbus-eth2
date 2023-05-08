@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1440,26 +1426,6 @@
     Permissions
   </a>
   
-    <nav class="md-nav" aria-label="Permissions">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#linux-bsd-macos" class="md-nav__link">
-    Linux/ BSD / MacOS
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#windows" class="md-nav__link">
-    Windows
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
     </ul>
@@ -1501,6 +1467,20 @@
           
         </ul>
       </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
     </li>
   
 
@@ -1751,26 +1731,6 @@
     Permissions
   </a>
   
-    <nav class="md-nav" aria-label="Permissions">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#linux-bsd-macos" class="md-nav__link">
-    Linux/ BSD / MacOS
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#windows" class="md-nav__link">
-    Windows
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
     </ul>
@@ -1792,11 +1752,13 @@
 
 
 <h1 id="the-data-directory">The data directory</h1>
-<p>Nimbus stores all the information it needs to run in a data directory. In this directory, you'll find a database, your validator keys and secrets and several other items.</p>
+<p>Nimbus stores all the information it needs to run in a data directory.
+In this directory, you'll find a database, your validator keys and secrets, and several other items.</p>
 <p>When following the installation guide, the chain data will be stored in <code>build/data</code> with separate directories for each chain (mainnet, prater, etc).</p>
 <div class="admonition tip">
 <p class="admonition-title">The <code>--data-dir</code> option</p>
-<p>The <code>--data-dir=/path/to/data</code> allows picking a specific data directory to store the chain - make sure you use the same <code>--data-dir</code> option for all beacon node commands!</p>
+<p>The <code>--data-dir=/path/to/data</code> allows picking a specific data directory to store the chain.
+Make sure you use the same <code>--data-dir</code> option for all beacon node commands!</p>
 </div>
 <h2 id="contents">Contents</h2>
 <p>Inside the data directory, you'll find several subdirectories and files containing various information about the node, chain and validators.</p>
@@ -1810,18 +1772,32 @@
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>drwx------ <span class="m">1</span> nimbus nimbus <span class="m">250</span> Jul <span class="m">19</span> <span class="m">18</span>:18 validators
 </code></pre></div>
 <h3 id="db"><code>db</code></h3>
-<p>The <code>db</code> folder contains historical chain data and information about the latest observed state of the chain. If you remove the <code>db</code> folder, the beacon node will have to resync.</p>
+<p>The <code>db</code> folder contains historical chain data and information about the latest observed state of the chain.
+If you remove the <code>db</code> folder, the beacon node will have to resync.</p>
 <p>The growth of the database depends on the <a href="history.html">history mode</a>.</p>
 <h3 id="secrets-and-validators"><code>secrets</code> and <code>validators</code></h3>
-<p>These two folders contain your validator keys as well as the passwords needed to unlock them when starting the beacon node.</p>
+<p>These two folders contain your validator keys, as well as the passwords needed to unlock them when starting the beacon node. By default, the folders are nested directly under the selected data directory, but you can alter the location through the options <code>--validators-dir</code> and <code>--secrets-dir</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Be careful not to copy the <code>secrets</code> and <code>validator</code> folders, leaving them in two locations - instead, always move them to the new location! Using the same validators with two nodes poses a significant slashing risk!</p>
+<p>Be careful not to copy the <code>secrets</code> and <code>validator</code> folders, leaving them in two locations!
+Instead, always <em>move</em> them to the new location.
+Using the same validators with two nodes poses a significant slashing risk!</p>
 </div>
+<p>For each imported validator, the validators directory includes a sub-folder named after the 0x-prefixed hex-encoded public key of the validator. The per-validator directory contains either a <a href="https://eips.ethereum.org/EIPS/eip-2335">local keystore file</a> with the name <code>keystore.json</code> or <a href="web3signer.html">remote keystore file</a> with the name <code>remote_keystore.json</code>. It may also contain the following additional configuration files:</p>
+<ul>
+<li>
+<p><code>suggested_fee_recipient.hex</code> - a hex-encoded execution layer address that will receive the transaction fees from blocks produced by the particular validator.</p>
+</li>
+<li>
+<p><code>suggested_gas_limit.json</code> - the suggested gas limit of the blocks produced by the particular validator.</p>
+</li>
+</ul>
+<p>For each imported validator with a local keystore, the secrets directory includes a file named after the 0x-prefixed hex-encoded public key of the validator. The contents of the file will be used as the password for unlocking the keystore. If a password file for a particular validator is missing, Nimbus obtains the password interactively from the user on start-up. If the <code>--non-interactive</code> option is specified, Nimbus considers a missing password file to be a fatal error and it will terminate with a non-zero exit code.</p>
 <h2 id="moving-the-data-directory">Moving the data directory</h2>
 <p>You can move the data directory to another location or computer simply by moving its contents and updating the <code>--data-dir</code> option when starting the node.</p>
 <h2 id="permissions">Permissions</h2>
-<p>To protect against key loss, Nimbus requires that files and directories be owned by the user running the application. Furthermore, they should not be readable by others.</p>
+<p>To protect against key loss, Nimbus requires that files and directories be owned by the user running the application.
+Furthermore, they should not be readable by others.</p>
 <p>It may happen that the wrong permissions are applied, particularly when creating the directories manually.</p>
 <p>The following errors are a sign of this:</p>
 <ul>
@@ -1830,7 +1806,9 @@
 <li><code>File has insecure permissions</code></li>
 </ul>
 <p>Here is how to fix them.</p>
-<h3 id="linux-bsd-macos">Linux/ BSD / MacOS</h3>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Linux / BSD / MacOS</label><label for="__tabbed_1_2">Windows</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <p>Run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Changing ownership to `user:group` for all files/directories in &lt;data-dir&gt;.</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>chown user:group -R &lt;data-dir&gt;
@@ -1846,13 +1824,14 @@
 <p>In sum:</p>
 <ul>
 <li>
-<p>Directories <code>&lt;data-dir&gt;</code>, <code>&lt;data-dir&gt;/validators</code>, <code>&lt;data-dir&gt;/secrets</code> MUST be owned by user and have <code>rwx------</code> or <code>0700</code>permissions set.</p>
+<p>Directories <code>&lt;data-dir&gt;</code>, <code>&lt;data-dir&gt;/validators</code>, <code>&lt;data-dir&gt;/secrets</code> <strong>must</strong> be owned by user and have <code>rwx------</code> or <code>0700</code>permissions set.</p>
 </li>
 <li>
-<p>Files stored inside <code>&lt;data-dir&gt;</code>, <code>&lt;data-dir&gt;/validators</code>, <code>/secrets</code> MUST be owned by user and have <code>rw------</code> or <code>0600</code> permission set.</p>
+<p>Files stored inside <code>&lt;data-dir&gt;</code>, <code>&lt;data-dir&gt;/validators</code>, <code>/secrets</code> <strong>must</strong> be owned by user and have <code>rw------</code> or <code>0600</code> permission set.</p>
 </li>
 </ul>
-<h3 id="windows">Windows</h3>
+</div>
+<div class="tabbed-block">
 <p>From inside <code>Git Bash</code>, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Set permissions for all the directories starting from &lt;data-dir&gt;</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>find &lt;data-dir&gt; -type d -exec icacls <span class="o">{}</span> /inheritance:r /grant:r <span class="nv">$USERDOMAIN</span><span class="se">\\</span><span class="nv">$USERNAME</span>:<span class="se">\(</span>OI<span class="se">\)\(</span>CI<span class="se">\)\(</span>F<span class="se">\)</span> <span class="se">\;</span>
@@ -1865,17 +1844,23 @@
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Make sure you run the above from inside <code>Git Bash</code>, these commands  will not work from inside the standard Windows Command Prompt. If you don't already have a <code>Git Bash</code> shell, you'll need to install <a href="https://gitforwindows.org/">Git for Windows</a>.</p>
+<p>Make sure you run the above from inside <code>Git Bash</code>, these commands  will not work from inside the standard Windows Command Prompt.
+If you don't already have a <code>Git Bash</code> shell, you'll need to install <a href="https://gitforwindows.org/">Git for Windows</a>.</p>
 </div>
 <p>In sum:</p>
 <ul>
 <li>
-<p>Directories <code>&lt;data-dir&gt;</code>, <code>&lt;data-dir&gt;/validators</code>, <code>&lt;data-dir&gt;/secrets</code> MUST be owned by user and have permissions set for the user only (OI)(CI)(F). All inherited permissions should be removed.</p>
+<p>Directories <code>&lt;data-dir&gt;</code>, <code>&lt;data-dir&gt;/validators</code>, <code>&lt;data-dir&gt;/secrets</code> <strong>must</strong> be owned by user and have permissions set for the user only (OI)(CI)(F).
+All inherited permissions should be removed.</p>
 </li>
 <li>
-<p>Files which are stored inside <data-dir>, <data-dir>/validators, <data-dir>/secrets MUST be owned by user and have permissions set for the user only (F). All inherited permissions should be removed.</p>
+<p>Files which are stored inside <data-dir>, <data-dir>/validators, <data-dir>/secrets <strong>must</strong> be owned by user and have permissions set for the user only (F).
+All inherited permissions should be removed.</p>
 </li>
 </ul>
+</div>
+</div>
+</div>
 
               
             </article>

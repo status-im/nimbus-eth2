@@ -609,20 +609,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -719,8 +705,8 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#optimised-import-for-a-large-number-of-validators" class="md-nav__link">
-    Optimised import for a large number of validators
+  <a href="#optimized-import-for-a-large-number-of-validators" class="md-nav__link">
+    Optimized import for a large number of validators
   </a>
   
 </li>
@@ -1005,7 +991,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1472,6 +1458,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1680,8 +1680,8 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#optimised-import-for-a-large-number-of-validators" class="md-nav__link">
-    Optimised import for a large number of validators
+  <a href="#optimized-import-for-a-large-number-of-validators" class="md-nav__link">
+    Optimized import for a large number of validators
   </a>
   
 </li>
@@ -1716,7 +1716,7 @@
 <p class="admonition-title">Tip</p>
 <p><code>systemd</code> service file users will want to follow the <a href="beacon-node-systemd.html#import-validator-keys">service file guide</a> instead!</p>
 </div>
-<p>Having followed the <a href="deposit.html">deposit</a> guide, you will have a <code>validator_keys</code> folder containing several <code>.json</code> files in the <code>nimbus-eth2</code> directory.</p>
+<p>Having followed the <a href="deposit.html">deposit guide</a>, you will have a <code>validator_keys</code> folder containing several <code>.json</code> files in the <code>nimbus-eth2</code> directory.</p>
 <p>We'll import the signing key of each validator to the <a href="data-dir.html">data directory</a> using the <code>deposits import</code> command:</p>
 <div class="admonition note">
 <p>You'll be asked to enter the password you used when creating your keystore(s).</p>
@@ -1739,10 +1739,10 @@
 <div class="admonition note">
 <p><code>NOT</code> is short for <code>NOTICE</code> and not not :)</p>
 </div>
-<p>After importing keys, it's time to <a href="connect-eth2.html">restart</a> the node and check that the keys have been picked up by the beacon node.</p>
+<p>After importing keys, it's time to <a href="connect-eth2.html">restart the node</a> and check that the keys have been picked up by the beacon node.</p>
 <div class="admonition info">
 <p class="admonition-title">All the keys</p>
-<p>You can read more about the different types of keys <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a> - the <code>deposit import</code> command will import the <strong>signing key</strong> only.</p>
+<p>You can read more about the different types of keys <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a> — the <code>deposits import</code> command will import the <strong>signing key</strong> only.</p>
 </div>
 <h2 id="command-line">Command line</h2>
 <p>If your <code>validator_keys</code> folder is stored elsewhere, you can pass its location to the import command:</p>
@@ -1763,20 +1763,23 @@
 </div>
 </div>
 <p>Replacing <code>/path/to/keys</code> with the full pathname of where the <code>validator_keys</code> directory is found.</p>
-<h2 id="optimised-import-for-a-large-number-of-validators">Optimised import for a large number of validators</h2>
-<p>If you plan to use a large number of validators (e.g. more than 100) on a single beacon node or a validator client, you might benefit from running the <code>deposits import</code> command with the option <code>--method=single-salt</code>. This will force Nimbus to use the same password and random salt value when encrypting all of the imported keystores which will later enable it to load the large number of validator keys almost instantly. The theoretical downside of using this approach is that it makes the brute-force cracking of all imported keystores computationally equivalent to cracking just one of them. Nevertheless, the security parameters used by Ethereum are such that cracking even a single keystore is considered computationally infeasible with current hardware.</p>
+<h2 id="optimized-import-for-a-large-number-of-validators">Optimized import for a large number of validators</h2>
+<p>If you plan to use a large number of validators (e.g. more than 100) on a single beacon node or a validator client, you might benefit from running the <code>deposits import</code> command with the option <code>--method=single-salt</code>.
+This will force Nimbus to use the same password and random salt value when encrypting all of the imported keystores which will later enable it to load the large number of validator keys almost instantly.
+The theoretical downside of using this approach is that it makes the brute-force cracking of all imported keystores computationally equivalent to cracking just one of them.
+Nevertheless, the security parameters used by Ethereum are such that cracking even a single keystore is considered computationally infeasible with current hardware.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p>If you come across an error, make sure that:</p>
 <ul>
-<li>You are using the correct <a href="data-dir.html">data directory</a><ul>
-<li>for <code>systemd</code> users, look for the <code>--data-dir</code> option in the <code>.service</code> file</li>
+<li>You are using the correct <a href="data-dir.html">data directory</a>.<ul>
+<li>For <code>systemd</code> users, look for the <code>--data-dir</code> option in the <code>.service</code> file.</li>
 </ul>
 </li>
-<li>You are running the command as the correct user<ul>
-<li>for <code>systemd</code> users, look for the <code>User=</code> option in the <code>.service</code>. Assuming the user is called <code>nimbus</code>,  prefix all commands with: <code>sudo -u nimbus</code></li>
+<li>You are running the command as the correct user.<ul>
+<li>For <code>systemd</code> users, look for the <code>User=</code> option in the <code>.service</code>. Assuming the user is called <code>nimbus</code>,  prefix all commands with: <code>sudo -u nimbus</code>.</li>
 </ul>
 </li>
-<li>Permissions for the data directory are wrong<ul>
+<li>Permissions for the data directory are wrong.<ul>
 <li>See <a href="data-dir.html#permissions">folder permissions</a> for how to fix this.</li>
 </ul>
 </li>

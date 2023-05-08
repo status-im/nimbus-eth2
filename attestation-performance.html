@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1415,6 +1401,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1779,7 +1779,7 @@
 
 <h1 id="attestation-performance">Attestation performance</h1>
 <p><code>ncli_db validatorPerf</code> is an advanced tool that helps you analyze the performance of your validator over time.</p>
-<p>The tool requires that you <a href="build.html">built nimbus from source</a>.</p>
+<p>The tool requires that you <a href="build.html">build nimbus from source</a>.</p>
 <h2 id="steps">Steps</h2>
 <p>Make sure you're in the <code>nimbus-eth2</code> repository.</p>
 <h3 id="1-build-ncli_db">1. Build ncli_db</h3>
@@ -1790,7 +1790,7 @@
 <p>To view the options available to you, run:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/ncli_db --help
 </code></pre></div></p>
-<p>At the top you should see</p>
+<p>At the top you should see:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ncli_db [OPTIONS]... command
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>The following options are available:
@@ -1801,13 +1801,13 @@
 <p>Where:</p>
 <ul>
 <li>
-<p>The <code>network</code> can be <code>mainnet</code>, <code>prater</code>, or <code>sepolia</code></p>
+<p>The <code>network</code> can be <code>mainnet</code>, <code>prater</code>, or <code>sepolia</code>.</p>
 </li>
 <li>
 <p>The default location of the <code>db</code>  is <code>build/data/shared_mainnet_0/db</code> for <code>mainnet</code>, <code>build/data/shared_prater_0/db</code> for <code>prater</code>, etc.</p>
 </li>
 </ul>
-<p>Near the bottom, you should see</p>
+<p>Near the bottom, you should see:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ncli_db validatorPerf [OPTIONS]...
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>The following options are available:
@@ -1838,26 +1838,29 @@
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>--slots<span class="o">=</span><span class="m">128</span>
 </code></pre></div></p>
 <h3 id="5-compare-my-validators-to-the-global-average">5. Compare my validators to the global average</h3>
-<p>We'll use <a href="https://docs.google.com/spreadsheets/d/1SNFf4LsDOK91SWuQZm9DYBoX9JNQNMKHw66Rv0l5EGo/">Paul Hauner's wonderful workbook</a> as a template. This workbook consists of three inter-related spreadsheets - <code>Summary</code>, <code>My Validators</code>, and <code>datasource</code>.</p>
+<p>We'll use <a href="https://docs.google.com/spreadsheets/d/1SNFf4LsDOK91SWuQZm9DYBoX9JNQNMKHw66Rv0l5EGo/">Paul Hauner's wonderful workbook</a> as a template.
+This workbook consists of three inter-related spreadsheets: <code>Summary</code>, <code>My Validators</code>, and <code>datasource</code>.</p>
 <ol>
 <li>
-<p>Make a copy of the document</p>
+<p>Make a copy of the document.</p>
 </li>
 <li>
-<p>Remove the table entries in <code>My Validators</code> and delete everything in the <code>datasource</code> sheet</p>
+<p>Remove the table entries in <code>My Validators</code> and delete everything in the <code>datasource</code> sheet.</p>
 </li>
 <li>
-<p>Import the output from <code>validatorPerf</code> to <code>datasource</code> - the easiest way to do this is to pipe the output to a <code>csv</code>, remove the first few lines, and import the <code>csv</code> into <code>datasource</code></p>
+<p>Import the output from <code>validatorPerf</code> to <code>datasource</code>.
+   The easiest way to do this is to pipe the output to a <code>csv</code>, remove the first few lines, and import the <code>csv</code> into <code>datasource</code>.</p>
 </li>
 <li>
-<p>Manually copy over your validator(s) to the <code>My Validators</code> sheet  - the easiest way to find your validator's  <code>validator_index</code> is to search for it by its public key on <a href="https://beaconcha.in/">beaconcha.in</a> (for example, <a href="https://beaconcha.in/validator/115733">this validator's</a> index is 115733)</p>
+<p>Manually copy over your validator(s) to the <code>My Validators</code> sheet.
+   The easiest way to find your validator's <code>validator_index</code> is to search for it by its public key on <a href="https://beaconcha.in/">beaconcha.in</a> (for example, <a href="https://beaconcha.in/validator/115733">this validator's</a> index is 115733).</p>
 </li>
 <li>
-<p>Go to the <code>Summary</code> page and view your results</p>
+<p>Go to the <code>Summary</code> page and view your results.</p>
 </li>
 </ol>
 <h2 id="resources">Resources</h2>
-<p>The workbook's method  is explained <a href="https://hackmd.io/xQfi83kHQpm05-aAFVV0DA?view">here</a>.</p>
+<p>The workbook's method is explained <a href="https://hackmd.io/xQfi83kHQpm05-aAFVV0DA?view">here</a>.</p>
 
               
             </article>

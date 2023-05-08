@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1484,6 +1470,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1740,15 +1740,19 @@
 <h1 id="mainnet-checklist">Mainnet checklist</h1>
 <h2 id="latest-software">Latest software</h2>
 <p>Please check that you are running the latest stable <a href="https://github.com/status-im/nimbus-eth2/releases">Nimbus software release</a>.</p>
-<blockquote>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
 <p>In order to stay on top of new releases you should subscribe to <a href="https://subscribe.nimbus.team/">our mailing list</a>.</p>
-</blockquote>
+</div>
 <h2 id="more-than-15-peers">More than 15 peers</h2>
-<p>Please check that your node has at least 15 peers. To monitor your peer count, pay attention to the <a href="keep-an-eye.html#keep-track-of-your-syncing-progress"><code>Slot start</code> messages in your logs</a>. See the <a href="networking.html">networking page</a> for more tips.</p>
+<p>Please check that your node has at least 15 peers.
+To monitor your peer count, pay attention to the <a href="keep-an-eye.html#keep-track-of-your-syncing-progress"><code>Slot start</code> messages in your logs</a>.
+See the <a href="networking.html">networking page</a> for more tips.</p>
 <h2 id="validator-attached">Validator attached</h2>
 <p>Please check that your <a href="keep-an-eye.html#make-sure-your-validator-is-attached">validator is attached</a> to your node.</p>
 <h2 id="systemd">Systemd</h2>
-<p>We recommend <a href="beacon-node-systemd.html">setting up a systemd service</a> with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly).</p>
+<p>We recommend <a href="beacon-node-systemd.html">setting up a systemd service</a> with an autorestart on boot.
+Should you experience an unexpected power outage, this will ensure your validator restarts correctly.</p>
 <p>Systemd will also ensure your validator keeps running when you exit your ssh session (<code>Ctrl-C</code>) and/or switch off your laptop.</p>
 <h2 id="ethereum-foundations-checklist">Ethereum Foundation's Checklist</h2>
 <p>As a final check, we recommend you also go through the EF'S <a href="https://launchpad.ethereum.org/checklist">staker checklist</a>.</p>

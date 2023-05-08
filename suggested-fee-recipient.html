@@ -609,20 +609,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -1005,7 +991,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1472,6 +1458,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1713,22 +1713,25 @@
 
 <h1 id="set-up-suggested-fee-recipient">Set up suggested fee recipient</h1>
 <p>The fee recipient is an Ethereum address that receives transaction fees from block production, separately from the proposer reward that accrues on the beacon chain.</p>
-<p>The fee recipient is forwarded to the execution client during block production - each validator can have its own fee recipient set or a single recipient may be used.</p>
+<p>The fee recipient is forwarded to the execution client during block production.
+Each validator can have its own fee recipient set or a single recipient may be used.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>The execution client is not required to follow the fee recipient suggestion and may instead send the fees to a different address - only use execution clients you trust!</p>
+<p>The execution client is not required to follow the fee recipient suggestion and may instead send the fees to a different address — only use execution clients you trust!</p>
 <p>If no fee recipient is set up, the transaction fees are sent to the zero address, effectively causing them to be lost.</p>
 </div>
 <h2 id="setting-the-fee-recipient">Setting the fee recipient</h2>
 <p>Nimbus supports setting fee recipient per validator, or using defaults in both the validator client and beacon node.</p>
 <p>Per-validator fee recipients are set using the <a href="keymanager-api.html">keymanager API</a>.</p>
-<p>Any validator without a per-validator recipient set will fall back to the <code>--suggested-fee-recipient</code> option if configured. In order, it selects from the first available, for each validator, of:</p>
+<p>Any validator without a per-validator recipient set will fall back to the <code>--suggested-fee-recipient</code> option if configured.
+For each validator, it selects from the first available, in the following order:</p>
 <ol>
 <li>the keymanager API per-validator suggested fee recipient</li>
 <li><code>--suggested-fee-recipient</code> in the validator client</li>
 <li><code>--suggested-fee-recipient</code> in the beacon node</li>
 </ol>
-<p>For example, <code>nimbus_beacon_node --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842</code> suggests to the execution client that <code>0x70E47C843E0F6ab0991A3189c28F2957eb6d3842</code> might be the coinbase. If this Nimbus node has two validators, one of which has its own suggested fee recipient via the keymanager API and the other does not, the former would use its own per-validator suggested fee cipient while the latter would fall back to <code>0x70E47C843E0F6ab0991A3189c28F2957eb6d3842</code>.</p>
+<p>For example, <code>nimbus_beacon_node --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842</code> suggests to the execution client that <code>0x70E47C843E0F6ab0991A3189c28F2957eb6d3842</code> might be the coinbase.
+If this Nimbus node has two validators, one of which has its own suggested fee recipient via the keymanager API and the other does not, the former would use its own per-validator suggested fee recipient, while the latter would fall back to <code>0x70E47C843E0F6ab0991A3189c28F2957eb6d3842</code>.</p>
 <h2 id="command-line">Command line</h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label><label for="__tabbed_1_3">Validator Client</label></div>
 <div class="tabbed-content">

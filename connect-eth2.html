@@ -609,20 +609,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -1018,7 +1004,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1485,6 +1471,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1738,12 +1738,13 @@
 
 
 <h1 id="start-validating">Start validating</h1>
-<p>Once your keys have been <a href="keys.html">imported</a>, it is time to configure a <a href="suggested-fee-recipient.html">fee recipient</a> and restart the beacon node to start validating!</p>
+<p>Once your keys have been <a href="keys.html">imported</a>, it is time to configure a <a href="suggested-fee-recipient.html">fee recipient</a> and restart the beacon node to start validating.</p>
 <h2 id="steps">Steps</h2>
 <h3 id="1-choose-a-fee-recipient">1. Choose a fee recipient</h3>
-<p>The <a href="suggested-fee-recipient.html">fee recipient</a> is an Ethereum address that receives transaction fees from the blocks that your validators produce. You can set up a separate address or reuse the address from which you funded your deposits.</p>
+<p>The <a href="suggested-fee-recipient.html">fee recipient</a> is an Ethereum address that receives transaction fees from the blocks that your validators produce.
+You can set up a separate address or reuse the address from which you funded your deposits.</p>
 <h3 id="2-restart-the-node">2. (Re)start the node</h3>
-<p>Press <code>Ctrl-c</code> to stop the beacon node if it's running, then use the same command <a href="">as before</a> to run it again, this time adding the <code>--suggested-fee-recipient</code> option in addition to <code>--web3-url</code>:</p>
+<p>Press <code>Ctrl-c</code> to stop the beacon node if it's running, then use the same command as before to run it again, this time adding the <code>--suggested-fee-recipient</code> option in addition to <code>--web3-url</code>:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -1757,12 +1758,15 @@
 </div>
 </div>
 <h3 id="3-check-the-logs">3. Check the logs</h3>
-<p>Your beacon node will launch and connect your validator to the beacon chain network. To check that keys were imported correctly, look for <code>Local validator attached</code> in the logs:</p>
+<p>Your beacon node will launch and connect your validator to the beacon chain network.
+To check that keys were imported correctly, look for <code>Local validator attached</code> in the logs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>INF 2020-11-18 11:20:00.181+01:00 Launching beacon node
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>...
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
 </code></pre></div>
-<p>Congratulations! Your node is now ready to perform validator duties. Depending on when the deposit was made, it may take a while before the first attestation is sent - this is normal.</p>
+<p>Congratulations!
+Your node is now ready to perform validator duties.
+Depending on when the deposit was made, it may take a while before the first attestation is sent — this is normal.</p>
 
               
             </article>

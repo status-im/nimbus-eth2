@@ -605,20 +605,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -944,7 +930,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1411,6 +1397,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1638,14 +1638,16 @@
 
 <h1 id="perform-a-voluntary-exit">Perform a voluntary exit</h1>
 <p>Voluntary exits allow validators to permanently stop performing their duties, and eventually recover the deposit.</p>
-<p>Exits are subject to a wait period that depends on the length of the exit queue. While a validator is exiting, it still must perform its duties in order not to lose funds to inactivity penalities.</p>
+<p>Exits are subject to a wait period that depends on the length of the exit queue.
+While a validator is exiting, it still must perform its duties in order not to lose funds to inactivity penalities.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Voluntary exits are <strong>irreversible</strong>. You won't be able to validate again with the same key.</p>
+<p>Voluntary exits are <strong>irreversible</strong>.
+You won't be able to validate again with the same key.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Voluntary exits won't be processed if the chain isn't finalising.</p>
+<p>Voluntary exits won't be processed if the chain isn't finalizing.</p>
 </div>
 <p>To perform a voluntary exit, make sure your beacon node is running with the <code>--rest</code> option enabled (e.g. <code>./run-mainnet-beacon-node.sh --rest</code>), then run:</p>
 <div class="highlight"><pre><span></span><code>build/nimbus_beacon_node deposits exit --validator=&lt;VALIDATOR_KEYSTORE_PATH&gt;
@@ -1653,6 +1655,10 @@
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>In the command above, you must replace <code>&lt;VALIDATOR_KEYSTORE_PATH&gt;</code> with the file-system path of an Ethereum <a href="https://eips.ethereum.org/EIPS/eip-2335">ERC-2335 Keystore</a> created by a tool such as <a href="https://github.com/ethereum/staking-deposit-cli">staking-deposit-cli</a> or <a href="https://github.com/wealdtech/ethdo">ethdo</a>.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can perform multiple voluntary exits at once by supplying the <code>--validator</code> option multiple times on the command-line. This is typically more convenient when the provided keystores share the same password - you'll be asked to enter it only once.</p>
 </div>
 <h2 id="rest-url-parameter"><code>rest-url</code> parameter</h2>
 <p>The <code>--rest-url</code> parameter can be used to point the exit command to a specific node for publishing the request, as long as it's compatible with the <a href="rest-api.html">REST API</a>.</p>

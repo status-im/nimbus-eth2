@@ -609,20 +609,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -1012,7 +998,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1479,6 +1465,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1726,11 +1726,10 @@
 
 
 <h1 id="withdraw-your-staked-funds">Withdraw your staked funds</h1>
-<p>After the Capella hard-fork, activated on 12th of April 2023, all validators will be able to withdrawal their staked funds from the beacon chain.</p>
 <p>Withdrawals are enabled for each validator once it's configured to use <a href="https://notes.ethereum.org/@launchpad/withdrawals-faq#Q-What-are-0x00-and-0x01-withdrawal-credentials-prefixes">0x01 withdrawal credentials</a> which specify an execution layer address that will be the beneficiary of all withdrawn funds.</p>
-<p>If your validator was created with 0x01 withdrawal credentials, it's already fully prepared for withdrawals and you can safely skip the next step.</p>
+<p>If your validator was created with <code>0x01</code> withdrawal credentials, it's already fully prepared for withdrawals and you can safely skip the next step.</p>
 <h2 id="updating-your-withdrawal-credentials">Updating your withdrawal credentials</h2>
-<p>To migrate your validator from BLS to 0x01 withdrawal credentials, you have to use the same third-party tool that was used to generate the BLS key.
+<p>To migrate your validator from BLS to <code>0x01</code> withdrawal credentials, you have to use the same third-party tool that was used to generate the BLS key.
 You have to create a signed <code>BLS-to-Execution-Change</code> message that must be broadcast to the network (and eventually published in a beacon chain block) in order to execute the desired withdrawal credentials update.</p>
 <p>If you have used the <a href="https://github.com/ethereum/staking-deposit-cli">staking-deposit-cli</a> tool (formerly known as <code>eth2.0-deposit-cli</code>), please follow the steps provided <a href="https://launchpad.ethereum.org/en/btec/">here</a>.
 Alternatively, if you have used <a href="https://github.com/wealdtech/ethdo">ethdo</a>, follow the steps provided <a href="https://github.com/wealdtech/ethdo/blob/master/docs/changingwithdrawalcredentials.md">here</a>.</p>
@@ -1740,13 +1739,9 @@ Alternatively, if you have used <a href="https://github.com/wealdtech/ethdo">eth
 <p>Your choice of withdrawal address is permanent.
 If you ever wish to switch it later, the only option is to exit your validator and then create a new one.</p>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Nimbus will allow you to broadcast the <code>BLS-to-Execution-Change</code> message only after the Capella hard-fork is activated on 12th of April 2023.</p>
-</div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>The specified withdrawal address doesn't need to match the <a href="suggested-fee-recipient.html">fee recipient address</a> used by your validator</p>
+<p>The specified withdrawal address doesn't need to match the <a href="suggested-fee-recipient.html">fee recipient address</a> used by your validator.</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -1760,14 +1755,14 @@ You can use an USB drive to transfer the produced JSON file to the machine where
 </code></pre></div>
 </div>
 <h2 id="periodic-withdrawals-of-staking-rewards-partial-withdrawals">Periodic withdrawals of staking rewards (partial withdrawals)</h2>
-<p>Once the validator is configured with 0x01 withdrawal credentials, all staking rewards will be periodically withdrawn as long as the validator balance is above 32 ETH.
+<p>Once the validator is configured with <code>0x01</code> withdrawal credentials, all staking rewards will be periodically withdrawn as long as the validator balance is above 32 ETH.
 No user action is required.</p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
 <p>It is not possible to manually request specific amounts of ETH to be withdrawn</p>
 </div>
 <h2 id="full-withdrawals">Full withdrawals</h2>
-<p>To withdrwal the entire staked balance of your validator, you must perform a voluntary validator exit.</p>
+<p>To withdrawal the entire staked balance of your validator, you must perform a voluntary validator exit.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Voluntary exits are <strong>irreversible</strong>.
@@ -1775,7 +1770,7 @@ You won't be able to validate again with the same key.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Make sure you've migrated your validator to 0x01 withdrawal credentials before exiting.</p>
+<p>Make sure you've migrated your validator to <code>0x01</code> withdrawal credentials before exiting.</p>
 </div>
 <p>The time required for the withdrawal to complete depends on multiple factors such as the total number of validators in the network, the number of other validators attempting to exit at the moment and the current time in the periodic withdrawals cycle.
 Under typical conditions, it's expected to take 2 to 7 days.</p>

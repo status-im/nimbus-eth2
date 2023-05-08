@@ -609,20 +609,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -950,7 +936,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -986,9 +972,61 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Prater testnet
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="prater.html" class="md-nav__link md-nav__link--active">
         Prater testnet
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-preparation" class="md-nav__link">
+    General Preparation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sync-the-beacon-node-and-execution-client" class="md-nav__link">
+    Sync the beacon node and execution client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#begin-validating" class="md-nav__link">
+    Begin validating
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#useful-resources" class="md-nav__link">
+    Useful resources
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1427,6 +1465,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1621,6 +1673,42 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-preparation" class="md-nav__link">
+    General Preparation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sync-the-beacon-node-and-execution-client" class="md-nav__link">
+    Sync the beacon node and execution client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#begin-validating" class="md-nav__link">
+    Begin validating
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#useful-resources" class="md-nav__link">
+    Useful resources
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1638,24 +1726,28 @@
 
 
 <h1 id="prater-testnet">Prater testnet</h1>
-<p><code>prater</code>, also known as <code>goerli</code>, is the current long-running merge testnet. It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practise node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups. If you come across any issues, please <a href="https://github.com/status-im/nimbus-eth2/issues">report them here</a>.</p>
+<p><code>prater</code>, also known as <code>goerli</code>, is the current long-running merge testnet.
+It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practice node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups.
+If you come across any issues, please <a href="https://github.com/status-im/nimbus-eth2/issues">report them here</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Post-merge, node runners will need to run both a consensus and execution layer client.</p>
 </div>
-<h1 id="general-preparation">General Preparation</h1>
+<h2 id="general-preparation">General Preparation</h2>
 <ol>
 <li>
 <p>Generate the JWT secret with <code>openssl rand -hex 32 | tr -d "\n" &gt; "/opt/jwtsecret"</code>. This file needs to be passed to both the execution client and the consensus client.</p>
 </li>
 <li>
-<p>Choose an Ethereum address to receive transaction fees. This ETH will be immediately available, not part of the staking contract.</p>
+<p>Choose an Ethereum address to receive transaction fees.
+   This ETH will be immediately available, not part of the staking contract.</p>
 </li>
 <li>
 <p>Download the <a href="binaries.html">latest release</a> and install it by unpacking the archive.</p>
 </li>
 <li>
-<p>Choose one of Nethermind, Besu, Erigon, or Geth as an execution client, using one of the <a href="https://blog.ethereum.org/2022/07/27/goerli-prater-merge-announcement/#execution-layer">compatible versions</a>. Download, install, and <a href="https://notes.ethereum.org/@launchpad/goerli#Run-an-Execution-Layer-Client">run it</a>.</p>
+<p>Choose one of Nethermind, Besu, Erigon, or Geth as an execution client, using one of the <a href="https://blog.ethereum.org/2022/07/27/goerli-prater-merge-announcement/#execution-layer">compatible versions</a>.
+   Download, install, and <a href="https://notes.ethereum.org/@launchpad/goerli#Run-an-Execution-Layer-Client">run it</a>.</p>
 </li>
 </ol>
 <p>For example, Nethermind on Goerli can run via:
@@ -1686,7 +1778,7 @@
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>  --engine-jwt-enabled<span class="o">=</span><span class="nb">true</span>     <span class="se">\</span>
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>  --engine-jwt-secret<span class="o">=</span>/opt/jwtsecret
 </code></pre></div></p>
-<h1 id="sync-the-beacon-node-and-execution-client">Sync the beacon node and execution client</h1>
+<h2 id="sync-the-beacon-node-and-execution-client">Sync the beacon node and execution client</h2>
 <ol>
 <li><a href="start-syncing.html">Start syncing</a> the node consisting of Nimbus and chosen execution client, for example by running:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>nimbus-eth2/build/nimbus_beacon_node <span class="se">\</span>
@@ -1699,10 +1791,12 @@
 </code></pre></div></li>
 </ol>
 <p>One might consider here to <a href="beacon-node-systemd.html">set up a systemd service</a> to ensure this runs automatically, including after restarts.</p>
-<h1 id="begin-validating">Begin validating</h1>
+<h2 id="begin-validating">Begin validating</h2>
 <ol>
 <li>
-<p>Once this Goerli/Prater node is <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a>, use the <a href="https://prater.launchpad.ethereum.org/en/">Prater launchpad</a> to obtain Goerli/Prater validators with <a href="goerli-eth.html">Goerli ETH</a>. It might require some time before these enter and are activated on the beacon chain. If one does this before the node which will attest and propose using those validators has synced, one might miss attestations and block proposals.</p>
+<p>Once this Goerli/Prater node is <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a>, use the <a href="https://prater.launchpad.ethereum.org/en/">Prater launchpad</a> to obtain Goerli/Prater validators with <a href="goerli-eth.html">Goerli ETH</a>.
+It might require some time before these enter and are activated on the beacon chain.
+If one does this before the node which will attest and propose using those validators has synced, one might miss attestations and block proposals.</p>
 </li>
 <li>
 <p><a href="keys.html">Import the validator keys</a> you receive into Nimbus.</p>

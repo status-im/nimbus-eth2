@@ -659,6 +659,13 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#verify-the-downloaded-state-through-the-nimbus-light-client" class="md-nav__link">
+    Verify the downloaded state through the Nimbus light client
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sync-deposit-history" class="md-nav__link">
     Sync deposit history
   </a>
@@ -702,20 +709,6 @@
   
 </nav>
       
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
     </li>
   
 
@@ -1046,7 +1039,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1513,6 +1506,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1736,6 +1743,13 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#verify-the-downloaded-state-through-the-nimbus-light-client" class="md-nav__link">
+    Verify the downloaded state through the Nimbus light client
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sync-deposit-history" class="md-nav__link">
     Sync deposit history
   </a>
@@ -1794,23 +1808,22 @@
 
 
 <h1 id="sync-from-a-trusted-node">Sync from a trusted node</h1>
-<div class="admonition note">
-<p>This feature is available from <code>v1.7.0</code> onwards</p>
-</div>
-<p>When you <a href="quick-start.html">start the beacon node</a> for the first time, it connects to the beacon chain network and starts syncing automatically - a process that can take several days.</p>
-<p>Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node - you can get started in minutes instead of days.</p>
-<p>To use trusted node sync, you must have access to a node that you trust and that exposes the <a href="rest-api.html">Beacon API</a> (for example a locally running backup node).</p>
-<p>Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.</p>
-<p>It is possible to use trusted node sync with a third-party API provider -- see <a href="trusted-node-sync.html#verify-you-synced-the-correct-chain">here</a> for how to verify that the chain you are given corresponds to the canonical chain at the time.</p>
+<p>When you <a href="quick-start.html">start the beacon node</a> for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take several days.</p>
+<p>Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in minutes instead of days.</p>
+<p>To use trusted node sync, you must have access to a node that you trust and that exposes the <a href="rest-api.html">Beacon API</a> (for example, a locally running backup node).
+Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.</p>
+<p>It is possible to use trusted node sync with a third-party API provider — see <a href="trusted-node-sync.html#verify-you-synced-the-correct-chain">here</a> for how to verify that the chain you are given corresponds to the canonical chain at the time.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>A list of community-operated checkpoint sync nodes can be found <a href="https://eth-clients.github.io/checkpoint-sync-endpoints/">here</a> - always verify after after a checkpoint sync that the right chain was provided by the node.</p>
+<p>A list of community-operated checkpoint sync nodes can be found <a href="https://eth-clients.github.io/checkpoint-sync-endpoints/">here</a>.
+Always verify after after a checkpoint sync that the right chain was provided by the node.</p>
 </div>
 <h2 id="perform-a-trusted-node-sync">Perform a trusted node sync</h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Make sure to replace <code>http://localhost:5052</code> in the commands below with the appropriate endpoint of the trusted beacon node. <code>http://localhost:5052</code> is the default endpoint exposed by Nimbus, but this is not consistent across all clients.</p>
-<p>For example, if your trusted node is a <a href="https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node">Prysm node</a>, it exposes <code>127.0.0.1:3500</code> by default. Which means you would run the commands below with <code>--trusted-node-url=http://127.0.0.1:3500</code></p>
+<p>For example, if your trusted node is a <a href="https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node">Prysm node</a>, it exposes <code>127.0.0.1:3500</code> by default.
+Which means you would run the commands below with <code>--trusted-node-url=http://127.0.0.1:3500</code></p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1834,17 +1847,19 @@
 </div>
 </div>
 </div>
-<p>If the command was executed succesfully, following log lines will be visible:</p>
+<p>If the command was executed successfully, following log lines will be visible:</p>
 <p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Writing checkpoint state
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Writing checkpoint block
 </code></pre></div>
 And eventually:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Done, your beacon node is ready to serve you! Don&#39;t forget to check that you&#39;re on the canonical chain by comparing the checkpoint root with other online sources. See https://nimbus.guide/trusted-node-sync.html for more information.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Done, your beacon node is ready to serve you! Don&#39;t forget to check that you&#39;re on the canonical chain by comparing the checkpoint root with other online sources.
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>See https://nimbus.guide/trusted-node-sync.html for more information.
 </code></pre></div></p>
 <p>After this the application will terminate and you can now <a href="quick-start.html">start the beacon node</a> as usual.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Because trusted node sync by default copies blocks via REST, you may hit API limits if you are using a third-party provider. If this happens to you, you may need to use the <code>--backfill</code> option to <a href="trusted-node-sync.html#delay-block-history-backfill">delay the backfill of the block history</a>.</p>
+<p>Because trusted node sync by default copies blocks via REST, you may hit API limits if you are using a third-party provider.
+If this happens to you, you may need to use the <code>--backfill</code> option to <a href="trusted-node-sync.html#delay-block-history-backfill">delay the backfill of the block history</a>.</p>
 </div>
 <h2 id="verify-you-synced-the-correct-chain">Verify you synced the correct chain</h2>
 <p>When performing a trusted node sync, you can manually verify that the correct chain was synced by comparing the head hash with other sources (e.g. your friends, forums, chats and web sites). If you're syncing using your own backup node you can retrieve the current head from the node using:</p>
@@ -1860,29 +1875,37 @@ And eventually:
 <code>curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root</code></p>
 </div>
 <h2 id="advanced">Advanced</h2>
-<h3 id="sync-deposit-history">Sync deposit history</h3>
+<h3 id="verify-the-downloaded-state-through-the-nimbus-light-client">Verify the downloaded state through the Nimbus light client</h3>
 <div class="admonition note">
-<p>This feature is available from <code>v22.12.0</code> onwards</p>
+<p>This feature is available from <code>v23.4.0</code> onwards.</p>
 </div>
+<p>The <code>--trusted-block-root</code> option enables you to leverage the Nimbus light client in order to minimize the required trust in the specified Beacon API endpoint. After downloading a state snapshot, the light client will verify that it conforms to the established consensus on the network. Note that the provided <code>--trusted-block-root</code> should be somewhat recent, and that additional security precautions such as comparing the state root against block explorers is still recommended.</p>
+<h3 id="sync-deposit-history">Sync deposit history</h3>
 <p>The <code>--with-deposit-snapshot</code> allows syncing deposit history via REST, avoiding the need to search the execution client for this information and thus allowing the client to more quickly start producing blocks.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The API endpoint for downloading this information was recently added to the Beacon API specification and is available on nodes running Nimbus v22.12.0 and later. For other checkpoint sources, consult their documentation with regards to the <code>/eth/v1/beacon/deposit_snapshot</code> endpoint.</p>
+<p>The API endpoint for downloading this information is a relatively recent addition to the Beacon API specification.
+It is available on nodes running Nimbus, but if you're using other checkpoint sources, consult their documentation with regards to the <code>/eth/v1/beacon/deposit_snapshot</code> endpoint.</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>It's safe to always specify this option. Nimbus will produce a warning if the specified beacon node doesn't support the required endpoint. Future versions of Nimbus will enable the option by default.</p>
+<p>It's safe to always specify this option.
+Nimbus will produce a warning if the specified beacon node doesn't support the required endpoint.
+Future versions of Nimbus will enable the option by default.</p>
 </div>
 <h3 id="delay-block-history-backfill">Delay block history backfill</h3>
 <p>By default, both state and block history will be downloaded from the trusted node.</p>
-<p>It is possible to get started more quickly by delaying the backfill of the block history using the <code>--backfill=false</code> parameter. In this case, the beacon node will first sync to the current head so that it can start performing its duties, then backfill the blocks from the network.</p>
+<p>It is possible to get started more quickly by delaying the backfill of the block history using the <code>--backfill=false</code> parameter.
+In this case, the beacon node will first sync to the current head so that it can start performing its duties, then backfill the blocks from the network.</p>
 <p>You can also resume the trusted node backfill at any time by simply running the trusted node sync command again.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>While backfilling blocks, your node will not be able to answer historical requests or sync requests. This might lead to you being de-scored, and eventually disconnected, by your peers.</p>
+<p>While backfilling blocks, your node will not be able to answer historical requests or sync requests.
+This might lead to you being de-scored, and eventually disconnected, by your peers.</p>
 </div>
 <h3 id="modify-sync-point">Modify sync point</h3>
-<p>By default, the node will sync up to the latest finalized checkpoint of the node that you're syncing with. While you can choose a different sync point using a state hash or a slot number, this state must fall on an epoch boundary:</p>
+<p>By default, the node will sync up to the latest finalized checkpoint of the node that you're syncing with.
+While you can choose a different sync point using a state hash or a slot number, this state must fall on an epoch boundary:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>build/nimbus_beacon_node trustedNodeSync <span class="se">\</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  --network:mainnet <span class="se">\</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  --data-dir<span class="o">=</span>build/data/shared_mainnet_0 <span class="se">\</span>
@@ -1900,7 +1923,8 @@ And eventually:
 <a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>  --finalized-checkpoint-state<span class="o">=</span>state.32000.ssz
 </code></pre></div>
 <h2 id="recreate-historical-state-access-indices">Recreate historical state access indices</h2>
-<p>When performing trusted node sync, the historical state data from the time before the trusted is not available. To recreate the indices and caches necessary for historical state access, run trusted node sync with the <code>--reindex</code> flag - this can be done on an already-synced node as well, in which case the process will simply resume where it left off:</p>
+<p>When performing trusted node sync, the historical state data from the time before the trusted is not available.
+To recreate the indices and caches necessary for historical state access, run trusted node sync with the <code>--reindex</code> flag — this can be done on an already-synced node as well, in which case the process will simply resume where it left off:</p>
 <p>To recreate a historical index from before the checkpoint, it is necessary to first download an <a href="era-store.html">era archive</a> containing the deep block history.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_beacon_node trustedNodeSync <span class="se">\</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  --network:mainnet <span class="se">\</span>
@@ -1945,13 +1969,13 @@ And eventually:
       
       
         
-        <a href="web3-backup.html" class="md-footer__link md-footer__link--next" aria-label="Next: Backup web3 provider" rel="next">
+        <a href="deposit.html" class="md-footer__link md-footer__link--next" aria-label="Next: Make a deposit for your validator" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              Backup web3 provider
+              Make a deposit for your validator
             </div>
           </div>
           <div class="md-footer__button md-icon">

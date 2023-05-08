@@ -607,20 +607,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -946,7 +932,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1477,6 +1463,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1743,15 +1743,16 @@ we're not publishing them anywhere, we can customize them to the system
 they run on (we ensure they use the host's UID/GID, the host's QEMU static
 binaries, etc); they get access to the source code through the use of external volumes.</p>
 <h2 id="build-process">Build process</h2>
-<p>It all starts from the GitHub actions in <code>.github/workflows/release.yml</code>. There
-is a different job for each supported OS-architecture combination and they all
+<p>It all starts from the GitHub actions in <code>.github/workflows/release.yml</code>.
+There is a different job for each supported OS-architecture combination and they all
 run in parallel (ideally).</p>
-<p>Once all those CI jobs complete successfully, a GitHub release draft is created
-and all the distributable archives are uploaded to it. A list of checksums for
-the main binaries is inserted in the release description. That draft needs to
-be manually published.</p>
-<p>The build itself is triggered by a Make target. E.g.: <code>make dist-amd64</code>. This invokes
-<code>scripts/make_dist.sh</code> which builds the corresponding Docker container from
+<p>Once all those CI jobs are completed successfully, a GitHub release draft is created
+and all the distributable archives are uploaded to it.
+A list of checksums for
+the main binaries is inserted in the release description.
+That draft needs to be manually published.</p>
+<p>The build itself is triggered by a Make target, e.g. <code>make dist-amd64</code>.
+This invokes <code>scripts/make_dist.sh</code> which builds the corresponding Docker container from
 <code>docker/dist/</code> and runs it with the Git repository's top directory as an external
 volume.</p>
 <p>The entry point for that container is <code>docker/dist/entry_point.sh</code> and that's
@@ -1759,8 +1760,8 @@ where you'll find the Make invocations needed to finally build the software and
 create distributable tarballs.</p>
 <h2 id="docker-images-for-end-users">Docker images for end users</h2>
 <p>Configured in <code>.github/workflows/release.yml</code> (only for Linux AMD64, ARM and
-ARM64): we unpack the distribution tarball and copy its content into a third
-type of Docker image - meant for end users and defined by
+ARM64), we unpack the distribution tarball and copy its content into a third
+type of Docker image — meant for end users and defined by
 <code>docker/dist/binaries/Dockerfile.amd64</code> (and related).</p>
 <p>We then publish that to <a href="https://hub.docker.com/r/statusim/nimbus-eth2">Docker Hub</a>.</p>
 

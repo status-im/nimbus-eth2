@@ -609,20 +609,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -1038,7 +1024,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1505,6 +1491,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1778,11 +1778,12 @@
 
 
 <h1 id="run-an-execution-client">Run an execution client</h1>
-<p>In order to perform validation duties, you need to also be running an execution client - at least one for each beacon node.</p>
-<p>Nimbus has been tested all major execution clients - see the <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients">execution client comparison</a> for more information.</p>
+<p>In order to perform validation duties, you need to also be running an execution client — at least one for each beacon node.</p>
+<p>Nimbus has been tested all major execution clients, see the <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients">execution client comparison</a> for more information.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
+<p>You need to run your own execution client.
+Relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
 Sharing the same execution client between multiple beacon nodes is not supported.</p>
 </div>
 <div class="admonition info">
@@ -1834,9 +1835,9 @@ While this is very much a project in development (i.e. not yet ready for public 
 <p>The execution client needs to be running at all times in order for the beacon node to be able to support validators.
 It will start its syncing process as soon as the beacon node connects to it.
 Once both are synced, they will continue to work in tandem to validate the latest Ethereum state.</p>
-<p>It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.</p>
+<p>It is safe to start the beacon node even if the execution client is not yet fully synced, and vice versa.</p>
 <h3 id="3-pass-the-url-and-jwt-secret-to-nimbus">3. Pass the URL and JWT secret to Nimbus</h3>
-<p>The <code>--el</code> option informs the beacon node how to connect to the execution client - both <code>http://</code> and <code>ws://</code> URLs are supported.</p>
+<p>The <code>--el</code> option informs the beacon node how to connect to the execution client — both <code>http://</code> and <code>ws://</code> URLs are supported.</p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
 <p>By default, the execution client accepts connections on the localhost interface (<code>127.0.0.1</code>), with default authenticated RPC port <code>8551</code>.
@@ -1878,7 +1879,7 @@ To enable this mode, just specify multiple URLs through the <code>--el</code> op
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>You can use a different secret for each connection by specifying <code>jwt-secret</code> or <code>jwt-secret-file</code> as a query parameter in the anchor section of the URL (e.g. <code>http://127.0.0.1:8551/#jwt-secret=0x12345...</code> or <code>http://127.0.0.1:8551/#jwt-secret-file=/tmp/jwtsecret</code>).
-If you use a <a href="options.html#configuration-files">TOML config file</a>, you can also use the following more natural syntax:</p>
+If you use a <a href="options.html#configuration-files">TOML config file</a>, you can also use the following, more natural, syntax:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">data-dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;my-data-dir&quot;</span><span class="w"></span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">rest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w"></span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">...</span><span class="w"></span>

@@ -679,20 +679,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="web3-backup.html" class="md-nav__link">
-        Backup web3 provider
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -1018,7 +1004,7 @@
   
     <li class="md-nav__item">
       <a href="profits.html" class="md-nav__link">
-        Optimise for profitability
+        Optimize for profitability
       </a>
     </li>
   
@@ -1485,6 +1471,20 @@
   
   
     <li class="md-nav__item">
+      <a href="web3signer.html" class="md-nav__link">
+        Web3Signer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1738,10 +1738,12 @@
 
 
 <h1 id="build-from-source">Build from source</h1>
-<p>Building Nimbus from source ensures that all hardware-specific optimizations are turned on. The build process itself is simple and fully automated, but may take a few minutes.</p>
+<p>Building Nimbus from source ensures that all hardware-specific optimizations are turned on.
+The build process itself is simple and fully automated, but may take a few minutes.</p>
 <div class="admonition note">
 <p class="admonition-title">Nim</p>
-<p>Nimbus is written in the <a href="https://nim-lang.org">Nim</a> programming language - the correct version will automatically be downloaded as part of the build process!</p>
+<p>Nimbus is written in the <a href="https://nim-lang.org">Nim</a> programming language.
+The correct version will automatically be downloaded as part of the build process!</p>
 </div>
 <h2 id="prerequisites">Prerequisites</h2>
 <div class="admonition tip">
@@ -1753,6 +1755,10 @@
 <li>Developer tools (C compiler, Make, Bash, Git)</li>
 <li><a href="https://cmake.org/">CMake</a></li>
 </ul>
+<!-- TODO: Please test whether the instructions below are correct. I think we are missing some dependencies on Windows. -->
+<!--       Microsoft offer virtual machines that you can use for testing here: -->
+<!--       https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/ -->
+
 <div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Linux</label><label for="__tabbed_1_2">macOS</label><label for="__tabbed_1_3">Windows</label><label for="__tabbed_1_4">Android</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -1776,15 +1782,16 @@
 <p>To build Nimbus on Windows, the MinGW-w64 build environment is recommended.</p>
 <p>Install Mingw-w64 for your architecture using the "<a href="https://sourceforge.net/projects/mingw-w64/files/">MinGW-W64 Online Installer</a>":</p>
 <ol>
-<li>Select your architecture in the setup menu (<code>i686</code> on 32-bit, <code>x86_64</code> on 64-bit)</li>
-<li>Set threads to <code>win32</code></li>
+<li>Select your architecture in the setup menu (<code>i686</code> on 32-bit, <code>x86_64</code> on 64-bit).</li>
+<li>Set threads to <code>win32</code>.</li>
 <li>Set exceptions to "dwarf" on 32-bit and "seh" on 64-bit.</li>
-<li>Change the installation directory to <code>C:\mingw-w64</code> and add it to your system PATH in <code>"My Computer"/"This PC" -&gt; Properties -&gt; Advanced system settings -&gt; Environment Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin</code> (<code>C:\mingw-w64\mingw32\bin</code> on 32-bit)</li>
+<li>Change the installation directory to <code>C:\mingw-w64</code> and add it to your system PATH in <code>"My Computer"/"This PC" -&gt; Properties -&gt; Advanced system settings -&gt; Environment Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin</code> (<code>C:\mingw-w64\mingw32\bin</code> on 32-bit).</li>
 </ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the online installer isn't working you can try installing <code>mingw-w64</code> through <a href="https://www.msys2.org/">MSYS2</a>.</p>
+</div>
 <p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a "Git Bash" shell to clone and build <code>nimbus-eth2</code>.</p>
-<blockquote>
-<p><strong>Note:</strong> If the online installer isn't working you can try installing <code>mingw-w64</code> through <a href="https://www.msys2.org/">MSYS2</a>.</p>
-</blockquote>
 </div>
 <div class="tabbed-block">
 <ul>
