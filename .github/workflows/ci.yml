@@ -68,7 +68,7 @@ jobs:
 
           current_year=$(date +"%Y")
           outdated_files=()
-          git diff-tree --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '\.('$excluded_extensions')$' || true | while read -r file; do
+          git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '\.('$excluded_extensions')$' || true | while read -r file; do
             if ! grep -qE 'Copyright \(c\) .*'$current_year' Status Research & Development GmbH' "$file"; then
               outdated_files+=("$file")
             fi
