@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-    .section .rodata
+    .data
 
 # name_data = start of data
 # name_end = end of data (without alignment)
@@ -17,7 +17,7 @@ eth2_mainnet_genesis_data:
 eth2_mainnet_genesis_end:
     .global eth2_mainnet_genesis
     .type   eth2_mainnet_genesis, @object
-    .balign  8
+    .p2align 3
 eth2_mainnet_genesis:
     .quad eth2_mainnet_genesis_data
     .global eth2_mainnet_genesis_size
@@ -31,7 +31,7 @@ eth2_goerli_genesis_data:
 eth2_goerli_genesis_end:
     .global eth2_goerli_genesis
     .type   eth2_goerli_genesis, @object
-    .balign  8
+    .p2align 3
 eth2_goerli_genesis:
     .quad eth2_goerli_genesis_data
     .global eth2_goerli_genesis_size
@@ -45,7 +45,7 @@ eth2_sepolia_genesis_data:
 eth2_sepolia_genesis_end:
     .global eth2_sepolia_genesis
     .type   eth2_sepolia_genesis, @object
-    .balign  8
+    .p2align 3
 eth2_sepolia_genesis:
     .quad eth2_sepolia_genesis_data
     .global eth2_sepolia_genesis_size
