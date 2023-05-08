@@ -66,8 +66,6 @@ jobs:
         run: |
           excluded_extensions="ans|json|md|png|txt"
 
-          git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD
-
           current_year=$(date +"%Y")
           outdated_files=()
           while read -r file; do
