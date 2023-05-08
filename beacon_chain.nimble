@@ -6,7 +6,7 @@ description   = "The Nimbus beacon chain node is a highly efficient Ethereum 2.0
 license       = "MIT or Apache License 2.0"
 
 requires(
-  "nim >= 1.2.0",
+  "nim >= 1.6.12",
   "https://github.com/status-im/NimYAML",
   "bearssl",
   "blscurve",
