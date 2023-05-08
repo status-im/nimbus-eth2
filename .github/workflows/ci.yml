@@ -57,9 +57,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-          with:
-            fetch-depth: 2
-            # submodules: true  # Fails on nimyaml tests
+        with:
+          fetch-depth: 2
+          # submodules: true  # Fails on nimyaml tests
 
       - name: Check copyright year (Linux)
         if: github.event_name == 'pull_request' && runner.os == 'Linux'
@@ -69,6 +69,7 @@ jobs:
           base_branch="${{ github.event.pull_request.base.ref }}"
           git fetch origin "$base_branch"
           git log --oneline -n 10
+          git diff-tree --no-commit-id --diff-filter=AM -r HEAD^ HEAD
           common_ancestor=$(git merge-base "origin/$base_branch" HEAD)
 
           current_year=$(date +"%Y")
