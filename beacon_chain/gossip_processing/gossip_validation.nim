@@ -1217,7 +1217,7 @@ proc validateContribution*(
       let x = await contributionFut
       case x
       of BatchResult.Invalid:
-        return dag.checkedReject(
+        return errReject(  # TODO Triggers in local tests around fork transition
           "SignedContributionAndProof: invalid contribution signature")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
