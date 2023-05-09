@@ -327,7 +327,7 @@ elif const_preset == "minimal":
 
     # Transition
     # ---------------------------------------------------------------
-    # TBD, 2**256-2**10 is a placeholder
+    # 2**256-2**10 for testing minimal network
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
