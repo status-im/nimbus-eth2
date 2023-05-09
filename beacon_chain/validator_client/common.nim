@@ -528,7 +528,13 @@ proc normalizeUri*(remoteUri: Uri): Uri =
     # http://test.com
     # http://test.com?q=query
     # http://test.com?q=query#anchor=anchor
-    if len(r.port) == 0: r.port = $defaultEth2RestPort
+    if len(r.port) == 0:
+      r.port =
+        case toLower(r.scheme)
+        of "http": "80"
+        of "https": "443"
+        else:
+          $defaultEth2RestPort
     r
   else:
     remoteUri
