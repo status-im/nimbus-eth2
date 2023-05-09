@@ -5,16 +5,20 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-#if defined (__APPLE__)
+#if defined(__APPLE__)
 # define cdecl(s) _##s
 #else
 # define cdecl(s) s
 #endif
 
-#ifdef __linux__
-    .section .rodata
+#if defined(__linux__)
+    .section .rodata,"a",@progbits
+#elif defined(__APPLE__)
+    .section __TEXT,__const
+#elif defined(__WIN32__)
+    .section .rdata,"dr"
 #else
-    .data
+    .text
 #endif
 
 # name_data = start of data
