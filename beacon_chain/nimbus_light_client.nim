@@ -65,9 +65,7 @@ programMain:
   let
     genesisState =
       try:
-        template genesisData(): auto = metadata.genesisData
-        newClone(readSszForkedHashedBeaconState(
-          cfg, genesisData.toOpenArrayByte(genesisData.low, genesisData.high)))
+        newClone(readSszForkedHashedBeaconState(cfg, metadata.genesisData))
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
 

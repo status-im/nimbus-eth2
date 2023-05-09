@@ -80,16 +80,12 @@ type
       #
       # `genesisData` will have `len == 0` for networks with a still
       # unknown genesis state.
-      genesisData*: string
-      genesisDepositsSnapshot*: string
+      genesisData*: seq[byte]
+      genesisDepositsSnapshot*: seq[byte]
     else:
       incompatibilityDesc*: string
 
-const
-  eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
-  sepoliaDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/sepolia"
-
-proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
+proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
   if fileExists(path):
     splitLines(readFile(path)).
@@ -98,7 +94,7 @@ proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].
   else:
     @[]
 
-proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
+proc readBootEnr*(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
   if fileExists(path):
     splitLines(readFile(path)).
@@ -107,8 +103,9 @@ proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
   else:
     @[]
 
-proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Eth2NetworkMetadata
-                             {.raises: [CatchableError, Defect].} =
+proc loadEth2NetworkMetadata*(
+    path: string, eth1Network = none(Eth1Network), loadGenesis = true):
+    Eth2NetworkMetadata {.raises: [CatchableError].} =
   # Load data in eth2-networks format
   # https://github.com/eth-clients/eth2-networks
 
@@ -175,15 +172,15 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
         readBootstrapNodes(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
-      genesisData = if fileExists(genesisPath):
-        readFile(genesisPath)
+      genesisData = if loadGenesis and fileExists(genesisPath):
+        toBytes(readFile(genesisPath))
       else:
-        ""
+        @[]
 
       genesisDepositsSnapshot = if fileExists(genesisDepositsSnapshotPath):
-        readFile(genesisDepositsSnapshotPath)
+        toBytes(readFile(genesisDepositsSnapshotPath))
       else:
-        ""
+        @[]
 
     Eth2NetworkMetadata(
       incompatible: false,
@@ -201,10 +198,11 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
 
 proc loadCompileTimeNetworkMetadata(
     path: string,
-    eth1Network = none(Eth1Network)): Eth2NetworkMetadata {.raises: [Defect].} =
+    eth1Network = none(Eth1Network),
+    loadGenesis = true): Eth2NetworkMetadata {.raises: [].} =
   if fileExists(path & "/config.yaml"):
     try:
-      result = loadEth2NetworkMetadata(path, eth1Network)
+      result = loadEth2NetworkMetadata(path, eth1Network, loadGenesis)
       if result.incompatible:
         macros.error "The current build is misconfigured. " &
                      "Attempt to load an incompatible network metadata: " &
@@ -214,26 +212,47 @@ proc loadCompileTimeNetworkMetadata(
   else:
     macros.error "config.yaml not found for network '" & path
 
-template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
-  loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
-                                 some eth1Network)
+const vendorDir =
+  currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
 
 when const_preset == "gnosis":
   const
     gnosisMetadata* = loadCompileTimeNetworkMetadata(
-      currentSourcePath.parentDir.replace('\\', '/') &
-      "/../../vendor/gnosis-chain-configs/mainnet")
+      vendorDir & "/gnosis-chain-configs/mainnet")
+
   static:
     checkForkConsistency(gnosisMetadata.cfg)
     doAssert gnosisMetadata.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
     doAssert gnosisMetadata.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
+  import stew/assign2
+
+  # Nim is very inefficent at loading large constants from binary files so we
+  # use this trick instead which saves significant amounts of compile time
+  let
+    mainnetGenesis {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
+    mainnetGenesisSize {.importc: "eth2_mainnet_genesis_size".}: int
+
+    praterGenesis {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
+    praterGenesisSize {.importc: "eth2_goerli_genesis_size".}: int
+
+    sepoliaGenesis {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
+    sepoliaGenesisSize {.importc: "eth2_sepolia_genesis_size".}: int
+
+  {.compile: "network_metadata_mainnet.s".}
+
   const
-    mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
-    praterMetadata* = eth2Network("shared/prater", goerli)
-    sepoliaMetadata* =
-      loadCompileTimeNetworkMetadata(sepoliaDir & "/bepolia", some sepolia)
+    eth2NetworksDir = vendorDir & "/eth2-networks"
+    sepoliaDir = vendorDir & "/sepolia"
+
+    mainnetMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/eth2-networks/shared/mainnet", some mainnet, false)
+    praterMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/eth2-networks/shared/prater", some goerli, false)
+    sepoliaMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/sepolia/bepolia", some sepolia, false)
+
   static:
     for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
@@ -245,7 +264,7 @@ elif const_preset == "mainnet":
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(
-    networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+    networkName: string): Eth2NetworkMetadata {.raises: [IOError].} =
   template loadRuntimeMetadata(): auto =
     if fileExists(networkName / "config.yaml"):
       try:
@@ -275,11 +294,23 @@ proc getMetadataForNetwork*(
     elif const_preset == "mainnet":
       case toLowerAscii(networkName)
       of "mainnet":
-        mainnetMetadata
+        var tmp = mainnetMetadata
+        assign(
+          tmp.genesisData,
+          mainnetGenesis.toOpenArray(0, mainnetGenesisSize - 1))
+        tmp
       of "prater", "goerli":
-        praterMetadata
+        var tmp = praterMetadata
+        assign(
+          tmp.genesisData,
+          praterGenesis.toOpenArray(0, praterGenesisSize - 1))
+        tmp
       of "sepolia":
-        sepoliaMetadata
+        var tmp = sepoliaMetadata
+        assign(
+          tmp.genesisData,
+          sepoliaGenesis.toOpenArray(0, sepoliaGenesisSize - 1))
+        tmp
       else:
         loadRuntimeMetadata()
 
