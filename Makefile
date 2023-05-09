@@ -802,6 +802,10 @@ dist-amd64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh amd64
 
+dist-amd64-opt:
+	+ MAKE="$(MAKE)" \
+		scripts/make_dist.sh amd64-opt
+
 dist-arm64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm64
@@ -824,6 +828,7 @@ dist-macos-arm64:
 
 dist:
 	+ $(MAKE) dist-amd64
+	+ $(MAKE) dist-amd64-opt
 	+ $(MAKE) dist-arm64
 	+ $(MAKE) dist-arm
 	+ $(MAKE) dist-win64

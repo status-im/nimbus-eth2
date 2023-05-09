@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020-2022 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2023 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -29,7 +29,6 @@ fi
 
 echo -e "\nPLATFORM=${PLATFORM}"
 
-# we need to build everything against libraries available inside this container, including the Nim compiler
 # we need to build everything against libraries available inside this container, including the Nim compiler
 # the nimbus-build-system.paths file needs to be re-created because it may include absolute paths that are
 # valid only on the host system (and not in the docker container where the build is executing)
@@ -183,6 +182,17 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     FORCE_DSYMUTIL=1 \
     USE_VENDORED_LIBUNWIND=1 \
     NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --passL:'-mcpu=apple-a13' --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    ${BINARIES}
+elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then
+  gcc --version
+  echo
+
+  make \
+    -j$(nproc) \
+    LOG_LEVEL="TRACE" \
+    NIMFLAGS="${NIMFLAGS_COMMON} -d:marchOptimized" \
+    PARTIAL_STATIC_LINKING=1 \
+    QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}
 else
   # Linux AMD64
