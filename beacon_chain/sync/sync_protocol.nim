@@ -424,7 +424,7 @@ p2pProtocol BeaconSync(version = 1,
       peer, roots = blockRoots.len, count, found
 
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1
   proc blobSidecarsByRoot(
       peer: Peer,
       blobIds: BlobIdentifierList,
