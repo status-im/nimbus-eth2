@@ -568,7 +568,7 @@ type
 
   Web3SignerMerkleProof* = object
     index*: GeneralizedIndex
-    merkleProofs* {.serializedFieldName: "merkle_proofs".}: seq[Eth2Digest]
+    proof*: seq[Eth2Digest]
 
   Web3SignerRequestKind* {.pure.} = enum
     AggregationSlot, AggregateAndProof, Attestation, Block, BlockV2,

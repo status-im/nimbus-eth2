@@ -35,12 +35,20 @@ The growth of the database depends on the [history mode](./history.md).
 
 ### `secrets` and `validators`
 
-These two folders contain your validator keys, as well as the passwords needed to unlock them when starting the beacon node.
+These two folders contain your validator keys, as well as the passwords needed to unlock them when starting the beacon node. By default, the folders are nested directly under the selected data directory, but you can alter the location through the options `--validators-dir` and `--secrets-dir`.
 
 !!! warning
     Be careful not to copy the `secrets` and `validator` folders, leaving them in two locations!
     Instead, always _move_ them to the new location.
     Using the same validators with two nodes poses a significant slashing risk!
+
+For each imported validator, the validators directory includes a sub-folder named after the 0x-prefixed hex-encoded public key of the validator. The per-validator directory contains either a [local keystore file](https://eips.ethereum.org/EIPS/eip-2335) with the name `keystore.json` or [remote keystore file](./web3signer.md) with the name `remote_keystore.json`. It may also contain the following additional configuration files:
+
+* `suggested_fee_recipient.hex` - a hex-encoded execution layer address that will receive the transaction fees from blocks produced by the particular validator.
+
+* `suggested_gas_limit.json` - the suggested gas limit of the blocks produced by the particular validator.
+
+For each imported validator with a local keystore, the secrets directory includes a file named after the 0x-prefixed hex-encoded public key of the validator. The contents of the file will be used as the password for unlocking the keystore. If a password file for a particular validator is missing, Nimbus obtains the password interactively from the user on start-up. If the `--non-interactive` option is specified, Nimbus considers a missing password file to be a fatal error and it will terminate with a non-zero exit code.
 
 ## Moving the data directory
 

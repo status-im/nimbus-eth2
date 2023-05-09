@@ -1,9 +1,10 @@
-# nimbus_sign_node
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# nimbus_signing_node
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import std/[tables, os, strutils]
 import serialization, json_serialization,
        json_serialization/std/[options, net],
@@ -256,7 +257,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
         let feeRecipientRoot = hash_tree_root(distinctBase(
           node.config.expectedFeeRecipient.get()))
 
-        if not(is_valid_merkle_branch(feeRecipientRoot, proof.merkleProofs,
+        if not(is_valid_merkle_branch(feeRecipientRoot, proof.proof,
                                       log2trunc(proof.index),
                                       get_subtree_index(proof.index),
                                       blockHeader.body_root)):
