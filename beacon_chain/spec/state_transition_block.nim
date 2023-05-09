@@ -438,10 +438,9 @@ proc process_operations(cfg: RuntimeConfig,
     ? process_deposit(cfg, state, op, flags)
   for op in body.voluntary_exits:
     ? process_voluntary_exit(cfg, state, op, flags, cache)
-  for fieldName, _ in body.fieldPairs:
-    when fieldName == "bls_to_execution_changes":
-      for op in body.bls_to_execution_changes:
-        ? process_bls_to_execution_change(cfg, state, op)
+  when typeof(body).toFork >= ConsensusFork.Capella:
+    for op in body.bls_to_execution_changes:
+      ? process_bls_to_execution_change(cfg, state, op)
 
   ok()
 

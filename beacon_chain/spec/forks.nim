@@ -458,6 +458,9 @@ template toFork*[T:
     phase0.BeaconBlock |
     phase0.SignedBeaconBlock |
     phase0.TrustedBeaconBlock |
+    phase0.BeaconBlockBody |
+    phase0.SigVerifiedBeaconBlockBody |
+    phase0.TrustedBeaconBlockBody |
     phase0.SigVerifiedSignedBeaconBlock |
     phase0.MsgTrustedSignedBeaconBlock |
     phase0.TrustedSignedBeaconBlock](
@@ -470,6 +473,9 @@ template toFork*[T:
     altair.BeaconBlock |
     altair.SignedBeaconBlock |
     altair.TrustedBeaconBlock |
+    altair.BeaconBlockBody |
+    altair.SigVerifiedBeaconBlockBody |
+    altair.TrustedBeaconBlockBody |
     altair.SigVerifiedSignedBeaconBlock |
     altair.MsgTrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock](
@@ -485,6 +491,9 @@ template toFork*[T:
     bellatrix.BeaconBlock |
     bellatrix.SignedBeaconBlock |
     bellatrix.TrustedBeaconBlock |
+    bellatrix.BeaconBlockBody |
+    bellatrix.SigVerifiedBeaconBlockBody |
+    bellatrix.TrustedBeaconBlockBody |
     bellatrix.SigVerifiedSignedBeaconBlock |
     bellatrix.MsgTrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock](
@@ -500,6 +509,9 @@ template toFork*[T:
     capella.BeaconBlock |
     capella.SignedBeaconBlock |
     capella.TrustedBeaconBlock |
+    capella.BeaconBlockBody |
+    capella.SigVerifiedBeaconBlockBody |
+    capella.TrustedBeaconBlockBody |
     capella.SigVerifiedSignedBeaconBlock |
     capella.MsgTrustedSignedBeaconBlock |
     capella.TrustedSignedBeaconBlock](
@@ -515,6 +527,9 @@ template toFork*[T:
     deneb.BeaconBlock |
     deneb.SignedBeaconBlock |
     deneb.TrustedBeaconBlock |
+    deneb.BeaconBlockBody |
+    deneb.SigVerifiedBeaconBlockBody |
+    deneb.TrustedBeaconBlockBody |
     deneb.SigVerifiedSignedBeaconBlock |
     deneb.MsgTrustedSignedBeaconBlock |
     deneb.TrustedSignedBeaconBlock](
