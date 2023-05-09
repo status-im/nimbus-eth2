@@ -68,6 +68,9 @@ type
   ValidatorQueryKind* {.pure.} = enum
     Index, Key
 
+  ValidatorIndexError* {.pure.} = enum
+    UnsupportedValue, TooHighValue
+
   ValidatorIdent* = object
     case kind*: ValidatorQueryKind
     of ValidatorQueryKind.Index:
@@ -1009,3 +1012,23 @@ func init*(t: typedesc[RestSignedContributionAndProof],
       message.contribution
     ),
     signature: signature)
+
+func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
+                                                          ValidatorIndexError] =
+  when sizeof(ValidatorIndex) == 4:
+    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
+      # On x86 platform Nim allows only `int32` indexes, so all the indexes in
+      # range `2^31 <= x < 2^32` are not supported.
+      if uint64(value) <= uint64(high(int32)):
+        ok(ValidatorIndex(value))
+      else:
+        err(ValidatorIndexError.UnsupportedValue)
+    else:
+      err(ValidatorIndexError.TooHighValue)
+  elif sizeof(ValidatorIndex) == 8:
+    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
+      ok(ValidatorIndex(value))
+    else:
+      err(ValidatorIndexError.TooHighValue)
+  else:
+    doAssert(false, "ValidatorIndex type size is incorrect")

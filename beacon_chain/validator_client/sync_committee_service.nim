@@ -25,19 +25,27 @@ type
     validator: AttachedValidator
     subcommitteeIdx: SyncSubcommitteeIndex
 
+  ValidatorAndSig* = object
+    validator: AttachedValidator
+    signature: ValidatorSig
+
 proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
                                 slot: Slot, beaconBlockRoot: Eth2Digest,
-                                duty: SyncCommitteeDuty): Future[bool] {.
+                                duty: SyncCommitteeDuty,
+                                index: IndexInSyncCommittee): Future[bool] {.
      async.} =
   let
     vc = service.client
     fork = vc.forkAtEpoch(slot.epoch)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
-    vindex = duty.validator_index
-    subcommitteeIdx = getSubcommitteeIndex(
-      duty.validator_sync_committee_index)
     validator = vc.getValidatorForDuties(
       duty.pubkey, slot, slashingSafe = true).valueOr: return false
+    subcommitteeIdx = getSubcommitteeIndex(index)
+
+  logScope:
+    validator = shortLog(validator)
+
+  let
     message =
       block:
         let res = await getSyncCommitteeMessage(validator, fork,
@@ -50,8 +58,8 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
           return
         res.get()
 
-  debug "Sending sync committee message", message = shortLog(message),
-        validator = shortLog(validator), validator_index = vindex,
+  debug "Sending sync committee message",
+        message = shortLog(message),
         delay = vc.getDelay(message.slot.sync_committee_message_deadline())
 
   let res =
@@ -60,18 +68,14 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
     except ValidatorApiError as exc:
       warn "Unable to publish sync committee message",
            message = shortLog(message),
-           validator = shortLog(validator),
-           validator_index = vindex,
            reason = exc.getFailureReason()
       return false
-    except CancelledError:
+    except CancelledError as exc:
       debug "Publish sync committee message request was interrupted"
-      return false
+      raise exc
     except CatchableError as exc:
       error "Unexpected error occurred while publishing sync committee message",
             message = shortLog(message),
-            validator = shortLog(validator),
-            validator_index = vindex,
             err_name = exc.name, err_msg = exc.msg
       return false
 
@@ -81,32 +85,32 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
     beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
     notice "Sync committee message published",
            message = shortLog(message),
-           validator = shortLog(validator),
-           validator_index = vindex,
            delay = delay
   else:
     warn "Sync committee message was not accepted by beacon node",
          message = shortLog(message),
-         validator = shortLog(validator),
-         validator_index = vindex, delay = delay
+         delay = delay
 
   return res
 
 proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
                                             slot: Slot,
                                             beaconBlockRoot: Eth2Digest,
-                                            duties: seq[SyncCommitteeDuty])
+                                            duties: seq[SyncDutyAndProof])
                                            {.async.} =
   let vc = service.client
 
   let pendingSyncCommitteeMessages =
     block:
       var res: seq[Future[bool]]
-      for duty in duties:
+      for sdap in duties:
+        let duty = sdap.data
         debug "Serving sync message duty", duty, epoch = slot.epoch()
-        res.add(service.serveSyncCommitteeMessage(slot,
-                                                  beaconBlockRoot,
-                                                  duty))
+        for syncCommitteeIndex in duty.validator_sync_committee_indices:
+          res.add(service.serveSyncCommitteeMessage(slot,
+                                                    beaconBlockRoot,
+                                                    duty,
+                                                    syncCommitteeIndex))
       res
 
   let statistics =
@@ -180,9 +184,9 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
            err_msg = exc.msg,
            reason = exc.getFailureReason()
       false
-    except CancelledError:
+    except CancelledError as exc:
       debug "Publish sync contribution request was interrupted"
-      return false
+      raise exc
     except CatchableError as err:
       error "Unexpected error occurred while publishing sync contribution",
             contribution = shortLog(proof.contribution),
@@ -205,72 +209,60 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
 proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
                                     slot: Slot,
                                     beaconBlockRoot: Eth2Digest,
-                                    duties: seq[SyncCommitteeDuty]) {.async.} =
+                                    duties: seq[SyncDutyAndProof]) {.async.} =
   let
     vc = service.client
-    epoch = slot.epoch
+    epoch = slot.epoch()
     fork = vc.forkAtEpoch(epoch)
 
-  var slotSignatureReqs: seq[Future[SignatureResult]]
-  var validators: seq[(AttachedValidator, SyncSubcommitteeIndex)]
+  var
+    contributionFuts: array[SYNC_COMMITTEE_SUBNET_COUNT,
+                            Future[SyncCommitteeContribution]]
 
-  for duty in duties:
-    let
-      validator = vc.getValidatorForDuties(duty.pubkey, slot).valueOr:
-        continue
-      subCommitteeIdx =
-        getSubcommitteeIndex(duty.validator_sync_committee_index)
-      future = validator.getSyncCommitteeSelectionProof(
-        fork,
-        vc.beaconGenesis.genesis_validators_root,
-        slot,
-        subCommitteeIdx)
+  let validatorContributions =
+    block:
+      var res: seq[ContributionItem]
+      for sdap in duties:
+        let duty = sdap.data
+        for syncCommitteeIndex in duty.validator_sync_committee_indices:
+          let
+            subCommitteeIndex = getSubcommitteeIndex(syncCommitteeIndex)
+            slotIndex = slot - slot.epoch().start_slot()
+            signature =
+              block:
+                let signatures = sdap.slotSigs.getOrDefault(subCommitteeIndex)
+                if signatures[slotIndex].isNone():
+                  continue
+                signatures[slotIndex].get()
+            validator = vc.getValidatorForDuties(duty.pubkey, slot).valueOr:
+              continue
+            vindex = validator.index.valueOr:
+              continue
+          if is_sync_committee_aggregator(signature):
+            res.add(ContributionItem(
+              aggregator_index: uint64(vindex),
+              selection_proof: signature,
+              validator: validator,
+              subcommitteeIdx: subCommitteeIndex
+            ))
+            if isNil(contributionFuts[int(subCommitteeIndex)]):
+              contributionFuts[int(subCommitteeIndex)] =
+                vc.produceSyncCommitteeContribution(
+                  slot, subCommitteeIndex, beaconBlockRoot,
+                  ApiStrategyKind.Best)
+      res
 
-    slotSignatureReqs.add(future)
-    validators.add((validator, subCommitteeIdx))
+  let pendingFutures = contributionFuts.filterIt(not(isNil(it)))
 
   try:
-    await allFutures(slotSignatureReqs)
+    await allFutures(pendingFutures)
   except CancelledError as exc:
-    var pendingCancel: seq[Future[void]]
-    for future in slotSignatureReqs:
-      if not(future.finished()):
-        pendingCancel.add(future.cancelAndWait())
-    await allFutures(pendingCancel)
+    var pending: seq[Future[void]]
+    for fut in pendingFutures:
+      if not(fut.finished()):
+        pending.add(fut.cancelAndWait())
+    await allFutures(pending)
     raise exc
-
-  var
-    contributionsFuts: array[SYNC_COMMITTEE_SUBNET_COUNT,
-                             Future[SyncCommitteeContribution]]
-
-  let validatorContributions = block:
-    var res: seq[ContributionItem]
-    for idx, fut in slotSignatureReqs:
-      if fut.completed:
-        let
-          sigRes = fut.read
-          validator = validators[idx][0]
-          subCommitteeIdx = validators[idx][1]
-        if sigRes.isErr():
-          warn "Unable to create slot signature using remote signer",
-               validator = shortLog(validator),
-               error_msg = sigRes.error()
-        elif validator.index.isSome and
-             is_sync_committee_aggregator(sigRes.get):
-          res.add ContributionItem(
-            aggregator_index: uint64(validator.index.get),
-            selection_proof: sigRes.get,
-            validator: validator,
-            subcommitteeIdx: subCommitteeIdx)
-
-          if isNil(contributionsFuts[subCommitteeIdx]):
-            contributionsFuts[int subCommitteeIdx] =
-              vc.produceSyncCommitteeContribution(
-                slot,
-                subCommitteeIdx,
-                beaconBlockRoot,
-                ApiStrategyKind.Best)
-    res
 
   if len(validatorContributions) > 0:
     let pendingAggregates =
@@ -279,22 +271,21 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
         for item in validatorContributions:
           let aggContribution =
             try:
-              await contributionsFuts[item.subcommitteeIdx]
+              contributionFuts[item.subcommitteeIdx].read()
             except ValidatorApiError as exc:
               warn "Unable to get sync message contribution data", slot = slot,
                    beaconBlockRoot = shortLog(beaconBlockRoot),
                    reason = exc.getFailureReason()
-              return
-            except CancelledError:
+              continue
+            except CancelledError as exc:
               debug "Request for sync message contribution was interrupted"
-              return
+              raise exc
             except CatchableError as exc:
               error "Unexpected error occurred while getting sync message "&
                     "contribution", slot = slot,
                     beaconBlockRoot = shortLog(beaconBlockRoot),
                     err_name = exc.name, err_msg = exc.msg
-              return
-
+              continue
           let proof = ContributionAndProof(
             aggregator_index: item.aggregator_index,
             contribution: aggContribution,
@@ -308,12 +299,12 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
         var errored, succeed, failed = 0
         try:
           await allFutures(pendingAggregates)
-        except CancelledError as err:
+        except CancelledError as exc:
           for fut in pendingAggregates:
             if not(fut.finished()):
               fut.cancel()
           await allFutures(pendingAggregates)
-          raise err
+          raise exc
 
         for future in pendingAggregates:
           if future.completed():
@@ -336,7 +327,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
 
 proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                          slot: Slot,
-                                         duties: seq[SyncCommitteeDuty]) {.
+                                         duties: seq[SyncDutyAndProof]) {.
      async.} =
   let vc = service.client
 
@@ -367,9 +358,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
         warn "Unable to retrieve head block's root to sign", reason = exc.msg,
              reason = exc.getFailureReason()
         return
-      except CancelledError:
+      except CancelledError as exc:
         debug "Block root request was interrupted"
-        return
+        raise exc
       except CatchableError as exc:
         error "Unexpected error while requesting sync message block root",
               err_name = exc.name, err_msg = exc.msg, slot = slot
@@ -383,9 +374,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     warn "Unable to proceed sync committee messages", slot = slot,
          duties_count = len(duties), reason = exc.getFailureReason()
     return
-  except CancelledError:
+  except CancelledError as exc:
     debug "Sync committee producing process was interrupted"
-    return
+    raise exc
   except CatchableError as exc:
     error "Unexpected error while producing sync committee messages",
           slot = slot,

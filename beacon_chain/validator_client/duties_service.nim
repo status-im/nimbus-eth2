@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/[sets, sequtils]
+import std/[sets, sequtils, algorithm]
 import chronicles
 import common, api, block_service
 
@@ -20,6 +20,22 @@ type
     AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
     ProposerPreparationLoop, ValidatorRegisterLoop
 
+  SyncIndexTable = Table[SyncSubcommitteeIndex, SlotProofsArray]
+
+  SyncValidatorAndDuty = object
+    validator: AttachedValidator
+    duty: SyncDutyAndProof
+
+  AttestationSlotRequest = object
+    validator: AttachedValidator
+    slot: Slot
+
+  SyncSlotRequest = object
+    validator: AttachedValidator
+    slot: Slot
+    validatorSyncCommitteeIndex: IndexInSyncCommittee
+    validatorSubCommitteeIndex: SyncSubcommitteeIndex
+
 chronicles.formatIt(DutiesServiceLoop):
   case it
   of AttesterLoop: "attester_loop"
@@ -28,6 +44,9 @@ chronicles.formatIt(DutiesServiceLoop):
   of SyncCommitteeLoop: "sync_committee_loop"
   of ProposerPreparationLoop: "proposer_prepare_loop"
   of ValidatorRegisterLoop: "validator_register_loop"
+
+proc cmp(x, y: AttestationSlotRequest): int =
+  if x.slot == y.slot: 0 elif x.slot < y.slot: -1 else: 1
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -109,6 +128,147 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
           updated_validators = updated
     vc.indicesAvailable.fire()
 
+proc fillAttestationSlotSignatures*(
+       service: DutiesServiceRef,
+       epochPeriods: seq[Epoch]
+     ) {.async.} =
+  let
+    vc = service.client
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    requests =
+      block:
+        var res: seq[AttestationSlotRequest]
+        for epoch in epochPeriods:
+          for duty in vc.attesterDutiesForEpoch(epoch):
+            if duty.slotSig.isNone():
+              let validator =
+                vc.attachedValidators[].
+                  getValidator(duty.data.pubkey).valueOr:
+                continue
+              res.add(AttestationSlotRequest(
+                validator: validator,
+                slot: duty.data.slot
+              ))
+        # We make requests sorted by slot number.
+        sorted(res, cmp, order = SortOrder.Ascending)
+    pendingRequests =
+      block:
+        var res: seq[Future[SignatureResult]]
+        for request in requests:
+          let fork = vc.forkAtEpoch(request.slot.epoch())
+          res.add(request.validator.getSlotSignature(fork, genesisRoot,
+                                                     request.slot))
+        res
+
+  try:
+    # TODO (cheatfate): Here we waiting for all signatures, but when remote
+    # signer is used we could try different approach.
+    await allFutures(pendingRequests)
+  except CancelledError as exc:
+    var pending: seq[Future[void]]
+    for future in pendingRequests:
+      if not(future.finished()): pending.add(future.cancelAndWait())
+    await allFutures(pending)
+    raise exc
+
+  for index, fut in pendingRequests.pairs():
+    let
+      request = requests[index]
+      signature =
+        if fut.done():
+          let sres = fut.read()
+          if sres.isErr():
+            warn "Unable to create slot signature using remote signer",
+                 reason = sres.error(), epoch = request.slot.epoch(),
+                 slot = request.slot
+            Opt.none(ValidatorSig)
+          else:
+            Opt.some(sres.get())
+        else:
+          Opt.none(ValidatorSig)
+
+    vc.attesters.withValue(request.validator.pubkey, map):
+      map[].duties.withValue(request.slot.epoch(), dap):
+        dap[].slotSig = signature
+
+  if vc.config.distributedEnabled:
+    var indexToKey: Table[ValidatorIndex, Opt[ValidatorPubKey]]
+    let selections =
+      block:
+        var sres: seq[RestBeaconCommitteeSelection]
+        for epoch in epochPeriods:
+          for duty in vc.attesterDutiesForEpoch(epoch):
+            # We only use duties which has slot signature filled, because
+            # middleware needs it to create aggregated signature.
+            if duty.slotSig.isSome():
+              let
+                validator = vc.attachedValidators[].getValidator(
+                              duty.data.pubkey).valueOr:
+                  continue
+                vindex = validator.index.valueOr:
+                  continue
+              indexToKey[vindex] = Opt.some(validator.pubkey)
+              sres.add(RestBeaconCommitteeSelection(
+                validator_index: RestValidatorIndex(vindex),
+                slot: duty.data.slot,
+                selection_proof: duty.slotSig.get()
+              ))
+        sres
+
+    if len(selections) == 0: return
+
+    let sresponse =
+      try:
+        # Query middleware for aggregated signatures.
+        await vc.submitBeaconCommitteeSelections(selections,
+                                                 ApiStrategyKind.Best)
+      except ValidatorApiError as exc:
+        warn "Unable to submit beacon committee selections",
+             reason = exc.getFailureReason()
+        return
+      except CancelledError as exc:
+        debug "Beacon committee selections processing was interrupted"
+        raise exc
+      except CatchableError as exc:
+        error "Unexpected error occured while trying to submit beacon " &
+              "committee selections", reason = exc.msg, error = exc.name
+        return
+
+    for selection in sresponse.data:
+      let
+        vindex = selection.validator_index.toValidatorIndex().valueOr:
+          warn "Invalid validator_index value encountered while processing " &
+               "beacon committee selections",
+               validator_index = uint64(selection.validator_index),
+               reason = $error
+          continue
+        selectionProof = selection.selection_proof.load().valueOr:
+          warn "Invalid signature encountered while processing " &
+               "beacon committee selections",
+               validator_index = vindex,
+               slot = selection.slot,
+               selection_proof = shortLog(selection.selection_proof)
+          continue
+        validator =
+          block:
+            # Selections operating using validator indices, so we should check
+            # if we have such validator index in our validator's pool and it
+            # still in place (not removed using keystore manager).
+            let key = indexToKey.getOrDefault(vindex)
+            if key.isNone():
+              warn "Non-existing validator encountered while processing " &
+                   "beacon committee selections",
+                   validator_index = vindex,
+                   slot = selection.slot,
+                   selection_proof = shortLog(selection.selection_proof)
+              continue
+            vc.attachedValidators[].getValidator(key.get()).valueOr:
+              continue
+
+      vc.attesters.withValue(validator.pubkey, map):
+        map[].duties.withValue(selection.slot.epoch(), dap):
+          dap[].slotSig = Opt.some(selectionProof.toValidatorSig())
+
 proc pollForAttesterDuties*(service: DutiesServiceRef,
                             epoch: Epoch): Future[int] {.async.} =
   let vc = service.client
@@ -118,7 +278,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
     return 0
 
   var duties: seq[RestAttesterDuty]
-  var currentRoot: Option[Eth2Digest]
+  var currentRoot: Opt[Eth2Digest]
 
   var offset = 0
   while offset < len(validatorIndices):
@@ -151,7 +311,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
 
     if currentRoot.isNone():
       # First request
-      currentRoot = some(res.dependent_root)
+      currentRoot = Opt.some(res.dependent_root)
     else:
       if currentRoot.get() != res.dependent_root:
         # `dependent_root` must be equal for all requests/response, if it got
@@ -159,7 +319,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
         # should re-request all queries again.
         offset = 0
         duties.setLen(0)
-        currentRoot = none[Eth2Digest]()
+        currentRoot = Opt.none(Eth2Digest)
         continue
 
     for item in res.data:
@@ -194,108 +354,11 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
           res.add((epoch, duty))
       res
 
-  if len(addOrReplaceItems) > 0:
-    var pendingRequests: seq[Future[SignatureResult]]
-    var validators: seq[AttachedValidator]
-    for item in addOrReplaceItems:
-      let
-        validator =
-          vc.attachedValidators[].getValidator(item.duty.pubkey).valueOr:
-            continue
-        fork = vc.forkAtEpoch(item.duty.slot.epoch)
-        future = validator.getSlotSignature(fork, genesisRoot, item.duty.slot)
-      pendingRequests.add(future)
-      validators.add(validator)
-
-    try:
-      await allFutures(pendingRequests)
-    except CancelledError as exc:
-      var pendingCancel: seq[Future[void]]
-      for future in pendingRequests:
-        if not(future.finished()):
-          pendingCancel.add(future.cancelAndWait())
-      await allFutures(pendingCancel)
-      raise exc
-
-    let daps =
-      block:
-        var res: seq[DutyAndProof]
-        for index, fut in pendingRequests:
-          let
-            item = addOrReplaceItems[index]
-            dap =
-              if fut.done():
-                let sigRes = fut.read()
-                if sigRes.isErr():
-                  warn "Unable to create slot signature using remote signer",
-                        validator = shortLog(validators[index]),
-                        error_msg = sigRes.error()
-                  DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                                    none[ValidatorSig]())
-                else:
-                  DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                                    some(sigRes.get()))
-              else:
-                DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                                  none[ValidatorSig]())
-          res.add(dap)
-        res
-
-    for item in daps:
-      # Update VC attesters registry with current version of DutyAndProof.
-      vc.attesters.mgetOrPut(item.data.pubkey,
-                             default(EpochDuties)).duties[item.epoch] = item
-
-    if vc.config.distributedEnabled:
-      let selections = daps.getSelections()
-      if len(selections) == 0:
-        return len(addOrReplaceItems)
-
-      let sresponse =
-        try:
-          # Query middleware for aggregated signatures.
-          await vc.submitBeaconCommitteeSelections(selections,
-                                                   ApiStrategyKind.Best)
-        except ValidatorApiError as exc:
-          warn "Unable to submit beacon committee selections", epoch = epoch,
-               reason = exc.getFailureReason()
-          return 0
-        except CancelledError as exc:
-          debug "Beacon committee selections processing was interrupted"
-          raise exc
-        except CatchableError as exc:
-          error "Unexpected error occured while trying to submit beacon " &
-                "committee selections", epoch = epoch, err_name = exc.name,
-                err_msg = exc.msg
-          return 0
-
-      for selection in sresponse.data:
-        let selectionProof = selection.selection_proof.load().valueOr:
-          warn "Invalid signature encountered while processing beacon " &
-               "committee selections",
-               validator_index = ValidatorIndex(selection.validator_index),
-               slot = selection.slot,
-               selection_proof = shortLog(selection.selection_proof)
-          continue
-
-        let dres =
-          block:
-            var res: Opt[DutyAndProof]
-            for dap in daps:
-              if (uint64(dap.data.validator_index) ==
-                   uint64(selection.validator_index)) and
-                 (dap.data.slot == selection.slot):
-                var ndap = dap
-                ndap.slotSig = some(selection.selection_proof)
-                res = Opt.some(ndap)
-                break
-            res
-
-        if dres.isSome():
-          # Update VC attesters registry with new aggregated DutyAndProof.
-          let dap = dres.get()
-          vc.attesters.mgetOrPut(
-            dap.data.pubkey, default(EpochDuties)).duties[dap.epoch] = dap
+  for item in addOrReplaceItems:
+    let dap = DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
+                                Opt.none(ValidatorSig))
+    vc.attesters.mgetOrPut(dap.data.pubkey,
+                           default(EpochDuties)).duties[dap.epoch] = dap
 
   return len(addOrReplaceItems)
 
@@ -311,6 +374,174 @@ proc pruneSyncCommitteeDuties*(service: DutiesServiceRef, slot: Slot) =
           currentPeriodDuties.duties[epochKey] = epochDuty
       newSyncCommitteeDuties[key] = currentPeriodDuties
     vc.syncCommitteeDuties = newSyncCommitteeDuties
+
+proc fillSyncSlotSignatures*(
+       service: DutiesServiceRef,
+       epochPeriods: seq[Epoch]
+     ) {.async.} =
+  let
+    vc = service.client
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    validatorDuties =
+      block:
+        var res: seq[SyncValidatorAndDuty]
+        for epoch in epochPeriods:
+          for duty in vc.syncDutiesForEpoch(epoch):
+            if len(duty.slotSigs) == 0:
+              let validator = vc.attachedValidators[].getValidator(
+                duty.data.pubkey).valueOr:
+                continue
+              res.add(
+                SyncValidatorAndDuty(
+                  validator: validator,
+                  duty: duty))
+        res
+    (pendingRequests, pendingIds) =
+      block:
+        var
+          sres: seq[Future[SignatureResult]]
+          ires: seq[SyncSlotRequest]
+        for epoch in epochPeriods:
+          let fork = vc.forkAtEpoch(epoch)
+          for slot in epoch.slots():
+            for item in validatorDuties:
+              for syncCommitteeIndex in
+                  item.duty.data.validator_sync_committee_indices:
+                let subCommitteeIndex = getSubcommitteeIndex(syncCommitteeIndex)
+                sres.add(
+                  item.validator.getSyncCommitteeSelectionProof(
+                    fork, genesisRoot, slot, subCommitteeIndex))
+                ires.add(
+                  SyncSlotRequest(
+                    validator: item.validator,
+                    slot: slot,
+                    validatorSyncCommitteeIndex: syncCommitteeIndex,
+                    validatorSubCommitteeIndex: subCommitteeIndex))
+        (sres, ires)
+
+  try:
+    # TODO (cheatfate): Here we waiting for all signature requests, but we could
+    # perform waiting slot by slot, so all the tasks from early slot could
+    # start working without delays.
+    await allFutures(pendingRequests)
+  except CancelledError as exc:
+    var pending: seq[Future[void]]
+    for future in pendingRequests:
+      if not(future.finished()): pending.add(future.cancelAndWait())
+    await allFutures(pending)
+    raise exc
+
+  for index, fut in pendingRequests.pairs():
+    let
+      pid = pendingIds[index]
+      epoch = pid.slot.epoch()
+      slotIndex = pid.slot - epoch.start_slot()
+      signature =
+        if fut.done():
+          let sres = fut.read()
+          if sres.isErr():
+            warn "Unable to create slot proof using remote signer",
+                 reason = sres.error(), epoch = epoch,
+                 slot = pid.slot, slot_index = slotIndex,
+                 validator = shortLog(pid.validator)
+            Opt.none(ValidatorSig)
+          else:
+            Opt.some(sres.get())
+        else:
+          Opt.none(ValidatorSig)
+
+    vc.syncCommitteeDuties.withValue(pid.validator.pubkey, map):
+      map[].duties.withValue(epoch, sdap):
+        sdap[].slotSigs.withValue(pid.validatorSubCommitteeIndex, proofs):
+          proofs[][slotIndex] = signature
+
+  if vc.config.distributedEnabled:
+    var indexToKey: Table[ValidatorIndex, Opt[ValidatorPubKey]]
+
+    let selections =
+      block:
+        var sres: seq[RestSyncCommitteeSelection]
+        for epoch in epochPeriods:
+          for duty in vc.syncDutiesForEpoch(epoch):
+            let
+              validator = vc.attachedValidators[].getValidator(
+                              duty.data.pubkey).valueOr:
+                continue
+              vindex = validator.index.valueOr:
+                continue
+              startSlot = duty.epoch.start_slot()
+            indexToKey[vindex] = Opt.some(validator.pubkey)
+            for subCommitteeIndex, proofs in duty.slotSigs.pairs():
+              for slotIndex, selection_proof in proofs.pairs():
+                if selection_proof.isNone(): continue
+                sres.add(RestSyncCommitteeSelection(
+                  validator_index: RestValidatorIndex(vindex),
+                  slot: startSlot + slotIndex,
+                  subcommittee_index: uint64(subCommitteeIndex),
+                  selection_proof: selection_proof.get()
+                ))
+        sres
+
+    if len(selections) == 0: return
+
+    let sresponse =
+      try:
+        # Query middleware for aggregated signatures.
+        await vc.submitSyncCommitteeSelections(selections,
+                                               ApiStrategyKind.Best)
+      except ValidatorApiError as exc:
+        warn "Unable to submit sync committee selections",
+             reason = exc.getFailureReason()
+        return
+      except CancelledError as exc:
+        debug "Beacon committee selections processing was interrupted"
+        raise exc
+      except CatchableError as exc:
+        error "Unexpected error occured while trying to submit sync " &
+              "committee selections", reason = exc.msg, error = exc.name
+        return
+
+    for selection in sresponse.data:
+      let
+        vindex = selection.validator_index.toValidatorIndex().valueOr:
+          warn "Invalid validator_index value encountered while processing " &
+               "sync committee selections",
+               validator_index = uint64(selection.validator_index),
+               reason = $error
+          continue
+        selectionProof = selection.selection_proof.load().valueOr:
+          warn "Invalid signature encountered while processing " &
+               "sync committee selections",
+               validator_index = vindex,
+               slot = selection.slot,
+               subcommittee_index = selection.subcommittee_index,
+               selection_proof = shortLog(selection.selection_proof)
+          continue
+        epoch = selection.slot.epoch()
+        slotIndex = selection.slot - epoch.start_slot()
+          # Position in our slot_proofs array
+        subCommitteeIndex = SyncSubcommitteeIndex(selection.subcommittee_index)
+        validator =
+          block:
+            # Selections operating using validator indices, so we should check
+            # if we have such validator index in our validator's pool and it
+            # still in place (not removed using keystore manager).
+            let key = indexToKey.getOrDefault(vindex)
+            if key.isNone():
+              warn "Non-existing validator encountered while processing " &
+                   "sync committee selections",
+                   validator_index = vindex,
+                   slot = selection.slot,
+                   subcommittee_index = selection.subcommittee_index,
+                   selection_proof = shortLog(selection.selection_proof)
+              continue
+            vc.attachedValidators[].getValidator(key.get()).valueOr:
+              continue
+
+      vc.syncCommitteeDuties.withValue(validator.pubkey, map):
+        map[].duties.withValue(epoch, sdap):
+          sdap[].slotSigs.withValue(subCommitteeIndex, proofs):
+            proofs[][slotIndex] = Opt.some(selectionProof.toValidatorSig())
 
 proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
                                  epoch: Epoch): Future[int] {.async.} =
@@ -351,45 +582,30 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
     remainingItems -= arraySize
 
   let
-    relevantDuties =
-      block:
-        var res: seq[SyncCommitteeDuty]
-        for duty in filteredDuties:
-          for validatorSyncCommitteeIndex in
-              duty.validator_sync_committee_indices:
-            res.add(SyncCommitteeDuty(
-              pubkey: duty.pubkey,
-              validator_index: duty.validator_index,
-              validator_sync_committee_index: validatorSyncCommitteeIndex))
-        res
-
+    relevantSdaps = filteredDuties.mapIt(SyncDutyAndProof.init(epoch, it))
     fork = vc.forkAtEpoch(epoch)
 
-  let addOrReplaceItems =
-    block:
-      var alreadyWarned = false
-      var res: seq[tuple[epoch: Epoch, duty: SyncCommitteeDuty]]
-      for duty in relevantDuties:
-        var dutyFound = false
-
-        vc.syncCommitteeDuties.withValue(duty.pubkey, map):
-          map.duties.withValue(epoch, epochDuty):
-            if epochDuty[] != duty:
-              dutyFound = true
-
-        if dutyFound and not alreadyWarned:
-          info "Sync committee duties re-organization", duty, epoch
-          alreadyWarned = true
-
-        res.add((epoch, duty))
-      res
+    addOrReplaceItems =
+      block:
+        var
+          alreadyWarned = false
+          res: seq[tuple[epoch: Epoch, duty: SyncDutyAndProof]]
+        for sdap in relevantSdaps:
+          var dutyFound = false
+          vc.syncCommitteeDuties.withValue(sdap.data.pubkey, map):
+            map.duties.withValue(epoch, epochDuty):
+              if epochDuty[] != sdap:
+                dutyFound = true
+          if dutyFound and not(alreadyWarned):
+            info "Sync committee duties re-organization", sdap, epoch
+            alreadyWarned = true
+          res.add((epoch, sdap))
+        res
 
   if len(addOrReplaceItems) > 0:
-    for epoch, duty in items(addOrReplaceItems):
-      var validatorDuties =
-        vc.syncCommitteeDuties.getOrDefault(duty.pubkey)
-      validatorDuties.duties[epoch] = duty
-      vc.syncCommitteeDuties[duty.pubkey] = validatorDuties
+    for epoch, sdap in items(addOrReplaceItems):
+      vc.syncCommitteeDuties.mgetOrPut(sdap.data.pubkey,
+        default(EpochSyncDuties)).duties[epoch] = sdap
 
   return len(addOrReplaceItems)
 
@@ -430,6 +646,8 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
 
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new attester's duties received", slot = currentSlot
+
+    await service.fillAttestationSlotSignatures(@[currentEpoch, nextEpoch])
 
     let subscriptions =
       block:
@@ -490,21 +708,25 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
             )
           res
 
-      (counts, total) =
+      (counts, epochs, total) =
         block:
           var res: seq[tuple[epoch: Epoch, period: SyncCommitteePeriod,
                              count: int]]
+          var periods: seq[Epoch]
           var total = 0
           if len(dutyPeriods) > 0:
             for (epoch, period) in dutyPeriods:
               let count = await service.pollForSyncCommitteeDuties(epoch)
               res.add((epoch: epoch, period: period, count: count))
+              periods.add(epoch)
               total += count
-          (res, total)
+          (res, periods, total)
 
     if total == 0:
       debug "No new sync committee member's duties received",
             slot = currentSlot
+
+    await service.fillSyncSlotSignatures(epochs)
 
     let subscriptions =
       block:
@@ -668,8 +890,13 @@ proc attesterDutiesLoop(service: DutiesServiceRef) {.async.} =
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await service.pollForAttesterDuties()
     await service.waitForNextSlot(AttesterLoop)
+    # Cleaning up previous attestation duties task.
+    if not(isNil(service.pollingAttesterDutiesTask)) and
+       not(service.pollingAttesterDutiesTask.finished()):
+      await cancelAndWait(service.pollingAttesterDutiesTask)
+    # Spawning new attestation duties task.
+    service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
 
 proc proposerDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
@@ -727,8 +954,13 @@ proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await service.pollForSyncCommitteeDuties()
     await service.waitForNextSlot(SyncCommitteeLoop)
+    # Cleaning up previous attestation duties task.
+    if not(isNil(service.pollingSyncDutiesTask)) and
+       not(service.pollingSyncDutiesTask.finished()):
+      await cancelAndWait(service.pollingSyncDutiesTask)
+    # Spawning new attestation duties task.
+    service.pollingSyncDutiesTask = service.pollForAttesterDuties()
 
 template checkAndRestart(serviceLoop: DutiesServiceLoop,
                          future: Future[void], body: untyped): untyped =
@@ -803,6 +1035,12 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
           pending.add(prepareFut.cancelAndWait())
         if not(isNil(registerFut)) and not(registerFut.finished()):
           pending.add(registerFut.cancelAndWait())
+        if not(isNil(service.pollingAttesterDutiesTask)) and
+           not(service.pollingAttesterDutiesTask.finished()):
+          pending.add(service.pollingAttesterDutiesTask.cancelAndWait())
+        if not(isNil(service.pollingSyncDutiesTask)) and
+           not(service.pollingSyncDutiesTask.finished()):
+          pending.add(service.pollingSyncDutiesTask.cancelAndWait())
         await allFutures(pending)
         true
       except CatchableError as exc:
