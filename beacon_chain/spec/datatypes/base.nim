@@ -126,6 +126,26 @@ template maxSize*(n: int) {.pragma.}
 # - broke the compiler in SSZ and nim-serialization
 
 type
+  Wei* = UInt256
+  Gwei* = uint64
+  Ether* = distinct uint64
+
+template ethAmountUnit*(typ: type) {.dirty.} =
+  # Arithmetic
+  func `+`*(x, y: typ): typ {.borrow.}
+  func `-`*(x, y: typ): typ {.borrow.}
+  func `*`*(x: typ, y: distinctBase(typ)): typ {.borrow.}
+  func `*`*(x: distinctBase(typ), y: typ): typ {.borrow.}
+
+  # Arithmetic, changing type
+  func `div`*(x, y: typ): distinctBase(typ) {.borrow.}
+
+  # Comparison
+  func `<`*(x, y: typ): bool {.borrow.}
+
+ethAmountUnit Ether
+
+type
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
@@ -166,9 +186,6 @@ type
     ##
     ## The `SubnetId` type is constrained to values in the range
     ## `[0, ATTESTATION_SUBNET_COUNT)` during initialization.
-
-  Wei* = UInt256
-  Gwei* = uint64
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
