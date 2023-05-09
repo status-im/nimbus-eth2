@@ -298,6 +298,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     sync_committee_participants: -1, # Altair logging compatibility
     block_number: 0'u64, # Bellatrix compat
     fee_recipient: "",
+    blob_kzg_commitments_len: 0,  # Deneb compat
   )
 
 # TODO: There should be only a single generic HashedBeaconState definition
