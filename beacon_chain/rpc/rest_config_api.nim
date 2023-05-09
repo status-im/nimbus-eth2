@@ -248,7 +248,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#domain-types
           DOMAIN_BLS_TO_EXECUTION_CHANGE:
-            to0xHex(DOMAIN_BLS_TO_EXECUTION_CHANGE),
+            to0xHex(DOMAIN_BLS_TO_EXECUTION_CHANGE.data),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
