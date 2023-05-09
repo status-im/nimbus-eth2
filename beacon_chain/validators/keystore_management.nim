@@ -139,16 +139,28 @@ func init*(T: type KeystoreData, keystore: RemoteKeystore,
   let cookedKey = keystore.pubkey.load().valueOr:
         return err("Invalid validator's public key")
 
-  ok(KeystoreData(
-    kind: KeystoreKind.Remote,
-    handle: handle,
-    pubkey: cookedKey.toPubKey,
-    description: keystore.description,
-    version: keystore.version,
-    remotes: keystore.remotes,
-    threshold: keystore.threshold,
-    remoteType: keystore.remoteType
-  ))
+  ok case keystore.remoteType
+  of RemoteSignerType.Web3Signer:
+    KeystoreData(
+      kind: KeystoreKind.Remote,
+      handle: handle,
+      pubkey: cookedKey.toPubKey,
+      description: keystore.description,
+      version: keystore.version,
+      remotes: keystore.remotes,
+      threshold: keystore.threshold,
+      remoteType: RemoteSignerType.Web3Signer)
+  of RemoteSignerType.VerifyingWeb3Signer:
+    KeystoreData(
+      kind: KeystoreKind.Remote,
+      handle: handle,
+      pubkey: cookedKey.toPubKey,
+      description: keystore.description,
+      version: keystore.version,
+      remotes: keystore.remotes,
+      threshold: keystore.threshold,
+      remoteType: RemoteSignerType.VerifyingWeb3Signer,
+      provenBlockProperties: keystore.provenBlockProperties)
 
 func init*(T: type KeystoreData, cookedKey: CookedPubKey,
            remotes: seq[RemoteSignerInfo], threshold: uint32,

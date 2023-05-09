@@ -1183,8 +1183,8 @@ suite "Shufflings":
   proc addBlocks(blocks: uint64, attested: bool) =
     inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
     for blck in makeTestBlocks(
-        dag.headState, cache, blocks.int,
-        attested = attested, graffiti = graffiti, cfg = cfg):
+        dag.headState, cache, blocks.int, attested = attested,
+        graffiti = graffiti, cfg = cfg):
       let added =
         case blck.kind
         of ConsensusFork.Phase0:
@@ -1217,9 +1217,10 @@ suite "Shufflings":
 
   # Start branching (3 epochs)
   var oldHead = dag.head
-  for _ in 0 ..< 4:
-    addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = false)
-    states.add newClone(dag.headState)
+  for _ in 0 ..< 4:  # Number of branches
+    for _ in 0 ..< 4:  # 3 epochs per branch (4 * 3/4)
+      addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = false)
+      states.add newClone(dag.headState)
     dag.updateHead(oldHead, quarantine[], [])
 
   # Cover entire range of epochs
@@ -1229,7 +1230,7 @@ suite "Shufflings":
   test "Accelerated shuffling computation":
     randomize()
     let forkBlocks = dag.forkBlocks.toSeq()
-    for _ in 0 ..< 1000:
+    for _ in 0 ..< 750:  # Number of random tests
       let
         blck = sample(forkBlocks).data
         epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)
@@ -1258,7 +1259,8 @@ suite "Shufflings":
             stateEpoch = forkyState.data.get_current_epoch
             blckEpoch = blck.bid.slot.epoch
             minEpoch = min(stateEpoch, blckEpoch)
-          if compute_activation_exit_epoch(minEpoch) <= epoch:
+          if compute_activation_exit_epoch(minEpoch) <= epoch or
+              dag.ancestorSlotForShuffling(forkyState, blck, epoch).isNone:
             check shufflingRef.isErr
           else:
             check shufflingRef.isOk

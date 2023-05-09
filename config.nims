@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import strutils
 
 --noNimblePath
@@ -184,8 +191,7 @@ switch("warning", "LockLevel:off")
 
 # Too many right now to read compiler output. Warnings are legitimate, but
 # should be fixed out-of-band of `unstable` branch.
-if (NimMajor, NimMinor, NimPatch) >= (1, 6, 11):
-  switch("warning", "BareExcept:off")
+switch("warning", "BareExcept:off")
 
 # Too many of these because of Defect compat in 1.2
 switch("hint", "XCannotRaiseY:off")

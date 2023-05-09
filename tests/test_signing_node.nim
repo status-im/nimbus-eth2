@@ -1,3 +1,10 @@
+# nimbus_signing_node
+# Copyright (c) 2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/[osproc, algorithm],
   presto, unittest2, chronicles, stew/[results, byteutils, io2],
@@ -11,7 +18,7 @@ import
 
 const
   TestDirectoryName = "test-signing-node"
-  TestDirectoryNameDiva = "test-signing-node-diva"
+  TestDirectoryNameVerifyingWeb3Signer = "test-signing-node-verifying-web3signer"
   ValidatorKeystore1 = "{\"crypto\":{\"kdf\":{\"function\":\"pbkdf2\",\"params\":{\"dklen\":32,\"c\":1,\"prf\":\"hmac-sha256\",\"salt\":\"040f3f4b9dfc4bdeb37de870cbaa83582f981f358e370f271c2945f2e6430aab\"},\"message\":\"\"},\"checksum\":{\"function\":\"sha256\",\"params\":{},\"message\":\"8b98b30b4e144dbbcc724e502ffecc67c33651aa49600e745e41f959e12abf37\"},\"cipher\":{\"function\":\"aes-128-ctr\",\"params\":{\"iv\":\"04f91a7eb3d6430a598255ea83621e78\"},\"message\":\"5c652e6cdd1215eb9203281e2446abc4d3e1bd50cb822583ce5c74570e9cab18\"}},\"pubkey\":\"99a8df087e253a874c3ca31e0d1115500a671ed8714800d503e99c2c887331a968a7fa7f0290c3a0698675eee138b407\",\"path\":\"m/12381/3600/161/0/0\",\"uuid\":\"81bec933-d928-4e7e-83da-54bbe37a4715\",\"version\":4}"
   ValidatorKeystore2 = "{\"crypto\":{\"kdf\":{\"function\":\"pbkdf2\",\"params\":{\"dklen\":32,\"c\":1,\"prf\":\"hmac-sha256\",\"salt\":\"040f3f4b9dfc4bdeb37de870cbaa83582f981f358e370f271c2945f2e6430aab\"},\"message\":\"\"},\"checksum\":{\"function\":\"sha256\",\"params\":{},\"message\":\"2ecda276340c04cb92ce003db9cface0727905f0ba1aa9c60b101f478fca9a5e\"},\"cipher\":{\"function\":\"aes-128-ctr\",\"params\":{\"iv\":\"9d9d73af0031fd19e6833983557b2e30\"},\"message\":\"16d5f87e0675c95cb1e4fc209eea738d45c19b3c0f14088c9e140c573bce0253\"}},\"pubkey\":\"aa19751eb240a04a17b8720e2334acf1d78182ab496e77c51b3bb9e887d50295a478d499abcf6434efbc1aa4c4c4f352\",\"path\":\"m/12381/3600/232/0/0\",\"uuid\":\"291e837b-d8ff-494c-8c7b-7e6bab23b8bf\",\"version\":4}"
   ValidatorKeystore3 = "{\"crypto\":{\"kdf\":{\"function\":\"pbkdf2\",\"params\":{\"dklen\":32,\"c\":1,\"prf\":\"hmac-sha256\",\"salt\":\"040f3f4b9dfc4bdeb37de870cbaa83582f981f358e370f271c2945f2e6430aab\"},\"message\":\"\"},\"checksum\":{\"function\":\"sha256\",\"params\":{},\"message\":\"a8c2333e787d65415a02d607c0ec774b654e5a67066e4bc379e2f3b7cf4c826a\"},\"cipher\":{\"function\":\"aes-128-ctr\",\"params\":{\"iv\":\"161171cb21c1c6ec20b15798f545fffc\"},\"message\":\"8ecb326d14dece099d4ba4800a5326324ccf3a8df38fd4aa37af02e8f0617da0\"}},\"pubkey\":\"acf31f9b1ecf65dbb198e380599b6c81fc1a1f5db4457482cc697d81b1fdfb6e49cf8eff4980477f6e32749eef61dc4d\",\"path\":\"m/12381/3600/36/0/0\",\"uuid\":\"420578fd-6832-4e79-a3db-ac0662ace13c\",\"version\":4}"
@@ -66,7 +73,7 @@ proc getNodePort(rt: RemoteSignerType): int =
   case rt
   of RemoteSignerType.Web3Signer:
     SigningNodePort
-  of RemoteSignerType.Web3SignerDiva:
+  of RemoteSignerType.VerifyingWeb3Signer:
     SigningNodePort + 1
 
 proc getBlock(fork: ConsensusFork,
@@ -170,8 +177,8 @@ proc getTestDir(rt: RemoteSignerType): string =
   case rt
   of RemoteSignerType.Web3Signer:
     TestDirectoryName
-  of RemoteSignerType.Web3SignerDiva:
-    TestDirectoryNameDiva
+  of RemoteSignerType.VerifyingWeb3Signer:
+    TestDirectoryNameVerifyingWeb3Signer
 
 proc createTestDir(rt: RemoteSignerType): Result[void, string] =
   let
@@ -214,12 +221,11 @@ proc getLocalKeystoreData(data: string): Result[KeystoreData, string] =
         return err("Unable to initialize private key")
       ValidatorPrivKey(key)
 
-  ok(KeystoreData(
+  ok KeystoreData(
     kind: KeystoreKind.Local,
     privateKey: privateKey,
     version: uint64(4),
-    pubkey: privateKey.toPubKey().toPubKey()
-  ))
+    pubkey: privateKey.toPubKey().toPubKey())
 
 proc getRemoteKeystoreData(data: string,
                            rt: RemoteSignerType): Result[KeystoreData, string] =
@@ -232,13 +238,30 @@ proc getRemoteKeystoreData(data: string,
                                 $getNodePort(rt))),
       pubkey: publicKey
     )
-  ok(KeystoreData(
-    kind: KeystoreKind.Remote,
-    remoteType: rt,
-    version: uint64(4),
-    pubkey: publicKey,
-    remotes: @[info]
-  ))
+
+  ok case rt
+    of RemoteSignerType.Web3Signer:
+      KeystoreData(
+        kind: KeystoreKind.Remote,
+        remoteType: RemoteSignerType.Web3Signer,
+        version: uint64(4),
+        pubkey: publicKey,
+        remotes: @[info])
+    of RemoteSignerType.VerifyingWeb3Signer:
+      KeystoreData(
+        kind: KeystoreKind.Remote,
+        remoteType: RemoteSignerType.VerifyingWeb3Signer,
+        provenBlockProperties: @[
+          ProvenProperty(
+            path: ".execution_payload.fee_recipient",
+            denebIndex: some GeneralizedIndex(401),
+            capellaIndex: some GeneralizedIndex(401),
+            bellatrixIndex: some GeneralizedIndex(401)
+          )
+        ],
+        version: uint64(4),
+        pubkey: publicKey,
+        remotes: @[info])
 
 proc spawnSigningNodeProcess(rt: RemoteSignerType): Result[Process, string] =
   let process =
@@ -254,7 +277,7 @@ proc spawnSigningNodeProcess(rt: RemoteSignerType): Result[Process, string] =
             "--request-timeout=" & $SigningRequestTimeoutSeconds
               # we make so low `timeout` to test connection pool.
           ]
-        of RemoteSignerType.Web3SignerDiva:
+        of RemoteSignerType.VerifyingWeb3Signer:
           @[
             "--non-interactive=true",
             "--data-dir=" & getTestDir(rt) & DirSep & "signing-node",
@@ -264,7 +287,7 @@ proc spawnSigningNodeProcess(rt: RemoteSignerType): Result[Process, string] =
             "--request-timeout=" & $SigningRequestTimeoutSeconds
               # we make so low `timeout` to test connection pool.
           ]
-      osproc.startProcess("build/nimbus_signing_node", "", arguments)
+      osproc.startProcess("build/nimbus_signing_node", "", arguments, options = {poParentStreams})
     except CatchableError as exc:
       echo "Error while spawning `nimbus_signing_node` process [", $exc.name,
            "] " & $exc.msg
@@ -1073,11 +1096,11 @@ suite "Nimbus remote signer/signing test (web3signer)":
   shutdownSigningNodeProcess(process)
   removeTestDir(RemoteSignerType.Web3Signer)
 
-suite "Nimbus remote signer/signing test (web3signer-diva)":
-  let res = createTestDir(RemoteSignerType.Web3SignerDiva)
+suite "Nimbus remote signer/signing test (verifying-web3signer)":
+  let res = createTestDir(RemoteSignerType.VerifyingWeb3Signer)
   doAssert(res.isOk())
 
-  let pres = spawnSigningNodeProcess(RemoteSignerType.Web3SignerDiva)
+  let pres = spawnSigningNodeProcess(RemoteSignerType.VerifyingWeb3Signer)
   doAssert(pres.isOk())
   let process = pres.get()
 
@@ -1104,17 +1127,17 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
     let pool2 = newClone(default(ValidatorPool))
     let validator4 = pool2[].addValidator(
       getRemoteKeystoreData(ValidatorPubKey1,
-                            RemoteSignerType.Web3SignerDiva).get(),
+                            RemoteSignerType.VerifyingWeb3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
     let validator5 = pool2[].addValidator(
       getRemoteKeystoreData(ValidatorPubKey2,
-                            RemoteSignerType.Web3SignerDiva).get(),
+                            RemoteSignerType.VerifyingWeb3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
     let validator6 = pool2[].addValidator(
       getRemoteKeystoreData(ValidatorPubKey3,
-                            RemoteSignerType.Web3SignerDiva).get(),
+                            RemoteSignerType.VerifyingWeb3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
 
@@ -1125,7 +1148,7 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
   asyncTest "Waiting for signing node (/upcheck) test":
     let
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
 
@@ -1162,7 +1185,7 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
@@ -1249,7 +1272,7 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
@@ -1336,7 +1359,7 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
@@ -1425,7 +1448,7 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
@@ -1514,7 +1537,7 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
@@ -1592,4 +1615,4 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       await client.closeWait()
 
   shutdownSigningNodeProcess(process)
-  removeTestDir(RemoteSignerType.Web3SignerDiva)
+  removeTestDir(RemoteSignerType.VerifyingWeb3Signer)

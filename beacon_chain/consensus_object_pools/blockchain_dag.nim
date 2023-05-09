@@ -1326,7 +1326,7 @@ proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
     dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).expect(
       "getEpochRef for finalized head should always succeed")
 
-func ancestorSlotForShuffling(
+func ancestorSlotForShuffling*(
     dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch): Opt[Slot] =
   ## Return slot of `blck` ancestor to which `state` can be rewinded

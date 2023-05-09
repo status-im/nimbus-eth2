@@ -1,3 +1,58 @@
+2023-05-09 v23.5.0
+==================
+
+Nimbus `v23.5.0` is a `medium-urgency` upgrade that addresses a critical issue which was introduced in the previous version (`v23.4.0`). The issue was causing missed block proposals for users who were utilizing an external builder.
+
+### Improvements
+
+* After Nimbus completes a trusted node sync executed with the `--trusted-block-root` flag, it will enable signature verification of all backfilled blocks, thereby reducing the assumed trust in the specified beacon node URL to merely expected data availability rather than expected data authenticity:
+
+  https://github.com/status-im/nimbus-eth2/pull/4858
+
+* The `/eth/v1/node/syncing` BeaconAPI endpoint now supports the standardized `el_offline` property:
+
+  https://github.com/status-im/nimbus-eth2/pull/4860
+  https://github.com/ethereum/beacon-APIs/pull/290
+
+* The `secp256k1` library has been upgraded to version `0.3.1`.
+
+* Nimbus now supports an experimental extension of the Web3Signer protocol, allowing the signer server to verify certain properties of the signed block, such as the specified fee recipient:
+
+  https://nimbus.guide/web3signer.html#verifying-web3signer
+  https://github.com/status-im/nimbus-eth2/pull/4775
+  https://github.com/status-im/nimbus-eth2/pull/4912
+
+### Fixes
+
+* Nimbus was submitting blocks with incorrect state root to the attached external builder which resulted in missed block proposals:
+
+  https://github.com/status-im/nimbus-eth2/pull/4889
+
+* Nimbus was skipping block proposals due to an inappropriate triggering of the slashing protection logic when an external builder was providing a block with insufficient value to be selected under the new `--local-block-value-boost` mechanism:
+
+  https://github.com/status-im/nimbus-eth2/pull/4894
+
+* Nimbus was crashing after certain unsuccessful requests to the external block builder:
+
+  https://github.com/status-im/nimbus-eth2/pull/4890
+
+* The Nimbus validator client was failing to perform sync committee duties when attached to multiple beacon nodes and when some of them were only optimistically synced:
+
+  https://github.com/status-im/nimbus-eth2/pull/4878
+
+* The `--trusted-block-root` option was not visible in the `trustedNodeSync` help listing:
+
+  https://github.com/status-im/nimbus-eth2/pull/4859
+
+* Nimbus was experiencing sporadic request time outs when being connected to the execution client over HTTP. Under specific circumstances this was introducing risk for missed attestation:
+
+  https://github.com/status-im/nimbus-eth2/commit/d784672c107f846163082262334d4d7a4e625bd5
+
+* The required traffic to the execution client was reduced by preventing the sending of the same block multiple times:
+
+  https://github.com/status-im/nimbus-eth2/pull/4850
+
+
 2023-04-25 v23.4.0
 ==================
 
