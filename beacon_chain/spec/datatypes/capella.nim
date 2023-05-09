@@ -164,7 +164,7 @@ type
     # Slot at which the aggregate signature was created (untrusted)
     signature_slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
   LightClientOptimisticUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader

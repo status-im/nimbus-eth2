@@ -17,7 +17,7 @@ export constants
 export stint, ethtypes.toHex, ethtypes.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
@@ -31,7 +31,7 @@ type
   Eth1Address* = ethtypes.Address
 
   RuntimeConfig* = object
-    ## https://github.com/ethereum/consensus-specs/tree/v1.1.10/configs
+    ## https://github.com/ethereum/consensus-specs/tree/v1.3.0/configs
     PRESET_BASE*: string
     CONFIG_NAME*: string
 
@@ -309,7 +309,7 @@ elif const_preset == "minimal":
 
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/minimal.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 
