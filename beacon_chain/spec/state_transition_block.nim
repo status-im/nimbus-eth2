@@ -775,7 +775,7 @@ proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#is_data_available
 func is_data_available(
     slot: Slot, beacon_block_root: Eth2Digest,
-    blob_kzg_commitments: seq[KzgCommitment]): bool =
+    blob_kzg_commitments: seq[deneb.KZGCommitment]): bool =
   discard $denebImplementationMissing & ": state_transition_block.nim:is_data_available"
 
   true
