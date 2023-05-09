@@ -522,9 +522,9 @@ iterator makeTestBlocks*(
   blocks: int,
   attested: bool,
   syncCommitteeRatio = 0.0,
+  graffiti = default(GraffitiBytes),
   cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
-  var
-    state = assignClone(state)
+  var state = assignClone(state)
   for _ in 0..<blocks:
     let
       parent_root = withState(state[]): forkyState.latest_block_root
@@ -536,5 +536,9 @@ iterator makeTestBlocks*(
           @[]
       sync_aggregate = makeSyncAggregate(state[], syncCommitteeRatio, cfg)
 
-    yield addTestBlock(state[], cache,
-      attestations = attestations, sync_aggregate = sync_aggregate, cfg = cfg)
+    yield addTestBlock(
+      state[], cache,
+      attestations = attestations,
+      sync_aggregate = sync_aggregate,
+      graffiti = graffiti,
+      cfg = cfg)

@@ -8,6 +8,7 @@
 {.used.}
 
 import
+  std/[random, sequtils],
   unittest2,
   eth/keys, taskpools,
   ../beacon_chain/spec/datatypes/base,
@@ -1167,9 +1168,7 @@ suite "Pruning":
       not db.containsBlock(blocks[1].root)
 
 suite "Shufflings":
-  const
-    numEpochs = 10
-    numValidators = SLOTS_PER_EPOCH
+  const numValidators = SLOTS_PER_EPOCH
   let
     cfg = defaultRuntimeConfig
     validatorMonitor = newClone(ValidatorMonitor.init())
@@ -1180,9 +1179,12 @@ suite "Shufflings":
   var
     verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
     cache: StateCache
-  proc addBlocks(blocks: uint64) =
+    graffiti: GraffitiBytes
+  proc addBlocks(blocks: uint64, attested: bool) =
+    inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
     for blck in makeTestBlocks(
-        dag.headState, cache, blocks.int, attested = true, cfg = cfg):
+        dag.headState, cache, blocks.int,
+        attested = attested, graffiti = graffiti, cfg = cfg):
       let added =
         case blck.kind
         of ConsensusFork.Phase0:
@@ -1200,32 +1202,64 @@ suite "Shufflings":
         of ConsensusFork.Deneb:
           const nilCallback = OnDenebBlockAdded(nil)
           dag.addHeadBlock(verifier, blck.denebData, nilCallback)
-      doAssert added.isOk()
+      check added.isOk()
       dag.updateHead(added[], quarantine[], [])
 
-  var states: array[numEpochs, ref ForkedHashedBeaconState]
-  for i in 0 ..< states.len:
-    states[i] = newClone(dag.headState)
-    addBlocks(SLOTS_PER_EPOCH)
+  var states: seq[ref ForkedHashedBeaconState]
+
+  # Genesis state
+  states.add newClone(dag.headState)
+
+  # Linear part of history (6 epochs)
+  for _ in 0 ..< 8:
+    addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = true)
+    states.add newClone(dag.headState)
+
+  # Start branching (3 epochs)
+  var oldHead = dag.head
+  for _ in 0 ..< 4:
+    addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = false)
+    states.add newClone(dag.headState)
+    dag.updateHead(oldHead, quarantine[], [])
+
+  # Cover entire range of epochs
+  const maxEpochOfInterest =
+    compute_activation_exit_epoch((6 + 3).Epoch) + 2
 
   test "Accelerated shuffling computation":
-    var blck = dag.head
-    while blck != nil and blck.bid.slot >= dag.finalizedHead.slot:
-      for epoch in 0.Epoch .. numEpochs.Epoch + 2:
-        let expectedShuffling = dag.getShufflingRef(blck, epoch, true)
-        check expectedShuffling.isSome
-        let computedShuffling = dag.computeShufflingRef(blck, epoch)
-        check:
-          computedShuffling.isSome
-          computedShuffling.get[] == expectedShuffling.get[]
-        for state in states:
-          withState(state[]):
-            let ancestorSlot = dag.ancestorSlotForShuffling(
-              forkyState, blck, epoch)
-            if ancestorSlot.isSome:
-              let shufflingRef = dag.computeShufflingRef(
-                forkyState, ancestorSlot.get, blck, epoch)
-              check:
-                shufflingRef.isSome
-                shufflingRef.get[] == expectedShuffling.get[]
-      blck = blck.parent
+    randomize()
+    let forkBlocks = dag.forkBlocks.toSeq()
+    for _ in 0 ..< 1000:
+      let
+        blck = sample(forkBlocks).data
+        epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)
+      checkpoint "blck: " & $shortLog(blck) & " / epoch: " & $shortLog(epoch)
+
+      let epochRef = dag.getEpochRef(blck, epoch, true)
+      check epochRef.isOk
+
+      proc checkShuffling(computedShufflingRef: Opt[ShufflingRef]) =
+        ## Check that computed shuffling matches the one from `EpochRef`.
+        if computedShufflingRef.isOk:
+          check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
+
+      # If shuffling is computable from DAG, check its correctness
+      checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
+
+      # If shuffling is computable from DB, check its correctness
+      checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
+
+      # Shuffling should be correct when starting from any cached state
+      for state in states:
+        withState(state[]):
+          let
+            shufflingRef =
+              dag.computeShufflingRefFromState(forkyState, blck, epoch)
+            stateEpoch = forkyState.data.get_current_epoch
+            blckEpoch = blck.bid.slot.epoch
+            minEpoch = min(stateEpoch, blckEpoch)
+          if compute_activation_exit_epoch(minEpoch) <= epoch:
+            check shufflingRef.isErr
+          else:
+            check shufflingRef.isOk
+            checkShuffling shufflingRef

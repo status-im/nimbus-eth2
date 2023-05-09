@@ -393,6 +393,17 @@ func nextTimestamp[I, T](cache: var LRUCache[I, T]): uint32 =
   inc cache.timestamp
   cache.timestamp
 
+template peekIt[I, T](cache: var LRUCache[I, T], predicate: untyped): Opt[T] =
+  block:
+    var res: Opt[T]
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      template it: untyped {.inject, used.} = e.value
+      if e.lastUsed != 0 and predicate:
+        res.ok it
+        break
+    res
+
 template findIt[I, T](cache: var LRUCache[I, T], predicate: untyped): Opt[T] =
   block:
     var res: Opt[T]
@@ -472,18 +483,6 @@ func epochKey(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochKey] =
 func shufflingDependentSlot*(epoch: Epoch): Slot =
   if epoch >= 2: (epoch - 1).start_slot() - 1 else: Slot(0)
 
-func findShufflingRef*(
-    dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[ShufflingRef] =
-  ## Lookup a shuffling in the cache, returning `none` if it's not present - see
-  ## `getShufflingRef` for a version that creates a new instance if it's missing
-  let
-    dependent_slot = epoch.shufflingDependentSlot
-    dependent_bsi = dag.atSlot(bid, dependent_slot).valueOr:
-      return Opt.none(ShufflingRef)
-
-  dag.shufflingRefs.findIt(
-    it.epoch == epoch and dependent_bsi.bid.root == it.attester_dependent_root)
-
 func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
   ## Store shuffling in the cache
   if shufflingRef.epoch < dag.finalizedHead.slot.epoch():
@@ -492,6 +491,31 @@ func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
     return
 
   dag.shufflingRefs.put shufflingRef
+
+func findShufflingRef*(
+    dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[ShufflingRef] =
+  ## Lookup a shuffling in the cache, returning `none` if it's not present - see
+  ## `getShufflingRef` for a version that creates a new instance if it's missing
+  let
+    dependent_slot = epoch.shufflingDependentSlot
+    dependent_bsi = dag.atSlot(bid, dependent_slot).valueOr:
+      return err()
+
+  # Check `ShufflingRef` cache
+  let shufflingRef = dag.shufflingRefs.findIt(
+    it.epoch == epoch and it.attester_dependent_root == dependent_bsi.bid.root)
+  if shufflingRef.isOk:
+    return shufflingRef
+
+  # Check `EpochRef` cache
+  let epochRef = dag.epochRefs.peekIt(
+    it.shufflingRef.epoch == epoch and
+    it.shufflingRef.attester_dependent_root == dependent_bsi.bid.root)
+  if epochRef.isOk:
+    dag.putShufflingRef(epochRef.get.shufflingRef)
+    return ok epochRef.get.shufflingRef
+
+  err()
 
 func findEpochRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochRef] =
@@ -1302,7 +1326,7 @@ proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
     dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).expect(
       "getEpochRef for finalized head should always succeed")
 
-func ancestorSlotForShuffling*(
+func ancestorSlotForShuffling(
     dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch): Opt[Slot] =
   ## Return slot of `blck` ancestor to which `state` can be rewinded
@@ -1361,39 +1385,6 @@ func ancestorSlotForShuffling*(
   doAssert dependentSlot >= lowSlot
   ok min(min(stateBid.slot, ancestorBlck.slot), dependentSlot)
 
-func estimateComputeRandaoComplexity*(
-    stateSlot, ancestorSlot, dependentSlot: Slot): uint64 =
-  ## Estimate the number of slots for which blocks need to be loaded
-  ## to recover the RANDAO seed at `dependentSlot`, assuming that we start
-  ## at `stateSlot` and have to mix out RANDAO back to `ancestorSlot` first.
-  doAssert ancestorSlot <= stateSlot
-  doAssert ancestorSlot <= dependentSlot
-
-  let
-    stateEpoch = stateSlot.epoch
-    ancestorEpoch = ancestorSlot.epoch
-
-    # First, need to move from `state` back to `ancestor`
-    highRandaoSlot =
-      # `randao_mixes[ancestorEpoch]`
-      if stateEpoch == ancestorEpoch:
-        stateSlot
-      else:
-        (ancestorEpoch + 1).start_slot - 1
-    distanceToancestorSlot =
-      if ancestorEpoch == GENESIS_EPOCH:
-        # Can only move backward
-        highRandaoSlot - ancestorSlot
-      else:
-        # `randao_mixes[ancestorEpoch - 1]`
-        let lowRandaoSlot = ancestorEpoch.start_slot - 1
-        min(highRandaoSlot - ancestorSlot, ancestorSlot - lowRandaoSlot)
-
-    # Then, need to apply RANDAO mix-ins up to the shuffling dependent slot
-    distanceToDependentSlot = dependentSlot - ancestorSlot
-
-  distanceToancestorSlot + distanceToDependentSlot
-
 proc mixRandao(
     dag: ChainDAGRef, mix: var Eth2Digest,
     bid: BlockId): Opt[void] =
@@ -1404,19 +1395,19 @@ proc mixRandao(
   ok()
 
 proc computeRandaoMix*(
-    dag: ChainDAGRef, state: ForkyHashedBeaconState, ancestorSlot: Slot,
+    dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch
 ): Opt[tuple[dependentBid: BlockId, mix: Eth2Digest]] =
   ## Compute the requested RANDAO mix for `blck@epoch` based on `state`.
-  ## `state` must have the correct ``get_active_validator_indices` for `epoch`,
-  ## which is checked by `ancestorSlotForShuffling` (passed via `ancestorSlot`).
+  ## `state` must have the correct `get_active_validator_indices` for `epoch`.
   ## RANDAO reveals of blocks from `state.data.slot` back to `ancestorSlot` are
   ## mixed out from `state.data.randao_mixes`, and RANDAO reveals from blocks
-  ## up through `epoch.shufflingDependentSlot` are mixed in. Number of blocks
-  ## to load can be estimated using `estimateComputeRandaoComplexity`.
+  ## up through `epoch.shufflingDependentSlot` are mixed in.
   let
     stateSlot = state.data.slot
     dependentSlot = epoch.shufflingDependentSlot
+    # Check `state` has locked-in `get_active_validator_indices` for `epoch`
+    ancestorSlot = ? dag.ancestorSlotForShuffling(state, blck, epoch)
   doAssert ancestorSlot <= stateSlot
   doAssert ancestorSlot <= dependentSlot
 
@@ -1507,11 +1498,11 @@ proc computeRandaoMix*(
 
   ok (dependentBid: dependentBid, mix: mix)
 
-proc computeShufflingRef*(
-    dag: ChainDAGRef, state: ForkyHashedBeaconState, ancestorSlot: Slot,
+proc computeShufflingRefFromState*(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
   let (dependentBid, mix) =
-    ? dag.computeRandaoMix(state, ancestorSlot, blck, epoch)
+    ? dag.computeRandaoMix(state, blck, epoch)
 
   return ok ShufflingRef(
     epoch: epoch,
@@ -1519,51 +1510,26 @@ proc computeShufflingRef*(
     shuffled_active_validator_indices:
       state.data.get_shuffled_active_validator_indices(epoch, mix))
 
-proc computeShufflingRef*(
+proc computeShufflingRefFromMemory*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
-  let dependentSlot = epoch.shufflingDependentSlot
-
-  type StateKind {.pure.} = enum
-    Head
-    EpochRef
-    Clearance
-
-  var
-    bestComplexity = uint64.high
-    bestAncestorSlot: Opt[Slot]
-    bestState: StateKind
-
-  template prepareState(state: ForkedHashedBeaconState, kind: StateKind) =
-    if bestComplexity > 0:
+  ## Compute `ShufflingRef` from states available in memory (up to ~5 ms)
+  template tryWithState(state: ForkedHashedBeaconState) =
+    block:
       withState(state):
-        let ancestorSlot = dag.ancestorSlotForShuffling(forkyState, blck, epoch)
-        if ancestorSlot.isSome:
-          let complexity = estimateComputeRandaoComplexity(
-            forkyState.data.slot, ancestorSlot.get, dependentSlot)
-          if complexity < bestComplexity:
-            bestComplexity = complexity
-            bestAncestorSlot.ok ancestorSlot.get
-            bestState = kind
+        let shufflingRef =
+          dag.computeShufflingRefFromState(forkyState, blck, epoch)
+        if shufflingRef.isOk:
+          return shufflingRef
+  tryWithState dag.headState
+  tryWithState dag.epochRefState
+  tryWithState dag.clearanceState
 
-  prepareState(dag.headState, StateKind.Head)
-  prepareState(dag.epochRefState, StateKind.EpochRef)
-  prepareState(dag.clearanceState, StateKind.Clearance)
-
-  if bestAncestorSlot.isSome:
-    return
-      case bestState
-      of StateKind.Head:
-        withState(dag.headState):
-          dag.computeShufflingRef(forkyState, bestAncestorSlot.get, blck, epoch)
-      of StateKind.EpochRef:
-        withState(dag.epochRefState):
-          dag.computeShufflingRef(forkyState, bestAncestorSlot.get, blck, epoch)
-      of StateKind.Clearance:
-        withState(dag.clearanceState):
-          dag.computeShufflingRef(forkyState, bestAncestorSlot.get, blck, epoch)
-
-  # Load state from DB, as DAG states are unviable for computing the shuffling
-  let state = newClone(dag.headState)
+proc computeShufflingRefFromDatabase*(
+    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
+  ## Load state from DB, for when DAG states are unviable (up to ~500 ms)
+  let
+    dependentSlot = epoch.shufflingDependentSlot
+    state = newClone(dag.headState)
   var
     e = dependentSlot.epoch
     b = blck
@@ -1583,9 +1549,24 @@ proc computeShufflingRef*(
       continue
 
     return withState(state[]):
-      let ancestorSlot = ? dag.ancestorSlotForShuffling(forkyState, blck, epoch)
-      dag.computeShufflingRef(forkyState, ancestorSlot, blck, epoch)
+      dag.computeShufflingRefFromState(forkyState, blck, epoch)
   err()
+
+proc computeShufflingRef*(
+    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
+  # Try to compute `ShufflingRef` from states available in memory
+  template tryWithState(state: ForkedHashedBeaconState) =
+    withState(state):
+      let shufflingRef =
+        dag.computeShufflingRefFromState(forkyState, blck, epoch)
+      if shufflingRef.isOk:
+        return shufflingRef
+  tryWithState dag.headState
+  tryWithState dag.epochRefState
+  tryWithState dag.clearanceState
+
+  # Fall back to database
+  dag.computeShufflingRefFromDatabase(blck, epoch)
 
 proc getShufflingRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
