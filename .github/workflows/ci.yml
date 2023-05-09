@@ -57,33 +57,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        # Fails on nimyaml tests:
-        # with:
-        #  submodules: true
+        with:
+          fetch-depth: 2  # In PR, has extra merge commit: ^1 = PR, ^2 = base
+          # submodules: true  # Fails on nimyaml tests
 
       - name: Check copyright year (Linux)
         if: github.event_name == 'pull_request' && runner.os == 'Linux'
         run: |
           excluded_extensions="ans|json|md|png|txt"
 
-          base_branch=$(jq -r '.pull_request.base.ref' "$GITHUB_EVENT_PATH")
-          git fetch origin "$base_branch" 2>/dev/null
-          modified_files=$(git diff --name-only --diff-filter=d --ignore-submodules "origin/$base_branch" HEAD | grep -vE '\.('$excluded_extensions')$' || true)
-
           current_year=$(date +"%Y")
           outdated_files=()
-          for file in $modified_files; do
+          while read -r file; do
             if ! grep -qE 'Copyright \(c\) .*'$current_year' Status Research & Development GmbH' "$file"; then
               outdated_files+=("$file")
             fi
-          done
+          done < <(git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '\.('$excluded_extensions')$' || true)
 
           if (( ${#outdated_files[@]} )); then
             echo "The following files do not have an up-to-date copyright year:"
             for file in "${outdated_files[@]}"; do
               echo "- $file"
             done
-            exit 1
+            exit 2
           fi
 
       - name: MSYS2 (Windows amd64)
