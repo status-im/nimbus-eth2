@@ -272,7 +272,7 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
       return Opt[ValidatorIndex].ok(vidx)
 
 from ./datatypes/deneb import
-  BLOB_TX_TYPE, BeaconState, KZGCommitment, VersionedHash
+  BLOB_TX_TYPE, BeaconState, KzgCommitment, VersionedHash
 
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,
@@ -715,10 +715,10 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     res.add versionedHash
   ok res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash(
-    kzg_commitment: deneb.KZGCommitment): VersionedHash =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#blob
+    kzg_commitment: KzgCommitment): VersionedHash =
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob
   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
   var res: VersionedHash
@@ -726,10 +726,10 @@ func kzg_commitment_to_versioned_hash(
   res[1 .. 31] = eth2digest(kzg_commitment).data.toOpenArray(1, 31)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#verify_kzg_commitments_against_transactions
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#verify_kzg_commitments_against_transactions
 func verify_kzg_commitments_against_transactions*(
     transactions: seq[Transaction],
-    kzg_commitments: seq[deneb.KZGCommitment]): bool =
+    kzg_commitments: seq[KzgCommitment]): bool =
   var all_versioned_hashes: seq[VersionedHash]
   for tx in transactions:
     if tx[0] == BLOB_TX_TYPE:
@@ -757,9 +757,9 @@ func process_blob_kzg_commitments(
     return err("process_blob_kzg_commitments: verify_kzg_commitments_against_transactions failed")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#validate_blobs
-proc validate_blobs*(expected_kzg_commitments: seq[KZGCommitment],
+proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
                      blobs: seq[KzgBlob],
-                     proofs: seq[KZGProof]):
+                     proofs: seq[KzgProof]):
                        Result[void, cstring] =
   if expected_kzg_commitments.len != blobs.len:
     return err("validate_blobs: different commitment and blob lengths")
@@ -775,7 +775,7 @@ proc validate_blobs*(expected_kzg_commitments: seq[KZGCommitment],
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#is_data_available
 func is_data_available(
     slot: Slot, beacon_block_root: Eth2Digest,
-    blob_kzg_commitments: seq[deneb.KZGCommitment]): bool =
+    blob_kzg_commitments: seq[KzgCommitment]): bool =
   discard $denebImplementationMissing & ": state_transition_block.nim:is_data_available"
 
   true
