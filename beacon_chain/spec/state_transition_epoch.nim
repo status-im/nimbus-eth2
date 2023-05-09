@@ -179,8 +179,6 @@ from ./datatypes/deneb import BeaconState
 func get_unslashed_participating_balances*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState): UnslashedParticipatingBalances =
-  ## Return the set of validator indices that are both active and unslashed
-  ## for the given ``flag_index`` and ``epoch``.
   let
     previous_epoch = get_previous_epoch(state)
     current_epoch = get_current_epoch(state)
