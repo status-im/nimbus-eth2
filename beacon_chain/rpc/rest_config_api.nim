@@ -120,6 +120,14 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_EXTRA_DATA_BYTES:
             Base10.toString(uint64(MAX_EXTRA_DATA_BYTES)),
 
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/capella.yaml
+          MAX_BLS_TO_EXECUTION_CHANGES:
+            Base10.toString(uint64(MAX_BLS_TO_EXECUTION_CHANGES)),
+          MAX_WITHDRAWALS_PER_PAYLOAD:
+            Base10.toString(uint64(MAX_WITHDRAWALS_PER_PAYLOAD)),
+          MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP:
+            Base10.toString(uint64(MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)),
+
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/mainnet.yaml
           PRESET_BASE:
             cfg.PRESET_BASE,
@@ -237,6 +245,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DOMAIN_CONTRIBUTION_AND_PROOF:
             to0xHex(DOMAIN_CONTRIBUTION_AND_PROOF.data),
           # PARTICIPATION_FLAG_WEIGHTS
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#domain-types
+          DOMAIN_BLS_TO_EXECUTION_CHANGE:
+            to0xHex(DOMAIN_BLS_TO_EXECUTION_CHANGE),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
