@@ -378,6 +378,7 @@ proc checkBloblessSignature(self: BlockProcessor,
       dag.validatorKey(proposer).get(),
       signed_beacon_block.signature):
     return err("checkBloblessSignature: Invalid proposer signature")
+  ok()
 
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
