@@ -23,7 +23,7 @@ template checkRoot(name, root) =
     $getStateRoot(state[]) == root
 
 suite "Network metadata":
-  test "Mainnet":
+  test "mainnet":
     checkRoot(
       "mainnet",
       "7e76880eb67bbdc86250aa578958e9d0675e64e714337855204fb5abaaf82c2b")
