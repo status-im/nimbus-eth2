@@ -341,8 +341,13 @@ proc getExecutionValidity(
 
     case executionPayloadStatus.get
       of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-        debug "getExecutionValidity: execution payload invalid",
+        # Blocks come either from gossip or request manager requests. In the
+        # former case, they've passed libp2p gosisp validation which implies
+        # correct signature for correct proposer,which makes spam expensive,
+        # while for the latter, spam is limited by the request manager.
+        info "execution payload invalid from EL client newPayload",
           executionPayloadStatus = $executionPayloadStatus.get,
+          executionPayload = shortLog(blck.message.body.execution_payload),
           blck = shortLog(blck)
         return NewPayloadStatus.invalid
       of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
@@ -350,7 +355,10 @@ proc getExecutionValidity(
       of PayloadExecutionStatus.valid:
         return NewPayloadStatus.valid
   except CatchableError as err:
-    error "getExecutionValidity: newPayload failed", err = err.msg
+    error "getExecutionValidity: newPayload failed",
+      err = err.msg,
+      executionPayload = shortLog(blck.message.body.execution_payload),
+      blck = shortLog(blck)
     return NewPayloadStatus.noResponse
 
 proc checkBloblessSignature(self: BlockProcessor,
