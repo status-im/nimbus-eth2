@@ -205,6 +205,7 @@ proc storeBackfillBlock(
           if r.isErr():
             debug "backfill blob validation failed",
              blockRoot = shortLog(signedBlock.root),
+             blobs = shortLog(blobs),
              blck = shortLog(signedBlock.message),
              signature = shortLog(signedBlock.signature),
              msg = r.error()
@@ -471,6 +472,7 @@ proc storeBlock*(
       if r.isErr():
         debug "blob validation failed",
           blockRoot = shortLog(signedBlock.root),
+          blobs = shortLog(blobs),
           blck = shortLog(signedBlock.message),
           signature = shortLog(signedBlock.signature),
           msg = r.error()
