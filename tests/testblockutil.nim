@@ -17,9 +17,7 @@ import
 # TODO remove this dependency
 from std/random import rand
 
-from eth/common/eth_types import EMPTY_ROOT_HASH
 from eth/common/eth_types_rlp import rlpHash
-from eth/eip1559 import EIP1559_INITIAL_BASE_FEE
 
 type
   MockPrivKeysT = object
@@ -87,6 +85,9 @@ func signBlock(
         ValidatorSig()
   ForkedSignedBeaconBlock.init(forked, root, signature)
 
+from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
+from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
+
 proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
@@ -115,8 +116,6 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
                                        blockValue: Wei.zero)
 
-from eth/common/eth_types import GasInt
-from eth/eip1559 import calcEip1599BaseFee
 from stew/saturating_arith import saturate
 
 proc build_empty_execution_payload(

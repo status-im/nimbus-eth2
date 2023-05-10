@@ -112,10 +112,6 @@ proc expectBlock*(self: var ConsensusManager, expectedSlot: Slot): Future[bool] 
 
   return fut
 
-from web3/engine_api_types import
-  ForkchoiceUpdatedResponse, PayloadExecutionStatus, PayloadStatusV1,
-  PayloadAttributesV1
-
 func `$`(h: BlockHash): string = $h.asEth2Digest
 
 func shouldSyncOptimistically*(

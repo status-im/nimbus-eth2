@@ -2289,7 +2289,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
 
   func msgIdProvider(m: messages.Message): Result[seq[byte], ValidationResult] =
     template topic: untyped =
-      if m.topicIDs.len > 0: m.topicIDs[0] else: ""
+      if m.topicIds.len > 0: m.topicIds[0] else: ""
 
     try:
       # This doesn't have to be a tight bound, just enough to avoid denial of
@@ -2630,8 +2630,6 @@ proc broadcastBeaconBlock*(
     node: Eth2Node, blck: deneb.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.deneb)
   node.broadcast(topic, blck)
-
-from ../spec/datatypes/deneb import SignedBeaconBlock
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

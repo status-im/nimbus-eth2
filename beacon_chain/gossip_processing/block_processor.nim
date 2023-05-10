@@ -19,7 +19,8 @@ from ../consensus_object_pools/consensus_manager import
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
   updateHeadWithExecution
 from ../consensus_object_pools/blockchain_dag import
-  getBlockRef, getProposer, forkAtEpoch, validatorKey
+  getBlockRef, getProposer, forkAtEpoch, is_optimistic, loadExecutionBlockHash,
+  markBlockVerified, validatorKey
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
@@ -230,7 +231,7 @@ from web3/engine_api_types import
   PayloadStatusV1
 from ../eth1/eth1_monitor import
   ELManager, asEngineExecutionPayload, forkchoiceUpdated, hasConnection,
-  sendNewPayload
+  hasProperlyConfiguredConnection, sendNewPayload
 
 proc expectValidForkchoiceUpdated(
     elManager: ELManager, headBlockPayloadAttributesType: typedesc,
@@ -273,8 +274,6 @@ proc expectValidForkchoiceUpdated(
 
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead, BeaconHead
-from ../consensus_object_pools/blockchain_dag import
-  is_optimistic, loadExecutionBlockHash, markBlockVerified
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
 from ../spec/datatypes/altair import SignedBeaconBlock
@@ -287,7 +286,6 @@ from ../spec/datatypes/capella import
 # directly address deneb.ExecutionPayload when complaint was that it didn't
 # know about "deneb"
 from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
-from ../eth1/eth1_monitor import hasProperlyConfiguredConnection
 
 proc newExecutionPayload*(
     elManager: ELManager,

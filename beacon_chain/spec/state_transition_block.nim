@@ -273,9 +273,6 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
     if state.validators.asSeq[vidx].pubkey == pubkey:
       return Opt[ValidatorIndex].ok(vidx)
 
-from ./datatypes/deneb import
-  BLOB_TX_TYPE, BeaconState, KzgCommitment, VersionedHash
-
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,
                       deposit: Deposit,
