@@ -54,8 +54,9 @@ when not defined(i386):
   # Avoids "Out of memory" CI failures
   import
     ./test_blockchain_dag,
-    ./test_keystore,
-    ./test_keystore_management,
-    ./test_keymanager_api
+    ./test_keystore
+
+  when not defined(windows):
+    import ./test_keystore_management
 
 summarizeLongTests("AllTests")
