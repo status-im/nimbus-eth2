@@ -960,7 +960,7 @@ proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
        not(service.pollingSyncDutiesTask.finished()):
       await cancelAndWait(service.pollingSyncDutiesTask)
     # Spawning new attestation duties task.
-    service.pollingSyncDutiesTask = service.pollForAttesterDuties()
+    service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
 
 template checkAndRestart(serviceLoop: DutiesServiceLoop,
                          future: Future[void], body: untyped): untyped =
