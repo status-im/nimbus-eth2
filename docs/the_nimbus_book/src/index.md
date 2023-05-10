@@ -1,18 +1,12 @@
 # The Nimbus Guide
 
-!!! note ""
-    Eager to get started?
-    The [quickstart guide](./quick-start.md) is for you.
-
-    Coming from a different client?
-    Check out the [migration guide](./migration.md).
-
 Nimbus is a client for the Ethereum network that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and [easy to use](./run-a-validator.md).
 
-Its efficiency and low resource consumption allows it to perform well on all kinds of systems: ranging from Raspberry Pi's and mobile devices — where it contributes to low power consumption and security — to powerful servers where it leaves resources free to perform other tasks, such as running an [execution node](./eth1.md).
+Its efficiency and low resource consumption allows it to perform well on all kinds of systems: ranging from Raspberry Pi and mobile devices — where it contributes to low power consumption and security — to powerful servers where it leaves resources free to perform other tasks, such as running an [execution node](./eth1.md).
 
 This book describes the consensus layer client, [`nimbus-eth2`](https://github.com/status-im/nimbus-eth2).
 An execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth2), is also under development.
+
 
 ## Feature highlights
 
@@ -23,6 +17,19 @@ An execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth2), is
 * [Validator monitoring](./validator-monitor.md) and [performance analysis](./attestation-performance.md) tooling
 * [External block builder](./external-block-builder.md) (PBS / mev-boost) support with execution client fallback
 * [Light consensus client](./el-light-client.md) for running an execution client without a full beacon node
+
+
+## Book contents
+
+You can read this book from start to finish, or you might want to read just specific topics you're interested in:
+
+* If you're eager to get started, the [quickstart guide](./quick-start.md) is for you.
+* Coming from a different client? Check out the [migration guide](./migration.md).
+* Visualize the important metrics with [Grafana and Prometheus](./metrics-pretty-pictures.md).
+* Interested in becoming a validator? Follow the [validator guide](./run-a-validator.md).
+* If you're not planning on becoming a validator, you can run the [light client](./el-light-client.md).
+
+
 
 ## Get in touch
 
