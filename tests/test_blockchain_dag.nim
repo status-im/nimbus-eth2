@@ -11,6 +11,7 @@ import
   std/[random, sequtils],
   unittest2,
   eth/keys, taskpools,
+  ../beacon_chain/eth1/merkle_minimal,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
   ../beacon_chain/[beacon_chain_db],
@@ -574,8 +575,7 @@ suite "chain DAG finalization tests" & preset():
 
   test "init with gaps" & preset():
     for blck in makeTestBlocks(
-        dag.headState, cache, int(SLOTS_PER_EPOCH * 6 - 2),
-        true):
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 6 - 2), attested = true):
       let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine, [])
@@ -1168,22 +1168,34 @@ suite "Pruning":
       not db.containsBlock(blocks[1].root)
 
 suite "Shufflings":
-  const numValidators = SLOTS_PER_EPOCH
+  const
+    numValidators = SLOTS_PER_EPOCH
+    targetNumValidators = 20 * SLOTS_PER_EPOCH * MAX_DEPOSITS
+  let cfg = defaultRuntimeConfig
+  var deposits = newSeqOfCap[Deposit](targetNumValidators)
+  for depositIndex in 0 ..< targetNumValidators:
+    deposits.add Deposit(data: makeDeposit(depositIndex.int, cfg = cfg))
   let
-    cfg = defaultRuntimeConfig
+    eth1Data = Eth1Data(
+      deposit_root: deposits.attachMerkleProofs(),
+      deposit_count: deposits.lenu64)
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(
-      cfg, makeTestDB(numValidators, cfg = cfg), validatorMonitor, {})
+      cfg, makeTestDB(
+        numValidators, eth1Data = Opt.some(eth1Data),
+        flags = {}, cfg = cfg),
+      validatorMonitor, {})
     quarantine = newClone(Quarantine.init())
     taskpool = Taskpool.new()
+
   var
     verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
-    cache: StateCache
     graffiti: GraffitiBytes
-  proc addBlocks(blocks: uint64, attested: bool) =
+  proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
     inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
     for blck in makeTestBlocks(
-        dag.headState, cache, blocks.int, attested = attested,
+        dag.headState, cache, blocks.int, eth1_data = eth1Data,
+        attested = attested, allDeposits = deposits,
         graffiti = graffiti, cfg = cfg):
       let added =
         case blck.kind
@@ -1210,27 +1222,48 @@ suite "Shufflings":
   # Genesis state
   states.add newClone(dag.headState)
 
-  # Linear part of history (6 epochs)
-  for _ in 0 ..< 8:
-    addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = true)
+  # Create a segment and cache the post state (0.75 epochs + empty slots)
+  proc createSegment(attested: bool, delaySlots = 0.uint64) =
+    var cache: StateCache
+
+    # Add some empty slots to have different deposit history
+    if delaySlots > 0:
+      var info: ForkedEpochInfo
+      check cfg.process_slots(
+        dag.headState,
+        getStateField(dag.headState, slot) + delaySlots,
+        cache, info, flags = {}).isOk
+
+    # Add 0.75 epochs
+    addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = attested, cache)
     states.add newClone(dag.headState)
 
-  # Start branching (3 epochs)
-  var oldHead = dag.head
-  for _ in 0 ..< 4:  # Number of branches
-    for _ in 0 ..< 4:  # 3 epochs per branch (4 * 3/4)
-      addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = false)
-      states.add newClone(dag.headState)
+  # Linear part of history (3.75 epochs)
+  for _ in 0 ..< 5:
+    createSegment(attested = true)
+
+  # Start branching (6 epochs + up to 0.5 epoch)
+  func numDelaySlots(branchId: int): uint64 =
+    branchId.uint64 * SLOTS_PER_EPOCH div 8
+  for a in 0 ..< 2:
+    let oldHead = dag.head
+    createSegment(attested = false, delaySlots = a.numDelaySlots)
+    for b in 0 ..< 2:
+      let oldHead = dag.head
+      createSegment(attested = false, delaySlots = b.numDelaySlots)
+      for _ in 0 ..< 3:
+        createSegment(attested = false, delaySlots = a.numDelaySlots)
+        createSegment(attested = false, delaySlots = b.numDelaySlots)
+      dag.updateHead(oldHead, quarantine[], [])
     dag.updateHead(oldHead, quarantine[], [])
 
-  # Cover entire range of epochs
-  const maxEpochOfInterest =
-    compute_activation_exit_epoch((6 + 3).Epoch) + 2
+  # Cover entire range of epochs plus some extra
+  const maxEpochOfInterest = compute_activation_exit_epoch(11.Epoch) + 2
 
   test "Accelerated shuffling computation":
     randomize()
     let forkBlocks = dag.forkBlocks.toSeq()
-    for _ in 0 ..< 750:  # Number of random tests
+    for _ in 0 ..< 100:  # Number of random tests (against _all_ cached states)
       let
         blck = sample(forkBlocks).data
         epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)

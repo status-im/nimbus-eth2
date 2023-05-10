@@ -520,7 +520,9 @@ iterator makeTestBlocks*(
   state: ForkedHashedBeaconState,
   cache: var StateCache,
   blocks: int,
-  attested: bool,
+  eth1_data = Eth1Data(),
+  attested = false,
+  allDeposits = newSeq[Deposit](),
   syncCommitteeRatio = 0.0,
   graffiti = default(GraffitiBytes),
   cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
@@ -534,11 +536,24 @@ iterator makeTestBlocks*(
             state[], parent_root, getStateField(state[], slot), cache)
         else:
           @[]
+      stateEth1 = getStateField(state[], eth1_data)
+      stateDepositIndex = getStateField(state[], eth1_deposit_index)
+      deposits =
+        if stateDepositIndex < stateEth1.deposit_count:
+          let
+            lowIndex = stateDepositIndex
+            numDeposits = min(MAX_DEPOSITS, stateEth1.deposit_count - lowIndex)
+            highIndex = lowIndex + numDeposits - 1
+          allDeposits[lowIndex .. highIndex]
+        else:
+          newSeq[Deposit]()
       sync_aggregate = makeSyncAggregate(state[], syncCommitteeRatio, cfg)
 
     yield addTestBlock(
       state[], cache,
+      eth1_data = eth1_data,
       attestations = attestations,
+      deposits = deposits,
       sync_aggregate = sync_aggregate,
       graffiti = graffiti,
       cfg = cfg)

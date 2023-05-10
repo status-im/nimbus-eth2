@@ -74,10 +74,9 @@ suite "Gossip validation " & preset():
       committeeLen(63) == 0
 
   test "validateAttestation":
-    var
-      cache: StateCache
+    var cache: StateCache
     for blck in makeTestBlocks(
-        dag.headState, cache, int(SLOTS_PER_EPOCH * 5), false):
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 5), attested = false):
       let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
@@ -196,7 +195,8 @@ suite "Gossip validation - Extra": # Not based on preset config
             cfg, makeTestDB(num_validators), validatorMonitor, {})
         var cache = StateCache()
         for blck in makeTestBlocks(
-            dag.headState, cache, int(SLOTS_PER_EPOCH), false, cfg = cfg):
+            dag.headState, cache, int(SLOTS_PER_EPOCH),
+            attested = false, cfg = cfg):
           let added =
             case blck.kind
             of ConsensusFork.Phase0:
