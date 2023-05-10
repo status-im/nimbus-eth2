@@ -1,16 +1,15 @@
 # Run an execution client
 
-In order to perform validation duties, you need to also be running an execution client — at least one for each beacon node.
+In order to perform validation duties, you **must have** an execution client running — at least one for each beacon node.
+Relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
+Sharing the same execution client between multiple beacon nodes is not supported.
 
-Nimbus has been tested all major execution clients, see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
-
-!!! warning
-    You need to run your own execution client.
-    Relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
-    Sharing the same execution client between multiple beacon nodes is not supported.
+Nimbus has been tested all major execution clients.
+See the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
 !!! info
-    Syncing an execution client may take hours or even days, depending on your hardware!
+    Syncing an execution client **may take hours or even days**, depending on your hardware!
+
 
 ## Steps
 
