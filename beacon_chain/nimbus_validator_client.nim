@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -419,7 +419,7 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
     # Main processing loop.
     vc.runSlotLoopFut = vc.runVCSlotLoop()
     vc.runKeystoreCachePruningLoopFut =
-      runKeystorecachePruningLoop(vc.keystoreCache)
+      runKeystoreCachePruningLoop(vc.keystoreCache)
     discard await race(vc.runSlotLoopFut, doppelEventFut)
     if not(vc.runSlotLoopFut.finished()):
       notice "Received shutdown event, exiting"

@@ -404,7 +404,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponsePlain(message)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
-  # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/blinded_block.yaml
+  # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/blinded_block.yaml
   router.api(MethodGet, "/eth/v1/validator/blinded_blocks/{slot}") do (
       slot: Slot, randao_reveal: Option[ValidatorSig],
       graffiti: Option[GraffitiBytes],

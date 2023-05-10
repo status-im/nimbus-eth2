@@ -1220,7 +1220,7 @@ proc handleSyncCommitteeContributions(
     genesis_validators_root = node.dag.genesis_validators_root
     syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
 
-  for subcommitteeIdx in SyncSubCommitteeIndex:
+  for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
       let validator = node.getValidatorForDuties(
           valIdx, slot, slashingSafe = true).valueOr:
@@ -1389,8 +1389,6 @@ proc getValidatorRegistration(
 
   return ok validatorRegistration
 
-from std/sequtils import toSeq
-
 proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   try:
     if  (not node.config.payloadBuilderEnable) or
@@ -1440,12 +1438,11 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
       withState(node.dag.headState):
         let currentEpoch = node.currentSlot().epoch
         for i in 0 ..< forkyState.data.validators.len:
-          # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
-          # "requests containing currently inactive or unknown validator
-          # pubkeys will be accepted, as they may become active at a later
-          # epoch" which means filtering is needed here, because including
-          # any validators not pending or active may cause the request, as
-          # a whole, to fail.
+          # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/register_validator.yaml
+          # "Note that only registrations for active or pending validators must
+          # be sent to the builder network. Registrations for unknown or exited
+          # validators must be filtered out and not sent to the builder
+          # network."
           let pubkey = forkyState.data.validators.item(i).pubkey
           if  pubkey in node.externalBuilderRegistrations and
               forkyState.data.validators.item(i).exit_epoch > currentEpoch:

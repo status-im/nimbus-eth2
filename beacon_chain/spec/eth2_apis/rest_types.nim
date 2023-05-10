@@ -191,13 +191,13 @@ type
     validators*: seq[ValidatorIndex]
 
   RestErrorMessage* = object
-    ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/types/http.yaml#L86
+    ## https://github.com/ethereum/beacon-APIs/blob/v2.4.0/types/http.yaml#L130
     code*: int
     message*: string
     stacktraces*: Option[seq[string]]
 
   RestIndexedErrorMessage* = object
-    ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/types/http.yaml#L101
+    ## https://github.com/ethereum/beacon-APIs/blob/v2.4.0/types/http.yaml#L145
     code*: int
     message*: string
     failures*: seq[RestIndexedErrorMessageItem]
