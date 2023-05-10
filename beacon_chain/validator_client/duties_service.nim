@@ -338,19 +338,20 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
       var alreadyWarned = false
       var res: seq[tuple[epoch: Epoch, duty: RestAttesterDuty]]
       for duty in relevantDuties:
-        let map = vc.attesters.getOrDefault(duty.pubkey)
-        let epochDuty = map.duties.getOrDefault(epoch, DefaultDutyAndProof)
-        if not(epochDuty.isDefault()):
-          if epochDuty.dependentRoot != currentRoot.get():
-            res.add((epoch, duty))
-            if not(alreadyWarned):
-              warn "Attester duties re-organization",
-                   prior_dependent_root = epochDuty.dependentRoot,
-                   dependent_root = currentRoot.get()
-              alreadyWarned = true
-        else:
+        var dutyFound = false
+        vc.attesters.withValue(duty.pubkey, map):
+          map[].duties.withValue(epoch, epochDuty):
+            dutyFound = true
+            if epochDuty[].dependentRoot != currentRoot.get():
+              res.add((epoch, duty))
+              if not(alreadyWarned):
+                info "Attester duties re-organization",
+                     prior_dependent_root = epochDuty.dependentRoot,
+                     dependent_root = currentRoot.get()
+                alreadyWarned = true
+        if not(dutyFound):
           info "Received new attester duty", duty, epoch = epoch,
-                                             dependent_root = currentRoot.get()
+               dependent_root = currentRoot.get()
           res.add((epoch, duty))
       res
 
@@ -593,13 +594,16 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
         for sdap in relevantSdaps:
           var dutyFound = false
           vc.syncCommitteeDuties.withValue(sdap.data.pubkey, map):
-            map.duties.withValue(epoch, epochDuty):
+            map[].duties.withValue(epoch, epochDuty):
+              dutyFound = true
               if epochDuty[] != sdap:
-                dutyFound = true
-          if dutyFound and not(alreadyWarned):
-            info "Sync committee duties re-organization", sdap, epoch
-            alreadyWarned = true
-          res.add((epoch, sdap))
+                res.add((epoch, sdap))
+                if not(alreadyWarned):
+                  info "Sync committee duties re-organization", sdap, epoch
+                  alreadyWarned = true
+          if not(dutyFound):
+            info "Received new sync committee duty", sdap, epoch
+            res.add((epoch, sdap))
         res
 
   if len(addOrReplaceItems) > 0:
