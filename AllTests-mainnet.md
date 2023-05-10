@@ -358,8 +358,8 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Network metadata
 ```diff
-+ Mainnet                                                                                    OK
 + goerli                                                                                     OK
++ mainnet                                                                                    OK
 + sepolia                                                                                    OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
