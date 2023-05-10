@@ -4,7 +4,7 @@
     Some features of the validator client, such as the metrics server, are currently in BETA and details may change in response to community feedback.
     Please consult the `--help` screen for more details.
 
-By default, Nimbus integrates the validator client into the main beacon node process - this is a simple, safe and efficient way to run a validator.
+By default, Nimbus integrates the validator client into the main beacon node process — this is a simple, safe and efficient way to run a validator.
 
 Advanced users may wish to run validators in a separate process, allowing more flexible deployment strategies.
 The Nimbus beacon node supports both its own and third-party validator clients via the built-in [REST API](./rest-api.md).
