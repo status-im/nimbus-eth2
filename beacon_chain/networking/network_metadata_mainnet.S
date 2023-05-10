@@ -29,10 +29,6 @@
 eth2_mainnet_genesis_data:
     .incbin "../../vendor/eth2-networks/shared/mainnet/genesis.ssz"
 eth2_mainnet_genesis_end:
-    .global cdecl(eth2_mainnet_genesis)
-    .p2align 3
-cdecl(eth2_mainnet_genesis):
-    .quad eth2_mainnet_genesis_data
     .global cdecl(eth2_mainnet_genesis_size)
 cdecl(eth2_mainnet_genesis_size):
     .quad    eth2_mainnet_genesis_end - eth2_mainnet_genesis_data
@@ -40,22 +36,32 @@ cdecl(eth2_mainnet_genesis_size):
 eth2_goerli_genesis_data:
     .incbin "../../vendor/eth2-networks/shared/prater/genesis.ssz"
 eth2_goerli_genesis_end:
-    .global cdecl(eth2_goerli_genesis)
-    .p2align 3
-cdecl(eth2_goerli_genesis):
-    .quad eth2_goerli_genesis_data
     .global cdecl(eth2_goerli_genesis_size)
 cdecl(eth2_goerli_genesis_size):
     .quad    eth2_goerli_genesis_end - eth2_goerli_genesis_data
 
-
 eth2_sepolia_genesis_data:
     .incbin "../../vendor/sepolia/bepolia/genesis.ssz"
 eth2_sepolia_genesis_end:
+    .global cdecl(eth2_sepolia_genesis_size)
+cdecl(eth2_sepolia_genesis_size):
+    .quad    eth2_sepolia_genesis_end - eth2_sepolia_genesis_data
+
+#if defined(__APPLE__)
+    .section __DATA,__const
+#endif
+
+    .global cdecl(eth2_mainnet_genesis)
+    .p2align 3
+cdecl(eth2_mainnet_genesis):
+    .quad eth2_mainnet_genesis_data
+
+    .global cdecl(eth2_goerli_genesis)
+    .p2align 3
+cdecl(eth2_goerli_genesis):
+    .quad eth2_goerli_genesis_data
+
     .global cdecl(eth2_sepolia_genesis)
     .p2align 3
 cdecl(eth2_sepolia_genesis):
     .quad eth2_sepolia_genesis_data
-    .global cdecl(eth2_sepolia_genesis_size)
-cdecl(eth2_sepolia_genesis_size):
-    .quad    eth2_sepolia_genesis_end - eth2_sepolia_genesis_data
