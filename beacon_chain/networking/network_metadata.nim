@@ -216,6 +216,14 @@ const vendorDir =
   currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
 
 when const_preset == "gnosis":
+  import stew/assign2
+
+  let
+    gnosisGenesis {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
+    gnosisGenesisSize {.importc: "gnosis_mainnet_genesis_size".}: int
+
+  {.compile: "network_metadata_gnosis.S".}
+
   const
     gnosisMetadata* = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/mainnet")
@@ -279,38 +287,31 @@ proc getMetadataForNetwork*(
   if networkName == "ropsten":
     warn "Ropsten is unsupported; https://blog.ethereum.org/2022/11/30/ropsten-shutdown-announcement suggests migrating to Goerli or Sepolia"
 
+  template withGenesis(metadata, genesis: untyped): untyped =
+    var tmp = metadata
+    assign(tmp.genesisData, genesis.toOpenArray(0, `genesis Size` - 1))
+    tmp
+
   let metadata =
     when const_preset == "gnosis":
       case toLowerAscii(networkName)
       of "gnosis":
-        gnosisMetadata
+        withGenesis(gnosisMetadata, gnosisGenesis)
       of "gnosis-chain":
         warn "`--network:gnosis-chain` is deprecated, " &
           "use `--network:gnosis` instead"
-        gnosisMetadata
+        withGenesis(gnosisMetadata, gnosisGenesis)
       else:
         loadRuntimeMetadata()
 
     elif const_preset == "mainnet":
       case toLowerAscii(networkName)
       of "mainnet":
-        var tmp = mainnetMetadata
-        assign(
-          tmp.genesisData,
-          mainnetGenesis.toOpenArray(0, mainnetGenesisSize - 1))
-        tmp
+        withGenesis(mainnetMetadata, mainnetGenesis)
       of "prater", "goerli":
-        var tmp = praterMetadata
-        assign(
-          tmp.genesisData,
-          praterGenesis.toOpenArray(0, praterGenesisSize - 1))
-        tmp
+        withGenesis(praterMetadata, praterGenesis)
       of "sepolia":
-        var tmp = sepoliaMetadata
-        assign(
-          tmp.genesisData,
-          sepoliaGenesis.toOpenArray(0, sepoliaGenesisSize - 1))
-        tmp
+        withGenesis(sepoliaMetadata, sepoliaGenesis)
       else:
         loadRuntimeMetadata()
 
