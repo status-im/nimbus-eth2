@@ -602,7 +602,8 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
                   info "Sync committee duties re-organization", sdap, epoch
                   alreadyWarned = true
           if not(dutyFound):
-            info "Received new sync committee duty", sdap, epoch
+            let duty = sdap.data
+            info "Received new sync committee duty", duty, epoch
             res.add((epoch, sdap))
         res
 
@@ -651,7 +652,10 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new attester's duties received", slot = currentSlot
 
-    await service.fillAttestationSlotSignatures(@[currentEpoch, nextEpoch])
+    block:
+      let moment = Moment.now()
+      await service.fillAttestationSlotSignatures(@[currentEpoch, nextEpoch])
+      notice "Slot signatures has been obtained", time = (Moment.now() - moment)
 
     let subscriptions =
       block:
@@ -730,7 +734,11 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
       debug "No new sync committee member's duties received",
             slot = currentSlot
 
-    await service.fillSyncSlotSignatures(epochs)
+    block:
+      let moment = Moment.now()
+      await service.fillSyncSlotSignatures(epochs)
+      notice "Sync selection proofs has been obtained",
+             time = (Moment.now() - moment)
 
     let subscriptions =
       block:
