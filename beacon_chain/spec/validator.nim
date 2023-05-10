@@ -277,11 +277,12 @@ func get_beacon_committee*(
   withState(state):
     get_beacon_committee(forkyState.data, slot, index, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): uint64 =
-  # Return the number of members in the beacon committee at ``slot`` for ``index``.
+  ## Return the number of members in the beacon committee at ``slot``
+  ## for ``index``.
   let
     epoch = epoch(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
@@ -400,9 +401,10 @@ func get_beacon_proposer_index*(
 
     return res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):
     Opt[ValidatorIndex] =
+  ## Return the beacon proposer index at the current slot.
   get_beacon_proposer_index(state, cache, state.slot)
 
 func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
@@ -411,10 +413,9 @@ func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
   withState(state):
     get_beacon_proposer_index(forkyState.data, cache, slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
-  let
-    modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
+  let modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
   bytes_to_uint64(eth2digest(
     slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
 

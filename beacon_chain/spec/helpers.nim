@@ -26,6 +26,11 @@ import
 export
   eth2_merkleization, forks, rlp, ssz_codec
 
+func toEther*(gwei: Gwei): Ether =
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/weak-subjectivity.md#constants
+  const ETH_TO_GWEI = 1_000_000_000
+  (gwei div ETH_TO_GWEI).Ether
+
 type
   ExecutionWithdrawal = eth_types.Withdrawal
   ExecutionBlockHeader = eth_types.BlockHeader

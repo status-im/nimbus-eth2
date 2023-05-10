@@ -862,7 +862,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-  # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/beacon/blocks/blinded_blocks.yaml
+  # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/beacon/blocks/blinded_blocks.yaml
   router.api(MethodPost, "/eth/v1/beacon/blinded_blocks") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     ## Instructs the beacon node to use the components of the

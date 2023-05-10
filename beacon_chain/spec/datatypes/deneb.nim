@@ -25,31 +25,31 @@ import
   ../digest,
   "."/[base, phase0, altair, bellatrix, capella]
 
-from  ../../vendor/nim-kzg4844/kzg4844 import KZGCommitment, KZGProof
+from  ../../vendor/nim-kzg4844/kzg4844 import KzgCommitment, KzgProof
 
 export json_serialization, base, kzg4844
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob
   BLOB_TX_TYPE* = 0x03'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/polynomial-commitments.md#constants
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#configuration
   MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS* = 4096'u64
 
 type
-  KZGCommitments* = List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]
+  KzgCommitments* = List[KzgCommitment, Limit MAX_BLOBS_PER_BLOCK]
   Blobs* = List[Blob, Limit MAX_BLOBS_PER_BLOCK]
 
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
   VersionedHash* = array[32, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
@@ -59,38 +59,45 @@ type
     beacon_block_root*: Eth2Digest
     beacon_block_slot*: Slot
     blobs*: Blobs
-    kzg_aggregated_proof*: KZGProof
+    kzg_aggregated_proof*: KzgProof
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/p2p-interface.md#blobsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
     block_root*: Eth2Digest
-    index*: BlobIndex  # Index of blob in block
+    index*: BlobIndex
+      ## Index of blob in block
     slot*: Slot
-    block_parent_root*: Eth2Digest  # Proposer shuffling determinant
+    block_parent_root*: Eth2Digest
+      ## Proposer shuffling determinant
     proposer_index*: uint64
     blob*: Blob
-    kzg_commitment*: KZGCommitment
-    kzg_proof*: KZGProof  # Allows for quick verification of kzg_commitment
+    kzg_commitment*: KzgCommitment
+    kzg_proof*: KzgProof
+      ## Allows for quick verification of kzg_commitment
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/p2p-interface.md#signedblobsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#signedblobsidecar
   SignedBlobSidecar* = object
     message*: BlobSidecar
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/p2p-interface.md#blobidentifier
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object
     block_root*: Eth2Digest
     index*: BlobIndex
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
+    # Execution block header fields
     parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
+    fee_recipient*: ExecutionAddress
+      ## 'beneficiary' in the yellow paper
     state_root*: Eth2Digest
-    receipts_root*: Eth2Digest # 'receipts root' in the yellow paper
+    receipts_root*: Eth2Digest
     logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest  # 'difficulty' in the yellow paper
-    block_number*: uint64  # 'number' in the yellow paper
+    prev_randao*: Eth2Digest
+      ## 'difficulty' in the yellow paper
+    block_number*: uint64
+      ## 'number' in the yellow paper
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
@@ -106,11 +113,12 @@ type
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
     blockValue*: Wei
-    kzgs*: KZGCommitments
+    kzgs*: KzgCommitments
     blobs*: Blobs
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
+    # Execution block header fields
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
     state_root*: Eth2Digest
@@ -125,15 +133,17 @@ type
     base_fee_per_gas*: UInt256
 
     # Extra payload fields
-    block_hash*: Eth2Digest  # Hash of execution block
+    block_hash*: Eth2Digest
+      ## Hash of execution block
     transactions_root*: Eth2Digest
     withdrawals_root*: Eth2Digest
-    excess_data_gas*: UInt256  # [New in Deneb]
+    excess_data_gas*: UInt256
+      ## [New in Deneb]
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
@@ -151,7 +161,7 @@ type
       ## Current sync committee corresponding to `header.beacon.state_root`
     current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: LightClientHeader
       ## Header attested to by the sync committee
@@ -170,7 +180,7 @@ type
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
@@ -184,7 +194,7 @@ type
     # Slot at which the aggregate signature was created (untrusted)
     signature_slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
   LightClientOptimisticUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
@@ -387,7 +397,7 @@ type
     # Execution
     execution_payload*: ExecutionPayload  # [Modified in Deneb]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KZGCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -422,7 +432,7 @@ type
     # Execution
     execution_payload*: ExecutionPayload  # [Modified in Deneb]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -445,7 +455,7 @@ type
     # Execution
     execution_payload*: ExecutionPayload  # [Modified in Deneb]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object

@@ -411,7 +411,7 @@ proc asyncInit(sn: SigningNodeRef) {.async.} =
 
 proc asyncRun*(sn: SigningNodeRef) {.async.} =
   sn.runKeystoreCachePruningLoopFut =
-    runKeystorecachePruningLoop(sn.keystoreCache)
+    runKeystoreCachePruningLoop(sn.keystoreCache)
   sn.installApiHandlers()
   sn.start()
 
