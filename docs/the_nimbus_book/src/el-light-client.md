@@ -1,4 +1,4 @@
-# Run the light client
+# Light client
 
 !!! warning
     The light client is currently in BETA and details around running it may change.

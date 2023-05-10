@@ -49,8 +49,8 @@ nav:
   - Getting started:
     - 'quick-start.md'
     - 'run-a-validator.md'
-    - 'pi-guide.md'
     - 'el-light-client.md'
+    - 'pi-guide.md'
 
   - How-to:
     - Beacon node:

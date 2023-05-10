@@ -1,8 +1,9 @@
-# Run the beacon node
+# Beacon node
 
 This page takes you through the steps of getting a standard installation of the Nimbus beacon node running.
 
-The quickstart setup involves running two nodes: an [execution client](./eth1.md) and a beacon node — both are needed to run a full Ethereum setup.
+The quickstart setup involves running two nodes: an [execution client](./eth1.md) and a beacon node.
+Both are needed to run a full Ethereum setup.
 
 The beacon node connects to the beacon chain network, syncs historical data, and provides [API's](./rest-api.md) to monitor and interact with the beacon chain.
 

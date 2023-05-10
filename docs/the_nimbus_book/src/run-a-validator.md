@@ -1,4 +1,4 @@
-# Run a validator
+# Validator
 
 Once your beacon node is [running](./quick-start.md), the next step is to set up a validator.
 
