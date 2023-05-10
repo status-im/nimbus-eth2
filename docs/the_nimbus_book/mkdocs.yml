@@ -43,9 +43,8 @@ markdown_extensions:
       toc_depth: 3
 
 nav:
-  - About:
+  - Home:
     - 'index.md'
-    - 'philosophy.md'
 
   - Getting started:
     - 'quick-start.md'
