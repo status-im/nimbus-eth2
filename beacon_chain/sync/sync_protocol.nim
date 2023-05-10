@@ -465,10 +465,8 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blockRef), blobindex = index
           continue
 
-        peer.awaitQuota(
-          blockResponseCost, "blob_sidecars_by_root/1")
-        peer.network.awaitQuota(
-          blockResponseCost, "blob_sidecars_by_root/1")
+        peer.awaitQuota(blockResponseCost, "blob_sidecars_by_root/1")
+        peer.network.awaitQuota(blockResponseCost, "blob_sidecars_by_root/1")
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
@@ -537,10 +535,8 @@ p2pProtocol BeaconSync(version = 1,
             continue
 
           # TODO extract from libp2pProtocol
-          peer.awaitQuota(
-            blockResponseCost, "blobs_sidecars_by_range/1")
-          peer.network.awaitQuota(
-            blockResponseCost, "blobs_sidecars_by_range/1")
+          peer.awaitQuota(blockResponseCost, "blobs_sidecars_by_range/1")
+          peer.network.awaitQuota(blockResponseCost, "blobs_sidecars_by_range/1")
 
           await response.writeBytesSZ(
             uncompressedLen, bytes,
