@@ -74,6 +74,7 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     # TODO checksum hex? shortlog?
     fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
     #bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),  # TODO validator_client/block_service.nim seems to want same shape of shortLogs across all block types
+    blob_kzg_commitments_len: 0,  # Deneb compat
   )
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =

@@ -534,6 +534,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     block_number: v.body.execution_payload.block_number,
     # TODO checksum hex? shortlog?
     fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
+    blob_kzg_commitments_len: v.body.blob_kzg_commitments.len(),
   )
 
 func shortLog*(v: BlobSidecar): auto =

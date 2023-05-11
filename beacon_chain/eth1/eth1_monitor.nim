@@ -731,13 +731,6 @@ proc getBlockByNumber*(rpcClient: RpcClient,
 
   rpcClient.eth_getBlockByNumber(hexNumber, false)
 
-proc getBlock(rpcClient: RpcClient, id: BlockHashOrNumber): Future[BlockObject] =
-  if id.isHash:
-    let hash = id.hash.asBlockHash()
-    return rpcClient.getBlockByHash(hash)
-  else:
-    return rpcClient.getBlockByNumber(id.number)
-
 func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
                latestHead, latestSafe, latestFinalized: Eth2Digest,
                timestamp: uint64,
