@@ -126,6 +126,26 @@ template maxSize*(n: int) {.pragma.}
 # - broke the compiler in SSZ and nim-serialization
 
 type
+  Wei* = UInt256
+  Gwei* = uint64
+  Ether* = distinct uint64
+
+template ethAmountUnit*(typ: type) {.dirty.} =
+  # Arithmetic
+  func `+`*(x, y: typ): typ {.borrow.}
+  func `-`*(x, y: typ): typ {.borrow.}
+  func `*`*(x: typ, y: distinctBase(typ)): typ {.borrow.}
+  func `*`*(x: distinctBase(typ), y: typ): typ {.borrow.}
+
+  # Arithmetic, changing type
+  func `div`*(x, y: typ): distinctBase(typ) {.borrow.}
+
+  # Comparison
+  func `<`*(x, y: typ): bool {.borrow.}
+
+ethAmountUnit Ether
+
+type
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
@@ -166,9 +186,6 @@ type
     ##
     ## The `SubnetId` type is constrained to values in the range
     ## `[0, ATTESTATION_SUBNET_COUNT)` during initialization.
-
-  Wei* = UInt256
-  Gwei* = uint64
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
@@ -266,16 +283,17 @@ type
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
     # Cannot use TrustedSig here as invalid signatures are possible and determine
     # if the deposit should be added or not during processing
-    signature*: ValidatorSig  # Signing over DepositMessage
+    signature*: ValidatorSig
+      ## Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch
       ## Earliest epoch when voluntary exit can be processed
@@ -323,9 +341,9 @@ type
     exit_epoch*: Epoch
 
     withdrawable_epoch*: Epoch
-      ## When validator can withdraw or transfer funds
+      ## When validator can withdraw funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -415,7 +433,7 @@ type
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading
@@ -424,7 +442,7 @@ type
     pubkey* {.dontSerialize.}: ValidatorPubKey
 
     withdrawal_credentials* {.dontSerialize.}: Eth2Digest
-      ## Commitment to pubkey for withdrawals and transfers
+      ## Commitment to pubkey for withdrawals
 
     effective_balance*: Gwei
       ## Balance at stake
@@ -439,9 +457,9 @@ type
     exit_epoch*: Epoch
 
     withdrawable_epoch*: Epoch
-      ## When validator can withdraw or transfer funds
+      ## When validator can withdraw funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatusCapella* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading
@@ -450,7 +468,7 @@ type
     pubkey* {.dontSerialize.}: ValidatorPubKey
 
     withdrawal_credentials*: Eth2Digest
-      ## Commitment to pubkey for withdrawals and transfers
+      ## Commitment to pubkey for withdrawals
 
     effective_balance*: Gwei
       ## Balance at stake
@@ -465,7 +483,7 @@ type
     exit_epoch*: Epoch
 
     withdrawable_epoch*: Epoch
-      ## When validator can withdraw or transfer funds
+      ## When validator can withdraw funds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object

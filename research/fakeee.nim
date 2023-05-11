@@ -11,6 +11,7 @@
 
 import
   std/typetraits,
+  stew/byteutils,
   json_rpc/[rpcserver, errors],
   web3/[conversions, engine_api_types],
   chronicles
@@ -21,6 +22,14 @@ proc setupEngineAPI*(server: RpcServer) =
   server.rpc("engine_newPayloadV1") do(payload: ExecutionPayloadV1) -> PayloadStatusV1:
     info "engine_newPayloadV1",
       number = $(distinctBase payload.blockNumber), hash = payload.blockHash
+
+    return PayloadStatusV1(
+      status: PayloadExecutionStatus.syncing,
+    )
+
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#engine_newpayloadv2
+  server.rpc("engine_newPayloadV2") do(payload: ExecutionPayloadV2) -> PayloadStatusV1:
+    info "engine_newPayloadV2", payload
 
     return PayloadStatusV1(
       status: PayloadExecutionStatus.syncing,
@@ -56,6 +65,36 @@ proc setupEngineAPI*(server: RpcServer) =
     return ForkchoiceUpdatedResponse(
       payloadStatus: PayloadStatusV1(
       status: PayloadExecutionStatus.syncing))
+
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#engine_forkchoiceupdatedv2
+  server.rpc("engine_forkchoiceUpdatedV2") do(
+      forkchoiceState: ForkchoiceStateV1, payloadAttributes: Option[PayloadAttributesV2]) -> ForkchoiceUpdatedResponse:
+    info "engine_forkchoiceUpdatedV2",
+      forkchoiceState, payloadAttributes
+
+    return ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(
+      status: PayloadExecutionStatus.syncing))
+
+  server.rpc("eth_getBlockByNumber") do(
+      quantityTag: string, fullTransactions: bool) -> JsonNode:
+    info "eth_getBlockByNumber", quantityTag, fullTransactions
+
+    return if quantityTag == "latest":
+      %BlockObject(number: 1000.Quantity)
+    else:
+      newJObject()
+
+  server.rpc("eth_getBlockByHash") do(
+      data: string, fullTransactions: bool) -> BlockObject:
+    info "eth_getBlockByHash", data = toHex(data), fullTransactions
+
+    return BlockObject(number: 1000.Quantity)
+
+  server.rpc("eth_chainId") do() -> Quantity:
+    info "eth_chainId"
+
+    return 1.Quantity
 
 when isMainModule:
   let server = newRpcHttpServer(

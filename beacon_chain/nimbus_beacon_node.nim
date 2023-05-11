@@ -1377,8 +1377,9 @@ proc handleMissingBlobs(node: BeaconNode) =
           blobless.root)
       )
       node.quarantine[].removeBlobless(blobless)
-  debug "Requesting detected missing blobs", blobs = shortLog(fetches)
-  node.requestManager.fetchMissingBlobs(fetches)
+  if fetches.len > 0:
+    debug "Requesting detected missing blobs", blobs = shortLog(fetches)
+    node.requestManager.fetchMissingBlobs(fetches)
 
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine[].checkMissing()

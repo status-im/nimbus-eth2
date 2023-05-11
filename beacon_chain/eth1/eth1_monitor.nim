@@ -422,7 +422,7 @@ func asConsensusWithdrawal(w: WithdrawalV1): capella.Withdrawal =
     index: w.index.uint64,
     validator_index: w.validatorIndex.uint64,
     address: ExecutionAddress(data: w.address.distinctBase),
-    amount: GWei w.amount)
+    amount: Gwei w.amount)
 
 func asEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
   WithdrawalV1(

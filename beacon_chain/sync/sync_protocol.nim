@@ -476,12 +476,13 @@ p2pProtocol BeaconSync(version = 1,
     debug "Blob root request done",
       peer, roots = blobIds.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#blobsidecarsbyrange-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobsidecarsbyrange-v1
   proc blobSidecarsByRange(
       peer: Peer,
       startSlot: Slot,
       reqCount: uint64,
-      response: MultipleChunksResponse[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)])
+      response: MultipleChunksResponse[
+        ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)])
       {.async, libp2pProtocol("blob_sidecars_by_range", 1).} =
     # TODO This code is more complicated than it needs to be, since the type
     #      of the multiple chunks response is not actually used in this server
