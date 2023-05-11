@@ -1263,7 +1263,7 @@ suite "Shufflings":
   test "Accelerated shuffling computation":
     randomize()
     let forkBlocks = dag.forkBlocks.toSeq()
-    for _ in 0 ..< 100:  # Number of random tests (against _all_ cached states)
+    for _ in 0 ..< 150:  # Number of random tests (against _all_ cached states)
       let
         blck = sample(forkBlocks).data
         epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)

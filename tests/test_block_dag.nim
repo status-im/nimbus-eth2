@@ -74,6 +74,7 @@ suite "BlockRef and helpers":
       s7 = BlockRef(bid: BlockId(slot: Slot(7)), parent: s6)
       s8 = BlockRef(bid: BlockId(slot: Slot(8)), parent: s4)
       s9 = BlockRef(bid: BlockId(slot: Slot(9)), parent: s8)
+
     check:
       commonAncestor(s0, s0, Slot(0)) == Opt.some(s0)
       commonAncestor(s0, s1, Slot(0)) == Opt.some(s0)
