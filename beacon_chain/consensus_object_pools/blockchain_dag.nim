@@ -498,8 +498,7 @@ func findShufflingRef*(
   ## `getShufflingRef` for a version that creates a new instance if it's missing
   let
     dependent_slot = epoch.shufflingDependentSlot
-    dependent_bsi = dag.atSlot(bid, dependent_slot).valueOr:
-      return err()
+    dependent_bsi = ? dag.atSlot(bid, dependent_slot)
 
   # Check `ShufflingRef` cache
   let shufflingRef = dag.shufflingRefs.findIt(
