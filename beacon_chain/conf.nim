@@ -22,6 +22,7 @@ import
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
+  kzg4844/kzg_ex,
   ./spec/[engine_authentication, keystore, network, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata,
@@ -1347,3 +1348,16 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
     config.elUrls
 
   (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)
+
+proc loadKzgTrustedSetup*(): Result[void, string] =
+  const trustedSetup =
+    when const_preset == "mainnet":
+      staticRead"../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt"
+    elif const_preset == "minimal":
+      staticRead"../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup_4.txt"
+    else:
+      ""
+  if const_preset == "mainnet" or const_preset == "minimal":
+    Kzg.loadTrustedSetupFromString(trustedSetup)
+  else:
+    ok()
