@@ -48,7 +48,7 @@ eth2_sepolia_genesis_end:
 cdecl(eth2_sepolia_genesis_size):
     .quad    eth2_sepolia_genesis_end - eth2_sepolia_genesis_data
 
-#if defined(__linux__) && defined(__pie__):
+#if defined(__linux__) && defined(__pie__)
     .section	.data.rel.ro,"aw",@progbits
 #elif defined(__APPLE__)
     .section __DATA,__const
