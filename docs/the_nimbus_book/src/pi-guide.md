@@ -41,12 +41,13 @@ As such, we try our best to explain things from first-principles.
 
 ### 1. Download Raspberry Pi Imager
 
-[Raspberry Pi Imager](https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/) is an imaging utility that makes it simple to manage your microSD card with Raspbian (the free Pi operating system based on Debian).
+[Raspberry Pi Imager](https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/) is an imaging utility that makes it simple to manage your microSD card with Raspberry Pi OS (the free Pi operating system based on Debian, previously called Raspbian).
 
 You can find the [download](https://www.learnenough.com/command-line-tutorial/basics) link for your operating system here: [Windows](https://downloads.raspberrypi.org/imager/imager_1.4.exe), [macOS](https://downloads.raspberrypi.org/imager/imager_1.4.dmg), [Ubuntu](https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb).
 
-### 2. Download Raspian 64-bit OS
+### 2. Download 64-bit Raspberry Pi OS
 
+You need to install the 64-bit version of Raspberry Pi OS.
 You can find the latest version, [here](https://downloads.raspberrypi.org/raspios_arm64/images/).
 
 ### 3. Plug in SD card
@@ -55,15 +56,15 @@ Use your microSD to USB adapter to plug the SD card into your computer.
 
 ### 4. Download Raspberry Pi OS
 
-Open Raspberry Pi Imager and click on **CHOOSE OS**
+Open Raspberry Pi Imager and click on **CHOOSE OS**:
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_7b8cfa54f877218b6d971f09fa8d62ff.png)
 
-Scroll down and click on **Use custom**
+Scroll down and click on **Use custom**:
 
 ![](https://i.imgur.com/ar88MTt.png)
 
-Find the OS you downloaded in step 2
+Find the OS you downloaded in step 2:
 
 ![](https://i.imgur.com/NeOT8pf.png)
 
@@ -263,7 +264,7 @@ Once you're done, `ssh` back into your Pi.
 
 === "Manual installation"
 
-    Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
+    Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest), go to the Assets on the bottom of the page, and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
 
     Run this in your home directory to download nimbus-eth2:
 
