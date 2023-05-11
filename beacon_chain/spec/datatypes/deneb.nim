@@ -509,10 +509,6 @@ type
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
 
-  BlockParams = object
-    parentHash*: string
-    timestamp*: string
-
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
