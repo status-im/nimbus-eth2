@@ -453,7 +453,8 @@ proc initFullNode(
 
   node.updateValidatorMetrics()
 
-const SlashingDbName = "slashing_protection"
+const
+  SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
 proc init*(T: type BeaconNode,
@@ -1911,6 +1912,11 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     config.bootstrapNodes.add node
 
   let node = BeaconNode.init(rng, config, metadata)
+
+  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    let res = conf.loadKzgTrustedSetup()
+    if res.isErr():
+      raiseAssert res.error()
 
   if bnStatus == BeaconNodeStatus.Stopping:
     return
