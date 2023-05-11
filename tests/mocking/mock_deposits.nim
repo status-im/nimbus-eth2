@@ -126,12 +126,11 @@ proc mockUpdateStateForNewDeposit*(
   )
 
   var result_seq = @[result]
-  attachMerkleProofs(result_seq)
+  let deposit_root = attachMerkleProofs(result_seq)
   result.proof = result_seq[0].proof
 
   # TODO: this logic from the consensus-specs test suite seems strange
   #       but confirmed by running it
   state.eth1_deposit_index = 0
-  state.eth1_data.deposit_root =
-     hash_tree_root(List[DepositData, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH](@[result.data]))
+  state.eth1_data.deposit_root = deposit_root
   state.eth1_data.deposit_count = 1
