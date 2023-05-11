@@ -28,7 +28,7 @@ import
   ../testutil, ../testdbutil,
   ./fixtures_utils, ./os_ops
 
-# Test format described at https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1/tests/formats/fork_choice
+# Test format described at https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"
 # instead of following the spec (in particular the "store").
 
