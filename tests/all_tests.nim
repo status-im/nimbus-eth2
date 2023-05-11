@@ -36,6 +36,7 @@ import # Unit test
   ./test_light_client_processor,
   ./test_light_client,
   ./test_message_signatures,
+  ./test_network_metadata,
   ./test_peer_pool,
   ./test_remote_keystore,
   ./test_serialization,
