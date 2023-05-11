@@ -12,13 +12,13 @@ Since the merge 🐼, execution clients can no longer run standalone.
 
 Compared to a full beacon node, a light client has several advantages and disadvantages.
 
-| Feature | Light Client | Beacon Node |
+| Feature | Beacon Node | Light Client |
 | -- | -- | -- |
-| Disk usage | **<1MB** | ~70GB |
-| Bandwidth | **TBD (low)** | *TBD* |
-| Sync time | **Seconds** | Days |
-| Head delay | 4/3 slot (15 s) | **None** |
-| Security | Light | **Full** |
+| Disk usage | ~70GB | **<1MB** |
+| Bandwidth | *TBD* | **TBD (low)** |
+| Sync time | Days | **Seconds** |
+| Head delay | **None** | 4/3 slot (15 s) |
+| Security | **Full** | Light |
 
 Light clients delegate full validation to other network participants and operate under a honest supermajority (> 2/3) assumption among elected participants.
 Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).
