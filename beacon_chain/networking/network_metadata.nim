@@ -13,14 +13,8 @@ import
   web3/[ethtypes, conversions],
   chronicles,
   eth/common/eth_types_json_serialization,
-  ../spec/eth2_ssz_serialization,
-  ../spec/datatypes/phase0
+  ../spec/eth2_ssz_serialization
 
-# ATTENTION! This file will produce a large C file, because we are inlining
-# genesis states as C literals in the generated code (and blobs in the final
-# binary). It makes sense to keep the file small and separated from the rest
-# of the module in order go gain maximum efficiency in incremental compilation.
-#
 # TODO(zah):
 # We can compress the embedded states with snappy before embedding them here.
 
@@ -68,16 +62,6 @@ type
       depositContractBlock*: uint64
       depositContractBlockHash*: Eth2Digest
 
-      # Please note that we are using `string` here because SSZ.decode
-      # is not currently usable at compile time and we want to load the
-      # network metadata into a constant.
-      #
-      # We could have also used `seq[byte]`, but this results in a lot
-      # more generated code that slows down compilation. The impact on
-      # compilation times of embedding the genesis as a string is roughly
-      # 0.1s on my machine (you can test this by choosing an invalid name
-      # for the genesis file below).
-      #
       # `genesisData` will have `len == 0` for networks with a still
       # unknown genesis state.
       genesisData*: seq[byte]
@@ -326,7 +310,7 @@ proc getMetadataForNetwork*(
   metadata
 
 proc getRuntimeConfig*(
-    eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
+    eth2Network: Option[string]): RuntimeConfig {.raises: [IOError].} =
   ## Returns the run-time config for a network specified on the command line
   ## If the network is not explicitly specified, the function will act as the
   ## regular Nimbus binary, returning the mainnet config.

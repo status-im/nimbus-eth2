@@ -9,7 +9,7 @@
 # https://github.com/nim-lang/Nim/issues/11225
 
 import
-  stew/ptrops, stew/ranges/ptr_arith, chronicles,
+  stew/ptrops, chronicles,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[
