@@ -209,7 +209,7 @@ when const_preset == "gnosis":
   {.compile: "network_metadata_gnosis.S".}
 
   const
-    gnosisMetadata* = loadCompileTimeNetworkMetadata(
+    gnosisMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/mainnet")
 
   static:

@@ -1295,7 +1295,7 @@ proc loadEth2Network*(
     getMetadataForNetwork(eth2Network.get)
   else:
     when const_preset == "gnosis":
-      gnosisMetadata
+      getMetadataForNetwork("gnosis")
     elif const_preset == "mainnet":
       getMetadataForNetwork("mainnet")
     else:
