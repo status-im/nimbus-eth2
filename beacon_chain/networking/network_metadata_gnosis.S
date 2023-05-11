@@ -12,6 +12,7 @@
 #endif
 
 #if defined(__linux__)
+    .section  .note.GNU-stack, “”, @progbits
     .section .rodata,"a",@progbits
 #elif defined(__APPLE__)
     .section __TEXT,__const
@@ -33,7 +34,9 @@ gnosis_mainnet_genesis_end:
 cdecl(gnosis_mainnet_genesis_size):
     .quad    gnosis_mainnet_genesis_end - gnosis_mainnet_genesis_data
 
-#if defined(__APPLE__)
+#if defined(__linux__) and defined(__pie__):
+    .section	.data.rel.ro,"aw",@progbits
+#elif defined(__APPLE__)
     .section __DATA,__const
 #endif
 
