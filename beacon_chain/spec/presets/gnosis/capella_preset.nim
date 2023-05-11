@@ -1,5 +1,12 @@
-# Mainnet preset - Capella
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/presets/mainnet/capella.yaml
+# beacon_chain
+# Copyright (c) 2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+# Gnosis preset - Capella
+# https://github.com/gnosischain/configs/blob/main/presets/gnosis/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------
@@ -9,11 +16,11 @@ const
 
   # Execution
   # ---------------------------------------------------------------
-  # 2**4 (= 16) withdrawals
-  MAX_WITHDRAWALS_PER_PAYLOAD* = 16
+  # 2**3 (= 8) withdrawals
+  MAX_WITHDRAWALS_PER_PAYLOAD* = 8
 
 
   # Withdrawals processing
   # ---------------------------------------------------------------
-  # 2**14 (= 16384) validators
-  MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP* = 16384
+  # 2**13 (= 8192) validators
+  MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP* = 8192
