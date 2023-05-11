@@ -728,24 +728,21 @@ proc establishEngineApiConnection*(url: EngineApiUrl):
   else:
     return ok web3Fut.read
 
-proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
+proc tryConnecting(connection: ELConnection): Future[Result[void, string]] {.async.} =
   if connection.isConnected:
-    return true
+    return ok()
 
   if connection.connectingFut == nil or
      connection.connectingFut.finished: # The previous attempt was not successful
     connection.connectingFut = establishEngineApiConnection(connection.engineUrl)
 
-  let web3Res = await connection.connectingFut
-  if web3Res.isErr:
-    return false
-  else:
-    connection.web3 = some web3Res.get
-    return true
+  let web3Res = ? await connection.connectingFut
+  connection.web3 = some web3Res
+  return ok()
 
 proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.async.} =
   while not connection.isConnected:
-    if not await connection.tryConnecting():
+    if (await connection.tryConnecting()).isErr():
       await sleepAsync(chronos.seconds(10))
 
   return connection.web3.get.provider
