@@ -12,7 +12,7 @@
 #endif
 
 #if defined(__linux__)
-    .section  .note.GNU-stack, “”, @progbits
+    .section  .note.GNU-stack, "", @progbits
     .section .rodata,"a",@progbits
 #elif defined(__APPLE__)
     .section __TEXT,__const
