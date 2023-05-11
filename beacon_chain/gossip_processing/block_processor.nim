@@ -353,7 +353,7 @@ proc getExecutionValidity(
       of PayloadExecutionStatus.valid:
         return NewPayloadStatus.valid
   except CatchableError as err:
-    error "getExecutionValidity: newPayload failed",
+    error "newPayload failed and leaked exception",
       err = err.msg,
       executionPayload = shortLog(blck.message.body.execution_payload),
       blck = shortLog(blck)

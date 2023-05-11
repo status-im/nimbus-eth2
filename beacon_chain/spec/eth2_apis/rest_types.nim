@@ -278,15 +278,19 @@ type
     index*: ValidatorIndex
     is_live*: bool
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#executionpayload
   RestExecutionPayload* = object
+    # Execution block header fields
     parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
+    fee_recipient*: ExecutionAddress
+      ## 'beneficiary' in the yellow paper
     state_root*: Eth2Digest
-    receipts_root*: Eth2Digest # 'receipts root' in the yellow paper
+    receipts_root*: Eth2Digest
     logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest  # 'difficulty' in the yellow paper
-    block_number*: uint64  # 'number' in the yellow paper
+    prev_randao*: Eth2Digest
+      ## 'difficulty' in the yellow paper
+    block_number*: uint64
+      ## 'number' in the yellow paper
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
@@ -294,9 +298,11 @@ type
     base_fee_per_gas*: UInt256
 
     # Extra payload fields
-    block_hash*: Eth2Digest # Hash of execution block
+    block_hash*: Eth2Digest
+      ## Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
-    withdrawals*: Option[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]  # [New in Capella]
+    withdrawals*: Option[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
+      ## [New in Capella]
 
   PrepareBeaconProposer* = object
     validator_index*: ValidatorIndex
@@ -349,7 +355,7 @@ type
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/presets/mainnet/altair.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/altair.yaml
     INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
@@ -358,7 +364,7 @@ type
     MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     UPDATE_TIMEOUT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/presets/mainnet/bellatrix.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/bellatrix.yaml
     INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
@@ -367,7 +373,12 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/capella.yaml
+    MAX_BLS_TO_EXECUTION_CHANGES*: uint64
+    MAX_WITHDRAWALS_PER_PAYLOAD*: uint64
+    MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP*: uint64
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/mainnet.yaml
     PRESET_BASE*: string
     CONFIG_NAME*: string
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
@@ -400,7 +411,7 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#constants
     # GENESIS_SLOT
     # GENESIS_EPOCH
     # FAR_FUTURE_EPOCH
@@ -418,7 +429,7 @@ type
     DOMAIN_SELECTION_PROOF*: DomainType
     DOMAIN_AGGREGATE_AND_PROOF*: DomainType
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#constants
     TIMELY_SOURCE_FLAG_INDEX*: byte
     TIMELY_TARGET_FLAG_INDEX*: byte
     TIMELY_HEAD_FLAG_INDEX*: byte
@@ -433,13 +444,16 @@ type
     DOMAIN_CONTRIBUTION_AND_PROOF*: DomainType
     # PARTICIPATION_FLAG_WEIGHTS
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#domain-types
+    DOMAIN_BLS_TO_EXECUTION_CHANGE*: DomainType
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
     TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
     RANDOM_SUBNETS_PER_VALIDATOR*: uint64
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
     ATTESTATION_SUBNET_COUNT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/validator.md#constants
     TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
     SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 

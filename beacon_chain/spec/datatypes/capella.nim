@@ -493,10 +493,6 @@ type
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
 
-  BlockParams = object
-    parentHash*: string
-    timestamp*: string
-
   BeaconBlockValidatorChanges* = object
     # Collection of exits that are suitable for block production
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]

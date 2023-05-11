@@ -357,6 +357,13 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Voluntary exit signatures                                                                  OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## Network metadata
+```diff
++ goerli                                                                                     OK
++ mainnet                                                                                    OK
++ sepolia                                                                                    OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(altair))                                            OK
@@ -675,4 +682,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 384/389 Fail: 0/389 Skip: 5/389
+OK: 387/392 Fail: 0/392 Skip: 5/392
