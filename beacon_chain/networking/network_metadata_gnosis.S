@@ -34,7 +34,7 @@ gnosis_mainnet_genesis_end:
 cdecl(gnosis_mainnet_genesis_size):
     .quad    gnosis_mainnet_genesis_end - gnosis_mainnet_genesis_data
 
-#if defined(__linux__) and defined(__pie__):
+#if defined(__linux__) && defined(__pie__):
     .section	.data.rel.ro,"aw",@progbits
 #elif defined(__APPLE__)
     .section __DATA,__const
