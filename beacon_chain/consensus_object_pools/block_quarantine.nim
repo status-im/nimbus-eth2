@@ -251,11 +251,11 @@ func clearAfterReorg*(quarantine: var Quarantine) =
 # likely imminent arrival.
 func addOrphan*(
     quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: ForkedSignedBeaconBlock): bool =
+    signedBlock: ForkedSignedBeaconBlock): Result[void, cstring] =
   ## Adds block to quarantine's `orphans` and `missing` lists.
   if not isViable(finalizedSlot, getForkedBlockField(signedBlock, slot)):
     quarantine.addUnviable(signedBlock.root)
-    return false
+    return err("block unviable")
 
   quarantine.cleanupOrphans(finalizedSlot)
 
@@ -263,19 +263,19 @@ func addOrphan*(
 
   if parent_root in quarantine.unviable:
     quarantine.unviable[signedBlock.root] = ()
-    return true
+    return ok()
 
   # Even if the quarantine is full, we need to schedule its parent for
   # downloading or we'll never get to the bottom of things
   quarantine.addMissing(parent_root)
 
   if quarantine.orphans.lenu64 >= MaxOrphans:
-    return false
+    return err("block quarantine full")
 
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
   quarantine.missing.del(signedBlock.root)
 
-  true
+  return ok()
 
 iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
          ForkedSignedBeaconBlock =
