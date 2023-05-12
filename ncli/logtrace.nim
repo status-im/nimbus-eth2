@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,7 +17,7 @@ const
   LogTracePatch: int = 4
   LogTraceVersion = $LogTraceMajor & "." & $LogTraceMinor & "." &
                       $LogTracePatch
-  LogTraceCopyright = "Copyright(C) 2021" &
+  LogTraceCopyright = "Copyright(C) 2021-2023" &
                        " Status Research & Development GmbH"
   LogTraceHeader = LogTraceName & ", Version " & LogTraceVersion &
                     " [" & hostOS & ": " & hostCPU & "]\r\n" &
