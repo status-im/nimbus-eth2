@@ -1214,7 +1214,7 @@ proc writeValue*[
   writer.endRecord()
 
 proc writeValue*[
-    BlockType: ForkedBeaconBlock|ForkedBlindedBeaconBlock](
+    BlockType: ForkedBeaconBlock](
     writer: var JsonWriter[RestJson],
     value: BlockType) {.raises: [IOError, Defect].} =
 
