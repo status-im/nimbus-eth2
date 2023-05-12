@@ -264,7 +264,7 @@ proc addHeadBlock*(
       return err(VerifierError.Invalid)
 
     if not verifier.batchVerify(sigs):
-      info "Block signature verification failed",
+      info "Block batch signature verification failed",
         signature = shortLog(signedBlock.signature)
       return err(VerifierError.Invalid)
 
