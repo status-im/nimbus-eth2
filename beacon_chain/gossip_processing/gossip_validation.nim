@@ -516,7 +516,7 @@ proc validateAttestation*(
   # store.finalized_checkpoint.root
   let
     shufflingRef =
-      pool.dag.findShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+      pool.dag.findShufflingRef(target.blck, target.slot.epoch).valueOr:
         # Target is verified - shouldn't happen
         warn "No shuffling for attestation - report bug",
           attestation = shortLog(attestation), target = shortLog(target)
@@ -700,7 +700,7 @@ proc validateAggregate*(
 
   let
     shufflingRef =
-      pool.dag.findShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+      pool.dag.findShufflingRef(target.blck, target.slot.epoch).valueOr:
         # Target is verified - shouldn't happen
         warn "No shuffling for attestation - report bug",
           aggregate = shortLog(aggregate), target = shortLog(target)
