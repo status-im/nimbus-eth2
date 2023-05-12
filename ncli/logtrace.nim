@@ -195,7 +195,9 @@ type
           "voluntary_exits_len": 0,
           "sync_committee_participants": 32,
           "block_number": 0,
-          "fee_recipient": ""
+          "fee_recipient": "",
+          "bls_to_execution_changes_len": 0,
+          "blob_kzg_commitments_len": 0,
         },
         "signature": "b544f144",
         "delay": "32ms3us"
