@@ -1976,8 +1976,10 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           break
 
         if not dag.db.delBlock(fork, bid.root):
-          # Stop at the first gap - an inconsistent DB might have more blocks
-          # but we have no efficient way of detecting that
+          # Stop at the first gap - this is typically the pruning point of the
+          # previous call to pruneHistory. An inconsistent DB might have more
+          # blocks beyond that point but we have no efficient way of detecting
+          # that.
           break
 
         cur = dag.parent(bid)
