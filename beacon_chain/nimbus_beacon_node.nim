@@ -453,7 +453,8 @@ proc initFullNode(
 
   node.updateValidatorMetrics()
 
-const SlashingDbName = "slashing_protection"
+const
+  SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
 proc init*(T: type BeaconNode,
@@ -541,9 +542,7 @@ proc init*(T: type BeaconNode,
   var genesisState =
     if metadata.genesisData.len > 0:
       try:
-        newClone readSszForkedHashedBeaconState(
-          cfg,
-          metadata.genesisData.toOpenArrayByte(0, metadata.genesisData.high))
+        newClone readSszForkedHashedBeaconState(cfg, metadata.genesisData)
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
     else:
@@ -1156,7 +1155,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.consensusManager[].pruneStateCachesAndForkChoice()
 
   if node.config.historyMode == HistoryMode.Prune:
-    node.dag.pruneHistory()
+    if not (slot + 1).is_epoch():
+      # The epoch slot already is "heavy" due to the epoch processing, leave
+      # the pruning for later
+      node.dag.pruneHistory()
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -1377,8 +1379,9 @@ proc handleMissingBlobs(node: BeaconNode) =
           blobless.root)
       )
       node.quarantine[].removeBlobless(blobless)
-  debug "Requesting detected missing blobs", blobs = shortLog(fetches)
-  node.requestManager.fetchMissingBlobs(fetches)
+  if fetches.len > 0:
+    debug "Requesting detected missing blobs", blobs = shortLog(fetches)
+    node.requestManager.fetchMissingBlobs(fetches)
 
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine[].checkMissing()
@@ -1911,6 +1914,11 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
 
   let node = BeaconNode.init(rng, config, metadata)
 
+  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    let res = conf.loadKzgTrustedSetup()
+    if res.isErr():
+      raiseAssert res.error()
+
   if bnStatus == BeaconNodeStatus.Stopping:
     return
 
@@ -2050,9 +2058,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
             stateId: "finalized")
       genesis =
         if network.genesisData.len > 0:
-          newClone(readSszForkedHashedBeaconState(
-            cfg,
-            network.genesisData.toOpenArrayByte(0, network.genesisData.high())))
+          newClone(readSszForkedHashedBeaconState(cfg, network.genesisData))
         else: nil
 
     if config.blockId.isSome():

@@ -175,6 +175,12 @@ type
       ## The last prune point
       ## We can prune up to finalizedHead
 
+    lastHistoryPruneHorizon*: Slot
+      ## The horizon when we last pruned, for horizon diff computation
+
+    lastHistoryPruneBlockHorizon*: Slot
+      ## Block pruning progress at the last call
+
     # -----------------------------------
     # Rewinder - Mutable state processing
 

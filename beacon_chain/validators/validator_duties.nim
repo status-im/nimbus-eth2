@@ -286,7 +286,7 @@ proc getExecutionPayload(
     PayloadType: type ForkyExecutionPayloadForSigning,
     node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
     epoch: Epoch, validator_index: ValidatorIndex): Future[Opt[PayloadType]] {.async.} =
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#executionpayload
 
   let feeRecipient = block:
     let pubkey = node.dag.validatorKey(validator_index)
@@ -1067,7 +1067,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
@@ -1220,7 +1220,7 @@ proc handleSyncCommitteeContributions(
     genesis_validators_root = node.dag.genesis_validators_root
     syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
 
-  for subcommitteeIdx in SyncSubCommitteeIndex:
+  for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
       let validator = node.getValidatorForDuties(
           valIdx, slot, slashingSafe = true).valueOr:
@@ -1266,13 +1266,13 @@ proc signAndSendAggregate(
           return
         res.get()
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregateandproof
     var
       msg = SignedAggregateAndProof(
         message: AggregateAndProof(
@@ -1389,8 +1389,6 @@ proc getValidatorRegistration(
 
   return ok validatorRegistration
 
-from std/sequtils import toSeq
-
 proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   try:
     if  (not node.config.payloadBuilderEnable) or
@@ -1440,12 +1438,11 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
       withState(node.dag.headState):
         let currentEpoch = node.currentSlot().epoch
         for i in 0 ..< forkyState.data.validators.len:
-          # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
-          # "requests containing currently inactive or unknown validator
-          # pubkeys will be accepted, as they may become active at a later
-          # epoch" which means filtering is needed here, because including
-          # any validators not pending or active may cause the request, as
-          # a whole, to fail.
+          # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/register_validator.yaml
+          # "Note that only registrations for active or pending validators must
+          # be sent to the builder network. Registrations for unknown or exited
+          # validators must be filtered out and not sent to the builder
+          # network."
           let pubkey = forkyState.data.validators.item(i).pubkey
           if  pubkey in node.externalBuilderRegistrations and
               forkyState.data.validators.item(i).exit_epoch > currentEpoch:
@@ -1658,8 +1655,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

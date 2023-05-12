@@ -17,9 +17,7 @@ import
 # TODO remove this dependency
 from std/random import rand
 
-from eth/common/eth_types import EMPTY_ROOT_HASH
 from eth/common/eth_types_rlp import rlpHash
-from eth/eip1559 import EIP1559_INITIAL_BASE_FEE
 
 type
   MockPrivKeysT = object
@@ -87,6 +85,9 @@ func signBlock(
         ValidatorSig()
   ForkedSignedBeaconBlock.init(forked, root, signature)
 
+from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
+from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
+
 proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
@@ -115,8 +116,6 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
                                        blockValue: Wei.zero)
 
-from eth/common/eth_types import GasInt
-from eth/eip1559 import calcEip1599BaseFee
 from stew/saturating_arith import saturate
 
 proc build_empty_execution_payload(
@@ -268,7 +267,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,
@@ -520,11 +519,13 @@ iterator makeTestBlocks*(
   state: ForkedHashedBeaconState,
   cache: var StateCache,
   blocks: int,
-  attested: bool,
+  eth1_data = Eth1Data(),
+  attested = false,
+  allDeposits = newSeq[Deposit](),
   syncCommitteeRatio = 0.0,
+  graffiti = default(GraffitiBytes),
   cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
-  var
-    state = assignClone(state)
+  var state = assignClone(state)
   for _ in 0..<blocks:
     let
       parent_root = withState(state[]): forkyState.latest_block_root
@@ -534,7 +535,24 @@ iterator makeTestBlocks*(
             state[], parent_root, getStateField(state[], slot), cache)
         else:
           @[]
+      stateEth1 = getStateField(state[], eth1_data)
+      stateDepositIndex = getStateField(state[], eth1_deposit_index)
+      deposits =
+        if stateDepositIndex < stateEth1.deposit_count:
+          let
+            lowIndex = stateDepositIndex
+            numDeposits = min(MAX_DEPOSITS, stateEth1.deposit_count - lowIndex)
+            highIndex = lowIndex + numDeposits - 1
+          allDeposits[lowIndex .. highIndex]
+        else:
+          newSeq[Deposit]()
       sync_aggregate = makeSyncAggregate(state[], syncCommitteeRatio, cfg)
 
-    yield addTestBlock(state[], cache,
-      attestations = attestations, sync_aggregate = sync_aggregate, cfg = cfg)
+    yield addTestBlock(
+      state[], cache,
+      eth1_data = eth1_data,
+      attestations = attestations,
+      deposits = deposits,
+      sync_aggregate = sync_aggregate,
+      graffiti = graffiti,
+      cfg = cfg)

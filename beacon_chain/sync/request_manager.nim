@@ -153,6 +153,9 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
             peer_score = peer.getScore()
           peer.updateScore(PeerScoreUnviableFork)
         elif gotGoodBlock:
+          debug "Request manager got good block",
+            peer = peer, blocks = shortLog(items)
+
           # We reward peer only if it returns something.
           peer.updateScore(PeerScoreGoodValues)
 

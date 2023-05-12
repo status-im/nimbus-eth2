@@ -588,20 +588,6 @@ proc readRuntimeConfig*(
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
 
-  # BEGIN TODO
-  # It should be possible to remove these once we migrate to the next
-  # release of the consensus test suite:
-  template readAliasedField(currentName: untyped, oldName: static string) =
-    if oldName in values:
-      cfg.currentName = try:
-        parse(typeof(cfg.currentName), values[oldName])
-      except ValueError as err:
-        raise (ref PresetFileError)(msg: "Unable to parse " & oldName)
-
-  readAliasedField DENEB_FORK_EPOCH, "EIP4844_FORK_EPOCH"
-  readAliasedField DENEB_FORK_VERSION, "EIP4844_FORK_VERSION"
-  # END TODO
-
   for name, field in cfg.fieldPairs():
     if name in values:
       try:

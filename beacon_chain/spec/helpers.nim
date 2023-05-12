@@ -181,22 +181,23 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   hash_tree_root(domain_wrapped_object)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#get_seed
-func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
-    Eth2Digest =
+func get_seed*(
+    state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType,
+    mix: Eth2Digest): Eth2Digest =
   ## Return the seed at ``epoch``.
-
   var seed_input : array[4+8+32, byte]
-
-  # Detect potential underflow
-  static:
-    doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
-
   seed_input[0..3] = domain_type.data
   seed_input[4..11] = uint_to_bytes(epoch.uint64)
-  seed_input[12..43] =
-    get_randao_mix(state, # Avoid underflow
-      epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
+  seed_input[12..43] = mix.data
   eth2digest(seed_input)
+
+func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
+    Eth2Digest =
+  # Detect potential underflow
+  static: doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
+  let mix = get_randao_mix(state, # Avoid underflow
+    epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
+  state.get_seed(epoch, domain_type, mix)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =

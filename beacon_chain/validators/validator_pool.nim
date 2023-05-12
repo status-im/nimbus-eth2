@@ -43,8 +43,6 @@ type
   ValidatorKind* {.pure.} = enum
     Local, Remote
 
-  ValidatorConnection* = RestClientRef
-
   ValidatorAndIndex* = object
     index*: ValidatorIndex
     validator*: Validator
@@ -209,12 +207,12 @@ proc addValidator*(pool: var ValidatorPool,
   of KeystoreKind.Remote:
     pool.addRemoteValidator(keystore, feeRecipient, gasLimit)
 
-proc getValidator*(pool: ValidatorPool,
+func getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): Opt[AttachedValidator] =
   let v = pool.validators.getOrDefault(validatorKey)
   if v == nil: Opt.none(AttachedValidator) else: Opt.some(v)
 
-proc contains*(pool: ValidatorPool, pubkey: ValidatorPubKey): bool =
+func contains*(pool: ValidatorPool, pubkey: ValidatorPubKey): bool =
   ## Returns ``true`` if validator with key ``pubkey`` present in ``pool``.
   pool.validators.contains(pubkey)
 
@@ -231,7 +229,7 @@ proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
              validator = shortLog(validator)
     validators.set(pool.count().int64)
 
-proc needsUpdate*(validator: AttachedValidator): bool =
+func needsUpdate*(validator: AttachedValidator): bool =
   validator.index.isNone() or validator.activationEpoch == FAR_FUTURE_EPOCH
 
 proc updateValidator*(
@@ -269,10 +267,6 @@ proc close*(pool: var ValidatorPool) =
       notice "Could not unlock validator's keystore file",
              pubkey = validator.pubkey, validator = shortLog(validator)
   pool.validators.clear()
-
-iterator publicKeys*(pool: ValidatorPool): ValidatorPubKey =
-  for item in pool.validators.keys():
-    yield item
 
 iterator indices*(pool: ValidatorPool): ValidatorIndex =
   for item in pool.validators.values():
@@ -338,7 +332,7 @@ func triggersDoppelganger*(v: AttachedValidator, epoch: Epoch): bool =
   else:
     v.doppelCheck.get() == epoch
 
-proc doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
+func doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
   ## Returns true iff the validator has passed doppelganger detection by being
   ## monitored in the previous epoch (or the given epoch is the activation
   ## epoch, in which case we always consider it ready)
@@ -443,7 +437,7 @@ proc signData(v: AttachedValidator,
   else:
     v.signWithDistributedKey(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#signature
 proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         block_root: Eth2Digest,
@@ -629,7 +623,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 proofs)
       await v.signData(web3SignerRequest)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               data: AttestationData
@@ -645,7 +639,7 @@ proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
       let request = Web3SignerRequest.init(fork, genesis_validators_root, data)
       await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#broadcast-aggregate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-aggregate
 proc getAggregateAndProofSignature*(v: AttachedValidator,
                                     fork: Fork,
                                     genesis_validators_root: Eth2Digest,
@@ -731,7 +725,7 @@ proc getContributionAndProofSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, contribution_and_proof)
       await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#randao-reveal
 proc getEpochSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, epoch: Epoch
                        ): Future[SignatureResult] {.async.} =
@@ -746,7 +740,7 @@ proc getEpochSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, epoch)
       await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregation-selection
 proc getSlotSignature*(v: AttachedValidator, fork: Fork,
                        genesis_validators_root: Eth2Digest, slot: Slot
                       ): Future[SignatureResult] {.async.} =

@@ -422,7 +422,7 @@ func asConsensusWithdrawal(w: WithdrawalV1): capella.Withdrawal =
     index: w.index.uint64,
     validator_index: w.validatorIndex.uint64,
     address: ExecutionAddress(data: w.address.distinctBase),
-    amount: GWei w.amount)
+    amount: Gwei w.amount)
 
 func asEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
   WithdrawalV1(
@@ -730,13 +730,6 @@ proc getBlockByNumber*(rpcClient: RpcClient,
     raiseAssert exc.msg
 
   rpcClient.eth_getBlockByNumber(hexNumber, false)
-
-proc getBlock(rpcClient: RpcClient, id: BlockHashOrNumber): Future[BlockObject] =
-  if id.isHash:
-    let hash = id.hash.asBlockHash()
-    return rpcClient.getBlockByHash(hash)
-  else:
-    return rpcClient.getBlockByNumber(id.number)
 
 func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
                latestHead, latestSafe, latestFinalized: Eth2Digest,
