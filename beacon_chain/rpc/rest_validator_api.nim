@@ -521,7 +521,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
-      return responseVersioned(res.get().blck, contextFork)
+      withBlck(res.get().blck):
+        return responseVersioned(blck, contextFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/eth/v1/validator/attestation_data") do (
