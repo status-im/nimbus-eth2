@@ -18,7 +18,7 @@ import
 
   # Internals
   ../../beacon_chain/extras,
-  ../../beacon_chain/eth1/merkle_minimal,
+  ../../beacon_chain/el/merkle_minimal,
 
   # Test utilities
   ../testblockutil

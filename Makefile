@@ -78,7 +78,7 @@ TOOLS := $(TOOLS_CORE) nimbus_beacon_node
 
 TOOLS_DIRS := \
 	beacon_chain \
-	beacon_chain/eth1 \
+	beacon_chain/el \
 	ncli \
 	research \
 	tools

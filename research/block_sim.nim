@@ -21,7 +21,7 @@ import
   ../beacon_chain/spec/[forks, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, deneb],
   ../beacon_chain/[beacon_chain_db, beacon_clock],
-  ../beacon_chain/eth1/eth1_monitor,
+  ../beacon_chain/el/el_manager,
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/gossip_processing/[batch_validation, gossip_validation],
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine,

@@ -9,7 +9,7 @@
 
 import
   unittest2,
-  ../beacon_chain/eth1/[el_conf, eth1_monitor],
+  ../beacon_chain/el/[el_conf, el_manager],
   ./testutil
 
 from ssz_serialization/types import Limit, List, init

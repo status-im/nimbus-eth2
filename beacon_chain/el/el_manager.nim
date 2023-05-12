@@ -142,7 +142,7 @@ type
 
   ELManager* = ref object
     eth1Network: Option[Eth1Network]
-      ## If this value is supplied the EL monitor will check whether
+      ## If this value is supplied the EL manager will check whether
       ## all configured EL nodes are connected to the same network.
 
     depositContractAddress*: Eth1Address

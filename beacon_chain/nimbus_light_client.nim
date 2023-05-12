@@ -9,7 +9,7 @@ import
   std/os,
   chronicles, chronos, stew/io2,
   eth/db/kvstore_sqlite3, eth/keys,
-  ./eth1/eth1_monitor,
+  ./el/el_manager,
   ./gossip_processing/optimistic_processor,
   ./networking/topic_params,
   ./spec/beaconstate,

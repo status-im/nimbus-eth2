@@ -11,7 +11,7 @@ import
   std/[random, sequtils],
   unittest2,
   eth/keys, taskpools,
-  ../beacon_chain/eth1/merkle_minimal,
+  ../beacon_chain/el/merkle_minimal,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
   ../beacon_chain/[beacon_chain_db],
