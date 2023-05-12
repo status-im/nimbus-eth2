@@ -47,8 +47,9 @@ suite "Light client processor" & preset():
 
   var cache: StateCache
   proc addBlocks(blocks: uint64, syncCommitteeRatio: float) =
-    for blck in makeTestBlocks(dag.headState, cache, blocks.int,
-                               attested = true, syncCommitteeRatio, cfg):
+    for blck in makeTestBlocks(
+        dag.headState, cache, blocks.int, attested = true,
+        syncCommitteeRatio = syncCommitteeRatio, cfg = cfg):
       let added =
         case blck.kind
         of ConsensusFork.Phase0:
