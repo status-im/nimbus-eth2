@@ -483,15 +483,18 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         qslot, proposer, qrandao, qskip_randao_verification):
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
-    template responsePlain(response: untyped): untyped =
+    template responseVersioned(
+        response: untyped, contextFork: ConsensusFork): untyped =
       if contentType == sszMediaType:
-        RestApiResponse.sszResponse(response)
+        let headers = [("eth-consensus-version", contextFork.toString())]
+        RestApiResponse.sszResponse(response, headers)
       elif contentType == jsonMediaType:
-        RestApiResponse.jsonResponsePlain(response)
+        RestApiResponse.jsonResponseWVersion(response, contextFork)
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-    case node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
+    let contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
+    case contextFork
     of ConsensusFork.Deneb:
       # TODO
       # We should return a block with sidecars here
@@ -503,18 +506,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node, qrandao, proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
-      return responsePlain(ForkedBlindedBeaconBlock(
-        kind: ConsensusFork.Capella,
-        capellaData: res.get().blindedBlckPart))
+      return responseVersioned(res.get().blindedBlckPart, contextFork)
     of ConsensusFork.Bellatrix:
       let res = await makeBlindedBeaconBlockForHeadAndSlot[
           bellatrix_mev.BlindedBeaconBlock](
         node, qrandao, proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
-      return responsePlain(ForkedBlindedBeaconBlock(
-        kind: ConsensusFork.Bellatrix,
-        bellatrixData: res.get().blindedBlckPart))
+      return responseVersioned(res.get().blindedBlckPart, contextFork)
     of ConsensusFork.Altair, ConsensusFork.Phase0:
       # Pre-Bellatrix, this endpoint will return a BeaconBlock
       let res = await makeBeaconBlockForHeadAndSlot(
@@ -522,7 +521,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
-      return responsePlain(res.get().blck)
+      withBlck(res.get().blck):
+        return responseVersioned(blck, contextFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/eth/v1/validator/attestation_data") do (
