@@ -29,7 +29,7 @@ export
   dynamic_fee_recipients, Time, toUnix, fromUnix, getTime
 
 const
-  SYNC_TOLERANCE* = 4'u64
+  SYNC_TOLERANCE* = defaultSyncHorizon
   SLOT_LOOKAHEAD* = 1.seconds
   HISTORICAL_DUTIES_EPOCHS* = 2'u64
   TIME_DELAY_FROM_SLOT* = 79.milliseconds

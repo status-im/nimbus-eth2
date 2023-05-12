@@ -127,3 +127,5 @@ func fromFloatSeconds*(T: type Duration, f: float): Duration =
   of fcInf: InfiniteDuration
 
 chronicles.formatIt Duration: $it
+
+const defaultSyncHorizon* = 50.uint64
