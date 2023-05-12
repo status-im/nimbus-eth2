@@ -52,7 +52,7 @@ logScope: topics = "chaindag"
 const
   EPOCHS_PER_STATE_SNAPSHOT* = 32
     ## When finality happens, we prune historical states from the database except
-    ## for a snapshort every 32 epochs from which replays can happen - there's a
+    ## for a snapshot every 32 epochs from which replays can happen - there's a
     ## balance here between making long replays and saving on disk space
   MAX_SLOTS_PER_PRUNE* = SLOTS_PER_EPOCH
     ## We prune the database incrementally so as not to introduce long
