@@ -110,23 +110,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + parent sanity                                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## DeleteKeys requests [Beacon Node] [Preset: mainnet]
-```diff
-+ Deleting not existing key [Beacon Node] [Preset: mainnet]                                  OK
-+ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
-+ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
-+ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-## DeleteRemoteKeys requests [Beacon Node] [Preset: mainnet]
-```diff
-+ Deleting existing local key and remote key [Beacon Node] [Preset: mainnet]                 OK
-+ Deleting not existing key [Beacon Node] [Preset: mainnet]                                  OK
-+ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
-+ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
-+ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## DepositTreeSnapshot
 ```diff
 + Migration                                                                                  OK
@@ -187,17 +170,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Subnet query after ENR update                                                              OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## Fee recipient management [Beacon Node] [Preset: mainnet]
-```diff
-+ Configuring the fee recpient [Beacon Node] [Preset: mainnet]                               OK
-+ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
-+ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
-+ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-+ Obtaining the fee recpient of a missing validator returns 404 [Beacon Node] [Preset: mainn OK
-+ Obtaining the fee recpient of an unconfigured validator returns the suggested default [Bea OK
-+ Setting the fee recipient on a missing validator creates a record for it [Beacon Node] [Pr OK
-```
-OK: 7/7 Fail: 0/7 Skip: 0/7
 ## FinalizedBlocks [Preset: mainnet]
 ```diff
 + Basic ops [Preset: mainnet]                                                                OK
@@ -225,17 +197,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + should raise on unknown data                                                               OK
 ```
 OK: 11/11 Fail: 0/11 Skip: 0/11
-## Gas limit management [Beacon Node] [Preset: mainnet]
-```diff
-+ Configuring the gas limit [Beacon Node] [Preset: mainnet]                                  OK
-+ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
-+ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
-+ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-+ Obtaining the gas limit of a missing validator returns 404 [Beacon Node] [Preset: mainnet] OK
-+ Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
-+ Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
-```
-OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Gossip fork transition
 ```diff
 + Gossip fork transition                                                                     OK
@@ -261,22 +222,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + is_aggregator                                                                              OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
-## ImportKeystores requests [Beacon Node] [Preset: mainnet]
-```diff
-+ ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
-+ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
-+ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
-+ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-## ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys [Beacon Node] [Preset: mainnet]
-```diff
-+ Importing list of remote keys [Beacon Node] [Preset: mainnet]                              OK
-+ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
-+ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
-+ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Key spliting
 ```diff
 + k < n                                                                                      OK
@@ -329,22 +274,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Sync (Strict) [Preset: mainnet]                                                            OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
-## ListKeys requests [Beacon Node] [Preset: mainnet]
-```diff
-+ Correct token provided [Beacon Node] [Preset: mainnet]                                     OK
-+ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
-+ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
-+ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-## ListRemoteKeys requests [Beacon Node] [Preset: mainnet]
-```diff
-+ Correct token provided [Beacon Node] [Preset: mainnet]                                     OK
-+ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
-+ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
-+ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Message signatures
 ```diff
 + Aggregate and proof signatures                                                             OK
@@ -435,11 +364,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + vesion 1                                                                                   OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
-## Serialization/deserialization [Beacon Node] [Preset: mainnet]
-```diff
-+ Deserialization test vectors                                                               OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Serialization/deserialization test suite
 ```diff
 + RestErrorMessage parser tests                                                              OK
@@ -682,4 +606,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 387/392 Fail: 0/392 Skip: 5/392
+OK: 347/352 Fail: 0/352 Skip: 5/352
