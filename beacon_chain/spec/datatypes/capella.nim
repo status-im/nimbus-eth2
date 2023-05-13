@@ -583,6 +583,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     block_number: v.body.execution_payload.block_number,
     # TODO checksum hex? shortlog?
     fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
+    bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
     blob_kzg_commitments_len: 0,  # Deneb compat
   )
 

@@ -598,6 +598,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
     block_number: 0'u64, # Bellatrix compat
     fee_recipient: "",
+    bls_to_execution_changes_len: 0,  # Capella compat
     blob_kzg_commitments_len: 0,  # Deneb compat
   )
 
