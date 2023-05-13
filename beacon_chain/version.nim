@@ -11,11 +11,11 @@
 
 import std/[strutils, compilesettings]
 
-when not defined(nimscript):
-  import times
-  let copyrights* = "Copyright (c) 2019-" & $(now().utc.year) & " Status Research & Development GmbH"
-
 const
+  compileYear = CompileDate[0 ..< 4]  # YYYY-MM-DD (UTC)
+  copyrights* =
+    "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
+
   versionMajor* = 23
   versionMinor* = 5
   versionBuild* = 0
