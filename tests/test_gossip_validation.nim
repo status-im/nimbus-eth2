@@ -238,8 +238,8 @@ suite "Gossip validation - Extra": # Not based on preset config
       validator = AttachedValidator(
         kind: ValidatorKind.Local, data: keystoreData, index: Opt.some index)
       resMsg = waitFor getSyncCommitteeMessage(
-        validator, state[].data.fork, state[].data.genesis_validators_root, slot,
-        state[].root)
+        validator, state[].data.fork, state[].data.genesis_validators_root,
+        slot, state[].latest_block_root)
       msg = resMsg.get()
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
