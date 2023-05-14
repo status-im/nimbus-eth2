@@ -156,7 +156,7 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   #      halt: nobody will be producing blocks because everone expects someone
   #      else to do it
   not wallSlot.afterGenesis or
-    head.slot + node.config.syncHorizon >= wallSlot.slot:
+    head.slot + node.config.syncHorizon >= wallSlot.slot
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
   static: doAssert lightClientFinalityUpdateSlotOffset ==
