@@ -22,7 +22,8 @@ import
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     sync_committee_msg_pool],
   ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/spec/[state_transition, helpers, network, validator],
+  ../beacon_chain/spec/[
+    beaconstate, state_transition, helpers, network, validator],
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
@@ -225,6 +226,7 @@ suite "Gossip validation - Extra": # Not based on preset config
     var
       state = assignClone(dag.headState.altairData)
       slot = state[].data.slot
+      beaconBlockRoot = state[].latest_block_root
 
       subcommitteeIdx = 0.SyncSubcommitteeIndex
       syncCommittee = @(dag.syncCommitteeParticipants(slot))
@@ -238,8 +240,8 @@ suite "Gossip validation - Extra": # Not based on preset config
       validator = AttachedValidator(
         kind: ValidatorKind.Local, data: keystoreData, index: Opt.some index)
       resMsg = waitFor getSyncCommitteeMessage(
-        validator, state[].data.fork, state[].data.genesis_validators_root, slot,
-        state[].root)
+        validator, state[].data.fork, state[].data.genesis_validators_root,
+        slot, beaconBlockRoot)
       msg = resMsg.get()
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
@@ -261,7 +263,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         let contribution = (ref SignedContributionAndProof)()
         check:
           syncCommitteeMsgPool[].produceContribution(
-            slot, state[].root, subcommitteeIdx,
+            slot, beaconBlockRoot, subcommitteeIdx,
             contribution.message.contribution)
         syncCommitteeMsgPool[].addContribution(
           contribution[], contribution.message.contribution.signature.load.get)
@@ -271,7 +273,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         doAssert(signRes.isOk())
         contribution[].signature = signRes.get()
         contribution
-      aggregate = syncCommitteeMsgPool[].produceSyncAggregate(state[].root)
+      aggregate = syncCommitteeMsgPool[].produceSyncAggregate(beaconBlockRoot)
 
     check:
       expectedCount > 1 # Cover edge case
