@@ -53,15 +53,6 @@ func get_slot_signature*(
 
   blsSign(privkey, signing_root.data)
 
-proc verify_slot_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
-  withTrust(signature):
-    let signing_root = compute_slot_signing_root(
-      fork, genesis_validators_root, slot)
-
-    blsVerify(pubkey, signing_root.data, signature)
-
 func compute_epoch_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch
     ): Eth2Digest =
@@ -98,7 +89,7 @@ func compute_block_signing_root*(
       fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
   compute_signing_root(blck, domain)
 
-func compute_blob_signing_root*(
+func compute_blob_signing_root(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blob: BlobSidecar): Eth2Digest =
   let
@@ -195,7 +186,7 @@ proc verify_attestation_signature*(
 
     blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
-func compute_deposit_signing_root*(
+func compute_deposit_signing_root(
     version: Version,
     deposit_message: DepositMessage): Eth2Digest =
   let
@@ -218,9 +209,9 @@ func get_deposit_signature*(message: DepositMessage, version: Version,
 
   blsSign(privkey, signing_root.data)
 
-proc verify_deposit_signature*(preset: RuntimeConfig,
-                               deposit: DepositData,
-                               pubkey: CookedPubKey): bool =
+proc verify_deposit_signature(preset: RuntimeConfig,
+                              deposit: DepositData,
+                              pubkey: CookedPubKey): bool =
   let
     deposit_message = deposit.getDepositMessage()
     signing_root = compute_deposit_signing_root(
@@ -366,7 +357,7 @@ proc verify_contribution_and_proof_signature*(
   blsVerify(pubkey, signing_root.data, signature)
 
 # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signing
-func compute_builder_signing_root*(
+func compute_builder_signing_root(
     fork: Fork,
     msg: bellatrix_mev.BuilderBid | capella_mev.BuilderBid |
          ValidatorRegistrationV1): Eth2Digest =
