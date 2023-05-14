@@ -48,7 +48,8 @@ import # Unit test
   ./test_signing_node,
   ./consensus_spec/all_tests as consensus_all_tests,
   ./slashing_protection/test_fixtures,
-  ./slashing_protection/test_slashing_protection_db
+  ./slashing_protection/test_slashing_protection_db,
+  ./test_validator_client
 
 when not defined(i386):
   # Avoids "Out of memory" CI failures

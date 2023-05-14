@@ -501,50 +501,59 @@ proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
       return err("Invalid beacon node role string found")
   ok(res)
 
-proc normalizeUri*(remoteUri: Uri): Uri =
-  var r = remoteUri
-  if (len(r.scheme) == 0) and (len(r.username) == 0) and
-     (len(r.password) == 0) and (len(r.hostname) == 0) and
-     (len(r.port) == 0) and (len(r.path) > 0):
-    # When `scheme` is not specified and `port` is not specified - whole
-    # hostname is stored in `path`.`query` and `anchor` could still be present.
-    # test.com
-    # test.com?q=query
-    # test.com?q=query#anchor=anchor
-    parseUri("http://" & $remoteUri & ":" & $defaultEth2RestPort)
-  elif (len(r.scheme) > 0) and (len(r.username) == 0) and
-       (len(r.password) == 0) and (len(r.hostname) == 0) and
-       (len(r.port) == 0) and (len(r.path) > 0):
+proc normalizeUri*(r: Uri): Result[Uri, cstring] =
+  const
+    MissingPortNumber = cstring("Missing port number")
+    MissingHostname = cstring("Missing hostname")
+    UnknownScheme = cstring("Unknown scheme value")
+    IncorrectUrl = cstring("Incorrect URL")
+
+  if (len(r.username) == 0) and (len(r.password) == 0) and
+     (len(r.hostname) == 0) and (len(r.port) == 0) and (len(r.path) > 0):
     # When `scheme` is not specified but `port` is specified - whole
     # hostname is stored in `scheme` and `port` is in `path`.
     # 192.168.0.1:5052
     # test.com:5052
     # test.com:5052?q=query
     # test.com:5052?q=query#anchor=anchor
-    parseUri("http://" & $remoteUri)
+    let suri = parseUri("http://" & $r)
+    if len(suri.port) == 0: return err(MissingPortNumber)
+    if len(suri.hostname) == 0: return err(MissingHostname)
+    ok(suri)
   elif (len(r.scheme) > 0) and (len(r.hostname) > 0):
     # When `scheme` is specified, but `port` is not we use default.
     # http://192.168.0.1
     # http://test.com
     # http://test.com?q=query
     # http://test.com?q=query#anchor=anchor
-    if len(r.port) == 0:
-      r.port =
-        case toLower(r.scheme)
-        of "http": "80"
-        of "https": "443"
-        else:
-          $defaultEth2RestPort
-    r
+    case toLower(r.scheme)
+    of "http", "https": ok(r)
+    else:
+      err(UnknownScheme)
+  elif len(r.scheme) == 0:
+    # When `scheme` is empty, but not missing. Relative URIs.
+    # https://datatracker.ietf.org/doc/html/rfc3986#section-4.2
+    # //192.168.0.1
+    # //test.com
+    # //test.com?q=query
+    # //test.com?q=query&anchor=anchor
+    var suri = r
+    if len(suri.hostname) == 0: return err(MissingHostname)
+    if len(suri.port) == 0: return err(MissingPortNumber)
+    suri.scheme = "http"
+    ok(suri)
   else:
-    remoteUri
+    if len(r.hostname) == 0: return err(MissingHostname)
+    if len(r.port) == 0: return err(MissingPortNumber)
+    err(IncorrectUrl)
 
 proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
            index: int): Result[BeaconNodeServerRef, string] =
   doAssert(index >= 0)
   let
     flags = {RestClientFlag.CommaSeparatedArray}
-    remoteUri = normalizeUri(remote)
+    remoteUri = normalizeUri(remote).valueOr:
+      return err("Invalid URL: " & $error)
     client =
       block:
         let res = RestClientRef.new($remoteUri, flags = flags)
