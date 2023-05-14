@@ -144,7 +144,7 @@ const
   ]
 
 suite "Validator Client test suite":
-  test "normalizeUri() test vectors:":
+  test "normalizeUri() test vectors":
     for hostname in HostNames:
       for vector in GoodTestVectors:
         let expect = vector[1] % (hostname)
