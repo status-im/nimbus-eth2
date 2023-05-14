@@ -226,7 +226,7 @@ suite "Gossip validation - Extra": # Not based on preset config
     var
       state = assignClone(dag.headState.altairData)
       slot = state[].data.slot
-      latest_block_root = state[].latest_block_root
+      latestBlockRoot = state[].latest_block_root
 
       subcommitteeIdx = 0.SyncSubcommitteeIndex
       syncCommittee = @(dag.syncCommitteeParticipants(slot))
@@ -241,7 +241,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         kind: ValidatorKind.Local, data: keystoreData, index: Opt.some index)
       resMsg = waitFor getSyncCommitteeMessage(
         validator, state[].data.fork, state[].data.genesis_validators_root,
-        slot, latest_block_root)
+        slot, latestBlockRoot)
       msg = resMsg.get()
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
@@ -263,7 +263,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         let contribution = (ref SignedContributionAndProof)()
         check:
           syncCommitteeMsgPool[].produceContribution(
-            slot, latest_block_root, subcommitteeIdx,
+            slot, latestBlockRoot, subcommitteeIdx,
             contribution.message.contribution)
         syncCommitteeMsgPool[].addContribution(
           contribution[], contribution.message.contribution.signature.load.get)
@@ -273,7 +273,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         doAssert(signRes.isOk())
         contribution[].signature = signRes.get()
         contribution
-      aggregate = syncCommitteeMsgPool[].produceSyncAggregate(latest_block_root)
+      aggregate = syncCommitteeMsgPool[].produceSyncAggregate(latestBlockRoot)
 
     check:
       expectedCount > 1 # Cover edge case
