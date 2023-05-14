@@ -208,7 +208,7 @@ func produceContribution*(
     outContribution.beacon_block_root = headBid.root
     outContribution.subcommittee_index = subcommitteeIdx.asUInt64
     try:
-      computeAggregateSig(pool.syncMessages.getOrDefault(target),
+      computeAggregateSig(pool.syncMessages[target],
                           subcommitteeIdx,
                           outContribution)
     except KeyError:
