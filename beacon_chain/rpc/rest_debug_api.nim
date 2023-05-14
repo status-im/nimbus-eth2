@@ -76,7 +76,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (
           root: it.root,
           slot: it.slot,
-          execution_optimistic: node.getBlockRefOptimistic(it)
+          execution_optimistic: not it.executionValid
         )
       )
     )
@@ -114,10 +114,15 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         validity:
           if item.invalid:
             RestNodeValidity.invalid
-          elif node.dag.is_optimistic(item.bid.root):
-            RestNodeValidity.optimistic
+          elif item.bid.slot <= node.dag.finalizedHead.slot:
+            RestNodeValidity.valid
           else:
-            RestNodeValidity.valid,
+            let blck = node.dag.getBlockRef(item.bid.root)
+              .expect("Non-finalized block has `BlockRef`")
+            if blck.executionValid:
+              RestNodeValidity.valid
+            else:
+              RestNodeValidity.optimistic,
         execution_block_hash: node.dag.loadExecutionBlockHash(item.bid),
         extra_data: some RestNodeExtraData(
           justified_root: item.checkpoints.justified.root,

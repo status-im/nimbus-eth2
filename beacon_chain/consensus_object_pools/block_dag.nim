@@ -35,6 +35,7 @@ type
       ## Root that can be used to retrieve block data from database
 
     executionBlockHash*: Opt[Eth2Digest]
+    executionValid*: bool
 
     parent*: BlockRef ##\
       ## Not nil, except for the finalized head

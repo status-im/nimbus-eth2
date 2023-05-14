@@ -264,12 +264,12 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           node.syncManager.inProgress
       isOptimistic =
         if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-          some(node.dag.is_optimistic(node.dag.head.root))
+          some[bool](not node.dag.head.executionValid)
         else:
           none[bool]()
       elOffline =
         if node.currentSlot().epoch() >= node.dag.cfg.CAPELLA_FORK_EPOCH:
-          some(not node.elManager.hasAnyWorkingConnection)
+          some[bool](not node.elManager.hasAnyWorkingConnection)
         else:
           none[bool]()  # Added with ethereum/beacon-APIs v2.4.0
 

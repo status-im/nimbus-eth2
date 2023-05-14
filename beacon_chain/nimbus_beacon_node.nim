@@ -1186,7 +1186,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head
-  if node.isSynced(head) == SyncStatus.synced:
+  if node.isSynced(head) and head.executionValid:
     withState(node.dag.headState):
       if node.consensusManager[].actionTracker.needsUpdate(
           forkyState, slot.epoch + 1):

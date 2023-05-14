@@ -33,23 +33,17 @@ func match(data: openArray[char], charset: set[char]): int =
 proc getSyncedHead*(
        node: BeaconNode,
        slot: Slot
-     ): Result[tuple[head: BlockRef, optimistic: bool], cstring] =
-  let
-    head = node.dag.head
-    optimistic =
-      case node.isSynced(head)
-      of SyncStatus.unsynced:
-        return err("Beacon node not fully and non-optimistically synced")
-      of SyncStatus.synced:
-        false
-      of SyncStatus.optimistic:
-        true
+     ): Result[BlockRef, cstring] =
+  let head = node.dag.head
+
+  if not node.isSynced(head):
+    return err("Beacon node not fully and non-optimistically synced")
 
   # Enough ahead not to know the shuffling
   if slot > head.slot + SLOTS_PER_EPOCH * 2:
     return err("Requesting far ahead of the current head")
 
-  ok((head, optimistic))
+  ok(head)
 
 func getCurrentSlot*(node: BeaconNode, slot: Slot):
     Result[Slot, cstring] =
@@ -61,7 +55,7 @@ func getCurrentSlot*(node: BeaconNode, slot: Slot):
 proc getSyncedHead*(
        node: BeaconNode,
        epoch: Epoch,
-     ): Result[tuple[head: BlockRef, optimistic: bool], cstring] =
+     ): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
   node.getSyncedHead(epoch.start_slot())
@@ -283,12 +277,16 @@ proc getStateOptimistic*(node: BeaconNode,
       # A state is optimistic iff the block which created it is
       withState(state):
         # The block root which created the state at slot `n` is at slot `n-1`
-        if forkyState.data.slot == GENESIS_SLOT:
+        if forkyState.data.slot <= node.dag.finalizedHead.slot:
           some[bool](false)
         else:
           doAssert forkyState.data.slot > 0
-          some[bool](node.dag.is_optimistic(
-            get_block_root_at_slot(forkyState.data, forkyState.data.slot - 1)))
+          let
+            blckRoot = get_block_root_at_slot(
+              forkyState.data, forkyState.data.slot - 1)
+            blck = node.dag.getBlockRef(blckRoot)
+              .expect("Non-finalized block has `BlockRef`")
+          some[bool](not blck.executionValid)
   else:
     none[bool]()
 
@@ -300,17 +298,16 @@ proc getBlockOptimistic*(node: BeaconNode,
     of ConsensusFork.Phase0, ConsensusFork.Altair:
       some[bool](false)
     of ConsensusFork.Bellatrix, ConsensusFork.Capella, ConsensusFork.Deneb:
-      some[bool](node.dag.is_optimistic(blck.root))
+      withBlck(blck):
+        if forkyBlock.slot <= node.dag.finalizedHead.slot:
+          some[bool](false)
+        else:
+          doAssert forkyBlck.slot > 0
+          let blck = node.dag.getBlockRef(blck.root)
+            .expect("Non-finalized block has `BlockRef`")
+          some[bool](not blck.executionValid)
   else:
     none[bool]()
-
-proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
-  let blck = node.dag.getForkedBlock(blck.bid).get()
-  case blck.kind
-  of ConsensusFork.Phase0, ConsensusFork.Altair:
-    false
-  of ConsensusFork.Bellatrix, ConsensusFork.Capella, ConsensusFork.Deneb:
-    node.dag.is_optimistic(blck.root)
 
 const
   jsonMediaType* = MediaType.init("application/json")
