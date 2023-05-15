@@ -191,21 +191,25 @@ suite "Light client" & preset():
             store.migrateToDataFork(lcDataFork)
       withForkyStore(store):
         when lcDataFork > LightClientDataFork.None:
-          bootstrap.migrateToDataFork(lcDataFork)
-          template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
-          let upgradedUpdate = update.migratingToDataFork(lcDataFork)
-          template forkyUpdate: untyped = upgradedUpdate.forky(lcDataFork)
-          let res = process_light_client_update(
-            forkyStore, forkyUpdate, currentSlot, cfg, genesis_validators_root)
-          check:
-            forkyUpdate.finalized_header.beacon.slot.sync_committee_period ==
-              period
-            res.isOk
-            if forkyUpdate.finalized_header.beacon.slot >
-                forkyBootstrap.header.beacon.slot:
-              forkyStore.finalized_header == forkyUpdate.finalized_header
-            else:
-              forkyStore.finalized_header == forkyBootstrap.header
+          # Reduce stack size by making this a `proc`
+          proc syncToPeriod() =
+            bootstrap.migrateToDataFork(lcDataFork)
+            template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
+            let upgradedUpdate = update.migratingToDataFork(lcDataFork)
+            template forkyUpdate: untyped = upgradedUpdate.forky(lcDataFork)
+            let res = process_light_client_update(
+              forkyStore, forkyUpdate, currentSlot, cfg,
+              genesis_validators_root)
+            check:
+              forkyUpdate.finalized_header.beacon.slot.sync_committee_period ==
+                period
+              res.isOk
+              if forkyUpdate.finalized_header.beacon.slot >
+                  forkyBootstrap.header.beacon.slot:
+                forkyStore.finalized_header == forkyUpdate.finalized_header
+              else:
+                forkyStore.finalized_header == forkyBootstrap.header
+          syncToPeriod()
       inc numIterations
       if numIterations > 20: doAssert false # Avoid endless loop on test failure
 

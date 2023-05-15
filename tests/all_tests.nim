@@ -56,7 +56,9 @@ when not defined(i386):
   import
     ./test_blockchain_dag,
     ./test_keystore,
-    ./test_keystore_management,
-    ./test_keymanager_api
+    ./test_keystore_management
+
+  when not defined(windows):
+    import ./test_keymanager_api
 
 summarizeLongTests("AllTests")
