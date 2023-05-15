@@ -506,46 +506,31 @@ proc normalizeUri*(r: Uri): Result[Uri, cstring] =
     MissingPortNumber = cstring("Missing port number")
     MissingHostname = cstring("Missing hostname")
     UnknownScheme = cstring("Unknown scheme value")
-    IncorrectUrl = cstring("Incorrect URL")
 
-  if (len(r.username) == 0) and (len(r.password) == 0) and
-     (len(r.hostname) == 0) and (len(r.port) == 0) and (len(r.path) > 0):
-    # When `scheme` is not specified but `port` is specified - whole
-    # hostname is stored in `scheme` and `port` is in `path`.
-    # 192.168.0.1:5052
-    # test.com:5052
-    # test.com:5052?q=query
-    # test.com:5052?q=query#anchor=anchor
-    let suri = parseUri("http://" & $r)
-    if len(suri.port) == 0: return err(MissingPortNumber)
-    if len(suri.hostname) == 0: return err(MissingHostname)
-    ok(suri)
-  elif (len(r.scheme) > 0) and (len(r.hostname) > 0):
-    # When `scheme` is specified, but `port` is not we use default.
-    # http://192.168.0.1
-    # http://test.com
-    # http://test.com?q=query
-    # http://test.com?q=query#anchor=anchor
-    case toLower(r.scheme)
-    of "http", "https": ok(r)
-    else:
-      err(UnknownScheme)
-  elif len(r.scheme) == 0:
-    # When `scheme` is empty, but not missing. Relative URIs.
-    # https://datatracker.ietf.org/doc/html/rfc3986#section-4.2
-    # //192.168.0.1
-    # //test.com
-    # //test.com?q=query
-    # //test.com?q=query&anchor=anchor
-    var suri = r
-    if len(suri.hostname) == 0: return err(MissingHostname)
-    if len(suri.port) == 0: return err(MissingPortNumber)
-    suri.scheme = "http"
-    ok(suri)
-  else:
+  if ($r).toLowerAscii().startsWith("http://") or
+     ($r).toLowerAscii().startsWith("https://"):
+    # When a scheme is provided, only a hostname is required
     if len(r.hostname) == 0: return err(MissingHostname)
-    if len(r.port) == 0: return err(MissingPortNumber)
-    err(IncorrectUrl)
+    return ok(r)
+
+  # Check for unknown scheme
+  if ($r).contains("://"):
+    return err(UnknownScheme)
+
+  # Add the default scheme (http)
+  let normalized =
+    if ($r).startsWith("//"):
+      parseUri("http:" & $r)
+    else:
+      parseUri("http://" & $r)
+
+  if len(normalized.hostname) == 0:
+    return err(MissingHostname)
+
+  if len(normalized.port) == 0:
+    return err(MissingPortNumber)
+
+  ok(normalized)
 
 proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
            index: int): Result[BeaconNodeServerRef, string] =
