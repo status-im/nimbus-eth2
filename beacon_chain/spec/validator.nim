@@ -125,22 +125,14 @@ func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
     shuffle
 
 func get_shuffled_active_validator_indices*(
-    state: ForkyBeaconState, epoch: Epoch,
-    mix: Eth2Digest): seq[ValidatorIndex] =
-  # Non-spec function, to cache a data structure from which one can cheaply
-  # compute both get_active_validator_indexes() and get_beacon_committee().
-  var active_validator_indices = get_active_validator_indices(state, epoch)
-  let seed = get_seed(state, epoch, DOMAIN_BEACON_ATTESTER, mix)
-  shuffle_list(active_validator_indices, seed)
-  active_validator_indices
-
-func get_shuffled_active_validator_indices*(
     state: ForkyBeaconState, epoch: Epoch): seq[ValidatorIndex] =
   # Non-spec function, to cache a data structure from which one can cheaply
   # compute both get_active_validator_indexes() and get_beacon_committee().
   var active_validator_indices = get_active_validator_indices(state, epoch)
-  let seed = get_seed(state, epoch, DOMAIN_BEACON_ATTESTER)
-  shuffle_list(active_validator_indices, seed)
+
+  shuffle_list(
+    active_validator_indices, get_seed(state, epoch, DOMAIN_BEACON_ATTESTER))
+
   active_validator_indices
 
 func get_shuffled_active_validator_indices*(
