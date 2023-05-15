@@ -19,7 +19,7 @@ import
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
     block_clearance, consensus_manager],
-  ../beacon_chain/eth1/eth1_monitor,
+  ../beacon_chain/el/el_manager,
   ./testutil, ./testdbutil, ./testblockutil
 
 from chronos/unittest2/asynctests import asyncTest

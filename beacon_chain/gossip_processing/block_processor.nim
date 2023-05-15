@@ -229,7 +229,7 @@ proc storeBackfillBlock(
 from web3/engine_api_types import
   PayloadAttributesV1, PayloadAttributesV2, PayloadExecutionStatus,
   PayloadStatusV1
-from ../eth1/eth1_monitor import
+from ../el/el_manager import
   ELManager, asEngineExecutionPayload, forkchoiceUpdated, hasConnection,
   hasProperlyConfiguredConnection, sendNewPayload
 

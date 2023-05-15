@@ -32,7 +32,7 @@ import
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool,
     sync_committee_msg_pool, consensus_manager],
-  ../eth1/eth1_monitor,
+  ../el/el_manager,
   ../networking/eth2_network,
   ../sszdump, ../sync/sync_manager,
   ../gossip_processing/block_processor,

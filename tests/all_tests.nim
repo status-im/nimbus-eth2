@@ -23,7 +23,7 @@ import # Unit test
   ./test_deposit_snapshots,
   ./test_discovery,
   ./test_engine_authentication,
-  ./test_eth1_monitor,
+  ./test_el_manager,
   ./test_el_conf,
   ./test_eth2_ssz_serialization,
   ./test_exit_pool,
@@ -56,7 +56,9 @@ when not defined(i386):
   import
     ./test_blockchain_dag,
     ./test_keystore,
-    ./test_keystore_management,
-    ./test_keymanager_api
+    ./test_keystore_management
+
+  when not defined(windows):
+    import ./test_keymanager_api
 
 summarizeLongTests("AllTests")

@@ -10,7 +10,7 @@
 import
   unittest2, confutils,
   stew/byteutils,
-  ../beacon_chain/eth1/el_conf,
+  ../beacon_chain/el/el_conf,
   ../beacon_chain/spec/engine_authentication
 
 type

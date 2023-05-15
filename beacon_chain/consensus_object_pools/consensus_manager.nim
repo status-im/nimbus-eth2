@@ -11,7 +11,7 @@ import
   chronicles, chronos, web3/[ethtypes, engine_api_types],
   ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
-  ../eth1/eth1_monitor,
+  ../el/el_manager,
   ../beacon_clock
 
 from ../spec/beaconstate import get_expected_withdrawals
