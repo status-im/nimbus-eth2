@@ -302,7 +302,7 @@ proc getBlockOptimistic*(node: BeaconNode,
         if forkyBlock.slot <= node.dag.finalizedHead.slot:
           some[bool](false)
         else:
-          doAssert forkyBlck.slot > 0
+          doAssert blck.slot > 0
           let blck = node.dag.getBlockRef(blck.root)
             .expect("Non-finalized block has `BlockRef`")
           some[bool](not blck.executionValid)
