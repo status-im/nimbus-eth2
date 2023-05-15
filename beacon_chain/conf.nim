@@ -27,7 +27,7 @@ import
   ./spec/datatypes/base,
   ./networking/network_metadata,
   ./validators/slashing_protection_common,
-  ./eth1/el_conf,
+  ./el/el_conf,
   ./filepath
 
 from consensus_object_pools/block_pools_types_light_client

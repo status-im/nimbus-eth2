@@ -23,7 +23,7 @@ import # Unit test
   ./test_deposit_snapshots,
   ./test_discovery,
   ./test_engine_authentication,
-  ./test_eth1_monitor,
+  ./test_el_manager,
   ./test_el_conf,
   ./test_eth2_ssz_serialization,
   ./test_exit_pool,
