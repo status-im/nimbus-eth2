@@ -60,8 +60,9 @@ suite "Light client" & preset():
 
       # Create blocks for final few epochs
       let blocks = min(targetSlot - slot, maxAttestedSlotsPerPeriod)
-      for blck in makeTestBlocks(dag.headState, cache, blocks.int,
-                                 attested, syncCommitteeRatio, cfg):
+      for blck in makeTestBlocks(
+          dag.headState, cache, blocks.int, attested = attested,
+          syncCommitteeRatio = syncCommitteeRatio, cfg = cfg):
         let added =
           case blck.kind
           of ConsensusFork.Phase0:

@@ -99,10 +99,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers
 ```diff
++ commonAncestor sanity                                                                      OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## BlockSlot and helpers
 ```diff
 + atSlot sanity                                                                              OK
@@ -445,6 +446,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + RestErrorMessage writer tests                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Shufflings
+```diff
++ Accelerated shuffling computation                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -676,4 +682,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 385/390 Fail: 0/390 Skip: 5/390
+OK: 387/392 Fail: 0/392 Skip: 5/392

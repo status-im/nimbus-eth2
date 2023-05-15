@@ -17,7 +17,10 @@ import
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(
-    validators: Natural, cfg = defaultRuntimeConfig): BeaconChainDB =
+    validators: Natural,
+    eth1Data = Opt.none(Eth1Data),
+    flags: UpdateFlags = {skipBlsValidation},
+    cfg = defaultRuntimeConfig): BeaconChainDB =
   let
     genState = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.Phase0,
@@ -25,8 +28,14 @@ proc makeTestDB*(
         cfg,
         ZERO_HASH,
         0,
-        makeInitialDeposits(validators.uint64, flags = {skipBlsValidation}),
-        {skipBlsValidation}))
+        makeInitialDeposits(validators.uint64, flags),
+        flags))
+
+  # Override Eth1Data on request, skipping the lengthy Eth1 voting process
+  if eth1Data.isOk:
+    withState(genState[]):
+      forkyState.data.eth1_data = eth1Data.get
+      forkyState.root = hash_tree_root(forkyState.data)
 
   result = BeaconChainDB.new("", cfg = cfg, inMemory = true)
   ChainDAGRef.preInit(result, genState[])
