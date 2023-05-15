@@ -164,6 +164,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponseWRoot(
       duties, epochRef.proposer_dependent_root, optimistic)
 
+  # https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
   router.api(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let indexList =
@@ -270,12 +271,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
       else:
         return RestApiResponse.jsonError(Http400, EpochFromFutureError)
-    else:
+    elif qSyncPeriod >= node.dag.cfg.ALTAIR_FORK_EPOCH.sync_committee_period:
       # The slot at the start of the sync committee period is likely to have a
       # state snapshot in the database, so we can restore the state relatively
       # cheaply:
-      let earliestSlotInQSyncPeriod =
-        Slot(qSyncPeriod * SLOTS_PER_SYNC_COMMITTEE_PERIOD)
+      let earliestSlotInQSyncPeriod = max(
+        node.dag.cfg.ALTAIR_FORK_EPOCH.start_slot,
+        qSyncPeriod.start_slot)
 
       # TODO
       # The DAG can offer a short-cut for getting just the information we need
@@ -295,6 +297,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             emptyResponse()
         return RestApiResponse.jsonResponseWOpt(res, optimistic)
+    else:
+      let res = emptyResponse()
+      return RestApiResponse.jsonResponseWOpt(res, execOpt = some(false))
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 

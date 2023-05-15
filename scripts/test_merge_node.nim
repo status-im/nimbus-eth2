@@ -12,7 +12,7 @@ import
   std/options,
   stew/results,
   chronos,
-  ../beacon_chain/eth1/eth1_monitor
+  ../beacon_chain/el/el_manager
 
 {.push raises: [].}
 

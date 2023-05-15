@@ -12,7 +12,7 @@ import
   libp2p/[multiaddress, multicodec, peerstore],
   libp2p/protocols/pubsub/pubsubpeer,
   ./rest_utils,
-  ../eth1/eth1_monitor,
+  ../el/el_manager,
   ../validators/validator_duties,
   ../spec/[forks, beacon_time],
   ../beacon_node, ../nimbus_binary_common

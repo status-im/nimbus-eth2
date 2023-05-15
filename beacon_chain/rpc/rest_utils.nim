@@ -299,7 +299,7 @@ proc getBlockOptimistic*(node: BeaconNode,
       some[bool](false)
     of ConsensusFork.Bellatrix, ConsensusFork.Capella, ConsensusFork.Deneb:
       withBlck(blck):
-        if forkyBlock.slot <= node.dag.finalizedHead.slot:
+        if blck.slot <= node.dag.finalizedHead.slot:
           some[bool](false)
         else:
           doAssert blck.slot > 0

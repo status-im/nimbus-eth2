@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/[json, strutils, times, sequtils],
   chronos, confutils, chronicles,
@@ -5,7 +12,7 @@ import
   eth/async_utils,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/networking/network_metadata,
-  ../beacon_chain/eth1/eth1_monitor,
+  ../beacon_chain/el/el_manager,
   ../beacon_chain/spec/[presets, helpers]
 
 type
