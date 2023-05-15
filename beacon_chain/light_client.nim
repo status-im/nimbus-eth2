@@ -353,14 +353,20 @@ proc installMessageValidators*(
           contextFork = consensusFork  # Avoid capturing `Deneb` (Nim 1.6)
           digest = forkDigests[].atConsensusFork(contextFork)
 
+        # light_client_optimistic_update
+        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
         lightClient.network.addValidator(
-          getLightClientFinalityUpdateTopic(digest),
-          proc(msg: lcDataFork.LightClientFinalityUpdate): ValidationResult =
+          getLightClientFinalityUpdateTopic(digest), proc (
+            msg: lcDataFork.LightClientFinalityUpdate
+          ): ValidationResult =
             validate(msg, contextFork, processLightClientFinalityUpdate))
 
+        # light_client_optimistic_update
+        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
         lightClient.network.addValidator(
-          getLightClientOptimisticUpdateTopic(digest),
-          proc(msg: lcDataFork.LightClientOptimisticUpdate): ValidationResult =
+          getLightClientOptimisticUpdateTopic(digest), proc (
+            msg: lcDataFork.LightClientOptimisticUpdate
+          ): ValidationResult =
             validate(msg, contextFork, processLightClientOptimisticUpdate))
 
 proc updateGossipStatus*(

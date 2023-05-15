@@ -278,6 +278,20 @@ template BeaconBlockType*(fork: static ConsensusFork): auto =
 template BeaconBlockBodyType*(fork: static ConsensusFork): auto =
   getSymbolFromForkModule(fork, "BeaconBlockBody")
 
+template SignedBeaconBlock*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[deneb.SignedBeaconBlock]
+  elif kind == ConsensusFork.Capella:
+    typedesc[capella.SignedBeaconBlock]
+  elif kind == ConsensusFork.Bellatrix:
+    typedesc[bellatrix.SignedBeaconBlock]
+  elif kind == ConsensusFork.Altair:
+    typedesc[altair.SignedBeaconBlock]
+  elif kind == ConsensusFork.Phase0:
+    typedesc[phase0.SignedBeaconBlock]
+  else:
+    static: raiseAssert "Unreachable"
+
 template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Deneb:
     typedesc[deneb.ExecutionPayloadForSigning]
