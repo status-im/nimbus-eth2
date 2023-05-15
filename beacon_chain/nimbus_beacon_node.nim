@@ -1467,7 +1467,7 @@ proc installMessageValidators(node: BeaconNode) =
             getAttestationTopic(digest, subnet_id), proc (
               attestation: Attestation
             ): Future[ValidationResult] {.async.} =
-              toValidationResult(
+              return toValidationResult(
                 await node.processor.processAttestation(
                   MsgSource.gossip, attestation, subnet_id)))
 
@@ -1477,7 +1477,7 @@ proc installMessageValidators(node: BeaconNode) =
         getAggregateAndProofsTopic(digest), proc (
           signedAggregateAndProof: SignedAggregateAndProof
         ): Future[ValidationResult] {.async.} =
-          toValidationResult(
+          return toValidationResult(
             await node.processor.processSignedAggregateAndProof(
               MsgSource.gossip, signedAggregateAndProof)))
 
@@ -1521,7 +1521,7 @@ proc installMessageValidators(node: BeaconNode) =
               getSyncCommitteeTopic(digest, idx), proc (
                 msg: SyncCommitteeMessage
               ): Future[ValidationResult] {.async.} =
-                toValidationResult(
+                return toValidationResult(
                   await node.processor.processSyncCommitteeMessage(
                     MsgSource.gossip, msg, idx)))
 
@@ -1531,7 +1531,7 @@ proc installMessageValidators(node: BeaconNode) =
           getSyncCommitteeContributionAndProofTopic(digest), proc (
             msg: SignedContributionAndProof
           ): Future[ValidationResult] {.async.} =
-            toValidationResult(
+            return toValidationResult(
               await node.processor.processSignedContributionAndProof(
                 MsgSource.gossip, msg)))
 
@@ -1542,7 +1542,7 @@ proc installMessageValidators(node: BeaconNode) =
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
           ): Future[ValidationResult] {.async.} =
-            toValidationResult(
+            return toValidationResult(
               await node.processor.processBlsToExecutionChange(
                 MsgSource.gossip, msg)))
 
