@@ -168,9 +168,9 @@ proc fillAttestationSlotSignatures*(
         sorted(res, cmp, order = SortOrder.Ascending)
 
   # We creating signatures in chunks to make VC more responsive for big number
-  # of validators. In this case tasks which are running concurrently could
-  # get their slot signatures for first epoch's slots even before this
-  # processing ends.
+  # of validators. In this case tasks that run concurrently will be able to use
+  # signatures for slots at the beginning of the epoch even before this
+  # processing will be completed.
   for chunk in requests.chunks(ATTESTATION_SIGNING_CHUNK_SIZE):
     let pendingRequests = chunk.mapIt(
       getSlotSignature(it.validator, it.fork, genesisRoot, it.slot))
@@ -186,7 +186,7 @@ proc fillAttestationSlotSignatures*(
 
     for index, fut in pendingRequests.pairs():
       let
-        request = requests[index]
+        request = chunk[index]
         signature =
           if fut.done():
             let sres = fut.read()
@@ -429,9 +429,9 @@ proc fillSyncSlotSignatures*(
         res
 
   # We creating signatures in chunks to make VC more responsive for big number
-  # of validators. In this case tasks which are running concurrently could
-  # get their slot signatures for first epoch's slots even before this
-  # processing ends.
+  # of validators. In this case tasks that run concurrently will be able to use
+  # signatures for slots at the beginning of the epoch even before this
+  # processing will be completed.
   for chunk in requests.chunks(SYNC_SIGNING_CHUNK_SIZE):
     let pendingRequests = chunk.mapIt(
       getSyncCommitteeSelectionProof(
