@@ -104,7 +104,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
 
     let optimistic = node.getShufflingOptimistic(
-      qepoch.shufflingDependentSlot,
+      shufflingRef.attester_dependent_slot,
       shufflingRef.attester_dependent_root)
 
     return RestApiResponse.jsonResponseWRoot(

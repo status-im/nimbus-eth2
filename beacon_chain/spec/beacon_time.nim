@@ -254,6 +254,10 @@ template start_slot*(period: SyncCommitteePeriod): Slot =
   if period >= maxPeriod: FAR_FUTURE_SLOT
   else: Slot(period * SLOTS_PER_SYNC_COMMITTEE_PERIOD)
 
+func dependent_slot*(epoch: Epoch): Slot =
+  if epoch == 0: Slot(0)
+  else: epoch.start_slot() - 1
+
 func `$`*(t: BeaconTime): string =
   if t.ns_since_genesis >= 0:
     $(timer.nanoseconds(t.ns_since_genesis))

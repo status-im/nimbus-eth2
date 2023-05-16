@@ -353,6 +353,9 @@ type
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
+func attester_dependent_slot*(shuffling: ShufflingRef): Slot =
+  dependent_slot((if shuffling.epoch == 0: Epoch(0) else: shuffling.epoch - 1))
+
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
 template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
