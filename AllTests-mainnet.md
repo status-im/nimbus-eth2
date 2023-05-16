@@ -189,12 +189,12 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
-+ Configuring the fee recpient [Beacon Node] [Preset: mainnet]                               OK
++ Configuring the fee recipient [Beacon Node] [Preset: mainnet]                              OK
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-+ Obtaining the fee recpient of a missing validator returns 404 [Beacon Node] [Preset: mainn OK
-+ Obtaining the fee recpient of an unconfigured validator returns the suggested default [Bea OK
++ Obtaining the fee recipient of a missing validator returns 404 [Beacon Node] [Preset: main OK
++ Obtaining the fee recipient of an unconfigured validator returns the suggested default [Be OK
 + Setting the fee recipient on a missing validator creates a record for it [Beacon Node] [Pr OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7

@@ -693,9 +693,16 @@ proc currentSlot*(vc: ValidatorClientRef): Slot =
 proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   let
     slot = vc.currentSlot()
+    withdrawalAddress =
+      if vc.keymanagerHost.isNil:
+        Opt.none Eth1Address
+      else:
+        vc.keymanagerHost[].getValidatorWithdrawalAddress(keystore.pubkey)
+    perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
+      vc.config.defaultFeeRecipient, withdrawalAddress)
     feeRecipient = vc.config.validatorsDir.getSuggestedFeeRecipient(
-      keystore.pubkey, vc.config.defaultFeeRecipient).valueOr(
-        vc.config.defaultFeeRecipient)
+      keystore.pubkey, perValidatorDefaultFeeRecipient).valueOr(
+        perValidatorDefaultFeeRecipient)
     gasLimit = vc.config.validatorsDir.getSuggestedGasLimit(
       keystore.pubkey, vc.config.suggestedGasLimit).valueOr(
         vc.config.suggestedGasLimit)
@@ -730,8 +737,16 @@ proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
   if dynamicRecipient.isSome():
     Opt.some(dynamicRecipient.get())
   else:
-    let staticRecipient = getSuggestedFeeRecipient(
-      vc.config.validatorsDir, pubkey, vc.config.defaultFeeRecipient)
+    let
+      withdrawalAddress =
+        if vc.keymanagerHost.isNil:
+          Opt.none Eth1Address
+        else:
+          vc.keymanagerHost[].getValidatorWithdrawalAddress(pubkey)
+      perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
+        vc.config.defaultFeeRecipient, withdrawalAddress)
+      staticRecipient = getSuggestedFeeRecipient(
+        vc.config.validatorsDir, pubkey, perValidatorDefaultFeeRecipient)
     if staticRecipient.isOk():
       Opt.some(staticRecipient.get())
     else:
