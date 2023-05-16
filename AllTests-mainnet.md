@@ -64,9 +64,10 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Beacon time
 ```diff
++ Dependent slots                                                                            OK
 + basics                                                                                     OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -676,4 +677,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 385/390 Fail: 0/390 Skip: 5/390
+OK: 386/391 Fail: 0/391 Skip: 5/391
