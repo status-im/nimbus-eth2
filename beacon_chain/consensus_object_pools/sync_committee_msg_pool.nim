@@ -151,13 +151,11 @@ proc addSyncCommitteeMessage*(
 
   func registerVotes(votes: var seq[TrustedSyncCommitteeMsg]) =
     for position in positionsInCommittee:
-      var found = false
-      for vote in votes:
-        if vote.subcommitteeIdx == subcommitteeIdx and
-            vote.positionInCommittee == position:
-          found = true
-          break
-      if not found:
+      block addVote:
+        for vote in votes:
+          if vote.subcommitteeIdx == subcommitteeIdx and
+              vote.positionInCommittee == position:
+            break addVote
         votes.add TrustedSyncCommitteeMsg(
           subcommitteeIdx: subcommitteeIdx,
           positionInCommittee: position,

@@ -1144,7 +1144,7 @@ proc validateContribution*(
 
   # [REJECT] The contribution has participants
   # that is, any(contribution.aggregation_bits).
-  if msg.message.contribution.aggregation_bits.countOnes() == 0:
+  if msg.message.contribution.aggregation_bits.isZeros:
     return dag.checkedReject("Contribution: aggregation bits empty")
 
   # [REJECT] contribution_and_proof.selection_proof selects the validator
