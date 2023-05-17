@@ -772,15 +772,6 @@ proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#is_data_available
-func is_data_available(
-    slot: Slot, beacon_block_root: Eth2Digest,
-    blob_kzg_commitments: seq[deneb.KZGCommitment]): bool =
-  discard $denebImplementationMissing & ": state_transition_block.nim:is_data_available"
-
-  true
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/phase0.nim
 type SomePhase0Block =
@@ -925,10 +916,5 @@ proc process_block*(
     state, blck.body.sync_aggregate, total_active_balance, cache)
 
   ? process_blob_kzg_commitments(state, blck.body)  # [New in Deneb]
-
-  # New in EIP-4844
-  if not is_data_available(
-      blck.slot, hash_tree_root(blck), blck.body.blob_kzg_commitments.asSeq):
-    return err("not is_data_available")
 
   ok()
