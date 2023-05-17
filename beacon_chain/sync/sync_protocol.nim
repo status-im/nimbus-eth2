@@ -546,7 +546,7 @@ p2pProtocol BeaconSync(version = 1,
           break
 
     debug "BlobSidecar range request done",
-      peer, startSlot, found
+      peer, startSlot, count = reqCount, found
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
   proc lightClientBootstrap(
