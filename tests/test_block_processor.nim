@@ -49,7 +49,7 @@ suite "Block processor" & preset():
       consensusManager = ConsensusManager.new(
         dag, attestationPool, quarantine, elManager, actionTracker,
         newClone(DynamicFeeRecipientsStore.init()), "",
-        default(Eth1Address), defaultGasLimit)
+        Opt.some default(Eth1Address), defaultGasLimit)
       state = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data
