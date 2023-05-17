@@ -837,8 +837,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     var contribution = SyncCommitteeContribution()
-    let res = node.syncCommitteeMsgPool[].produceContribution(
-      qslot, qroot, qindex, contribution)
+    let
+      blck = node.dag.getBlockRef(qroot).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+      res = node.syncCommitteeMsgPool[].produceContribution(
+        qslot, blck.bid, qindex, contribution)
     if not(res):
       return RestApiResponse.jsonError(Http400, ProduceContributionError)
     return RestApiResponse.jsonResponse(contribution)

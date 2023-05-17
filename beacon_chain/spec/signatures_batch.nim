@@ -388,7 +388,7 @@ proc collectSignatureSets*(
       # ----------------------------------------------------
       withState(state):
         when consensusFork >= ConsensusFork.Altair:
-          if signed_block.message.body.sync_aggregate.sync_committee_bits.countOnes() == 0:
+          if signed_block.message.body.sync_aggregate.sync_committee_bits.isZeros:
             if signed_block.message.body.sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
               return err("collectSignatureSets: empty sync aggregates need signature of point at infinity")
           else:

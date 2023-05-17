@@ -532,8 +532,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + An empty pool is safe to prune                                                             OK
 + An empty pool is safe to prune 2                                                           OK
 + An empty pool is safe to use                                                               OK
++ Missed slots across fork transition                                                        OK
++ Missed slots across sync committee period boundary                                         OK
++ isSeen                                                                                     OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## SyncManager test suite
 ```diff
 + Process all unviable blocks                                                                OK
@@ -677,4 +680,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 386/391 Fail: 0/391 Skip: 5/391
+OK: 389/394 Fail: 0/394 Skip: 5/394
