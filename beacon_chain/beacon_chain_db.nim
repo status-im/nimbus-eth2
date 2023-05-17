@@ -250,6 +250,8 @@ func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
   ret[0..<8] = toBytes(index)
   ret[8..<40] = root.data
 
+  ret
+
 template expectDb(x: auto): untyped =
   # There's no meaningful error handling implemented for a corrupt database or
   # full disk - this requires manual intervention, so we'll panic for now
