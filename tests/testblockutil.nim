@@ -421,9 +421,9 @@ proc makeSyncAggregate(
       getStateField(state, genesis_validators_root)
     slot =
       getStateField(state, slot)
-    latest_block_root =
-      withState(state): forkyState.latest_block_root
-    syncCommitteePool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
+    latest_block_id =
+      withState(state): forkyState.latest_block_id
+    syncCommitteePool = newClone(SyncCommitteeMsgPool.init(keys.newRng(), cfg))
 
   type
     Aggregator = object
@@ -484,11 +484,11 @@ proc makeSyncAggregate(
 
       let signature = get_sync_committee_message_signature(
         fork, genesis_validators_root,
-        slot, latest_block_root,
+        slot, latest_block_id.root,
         MockPrivKeys[validatorIdx])
       syncCommitteePool[].addSyncCommitteeMessage(
         slot,
-        latest_block_root,
+        latest_block_id,
         uint64 validatorIdx,
         signature,
         subcommitteeIdx,
@@ -497,7 +497,7 @@ proc makeSyncAggregate(
   for aggregator in aggregators:
     var contribution: SyncCommitteeContribution
     if syncCommitteePool[].produceContribution(
-        slot, latest_block_root, aggregator.subcommitteeIdx, contribution):
+        slot, latest_block_id, aggregator.subcommitteeIdx, contribution):
       let
         contributionAndProof = ContributionAndProof(
           aggregator_index: uint64 aggregator.validatorIdx,
@@ -511,9 +511,10 @@ proc makeSyncAggregate(
           message: contributionAndProof,
           signature: contributionSig.toValidatorSig)
       syncCommitteePool[].addContribution(
-        signedContributionAndProof, contribution.signature.load.get)
+        signedContributionAndProof,
+        latest_block_id, contribution.signature.load.get)
 
-  syncCommitteePool[].produceSyncAggregate(latest_block_root)
+  syncCommitteePool[].produceSyncAggregate(latest_block_id, slot)
 
 iterator makeTestBlocks*(
   state: ForkedHashedBeaconState,

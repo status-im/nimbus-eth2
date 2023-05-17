@@ -312,7 +312,7 @@ proc initFullNode(
     attestationPool = newClone(
       AttestationPool.init(dag, quarantine, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
-      SyncCommitteeMsgPool.init(rng, onSyncContribution))
+      SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
       LightClientPool())
     validatorChangePool = newClone(

@@ -36,7 +36,7 @@ suite "Remove keystore testing suite":
       check keystore.remotes[0].id == 0
       check keystore.remotes[0].pubkey.toHex == "8b9c875fbe539c6429c4fc304675062579ce47fb6b2ac6b6a1ba1188ca123a80affbfe381dbbc8e7f2437709a4c3325c"
 
-    for version in [3]:
+    for version in [1, 3]:
       let remoteKeyStores = """{
         "version": """ & $version & """,
         "type": "web3signer",

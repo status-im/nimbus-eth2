@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -126,7 +126,8 @@ proc handleAddRemoteValidatorReq(host: KeymanagerHost,
                                  keystore: RemoteKeystore): RequestItemStatus =
   let res = importKeystore(host.validatorPool[], host.validatorsDir, keystore)
   if res.isOk:
-    host.addValidator(res.get())
+    host.addValidator(
+      res.get(), host.getValidatorWithdrawalAddress(keystore.pubkey))
 
     RequestItemStatus(status: $KeystoreStatus.imported)
   else:
@@ -193,7 +194,8 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
           response.data.add(
             RequestItemStatus(status: $KeystoreStatus.duplicate))
       else:
-        host.addValidator(res.get())
+        host.addValidator(
+          res.get(), host.getValidatorWithdrawalAddress(res.get.pubkey))
         response.data.add(
           RequestItemStatus(status: $KeystoreStatus.imported))
 
@@ -333,7 +335,11 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     let
       pubkey = pubkey.valueOr:
         return keymanagerApiError(Http400, InvalidValidatorPublicKey)
-      ethaddress = host.getSuggestedFeeRecipient(pubkey)
+      perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
+        host.defaultFeeRecipient,
+        host.getValidatorWithdrawalAddress(pubkey))
+      ethaddress = host.getSuggestedFeeRecipient(
+        pubkey, perValidatorDefaultFeeRecipient)
 
     return if ethaddress.isOk:
       RestApiResponse.jsonResponse(ListFeeRecipientResponse(

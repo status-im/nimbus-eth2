@@ -189,12 +189,12 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
-+ Configuring the fee recpient [Beacon Node] [Preset: mainnet]                               OK
++ Configuring the fee recipient [Beacon Node] [Preset: mainnet]                              OK
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-+ Obtaining the fee recpient of a missing validator returns 404 [Beacon Node] [Preset: mainn OK
-+ Obtaining the fee recpient of an unconfigured validator returns the suggested default [Bea OK
++ Obtaining the fee recipient of a missing validator returns 404 [Beacon Node] [Preset: main OK
++ Obtaining the fee recipient of an unconfigured validator returns the suggested default [Be OK
 + Setting the fee recipient on a missing validator creates a record for it [Beacon Node] [Pr OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7
@@ -532,8 +532,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + An empty pool is safe to prune                                                             OK
 + An empty pool is safe to prune 2                                                           OK
 + An empty pool is safe to use                                                               OK
++ Missed slots across fork transition                                                        OK
++ Missed slots across sync committee period boundary                                         OK
++ isSeen                                                                                     OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## SyncManager test suite
 ```diff
 + Process all unviable blocks                                                                OK
@@ -677,4 +680,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 386/391 Fail: 0/391 Skip: 5/391
+OK: 389/394 Fail: 0/394 Skip: 5/394

@@ -408,10 +408,10 @@ proc makeBeaconBlockForHeadAndSlot*(
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)
     syncAggregate =
-      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
-        SyncAggregate.init()
+      if slot.epoch >= node.dag.cfg.ALTAIR_FORK_EPOCH:
+        node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
       else:
-        node.syncCommitteeMsgPool[].produceSyncAggregate(head.root)
+        SyncAggregate.init()
     payload = (await payloadFut).valueOr:
       beacon_block_production_errors.inc()
       warn "Unable to get execution payload. Skipping block proposal",
@@ -1190,7 +1190,7 @@ proc signAndSendContribution(node: BeaconNode,
 
     if not node.syncCommitteeMsgPool[].produceContribution(
         slot,
-        head.root,
+        head.bid,
         subcommitteeIdx,
         msg.message.contribution):
       return
