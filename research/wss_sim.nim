@@ -240,13 +240,13 @@ cli do(validatorsDir: string, secretsDir: string,
             signature = get_attestation_signature(
               fork, genesis_validators_root, attestation.data,
               validators[validator_index])
-          if attestation.aggregation_bits.countOnes() == 0:
+          if attestation.aggregation_bits.isZeros:
             agg = AggregateSignature.init(signature)
           else:
             agg.aggregate(signature)
           attestation.aggregation_bits.setBit(index_in_committee)
 
-        if attestation.aggregation_bits.countOnes() > 0:
+        if not attestation.aggregation_bits.isZeros:
           attestation.signature = agg.finish().toValidatorSig()
 
           if aggregates.len == 128:

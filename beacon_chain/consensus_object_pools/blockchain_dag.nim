@@ -486,9 +486,6 @@ func epochKey(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochKey] =
 
   Opt.some(EpochKey(bid: bsi.bid, epoch: epoch))
 
-func shufflingDependentSlot*(epoch: Epoch): Slot =
-  if epoch >= 2: (epoch - 1).start_slot() - 1 else: Slot(0)
-
 func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
   ## Store shuffling in the cache
   if shufflingRef.epoch < dag.finalizedHead.slot.epoch():
@@ -503,7 +500,7 @@ func findShufflingRef*(
   ## Lookup a shuffling in the cache, returning `none` if it's not present - see
   ## `getShufflingRef` for a version that creates a new instance if it's missing
   let
-    dependent_slot = epoch.shufflingDependentSlot
+    dependent_slot = epoch.attester_dependent_slot()
     dependent_bsi = ? dag.atSlot(bid, dependent_slot)
 
   # Check `ShufflingRef` cache
@@ -1344,7 +1341,7 @@ func ancestorSlotForShuffling*(
     dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch): Opt[Slot] =
   ## Return slot of `blck` ancestor to which `state` can be rewinded
-  ## so that RANDAO at `epoch.shufflingDependentSlot` can be computed.
+  ## so that RANDAO at `epoch.attester_dependent_slot` can be computed.
   ## Return `err` if `state` is unviable to compute shuffling for `blck@epoch`.
 
   # A state must be somewhat recent so that `get_active_validator_indices`
@@ -1395,7 +1392,7 @@ func ancestorSlotForShuffling*(
         dag.finalizedHead.blck
       else:
         ? commonAncestor(blck, stateBlck, lowSlot)
-    dependentSlot = epoch.shufflingDependentSlot
+    dependentSlot = epoch.attester_dependent_slot
   doAssert dependentSlot >= lowSlot
   ok min(min(stateBid.slot, ancestorBlck.slot), dependentSlot)
 
@@ -1416,10 +1413,10 @@ proc computeRandaoMix*(
   ## `state` must have the correct `get_active_validator_indices` for `epoch`.
   ## RANDAO reveals of blocks from `state.data.slot` back to `ancestorSlot` are
   ## mixed out from `state.data.randao_mixes`, and RANDAO reveals from blocks
-  ## up through `epoch.shufflingDependentSlot` are mixed in.
+  ## up through `epoch.attester_dependent_slot` are mixed in.
   let
     stateSlot = state.data.slot
-    dependentSlot = epoch.shufflingDependentSlot
+    dependentSlot = epoch.attester_dependent_slot
     # Check `state` has locked-in `get_active_validator_indices` for `epoch`
     ancestorSlot = ? dag.ancestorSlotForShuffling(state, blck, epoch)
   doAssert ancestorSlot <= stateSlot
@@ -1542,7 +1539,7 @@ proc computeShufflingRefFromDatabase*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
   ## Load state from DB, for when DAG states are unviable (up to ~500 ms)
   let
-    dependentSlot = epoch.shufflingDependentSlot
+    dependentSlot = epoch.attester_dependent_slot
     state = newClone(dag.headState)
   var
     e = dependentSlot.epoch

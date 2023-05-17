@@ -1308,12 +1308,12 @@ proc loadEth2Network*(
 template loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata =
   loadEth2Network(config.eth2Network)
 
-func defaultFeeRecipient*(conf: AnyConf): Eth1Address =
+func defaultFeeRecipient*(conf: AnyConf): Opt[Eth1Address] =
   if conf.suggestedFeeRecipient.isSome:
-    conf.suggestedFeeRecipient.get
+    Opt.some conf.suggestedFeeRecipient.get
   else:
     # https://github.com/nim-lang/Nim/issues/19802
-    (static(default(Eth1Address)))
+    (static(Opt.none Eth1Address))
 
 proc loadJwtSecret*(
     rng: var HmacDrbgContext,

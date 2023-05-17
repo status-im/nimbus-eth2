@@ -1024,13 +1024,15 @@ proc validateVoluntaryExit*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
+    quarantine: ref Quarantine,
     batchCrypto: ref BatchCrypto,
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
     msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
     wallTime: BeaconTime,
     checkSignature: bool):
-    Future[Result[(seq[uint64], CookedSig), ValidationError]] {.async.} =
+    Future[Result[
+      (BlockId, CookedSig, seq[uint64]), ValidationError]] {.async.} =
   block:
     # [IGNORE] The message's slot is for the current slot (with a
     # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
@@ -1051,6 +1053,19 @@ proc validateSyncCommitteeMessage*(
     return dag.checkedReject(
       "SyncCommitteeMessage: originator not part of sync committee")
 
+  # [IGNORE] The block being signed (`sync_committee_message.beacon_block_root`)
+  # has been seen (via both gossip and non-gossip sources) (a client MAY queue
+  # sync committee messages for processing once block is received)
+  # [REJECT] The block being signed (`sync_committee_message.beacon_block_root`)
+  # passes validation.
+  let
+    blockRoot = msg.beacon_block_root
+    blck = dag.getBlockRef(blockRoot).valueOr:
+      if blockRoot in quarantine[].unviable:
+        return dag.checkedReject("SyncCommitteeMessage: target invalid")
+      quarantine[].addMissing(blockRoot)
+      return errIgnore("SyncCommitteeMessage: target not found")
+
   block:
     # [IGNORE] There has been no other valid sync committee message for the
     # declared `slot` for the validator referenced by
@@ -1059,14 +1074,12 @@ proc validateSyncCommitteeMessage*(
     # Note this validation is per topic so that for a given slot, multiple
     # messages could be forwarded with the same validator_index as long as
     # the subnet_ids are distinct.
-    if syncCommitteeMsgPool[].isSeen(msg, subcommitteeIdx):
+    if syncCommitteeMsgPool[].isSeen(msg, subcommitteeIdx, dag.head.bid):
       return errIgnore("SyncCommitteeMessage: duplicate message")
 
   # [REJECT] The signature is valid for the message beacon_block_root for the
   # validator referenced by validator_index.
   let
-    epoch = msg.slot.epoch
-    fork = dag.forkAtEpoch(epoch)
     senderPubKey = dag.validatorKey(msg.validator_index).valueOr:
       return dag.checkedReject("SyncCommitteeMessage: invalid validator index")
 
@@ -1075,7 +1088,8 @@ proc validateSyncCommitteeMessage*(
       # Attestation signatures are batch-verified
       let deferredCrypto = batchCrypto
                             .scheduleSyncCommitteeMessageCheck(
-                              fork, msg.slot, msg.beacon_block_root,
+                              dag.forkAtEpoch(msg.slot.epoch),
+                              msg.slot, msg.beacon_block_root,
                               senderPubKey, msg.signature)
       if deferredCrypto.isErr():
         return dag.checkedReject(deferredCrypto.error)
@@ -1098,17 +1112,19 @@ proc validateSyncCommitteeMessage*(
         return dag.checkedReject(
           "SyncCommitteeMessage: unable to load signature")
 
-  return ok((positionsInSubcommittee, sig))
+  return ok((blck.bid, sig, positionsInSubcommittee))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
 proc validateContribution*(
     dag: ChainDAGRef,
+    quarantine: ref Quarantine,
     batchCrypto: ref BatchCrypto,
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
     msg: SignedContributionAndProof,
     wallTime: BeaconTime,
     checkSignature: bool
-): Future[Result[(CookedSig, seq[ValidatorIndex]), ValidationError]] {.async.} =
+): Future[Result[
+    (BlockId, CookedSig, seq[ValidatorIndex]), ValidationError]] {.async.} =
   let
     syncCommitteeSlot = msg.message.contribution.slot
 
@@ -1124,16 +1140,19 @@ proc validateContribution*(
   # i.e. contribution.subcommittee_index < SYNC_COMMITTEE_SUBNET_COUNT.
   let subcommitteeIdx = SyncSubcommitteeIndex.init(
       msg.message.contribution.subcommittee_index).valueOr:
-    return dag.checkedReject(
-      "SignedContributionAndProof: subcommittee index too high")
+    return dag.checkedReject("Contribution: subcommittee index too high")
+
+  # [REJECT] The contribution has participants
+  # that is, any(contribution.aggregation_bits).
+  if msg.message.contribution.aggregation_bits.isZeros:
+    return dag.checkedReject("Contribution: aggregation bits empty")
 
   # [REJECT] contribution_and_proof.selection_proof selects the validator
   # as an aggregator for the slot
   # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof)
   # returns True.
   if not is_sync_committee_aggregator(msg.message.selection_proof):
-    return dag.checkedReject(
-      "SignedContributionAndProof: invalid selection_proof")
+    return dag.checkedReject("Contribution: invalid selection_proof")
 
   # [IGNORE] The sync committee contribution is the first valid
   # contribution received for the aggregator with index
@@ -1142,37 +1161,48 @@ proc validateContribution*(
   # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE for this
   #  topic that can be flushed after each slot).
   if syncCommitteeMsgPool[].isSeen(msg.message):
-    return errIgnore("SignedContributionAndProof: duplicate contribution")
+    return errIgnore("Contribution: duplicate contribution")
 
   # [REJECT] The aggregator's validator index is in the declared subcommittee
   # of the current sync committee.
   # i.e. state.validators[contribution_and_proof.aggregator_index].pubkey in
   #      get_sync_subcommittee_pubkeys(state, contribution.subcommittee_index).
   let
-    epoch = msg.message.contribution.slot.epoch
-    fork = dag.forkAtEpoch(epoch)
+    aggregator_index =
+      ValidatorIndex.init(msg.message.aggregator_index).valueOr:
+        return dag.checkedReject("Contribution: invalid aggregator index")
+    # TODO we take a copy of the participants to avoid the data going stale
+    #      between validation and use - nonetheless, a design that avoids it and
+    #      stays safe would be nice
+    participants = dag.syncCommitteeParticipants(
+      msg.message.contribution.slot, subcommitteeIdx)
+  if aggregator_index notin participants:
+    return dag.checkedReject("Contribution: aggregator not in subcommittee")
 
-  if msg.message.contribution.aggregation_bits.countOnes() == 0:
-    # [REJECT] The contribution has participants
-    # that is, any(contribution.aggregation_bits).
-    return dag.checkedReject(
-      "SignedContributionAndProof: aggregation bits empty")
+  # [IGNORE] The block being signed
+  # (`contribution_and_proof.contribution.beacon_block_root`) has been seen
+  # (via both gossip and non-gossip sources) (a client MAY queue sync committee
+  # contributions for processing once block is received)
+  # [REJECT] The block being signed
+  # (`contribution_and_proof.contribution.beacon_block_root`) passes validation.
+  let
+    blockRoot = msg.message.contribution.beacon_block_root
+    blck = dag.getBlockRef(blockRoot).valueOr:
+      if blockRoot in quarantine[].unviable:
+        return dag.checkedReject("Contribution: target invalid")
+      quarantine[].addMissing(blockRoot)
+      return errIgnore("Contribution: target not found")
 
   # [IGNORE] A valid sync committee contribution with equal `slot`,
   # `beacon_block_root` and `subcommittee_index` whose `aggregation_bits`
   # is non-strict superset has _not_ already been seen.
-  if syncCommitteeMsgPool[].covers(msg.message.contribution):
-    return errIgnore("SignedContributionAndProof: duplicate contribution")
-
-  # TODO we take a copy of the participants to avoid the data going stale
-  #      between validation and use - nonetheless, a design that avoids it and
-  #      stays safe would be nice
-  let participants = dag.syncCommitteeParticipants(
-    msg.message.contribution.slot, subcommitteeIdx)
+  if syncCommitteeMsgPool[].covers(msg.message.contribution, blck.bid):
+    return errIgnore("Contribution: duplicate contribution")
 
   let sig = if checkSignature:
     let deferredCrypto = batchCrypto.scheduleContributionChecks(
-      fork, msg, subcommitteeIdx, dag)
+      dag.forkAtEpoch(msg.message.contribution.slot.epoch),
+      msg, subcommitteeIdx, dag)
     if deferredCrypto.isErr():
       return dag.checkedReject(deferredCrypto.error)
 
@@ -1186,11 +1216,11 @@ proc validateContribution*(
       case x
       of BatchResult.Invalid:
         return dag.checkedReject(
-          "SignedContributionAndProof: invalid aggregator signature")
+          "Contribution: invalid aggregator signature")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
         return errIgnore(
-          "SignedContributionAndProof: timeout checking aggregator signature")
+          "Contribution: timeout checking aggregator signature")
       of BatchResult.Valid:
         discard
 
@@ -1202,10 +1232,10 @@ proc validateContribution*(
       let x = await proofFut
       case x
       of BatchResult.Invalid:
-        return dag.checkedReject("SignedContributionAndProof: invalid proof")
+        return dag.checkedReject("Contribution: invalid proof")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
-        return errIgnore("SignedContributionAndProof: timeout checking proof")
+        return errIgnore("Contribution: timeout checking proof")
       of BatchResult.Valid:
         discard
 
@@ -1217,12 +1247,12 @@ proc validateContribution*(
       let x = await contributionFut
       case x
       of BatchResult.Invalid:
-        return errReject(  # TODO Triggers in local tests around fork transition
-          "SignedContributionAndProof: invalid contribution signature")
+        return dag.checkedReject(
+          "Contribution: invalid contribution signature")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
         return errIgnore(
-          "SignedContributionAndProof: timeout checking contribution signature")
+          "Contribution: timeout checking contribution signature")
       of BatchResult.Valid:
         discard
     sig
@@ -1230,7 +1260,7 @@ proc validateContribution*(
     msg.message.contribution.signature.load().valueOr:
       return dag.checkedReject("SyncCommitteeMessage: unable to load signature")
 
-  return ok((sig, participants))
+  return ok((blck.bid, sig, participants))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(

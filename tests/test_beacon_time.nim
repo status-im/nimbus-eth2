@@ -54,3 +54,13 @@ suite "Beacon time":
         counts += 1
       check:
         counts == 2
+
+  test "Dependent slots":
+    check:
+      Epoch(0).proposer_dependent_slot() == Slot(0)
+      Epoch(1).proposer_dependent_slot() == Epoch(1).start_slot() - 1
+      Epoch(2).proposer_dependent_slot() == Epoch(2).start_slot() - 1
+
+      Epoch(0).attester_dependent_slot() == Slot(0)
+      Epoch(1).attester_dependent_slot() == Slot(0)
+      Epoch(2).attester_dependent_slot() == Epoch(1).start_slot() - 1

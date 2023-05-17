@@ -325,7 +325,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     batchCrypto = BatchCrypto.new(
       keys.newRng(), eager = func(): bool = true,
       genesis_validators_root = dag.genesis_validators_root, taskpool)
-    syncCommitteePool = newClone SyncCommitteeMsgPool.init(keys.newRng())
+    syncCommitteePool = newClone SyncCommitteeMsgPool.init(keys.newRng(), cfg)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
@@ -394,7 +394,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         let
           validatorPrivKey = MockPrivKeys[validatorIdx]
           signature = get_sync_committee_message_signature(
-            fork, genesis_validators_root, slot, dag.head.root, validatorPrivKey)
+            fork, genesis_validators_root,
+            slot, dag.head.root, validatorPrivKey)
           msg = SyncCommitteeMessage(
             slot: slot,
             beacon_block_root: dag.head.root,
@@ -402,6 +403,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             signature: signature.toValidatorSig)
 
         let res = waitFor dag.validateSyncCommitteeMessage(
+          quarantine,
           batchCrypto,
           syncCommitteePool,
           msg,
@@ -411,11 +413,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
         doAssert res.isOk
 
-        let (positions, cookedSig) = res.get()
+        let (bid, cookedSig, positions) = res.get()
 
         syncCommitteePool[].addSyncCommitteeMessage(
           msg.slot,
-          msg.beacon_block_root,
+          bid,
           msg.validator_index,
           cookedSig,
           subcommitteeIdx,
@@ -435,7 +437,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     for aggregator in aggregators:
       var contribution: SyncCommitteeContribution
       let contributionWasProduced = syncCommitteePool[].produceContribution(
-        slot, dag.head.root, aggregator.subcommitteeIdx, contribution)
+        slot, dag.head.bid, aggregator.subcommitteeIdx, contribution)
 
       if contributionWasProduced:
         let
@@ -454,18 +456,19 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
               validatorPrivKey).toValidatorSig)
 
           res = waitFor dag.validateContribution(
+            quarantine,
             batchCrypto,
             syncCommitteePool,
             signedContributionAndProof,
             contributionsTime,
             false)
         if res.isOk():
+          let (bid, sig, _) = res.get
           syncCommitteePool[].addContribution(
-            signedContributionAndProof, res.get()[0])
+            signedContributionAndProof, bid, sig)
         else:
           # We ignore duplicates / already-covered contributions
           doAssert res.error()[0] == ValidationResult.Ignore
-
 
   proc getNewBlock[T](
       state: var ForkedHashedBeaconState, slot: Slot, cache: var StateCache): T =
@@ -479,13 +482,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         finalizedEpochRef.eth1_data,
         finalizedEpochRef.eth1_deposit_index)
       sync_aggregate =
-        when T is phase0.SignedBeaconBlock:
-          SyncAggregate.init()
-        elif T is altair.SignedBeaconBlock or T is bellatrix.SignedBeaconBlock or
-             T is capella.SignedBeaconBlock or T is deneb.SignedBeaconBlock:
-          syncCommitteePool[].produceSyncAggregate(dag.head.root)
+        when T.toFork >= ConsensusFork.Altair:
+          syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
         else:
-          static: doAssert false
+          SyncAggregate.init()
       hashedState =
         when T is phase0.SignedBeaconBlock:
           addr state.phase0Data

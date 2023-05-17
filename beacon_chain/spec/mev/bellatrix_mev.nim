@@ -66,7 +66,10 @@ const
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#constants
   EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION* = 1
-  BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1.seconds
+
+  # Spec is 1 second, but mev-boost indirection can induce delay when the relay
+  # itself has already consumed the entire second.
+  BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1500.milliseconds
 
 func shortLog*(v: BlindedBeaconBlock): auto =
   (

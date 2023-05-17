@@ -312,7 +312,7 @@ proc initFullNode(
     attestationPool = newClone(
       AttestationPool.init(dag, quarantine, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
-      SyncCommitteeMsgPool.init(rng, onSyncContribution))
+      SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
       LightClientPool())
     validatorChangePool = newClone(
@@ -1435,160 +1435,130 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
 from ./spec/datatypes/capella import SignedBeaconBlock
 
 proc installMessageValidators(node: BeaconNode) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync-committees-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   let forkDigests = node.dag.forkDigests
 
-  node.network.addValidator(
-    getBeaconBlocksTopic(forkDigests.phase0),
-    proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
-      if node.shouldSyncOptimistically(node.currentSlot):
-        toValidationResult(
-          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
-      else:
-        toValidationResult(node.processor[].processSignedBeaconBlock(
-          MsgSource.gossip, signedBlock)))
+  for fork in ConsensusFork:
+    withConsensusFork(fork):
+      let digest = forkDigests[].atConsensusFork(consensusFork)
 
-  template installPhase0Validators(digest: auto) =
-    for it in SubnetId:
-      closureScope:
-        let subnet_id = it
-        node.network.addAsyncValidator(
-          getAttestationTopic(digest, subnet_id),
-          # This proc needs to be within closureScope; don't lift out of loop.
-          proc(attestation: Attestation): Future[ValidationResult] {.async.} =
-            return toValidationResult(
-              await node.processor.processAttestation(
-                MsgSource.gossip, attestation, subnet_id)))
+      # beacon_block
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
+      node.network.addValidator(
+        getBeaconBlocksTopic(digest), proc (
+          signedBlock: consensusFork.SignedBeaconBlock
+        ): ValidationResult =
+          if node.shouldSyncOptimistically(node.currentSlot):
+            toValidationResult(
+              node.optimisticProcessor.processSignedBeaconBlock(
+                signedBlock))
+          else:
+            toValidationResult(
+              node.processor[].processSignedBeaconBlock(
+                MsgSource.gossip, signedBlock)))
 
-    node.network.addAsyncValidator(
-      getAggregateAndProofsTopic(digest),
-      proc(signedAggregateAndProof: SignedAggregateAndProof):
-          Future[ValidationResult] {.async.} =
-        return toValidationResult(
-          await node.processor.processSignedAggregateAndProof(
-            MsgSource.gossip, signedAggregateAndProof, false)))
+      # beacon_attestation_{subnet_id}
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+      for it in SubnetId:
+        closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+          let subnet_id = it
+          node.network.addAsyncValidator(
+            getAttestationTopic(digest, subnet_id), proc (
+              attestation: Attestation
+            ): Future[ValidationResult] {.async.} =
+              return toValidationResult(
+                await node.processor.processAttestation(
+                  MsgSource.gossip, attestation, subnet_id)))
 
-    node.network.addValidator(
-      getAttesterSlashingsTopic(digest),
-      proc (attesterSlashing: AttesterSlashing): ValidationResult =
-        toValidationResult(
-          node.processor[].processAttesterSlashing(
-            MsgSource.gossip, attesterSlashing)))
+      # beacon_aggregate_and_proof
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+      node.network.addAsyncValidator(
+        getAggregateAndProofsTopic(digest), proc (
+          signedAggregateAndProof: SignedAggregateAndProof
+        ): Future[ValidationResult] {.async.} =
+          return toValidationResult(
+            await node.processor.processSignedAggregateAndProof(
+              MsgSource.gossip, signedAggregateAndProof)))
 
-    node.network.addValidator(
-      getProposerSlashingsTopic(digest),
-      proc (proposerSlashing: ProposerSlashing): ValidationResult =
-        toValidationResult(
-          node.processor[].processProposerSlashing(
-            MsgSource.gossip, proposerSlashing)))
-
-    node.network.addValidator(
-      getVoluntaryExitsTopic(digest),
-      proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
-        toValidationResult(
-          node.processor[].processSignedVoluntaryExit(
-            MsgSource.gossip, signedVoluntaryExit)))
-
-  installPhase0Validators(forkDigests.phase0)
-
-  # Validators introduced in phase0 are also used in Altair and Bellatrix, but
-  # with different fork digests
-  installPhase0Validators(forkDigests.altair)
-  installPhase0Validators(forkDigests.bellatrix)
-  installPhase0Validators(forkDigests.capella)
-  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    installPhase0Validators(forkDigests.deneb)
-
-  node.network.addValidator(
-    getBeaconBlocksTopic(forkDigests.altair),
-    proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
-      if node.shouldSyncOptimistically(node.currentSlot):
-        toValidationResult(
-          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
-      else:
-        toValidationResult(node.processor[].processSignedBeaconBlock(
-          MsgSource.gossip, signedBlock)))
-
-  node.network.addValidator(
-    getBeaconBlocksTopic(forkDigests.bellatrix),
-    proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
-      if node.shouldSyncOptimistically(node.currentSlot):
-        toValidationResult(
-          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
-      else:
-        toValidationResult(node.processor[].processSignedBeaconBlock(
-          MsgSource.gossip, signedBlock)))
-
-  node.network.addValidator(
-    getBeaconBlocksTopic(forkDigests.capella),
-    proc (signedBlock: capella.SignedBeaconBlock): ValidationResult =
-      if node.shouldSyncOptimistically(node.currentSlot):
-        toValidationResult(
-          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
-      else:
-        toValidationResult(node.processor[].processSignedBeaconBlock(
-          MsgSource.gossip, signedBlock)))
-
-  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    node.network.addValidator(
-      getBeaconBlocksTopic(forkDigests.deneb),
-      proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
-        if node.shouldSyncOptimistically(node.currentSlot):
+      # attester_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attester_slashing
+      node.network.addValidator(
+        getAttesterSlashingsTopic(digest), proc (
+          attesterSlashing: AttesterSlashing
+        ): ValidationResult =
           toValidationResult(
-            node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
-        else:
-          toValidationResult(node.processor[].processSignedBeaconBlock(
-            MsgSource.gossip, signedBlock)))
+            node.processor[].processAttesterSlashing(
+              MsgSource.gossip, attesterSlashing)))
 
-    for i in 0 ..< MAX_BLOBS_PER_BLOCK:
-      closureScope:
-        let idx = i
-        node.network.addValidator(
-          getBlobSidecarTopic(forkDigests.deneb, idx),
-          proc (signedBlobSidecar: deneb.SignedBlobSidecar): ValidationResult =
-              toValidationResult(node.processor[].processSignedBlobSidecar(
-                MsgSource.gossip, signedBlobSidecar, idx)))
+      # proposer_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#proposer_slashing
+      node.network.addValidator(
+        getProposerSlashingsTopic(digest), proc (
+          proposerSlashing: ProposerSlashing
+        ): ValidationResult =
+          toValidationResult(
+            node.processor[].processProposerSlashing(
+              MsgSource.gossip, proposerSlashing)))
 
-  template installSyncCommitteeeValidators(digest: auto) =
-    for subcommitteeIdx in SyncSubcommitteeIndex:
-      closureScope:
-        let idx = subcommitteeIdx
+      # voluntary_exit
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#voluntary_exit
+      node.network.addValidator(
+        getVoluntaryExitsTopic(digest), proc (
+          signedVoluntaryExit: SignedVoluntaryExit
+        ): ValidationResult =
+          toValidationResult(
+            node.processor[].processSignedVoluntaryExit(
+              MsgSource.gossip, signedVoluntaryExit)))
+
+      when consensusFork >= ConsensusFork.Altair:
+        # sync_committee_{subnet_id}
+        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
+        for subcommitteeIdx in SyncSubcommitteeIndex:
+          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+            let idx = subcommitteeIdx
+            node.network.addAsyncValidator(
+              getSyncCommitteeTopic(digest, idx), proc (
+                msg: SyncCommitteeMessage
+              ): Future[ValidationResult] {.async.} =
+                return toValidationResult(
+                  await node.processor.processSyncCommitteeMessage(
+                    MsgSource.gossip, msg, idx)))
+
+        # sync_committee_contribution_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
         node.network.addAsyncValidator(
-          getSyncCommitteeTopic(digest, idx),
-          # This proc needs to be within closureScope; don't lift out of loop.
-          proc(msg: SyncCommitteeMessage): Future[ValidationResult] {.async.} =
+          getSyncCommitteeContributionAndProofTopic(digest), proc (
+            msg: SignedContributionAndProof
+          ): Future[ValidationResult] {.async.} =
             return toValidationResult(
-              await node.processor.processSyncCommitteeMessage(
-                MsgSource.gossip, msg, idx)))
+              await node.processor.processSignedContributionAndProof(
+                MsgSource.gossip, msg)))
 
-    node.network.addAsyncValidator(
-      getSyncCommitteeContributionAndProofTopic(digest),
-      proc(msg: SignedContributionAndProof): Future[ValidationResult] {.async.} =
-        return toValidationResult(
-          await node.processor.processSignedContributionAndProof(
-            MsgSource.gossip, msg)))
+      when consensusFork >= ConsensusFork.Capella:
+        # sync_committee_contribution_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/p2p-interface.md#bls_to_execution_change
+        node.network.addAsyncValidator(
+          getBlsToExecutionChangeTopic(digest), proc (
+            msg: SignedBLSToExecutionChange
+          ): Future[ValidationResult] {.async.} =
+            return toValidationResult(
+              await node.processor.processBlsToExecutionChange(
+                MsgSource.gossip, msg)))
 
-  installSyncCommitteeeValidators(forkDigests.altair)
-  installSyncCommitteeeValidators(forkDigests.bellatrix)
-  installSyncCommitteeeValidators(forkDigests.capella)
-  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    installSyncCommitteeeValidators(forkDigests.deneb)
-
-  template installBlsToExecutionChangeValidators(digest: auto) =
-    node.network.addAsyncValidator(
-      getBlsToExecutionChangeTopic(digest),
-      proc(msg: SignedBLSToExecutionChange):
-          Future[ValidationResult] {.async.} =
-        return toValidationResult(
-          await node.processor.processBlsToExecutionChange(
-            MsgSource.gossip, msg)))
-
-  installBlsToExecutionChangeValidators(forkDigests.capella)
-  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    installBlsToExecutionChangeValidators(forkDigests.deneb)
+      when consensusFork >= ConsensusFork.Deneb:
+        # blob_sidecar_{index}
+        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blob_sidecar_index
+        for i in 0 ..< MAX_BLOBS_PER_BLOCK:
+          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+            let idx = i
+            node.network.addValidator(
+              getBlobSidecarTopic(digest, idx), proc (
+                signedBlobSidecar: SignedBlobSidecar
+              ): ValidationResult =
+                toValidationResult(
+                  node.processor[].processSignedBlobSidecar(
+                    MsgSource.gossip, signedBlobSidecar, idx)))
 
   node.installLightClientMessageValidators()
 

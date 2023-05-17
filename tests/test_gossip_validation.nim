@@ -226,7 +226,6 @@ suite "Gossip validation - Extra": # Not based on preset config
     var
       state = assignClone(dag.headState.altairData)
       slot = state[].data.slot
-      beaconBlockRoot = state[].latest_block_root
 
       subcommitteeIdx = 0.SyncSubcommitteeIndex
       syncCommittee = @(dag.syncCommitteeParticipants(slot))
@@ -241,47 +240,50 @@ suite "Gossip validation - Extra": # Not based on preset config
         kind: ValidatorKind.Local, data: keystoreData, index: Opt.some index)
       resMsg = waitFor getSyncCommitteeMessage(
         validator, state[].data.fork, state[].data.genesis_validators_root,
-        slot, beaconBlockRoot)
+        slot, state[].latest_block_root)
       msg = resMsg.get()
 
-      syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
+      syncCommitteePool = newClone(
+        SyncCommitteeMsgPool.init(keys.newRng(), cfg))
       res = waitFor validateSyncCommitteeMessage(
-        dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
-        slot.start_beacon_time(), true)
-      (positions, cookedSig) = res.get()
+        dag, quarantine, batchCrypto, syncCommitteePool,
+        msg, subcommitteeIdx, slot.start_beacon_time(), true)
+      (bid, cookedSig, positions) = res.get()
 
-    syncCommitteeMsgPool[].addSyncCommitteeMessage(
+    syncCommitteePool[].addSyncCommitteeMessage(
       msg.slot,
-      msg.beacon_block_root,
+      bid,
       msg.validator_index,
       cookedSig,
       subcommitteeIdx,
       positions)
 
     let
-      contribution = block:
-        let contribution = (ref SignedContributionAndProof)()
+      contrib = block:
+        let contrib = (ref SignedContributionAndProof)()
         check:
-          syncCommitteeMsgPool[].produceContribution(
-            slot, beaconBlockRoot, subcommitteeIdx,
-            contribution.message.contribution)
-        syncCommitteeMsgPool[].addContribution(
-          contribution[], contribution.message.contribution.signature.load.get)
+          syncCommitteePool[].produceContribution(
+            slot, bid, subcommitteeIdx,
+            contrib.message.contribution)
+        syncCommitteePool[].addContribution(
+          contrib[], bid,
+          contrib.message.contribution.signature.load.get)
         let signRes = waitFor validator.getContributionAndProofSignature(
           state[].data.fork, state[].data.genesis_validators_root,
-          contribution[].message)
+          contrib[].message)
         doAssert(signRes.isOk())
-        contribution[].signature = signRes.get()
-        contribution
-      aggregate = syncCommitteeMsgPool[].produceSyncAggregate(beaconBlockRoot)
+        contrib[].signature = signRes.get()
+        contrib
+      aggregate = syncCommitteePool[].produceSyncAggregate(bid, slot)
 
     check:
       expectedCount > 1 # Cover edge case
       res.isOk
-      contribution.message.contribution.aggregation_bits.countOnes == expectedCount
+      contrib.message.contribution.aggregation_bits.countOnes == expectedCount
       aggregate.sync_committee_bits.countOnes == expectedCount
 
       # Same message twice should be ignored
       validateSyncCommitteeMessage(
-        dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
-        state[].data.slot.start_beacon_time(), true).waitFor().isErr()
+        dag, quarantine, batchCrypto, syncCommitteePool,
+        msg, subcommitteeIdx, state[].data.slot.start_beacon_time(), true
+      ).waitFor().isErr()

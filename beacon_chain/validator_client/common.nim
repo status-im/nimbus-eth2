@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -693,9 +693,16 @@ proc currentSlot*(vc: ValidatorClientRef): Slot =
 proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   let
     slot = vc.currentSlot()
+    withdrawalAddress =
+      if vc.keymanagerHost.isNil:
+        Opt.none Eth1Address
+      else:
+        vc.keymanagerHost[].getValidatorWithdrawalAddress(keystore.pubkey)
+    perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
+      vc.config.defaultFeeRecipient, withdrawalAddress)
     feeRecipient = vc.config.validatorsDir.getSuggestedFeeRecipient(
-      keystore.pubkey, vc.config.defaultFeeRecipient).valueOr(
-        vc.config.defaultFeeRecipient)
+      keystore.pubkey, perValidatorDefaultFeeRecipient).valueOr(
+        perValidatorDefaultFeeRecipient)
     gasLimit = vc.config.validatorsDir.getSuggestedGasLimit(
       keystore.pubkey, vc.config.suggestedGasLimit).valueOr(
         vc.config.suggestedGasLimit)
@@ -730,8 +737,16 @@ proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
   if dynamicRecipient.isSome():
     Opt.some(dynamicRecipient.get())
   else:
-    let staticRecipient = getSuggestedFeeRecipient(
-      vc.config.validatorsDir, pubkey, vc.config.defaultFeeRecipient)
+    let
+      withdrawalAddress =
+        if vc.keymanagerHost.isNil:
+          Opt.none Eth1Address
+        else:
+          vc.keymanagerHost[].getValidatorWithdrawalAddress(pubkey)
+      perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
+        vc.config.defaultFeeRecipient, withdrawalAddress)
+      staticRecipient = getSuggestedFeeRecipient(
+        vc.config.validatorsDir, pubkey, perValidatorDefaultFeeRecipient)
     if staticRecipient.isOk():
       Opt.some(staticRecipient.get())
     else:

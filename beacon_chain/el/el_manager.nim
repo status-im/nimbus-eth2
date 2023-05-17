@@ -91,6 +91,10 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/experimental/blob-extension.md#request-2
   GETBLOBS_TIMEOUT = 1.seconds
 
+  connectionStateChangeHysteresisThreshold = 15
+    ## How many unsuccesful/successful requests we must see
+    ## before declaring the connection as degraded/restored
+
 type
   Eth1BlockNumber* = uint64
   Eth1BlockTimestamp* = uint64
@@ -207,6 +211,7 @@ type
       ## exchange.
 
     state: ConnectionState
+    hysteresisCounter: int
 
     depositContractSyncStatus: DepositContractSyncStatus
       ## Are we sure that this EL has synced the deposit contract?
@@ -280,29 +285,56 @@ declareCounter engine_api_last_minute_forkchoice_updates_sent,
   "Number of last minute requests to the forkchoiceUpdated Engine API end-point just before block proposals",
   labels = ["url"]
 
+proc close(connection: ELConnection): Future[void] {.async.} =
+  if connection.web3.isSome:
+    awaitWithTimeout(connection.web3.get.close(), 30.seconds):
+      debug "Failed to close data provider in time"
+
+proc increaseCounterTowardsStateChange(connection: ELConnection): bool =
+  result = connection.hysteresisCounter >= connectionStateChangeHysteresisThreshold
+  if result:
+    connection.hysteresisCounter = 0
+  else:
+    inc connection.hysteresisCounter
+
+proc decreaseCounterTowardsStateChange(connection: ELConnection) =
+  if connection.hysteresisCounter > 0:
+    # While we increase the counter by 1, we decreate it by 20% in order
+    # to require a steady and affirmative change instead of allowing
+    # the counter to drift very slowly in one direction when the ratio
+    # between success and failure is roughly 50:50%
+    connection.hysteresisCounter = connection.hysteresisCounter div 5
+
 proc setDegradedState(connection: ELConnection,
                       requestName: string,
                       statusCode: int, errMsg: string) =
+  debug "Failed EL Request", requestName, statusCode, err = errMsg
+
   case connection.state
   of NeverTested, Working:
-    warn "Connection to EL node degraded",
-      url = url(connection.engineUrl),
-      failedRequest = requestName,
-      statusCode, err = errMsg
-  of Degraded:
-    discard
+    if connection.increaseCounterTowardsStateChange():
+      warn "Connection to EL node degraded",
+        url = url(connection.engineUrl),
+        failedRequest = requestName,
+        statusCode, err = errMsg
 
-  reset connection.web3
-  connection.state = Degraded
+      connection.state = Degraded
+
+      asyncSpawn connection.close()
+      connection.web3 = none[Web3]()
+  of Degraded:
+    connection.decreaseCounterTowardsStateChange()
 
 proc setWorkingState(connection: ELConnection) =
   case connection.state
   of Degraded:
-    info "Connection to EL node restored",
-      url = url(connection.engineUrl)
+    if connection.increaseCounterTowardsStateChange():
+      info "Connection to EL node restored",
+        url = url(connection.engineUrl)
+
+      connection.state = Working
   of NeverTested, Working:
-    discard
-  connection.state = Working
+    connection.decreaseCounterTowardsStateChange()
 
 proc trackEngineApiRequest(connection: ELConnection,
                            request: FutureBase, requestName: string,
@@ -657,11 +689,6 @@ func toVoteData(blk: Eth1Block): Eth1Data =
 
 func hash*(x: Eth1Data): Hash =
   hash(x.block_hash)
-
-proc close(connection: ELConnection): Future[void] {.async.} =
-  if connection.web3.isSome:
-    awaitWithTimeout(connection.web3.get.close(), 30.seconds):
-      debug "Failed to close data provider in time"
 
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
