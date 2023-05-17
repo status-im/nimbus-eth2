@@ -164,7 +164,7 @@ proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
       head.slot + node.config.syncHorizon < wallSlot.slot:
     SyncStatus.unsynced
   else:
-    if node.dag.is_optimistic(head.root):
+    if not head.executionValid:
       SyncStatus.optimistic
     else:
       SyncStatus.synced

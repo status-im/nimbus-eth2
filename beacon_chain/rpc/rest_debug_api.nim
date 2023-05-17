@@ -76,7 +76,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (
           root: it.root,
           slot: it.slot,
-          execution_optimistic: node.getBlockRefOptimistic(it)
+          execution_optimistic: not it.executionValid
         )
       )
     )

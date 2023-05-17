@@ -1416,7 +1416,7 @@ func getPerValidatorDefaultFeeRecipient*(
 proc getSuggestedFeeRecipient*(
     host: KeymanagerHost, pubkey: ValidatorPubKey,
     defaultFeeRecipient: Eth1Address):
-    Result[Eth1Address, ValidatorConfigFileStatus] {.deprecated.} =
+    Result[Eth1Address, ValidatorConfigFileStatus] =
   host.validatorsDir.getSuggestedFeeRecipient(pubkey, defaultFeeRecipient)
 
 proc getSuggestedFeeRecipient(

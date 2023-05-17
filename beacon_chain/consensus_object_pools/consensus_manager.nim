@@ -190,7 +190,7 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
     self.quarantine[].addUnviable(newHead.blck.root)
     return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    self.dag.optimisticRoots.incl newHead.blck.root
+    newHead.blck.executionValid = false
 
   return Opt[void].ok()
 
@@ -259,7 +259,7 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   if dag.head.slot + defaultSyncHorizon < wallSlot:
     false
   else:
-    not dag.is_optimistic(dag.head.root)
+    dag.head.executionValid
 
 proc checkNextProposer(
     dag: ChainDAGRef, actionTracker: ActionTracker,

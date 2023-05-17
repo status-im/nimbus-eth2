@@ -45,7 +45,8 @@ proc addResolvedHeadBlock(
 
   let
     blockRoot = trustedBlock.root
-    blockRef = BlockRef.init(blockRoot, trustedBlock.message)
+    blockRef = BlockRef.init(
+      blockRoot, executionValid = blockVerified, trustedBlock.message)
     startTick = Moment.now()
 
   link(parent, blockRef)
@@ -94,9 +95,6 @@ proc addResolvedHeadBlock(
   if dag.findShufflingRef(blockRef.bid, blockRef.slot.epoch + 1).isNone:
     dag.putShufflingRef(
       ShufflingRef.init(state, cache, blockRef.slot.epoch + 1))
-
-  if not blockVerified:
-    dag.optimisticRoots.incl blockRoot
 
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children

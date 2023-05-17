@@ -1270,7 +1270,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   await node.updateGossipStatus(slot + 1)
 
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =
-  let optimistic_head = node.dag.is_optimistic(node.dag.head.root)
+  let optimistic_head = not node.dag.head.executionValid
   if node.syncManager.inProgress:
     let
       optimisticSuffix =
