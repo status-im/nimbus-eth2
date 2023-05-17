@@ -40,6 +40,10 @@ type
     validatorSyncCommitteeIndex: IndexInSyncCommittee
     validatorSubCommitteeIndex: SyncSubcommitteeIndex
 
+  FillSignaturesResult = object
+    signaturesRequested: int
+    signaturesReceived: int
+
 chronicles.formatIt(DutiesServiceLoop):
   case it
   of AttesterLoop: "attester_loop"
@@ -142,7 +146,7 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
 proc fillAttestationSlotSignatures*(
        service: DutiesServiceRef,
        epochPeriods: seq[Epoch]
-     ) {.async.} =
+     ): Future[FillSignaturesResult] {.async.} =
   let
     vc = service.client
     genesisRoot = vc.beaconGenesis.genesis_validators_root
@@ -171,9 +175,12 @@ proc fillAttestationSlotSignatures*(
   # of validators. In this case tasks that run concurrently will be able to use
   # signatures for slots at the beginning of the epoch even before this
   # processing will be completed.
+  var sigres = FillSignaturesResult()
   for chunk in requests.chunks(ATTESTATION_SIGNING_CHUNK_SIZE):
     let pendingRequests = chunk.mapIt(
       getSlotSignature(it.validator, it.fork, genesisRoot, it.slot))
+
+    inc(sigres.signaturesRequested, len(chunk))
 
     try:
       await allFutures(pendingRequests)
@@ -196,6 +203,7 @@ proc fillAttestationSlotSignatures*(
                    slot = request.slot
               Opt.none(ValidatorSig)
             else:
+              inc(sigres.signaturesReceived)
               Opt.some(sres.get())
           else:
             Opt.none(ValidatorSig)
@@ -281,6 +289,8 @@ proc fillAttestationSlotSignatures*(
       vc.attesters.withValue(validator.pubkey, map):
         map[].duties.withValue(selection.slot.epoch(), dap):
           dap[].slotSig = Opt.some(selectionProof.toValidatorSig())
+
+  return sigres
 
 proc pollForAttesterDuties*(service: DutiesServiceRef,
                             epoch: Epoch): Future[int] {.async.} =
@@ -392,7 +402,7 @@ proc pruneSyncCommitteeDuties*(service: DutiesServiceRef, slot: Slot) =
 proc fillSyncSlotSignatures*(
        service: DutiesServiceRef,
        epochPeriods: seq[Epoch]
-     ) {.async.} =
+     ): Future[FillSignaturesResult] {.async.} =
   let
     vc = service.client
     genesisRoot = vc.beaconGenesis.genesis_validators_root
@@ -428,6 +438,7 @@ proc fillSyncSlotSignatures*(
                   validatorSubCommitteeIndex: subCommitteeIndex))
         res
 
+  var sigres = FillSignaturesResult()
   # We creating signatures in chunks to make VC more responsive for big number
   # of validators. In this case tasks that run concurrently will be able to use
   # signatures for slots at the beginning of the epoch even before this
@@ -437,6 +448,8 @@ proc fillSyncSlotSignatures*(
       getSyncCommitteeSelectionProof(
         it.validator, it.fork, genesisRoot, it.slot,
         it.validatorSubCommitteeIndex))
+
+    inc(sigres.signaturesRequested, len(chunk))
 
     try:
       await allFutures(pendingRequests)
@@ -462,6 +475,7 @@ proc fillSyncSlotSignatures*(
                    validator = shortLog(request.validator)
               Opt.none(ValidatorSig)
             else:
+              inc(sigres.signaturesReceived)
               Opt.some(sres.get())
           else:
             Opt.none(ValidatorSig)
@@ -562,6 +576,8 @@ proc fillSyncSlotSignatures*(
         map[].duties.withValue(epoch, sdap):
           sdap[].slotSigs.withValue(subCommitteeIndex, proofs):
             proofs[][slotIndex] = Opt.some(selectionProof.toValidatorSig())
+
+  return sigres
 
 proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
                                  epoch: Epoch): Future[int] {.async.} =
@@ -672,9 +688,14 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
       debug "No new attester's duties received", slot = currentSlot
 
     block:
-      let moment = Moment.now()
-      await service.fillAttestationSlotSignatures(@[currentEpoch, nextEpoch])
-      debug "Slot signatures has been obtained", time = (Moment.now() - moment)
+      let
+        moment = Moment.now()
+        sigres = await service.fillAttestationSlotSignatures(
+          @[currentEpoch, nextEpoch])
+      debug "Slot signatures has been received",
+            signatures_requested = sigres.signaturesRequested,
+            signatures_received = sigres.signaturesReceived,
+            time = (Moment.now() - moment)
 
     let subscriptions =
       block:
@@ -754,10 +775,13 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
             slot = currentSlot
 
     block:
-      let moment = Moment.now()
-      await service.fillSyncSlotSignatures(epochs)
+      let
+        moment = Moment.now()
+        sigres = await service.fillSyncSlotSignatures(epochs)
       debug "Sync selection proofs has been obtained",
-             time = (Moment.now() - moment)
+            signatures_requested = sigres.signaturesRequested,
+            signatures_received = sigres.signaturesReceived,
+            time = (Moment.now() - moment)
 
     let subscriptions =
       block:
