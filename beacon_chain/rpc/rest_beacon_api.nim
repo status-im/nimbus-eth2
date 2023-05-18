@@ -888,7 +888,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let payloadBuilderClient = node.getPayloadBuilderClient().valueOr:
       return RestApiResponse.jsonError(
-        Http500, "Unable to initialize payload builder client: " & $error)
+        Http400, "Unable to initialize payload builder client: " & $error)
 
     case currentEpochFork
     of ConsensusFork.Deneb:
