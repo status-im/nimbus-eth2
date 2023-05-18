@@ -117,7 +117,7 @@ jobs:
           case '${{ runner.os }}' in
           'Linux')
             ncpu=$(nproc)
-            nim --version
+            ./env.sh nim --version
             ;;
           'macOS')
             ncpu=$(sysctl -n hw.ncpu)
@@ -136,7 +136,7 @@ jobs:
 
       - name: Build Nim and Nimbus dependencies
         run: |
-          ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} update
           ./env.sh nim --version
 
       - name: Get latest fixtures commit hash
@@ -150,7 +150,7 @@ jobs:
 
       - name: Build binaries (with trace logging enabled)
         run: |
-          nim --version
+          ./env.sh nim --version
           ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none"
           # The Windows image runs out of disk space, so make some room
           rm -rf build nimcache
