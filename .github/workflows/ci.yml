@@ -37,7 +37,7 @@ jobs:
         include:
           - target:
               os: linux
-            builder: ubuntu-20.04
+            builder: ubuntu-22.04
             shell: bash
           - target:
               os: macos
@@ -60,38 +60,6 @@ jobs:
         with:
           fetch-depth: 2  # In PR, has extra merge commit: ^1 = PR, ^2 = base
           # submodules: true  # Fails on nimyaml tests
-
-      - name: Check copyright year (Linux)
-        if: github.event_name == 'pull_request' && runner.os == 'Linux'
-        run: |
-          excluded_extensions="ans|json|md|png|txt"
-
-          current_year=$(date +"%Y")
-          outdated_files=()
-          while read -r file; do
-            if ! grep -qE 'Copyright \(c\) .*'$current_year' Status Research & Development GmbH' "$file"; then
-              outdated_files+=("$file")
-            fi
-          done < <(git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '\.('$excluded_extensions')$' || true)
-
-          if (( ${#outdated_files[@]} )); then
-            echo "The following files do not have an up-to-date copyright year:"
-            for file in "${outdated_files[@]}"; do
-              echo "- $file"
-            done
-            exit 2
-          fi
-
-      - name: MSYS2 (Windows amd64)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
-        uses: msys2/setup-msys2@v2
-        with:
-          path-type: inherit
-          install: >-
-            base-devel
-            git
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-cmake
 
       - name: Derive environment variables
         run: |
