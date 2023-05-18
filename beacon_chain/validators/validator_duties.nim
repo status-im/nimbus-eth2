@@ -464,23 +464,19 @@ proc makeBeaconBlockForHeadAndSlot*(
 
 proc getBlindedExecutionPayload[
     EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
-    node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
-    pubkey: ValidatorPubKey): Future[BlindedBlockResult[EPH]] {.async.} =
-  if node.payloadBuilderRestClient.isNil:
-    return err "getBlindedExecutionPayload: nil REST client"
-
+    node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
+    executionBlockRoot: Eth2Digest, pubkey: ValidatorPubKey):
+    Future[BlindedBlockResult[EPH]] {.async.} =
   when EPH is capella.ExecutionPayloadHeader:
     let blindedHeader = awaitWithTimeout(
-      node.payloadBuilderRestClient.getHeaderCapella(
-        slot, executionBlockRoot, pubkey),
+      payloadBuilderClient.getHeaderCapella(slot, executionBlockRoot, pubkey),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
-        return err "Timeout when obtaining Capella blinded header from builder"
+        return err "Timeout obtaining Capella blinded header from builder"
   elif EPH is bellatrix.ExecutionPayloadHeader:
     let blindedHeader = awaitWithTimeout(
-      node.payloadBuilderRestClient.getHeaderBellatrix(
-        slot, executionBlockRoot, pubkey),
+      payloadBuilderClient.getHeaderBellatrix(slot, executionBlockRoot, pubkey),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
-        return err "Timeout when obtaining Bellatrix blinded header from builder"
+        return err "Timeout obtaining Bellatrix blinded header from builder"
   else:
     static: doAssert false
 
@@ -595,17 +591,17 @@ proc getUnsignedBlindedBeaconBlock[
       return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Bellatrix blinded block")
 
 proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
-    node: BeaconNode, head: BlockRef, pubkey: ValidatorPubKey,
-    slot: Slot, randao: ValidatorSig, validator_index: ValidatorIndex,
-    graffiti: GraffitiBytes): Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
-    {.async.} =
+    node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
+    pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
+    validator_index: ValidatorIndex, graffiti: GraffitiBytes):
+    Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]] {.async.} =
   let
     executionBlockRoot = node.dag.loadExecutionBlockHash(head)
     executionPayloadHeader =
       try:
         awaitWithTimeout(
             getBlindedExecutionPayload[EPH](
-              node, slot, executionBlockRoot, pubkey),
+              node, payloadBuilderClient, slot, executionBlockRoot, pubkey),
             BUILDER_PROPOSAL_DELAY_TOLERANCE):
           BlindedBlockResult[EPH].err("getBlindedExecutionPayload timed out")
       except RestDecodingError as exc:
@@ -672,8 +668,9 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
 proc getBuilderBid[
     SBBB: bellatrix_mev.SignedBlindedBeaconBlock |
           capella_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
-    randao: ValidatorSig, validator_index: ValidatorIndex):
+    node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
+    validator: AttachedValidator, slot: Slot, randao: ValidatorSig,
+    validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async.} =
   ## Returns the unsigned blinded block obtained from the Builder API.
   ## Used by the BN's own validators, but not the REST server
@@ -685,8 +682,8 @@ proc getBuilderBid[
     static: doAssert false
 
   let blindedBlockParts = await getBlindedBlockParts[EPH](
-    node, head, validator.pubkey, slot, randao, validator_index,
-    node.graffitiBytes)
+    node, payloadBuilderClient, head, validator.pubkey, slot, randao,
+    validator_index, node.graffitiBytes)
   if blindedBlockParts.isErr:
     # Not signed yet, fine to try to fall back on EL
     beacon_block_builder_missed_with_fallback.inc()
@@ -705,9 +702,11 @@ proc getBuilderBid[
 
   return ok (unsignedBlindedBlock.get, bidValue)
 
-proc proposeBlockMEV(node: BeaconNode, blindedBlock: auto):
+proc proposeBlockMEV(
+    node: BeaconNode, payloadBuilderClient: RestClientRef, blindedBlock: auto):
     Future[Result[BlockRef, string]] {.async.} =
-  let unblindedBlockRef = await node.unblindAndRouteBlockMEV(blindedBlock)
+  let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
+    payloadBuilderClient, blindedBlock)
   return if unblindedBlockRef.isOk and unblindedBlockRef.get.isSome:
     beacon_blocks_proposed.inc()
     ok(unblindedBlockRef.get.get)
@@ -738,9 +737,10 @@ func isEFMainnet(cfg: RuntimeConfig): bool =
 
 proc makeBlindedBeaconBlockForHeadAndSlot*[
     BBB: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock](
-    node: BeaconNode, randao_reveal: ValidatorSig,
-    validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot): Future[BlindedBlockResult[BBB]] {.async.} =
+    node: BeaconNode, payloadBuilderClient: RestClientRef,
+    randao_reveal: ValidatorSig, validator_index: ValidatorIndex,
+    graffiti: GraffitiBytes, head: BlockRef, slot: Slot):
+    Future[BlindedBlockResult[BBB]] {.async.} =
   ## Requests a beacon node to produce a valid blinded block, which can then be
   ## signed by a validator. A blinded block is a block with only a transactions
   ## root, rather than a full transactions list.
@@ -773,7 +773,8 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
         forkyState.data.validators.item(validator_index).pubkey
 
     blindedBlockParts = await getBlindedBlockParts[EPH](
-      node, head, pubkey, slot, randao_reveal, validator_index, graffiti)
+      node, payloadBuilderClient, head, pubkey, slot, randao_reveal,
+      validator_index, graffiti)
   if blindedBlockParts.isErr:
     # Don't try EL fallback -- VC specifically requested a blinded block
     return err("Unable to create blinded block")
@@ -801,8 +802,17 @@ proc proposeBlockAux(
     genesis_validators_root: Eth2Digest,
     localBlockValueBoost: uint8): Future[BlockRef] {.async.} =
   # Collect bids
+  var payloadBuilderClient: RestClientRef
+
+  let payloadBuilderClientMaybe = node.getPayloadBuilderClient()
+  if payloadBuilderClientMaybe.isErr:
+    warn "Unable to initialize payload builder client while proposing block",
+      err = payloadBuilderClientMaybe.error
+  else:
+    payloadBuilderClient = payloadBuilderClientMaybe.get
+
   let usePayloadBuilder =
-    if node.config.payloadBuilderEnable:
+    if node.config.payloadBuilderEnable and payloadBuilderClientMaybe.isOk:
       withState(node.dag.headState):
         # Head slot, not proposal slot, matters here
         # TODO it might make some sense to allow use of builder API if local
@@ -817,7 +827,9 @@ proc proposeBlockAux(
   let
     payloadBuilderBidFut =
       if usePayloadBuilder:
-        getBuilderBid[SBBB](node, head, validator, slot, randao, validator_index)
+        getBuilderBid[SBBB](
+          node, payloadBuilderClient, head, validator, slot, randao,
+          validator_index)
       else:
         let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
         fut.complete(BlindedBlockResult[SBBB].err(
@@ -896,7 +908,8 @@ proc proposeBlockAux(
           return head
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
-      maybeUnblindedBlock = await proposeBlockMEV(node, blindedBlock)
+      maybeUnblindedBlock = await proposeBlockMEV(
+        node, payloadBuilderClient, blindedBlock)
 
     return maybeUnblindedBlock.valueOr:
       warn "Blinded block proposal incomplete",
@@ -1394,14 +1407,15 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
     if  (not node.config.payloadBuilderEnable) or
         node.currentSlot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
       return
-    elif  node.config.payloadBuilderEnable and
-          node.payloadBuilderRestClient.isNil:
-      warn "registerValidators: node.config.payloadBuilderEnable and node.payloadBuilderRestClient.isNil"
-      return
 
     const HttpOk = 200
 
-    let restBuilderStatus = awaitWithTimeout(node.payloadBuilderRestClient.checkBuilderStatus(),
+    let payloadBuilderClient = node.getPayloadBuilderClient().valueOr:
+      debug "Unable to initialize payload builder client while registering validators",
+        err = error
+      return
+
+    let restBuilderStatus = awaitWithTimeout(payloadBuilderClient.checkBuilderStatus(),
                                              BUILDER_STATUS_DELAY_TOLERANCE):
       debug "Timeout when obtaining builder status"
       return
@@ -1505,7 +1519,7 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
     for chunkIdx in 0 ..< validatorRegistrations.len:
       let registerValidatorResult =
         awaitWithTimeout(
-            node.payloadBuilderRestClient.registerValidator(
+            payloadBuilderClient.registerValidator(
               validatorRegistrations[chunkIdx]),
             BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE):
           error "Timeout when registering validator with builder"

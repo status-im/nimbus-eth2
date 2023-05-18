@@ -691,16 +691,7 @@ proc init*(T: type BeaconNode,
       else:
         nil
 
-  let payloadBuilderRestClient =
-    if config.payloadBuilderEnable:
-      RestClientRef.new(config.payloadBuilderUrl).valueOr:
-        warn "Payload builder REST client setup failed",
-          payloadBuilderUrl = config.payloadBuilderUrl
-        nil
-    else:
-      nil
-
-  if config.payloadBuilderEnable and payloadBuilderRestClient != nil:
+  if config.payloadBuilderEnable:
     info "Using external payload builder",
       payloadBuilderUrl = config.payloadBuilderUrl
 
@@ -714,7 +705,6 @@ proc init*(T: type BeaconNode,
     config: config,
     attachedValidators: validatorPool,
     elManager: elManager,
-    payloadBuilderRestClient: payloadBuilderRestClient,
     restServer: restServer,
     keymanagerHost: keymanagerHost,
     keymanagerServer: keymanagerInitResult.server,

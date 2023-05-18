@@ -886,6 +886,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         currentEpochFork.toString != version:
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
+    let payloadBuilderClient = node.getPayloadBuilderClient().valueOr:
+      return RestApiResponse.jsonError(
+        Http500, "Unable to initialize payload builder client: " & $error)
+
     case currentEpochFork
     of ConsensusFork.Deneb:
       return RestApiResponse.jsonError(Http500, $denebImplementationMissing)
@@ -896,7 +900,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               capella_mev.SignedBlindedBeaconBlock, body).valueOr:
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                              $error)
-          await node.unblindAndRouteBlockMEV(restBlock)
+          await node.unblindAndRouteBlockMEV(payloadBuilderClient, restBlock)
 
       if res.isErr():
         return RestApiResponse.jsonError(
@@ -912,7 +916,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               bellatrix_mev.SignedBlindedBeaconBlock, body).valueOr:
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                              $error)
-          await node.unblindAndRouteBlockMEV(restBlock)
+          await node.unblindAndRouteBlockMEV(payloadBuilderClient, restBlock)
 
       if res.isErr():
         return RestApiResponse.jsonError(
