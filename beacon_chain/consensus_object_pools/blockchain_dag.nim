@@ -1234,6 +1234,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   dag.initLightClientDataCache()
 
+  dag.markBlockVerified(dag.finalizedHead.blck.root)
+
   dag
 
 template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
@@ -1697,8 +1699,7 @@ template is_optimistic*(dag: ChainDAGRef, root: Eth2Digest): bool =
     # Either it doesn't exist at all, or it's finalized
     false
 
-proc markBlockVerified*(
-    dag: ChainDAGRef, quarantine: var Quarantine, root: Eth2Digest) =
+proc markBlockVerified*(dag: ChainDAGRef, root: Eth2Digest) =
   var cur = dag.getBlockRef(root).valueOr:
     return
   logScope: blck = shortLog(cur)
