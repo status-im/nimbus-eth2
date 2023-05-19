@@ -17,7 +17,7 @@ template checkRoot(name, root) =
     metadata = getMetadataForNetwork(name)
     cfg = metadata.cfg
     state = newClone(readSszForkedHashedBeaconState(
-      metadata.cfg, metadata.genesisData))
+      metadata.cfg, metadata.genesisBytes))
 
   check:
     $getStateRoot(state[]) == root

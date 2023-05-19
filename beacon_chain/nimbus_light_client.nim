@@ -11,7 +11,7 @@ import
   eth/db/kvstore_sqlite3, eth/keys,
   ./el/el_manager,
   ./gossip_processing/optimistic_processor,
-  ./networking/topic_params,
+  ./networking/[topic_params, network_metadata],
   ./spec/beaconstate,
   ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
@@ -65,7 +65,7 @@ programMain:
   let
     genesisState =
       try:
-        newClone(readSszForkedHashedBeaconState(cfg, metadata.genesisData))
+        newClone(readSszForkedHashedBeaconState(cfg, metadata.genesisBytes))
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
 

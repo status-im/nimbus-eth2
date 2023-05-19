@@ -542,7 +542,7 @@ proc init*(T: type BeaconNode,
   var genesisState =
     if metadata.genesisData.len > 0:
       try:
-        newClone readSszForkedHashedBeaconState(cfg, metadata.genesisData)
+        newClone readSszForkedHashedBeaconState(cfg, metadata.genesisBytes)
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
     else:
@@ -2028,7 +2028,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
             stateId: "finalized")
       genesis =
         if network.genesisData.len > 0:
-          newClone(readSszForkedHashedBeaconState(cfg, network.genesisData))
+          newClone(readSszForkedHashedBeaconState(cfg, network.genesisBytes))
         else: nil
 
     if config.blockId.isSome():
