@@ -1,3 +1,55 @@
+2023-05-18 v23.5.1
+==================
+
+Nimbus `v23.5.1` is a `medium-urgency` point release improving the compatibility of Nimbus with 3rd party validator clients and beacon nodes and introducing the support for incremental pruning. If you are still not using the `--history:prune` option, we recommend testing it in a non-production environment, as it will be enabled by default in our next release.
+
+### Breaking changes
+
+* The Nimbus validator client no longer accepts under-specified beacon node URLs that doesn't include a port number or a protocol scheme. When a protocol scheme is specified, Nimbus now uses the default port for the selected protocol (80 for HTTP and 443 for HTTPS):
+
+  https://github.com/status-im/nimbus-eth2/pull/4921
+
+### Improvements
+
+* The history pruning is now incremental and no longer results in start-up delays when the `--history:prune` option is enabled on an existing node:
+  https://github.com/status-im/nimbus-eth2/pull/4887
+
+* Nimbus now uses the withdrawal address of the validator as a default choice for the fee recipient address if the user has not provided any value in the configuration:
+  https://github.com/status-im/nimbus-eth2/pull/4968
+
+* Nimbus now supports the upcoming Capella hard-fork in the Gnosis network:
+  https://github.com/status-im/nimbus-eth2/pull/4936
+
+### Fixes
+
+* The Capella-related properties `MAX_BLS_TO_EXECUTION_CHANGES`, `MAX_WITHDRAWALS_PER_PAYLOAD`, `MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP` and `DOMAIN_BLS_TO_EXECUTION_CHANGE` were missing from the `/eth/v1/config/spec` REST API end-point:
+  https://github.com/status-im/nimbus-eth2/pull/4925
+
+* The `/eth/v1/validator/blinded_blocks/{slot}` was supplying incorrectly encoded response when requested to return SSZ data:
+  https://github.com/status-im/nimbus-eth2/pull/4943
+
+* The safety checks associated with the `--weak-subjectivity-checkpoint` parameter are now compliant with the latest Ethereum specs:
+  https://github.com/status-im/nimbus-eth2/pull/4923
+
+* The Nimbus validator client was using HTTP pipelining which is not supported by all beacon node implementations:
+  https://github.com/status-im/nimbus-eth2/pull/4950
+
+* The "Connection to EL node degraded" warning is now printed only after sufficiently persistent connectivity issues with the EL client:
+  https://github.com/status-im/nimbus-eth2/pull/4960
+
+* After being only briefly disconnected from the execution layer client, the Nimbus beacon node was prematurely setting the `execution_optimistic` flag when returning validator duties:
+  https://github.com/status-im/nimbus-eth2/pull/4955
+
+* Nimbus now allows the builder to respond 500ms later than the spec-mandated timeout in order to account for possible additional delays introduced by proxies such as mev-boost:
+  https://github.com/status-im/nimbus-eth2/pull/4964
+
+* During sync committee period transitions, for a brief period of time there was a low risk of producing an invalid sync committee contribution:
+  https://github.com/status-im/nimbus-eth2/pull/4953
+
+* Nimbus `v23.5.0` introduced an unintended backwards-incompatible change in the parsing of remote keystores which is addressed in this release:
+  https://github.com/status-im/nimbus-eth2/pull/4967
+
+
 2023-05-09 v23.5.0
 ==================
 

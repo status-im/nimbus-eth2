@@ -31,6 +31,13 @@ import
 export
   ethtypes, conversions, RuntimeConfig
 
+const
+  vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
+
+  # TODO: Currently, this breaks the Linux/ARM packaging due
+  #       to a toolchain incompatibility problem
+  incbinEnabled* = false
+
 type
   Eth1BlockHash* = ethtypes.BlockHash
 
@@ -64,10 +71,20 @@ type
 
       # `genesisData` will have `len == 0` for networks with a still
       # unknown genesis state.
-      genesisData*: seq[byte]
-      genesisDepositsSnapshot*: seq[byte]
+      when incbinEnabled:
+        genesisData*: seq[byte]
+      else:
+        genesisData*: string
+
+      genesisDepositsSnapshot*: string
     else:
       incompatibilityDesc*: string
+
+template genesisBytes*(metadata: Eth2NetworkMetadata): auto =
+  when incbinEnabled:
+    metadata.genesisData
+  else:
+    metadata.genesisData.toOpenArrayByte(0, metadata.genesisData.high)
 
 proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
@@ -157,14 +174,17 @@ proc loadEth2NetworkMetadata*(
         readBootEnr(bootEnrPath))
 
       genesisData = if loadGenesis and fileExists(genesisPath):
-        toBytes(readFile(genesisPath))
+        when incbinEnabled:
+          toBytes readFile(genesisPath)
+        else:
+          readFile(genesisPath)
       else:
-        @[]
+        ""
 
       genesisDepositsSnapshot = if fileExists(genesisDepositsSnapshotPath):
-        toBytes(readFile(genesisDepositsSnapshotPath))
+        readFile(genesisDepositsSnapshotPath)
       else:
-        @[]
+        ""
 
     Eth2NetworkMetadata(
       incompatible: false,
@@ -196,21 +216,19 @@ proc loadCompileTimeNetworkMetadata(
   else:
     macros.error "config.yaml not found for network '" & path
 
-const vendorDir =
-  currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
-
 when const_preset == "gnosis":
   import stew/assign2
 
-  let
-    gnosisGenesis {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
-    gnosisGenesisSize {.importc: "gnosis_mainnet_genesis_size".}: int
-
-  {.compile: "network_metadata_gnosis.S".}
+  when incbinEnabled:
+    let
+      gnosisGenesis {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
+      gnosisGenesisSize {.importc: "gnosis_mainnet_genesis_size".}: int
+    {.compile: "network_metadata_gnosis.S".}
 
   const
     gnosisMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/gnosis-chain-configs/mainnet")
+      vendorDir & "/gnosis-chain-configs/mainnet",
+      none(Eth1Network), not incbinEnabled)
 
   static:
     checkForkConsistency(gnosisMetadata.cfg)
@@ -220,30 +238,31 @@ when const_preset == "gnosis":
 elif const_preset == "mainnet":
   import stew/assign2
 
-  # Nim is very inefficent at loading large constants from binary files so we
-  # use this trick instead which saves significant amounts of compile time
-  let
-    mainnetGenesis {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
-    mainnetGenesisSize {.importc: "eth2_mainnet_genesis_size".}: int
+  when incbinEnabled:
+    # Nim is very inefficent at loading large constants from binary files so we
+    # use this trick instead which saves significant amounts of compile time
+    let
+      mainnetGenesis {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
+      mainnetGenesisSize {.importc: "eth2_mainnet_genesis_size".}: int
 
-    praterGenesis {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
-    praterGenesisSize {.importc: "eth2_goerli_genesis_size".}: int
+      praterGenesis {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
+      praterGenesisSize {.importc: "eth2_goerli_genesis_size".}: int
 
-    sepoliaGenesis {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
-    sepoliaGenesisSize {.importc: "eth2_sepolia_genesis_size".}: int
+      sepoliaGenesis {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
+      sepoliaGenesisSize {.importc: "eth2_sepolia_genesis_size".}: int
 
-  {.compile: "network_metadata_mainnet.S".}
+    {.compile: "network_metadata_mainnet.S".}
 
   const
     eth2NetworksDir = vendorDir & "/eth2-networks"
     sepoliaDir = vendorDir & "/sepolia"
 
     mainnetMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/eth2-networks/shared/mainnet", some mainnet, false)
+      vendorDir & "/eth2-networks/shared/mainnet", some mainnet, not incbinEnabled)
     praterMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/eth2-networks/shared/prater", some goerli, false)
+      vendorDir & "/eth2-networks/shared/prater", some goerli, not incbinEnabled)
     sepoliaMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/sepolia/bepolia", some sepolia, false)
+      vendorDir & "/sepolia/bepolia", some sepolia, not incbinEnabled)
 
   static:
     for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
@@ -272,9 +291,12 @@ proc getMetadataForNetwork*(
     warn "Ropsten is unsupported; https://blog.ethereum.org/2022/11/30/ropsten-shutdown-announcement suggests migrating to Goerli or Sepolia"
 
   template withGenesis(metadata, genesis: untyped): untyped =
-    var tmp = metadata
-    assign(tmp.genesisData, genesis.toOpenArray(0, `genesis Size` - 1))
-    tmp
+    when incbinEnabled:
+      var tmp = metadata
+      assign(tmp.genesisData, genesis.toOpenArray(0, `genesis Size` - 1))
+      tmp
+    else:
+      metadata
 
   let metadata =
     when const_preset == "gnosis":

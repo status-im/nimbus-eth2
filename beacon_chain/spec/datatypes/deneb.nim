@@ -544,6 +544,9 @@ func shortLog*(v: BlobSidecar): auto =
     bloblen: v.blob.len(),
   )
 
+func shortLog*(v: seq[ref BlobSidecar]): auto =
+  "[" & v.mapIt(shortLog(it[])).join(", ") & "]"
+
 func shortLog*(v: SignedBlobSidecar): auto =
   (
     blob: shortLog(v.message),
