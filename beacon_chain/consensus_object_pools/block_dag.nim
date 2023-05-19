@@ -76,7 +76,9 @@ func init*(
           deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root, Opt.some Eth2Digest(blck.body.execution_payload.block_hash),
-    executionValid, blck.slot)
+    executionValid =
+      blck.body.execution_payload.block_hash == ZERO_HASH or executionValid,
+    blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block

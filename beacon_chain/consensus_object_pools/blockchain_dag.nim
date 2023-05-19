@@ -994,8 +994,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   for blck in db.getAncestorSummaries(head.root):
     # The execution block root gets filled in as needed. Nonfinalized Bellatrix
     # and later blocks are loaded as optimistic, which gets adjusted that first
-    # `VALID` fcU from an EL plus markBlockVerified. Pre-Bellatrix blocks still
-    # get marked as `VALID` by that `BlockRef.init` overload.
+    # `VALID` fcU from an EL plus markBlockVerified. Pre-merge blocks still get
+    # marked as `VALID`.
     let newRef = BlockRef.init(
       blck.root, Opt.none Eth2Digest, executionValid = false,
       blck.summary.slot)
@@ -1234,7 +1234,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   dag.initLightClientDataCache()
 
-  dag.markBlockVerified(dag.finalizedHead.blck.root)
+  dag.markBlockVerified(dag.finalizedHead.blck)
 
   dag
 
@@ -1699,30 +1699,24 @@ template is_optimistic*(dag: ChainDAGRef, root: Eth2Digest): bool =
     # Either it doesn't exist at all, or it's finalized
     false
 
-proc markBlockVerified*(dag: ChainDAGRef, root: Eth2Digest) =
-  var cur = dag.getBlockRef(root).valueOr:
-    return
-  logScope: blck = shortLog(cur)
-
-  # Might be called when block was not optimistic to begin with, or had been
-  # but already had been marked verified.
-  if cur.executionValid:
-    return
-
-  debug "markBlockVerified"
+proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
+  var cur = blck
 
   while true:
-    if cur.executionValid:
-      return
-
     cur.executionValid = true
 
-    debug "markBlockVerified ancestor"
+    debug "markBlockVerified", blck = shortLog(cur)
 
     if cur.parent.isNil:
       break
 
     cur = cur.parent
+
+    # Always check at least as far back as the parent so that when a new block
+    # is added with executionValid already set, it stil sets the ancestors, to
+    # the next valid in the chain.
+    if cur.executionValid:
+      return
 
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorIndex],

@@ -159,7 +159,7 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
 
   if headExecutionPayloadHash.isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
     return Opt[void].ok()
 
   template callForkchoiceUpdated(attributes: untyped): auto =
@@ -184,7 +184,7 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
-    self.dag.markBlockVerified(newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
     self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
@@ -241,7 +241,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   if self.dag.loadExecutionBlockHash(newHead.blck).isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
 
   self.updateHead(newHead.blck)
 

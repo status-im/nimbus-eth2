@@ -557,9 +557,6 @@ proc storeBlock*(
   # This reduces in-flight fcU spam, which both reduces EL load and decreases
   # otherwise somewhat unpredictable CL head movement.
 
-  if payloadValid:
-    dag.markBlockVerified(signedBlock.root)
-
   # Grab the new head according to our latest attestation data; determines how
   # async this needs to be.
   let newHead = attestationPool[].selectOptimisticHead(
