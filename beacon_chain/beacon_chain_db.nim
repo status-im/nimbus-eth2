@@ -989,14 +989,6 @@ proc getBlock*[
   else:
     result.err()
 
-proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex):
-                    Opt[BlobSidecar] =
-  var blobs: BlobSidecar
-  result.ok(blobs)
-  if db.blobs.getSZSSZ(blobkey(root, index), result.get) != GetResult.found:
-    result.err()
-
-
 proc getPhase0BlockSSZ(
     db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
