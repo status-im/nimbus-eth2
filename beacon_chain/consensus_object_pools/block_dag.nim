@@ -67,7 +67,7 @@ func init*(
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
   # Use same formal parameters for simplicity, but it's impossible for these
   # blocks to be optimistic.
-  BlockRef.init(root, Opt.some ZERO_HASH, true, blck.slot)
+  BlockRef.init(root, Opt.some ZERO_HASH, executionValid = true, blck.slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest, executionValid: bool,
