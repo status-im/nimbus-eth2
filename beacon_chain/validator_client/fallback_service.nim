@@ -9,9 +9,25 @@ import common
 
 const
   ServiceName = "fallback_service"
-  WARNING_TIME_OFFSET = TimeOffset.init(2.seconds)
-  NOTICE_TIME_OFFSET = TimeOffset.init(1.seconds)
-  DEBUG_TIME_OFFSET = TimeOffset.init(500.milliseconds)
+
+  FAIL_TIME_OFFSETS = [
+    TimeOffset.init(-(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds)),
+    TimeOffset.init(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds * 4)
+  ]
+  WARN_TIME_OFFSETS = [
+    TimeOffset.init(-(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds div 2)),
+    TimeOffset.init(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds * 2),
+  ]
+  NOTE_TIME_OFFSETS = [
+    TimeOffset.init(-(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds div 4)),
+    TimeOffset.init(MAXIMUM_GOSSIP_CLOCK_DISPARITY.nanoseconds),
+  ]
+
+declareHistogram nvc_time_offset,
+  "Wall clock offset(s) between validator client and beacon node(s)",
+   buckets = [-Inf, -500.0, -250.0, -100.0, -50.0,
+              50.0, 100.0, 250.0, 500.0, 1000.0, 2000.0, Inf],
+   labels = ["node"]
 
 logScope: service = ServiceName
 
@@ -297,6 +313,37 @@ proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
     raise exc
   return res
 
+proc checkOffsetStatus(node: BeaconNodeServerRef, offset: TimeOffset) =
+  logScope:
+    node = node
+
+  node.timeOffset = Opt.some(offset)
+  nvc_time_offset.observe(float64(offset.milliseconds()), @[$node])
+
+  let updateStatus =
+    if (offset <= WARN_TIME_OFFSETS[0]) or (offset >= WARN_TIME_OFFSETS[1]):
+      warn "Remote beacon node has significant time offset",
+           time_offset = offset
+      if (offset <= FAIL_TIME_OFFSETS[0]) or (offset >= FAIL_TIME_OFFSETS[1]):
+        # Beacon node's clock is out of acceptable offsets, we marking this
+        # beacon node and remote it from the list of working nodes.
+        node.updateStatus(RestBeaconNodeStatus.BrokenClock)
+        false
+      else:
+        true
+    elif (offset <= NOTE_TIME_OFFSETS[0]) or (offset >= NOTE_TIME_OFFSETS[1]):
+      info "Remote beacon node has notable time offset",
+           time_offset = offset
+      true
+    else:
+      true
+
+  if updateStatus:
+    if node.status == RestBeaconNodeStatus.BrokenClock:
+      # Beacon node's clock has been recovered to some acceptable offset, so we
+      # could restore beacon node.
+      node.updateStatus(RestBeaconNodeStatus.Offline)
+
 proc runTimeMonitor(service: FallbackServiceRef,
                     node: BeaconNodeServerRef) {.async.} =
   let
@@ -311,6 +358,9 @@ proc runTimeMonitor(service: FallbackServiceRef,
     while node.status notin statuses:
       await vc.waitNodes(nil, statuses, roles, false)
 
+    if RestBeaconNodeFeature.NoNimbusExtensions in node.features:
+      return
+
     let tres =
       try:
         let
@@ -322,10 +372,19 @@ proc runTimeMonitor(service: FallbackServiceRef,
               reason = $exc.msg
         Opt.none(int64)
       except RestResponseError as exc:
-        debug "Remote beacon node responds with unexpected status code",
-              status = $exc.status, reason = $exc.msg,
-              error_message = $exc.message
-        Opt.none(int64)
+        case exc.status
+        of 400:
+          debug "Remote beacon node returns invalid response",
+                status = $exc.status, reason = $exc.msg,
+                error_message = $exc.message
+        else:
+          node.features.incl(RestBeaconNodeFeature.NoNimbusExtensions)
+          notice "Remote beacon node do not supports nimbus extensions",
+                 status = $exc.status, reason = $exc.msg,
+                 error_message = $exc.message
+          # Exiting loop
+        node.features.incl(RestBeaconNodeFeature.NoNimbusExtensions)
+        return
       except CancelledError as exc:
         raise exc
       except CatchableError as exc:
@@ -334,18 +393,7 @@ proc runTimeMonitor(service: FallbackServiceRef,
         Opt.none(int64)
 
     if tres.isSome():
-      let timeOffset = TimeOffset.init(tres.get())
-      node.timeOffset = Opt.some(timeOffset)
-      debug "Remote beacon time offset updated", time_offset = timeOffset
-      if timeOffset >= WARNING_TIME_OFFSET:
-        warn "Remote beacon node and validator client has significant " &
-             "time difference", time_offset = timeOffset
-      elif timeOffset >= NOTICE_TIME_OFFSET:
-        notice "Remote beacon node and validator client has notable " &
-               "time difference", time_offset = timeOffset
-      elif timeOffset >= DEBUG_TIME_OFFSET:
-        debug "Remote beacon node and validator client has insignificant " &
-              "time difference", time_offset = timeOffset
+      checkOffsetStatus(node, TimeOffset.init(tres.get()))
     else:
       debug "Remote beacon time offset was not updated"
 

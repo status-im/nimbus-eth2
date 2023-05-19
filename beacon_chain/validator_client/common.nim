@@ -11,7 +11,7 @@ import
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
   metrics, metrics/chronos_httpserver,
-  ".."/spec/datatypes/[phase0, altair],
+  ".."/spec/datatypes/[base, phase0, altair],
   ".."/spec/[eth2_merkleization, helpers, signatures, validator],
   ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
                        dynamic_fee_recipients],
@@ -28,7 +28,8 @@ export
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
   beacon_clock, keystore_management, slashing_protection, validator_pool,
-  dynamic_fee_recipients, Time, toUnix, fromUnix, getTime, block_pools_types
+  dynamic_fee_recipients, Time, toUnix, fromUnix, getTime, block_pools_types,
+  base, metrics
 
 const
   SYNC_TOLERANCE* = 4'u64
@@ -108,6 +109,9 @@ type
     BlockProposalData, BlockProposalPublish,
     SyncCommitteeData, SyncCommitteePublish
 
+  RestBeaconNodeFeature* {.pure.} = enum
+    NoNimbusExtensions  ## BN do not supports Nimbus Extensions
+
   TimeOffset* = object
     value: int64
 
@@ -119,6 +123,7 @@ type
     genesis*: Opt[RestGenesis]
     syncInfo*: Opt[RestSyncInfo]
     status*: RestBeaconNodeStatus
+    features*: set[RestBeaconNodeFeature]
     roles*: set[BeaconNodeRole]
     logIdent*: string
     index*: int
@@ -140,6 +145,7 @@ type
     Synced,             ## BN and EL are synced.
     UnexpectedCode,     ## BN sends unexpected/incorrect HTTP status code .
     UnexpectedResponse, ## BN sends unexpected/incorrect response.
+    BrokenClock,        ## BN wall clock is broken or has significan offset.
     InternalError       ## BN reports internal error.
 
   BeaconNodesCounters* = object
@@ -317,6 +323,7 @@ proc `$`*(status: RestBeaconNodeStatus): string =
   of RestBeaconNodeStatus.UnexpectedCode: "unexpected code"
   of RestBeaconNodeStatus.UnexpectedResponse: "unexpected data"
   of RestBeaconNodeStatus.InternalError: "internal error"
+  of RestBeaconNodeStatus.BrokenClock: "broken clock"
 
 proc `$`*(failure: ApiFailure): string =
   case failure
@@ -542,6 +549,10 @@ proc updateStatus*(node: BeaconNodeServerRef,
       warn "Beacon node reports internal error",
            reason = failure.getFailureReason()
       node.status = status
+  of RestBeaconNodeStatus.BrokenClock:
+    if node.status != status:
+      warn "Beacon node's clock is out of order, (beacon node is unusable)"
+      node.status = status
 
 proc stop*(csr: ClientServiceRef) {.async.} =
   debug "Stopping service", service = csr.name
@@ -642,18 +653,13 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
   doAssert(index >= 0)
   let
     flags = {RestClientFlag.CommaSeparatedArray}
-    remoteUri = normalizeUri(remote).valueOr:
-      return err("Invalid URL: " & $error)
-    client =
-      block:
-        let res = RestClientRef.new($remoteUri, flags = flags)
-        if res.isErr(): return err($res.error())
-        res.get()
-    roles =
-      block:
-        let res = parseRoles(remoteUri.anchor)
-        if res.isErr(): return err($res.error())
-        res.get()
+    socketFlags = {SocketFlags.TcpNoDelay}
+    remoteUri = normalizeUri(remote)
+    client = RestClientRef.new($remoteUri, flags = flags,
+                               socketFlags = socketFlags).valueOr:
+      return err($error)
+    roles = parseRoles(remoteUri.anchor).valueOr:
+      return err($error)
 
   let server = BeaconNodeServerRef(
     client: client, endpoint: $remoteUri, index: index, roles: roles,
@@ -1273,6 +1279,12 @@ func init*(t: typedesc[TimeOffset], offset: int64): TimeOffset =
 
 func abs*(to: TimeOffset): TimeOffset =
   TimeOffset(value: abs(to.value))
+
+func milliseconds*(to: TimeOffset): int64 =
+  if to.value < 0:
+    -nanoseconds(-to.value).milliseconds
+  else:
+    nanoseconds(-to.value).milliseconds
 
 func `<`*(a, b: TimeOffset): bool = a.value < b.value
 func `<=`*(a, b: TimeOffset): bool = a.value <= b.value
