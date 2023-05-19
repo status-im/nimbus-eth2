@@ -16,7 +16,8 @@ import
   ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
                        dynamic_fee_recipients],
   ".."/consensus_object_pools/block_pools_types,
-  ".."/validators/[keystore_management, validator_pool, slashing_protection],
+  ".."/validators/[keystore_management, validator_pool, slashing_protection,
+                   validator_duties],
   ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
 from std/times import Time, toUnix, fromUnix, getTime
@@ -1223,33 +1224,9 @@ proc waitForBlock*(
   debug "Block proposal awaited", duration = dur,
         block_root = blockRoot
 
-  # The expected block arrived - in our async loop however, we might
-  # have been doing other processing that caused delays here so we'll
-  # cap the waiting to the time when we would have sent out attestations
-  # had the block not arrived. An opposite case is that we received
-  # (or produced) a block that has not yet reached our neighbours. To
-  # protect against our attestations being dropped (because the others
-  # have not yet seen the block), we'll impose a minimum delay of
-  # 2000ms. The delay is enforced only when we're not hitting the
-  # "normal" cutoff time for sending out attestations. An earlier delay
-  # of 250ms has proven to be not enough, increasing the risk of losing
-  # attestations, and with growing block sizes, 1000ms started to be
-  # risky as well. Regardless, because we "just" received the block,
-  # we'll impose the delay.
-
-  # Take into consideration chains with a different slot time
-  const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
-  let
-    afterBlockTime = vc.beaconClock.now() + afterBlockDelay
-    afterBlockCutoff = vc.beaconClock.fromNow(
-      min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
-
-  if afterBlockCutoff.inFuture:
-    debug "Got block, waiting for block cutoff time",
-          after_block_cutoff = shortLog(afterBlockCutoff.offset)
-    try:
-      await sleepAsync(afterBlockCutoff.offset)
-    except CancelledError as exc:
-      let dur = Moment.now() - startTime
-      debug "Waiting for block cutoff was interrupted", duration = dur
-      raise exc
+  try:
+    await waitAfterBlockCutoff(vc.beaconClock, slot)
+  except CancelledError as exc:
+    let dur = Moment.now() - startTime
+    debug "Waiting for block cutoff was interrupted", duration = dur
+    raise exc

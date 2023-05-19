@@ -121,6 +121,7 @@ type
     SingleSalt = "single-salt"
 
   BlockMonitoringType* {.pure.} = enum
+    Disabled = "disabled"
     Poll = "poll"
     Event = "event"
 
@@ -949,9 +950,9 @@ type
       name: "beacon-node" .}: seq[Uri]
 
     monitoringType* {.
-      desc: "Method used for block monitoring which are seen by beacon node"
-      defaultValue: BlockMonitoringType.Event
-      name: "monitoring-type".}: BlockMonitoringType
+      desc: "Enable block monitoring which are seen by beacon node"
+      defaultValue: BlockMonitoringType.Disabled
+      name: "block-monitor-type".}: BlockMonitoringType
 
   SigningNodeConf* = object
     configFile* {.

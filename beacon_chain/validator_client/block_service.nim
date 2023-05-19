@@ -657,6 +657,9 @@ proc runBlockMonitor(service: BlockServiceRef) {.async.} =
                                 {BeaconNodeRole.BlockProposalData})
   let pendingTasks =
     case vc.config.monitoringType
+    of BlockMonitoringType.Disabled:
+      debug "Block monitoring disabled"
+      @[newFuture[void]("block.monitor.disabled")]
     of BlockMonitoringType.Poll:
       var res: seq[Future[void]]
       for node in blockNodes:
