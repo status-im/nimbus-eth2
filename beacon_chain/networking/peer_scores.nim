@@ -14,6 +14,8 @@ const
     ## Score after which peer will be kicked
   PeerScoreHighLimit* = 1000
     ## Max value of peer's score
+  PeerScorePoorRequest* = -50
+    ## This peer is not responding on time or behaving improperly otherwise
   PeerScoreInvalidRequest* = -500
     ## This peer is sending malformed or nonsensical data
 

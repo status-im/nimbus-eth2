@@ -187,15 +187,19 @@ type
   TransmissionError* = object of CatchableError
 
   Eth2NetworkingErrorKind* = enum
+    # Potentially benign errors (network conditions)
     BrokenConnection
     ReceivedErrorResponse
     UnexpectedEOF
     PotentiallyExpectedEOF
+    StreamOpenTimeout
+    ReadResponseTimeout
+
+    # Errors for which we descore heavily (protocol violations)
     InvalidResponseCode
     InvalidSnappyBytes
     InvalidSszBytes
-    StreamOpenTimeout
-    ReadResponseTimeout
+    InvalidSizePrefix
     ZeroSizePrefix
     SizePrefixOverflow
     InvalidContextBytes
@@ -243,6 +247,8 @@ const
     ## Period of time for peers which score below or equal to zero.
   SeenTableTimeReconnect = 1.minutes
     ## Minimal time between disconnection and reconnection attempt
+
+  ProtocolViolations = {InvalidResponseCode..Eth2NetworkingErrorKind.high()}
 
 template neterr*(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
@@ -835,7 +841,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     except LPStreamIncompleteError:
       return neterr UnexpectedEOF
     except InvalidVarintError:
-      return neterr UnexpectedEOF
+      return neterr InvalidSizePrefix
 
   const maxSize = chunkMaxSize[MsgType]()
   if size > maxSize:
@@ -945,7 +951,17 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
     nbc_reqresp_messages_sent.inc(1, [shortProtocolId(protocolId)])
 
     # Read the response
-    return await readResponse(stream, peer, ResponseMsg, timeout)
+    let res = await readResponse(stream, peer, ResponseMsg, timeout)
+    if res.isErr():
+      if res.error().kind in ProtocolViolations:
+        peer.updateScore(PeerScoreInvalidRequest)
+      else:
+        peer.updateScore(PeerScorePoorRequest)
+    return res
+  except SerializationError as exc:
+    # Yay for both exceptions and results!
+    peer.updateScore(PeerScoreInvalidRequest)
+    raise exc
   finally:
     await stream.closeWithEOF()
 
@@ -1138,6 +1154,11 @@ proc handleIncomingStream(network: Eth2Node,
         returnInvalidRequest err.msg
 
     if msg.isErr:
+      if msg.error.kind in ProtocolViolations:
+        peer.updateScore(PeerScoreInvalidRequest)
+      else:
+        peer.updateScore(PeerScorePoorRequest)
+
       nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
       let (responseCode, errMsg) = case msg.error.kind
         of UnexpectedEOF, PotentiallyExpectedEOF:
@@ -1152,6 +1173,9 @@ proc handleIncomingStream(network: Eth2Node,
 
         of InvalidSszBytes:
           (InvalidRequest, errorMsgLit "Failed to decode SSZ payload")
+
+        of InvalidSizePrefix:
+          (InvalidRequest, errorMsgLit "Invalid chunk size prefix")
 
         of ZeroSizePrefix:
           (InvalidRequest, errorMsgLit "The request chunk cannot have a size of zero")
