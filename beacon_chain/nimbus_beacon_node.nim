@@ -328,7 +328,7 @@ proc initFullNode(
       rng, taskpool, consensusManager, node.validatorMonitor,
       blobQuarantine, getBeaconTime)
     blockVerifier =  proc(signedBlock: ForkedSignedBeaconBlock,
-                          blobs: BlobSidecars, maybeFinalized: bool):
+                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
@@ -340,7 +340,7 @@ proc initFullNode(
                                 resfut,
                                 maybeFinalized = maybeFinalized)
       resfut
-    rmanBlockVerifier =  proc(signedBlock: ForkedSignedBeaconBlock,
+    rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                               maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       let resfut = newFuture[Result[void, VerifierError]]("rmanBlockVerifier")
@@ -355,12 +355,12 @@ proc initFullNode(
             return
           let blobs = blobQuarantine[].popBlobs(blck.root)
           blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    blobs,
+                                    Opt.some(blobs),
                                     resfut,
                                     maybeFinalized = maybeFinalized)
         else:
           blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    BlobSidecars @[],
+                                    Opt.none(BlobSidecars),
                                     resfut,
                                     maybeFinalized = maybeFinalized)
       resfut
@@ -1375,8 +1375,8 @@ proc handleMissingBlobs(node: BeaconNode) =
       node.blockProcessor[].addBlock(
         MsgSource.gossip,
         ForkedSignedBeaconBlock.init(blobless),
-        node.blobQuarantine[].popBlobs(
-          blobless.root)
+        Opt.some(node.blobQuarantine[].popBlobs(
+          blobless.root))
       )
       node.quarantine[].removeBlobless(blobless)
   if fetches.len > 0:
