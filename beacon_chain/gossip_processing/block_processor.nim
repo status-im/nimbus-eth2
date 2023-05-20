@@ -20,7 +20,7 @@ from ../consensus_object_pools/consensus_manager import
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
   updateHeadWithExecution
 from ../consensus_object_pools/blockchain_dag import
-  getBlockRef, getProposer, forkAtEpoch, is_optimistic, loadExecutionBlockHash,
+  getBlockRef, getProposer, forkAtEpoch, loadExecutionBlockHash,
   markBlockVerified, validatorKey
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
@@ -560,9 +560,6 @@ proc storeBlock*(
   # This reduces in-flight fcU spam, which both reduces EL load and decreases
   # otherwise somewhat unpredictable CL head movement.
 
-  if payloadValid:
-    dag.markBlockVerified(self.consensusManager.quarantine[], signedBlock.root)
-
   # Grab the new head according to our latest attestation data; determines how
   # async this needs to be.
   let newHead = attestationPool[].selectOptimisticHead(
@@ -618,10 +615,8 @@ proc storeBlock*(
         # Blocks without execution payloads can't be optimistic, and don't try
         # to fcU to a block the EL hasn't seen
         self.consensusManager[].updateHead(newHead.get.blck)
-      elif not dag.is_optimistic newHead.get.blck.root:
-        # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
-        # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
-        # client only.
+      elif newHead.get.blck.executionValid:
+        # `forkchoiceUpdated` necessary for EL client only.
         self.consensusManager[].updateHead(newHead.get.blck)
 
         if self.consensusManager.checkNextProposer(wallSlot).isNone:

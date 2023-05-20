@@ -1015,9 +1015,13 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Load head -> finalized, or all summaries in case the finalized block table
   # hasn't been written yet
   for blck in db.getAncestorSummaries(head.root):
-    # The execution block root gets filled in as needed
-    let newRef =
-      BlockRef.init(blck.root, Opt.none Eth2Digest, blck.summary.slot)
+    # The execution block root gets filled in as needed. Nonfinalized Bellatrix
+    # and later blocks are loaded as optimistic, which gets adjusted that first
+    # `VALID` fcU from an EL plus markBlockVerified. Pre-merge blocks still get
+    # marked as `VALID`.
+    let newRef = BlockRef.init(
+      blck.root, Opt.none Eth2Digest, executionValid = false,
+      blck.summary.slot)
     if headRef == nil:
       headRef = newRef
 
@@ -1252,17 +1256,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     keysDur = Moment.now() - frontfillTick
 
   dag.initLightClientDataCache()
-
-  # If these aren't actually optimistic, the first fcU will resolve that
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Bellatrix:
-      template executionPayloadHeader(): auto =
-        forkyState().data.latest_execution_payload_header
-      const emptyExecutionPayloadHeader =
-        default(type(executionPayloadHeader))
-      if executionPayloadHeader != emptyExecutionPayloadHeader:
-        dag.optimisticRoots.incl dag.head.root
-        dag.optimisticRoots.incl dag.finalizedHead.blck.root
 
   dag
 
@@ -1918,7 +1911,7 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
     # Update light client data
     dag.deleteLightClientData(bs.blck.bid)
 
-    dag.optimisticRoots.excl bs.blck.root
+    bs.blck.executionValid = true
     dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
     discard dag.db.delBlock(
       dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch), bs.blck.root)
@@ -1969,33 +1962,31 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/sync/optimistic.md#helpers
 template is_optimistic*(dag: ChainDAGRef, root: Eth2Digest): bool =
-  root in dag.optimisticRoots
+  let blck = dag.getBlockRef(root)
+  if blck.isSome:
+    not blck.get.executionValid
+  else:
+    # Either it doesn't exist at all, or it's finalized
+    false
 
-proc markBlockVerified*(
-    dag: ChainDAGRef, quarantine: var Quarantine, root: Eth2Digest) =
-  # Might be called when block was not optimistic to begin with, or had been
-  # but already had been marked verified.
-  if not dag.is_optimistic(root):
-    return
-
-  var cur = dag.getBlockRef(root).valueOr:
-    return
-  logScope: blck = shortLog(cur)
-
-  debug "markBlockVerified"
+proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
+  var cur = blck
 
   while true:
-    if not dag.is_optimistic(cur.bid.root):
-      return
+    cur.executionValid = true
 
-    dag.optimisticRoots.excl cur.bid.root
-
-    debug "markBlockVerified ancestor"
+    debug "markBlockVerified", blck = shortLog(cur)
 
     if cur.parent.isNil:
       break
 
     cur = cur.parent
+
+    # Always check at least as far back as the parent so that when a new block
+    # is added with executionValid already set, it stil sets the ancestors, to
+    # the next valid in the chain.
+    if cur.executionValid:
+      return
 
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorIndex],
@@ -2435,7 +2426,7 @@ proc updateHead*(
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
-      isOptHead = dag.is_optimistic(newHead.root)
+      isOptHead = not newHead.executionValid
 
     if not(isNil(dag.onReorgHappened)):
       let
@@ -2457,7 +2448,7 @@ proc updateHead*(
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
-      isOptHead = dag.is_optimistic(newHead.root)
+      isOptHead = newHead.executionValid
 
     if not(isNil(dag.onHeadChanged)):
       let

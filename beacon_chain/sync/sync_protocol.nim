@@ -340,7 +340,7 @@ p2pProtocol BeaconSync(version = 1,
         # blocks all being optimistic and none of them being optimistic. The
         # EL catches up, tells the CL the head is verified, and that's it.
         if  blocks[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-            dag.is_optimistic(dag.head.root):
+            not dag.head.executionValid:
           continue
 
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
@@ -402,7 +402,7 @@ p2pProtocol BeaconSync(version = 1,
         # blocks all being optimistic and none of them being optimistic. The
         # EL catches up, tells the CL the head is verified, and that's it.
         if  blockRef.slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-            dag.is_optimistic(dag.head.root):
+            not dag.head.executionValid:
           continue
 
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
@@ -526,7 +526,7 @@ p2pProtocol BeaconSync(version = 1,
           # blocks all being optimistic and none of them being optimistic. The
           # EL catches up, tells the CL the head is verified, and that's it.
           if  blockIds[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-              dag.is_optimistic(dag.head.root):
+              not dag.head.executionValid:
             continue
 
           let uncompressedLen = uncompressedLenFramed(bytes).valueOr:

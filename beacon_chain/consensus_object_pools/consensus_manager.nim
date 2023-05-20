@@ -159,7 +159,7 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
 
   if headExecutionPayloadHash.isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
     return Opt[void].ok()
 
   template callForkchoiceUpdated(attributes: untyped): auto =
@@ -184,13 +184,23 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
     self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
     return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    self.dag.optimisticRoots.incl newHead.blck.root
+    # Don't do anything. Either newHead.blck.executionValid was already false,
+    # in which case it'd be superfluous to set it to false again, or the block
+    # was marked as `VALID` in the `newPayload` path already, in which case it
+    # is fine to keep it as valid here. Conceptually, were this to be lines of
+    # code, it'd be something like
+    # if newHead.blck.executionValid:
+    #   do nothing because of latter case
+    # else:
+    #   do nothing because it's a no-op
+    # So, either way, do nothing.
+    discard
 
   return Opt[void].ok()
 
@@ -241,7 +251,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   if self.dag.loadExecutionBlockHash(newHead.blck).isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
 
   self.updateHead(newHead.blck)
 
@@ -259,7 +269,7 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   if dag.head.slot + defaultSyncHorizon < wallSlot:
     false
   else:
-    not dag.is_optimistic(dag.head.root)
+    dag.head.executionValid
 
 proc checkNextProposer(
     dag: ChainDAGRef, actionTracker: ActionTracker,

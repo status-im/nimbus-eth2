@@ -315,14 +315,6 @@ proc getBlockOptimistic*(node: BeaconNode,
   else:
     none[bool]()
 
-proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
-  let blck = node.dag.getForkedBlock(blck.bid).get()
-  case blck.kind
-  of ConsensusFork.Phase0, ConsensusFork.Altair:
-    false
-  of ConsensusFork.Bellatrix, ConsensusFork.Capella, ConsensusFork.Deneb:
-    node.dag.is_optimistic(blck.root)
-
 const
   jsonMediaType* = MediaType.init("application/json")
   sszMediaType* = MediaType.init("application/octet-stream")
