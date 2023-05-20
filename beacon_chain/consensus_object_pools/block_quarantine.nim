@@ -275,7 +275,7 @@ func addOrphan*(
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
   quarantine.missing.del(signedBlock.root)
 
-  return ok()
+  ok()
 
 iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
          ForkedSignedBeaconBlock =
