@@ -60,7 +60,7 @@ type
   BlobSidecars* = seq[ref BlobSidecar]
   BlockEntry = object
     blck*: ForkedSignedBeaconBlock
-    blobs*: BlobSidecars
+    blobs*: Opt[BlobSidecars]
     maybeFinalized*: bool
       ## The block source claims the block has been finalized already
     resfut*: Future[Result[void, VerifierError]]
@@ -126,7 +126,7 @@ type
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: BlobSidecars,
+    blobs: Opt[BlobSidecars],
     resfut: Future[Result[void, VerifierError]] = nil,
     maybeFinalized = false,
     validationDur = Duration())
@@ -189,31 +189,30 @@ from ../consensus_object_pools/block_clearance import
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobs: BlobSidecars): Result[void, VerifierError] =
+    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
-  let blobsOk =
-      when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
-        let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-        if blobs.len > 0 or kzgCommits.len > 0:
-          let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
-                                 blobs.mapIt(it.kzg_proof))
-          if r.isErr():
-            debug "backfill blob validation failed",
-             blockRoot = shortLog(signedBlock.root),
-             blobs = shortLog(blobs),
-             blck = shortLog(signedBlock.message),
-             signature = shortLog(signedBlock.signature),
-             msg = r.error()
-          r.isOk()
-        else:
-            true
-      else:
-        true
+  var blobsOk = true
+  when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+    if blobsOpt.isSome:
+      let blobs = blobsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if blobs.len > 0 or kzgCommits.len > 0:
+        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+                               blobs.mapIt(it.kzg_proof))
+        if r.isErr():
+          debug "backfill blob validation failed",
+           blockRoot = shortLog(signedBlock.root),
+           blobs = shortLog(blobs),
+           blck = shortLog(signedBlock.message),
+           signature = shortLog(signedBlock.signature),
+           msg = r.error()
+        blobsOk = r.isOk()
+
   if not blobsOk:
     return err(VerifierError.Invalid)
 
@@ -236,6 +235,7 @@ proc storeBackfillBlock(
     return res
 
   # Only store blobs after successfully establishing block viability.
+  let blobs = blobsOpt.valueOr: BlobSidecars @[]
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
@@ -398,7 +398,7 @@ proc checkBloblessSignature(self: BlockProcessor,
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobs: BlobSidecars,
+    blobsOpt: Opt[BlobSidecars],
     maybeFinalized = false,
     queueTick: Moment = Moment.now(), validationDur = Duration()):
     Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
@@ -465,18 +465,20 @@ proc storeBlock*(
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
   when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
-    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-    if blobs.len > 0 or kzgCommits.len > 0:
-      let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
-                             blobs.mapIt(it.kzg_proof))
-      if r.isErr():
-        debug "blob validation failed",
-          blockRoot = shortLog(signedBlock.root),
-          blobs = shortLog(blobs),
-          blck = shortLog(signedBlock.message),
-          signature = shortLog(signedBlock.signature),
-          msg = r.error()
-        return err((VerifierError.Invalid, ProcessingStatus.completed))
+    if blobsOpt.isSome:
+      let blobs = blobsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if blobs.len > 0 or kzgCommits.len > 0:
+        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+                               blobs.mapIt(it.kzg_proof))
+        if r.isErr():
+          debug "blob validation failed",
+            blockRoot = shortLog(signedBlock.root),
+            blobs = shortLog(blobs),
+            blck = shortLog(signedBlock.message),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
+          return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
   let blck = dag.addHeadBlock(self.verifier, signedBlock, payloadValid) do (
@@ -536,6 +538,7 @@ proc storeBlock*(
     self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
+  let blobs = blobsOpt.valueOr: BlobSidecars @[]
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
@@ -664,10 +667,10 @@ proc storeBlock*(
     # Process the blocks that had the newly accepted block as parent
     withBlck(quarantined):
       when typeof(blck).toFork() < ConsensusFork.Deneb:
-        self[].addBlock(MsgSource.gossip, quarantined, BlobSidecars @[])
+        self[].addBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
       else:
         if len(blck.message.body.blob_kzg_commitments) == 0:
-          self[].addBlock(MsgSource.gossip, quarantined, BlobSidecars @[])
+          self[].addBlock(MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
         else:
           if (let res = checkBloblessSignature(self[], blck); res.isErr):
             warn "Failed to verify signature of unorphaned blobless block",
@@ -676,7 +679,7 @@ proc storeBlock*(
             continue
           if self.blobQuarantine[].hasBlobs(blck):
             let blobs = self.blobQuarantine[].popBlobs(blck.root)
-            self[].addBlock(MsgSource.gossip, quarantined, blobs)
+            self[].addBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
             if not self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, blck):
@@ -691,7 +694,7 @@ proc storeBlock*(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: BlobSidecars,
+    blobs: Opt[BlobSidecars],
     resfut: Future[Result[void, VerifierError]] = nil,
     maybeFinalized = false,
     validationDur = Duration()) =

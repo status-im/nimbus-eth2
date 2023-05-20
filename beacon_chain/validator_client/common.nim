@@ -501,44 +501,44 @@ proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
       return err("Invalid beacon node role string found")
   ok(res)
 
-proc normalizeUri*(remoteUri: Uri): Uri =
-  var r = remoteUri
-  if (len(r.scheme) == 0) and (len(r.username) == 0) and
-     (len(r.password) == 0) and (len(r.hostname) == 0) and
-     (len(r.port) == 0) and (len(r.path) > 0):
-    # When `scheme` is not specified and `port` is not specified - whole
-    # hostname is stored in `path`.`query` and `anchor` could still be present.
-    # test.com
-    # test.com?q=query
-    # test.com?q=query#anchor=anchor
-    parseUri("http://" & $remoteUri & ":" & $defaultEth2RestPort)
-  elif (len(r.scheme) > 0) and (len(r.username) == 0) and
-       (len(r.password) == 0) and (len(r.hostname) == 0) and
-       (len(r.port) == 0) and (len(r.path) > 0):
-    # When `scheme` is not specified but `port` is specified - whole
-    # hostname is stored in `scheme` and `port` is in `path`.
-    # 192.168.0.1:5052
-    # test.com:5052
-    # test.com:5052?q=query
-    # test.com:5052?q=query#anchor=anchor
-    parseUri("http://" & $remoteUri)
-  elif (len(r.scheme) > 0) and (len(r.hostname) > 0):
-    # When `scheme` is specified, but `port` is not we use default.
-    # http://192.168.0.1
-    # http://test.com
-    # http://test.com?q=query
-    # http://test.com?q=query#anchor=anchor
-    if len(r.port) == 0: r.port = $defaultEth2RestPort
-    r
-  else:
-    remoteUri
+proc normalizeUri*(r: Uri): Result[Uri, cstring] =
+  const
+    MissingPortNumber = cstring("Missing port number")
+    MissingHostname = cstring("Missing hostname")
+    UnknownScheme = cstring("Unknown scheme value")
+
+  if ($r).toLowerAscii().startsWith("http://") or
+     ($r).toLowerAscii().startsWith("https://"):
+    # When a scheme is provided, only a hostname is required
+    if len(r.hostname) == 0: return err(MissingHostname)
+    return ok(r)
+
+  # Check for unknown scheme
+  if ($r).contains("://"):
+    return err(UnknownScheme)
+
+  # Add the default scheme (http)
+  let normalized =
+    if ($r).startsWith("//"):
+      parseUri("http:" & $r)
+    else:
+      parseUri("http://" & $r)
+
+  if len(normalized.hostname) == 0:
+    return err(MissingHostname)
+
+  if len(normalized.port) == 0:
+    return err(MissingPortNumber)
+
+  ok(normalized)
 
 proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
            index: int): Result[BeaconNodeServerRef, string] =
   doAssert(index >= 0)
   let
     flags = {RestClientFlag.CommaSeparatedArray}
-    remoteUri = normalizeUri(remote)
+    remoteUri = normalizeUri(remote).valueOr:
+      return err("Invalid URL: " & $error)
     client =
       block:
         let res = RestClientRef.new($remoteUri, flags = flags)

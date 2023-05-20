@@ -26,7 +26,7 @@ type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [Defect].}
   ProcessingCallback* = proc() {.gcsafe, raises: [Defect].}
   BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: BlobSidecars, maybeFinalized: bool):
+                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   SyncQueueKind* {.pure.} = enum
@@ -680,9 +680,13 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     var i=0
     for blk in sq.blocks(item):
       if reqres.get().blobs.isNone():
-        res = await sq.blockVerifier(blk[], BlobSidecars @[], maybeFinalized)
+        res = await sq.blockVerifier(blk[],
+                                     Opt.none(BlobSidecars),
+                                     maybeFinalized)
       else:
-        res = await sq.blockVerifier(blk[], reqres.get().blobs.get()[i], maybeFinalized)
+        res = await sq.blockVerifier(blk[],
+                                     Opt.some(reqres.get().blobs.get()[i]),
+                                     maybeFinalized)
       inc(i)
 
       if res.isOk():

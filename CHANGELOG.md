@@ -3,6 +3,12 @@
 
 Nimbus `v23.5.1` is a `medium-urgency` point release improving the compatibility of Nimbus with 3rd party validator clients and beacon nodes and introducing the support for incremental pruning. If you are still not using the `--history:prune` option, we recommend testing it in a non-production environment, as it will be enabled by default in our next release.
 
+### Breaking changes
+
+* The Nimbus validator client no longer accepts under-specified beacon node URLs that doesn't include a port number or a protocol scheme. When a protocol scheme is specified, Nimbus now uses the default port for the selected protocol (80 for HTTP and 443 for HTTPS):
+
+  https://github.com/status-im/nimbus-eth2/pull/4921
+
 ### Improvements
 
 * The history pruning is now incremental and no longer results in start-up delays when the `--history:prune` option is enabled on an existing node:

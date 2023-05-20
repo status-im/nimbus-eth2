@@ -250,6 +250,8 @@ func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
   ret[0..<8] = toBytes(index)
   ret[8..<40] = root.data
 
+  ret
+
 template expectDb(x: auto): untyped =
   # There's no meaningful error handling implemented for a corrupt database or
   # full disk - this requires manual intervention, so we'll panic for now
@@ -988,14 +990,6 @@ proc getBlock*[
     result.get().root = key
   else:
     result.err()
-
-proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex):
-                    Opt[BlobSidecar] =
-  var blobs: BlobSidecar
-  result.ok(blobs)
-  if db.blobs.getSZSSZ(blobkey(root, index), result.get) != GetResult.found:
-    result.err()
-
 
 proc getPhase0BlockSSZ(
     db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
