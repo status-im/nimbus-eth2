@@ -315,7 +315,6 @@ proc getBlockOptimistic*(node: BeaconNode,
         if blck.message.slot <= node.dag.finalizedHead.slot:
           some[bool](false)
         else:
-          doAssert blck.message.slot > 0
           let blck = node.dag.getBlockRef(blck.root)
             .expect("Non-finalized block has `BlockRef`")
           some[bool](not blck.executionValid)
