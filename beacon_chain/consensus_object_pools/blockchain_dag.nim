@@ -1234,8 +1234,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   dag.initLightClientDataCache()
 
-  dag.markBlockVerified(dag.finalizedHead.blck)
-
   dag
 
 template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =

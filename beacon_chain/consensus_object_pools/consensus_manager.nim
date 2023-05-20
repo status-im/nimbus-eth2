@@ -190,7 +190,17 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
     self.quarantine[].addUnviable(newHead.blck.root)
     return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    newHead.blck.executionValid = false
+    # Don't do anything. Either newHead.blck.executionValid was already false,
+    # in which case it'd be superfluous to set it to false again, or the block
+    # was marked as `VALID` in the `newPayload` path already, in which case it
+    # is fine to keep it as valid here. Conceptually, were this to be lines of
+    # code, it'd be something like
+    # if newHead.blck.executionValid:
+    #   do nothing because of latter case
+    # else:
+    #   do nothing because it's a no-op
+    # So, either way, do nothing.
+    discard
 
   return Opt[void].ok()
 
