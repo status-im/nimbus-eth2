@@ -69,7 +69,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let res = node.getSyncedHead(qepoch)
         if res.isErr():
-          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                           $res.error())
         res.get()
     let shufflingRef = node.dag.getShufflingRef(qhead, qepoch, true).valueOr:
       return RestApiResponse.jsonError(Http400, PrunedStateError)
@@ -102,11 +103,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   )
         res
 
-    let optimistic =
-      if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-        some[bool](not qhead.executionValid)
-      else:
-        none[bool]()
+    let optimistic = node.getShufflingOptimistic(
+      shufflingRef.attester_dependent_slot,
+      shufflingRef.attester_dependent_root)
 
     return RestApiResponse.jsonResponseWRoot(
       duties, shufflingRef.attester_dependent_root, optimistic)
@@ -131,7 +130,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let res = node.getSyncedHead(qepoch)
         if res.isErr():
-          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                           $res.error())
         res.get()
     let epochRef = node.dag.getEpochRef(qhead, qepoch, true).valueOr:
       return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
@@ -155,11 +155,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             )
         res
 
-    let optimistic =
-      if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-        some[bool](not qhead.executionValid)
-      else:
-        none[bool]()
+    let optimistic = node.getShufflingOptimistic(
+      epochRef.proposer_dependent_slot,
+      epochRef.proposer_dependent_root)
 
     return RestApiResponse.jsonResponseWRoot(
       duties, epochRef.proposer_dependent_root, optimistic)
@@ -245,8 +243,22 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       headEpoch = node.dag.head.slot.epoch
       headSyncPeriod = sync_committee_period(headEpoch)
 
+      dependentSlot = max(
+        node.dag.cfg.ALTAIR_FORK_EPOCH.start_slot,
+        if qSyncPeriod >= 2.SyncCommitteePeriod:
+          (qSyncPeriod - 1).start_slot
+        else:
+          GENESIS_SLOT + 1) - 1
+      dependentRoot =
+        if dependentSlot <= node.dag.finalizedHead.slot:
+          node.dag.finalizedHead.blck.root  # No need to look up the actual root
+        else:
+          let bsi = node.dag.head.atSlot(dependentSlot)
+          doAssert bsi.blck != nil, "Non-finalized block has `BlockRef`"
+          bsi.blck.root
+      optimistic = node.getShufflingOptimistic(dependentSlot, dependentRoot)
+
     if qSyncPeriod == headSyncPeriod:
-      let optimistic = node.getStateOptimistic(node.dag.headState)
       let res = withState(node.dag.headState):
         when consensusFork >= ConsensusFork.Altair:
           produceResponse(indexList,
@@ -256,7 +268,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           emptyResponse()
       return RestApiResponse.jsonResponseWOpt(res, optimistic)
     elif qSyncPeriod == (headSyncPeriod + 1):
-      let optimistic = node.getStateOptimistic(node.dag.headState)
       let res = withState(node.dag.headState):
         when consensusFork >= ConsensusFork.Altair:
           produceResponse(indexList,
@@ -288,7 +299,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
       node.withStateForBlockSlotId(bsi):
-        let optimistic = node.getStateOptimistic(state)
         let res = withState(state):
           when consensusFork >= ConsensusFork.Altair:
             produceResponse(indexList,
@@ -827,8 +837,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     var contribution = SyncCommitteeContribution()
-    let res = node.syncCommitteeMsgPool[].produceContribution(
-      qslot, qroot, qindex, contribution)
+    let
+      blck = node.dag.getBlockRef(qroot).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+      res = node.syncCommitteeMsgPool[].produceContribution(
+        qslot, blck.bid, qindex, contribution)
     if not(res):
       return RestApiResponse.jsonError(Http400, ProduceContributionError)
     return RestApiResponse.jsonResponse(contribution)

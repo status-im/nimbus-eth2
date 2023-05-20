@@ -75,7 +75,7 @@ type
     keymanagerToken*: string
     validatorsDir*: string
     secretsDir*: string
-    defaultFeeRecipient*: Eth1Address
+    defaultFeeRecipient*: Opt[Eth1Address]
     defaultGasLimit*: uint64
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
@@ -101,7 +101,7 @@ func init*(T: type KeymanagerHost,
            keymanagerToken: string,
            validatorsDir: string,
            secretsDir: string,
-           defaultFeeRecipient: Eth1Address,
+           defaultFeeRecipient: Opt[Eth1Address],
            defaultGasLimit: uint64,
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
            getBeaconTimeFn: GetBeaconTimeFn): T =
@@ -744,9 +744,9 @@ func gasLimitPath(validatorsDir: string,
   validatorsDir.validatorKeystoreDir(pubkey) / GasLimitFilename
 
 proc getSuggestedFeeRecipient*(
-    validatorsDir: string,
-    pubkey: ValidatorPubKey,
-    defaultFeeRecipient: Eth1Address): Result[Eth1Address, ValidatorConfigFileStatus] =
+    validatorsDir: string, pubkey: ValidatorPubKey,
+    defaultFeeRecipient: Eth1Address):
+    Result[Eth1Address, ValidatorConfigFileStatus] =
   # In this particular case, an error might be by design. If the file exists,
   # but doesn't load or parse that's a more urgent matter to fix. Many people
   # people might prefer, however, not to override their default suggested fee
@@ -1386,20 +1386,60 @@ proc setGasLimit*(host: KeymanagerHost,
   io2.writeFile(validatorKeystoreDir / GasLimitFilename, $gasLimit)
     .mapErr(proc(e: auto): string = "Failed to write gas limit file: " & $e)
 
+from ".."/spec/beaconstate import has_eth1_withdrawal_credential
+
+proc getValidatorWithdrawalAddress*(
+    host: KeymanagerHost, pubkey: ValidatorPubKey): Opt[Eth1Address] =
+  if host.getValidatorAndIdxFn.isNil:
+    Opt.none Eth1Address
+  else:
+    let validatorAndIndex = host.getValidatorAndIdxFn(pubkey)
+    if validatorAndIndex.isNone:
+      Opt.none Eth1Address
+    else:
+      template validator: auto = validatorAndIndex.get.validator
+      if has_eth1_withdrawal_credential(validator):
+        var address: distinctBase(Eth1Address)
+        address[0..^1] =
+          validator.withdrawal_credentials.data[12..^1]
+        Opt.some Eth1Address address
+      else:
+        Opt.none Eth1Address
+
+func getPerValidatorDefaultFeeRecipient*(
+    defaultFeeRecipient: Opt[Eth1Address],
+    withdrawalAddress: Opt[Eth1Address]): Eth1Address =
+  defaultFeeRecipient.valueOr:
+    withdrawalAddress.valueOr:
+      (static(default(Eth1Address)))
+
 proc getSuggestedFeeRecipient*(
-    host: KeymanagerHost,
-    pubkey: ValidatorPubKey): Result[Eth1Address, ValidatorConfigFileStatus] =
-  host.validatorsDir.getSuggestedFeeRecipient(pubkey, host.defaultFeeRecipient)
+    host: KeymanagerHost, pubkey: ValidatorPubKey,
+    defaultFeeRecipient: Eth1Address):
+    Result[Eth1Address, ValidatorConfigFileStatus] =
+  host.validatorsDir.getSuggestedFeeRecipient(pubkey, defaultFeeRecipient)
+
+proc getSuggestedFeeRecipient(
+    host: KeyManagerHost, pubkey: ValidatorPubKey,
+    withdrawalAddress: Opt[Eth1Address]): Eth1Address =
+  # Enforce the gsfr(foo).valueOr(foo) pattern where feasible
+  let perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
+      host.defaultFeeRecipient, withdrawalAddress)
+  host.getSuggestedFeeRecipient(
+      pubkey, perValidatorDefaultFeeRecipient).valueOr:
+    perValidatorDefaultFeeRecipient
 
 proc getSuggestedGasLimit*(
     host: KeymanagerHost,
     pubkey: ValidatorPubKey): Result[uint64, ValidatorConfigFileStatus] =
   host.validatorsDir.getSuggestedGasLimit(pubkey, host.defaultGasLimit)
 
-proc addValidator*(host: KeymanagerHost, keystore: KeystoreData) =
+proc addValidator*(
+    host: KeymanagerHost, keystore: KeystoreData,
+    withdrawalAddress: Opt[Eth1Address]) =
   let
-    feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
-      host.defaultFeeRecipient)
+    feeRecipient = host.getSuggestedFeeRecipient(
+      keystore.pubkey, withdrawalAddress)
     gasLimit = host.getSuggestedGasLimit(keystore.pubkey).valueOr(
       host.defaultGasLimit)
     v = host.validatorPool[].addValidator(keystore, feeRecipient, gasLimit)

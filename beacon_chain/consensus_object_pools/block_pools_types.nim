@@ -240,9 +240,6 @@ type
       ## EPOCHS_PER_SYNC_COMMITTEE_PERIOD is happening, some valid sync
       ## committee messages will be rejected
 
-    optimisticRoots*: HashSet[Eth2Digest]
-      ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/sync/optimistic.md#helpers
-
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
     ## committees in a beacon state - the epoch level information in the state
@@ -352,6 +349,12 @@ type
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+
+func proposer_dependent_slot*(epochRef: EpochRef): Slot =
+  epochRef.key.epoch.proposer_dependent_slot()
+
+func attester_dependent_slot*(shufflingRef: ShufflingRef): Slot =
+  shufflingRef.epoch.attester_dependent_slot()
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 

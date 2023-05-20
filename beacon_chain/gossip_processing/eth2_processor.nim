@@ -587,15 +587,15 @@ proc processSyncCommitteeMessage*(
 
   # Now proceed to validation
   let v = await validateSyncCommitteeMessage(
-    self.dag, self.batchCrypto, self.syncCommitteeMsgPool,
+    self.dag, self.quarantine, self.batchCrypto, self.syncCommitteeMsgPool,
     syncCommitteeMsg, subcommitteeIdx, wallTime, checkSignature)
   return if v.isOk():
     trace "Sync committee message validated"
-    let (positions, cookedSig) = v.get()
+    let (bid, cookedSig, positions) = v.get()
 
     self.syncCommitteeMsgPool[].addSyncCommitteeMessage(
       syncCommitteeMsg.slot,
-      syncCommitteeMsg.beacon_block_root,
+      bid,
       syncCommitteeMsg.validator_index,
       cookedSig,
       subcommitteeIdx,
@@ -633,16 +633,19 @@ proc processSignedContributionAndProof*(
 
   # Now proceed to validation
   let v = await validateContribution(
-    self.dag, self.batchCrypto, self.syncCommitteeMsgPool,
+    self.dag, self.quarantine, self.batchCrypto, self.syncCommitteeMsgPool,
     contributionAndProof, wallTime, checkSignature)
 
   return if v.isOk():
     trace "Contribution validated"
+
+    let (bid, sig, participants) = v.get
+
     self.syncCommitteeMsgPool[].addContribution(
-      contributionAndProof, v.get()[0])
+      contributionAndProof, bid, sig)
 
     self.validatorMonitor[].registerSyncContribution(
-      src, wallTime, contributionAndProof.message, v.get()[1])
+      src, wallTime, contributionAndProof.message, participants)
 
     beacon_sync_committee_contributions_received.inc()
 

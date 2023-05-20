@@ -14,12 +14,14 @@ import
   ../el/el_manager,
   ../beacon_clock
 
-from ../spec/beaconstate import get_expected_withdrawals
+from ../spec/beaconstate import
+  get_expected_withdrawals, has_eth1_withdrawal_credential
 from ../spec/datatypes/capella import Withdrawal
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/keystore_management import
-  KeymanagerHost, getSuggestedFeeRecipient, getSuggestedGasLimit
+  KeymanagerHost, getPerValidatorDefaultFeeRecipient, getSuggestedFeeRecipient,
+  getSuggestedGasLimit
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 
 type
@@ -48,7 +50,7 @@ type
     # ----------------------------------------------------------------
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
     validatorsDir: string
-    defaultFeeRecipient: Eth1Address
+    defaultFeeRecipient: Opt[Eth1Address]
     defaultGasLimit: uint64
 
     # Tracking last proposal forkchoiceUpdated payload information
@@ -66,7 +68,7 @@ func new*(T: type ConsensusManager,
           actionTracker: ActionTracker,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
           validatorsDir: string,
-          defaultFeeRecipient: Eth1Address,
+          defaultFeeRecipient: Opt[Eth1Address],
           defaultGasLimit: uint64
          ): ref ConsensusManager =
   (ref ConsensusManager)(
@@ -157,7 +159,7 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
 
   if headExecutionPayloadHash.isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
     return Opt[void].ok()
 
   template callForkchoiceUpdated(attributes: untyped): auto =
@@ -182,13 +184,13 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
     self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
     return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    self.dag.optimisticRoots.incl newHead.blck.root
+    newHead.blck.executionValid = false
 
   return Opt[void].ok()
 
@@ -239,7 +241,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   if self.dag.loadExecutionBlockHash(newHead.blck).isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
 
   self.updateHead(newHead.blck)
 
@@ -257,7 +259,7 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   if dag.head.slot + defaultSyncHorizon < wallSlot:
     false
   else:
-    not dag.is_optimistic(dag.head.root)
+    dag.head.executionValid
 
 proc checkNextProposer(
     dag: ChainDAGRef, actionTracker: ActionTracker,
@@ -296,10 +298,28 @@ proc getFeeRecipient*(
     Opt.none(Eth1Address)
 
   dynFeeRecipient.valueOr:
+    let
+      withdrawalAddress =
+        if validatorIdx.isSome:
+          withState(self.dag.headState):
+            if validatorIdx.get < forkyState.data.validators.lenu64:
+              let validator = forkyState.data.validators.item(validatorIdx.get)
+              if has_eth1_withdrawal_credential(validator):
+                var address: distinctBase(Eth1Address)
+                address[0..^1] = validator.withdrawal_credentials.data[12..^1]
+                Opt.some Eth1Address address
+              else:
+                Opt.none Eth1Address
+            else:
+              Opt.none Eth1Address
+        else:
+          Opt.none Eth1Address
+      defaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
+        self.defaultFeeRecipient, withdrawalAddress)
     self.validatorsDir.getSuggestedFeeRecipient(
-        pubkey, self.defaultFeeRecipient).valueOr:
+        pubkey, defaultFeeRecipient).valueOr:
       # Ignore errors and use default - errors are logged in gsfr
-      self.defaultFeeRecipient
+      defaultFeeRecipient
 
 proc getGasLimit*(
     self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =

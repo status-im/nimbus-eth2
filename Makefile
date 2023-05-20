@@ -460,12 +460,6 @@ force_build_alone_tools: | $(FORCE_BUILD_ALONE_TOOLS_DEPS)
 # Already defined as a reult
 nimbus_beacon_node: force_build_alone_tools
 
-clean_eth2_network_simulation_data:
-	rm -rf tests/simulation/data
-
-clean_eth2_network_simulation_all:
-	rm -rf tests/simulation/{data,validators}
-
 GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
@@ -473,10 +467,6 @@ GOERLI_TESTNETS_PARAMS := \
 	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
 	--rest \
 	--rest-port=$$(( $(BASE_REST_PORT) + $(NODE_ID) ))
-
-eth2_network_simulation: | build deps clean_eth2_network_simulation_all
-	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
-	killall prometheus &>/dev/null
 
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working

@@ -266,6 +266,19 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
         indices[listIndex[]] = some(ValidatorIndex(validatorIndex))
   indices
 
+proc getShufflingOptimistic*(node: BeaconNode,
+                             dependentSlot: Slot,
+                             dependentRoot: Eth2Digest): Option[bool] =
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+    if dependentSlot <= node.dag.finalizedHead.slot:
+      some[bool](false)
+    else:
+      let blck = node.dag.getBlockRef(dependentRoot)
+        .expect("Non-finalized block has `BlockRef`")
+      some[bool](not blck.executionValid)
+  else:
+    none[bool]()
+
 proc getStateOptimistic*(node: BeaconNode,
                          state: ForkedHashedBeaconState): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:

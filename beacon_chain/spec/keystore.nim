@@ -699,14 +699,6 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       if remoteType.isSome:
         reader.raiseUnexpectedField("Multiple `type` fields found",
                                     "RemoteKeystore")
-      if version.isNone:
-        reader.raiseUnexpectedField(
-          "The `type` field should be specified after the `version` field of the keystore",
-          "RemoteKeystore")
-      if version.get < 2:
-        reader.raiseUnexpectedField(
-          "The `type` field is valid only past version 2 of the remote keystore format",
-          "RemoteKeystore")
       let remoteTypeValue = case reader.readValue(string).toLowerAscii()
         of "web3signer":
           RemoteSignerType.Web3Signer
