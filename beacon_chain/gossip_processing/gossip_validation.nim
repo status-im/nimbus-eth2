@@ -463,7 +463,7 @@ proc validateBeaconBlock*(
       debug "validateBeaconBlock: could not add orphan",
        blockRoot = shortLog(signed_beacon_block.root),
        blck = shortLog(signed_beacon_block.message),
-       err=r.error()
+       err = r.error()
 
     return errIgnore("BeaconBlock: Parent not found")
 
