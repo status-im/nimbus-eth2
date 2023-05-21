@@ -114,7 +114,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         validity:
           if item.invalid:
             RestNodeValidity.invalid
-          elif item.bid.slot <= node.dag.finalizedHead.slot:
+          elif item.bid.slot < node.dag.finalizedHead.blck.slot:
             RestNodeValidity.valid
           else:
             let blck = node.dag.getBlockRef(item.bid.root)

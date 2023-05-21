@@ -270,7 +270,7 @@ proc getShufflingOptimistic*(node: BeaconNode,
                              dependentSlot: Slot,
                              dependentRoot: Eth2Digest): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    if dependentSlot <= node.dag.finalizedHead.slot:
+    if dependentSlot < node.dag.finalizedHead.blck.slot:
       some[bool](false)
     else:
       let blck = node.dag.getBlockRef(dependentRoot)
@@ -288,18 +288,13 @@ proc getStateOptimistic*(node: BeaconNode,
     of  ConsensusFork.Bellatrix, ConsensusFork.Capella,
         ConsensusFork.Deneb:
       # A state is optimistic iff the block which created it is
-      withState(state):
-        # The block root which created the state at slot `n` is at slot `n-1`
-        if forkyState.data.slot <= node.dag.finalizedHead.slot:
-          some[bool](false)
-        else:
-          doAssert forkyState.data.slot > 0
-          let
-            blckRoot = get_block_root_at_slot(
-              forkyState.data, forkyState.data.slot - 1)
-            blck = node.dag.getBlockRef(blckRoot)
-              .expect("Non-finalized block has `BlockRef`")
-          some[bool](not blck.executionValid)
+      let stateBid = withState(state): forkyState.latest_block_id
+      if stateBid.slot < node.dag.finalizedHead.slot:
+        some[bool](false)
+      else:
+        let blck = node.dag.getBlockRef(stateBid.root)
+          .expect("Non-finalized block has `BlockRef`")
+        some[bool](not blck.executionValid)
   else:
     none[bool]()
 
@@ -312,7 +307,7 @@ proc getBlockOptimistic*(node: BeaconNode,
       some[bool](false)
     of ConsensusFork.Bellatrix, ConsensusFork.Capella, ConsensusFork.Deneb:
       withBlck(blck):
-        if blck.message.slot <= node.dag.finalizedHead.slot:
+        if blck.message.slot < node.dag.finalizedHead.blck.slot:
           some[bool](false)
         else:
           let blck = node.dag.getBlockRef(blck.root)
