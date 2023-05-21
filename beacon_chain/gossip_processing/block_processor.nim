@@ -520,12 +520,14 @@ proc storeBlock*(
 
         return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
-      if not self.consensusManager.quarantine[].addOrphan(
-          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock)):
-        debug "Block quarantine full",
+      if (let r = self.consensusManager.quarantine[].addOrphan(
+          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock));
+              r.isErr()):
+        debug "storeBlock: could not add orphan",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
-          signature = shortLog(signedBlock.signature)
+          signature = shortLog(signedBlock.signature),
+          err = r.error()
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)

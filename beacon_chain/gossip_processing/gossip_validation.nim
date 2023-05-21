@@ -457,10 +457,13 @@ proc validateBeaconBlock*(
 
     # When the parent is missing, we can't validate the block - we'll queue it
     # in the quarantine for later processing
-    if not quarantine[].addOrphan(
+    if (let r = quarantine[].addOrphan(
         dag.finalizedHead.slot,
-        ForkedSignedBeaconBlock.init(signed_beacon_block)):
-      debug "Block quarantine full"
+        ForkedSignedBeaconBlock.init(signed_beacon_block)); r.isErr):
+      debug "validateBeaconBlock: could not add orphan",
+       blockRoot = shortLog(signed_beacon_block.root),
+       blck = shortLog(signed_beacon_block.message),
+       err = r.error()
 
     return errIgnore("BeaconBlock: Parent not found")
 
