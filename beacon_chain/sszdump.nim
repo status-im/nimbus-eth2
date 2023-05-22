@@ -1,18 +1,17 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[os, strformat],
   chronicles,
   ./spec/[
-    beaconstate, eth2_ssz_serialization, eth2_merkleization, forks, helpers],
-  ./spec/datatypes/[phase0, altair]
+    beaconstate, eth2_ssz_serialization, eth2_merkleization, forks, helpers]
 
 export
   beaconstate, eth2_ssz_serialization, eth2_merkleization, forks
@@ -48,30 +47,30 @@ proc dump*(dir: string, v: SyncCommitteeMessage, validator: ValidatorPubKey) =
   logErrors:
     SSZ.saveFile(dir / &"sync-committee-msg-{v.slot}-{shortLog(validator)}.ssz", v)
 
-proc dump*(dir: string, v: altair.LightClientBootstrap) =
+proc dump*(dir: string, v: ForkyLightClientBootstrap) =
   logErrors:
     let
       prefix = "bootstrap"
-      slot = v.header.slot
-      blck = shortLog(v.header.hash_tree_root())
+      slot = v.header.beacon.slot
+      blck = shortLog(v.header.beacon.hash_tree_root())
       root = shortLog(v.hash_tree_root())
     SSZ.saveFile(
       dir / &"{prefix}-{slot}-{blck}-{root}.ssz", v)
 
-proc dump*(dir: string, v: SomeLightClientUpdate) =
+proc dump*(dir: string, v: SomeForkyLightClientUpdate) =
   logErrors:
     let
       prefix =
-        when v is altair.LightClientUpdate:
+        when v is ForkyLightClientUpdate:
           "update"
-        elif v is altair.LightClientFinalityUpdate:
+        elif v is ForkyLightClientFinalityUpdate:
           "finality-update"
-        elif v is altair.LightClientOptimisticUpdate:
+        elif v is ForkyLightClientOptimisticUpdate:
           "optimistic-update"
-      attestedSlot = v.attested_header.slot
-      attestedBlck = shortLog(v.attested_header.hash_tree_root())
+      attestedSlot = v.attested_header.beacon.slot
+      attestedBlck = shortLog(v.attested_header.beacon.hash_tree_root())
       syncCommitteeSuffix =
-        when v is SomeLightClientUpdateWithSyncCommittee:
+        when v is SomeForkyLightClientUpdateWithSyncCommittee:
           if v.is_sync_committee_update:
             "s"
           else:
@@ -79,7 +78,7 @@ proc dump*(dir: string, v: SomeLightClientUpdate) =
         else:
           ""
       finalitySuffix =
-        when v is SomeLightClientUpdateWithFinality:
+        when v is SomeForkyLightClientUpdateWithFinality:
           if v.is_finality_update:
             "f"
           else:

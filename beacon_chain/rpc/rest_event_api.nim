@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   stew/results,
@@ -83,7 +83,6 @@ proc eventHandler*[T](response: HttpResponseRef,
 
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
-  # https://github.com/ethereum/beacon-APIs/pull/181
   router.api(MethodGet, "/eth/v1/events") do (
     topics: seq[EventTopic]) -> RestApiResponse:
     let eventTopics =
@@ -92,13 +91,14 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, "Invalid topics value",
                                            $topics.error())
         let res = validateEventTopics(topics.get(),
-                                      node.dag.lightClientDataServe)
+                                      node.dag.lcDataStore.serve)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, "Invalid topics value",
                                            $res.error())
         res.get()
 
     let res = preferredContentType(textEventStreamMediaType)
+
     if res.isErr():
       return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
     if res.get() != textEventStreamMediaType:
@@ -145,14 +145,14 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                               "contribution_and_proof")
           res.add(handler)
         if EventTopic.LightClientFinalityUpdate in eventTopics:
-          doAssert node.dag.lightClientDataServe
+          doAssert node.dag.lcDataStore.serve
           let handler = response.eventHandler(node.eventBus.finUpdateQueue,
-                                              "light_client_finality_update_v0")
+                                              "light_client_finality_update")
           res.add(handler)
         if EventTopic.LightClientOptimisticUpdate in eventTopics:
-          doAssert node.dag.lightClientDataServe
+          doAssert node.dag.lcDataStore.serve
           let handler = response.eventHandler(node.eventBus.optUpdateQueue,
-                                              "light_client_optimistic_update_v0")
+                                              "light_client_optimistic_update")
           res.add(handler)
         res
 
@@ -169,11 +169,3 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     await allFutures(pending)
     return
-
-  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
-  # `/api` path component
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/events",
-    "/eth/v1/events"
-  )

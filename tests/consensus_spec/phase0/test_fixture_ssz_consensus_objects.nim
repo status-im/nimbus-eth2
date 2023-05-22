@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, strutils, streams, strformat,
+  strutils, streams, strformat,
   macros, sets,
   # Third-party
   yaml,
@@ -18,7 +18,7 @@ import
   # Status libraries
   snappy,
   # Test utilities
-  ../../testutil, ../fixtures_utils
+  ../../testutil, ../fixtures_utils, ../os_ops
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 

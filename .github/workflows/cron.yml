@@ -19,17 +19,15 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-          - os: windows
-            cpu: i386
-        branch: [version-1-2, version-1-4, version-1-6, devel]
+        branch: [version-1-6, devel]
         include:
           - target:
               os: linux
-            builder: ubuntu-18.04
+            builder: ubuntu-20.04
             shell: bash
           - target:
               os: macos
-            builder: macos-10.15
+            builder: macos-11
             shell: bash
           - target:
               os: windows
@@ -42,7 +40,7 @@ jobs:
 
     name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
     runs-on: ${{ matrix.builder }}
-    continue-on-error: ${{ matrix.branch == 'version-1-6' || matrix.branch == 'devel' }}
+    continue-on-error: ${{ matrix.branch == 'devel' }}
     steps:
       - name: Checkout
         if: ${{ github.event_name != 'pull_request' }}
@@ -72,18 +70,6 @@ jobs:
           EOF
           chmod 755 external/bin/gcc external/bin/g++
           echo "${{ github.workspace }}/external/bin" >> $GITHUB_PATH
-
-      - name: MSYS2 (Windows i386)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
-        uses: msys2/setup-msys2@v2
-        with:
-          path-type: inherit
-          msystem: MINGW32
-          install: >-
-            base-devel
-            git
-            mingw-w64-i686-toolchain
-            mingw-w64-i686-cmake
 
       - name: MSYS2 (Windows amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'

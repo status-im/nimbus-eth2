@@ -5,7 +5,7 @@ def read_entry(f):
   if not header: return (None, None)
 
   typ = header[0:2] # 2 bytes of type
-  dlen = struct.unpack("<q", header[2:8] + b"\0\0")[0] # 6 bytes of little-endian length
+  dlen = struct.unpack("<I", header[2:6])[0] # 4 bytes of unsigned little-endian length
 
   data = f.read(dlen)
 

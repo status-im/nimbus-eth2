@@ -15,7 +15,7 @@ services:
     ports:
       - 9000:9000/tcp
       - 9000:9000/udp
-      - 127.0.0.1:9190:9190/tcp
+      - 127.0.0.1:5052:5052/tcp
       - 127.0.0.1:8008:8008/tcp
     volumes:
       - ./data:/home/user/nimbus-eth2/build/data
@@ -28,9 +28,9 @@ services:
       --log-level=info
       --tcp-port=9000
       --udp-port=9000
-      --rpc
-      --rpc-address=0.0.0.0
-      --rpc-port=9190
+      --rest
+      --rest-address=0.0.0.0
+      --rest-port=5052
       --metrics
       --metrics-address=0.0.0.0
       --metrics-port=8008

@@ -1,12 +1,12 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[os, re, strutils],
+  std/[os, strutils],
   stew/bitops2,
   ../beacon_chain/spec/[
     datatypes/base,
@@ -18,6 +18,8 @@ import
     state_transition_block,
     signatures],
   ../beacon_chain/consensus_object_pools/blockchain_dag
+
+from ../beacon_chain/spec/datatypes/capella import BeaconState
 
 type
   RewardsAndPenalties* = object
@@ -49,29 +51,87 @@ type
 
 const
   epochInfoFileNameDigitsCount = 8
-  epochFileNameExtension* = ".epoch"
-  epochNumberRegexStr = r"\d{" & $epochInfoFileNameDigitsCount & r"}\"
+  epochFileNameExtension = ".epoch"
 
 func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
                              forkedState: ForkedHashedBeaconState) =
   withState(forkedState):
-    when stateFork > BeaconStateFork.Phase0:
+    when consensusFork > ConsensusFork.Phase0:
       template flags: untyped = auxiliaryState.epochParticipationFlags
-      flags.currentEpochParticipation = state.data.current_epoch_participation
-      flags.previousEpochParticipation = state.data.previous_epoch_participation
+      flags.currentEpochParticipation =
+        forkyState.data.current_epoch_participation
+      flags.previousEpochParticipation =
+        forkyState.data.previous_epoch_participation
+
+from std/sequtils import allIt
+
+func matchFilenameUnaggregatedFiles(filename: string): bool =
+  # epochNumberRegexStr & epochFileNameExtension
+  filename.len == epochInfoFileNameDigitsCount + epochFileNameExtension.len and
+    filename.endsWith(epochFileNameExtension) and
+    # TODO should use toOpenArray, but
+    # https://github.com/nim-lang/Nim/issues/15952
+    # https://github.com/nim-lang/Nim/issues/19969
+    allIt(filename[0 ..< epochInfoFileNameDigitsCount], it.isDigit)
+
+static:
+  for filename in [
+      "00000000.epoch", "00243929.epoch", "04957024.epoch", "39820353.epoch",
+      "82829191.epoch", "85740966.epoch", "93321944.epoch", "98928899.epoch"]:
+    doAssert filename.matchFilenameUnaggregatedFiles
+
+  for filename in [
+      # Valid aggregated, not unaggregated
+      "03820350_13372742.epoch", "04117778_69588614.epoch",
+      "25249017_64218993.epoch", "34265267_41589365.epoch",
+      "57926659_59282297.epoch", "67699314_92835461.epoch",
+
+      "0000000.epoch",     # Too short
+      "000000000.epoch",   # Too long
+      "75787x73.epoch",    # Incorrect number format
+      "00000000.ecpoh"]:   # Wrong extension
+    doAssert not filename.matchFilenameUnaggregatedFiles
+
+func matchFilenameAggregatedFiles(filename: string): bool =
+  # epochNumberRegexStr & "_" & epochNumberRegexStr & epochFileNameExtension
+  filename.len == epochInfoFileNameDigitsCount * 2 + "_".len + epochFileNameExtension.len and
+    filename.endsWith(epochFileNameExtension) and
+    # TODO should use toOpenArray, but
+    # https://github.com/nim-lang/Nim/issues/15952
+    # https://github.com/nim-lang/Nim/issues/19969
+    allIt(filename[0 ..< epochInfoFileNameDigitsCount], it.isDigit) and
+    filename[epochInfoFileNameDigitsCount] == '_' and
+    allIt(
+      filename[epochInfoFileNameDigitsCount + 1 ..< 2 * epochInfoFileNameDigitsCount + 1],
+      it.isDigit)
+
+static:
+  for filename in [
+      "03820350_13372742.epoch", "04117778_69588614.epoch",
+      "25249017_64218993.epoch", "34265267_41589365.epoch",
+      "57926659_59282297.epoch", "67699314_92835461.epoch"]:
+    doAssert filename.matchFilenameAggregatedFiles
+
+  for filename in [
+      # Valid unaggregated, not aggregated
+      "00000000.epoch", "00243929.epoch", "04957024.epoch", "39820353.epoch",
+      "82829191.epoch", "85740966.epoch", "93321944.epoch", "98928899.epoch",
+
+      "00000000_0000000.epoch",   # Too short
+      "31x85971_93149672.epoch",  # Incorrect number format, first field
+      "18049105&72034596.epoch",  # No underscore separator
+      "31485971_931496x2.epoch",  # Incorrect number format, second field
+      "15227487_86601706.echop"]: # Wrong extension
+    doAssert not filename.matchFilenameAggregatedFiles
 
 proc getUnaggregatedFilesEpochRange*(dir: string):
     tuple[firstEpoch, lastEpoch: Epoch] =
-  const epochInfoFileNameRegexStr =
-    epochNumberRegexStr & epochFileNameExtension
-  var pattern {.global.}: Regex
-  once: pattern = re(epochInfoFileNameRegexStr)
   var smallestEpochFileName =
     '9'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   var largestEpochFileName =
     '0'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   for (_, fn) in walkDir(dir.string, relative = true):
-    if fn.match(pattern):
+    if fn.matchFilenameUnaggregatedFiles:
       if fn < smallestEpochFileName:
         smallestEpochFileName = fn
       if fn > largestEpochFileName:
@@ -85,13 +145,9 @@ proc getUnaggregatedFilesLastEpoch*(dir: string): Epoch =
   dir.getUnaggregatedFilesEpochRange.lastEpoch
 
 proc getAggregatedFilesLastEpoch*(dir: string): Epoch =
-  const epochInfoFileNameRegexStr =
-    epochNumberRegexStr & "_" & epochNumberRegexStr & epochFileNameExtension
-  var pattern {.global.}: Regex
-  once: pattern = re(epochInfoFileNameRegexStr)
   var largestEpochInFileName = 0'u
   for (_, fn) in walkDir(dir.string, relative = true):
-    if fn.match(pattern):
+    if fn.matchFilenameAggregatedFiles:
       let fileLastEpoch = parseUInt(
         fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])
       if fileLastEpoch > largestEpochInFileName:
@@ -212,7 +268,8 @@ proc collectEpochRewardsAndPenalties*(
 
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: var (altair.BeaconState | bellatrix.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState |
+                capella.BeaconState | deneb.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -282,10 +339,13 @@ func collectFromProposerSlashings(
     forkedBlock: ForkedTrustedSignedBeaconBlock) =
   withStateAndBlck(forkedState, forkedBlock):
     for proposer_slashing in blck.message.body.proposer_slashings:
-      doAssert check_proposer_slashing(state.data, proposer_slashing, {}).isOk
-      let slashedIndex = proposer_slashing.signed_header_1.message.proposer_index
-      rewardsAndPenalties.collectFromSlashedValidator(state.data,
-        slashedIndex.ValidatorIndex, blck.message.proposer_index.ValidatorIndex)
+      doAssert check_proposer_slashing(
+        forkyState.data, proposer_slashing, {}).isOk
+      let slashedIndex =
+        proposer_slashing.signed_header_1.message.proposer_index
+      rewardsAndPenalties.collectFromSlashedValidator(
+        forkyState.data, slashedIndex.ValidatorIndex,
+        blck.message.proposer_index.ValidatorIndex)
 
 func collectFromAttesterSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
@@ -294,11 +354,12 @@ func collectFromAttesterSlashings(
   withStateAndBlck(forkedState, forkedBlock):
     for attester_slashing in blck.message.body.attester_slashings:
       let attester_slashing_validity = check_attester_slashing(
-        state.data, attester_slashing, {})
+        forkyState.data, attester_slashing, {})
       doAssert attester_slashing_validity.isOk
       for slashedIndex in attester_slashing_validity.value:
         rewardsAndPenalties.collectFromSlashedValidator(
-          state.data, slashedIndex, blck.message.proposer_index.ValidatorIndex)
+          forkyState.data, slashedIndex,
+          blck.message.proposer_index.ValidatorIndex)
 
 func collectFromAttestations(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
@@ -307,26 +368,28 @@ func collectFromAttestations(
     epochParticipationFlags: var ParticipationFlags,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    when stateFork > BeaconStateFork.Phase0:
+    when consensusFork > ConsensusFork.Phase0:
       let base_reward_per_increment = get_base_reward_per_increment(
-        get_total_active_balance(state.data, cache))
+        get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0
       for attestation in blck.message.body.attestations:
-        doAssert check_attestation(state.data, attestation, {}, cache).isOk
+        doAssert check_attestation(
+          forkyState.data, attestation, {}, cache).isOk
         let proposerReward =
-          if attestation.data.target.epoch == get_current_epoch(state.data):
+          if attestation.data.target.epoch == get_current_epoch(forkyState.data):
             get_proposer_reward(
-              state.data, attestation, base_reward_per_increment, cache,
+              forkyState.data, attestation, base_reward_per_increment, cache,
               epochParticipationFlags.currentEpochParticipation)
           else:
             get_proposer_reward(
-              state.data, attestation, base_reward_per_increment, cache,
+              forkyState.data, attestation, base_reward_per_increment, cache,
               epochParticipationFlags.previousEpochParticipation)
         rewardsAndPenalties[blck.message.proposer_index].proposer_outcome +=
           proposerReward.int64
-        let inclusionDelay = state.data.slot - attestation.data.slot
+        let inclusionDelay = forkyState.data.slot - attestation.data.slot
         for index in get_attesting_indices(
-            state.data, attestation.data, attestation.aggregation_bits, cache):
+            forkyState.data, attestation.data, attestation.aggregation_bits,
+            cache):
           rewardsAndPenalties[index].inclusion_delay = some(inclusionDelay.uint64)
 
 proc collectFromDeposits(
@@ -339,7 +402,7 @@ proc collectFromDeposits(
     for deposit in blck.message.body.deposits:
       let pubkey = deposit.data.pubkey
       let amount = deposit.data.amount
-      var index = findValidatorIndex(state.data, pubkey)
+      var index = findValidatorIndex(forkyState.data, pubkey)
       if index.isNone:
         if pubkey in pubkeyToIndex:
           index = Opt[ValidatorIndex].ok(pubkeyToIndex[pubkey])
@@ -356,18 +419,21 @@ func collectFromSyncAggregate(
     forkedBlock: ForkedTrustedSignedBeaconBlock,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    when stateFork > BeaconStateFork.Phase0:
-      let total_active_balance = get_total_active_balance(state.data, cache)
-      let participant_reward = get_participant_reward(total_active_balance)
-      let proposer_reward =
-        state_transition_block.get_proposer_reward(participant_reward)
-      let indices = get_sync_committee_cache(state.data, cache).current_sync_committee
+    when consensusFork > ConsensusFork.Phase0:
+      let
+        total_active_balance = get_total_active_balance(forkyState.data, cache)
+        participant_reward = get_participant_reward(total_active_balance)
+        proposer_reward =
+          state_transition_block.get_proposer_reward(participant_reward)
+        indices = get_sync_committee_cache(
+          forkyState.data, cache).current_sync_committee
 
       template aggregate: untyped = blck.message.body.sync_aggregate
 
       doAssert indices.len == SYNC_COMMITTEE_SIZE
       doAssert aggregate.sync_committee_bits.len == SYNC_COMMITTEE_SIZE
-      doAssert state.data.current_sync_committee.pubkeys.len == SYNC_COMMITTEE_SIZE
+      doAssert forkyState.data.current_sync_committee.pubkeys.len ==
+        SYNC_COMMITTEE_SIZE
 
       for i in 0 ..< SYNC_COMMITTEE_SIZE:
         rewardsAndPenalties[indices[i]].max_sync_committee_reward +=

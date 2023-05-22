@@ -103,11 +103,6 @@
 	url = https://github.com/status-im/nim-json-rpc.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/news"]
-	path = vendor/news
-	url = https://github.com/status-im/news.git
-	ignore = untracked
-	branch = status
 [submodule "vendor/nim-unicodedb"]
 	path = vendor/nim-unicodedb
 	url = https://github.com/nitely/nim-unicodedb.git
@@ -136,31 +131,6 @@
 [submodule "vendor/nim-snappy"]
 	path = vendor/nim-snappy
 	url = https://github.com/status-im/nim-snappy.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/asynctools"]
-	path = vendor/asynctools
-	url = https://github.com/cheatfate/asynctools.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/karax"]
-	path = vendor/karax
-	url = https://github.com/pragmagic/karax.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/jswebsockets"]
-	path = vendor/jswebsockets
-	url = https://github.com/stisa/jswebsockets.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/websocket.nim"]
-	path = vendor/websocket.nim
-	url = https://github.com/niv/websocket.nim.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/nim-chronicles-tail"]
-	path = vendor/nim-chronicles-tail
-	url = https://github.com/status-im/nim-chronicles-tail.git
 	ignore = untracked
 	branch = master
 [submodule "vendor/nimbus-security-resources"]
@@ -223,7 +193,12 @@
 	url = https://github.com/status-im/nim-toml-serialization.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/merge-testnets"]
-	path = vendor/merge-testnets
-	url = https://github.com/eth-clients/merge-testnets.git
-	branch = main
+[submodule "vendor/gnosis-chain-configs"]
+	path = vendor/gnosis-chain-configs
+	url = https://github.com/gnosischain/configs.git
+[submodule "vendor/sepolia"]
+	path = vendor/sepolia
+	url = https://github.com/eth-clients/sepolia.git
+[submodule "vendor/nim-kzg4844"]
+	path = vendor/nim-kzg4844
+	url = https://github.com/status-im/nim-kzg4844/

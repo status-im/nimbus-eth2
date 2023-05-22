@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 mode = ScriptMode.Verbose
 
 version       = "1.4.2"
@@ -6,7 +13,7 @@ description   = "The Nimbus beacon chain node is a highly efficient Ethereum 2.0
 license       = "MIT or Apache License 2.0"
 
 requires(
-  "nim >= 1.2.0",
+  "nim >= 1.6.12",
   "https://github.com/status-im/NimYAML",
   "bearssl",
   "blscurve",
@@ -43,7 +50,8 @@ requires(
 
 requires "https://gitlab.com/status-im/nimbus-security-resources.git"
 
-namedBin = {
+import tables
+let namedBin = {
   "beacon_chain/nimbus_beacon_node": "nimbus_beacon_node",
   "beacon_chain/nimbus_validator_client": "nimbus_validator_client",
   "ncli/ncli": "ncli",
@@ -53,10 +61,10 @@ binDir = "build"
 
 skipDirs = @[
   ".github",
-  ".vscode"
+  ".vscode",
   "docker",
   "grafana",
-  "installer".
+  "installer",
   "media",
   "nfuzz",
   "research",

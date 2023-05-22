@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[strutils, parseutils, sequtils, terminal, colors]
@@ -45,9 +45,9 @@ func loadFragmentsLayout(contentLayout: string): ContentFragments {.
 
 func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.
     raises: [Defect, ValueError].} =
-  var cells = cellsLayout.split(';')
+  let cells = cellsLayout.split(';')
   for cell in cells:
-    var columns = cell.split(':', maxSplit = 1)
+    let columns = cell.split(':', maxSplit = 1)
     if columns.len == 2:
       result.add StatusBarCell(
         label: strip(columns[0]),
@@ -57,7 +57,7 @@ func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.
         contentFragments: loadFragmentsLayout(columns[0]))
 
 func loadLayout(layout: string): Layout {.raises: [Defect, ValueError].} =
-  var sections = layout.split('|', maxSplit = 1)
+  let sections = layout.split('|', maxSplit = 1)
   result.cellsLeft = loadCellsLayout(sections[0])
   if sections.len == 2: result.cellsRight = loadCellsLayout(sections[1])
 

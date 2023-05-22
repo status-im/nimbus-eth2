@@ -1,19 +1,16 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
-
-# This implements the pre-release proposal of the libp2p based light client sync
-# protocol. See https://github.com/ethereum/consensus-specs/pull/2802
+{.push raises: [].}
 
 import chronos, chronicles, stew/base10
 import
   eth/p2p/discoveryv5/random2,
-  ../spec/datatypes/[altair],
+  ../spec/network,
   ../networking/eth2_network,
   ../beacon_clock,
   "."/sync_protocol, "."/sync_manager
@@ -28,24 +25,24 @@ type
   Endpoint[K, V] =
     (K, V) # https://github.com/nim-lang/Nim/issues/19531
   Bootstrap =
-    Endpoint[Eth2Digest, altair.LightClientBootstrap]
+    Endpoint[Eth2Digest, ForkedLightClientBootstrap]
   UpdatesByRange =
-    Endpoint[Slice[SyncCommitteePeriod], altair.LightClientUpdate]
+    Endpoint[Slice[SyncCommitteePeriod], ForkedLightClientUpdate]
   FinalityUpdate =
-    Endpoint[Nothing, altair.LightClientFinalityUpdate]
+    Endpoint[Nothing, ForkedLightClientFinalityUpdate]
   OptimisticUpdate =
-    Endpoint[Nothing, altair.LightClientOptimisticUpdate]
+    Endpoint[Nothing, ForkedLightClientOptimisticUpdate]
 
   ValueVerifier[V] =
-    proc(v: V): Future[Result[void, BlockError]] {.gcsafe, raises: [Defect].}
+    proc(v: V): Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BootstrapVerifier* =
-    ValueVerifier[altair.LightClientBootstrap]
+    ValueVerifier[ForkedLightClientBootstrap]
   UpdateVerifier* =
-    ValueVerifier[altair.LightClientUpdate]
+    ValueVerifier[ForkedLightClientUpdate]
   FinalityUpdateVerifier* =
-    ValueVerifier[altair.LightClientFinalityUpdate]
+    ValueVerifier[ForkedLightClientFinalityUpdate]
   OptimisticUpdateVerifier* =
-    ValueVerifier[altair.LightClientOptimisticUpdate]
+    ValueVerifier[ForkedLightClientOptimisticUpdate]
 
   GetTrustedBlockRootCallback* =
     proc(): Option[Eth2Digest] {.gcsafe, raises: [Defect].}
@@ -56,7 +53,7 @@ type
 
   LightClientManager* = object
     network: Eth2Node
-    rng: ref BrHmacDrbgContext
+    rng: ref HmacDrbgContext
     getTrustedBlockRoot: GetTrustedBlockRootCallback
     bootstrapVerifier: BootstrapVerifier
     updateVerifier: UpdateVerifier
@@ -72,7 +69,7 @@ type
 func init*(
     T: type LightClientManager,
     network: Eth2Node,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     getTrustedBlockRoot: GetTrustedBlockRootCallback,
     bootstrapVerifier: BootstrapVerifier,
     updateVerifier: UpdateVerifier,
@@ -116,17 +113,18 @@ proc isGossipSupported*(
   else:
     period <= finalizedPeriod
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getlightclientbootstrap
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 proc doRequest(
     e: typedesc[Bootstrap],
     peer: Peer,
     blockRoot: Eth2Digest
-): Future[NetRes[altair.LightClientBootstrap]] {.
+): Future[NetRes[ForkedLightClientBootstrap]] {.
     raises: [Defect, IOError].} =
   peer.lightClientBootstrap(blockRoot)
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdatesbyrange
-type LightClientUpdatesByRangeResponse = NetRes[seq[altair.LightClientUpdate]]
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+type LightClientUpdatesByRangeResponse =
+  NetRes[List[ForkedLightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES]]
 proc doRequest(
     e: typedesc[UpdatesByRange],
     peer: Peer,
@@ -145,39 +143,47 @@ proc doRequest(
         " > " & Base10.toString(reqCount.uint) & ")")
     var expectedPeriod = startPeriod
     for update in response.get:
-      let
-        attestedPeriod = update.attested_header.slot.sync_committee_period
-        signaturePeriod = update.signature_slot.sync_committee_period
-      if attestedPeriod != update.signature_slot.sync_committee_period:
-        raise newException(ResponseError, "Conflicting sync committee periods" &
-          " (signature: " & Base10.toString(distinctBase(signaturePeriod)) &
-          " != " & Base10.toString(distinctBase(attestedPeriod)) & ")")
-      if attestedPeriod < expectedPeriod:
-        raise newException(ResponseError, "Unexpected sync committee period" &
-          " (" & Base10.toString(distinctBase(attestedPeriod)) &
-          " < " & Base10.toString(distinctBase(expectedPeriod)) & ")")
-      if attestedPeriod > expectedPeriod:
-        if attestedPeriod > lastPeriod:
-          raise newException(ResponseError, "Sync committee period too high" &
-            " (" & Base10.toString(distinctBase(attestedPeriod)) &
-            " > " & Base10.toString(distinctBase(lastPeriod)) & ")")
-        expectedPeriod = attestedPeriod
-      inc expectedPeriod
+      withForkyUpdate(update):
+        when lcDataFork > LightClientDataFork.None:
+          let
+            attPeriod =
+              forkyUpdate.attested_header.beacon.slot.sync_committee_period
+            sigPeriod = forkyUpdate.signature_slot.sync_committee_period
+          if attPeriod != sigPeriod:
+            raise newException(
+              ResponseError, "Conflicting sync committee periods" &
+              " (signature: " & Base10.toString(distinctBase(sigPeriod)) &
+              " != " & Base10.toString(distinctBase(attPeriod)) & ")")
+          if attPeriod < expectedPeriod:
+            raise newException(
+              ResponseError, "Unexpected sync committee period" &
+              " (" & Base10.toString(distinctBase(attPeriod)) &
+              " < " & Base10.toString(distinctBase(expectedPeriod)) & ")")
+          if attPeriod > expectedPeriod:
+            if attPeriod > lastPeriod:
+              raise newException(
+                ResponseError, "Sync committee period too high" &
+                " (" & Base10.toString(distinctBase(attPeriod)) &
+                " > " & Base10.toString(distinctBase(lastPeriod)) & ")")
+            expectedPeriod = attPeriod
+          inc expectedPeriod
+        else:
+          raise newException(ResponseError, "Invalid context bytes")
   return response
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getlightclientfinalityupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 proc doRequest(
     e: typedesc[FinalityUpdate],
     peer: Peer
-): Future[NetRes[altair.LightClientFinalityUpdate]] {.
+): Future[NetRes[ForkedLightClientFinalityUpdate]] {.
     raises: [Defect, IOError].} =
   peer.lightClientFinalityUpdate()
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getlightclientoptimisticupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 proc doRequest(
     e: typedesc[OptimisticUpdate],
     peer: Peer
-): Future[NetRes[altair.LightClientOptimisticUpdate]] {.
+): Future[NetRes[ForkedLightClientOptimisticUpdate]] {.
     raises: [Defect, IOError].} =
   peer.lightClientOptimisticUpdate()
 
@@ -185,20 +191,20 @@ template valueVerifier[E](
     self: LightClientManager,
     e: typedesc[E]
 ): ValueVerifier[E.V] =
-  when E.V is altair.LightClientBootstrap:
+  when E.V is ForkedLightClientBootstrap:
     self.bootstrapVerifier
-  elif E.V is altair.LightClientUpdate:
+  elif E.V is ForkedLightClientUpdate:
     self.updateVerifier
-  elif E.V is altair.LightClientFinalityUpdate:
+  elif E.V is ForkedLightClientFinalityUpdate:
     self.finalityUpdateVerifier
-  elif E.V is altair.LightClientOptimisticUpdate:
+  elif E.V is ForkedLightClientOptimisticUpdate:
     self.optimisticUpdateVerifier
   else: static: doAssert false
 
 iterator values(v: auto): auto =
   ## Local helper for `workerTask` to share the same implementation for both
   ## scalar and aggregate values, by treating scalars as 1-length aggregates.
-  when v is seq:
+  when v is List:
     for i in v:
       yield i
   else:
@@ -221,52 +227,63 @@ proc workerTask[E](
         await E.doRequest(peer, key)
     if value.isOk:
       var applyReward = false
-      for val in value.get.values:
+      for val in value.get().values:
         let res = await self.valueVerifier(E)(val)
         if res.isErr:
           case res.error
-          of BlockError.MissingParent:
+          of VerifierError.MissingParent:
             # Stop, requires different request to progress
             return didProgress
-          of BlockError.Duplicate:
+          of VerifierError.Duplicate:
             # Ignore, a concurrent request may have already fulfilled this
-            when E.V is altair.LightClientBootstrap:
+            when E.V is ForkedLightClientBootstrap:
               didProgress = true
             else:
               discard
-          of BlockError.UnviableFork:
+          of VerifierError.UnviableFork:
             # Descore, peer is on an incompatible fork version
-            notice "Received value from an unviable fork", value = val.shortLog,
-              endpoint = E.name, peer, peer_score = peer.getScore()
+            withForkyObject(val):
+              when lcDataFork > LightClientDataFork.None:
+                notice "Received value from an unviable fork",
+                  value = forkyObject,
+                  endpoint = E.name, peer, peer_score = peer.getScore()
+              else:
+                notice "Received value from an unviable fork",
+                  endpoint = E.name, peer, peer_score = peer.getScore()
             peer.updateScore(PeerScoreUnviableFork)
             return didProgress
-          of BlockError.Invalid:
+          of VerifierError.Invalid:
             # Descore, received data is malformed
-            warn "Received invalid value", value = val.shortLog,
-              endpoint = E.name, peer, peer_score = peer.getScore()
-            peer.updateScore(PeerScoreBadBlocks)
+            withForkyObject(val):
+              when lcDataFork > LightClientDataFork.None:
+                warn "Received invalid value", value = forkyObject.shortLog,
+                  endpoint = E.name, peer, peer_score = peer.getScore()
+              else:
+                warn "Received invalid value",
+                  endpoint = E.name, peer, peer_score = peer.getScore()
+            peer.updateScore(PeerScoreBadValues)
             return didProgress
         else:
           # Reward, peer returned something useful
           applyReward = true
           didProgress = true
       if applyReward:
-        peer.updateScore(PeerScoreGoodBlocks)
+        peer.updateScore(PeerScoreGoodValues)
     else:
-      peer.updateScore(PeerScoreNoBlocks)
+      peer.updateScore(PeerScoreNoValues)
       debug "Failed to receive value on request", value,
         endpoint = E.name, peer, peer_score = peer.getScore()
   except ResponseError as exc:
     warn "Received invalid response", error = exc.msg,
       endpoint = E.name, peer, peer_score = peer.getScore()
-    peer.updateScore(PeerScoreBadBlocks)
+    peer.updateScore(PeerScoreBadValues)
   except CancelledError as exc:
     raise exc
   except PeerPoolError as exc:
     debug "Failed to acquire peer", exc = exc.msg
   except CatchableError as exc:
     if peer != nil:
-      peer.updateScore(PeerScoreNoBlocks)
+      peer.updateScore(PeerScoreNoValues)
       debug "Unexpected exception while receiving value", exc = exc.msg,
         endpoint = E.name, peer, peer_score = peer.getScore()
     raise exc
@@ -382,12 +399,12 @@ func fetchTime(
       of NextPeriod:
         chronos.seconds(
           (SLOTS_PER_SYNC_COMMITTEE_PERIOD * SECONDS_PER_SLOT).int64)
-    minDelay = max(remainingTime div 8, chronos.seconds(30))
+    minDelay = max(remainingTime div 8, chronos.seconds(10))
     jitterSeconds = (minDelay * 2).seconds
     jitterDelay = chronos.seconds(self.rng[].rand(jitterSeconds).int64)
   return wallTime + minDelay + jitterDelay
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light-client-sync-process
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/light-client.md#light-client-sync-process
 proc loop(self: LightClientManager) {.async.} =
   var nextFetchTime = self.getBeaconTime()
   while true:

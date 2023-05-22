@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,8 +8,6 @@
 {.used.}
 
 import
-  # Standard library
-  std/[os, sequtils, sets, strutils],
   # Utilities
   chronicles,
   unittest2,
@@ -19,8 +17,11 @@ import
   ../../../beacon_chain/spec/datatypes/bellatrix,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils,
+  ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
+
+from std/sequtils import mapIt, toSeq
+from std/strutils import contains
 
 const
   OpDir                 = SszTestsDir/const_preset/"bellatrix"/"operations"
@@ -127,16 +128,16 @@ suite baseDescription & "Execution Payload " & preset():
   for path in walkTests(OpExecutionPayloadDir):
     proc applyExecutionPayload(
         preState: var bellatrix.BeaconState,
-        executionPayload: ExecutionPayload):
+        executionPayload: bellatrix.ExecutionPayload):
         Result[void, cstring] =
       let payloadValid =
-        readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
+        os_ops.readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
           contains("execution_valid: true")
-      func executePayload(_: ExecutionPayload): bool = payloadValid
+      func executePayload(_: bellatrix.ExecutionPayload): bool = payloadValid
       process_execution_payload(
             preState, executionPayload, executePayload)
 
-    runTest[ExecutionPayload, typeof applyExecutionPayload](
+    runTest[bellatrix.ExecutionPayload, typeof applyExecutionPayload](
       OpExecutionPayloadDir, "Execution Payload", "execution_payload",
       applyExecutionPayload, path)
 

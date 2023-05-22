@@ -1,9 +1,0 @@
-#!/bin/sh
-
-set -e
-
-rm -rf /var/lib/nimbus
-
-if id -u nimbus > /dev/null 2>&1; then
-  userdel nimbus # userdel will also delete the nimbus group
-fi

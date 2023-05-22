@@ -1,22 +1,23 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   # Standard library
-  std/[options, tables],
+  std/tables,
   # Status
   stew/results,
-
   chronicles,
   # Internal
-  ../spec/datatypes/base
-# https://github.com/ethereum/consensus-specs/blob/v0.11.1/specs/phase0/fork-choice.md
+  ../spec/datatypes/base,
+  ../spec/helpers
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -70,11 +71,9 @@ type
       indicesLen*: int
     of fcInvalidBestNode:
       startRoot*: Eth2Digest
-      fkChoiceJustifiedCheckpoint*: Checkpoint
-      fkChoiceFinalizedCheckpoint*: Checkpoint
+      fkChoiceCheckpoints*: FinalityCheckpoints
       headRoot*: Eth2Digest
-      headJustifiedCheckpoint*: Checkpoint
-      headFinalizedCheckpoint*: Checkpoint
+      headCheckpoints*: FinalityCheckpoints
     of fcUnknownParent:
       childRoot*: Eth2Digest
       parentRoot*: Eth2Digest
@@ -86,23 +85,23 @@ type
   ProtoNodes* = object
     buf*: seq[ProtoNode]
     offset*: int ##\
-    ## Substracted from logical Index
-    ## to get the physical index
+    ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
-    justifiedCheckpoint*: Checkpoint
-    finalizedCheckpoint*: Checkpoint
+    currentEpoch*: Epoch
+    checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
+    currentEpochTips*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
-    previousProposerBoostScore*: int64
+    previousProposerBoostScore*: uint64
 
   ProtoNode* = object
-    root*: Eth2Digest
+    bid*: BlockId
     parent*: Option[Index]
-    justifiedCheckpoint*: Checkpoint
-    finalizedCheckpoint*: Checkpoint
+    checkpoints*: FinalityCheckpoints
     weight*: int64
+    invalid*: bool
     bestChild*: Option[Index]
     bestDescendant*: Option[Index]
 
@@ -144,8 +143,8 @@ type
 
 func shortLog*(vote: VoteTracker): auto =
   (
-    current_root: vote.current_root,
-    next_root: vote.next_root,
+    current_root: shortLog(vote.current_root),
+    next_root: shortLog(vote.next_root),
     next_epoch: vote.next_epoch
   )
 

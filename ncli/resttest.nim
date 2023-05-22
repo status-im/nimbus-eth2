@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import std/[strutils, os, options, uri, json, tables]
 import stew/[results, io2, base10]
 import confutils, chronicles, httputils,
@@ -12,7 +19,7 @@ const
                        $RestTesterPatch
   RestTesterIdent* = "RestTester/$1 ($2/$3)" % [RestTesterVersion,
                                                 hostCPU, hostOS]
-  RestTesterCopyright* = "Copyright(C) 2021" &
+  RestTesterCopyright* = "Copyright(C) 2021-2022" &
                         " Status Research & Development GmbH"
   RestTesterHeader* = RestTesterName & ", Version " & RestTesterVersion &
                       " [" & hostOS & ": " & hostCPU & "]\r\n" &
@@ -24,7 +31,7 @@ type
     Equals, OneOf, Inside, InsideOrEq
 
   HeaderOperatorKind {.pure.} = enum
-    Exists, Equals, OneOf, Substr
+    Exists, NotExists, Equals, OneOf, Substr
 
   BodyOperatorKind {.pure.} = enum
     Exists, JsonStructCmpS, JsonStructCmpNS
@@ -574,6 +581,8 @@ proc getResponseHeadersExpect(rule: JsonNode): Result[HeadersExpect, cstring] =
           case toLowerAscii(jop.str)
           of "exists":
             HeaderOperatorKind.Exists
+          of "notexists":
+            HeaderOperatorKind.NotExists
           of "equals":
             HeaderOperatorKind.Equals
           of "oneof":
@@ -586,24 +595,25 @@ proc getResponseHeadersExpect(rule: JsonNode): Result[HeadersExpect, cstring] =
       block:
         var vres: seq[string]
         let jvalue = jitem.getOrDefault("value")
-        case jvalue.kind
-        of JArray:
-          if len(jvalue.elems) == 0:
-            return err("`response.header` element has an empty array value")
-          for jelem in jvalue.elems:
-            case jelem.kind
-            of JString:
-              vres.add(jvalue.str)
-            of JInt:
-              vres.add(Base10.toString(uint64(jvalue.num)))
-            else:
-              return err("`response.header` element has incorrect value")
-        of JString:
-          vres.add(jvalue.str)
-        of JInt:
-          vres.add(Base10.toString(uint64(jvalue.num)))
-        else:
-          return err("`response.header` element has incorrect value")
+        if not isnil(jvalue):
+          case jvalue.kind
+          of JArray:
+            if len(jvalue.elems) == 0:
+              return err("`response.header` element has an empty array value")
+            for jelem in jvalue.elems:
+              case jelem.kind
+              of JString:
+                vres.add(jelem.str)
+              of JInt:
+                vres.add(Base10.toString(uint64(jvalue.num)))
+              else:
+                return err("`response.header` element has incorrect value")
+          of JString:
+            vres.add(jvalue.str)
+          of JInt:
+            vres.add(Base10.toString(uint64(jvalue.num)))
+          else:
+            return err("`response.header` element has incorrect value")
         vres
     res.add(HeaderExpect(key: key, value: value, kind: operator))
   ok(HeadersExpect(headers: res))
@@ -703,6 +713,9 @@ proc validateHeaders(resp: HttpResponseHeader, expect: HeadersExpect): bool =
       case item.kind
       of HeaderOperatorKind.Exists:
         if item.key notin resp:
+          return false
+      of HeaderOperatorKind.NotExists:
+        if item.key in resp:
           return false
       of HeaderOperatorKind.Equals:
         if item.key notin resp:

@@ -1,12 +1,12 @@
 # Nimbus Eth2 (Beacon Chain)
 
-[![Github Actions CI](https://github.com/status-im/nimbus-eth2/workflows/Nimbus%20nimbus-eth2%20CI/badge.svg)](https://github.com/status-im/nim-blscurve/actions?query=workflow%3A%22BLSCurve+CI%22)
+[![Github Actions CI](https://github.com/status-im/nimbus-eth2/actions/workflows/ci.yml/badge.svg?branch=stable)](https://github.com/status-im/nimbus-eth2/actions/workflows/ci.yml?query=branch%3Astable)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
 
 [![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://join.status.im/nimbus-general)
+[![gitpoap badge](https://public-api.gitpoap.io/v1/repo/status-im/nimbus-eth2/badge)](https://www.gitpoap.io/gh/status-im/nimbus-eth2)
 
 Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementation. While it's optimised for embedded systems and resource-restricted devices -- including Raspberry Pis, its low resource usage also makes it an excellent choice for any server or desktop (where it simply takes up fewer resources).
 
@@ -52,27 +52,22 @@ This [guide](https://nimbus.guide/migration.html) will take you through the basi
 ## Related projects
 
 * [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
-* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1#phase-0): Consensus specification that this project implements
+* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.3.0/#stable-specifications): Consensus specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem in our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
 ## Donations
 
 If you'd like to contribute to Nimbus development, our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
-
 ## Branch guide
 
 * `stable` - latest stable release - **this branch is recommended for most users**
-* `testing` - pre-release branch with features and bugfixes slated for the next stable release - this branch is suitable for use on testnets and for adventerous users that want to live on the edge.
+* `testing` - pre-release branch with features and bugfixes slated for the next stable release - this branch is suitable for use on testnets and for adventurous users that want to live on the edge.
 * `unstable` - main development branch against which PR's are merged - if you want to contribute to Nimbus, start here.
 
 ## Developer resources
 
-To build tools that interact with Nimbus while it's running, we expose an [RPC API](https://nimbus.guide/api.html).
-
-To get started with developing Nimbus itself, see the [developer handbook](https://nimbus.guide/developers.html). The code follows the [Status Nim Style Guide](https://status-im.github.io/nim-style-guide/).
-
-Nimbus is built in the [Nim language](https://nim-lang.org) - the compiler is automatically installed when building the project for the first time. More information - in particular security-related information about the language - can be found in the [Auditor Handbook](https://nimbus.guide/auditors-book/).
+To get started with developing Nimbus itself, see the [developer handbook](https://nimbus.guide/developers.html).
 
 ## Tooling and utilities
 
@@ -98,12 +93,11 @@ build/state_sim --help
 ### Local network simulation
 
 The local network simulation will create a full peer-to-peer network of beacon nodes and validators on a single machine, and run the beacon chain in real time.
-
-Parameters such as shard, validator counts, and data folders are configured [vars.sh](tests/simulation/vars.sh). They can be set in as environment variables before launching the simulation.
+Parameters such as shard, validator counts, and data folders can be set in as environment variables before launching the simulation.
 
 ```bash
 # Clear data files from your last run and start the simulation with a new genesis block:
-make VALIDATORS=192 NODES=6 USER_NODES=1 eth2_network_simulation
+make VALIDATORS=192 NUM_NODES=6 USER_NODES=1 local-testnet-minimal
 
 # In another terminal, get a shell with the right environment variables set:
 ./env.sh bash
@@ -124,43 +118,28 @@ client processes (50/50), communicating through the
 beacon node and 6 validator client processes, where each of them will handle 16
 validators), but if you don't want to use external validator clients and instead
 want to have all the validators handled by the beacon nodes you may use
-`BN_VC_VALIDATOR_SPLIT=no` as an additional argument to `make eth2_network_simulation`.
-
-By default, the simulation will start from a pre-generated genesis state. If you wish to
-simulate the bootstrap process with a Ethereum 1.0 validator deposit contract, start the
-simulation with `WAIT_GENESIS=yes`
-
-```
-make eth2_network_simulation WAIT_GENESIS=yes
-```
-
-You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
-
-```bash
-make eth2_network_simulation USE_MULTITAIL="yes"
-```
-
-You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
+`USE_VC=0` as an additional argument to `make local-testnet-minimal`.
 
 _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us your feedback about the process!_
 
 ### Visualising simulation metrics
+
+<!-- TODO: Is this up to date? -->
 
 The [generic instructions from the Nimbus repo](https://github.com/status-im/nimbus/#metric-visualisation) apply here as well.
 
 Specific steps:
 
 ```bash
-# This will generate the Prometheus config on the fly, based on the number of
-# nodes (which you can control by passing something like NODES=6 to `make`).
-make VALIDATORS=192 NODES=6 USER_NODES=0 eth2_network_simulation
+# This will generate the Prometheus config on the fly, based on the number of nodes:
+make REMOTE_VALIDATORS_COUNT=192 NUM_NODES=6 USER_NODES=0 local-testnet-minimal
 
 # In another terminal tab, after the sim started:
 cd tests/simulation/prometheus
 prometheus
 ```
 
-The dashboard you need to import in Grafana is "grafana/beacon\_nodes\_Grafana\_dashboard.json".
+The dashboard you need to import in Grafana is `grafana/beacon_nodes_Grafana_dashboard.json`.
 
 ![monitoring dashboard](./media/monitoring.png)
 
@@ -174,10 +153,10 @@ Local testnets run for 4 epochs each, to test finalization. That happens only on
 
 Licensed and distributed under either of
 
-* MIT license: [LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT
+* MIT license: [LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT
 
 or
 
-* Apache License, Version 2.0, ([LICENSE-APACHEv2](LICENSE-APACHEv2) or http://www.apache.org/licenses/LICENSE-2.0)
+* Apache License, Version 2.0: [LICENSE-APACHEv2](LICENSE-APACHEv2) or https://www.apache.org/licenses/LICENSE-2.0
 
 at your option. These files may not be copied, modified, or distributed except according to those terms.

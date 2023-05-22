@@ -1,16 +1,19 @@
-# Graffiti
+# Set up Graffiti
 
-You can use your node's graffiti flag to make your mark on history and forever engrave some words of your choice into an Ethereum block. You will be able to see it using the block explorer.
+You can use your node's graffiti flag to include a short text in the blocks that your node creates.
+You will be able to see it using the block explorer.
 
-To do so on **Prater**, run:
+The graffiti can be either a string or, if you want to specify raw bytes, you can use 0x-prefixed hex value.
 
-```
-./run-prater-beacon-node.sh --graffiti="<YOUR_WORDS>"
-```
+## Command line
 
-To do so on **Mainnet**, run:
+=== "Mainnet"
+    ```sh
+    ./run-mainnet-beacon-node.sh --graffiti="<YOUR_WORDS>"
+    ```
 
-```
-./run-mainnet-beacon-node.sh --graffiti="<YOUR_WORDS>"
-```
+=== "Prater"
+    ```sh
+    ./run-prater-beacon-node.sh --graffiti="<YOUR_WORDS>"
+    ```
 

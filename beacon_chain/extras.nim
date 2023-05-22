@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 # Temporary dumping ground for extra types and helpers that could make it into
 # the spec potentially
@@ -26,7 +26,9 @@ type
     ## Also useful to avoid unnecessary work when replaying known, good blocks.
     skipStateRootValidation ##\
     ## Skip verification of block state root.
-    verifyFinalization
+    strictVerification ##\
+    ## Strictly assert on unexpected conditions to aid debugging.
+    ## Should not be used in production, as additional asserts are reachable.
     slotProcessed ##\
     ## Allow blocks to be applied to states with the same slot number as the
     ## block which is what happens when `process_block` is called separately

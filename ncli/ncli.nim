@@ -1,14 +1,15 @@
 import
-  std/[os, strutils, stats],
-  confutils, chronicles, json_serialization,
-  stew/[byteutils, io2],
+  confutils, json_serialization,
   snappy,
-  ../research/simutils,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
-  ../beacon_chain/spec/[
-    eth2_ssz_serialization, forks, helpers, state_transition],
-  ../beacon_chain/networking/network_metadata
+  ../beacon_chain/spec/[eth2_ssz_serialization, state_transition]
+
+from std/os import splitFile
+from std/stats import RunningStat
+from stew/byteutils import toHex
+from stew/io2 import readAllBytes
+from ../beacon_chain/networking/network_metadata import getRuntimeConfig
+from ../research/simutils import printTimers, withTimer, withTimerRet
 
 type
   Cmd* = enum
@@ -21,6 +22,11 @@ type
     eth2Network* {.
       desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
+
+    printTimes* {.
+      defaultValue: false # false to avoid polluting minimal output
+      name: "print-times"
+      desc: "Print timing information".}: bool
 
     # TODO confutils argument pragma doesn't seem to do much; also, the cases
     # are largely equivalent, but this helps create command line usage text
@@ -76,9 +82,11 @@ type
 
 template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   case value.kind:
-  of BeaconStateFork.Phase0:    SSZ.saveFile(filename, value.phase0Data.data)
-  of BeaconStateFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
-  of BeaconStateFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
+  of ConsensusFork.Phase0:    SSZ.saveFile(filename, value.phase0Data.data)
+  of ConsensusFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
+  of ConsensusFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
+  of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
+  of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
 
 proc loadFile(filename: string, T: type): T =
   let
@@ -97,10 +105,18 @@ proc loadFile(filename: string, T: type): T =
     quit 1
 
 proc doTransition(conf: NcliConf) =
+  type
+    Timers = enum
+      tLoadState = "Load state from file"
+      tTransition = "Apply slot"
+      tSaveState = "Save state to file"
+  var timers: array[Timers, RunningStat]
+
   let
     cfg = getRuntimeConfig(conf.eth2Network)
-    stateY = newClone(readSszForkedHashedBeaconState(
-      cfg, readAllBytes(conf.preState).tryGet()))
+    stateY = withTimerRet(timers[tLoadState]):
+      newClone(readSszForkedHashedBeaconState(
+        cfg, readAllBytes(conf.preState).tryGet()))
     blckX = readSszForkedSignedBeaconBlock(
       cfg, readAllBytes(conf.blck).tryGet())
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
@@ -108,14 +124,18 @@ proc doTransition(conf: NcliConf) =
   var
     cache = StateCache()
     info = ForkedEpochInfo()
-  let res = withBlck(blckX):
+  let res = withTimerRet(timers[tTransition]): withBlck(blckX):
     state_transition(
       cfg, stateY[], blck, cache, info, flags, noRollback)
   if res.isErr():
     error "State transition failed", error = res.error()
     quit 1
   else:
-    saveSSZFile(conf.postState, stateY[])
+    withTimer(timers[tSaveState]):
+      saveSSZFile(conf.postState, stateY[])
+
+  if conf.printTimes:
+    printTimers(false, timers)
 
 proc doSlots(conf: NcliConf) =
   type
@@ -144,9 +164,15 @@ proc doSlots(conf: NcliConf) =
   withTimer(timers[tSaveState]):
     saveSSZFile(conf.postState2, stateY[])
 
-  printTimers(false, timers)
+  if conf.printTimes:
+    printTimers(false, timers)
 
 proc doSSZ(conf: NcliConf) =
+  type Timers = enum
+    tLoad = "Load file"
+    tCompute = "Compute"
+  var timers: array[Timers, RunningStat]
+
   let (kind, file) =
     case conf.cmd:
     of hashTreeRoot: (conf.htrKind, conf.htrFile)
@@ -155,19 +181,26 @@ proc doSSZ(conf: NcliConf) =
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
   template printit(t: untyped) {.dirty.} =
-    let v = newClone(loadFile(file, t))
+
+    let v = withTimerRet(timers[tLoad]):
+      newClone(loadFile(file, t))
 
     case conf.cmd:
     of hashTreeRoot:
-      when t is ForkySignedBeaconBlock:
-        echo hash_tree_root(v.message).data.toHex()
-      else:
-        echo hash_tree_root(v[]).data.toHex()
+      let root = withTimerRet(timers[tCompute]):
+        when t is ForkySignedBeaconBlock:
+          hash_tree_root(v[].message)
+        else:
+          hash_tree_root(v[])
+
+      echo root.data.toHex()
     of pretty:
       echo RestJson.encode(v[], pretty = true)
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
+    if conf.printTimes:
+      printTimers(false, timers)
 
   case kind
   of "attester_slashing": printit(AttesterSlashing)
@@ -175,19 +208,27 @@ proc doSSZ(conf: NcliConf) =
   of "phase0_signed_block": printit(phase0.SignedBeaconBlock)
   of "altair_signed_block": printit(altair.SignedBeaconBlock)
   of "bellatrix_signed_block": printit(bellatrix.SignedBeaconBlock)
+  of "capella_signed_block": printit(capella.SignedBeaconBlock)
+  of "deneb_signed_block": printit(deneb.SignedBeaconBlock)
   of "phase0_block": printit(phase0.BeaconBlock)
   of "altair_block": printit(altair.BeaconBlock)
   of "bellatrix_block": printit(bellatrix.BeaconBlock)
+  of "capella_block": printit(capella.BeaconBlock)
+  of "deneb_block": printit(deneb.BeaconBlock)
   of "phase0_block_body": printit(phase0.BeaconBlockBody)
   of "altair_block_body": printit(altair.BeaconBlockBody)
   of "bellatrix_block_body": printit(bellatrix.BeaconBlockBody)
+  of "capella_block_body": printit(capella.BeaconBlockBody)
+  of "deneb_block_body": printit(deneb.BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
   of "eth1_data": printit(Eth1Data)
   of "phase0_state": printit(phase0.BeaconState)
-  of "altiar_state": printit(altair.BeaconState)
+  of "altair_state": printit(altair.BeaconState)
   of "bellatrix_state": printit(bellatrix.BeaconState)
+  of "capella_state": printit(capella.BeaconState)
+  of "deneb_state": printit(deneb.BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
 

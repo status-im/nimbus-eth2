@@ -1,8 +1,10 @@
-# Verify the integrity of Nimbus
+# Checksums
 
 Checksums for each build are included in the [release notes](https://github.com/status-im/nimbus-eth2/releases/). Please make sure you get into the habit of verifying these 🙏
 
-For those of you who are unfamiliar, a [checksum](https://en.wikipedia.org/wiki/Checksum) is a special type of [hash](https://en.wikipedia.org/wiki/Hash_function) used to verify the integrity of a file. Verifying a checksum ensures there was no corruption or manipulation during the download and that the file was downloaded completely and correctly. For a short and simple guide on how to do so, [see here](https://www.devdungeon.com/content/how-verify-checksum).
+For those of you who are unfamiliar, a [checksum](https://en.wikipedia.org/wiki/Checksum) is a special type of [hash](https://en.wikipedia.org/wiki/Hash_function) used to verify the integrity of a file.
+Verifying a checksum ensures there was no corruption or manipulation during the download and that the file was downloaded completely and correctly.
+For a short and simple guide on how to do so, [see here](https://www.devdungeon.com/content/how-verify-checksum).
 
 In the case of the [v1.1.0](https://github.com/status-im/nimbus-eth2/releases/tag/v1.1.0) release for example, the SHA512 checksums are:
 

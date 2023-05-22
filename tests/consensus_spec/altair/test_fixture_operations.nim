@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[os, sequtils, sets],
+  std/[sequtils, sets],
   # Utilities
   chronicles,
   unittest2,
@@ -19,7 +19,7 @@ import
   ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils,
+  ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
 
 const

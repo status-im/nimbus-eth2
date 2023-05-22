@@ -2,9 +2,9 @@
 
 One of our most important design goals is an application architecture that makes it **simple to embed Nimbus into other software.**
 
-Another is to **minimize reliance on third-party software.**
+Another goal is to **minimize reliance on third-party software.**
 
-A third is for the application binary to be as **lightweight as possible in terms of resources used.**
+A third one is for the application binary to be as **lightweight as possible in terms of resources used.**
 
 ### Integration with Status
 

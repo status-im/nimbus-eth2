@@ -25,9 +25,7 @@ suite "Key spliting":
     salt = hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
     iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
     rng = keys.newRng()
-
-  var msg = newSeq[byte](32)
-  brHmacDrbgGenerate(rng[], msg)
+    msg = rng[].generateBytes(32)
 
   test "single share":
     let maybeShares = generateSecretShares(privateKey, rng[], 1, 1)

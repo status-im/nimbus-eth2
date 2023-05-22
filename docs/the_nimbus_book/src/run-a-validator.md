@@ -1,30 +1,30 @@
 # Run a validator
 
-Once your beacon node is [running and synced](./quick-start.md), the next step is to run a validator.
+Once your beacon node is [running](./quick-start.md), the next step is to set up a validator.
 
-## 1. Deposit
+!!! tip "No validator client needed"
+    Unlike other beacon chain clients, Nimbus does not require setting up a separate validator client process — the beacon node can itself perform validator duties.
 
-[Make a deposit](./deposit.md) for your validator
+    This is a simple, safe and efficient way to get started.
 
-## 2. Import
+    Advanced users may want to use a separate [validator client](./validator-client.md) process instead.
 
-[Import your validator keys](./keys.md) into Nimbus
+## Steps
 
-## 3. Validate
+### 1. Deposit
 
-[Start performing duties](./connect-eth2.md) by restarting the node
+[Make a deposit](./deposit.md) for your validator.
 
+### 2. Import
 
-</br>
+[Import your validator keys](./keys.md) into Nimbus.
 
-------------------------------------------------------
+### 3. Validate
 
-</br>
+[Start performing duties](./connect-eth2.md) by restarting the node.
 
-While that's all there is to it, it is essential that you both [keep an eye on your validator](keep-an-eye.md) and [keep Nimbus updated](keep-updated.md) regularly 💫
+Congratulations!
+You're now set up to be earning a small amount of ETH every 6.4 minutes in return for keeping the Ethereum network secure!
 
-</br>
-
-
-
-
+!!! success "What next?"
+    While that's all there is to it, it is essential that you both [keep an eye on your validator](keep-an-eye.md) and [keep Nimbus updated](keep-updated.md) regularly 💫

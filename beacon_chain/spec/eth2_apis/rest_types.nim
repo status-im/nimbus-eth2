@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,24 +11,50 @@
 # in the API which may lead to incompatibilities between clients - tread
 # carefully!
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/json,
   stew/base10, web3/ethtypes,
   ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix],
-  ".."/mev/bellatrix_mev
+  ".."/datatypes/[phase0, altair, bellatrix, deneb],
+  ".."/mev/[bellatrix_mev, capella_mev]
 
-export forks, phase0, altair, bellatrix, bellatrix_mev
+from ".."/datatypes/capella import BeaconBlockBody
+
+export forks, phase0, altair, bellatrix, capella, bellatrix_mev, capella_mev
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validators.yaml#L17
-  MaximumValidatorIds* = 16384
+  # Maximum number of validators that can be served by the REST server in one
+  # request, if the number of validator exceeds this value REST server
+  # will return HTTP error 400.
+  ServerMaximumValidatorIds* = 16384
+
+  # Maximum number of validators that can be sent in single request by
+  # validator client (VC).
+  # NOTE: This value depend on beacon node's `rest-max-headers-size`
+  # configuration option.
+  #
+  # Size of public key in HTTP request could be calculated by formula -
+  # bytes48 * 2 + len("0x") + len(",") = 99 bytes.
+  # So 1024 keys will occupy 101,376 bytes. Default value for HTTP headers size
+  # is 128Kb = 131,072 bytes.
+  ClientMaximumValidatorIds* = 1024
+
+  # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/duties/attester.yaml#L32
+  # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/duties/sync.yaml#L16
+  # Maximum number of validator ids sent with validator client's duties
+  # requests. Validator ids are sent in decimal encoding with comma, so
+  # number of ids should not exceed beacon node's `rest-max-body-size`.
+  DutiesMaximumValidatorIds* = 16384
 
 const
   preferSSZ* = "application/octet-stream,application/json;q=0.9"
+
+static:
+  doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
 
 type
   EventTopic* {.pure.} = enum
@@ -121,7 +147,7 @@ type
     slot*: Slot
     beacon_block_root*: Eth2Digest
     subcommittee_index*: uint64
-    aggregation_bits*: SyncCommitteeAggregationBits ##\
+    aggregation_bits*: SyncCommitteeAggregationBits
     signature*: ValidatorSig
 
   RestContributionAndProof* = object
@@ -164,12 +190,20 @@ type
     slot*: Slot
     validators*: seq[ValidatorIndex]
 
-  RestFailureItem* = object
-    index*: uint64
+  RestErrorMessage* = object
+    ## https://github.com/ethereum/beacon-APIs/blob/v2.4.0/types/http.yaml#L130
+    code*: int
     message*: string
+    stacktraces*: Option[seq[string]]
 
-  RestAttestationsFailure* = object
-    index*: uint64
+  RestIndexedErrorMessage* = object
+    ## https://github.com/ethereum/beacon-APIs/blob/v2.4.0/types/http.yaml#L145
+    code*: int
+    message*: string
+    failures*: seq[RestIndexedErrorMessageItem]
+
+  RestIndexedErrorMessageItem* = object
+    index*: int
     message*: string
 
   RestValidator* = object
@@ -211,6 +245,7 @@ type
     sync_distance*: uint64
     is_syncing*: bool
     is_optimistic*: Option[bool]
+    el_offline*: Option[bool]
 
   RestPeerCount* = object
     disconnected*: uint64
@@ -234,18 +269,59 @@ type
     discovery_addresses*: seq[string]
     metadata*: RestMetadata
 
+  RestActivityItem* = object
+    index*: ValidatorIndex
+    epoch*: Epoch
+    active*: bool
+
+  RestLivenessItem* = object
+    index*: ValidatorIndex
+    is_live*: bool
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#executionpayload
+  RestExecutionPayload* = object
+    # Execution block header fields
+    parent_hash*: Eth2Digest
+    fee_recipient*: ExecutionAddress
+      ## 'beneficiary' in the yellow paper
+    state_root*: Eth2Digest
+    receipts_root*: Eth2Digest
+    logs_bloom*: BloomLogs
+    prev_randao*: Eth2Digest
+      ## 'difficulty' in the yellow paper
+    block_number*: uint64
+      ## 'number' in the yellow paper
+    gas_limit*: uint64
+    gas_used*: uint64
+    timestamp*: uint64
+    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas*: UInt256
+
+    # Extra payload fields
+    block_hash*: Eth2Digest
+      ## Hash of execution block
+    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    withdrawals*: Option[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
+      ## [New in Capella]
+
+  PrepareBeaconProposer* = object
+    validator_index*: ValidatorIndex
+    fee_recipient*: Eth1Address
+
   RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
 
   RestPublishedBeaconBlockBody* = object
-    case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0:    phase0Body*: phase0.BeaconBlockBody
-    of BeaconBlockFork.Altair:    altairBody*: altair.BeaconBlockBody
-    of BeaconBlockFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
+    case kind*: ConsensusFork
+    of ConsensusFork.Phase0:    phase0Body*:    phase0.BeaconBlockBody
+    of ConsensusFork.Altair:    altairBody*:    altair.BeaconBlockBody
+    of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
+    of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
+    of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
 
   RestSpec* = object
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/phase0.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/phase0.yaml
     MAX_COMMITTEES_PER_SLOT*: uint64
     TARGET_COMMITTEE_SIZE*: uint64
     MAX_VALIDATORS_PER_COMMITTEE*: uint64
@@ -253,7 +329,6 @@ type
     HYSTERESIS_QUOTIENT*: uint64
     HYSTERESIS_DOWNWARD_MULTIPLIER*: uint64
     HYSTERESIS_UPWARD_MULTIPLIER*: uint64
-    SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64
     MIN_DEPOSIT_AMOUNT*: uint64
     MAX_EFFECTIVE_BALANCE*: uint64
     EFFECTIVE_BALANCE_INCREMENT*: uint64
@@ -280,7 +355,7 @@ type
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/altair.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/altair.yaml
     INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
@@ -289,7 +364,7 @@ type
     MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     UPDATE_TIMEOUT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/bellatrix.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/bellatrix.yaml
     INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
@@ -298,7 +373,12 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/capella.yaml
+    MAX_BLS_TO_EXECUTION_CHANGES*: uint64
+    MAX_WITHDRAWALS_PER_PAYLOAD*: uint64
+    MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP*: uint64
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/mainnet.yaml
     PRESET_BASE*: string
     CONFIG_NAME*: string
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
@@ -314,8 +394,8 @@ type
     BELLATRIX_FORK_EPOCH*: uint64
     CAPELLA_FORK_VERSION*: Version
     CAPELLA_FORK_EPOCH*: uint64
-    SHARDING_FORK_VERSION*: Version
-    SHARDING_FORK_EPOCH*: uint64
+    DENEB_FORK_VERSION*: Version
+    DENEB_FORK_EPOCH*: uint64
     SECONDS_PER_SLOT*: uint64
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
@@ -331,7 +411,7 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#constants
     # GENESIS_SLOT
     # GENESIS_EPOCH
     # FAR_FUTURE_EPOCH
@@ -349,7 +429,7 @@ type
     DOMAIN_SELECTION_PROOF*: DomainType
     DOMAIN_AGGREGATE_AND_PROOF*: DomainType
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#constants
     TIMELY_SOURCE_FLAG_INDEX*: byte
     TIMELY_TARGET_FLAG_INDEX*: byte
     TIMELY_HEAD_FLAG_INDEX*: byte
@@ -364,13 +444,16 @@ type
     DOMAIN_CONTRIBUTION_AND_PROOF*: DomainType
     # PARTICIPATION_FLAG_WEIGHTS
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#domain-types
+    DOMAIN_BLS_TO_EXECUTION_CHANGE*: DomainType
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
     TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
     RANDOM_SUBNETS_PER_VALIDATOR*: uint64
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
     ATTESTATION_SUBNET_COUNT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/validator.md#constants
     TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
     SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 
@@ -411,6 +494,13 @@ type
     chain_id*: string
     address*: string
 
+  RestDepositSnapshot* = object
+    finalized*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
+    deposit_root*: Eth2Digest
+    deposit_count*: uint64
+    execution_block_hash*: Eth2Digest
+    execution_block_height*: uint64
+
   RestBlockInfo* = object
     slot*: Slot
     blck* {.serializedFieldName: "block".}: Eth2Digest
@@ -418,6 +508,9 @@ type
   RestEpochSyncCommittee* = object
     validators*: seq[ValidatorIndex]
     validator_aggregates*: seq[seq[ValidatorIndex]]
+
+  RestEpochRandao* = object
+    randao*: Eth2Digest
 
   DataEnclosedObject*[T] = object
     data*: T
@@ -433,14 +526,18 @@ type
   DataRootEnclosedObject*[T] = object
     dependent_root*: Eth2Digest
     data*: T
+    execution_optimistic*: Option[bool]
+
+  DataOptimisticObject*[T] = object
+    data*: T
+    execution_optimistic*: Option[bool]
 
   ForkedSignedBlockHeader* = object
     message*: uint32 # message offset
     signature*: ValidatorSig
     slot*: Slot
 
-  Web3SignerKeysResponse* = object
-    keys*: seq[ValidatorPubKey]
+  Web3SignerKeysResponse* = seq[ValidatorPubKey]
 
   Web3SignerStatusResponse* = object
     status*: string
@@ -474,10 +571,24 @@ type
       serializedFieldName: "beacon_block_root".}: Eth2Digest
     slot*: Slot
 
+  # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
+  Web3SignerValidatorRegistration* = object
+    feeRecipient* {.
+      serializedFieldName: "fee_recipient".}: string
+    gasLimit* {.
+      serializedFieldName: "gas_limit".}: uint64
+    timestamp*: uint64
+    pubkey*: ValidatorPubKey
+
+  Web3SignerMerkleProof* = object
+    index*: GeneralizedIndex
+    proof*: seq[Eth2Digest]
+
   Web3SignerRequestKind* {.pure.} = enum
     AggregationSlot, AggregateAndProof, Attestation, Block, BlockV2,
     Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
-    SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof
+    SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof,
+    ValidatorRegistration
 
   Web3SignerRequest* = object
     signingRoot*: Option[Eth2Digest]
@@ -497,6 +608,7 @@ type
     of Web3SignerRequestKind.BlockV2:
       beaconBlock* {.
         serializedFieldName: "beacon_block".}: Web3SignerForkedBeaconBlock
+      proofs*: Opt[seq[Web3SignerMerkleProof]]
     of Web3SignerRequestKind.Deposit:
       deposit*: Web3SignerDepositData
     of Web3SignerRequestKind.RandaoReveal:
@@ -516,15 +628,13 @@ type
     of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
       syncCommitteeContributionAndProof* {.
         serializedFieldName: "contribution_and_proof".}: ContributionAndProof
+    of Web3SignerRequestKind.ValidatorRegistration:
+      validatorRegistration* {.
+        serializedFieldName: "validator_registration".}:
+          Web3SignerValidatorRegistration
 
-  GetBlockResponse* = DataEnclosedObject[phase0.SignedBeaconBlock]
-  GetStateResponse* = DataEnclosedObject[phase0.BeaconState]
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetStateV2Response* = ref ForkedHashedBeaconState
-  GetPhase0StateSszResponse* = phase0.BeaconState
-  GetAltairStateSszResponse* = altair.BeaconState
-  GetPhase0BlockSszResponse* = phase0.SignedBeaconBlock
-  GetAltairBlockSszResponse* = altair.SignedBeaconBlock
 
   RestRoot* = object
     root*: Eth2Digest
@@ -536,13 +646,15 @@ type
   GetBlockAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
   GetBlockHeaderResponse* = DataEnclosedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
-  GetBlockRootResponse* = DataEnclosedObject[RestRoot]
+  GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
+  GetDepositSnapshotResponse* = DataEnclosedObject[RestDepositSnapshot]
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponse* = DataVersionEnclosedObject[SignedBuilderBid]
+  GetHeaderResponseBellatrix* = DataVersionEnclosedObject[bellatrix_mev.SignedBuilderBid]
+  GetHeaderResponseCapella* = DataVersionEnclosedObject[capella_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
@@ -556,19 +668,55 @@ type
   GetSpecVCResponse* = DataEnclosedObject[RestSpecVC]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]
-  GetStateRootResponse* = DataEnclosedObject[RestRoot]
+  GetStateRootResponse* = DataOptimisticObject[RestRoot]
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
   GetStateValidatorResponse* = DataEnclosedObject[RestValidator]
-  GetStateValidatorsResponse* = DataEnclosedObject[seq[RestValidator]]
-  GetSyncCommitteeDutiesResponse* = DataRootEnclosedObject[seq[RestSyncCommitteeDuty]]
+  GetStateValidatorsResponse* = DataOptimisticObject[seq[RestValidator]]
+  GetSyncCommitteeDutiesResponse* = DataOptimisticObject[seq[RestSyncCommitteeDuty]]
   GetSyncingStatusResponse* = DataEnclosedObject[RestSyncInfo]
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
-  ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
   ProduceBlockResponseV2* = ForkedBeaconBlock
+  ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponse* = DataEnclosedObject[SignedBuilderBid]
+  SubmitBlindedBlockResponseBellatrix* = DataEnclosedObject[bellatrix.ExecutionPayload]
+  SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
+  GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
+  GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
+
+  RestNodeValidity* {.pure.} = enum
+    valid = "VALID",
+    invalid = "INVALID",
+    optimistic = "OPTIMISTIC"
+
+  RestNodeExtraData* = object
+    justified_root*: Eth2Digest
+    finalized_root*: Eth2Digest
+    u_justified_checkpoint*: Option[Checkpoint]
+    u_finalized_checkpoint*: Option[Checkpoint]
+    best_child*: Eth2Digest
+    best_descendant*: Eth2Digest
+
+  RestNode* = object
+    slot*: Slot
+    block_root*: Eth2Digest
+    parent_root*: Eth2Digest
+    justified_epoch*: Epoch
+    finalized_epoch*: Epoch
+    weight*: uint64
+    validity*: RestNodeValidity
+    execution_block_hash*: Eth2Digest
+    extra_data*: Option[RestNodeExtraData]
+
+  RestExtraData* = object
+    discard
+
+  GetForkChoiceResponse* = object
+    justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+    fork_choice_nodes*: seq[RestNode]
+    extra_data*: RestExtraData
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)
@@ -665,7 +813,8 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: Web3SignerForkedBeaconBlock,
+           genesis_validators_root: Eth2Digest,
+           data: Web3SignerForkedBeaconBlock,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
@@ -674,6 +823,22 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
+    beaconBlock: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesis_validators_root: Eth2Digest,
+           data: Web3SignerForkedBeaconBlock,
+           proofs: openArray[Web3SignerMerkleProof],
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.BlockV2,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    proofs: Opt.some(@proofs),
     beaconBlock: data
   )
 
@@ -759,6 +924,26 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     )),
     signingRoot: signingRoot,
     syncCommitteeContributionAndProof: data
+  )
+
+from stew/byteutils import to0xHex
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesis_validators_root: Eth2Digest,
+           data: ValidatorRegistrationV1,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.ValidatorRegistration,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    validatorRegistration: Web3SignerValidatorRegistration(
+      feeRecipient: data.fee_recipient.data.to0xHex,
+      gasLimit: data.gas_limit,
+      timestamp: data.timestamp,
+      pubkey: data.pubkey)
   )
 
 func init*(t: typedesc[RestSyncCommitteeMessage],

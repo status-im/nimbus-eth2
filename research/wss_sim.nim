@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,7 @@
 # and attesting when they're supposed to.
 
 import
-  std/[strformat, options, sequtils, tables],
+  std/[strformat, sequtils, tables],
   chronicles,
   confutils,
   stew/io2,
@@ -32,12 +32,15 @@ template findIt*(s: openArray, predicate: untyped): int =
   res
 
 proc findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
-    Option[ValidatorIndex] =
+    Opt[ValidatorIndex] =
   let idx = validators.findIt(it.pubkey == pubKey)
   if idx == -1:
-    none(ValidatorIndex)
+    Opt.none ValidatorIndex
   else:
-    some(idx.ValidatorIndex)
+    Opt.some idx.ValidatorIndex
+
+from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
+from ../beacon_chain/spec/datatypes/deneb import SignedBeaconBlock
 
 cli do(validatorsDir: string, secretsDir: string,
        startState: string, network: string):
@@ -54,7 +57,7 @@ cli do(validatorsDir: string, secretsDir: string,
     validatorKeys: Table[ValidatorPubKey, ValidatorPrivKey]
 
   for item in listLoadableKeystores(validatorsDir, secretsDir, true,
-                                    {KeystoreKind.Local}):
+                                    {KeystoreKind.Local}, nil):
     let
       pubkey = item.privateKey.toPubKey().toPubKey()
       idx = findValidator(getStateField(state[], validators).toSeq, pubkey)
@@ -66,7 +69,7 @@ cli do(validatorsDir: string, secretsDir: string,
       warn "Unkownn validator", pubkey
 
   var
-    blockRoot = withState(state[]): state.latest_block_root
+    blockRoot = withState(state[]): forkyState.latest_block_root
     cache: StateCache
     info: ForkedEpochInfo
     aggregates: seq[Attestation]
@@ -78,7 +81,8 @@ cli do(validatorsDir: string, secretsDir: string,
   block:
     let
       active = withState(state[]):
-        get_active_validator_indices_len(state.data, state.data.slot.epoch)
+        get_active_validator_indices_len(
+          forkyState.data, forkyState.data.slot.epoch)
 
     notice "Let's play",
       validators = validators.len(),
@@ -108,7 +112,7 @@ cli do(validatorsDir: string, secretsDir: string,
     if slot.epoch != (slot - 1).epoch:
       let
         active = withState(state[]):
-          get_active_validator_indices_len(state.data, slot.epoch)
+          get_active_validator_indices_len(forkyState.data, slot.epoch)
         balance = block:
           var b: uint64
           for k, _ in validators:
@@ -133,7 +137,7 @@ cli do(validatorsDir: string, secretsDir: string,
         avgBalance
 
       if slot.epoch mod 32 == 0:
-        withState(state[]): dump(".", state)
+        withState(state[]): dump(".", forkyState)
 
     let
       fork = getStateField(state[], fork)
@@ -144,9 +148,9 @@ cli do(validatorsDir: string, secretsDir: string,
         blockAggregates = aggregates.filterIt(
           it.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= slot and
           slot <= it.data.slot + SLOTS_PER_EPOCH)
-        randao_reveal =
-            validators[proposer].genRandaoReveal(
-              fork, genesis_validators_root, slot).toValidatorSig()
+        randao_reveal = get_epoch_signature(
+          fork, genesis_validators_root, slot.epoch,
+          validators[proposer]).toValidatorSig()
         message = makeBeaconBlock(
           cfg,
           state[],
@@ -156,14 +160,14 @@ cli do(validatorsDir: string, secretsDir: string,
           GraffitiBytes.init("insecura"),
           blockAggregates,
           @[],
-          BeaconBlockExits(),
+          BeaconBlockValidatorChanges(),
           syncAggregate,
-          default(ExecutionPayload),
+          default(bellatrix.ExecutionPayloadForSigning),
           noRollback,
           cache).get()
 
       case message.kind
-      of BeaconBlockFork.Phase0:
+      of ConsensusFork.Phase0:
         blockRoot = hash_tree_root(message.phase0Data)
         let signedBlock = phase0.SignedBeaconBlock(
           message: message.phase0Data,
@@ -172,7 +176,7 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
-      of BeaconBlockFork.Altair:
+      of ConsensusFork.Altair:
         blockRoot = hash_tree_root(message.altairData)
         let signedBlock = altair.SignedBeaconBlock(
           message: message.altairData,
@@ -181,10 +185,28 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
-      of BeaconBlockFork.Bellatrix:
+      of ConsensusFork.Bellatrix:
         blockRoot = hash_tree_root(message.bellatrixData)
         let signedBlock = bellatrix.SignedBeaconBlock(
           message: message.bellatrixData,
+          root: blockRoot,
+          signature: get_block_signature(
+            fork, genesis_validators_root, slot, blockRoot,
+            validators[proposer]).toValidatorSig())
+        dump(".", signedBlock)
+      of ConsensusFork.Capella:
+        blockRoot = hash_tree_root(message.capellaData)
+        let signedBlock = capella.SignedBeaconBlock(
+          message: message.capellaData,
+          root: blockRoot,
+          signature: get_block_signature(
+            fork, genesis_validators_root, slot, blockRoot,
+            validators[proposer]).toValidatorSig())
+        dump(".", signedBlock)
+      of ConsensusFork.Deneb:
+        blockRoot = hash_tree_root(message.denebData)
+        let signedBlock = deneb.SignedBeaconBlock(
+          message: message.denebData,
           root: blockRoot,
           signature: get_block_signature(
             fork, genesis_validators_root, slot, blockRoot,
@@ -198,14 +220,15 @@ cli do(validatorsDir: string, secretsDir: string,
 
     withState(state[]):
       let committees_per_slot = get_committee_count_per_slot(
-        state.data, slot.epoch, cache)
+        forkyState.data, slot.epoch, cache)
       for committee_index in get_committee_indices(committees_per_slot):
-        let committee = get_beacon_committee(state.data, slot, committee_index, cache)
+        let committee = get_beacon_committee(
+          forkyState.data, slot, committee_index, cache)
 
         var
           attestation = Attestation(
             data: makeAttestationData(
-              state.data, slot, committee_index, blockRoot),
+              forkyState.data, slot, committee_index, blockRoot),
             aggregation_bits: CommitteeValidatorsBits.init(committee.len))
           agg: AggregateSignature
 
@@ -217,13 +240,13 @@ cli do(validatorsDir: string, secretsDir: string,
             signature = get_attestation_signature(
               fork, genesis_validators_root, attestation.data,
               validators[validator_index])
-          if attestation.aggregation_bits.countOnes() == 0:
+          if attestation.aggregation_bits.isZeros:
             agg = AggregateSignature.init(signature)
           else:
             agg.aggregate(signature)
           attestation.aggregation_bits.setBit(index_in_committee)
 
-        if attestation.aggregation_bits.countOnes() > 0:
+        if not attestation.aggregation_bits.isZeros:
           attestation.signature = agg.finish().toValidatorSig()
 
           if aggregates.len == 128:
@@ -231,14 +254,14 @@ cli do(validatorsDir: string, secretsDir: string,
 
           aggregates.add(attestation)
 
-      when stateFork >= BeaconStateFork.Altair:
+      when consensusFork >= ConsensusFork.Altair:
         let
           nextSlot = slot + 1
           pubkeys =
             if slot.sync_committee_period == nextSlot.sync_committee_period:
-              state.data.current_sync_committee.pubkeys
+              forkyState.data.current_sync_committee.pubkeys
             else:
-              state.data.next_sync_committee.pubkeys
+              forkyState.data.next_sync_committee.pubkeys
 
         var
           agg: AggregateSignature

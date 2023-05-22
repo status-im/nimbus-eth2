@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,8 +11,6 @@
 import
   # Specs
   ../../beacon_chain/spec/[beaconstate, forks, state_transition],
-  # Internals
-  ../../beacon_chain/interop,
   # Mocking procs
   ./mock_deposits
 
@@ -26,7 +24,7 @@ proc initGenesisState*(
     )
 
   result = (ref ForkedHashedBeaconState)(
-    kind: BeaconStateFork.Phase0,
+    kind: ConsensusFork.Phase0,
     phase0Data: initialize_hashed_beacon_state_from_eth1(
       cfg, eth1BlockHash, 0, deposits, {}))
 
