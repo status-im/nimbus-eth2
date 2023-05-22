@@ -1967,7 +1967,7 @@ template is_optimistic*(dag: ChainDAGRef, root: Eth2Digest): bool =
     not blck.get.executionValid
   else:
     # Either it doesn't exist at all, or it's finalized
-    false
+    not dag.finalizedHead.blck.executionValid
 
 proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
   var cur = blck
