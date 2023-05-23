@@ -77,7 +77,7 @@ func init*(
   BlockRef.init(
     root, Opt.some Eth2Digest(blck.body.execution_payload.block_hash),
     executionValid =
-      blck.body.execution_payload.block_hash == ZERO_HASH or executionValid,
+      executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
     blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =
