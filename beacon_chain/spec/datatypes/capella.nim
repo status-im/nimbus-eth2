@@ -501,6 +501,17 @@ type
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
+  BeaconStateDiffPreSnapshot* = object
+    eth1_data_votes_recent*: seq[Eth1Data]
+    eth1_data_votes_len*: int
+    slot*: Slot
+    historical_summaries_len*: int
+    eth1_withdrawal_credential*: seq[bool]
+
+  IndexedWithdrawalCredentials* = object
+    validator_index*: uint64
+    withdrawal_credentials*: Eth2Digest
+
   BeaconStateDiff* = object
     # Small and/or static; always include
     slot*: Slot
@@ -522,8 +533,23 @@ type
 
     # Validators come in two parts, the immutable public key and mutable
     # entrance/exit/slashed information about that validator.
+    #
+    # Capella allows changing from BLS to execution withdrawal credentials, so
+    # it's not completely immutable, but it's a one-time change per validator,
+    # and no other possibilities exist. So for diff purposes still optimize if
+    # and when possible, by using the version of ValidatorStatus which doesn't
+    # serialize withdrawal_credentials, and including only those necessary for
+    # a correct state reconstruction.
+    #
+    # It's worth some complexity here, because a full Validator object is 128
+    # bytes, of which 48 bytes are the pubkey, and 32 withdrawal credentials,
+    # so using a (128 - 48) = 80 byte baseline for sometimes-mutable parts of
+    # the Validator objecet, one typically save another 40% of incompressible
+    # hash data by avoiding repeating this when feasible.
     validator_statuses*:
       List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+    withdrawal_credential_changes*:
+      List[IndexedWithdrawalCredentials, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Represent in full
     balances*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
