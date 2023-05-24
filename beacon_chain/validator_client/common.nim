@@ -291,14 +291,13 @@ func getFailureReason*(failure: ApiNodeFailure): string =
     if failure.status.isSome():
       Base10.toString(uint32(failure.status.get()))
     else:
-      "N/A"
-  let strategy =
+      "n/a"
+  let request =
     if failure.strategy.isSome():
-      $failure.strategy
+      request & "(" & $(failure.strategy.get()) & ")"
     else:
-      "N/A"
-  [failure.reason, status, failure.request, strategy,
-   $failure.failure].join(";")
+      request & "()"
+  [failure.reason, status, request, $failure.failure].join(";")
 
 proc getFailureReason*(exc: ref ValidatorApiError): string =
   var counts: array[int(high(ApiFailure)) + 1, int]
