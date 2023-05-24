@@ -129,7 +129,7 @@ proc initMetrics(vc: ValidatorClientRef): Future[bool] {.async.} =
                 error_msg = res.error()
           return false
         res.get()
-    vc.metricsServer = some(server)
+    vc.metricsServer = Opt.some(server)
     try:
       await server.start()
     except MetricsError as exc:
