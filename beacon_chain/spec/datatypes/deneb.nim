@@ -42,7 +42,7 @@ const
   MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS* = 4096'u64
 
 type
-  KzgCommitments* = List[KzgCommitment, Limit MAX_BLOBS_PER_BLOCK]
+  KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
   Blobs* = List[Blob, Limit MAX_BLOBS_PER_BLOCK]
 
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but

@@ -519,8 +519,8 @@ proc process_sync_aggregate*(
 proc process_execution_payload*(
     state: var bellatrix.BeaconState, payload: bellatrix.ExecutionPayload,
     notify_new_payload: bellatrix.ExecutePayload): Result[void, cstring] =
-  ## Verify consistency of the parent hash with respect to the previous
-  ## execution payload header
+  # Verify consistency of the parent hash with respect to the previous
+  # execution payload header
   if is_merge_transition_complete(state):
     if not (payload.parent_hash ==
         state.latest_execution_payload_header.block_hash):
@@ -563,10 +563,9 @@ proc process_execution_payload*(
     notify_new_payload: capella.ExecutePayload): Result[void, cstring] =
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
-  if is_merge_transition_complete(state):
-    if not (payload.parent_hash ==
-        state.latest_execution_payload_header.block_hash):
-      return err("process_execution_payload: payload and state parent hash mismatch")
+  if not (payload.parent_hash ==
+      state.latest_execution_payload_header.block_hash):
+    return err("process_execution_payload: payload and state parent hash mismatch")
 
   # Verify prev_randao
   if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
@@ -600,16 +599,23 @@ proc process_execution_payload*(
 
   ok()
 
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+# copy of datatypes/deneb.nim
+type SomeDenebBeaconBlockBody =
+  deneb.BeaconBlockBody | deneb.SigVerifiedBeaconBlockBody |
+  deneb.TrustedBeaconBlockBody
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var deneb.BeaconState, payload: deneb.ExecutionPayload,
+    state: var deneb.BeaconState, body: SomeDenebBeaconBlockBody,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
+  template payload: auto = body.execution_payload
+
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
-  if is_merge_transition_complete(state):
-    if not (payload.parent_hash ==
-        state.latest_execution_payload_header.block_hash):
-      return err("process_execution_payload: payload and state parent hash mismatch")
+  if not (payload.parent_hash ==
+      state.latest_execution_payload_header.block_hash):
+    return err("process_execution_payload: payload and state parent hash mismatch")
 
   # Verify prev_randao
   if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
@@ -618,6 +624,10 @@ proc process_execution_payload*(
   # Verify timestamp
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
+
+  # [New in Deneb] Verify commitments are under limit
+  if not (lenu64(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK):
+    return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
   if not notify_new_payload(payload):
@@ -901,7 +911,7 @@ proc process_block*(
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(state, blck.body.execution_payload)
     ? process_execution_payload(
-        state, blck.body.execution_payload,
+        state, blck.body,
         func(_: deneb.ExecutionPayload): bool = true)  # [Modified in Deneb]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
