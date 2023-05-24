@@ -1980,7 +1980,7 @@ template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
 template is_optimistic*(
     dag: ChainDAGRef, signedBlock: SomeForkySignedBeaconBlock): bool =
   let blck =
-    if signedBlock.message.slot <= node.dag.finalizedHead.slot:
+    if signedBlock.message.slot <= dag.finalizedHead.slot:
       dag.finalizedHead.blck
     else:
       dag.getBlockRef(signedBlock.root).expect("Non-finalized block is known")
