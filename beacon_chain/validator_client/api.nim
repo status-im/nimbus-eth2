@@ -41,6 +41,15 @@ const
                       RestBeaconNodeStatus.OptSynced,
                       RestBeaconNodeStatus.Synced}
 
+proc `$`*(strategy: ApiStrategyKind): string =
+  case strategy
+  of ApiStrategyKind.First:
+    "first"
+  of ApiStrategyKind.Best:
+    "best"
+  of ApiStrategyKind.Priority:
+    "priority"
+
 proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase,
                 requestName: string, strategy: ApiStrategyKind) {.async.} =
   try:
