@@ -1969,6 +1969,23 @@ template is_optimistic*(dag: ChainDAGRef, root: Eth2Digest): bool =
     # Either it doesn't exist at all, or it's finalized
     not dag.finalizedHead.blck.executionValid
 
+template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
+  let blck =
+    if bid.slot <= dag.finalizedHead.slot:
+      dag.finalizedHead.blck
+    else:
+      dag.getBlockRef(bid.root).expect("Non-finalized block is known")
+  not blck.executionValid
+
+template is_optimistic*(
+    dag: ChainDAGRef, signedBlock: SomeForkySignedBeaconBlock): bool =
+  let blck =
+    if signedBlock.message.slot <= node.dag.finalizedHead.slot:
+      dag.finalizedHead.blck
+    else:
+      dag.getBlockRef(signedBlock.root).expect("Non-finalized block is known")
+  not blck.executionValid
+
 proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
   var cur = blck
 

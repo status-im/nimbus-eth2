@@ -270,31 +270,22 @@ proc getShufflingOptimistic*(node: BeaconNode,
                              dependentSlot: Slot,
                              dependentRoot: Eth2Digest): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    if dependentSlot < node.dag.finalizedHead.blck.slot:
-      some[bool](false)
-    else:
-      let blck = node.dag.getBlockRef(dependentRoot)
-        .expect("Non-finalized block has `BlockRef`")
-      some[bool](not blck.executionValid)
+    # `dependentSlot` in this `BlockId` may be higher than block's actual slot,
+    # this is alright for the purpose of calling `is_optimistic`.
+    let bid = BlockId(slot: dependentSlot, root: dependentRoot)
+    some[bool](node.dag.is_optimistic(bid))
   else:
     none[bool]()
 
 proc getStateOptimistic*(node: BeaconNode,
                          state: ForkedHashedBeaconState): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    case state.kind
-    of ConsensusFork.Phase0, ConsensusFork.Altair:
-      some[bool](false)
-    of  ConsensusFork.Bellatrix, ConsensusFork.Capella,
-        ConsensusFork.Deneb:
+    if state.kind >= ConsensusFork.Bellatrix:
       # A state is optimistic iff the block which created it is
       let stateBid = withState(state): forkyState.latest_block_id
-      if stateBid.slot < node.dag.finalizedHead.slot:
-        some[bool](false)
-      else:
-        let blck = node.dag.getBlockRef(stateBid.root)
-          .expect("Non-finalized block has `BlockRef`")
-        some[bool](not blck.executionValid)
+      some[bool](node.dag.is_optimistic(stateBid))
+    else:
+      some[bool](false)
   else:
     none[bool]()
 
@@ -302,17 +293,11 @@ proc getBlockOptimistic*(node: BeaconNode,
                          blck: ForkedTrustedSignedBeaconBlock |
                                ForkedSignedBeaconBlock): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    case blck.kind
-    of ConsensusFork.Phase0, ConsensusFork.Altair:
-      some[bool](false)
-    of ConsensusFork.Bellatrix, ConsensusFork.Capella, ConsensusFork.Deneb:
+    if blck.kind >= ConsensusFork.Bellatrix:
       withBlck(blck):
-        if blck.message.slot < node.dag.finalizedHead.blck.slot:
-          some[bool](false)
-        else:
-          let blck = node.dag.getBlockRef(blck.root)
-            .expect("Non-finalized block has `BlockRef`")
-          some[bool](not blck.executionValid)
+        some[bool](node.dag.is_optimistic(blck))
+    else:
+      some[bool](false)
   else:
     none[bool]()
 

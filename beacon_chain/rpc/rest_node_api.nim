@@ -1,4 +1,3 @@
-# beacon_chain
 # Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -271,12 +270,12 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           node.syncManager.inProgress
       isOptimistic =
         if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-          some[bool](not node.dag.head.executionValid)
+          some(not node.dag.head.executionValid)
         else:
           none[bool]()
       elOffline =
         if node.currentSlot().epoch() >= node.dag.cfg.CAPELLA_FORK_EPOCH:
-          some[bool](not node.elManager.hasAnyWorkingConnection)
+          some(not node.elManager.hasAnyWorkingConnection)
         else:
           none[bool]()  # Added with ethereum/beacon-APIs v2.4.0
 
