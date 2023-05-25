@@ -1969,15 +1969,6 @@ template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
       dag.getBlockRef(bid.root).expect("Non-finalized block is known")
   not blck.executionValid
 
-template is_optimistic*(
-    dag: ChainDAGRef, signedBlock: SomeForkySignedBeaconBlock): bool =
-  let blck =
-    if signedBlock.message.slot <= dag.finalizedHead.slot:
-      dag.finalizedHead.blck
-    else:
-      dag.getBlockRef(signedBlock.root).expect("Non-finalized block is known")
-  not blck.executionValid
-
 proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
   var cur = blck
 

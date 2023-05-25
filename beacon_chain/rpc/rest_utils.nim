@@ -294,8 +294,7 @@ proc getBlockOptimistic*(node: BeaconNode,
                                ForkedSignedBeaconBlock): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     if blck.kind >= ConsensusFork.Bellatrix:
-      withBlck(blck):
-        some[bool](node.dag.is_optimistic(blck))
+      some[bool](node.dag.is_optimistic(blck.toBlockId()))
     else:
       some[bool](false)
   else:
