@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# Copyright (c) 2023 Status Research & Development GmbH.
+# Licensed under either of:
+# - Apache License, version 2.0
+# - MIT license
+# at your option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
 set -euo pipefail
 
 SCRIPTS_DIR="$(dirname "${BASH_SOURCE[0]}")"
@@ -14,9 +21,9 @@ log "Using ${GETH_BINARY}"
 
 for GETH_NODE_IDX in $(seq 0 $GETH_LAST_NODE_IDX); do
   mkdir -p "${GETH_DATA_DIRS[GETH_NODE_IDX]}"
-  set -x
-  ${GETH_BINARY} version
-  ${GETH_BINARY} --datadir "${GETH_DATA_DIRS[GETH_NODE_IDX]}" init "${EXECUTION_GENESIS_JSON}"
+  GETH_LOG="${DATA_DIR}/logs/geth.${GETH_NODE_IDX}.txt"
+  ${GETH_BINARY} version > "$GETH_LOG"
+  ${GETH_BINARY} --datadir "${GETH_DATA_DIRS[GETH_NODE_IDX]}" init "${EXECUTION_GENESIS_JSON}" >> "$GETH_LOG" 2>&1
   ${GETH_BINARY} \
     --syncmode full \
     --datadir "${GETH_DATA_DIRS[GETH_NODE_IDX]}" \
@@ -26,8 +33,9 @@ for GETH_NODE_IDX in $(seq 0 $GETH_LAST_NODE_IDX); do
     --port ${GETH_NET_PORTS[GETH_NODE_IDX]} \
     --authrpc.port ${GETH_AUTH_RPC_PORTS[GETH_NODE_IDX]} \
     --authrpc.jwtsecret "${JWT_FILE}" \
-        &> "${DATA_DIR}/geth-log${GETH_NODE_IDX}.txt" &
-  set +x
+        >> "${GETH_LOG}" 2>&1 &
+  PID=$!
+  echo $PID > "${DATA_DIR}/pids/geth.${GETH_NODE_IDX}"
 done
 
 for GETH_NODE_IDX in $(seq 0 $GETH_LAST_NODE_IDX); do

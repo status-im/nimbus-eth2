@@ -185,8 +185,8 @@ libbacktrace:
 # - --base-metrics-port + [0, --nodes)
 # - --base-vc-keymanager-port + [0, --nodes)
 # - --base-vc-metrics-port + [0, --nodes]
-# - --base-remote-signer-port + [0, --nimbus-signer-nodes | --web3signer-nodes)
-# - --base-remote-signer-metrics-port + [0, --nimbus-signer-node | --web3signer-nodes)
+# - --base-remote-signer-port + [0, --signer-nodes)
+# - --base-remote-signer-metrics-port + [0, --signer-nodes)
 #
 # Local testnets with --run-geth or --run-nimbus (only these ports):
 # - --base-el-net-port + --el-port-offset * [0, --nodes + --light-clients)
@@ -204,11 +204,16 @@ restapi-test:
 		--resttest-delay 30 \
 		--kill-old-processes
 
+SIGNER_TYPE := nimbus
+
 local-testnet-minimal:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--preset minimal \
 		--nodes 2 \
+		--signer-nodes 1 \
+		--remote-validators-count 1024 \
+		--signer-type $(SIGNER_TYPE) \
 		--capella-fork-epoch 3 \
 		--deneb-fork-epoch 20 \
 		--stop-at-epoch 6 \
