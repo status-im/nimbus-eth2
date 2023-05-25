@@ -291,7 +291,7 @@ proc initFullNode(
           # `slot` in this `BlockId` may be higher than block's actual slot,
           # this is alright for the purpose of calling `is_optimistic`.
           res.optimistic = some node.dag.is_optimistic(
-            BlockId(slot: data.epoch.start_slot, data.block_root))
+            BlockId(slot: data.epoch.start_slot, root: data.block_root))
           res
         else:
           data
