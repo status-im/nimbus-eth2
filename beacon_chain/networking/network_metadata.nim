@@ -34,9 +34,7 @@ export
 const
   vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
 
-  # TODO: Currently, this breaks the Linux/ARM packaging due
-  #       to a toolchain incompatibility problem
-  incbinEnabled* = false
+  incbinEnabled* = sizeof(pointer) == 8
 
 type
   Eth1BlockHash* = ethtypes.BlockHash
@@ -174,10 +172,7 @@ proc loadEth2NetworkMetadata*(
         readBootEnr(bootEnrPath))
 
       genesisData = if loadGenesis and fileExists(genesisPath):
-        when incbinEnabled:
-          toBytes readFile(genesisPath)
-        else:
-          readFile(genesisPath)
+        readFile(genesisPath)
       else:
         ""
 
@@ -193,7 +188,9 @@ proc loadEth2NetworkMetadata*(
       bootstrapNodes: bootstrapNodes,
       depositContractBlock: depositContractBlock,
       depositContractBlockHash: depositContractBlockHash,
-      genesisData: genesisData,
+      genesisData:
+        when incbinEnabled: toBytes genesisData
+        else: genesisData,
       genesisDepositsSnapshot: genesisDepositsSnapshot)
 
   except PresetIncompatibleError as err:

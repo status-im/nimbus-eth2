@@ -327,13 +327,16 @@ proc setDegradedState(connection: ELConnection,
 
 proc setWorkingState(connection: ELConnection) =
   case connection.state
+  of NeverTested:
+    connection.hysteresisCounter = 0
+    connection.state = Working
   of Degraded:
     if connection.increaseCounterTowardsStateChange():
       info "Connection to EL node restored",
         url = url(connection.engineUrl)
 
       connection.state = Working
-  of NeverTested, Working:
+  of Working:
     connection.decreaseCounterTowardsStateChange()
 
 proc trackEngineApiRequest(connection: ELConnection,
@@ -1973,7 +1976,7 @@ func hasConnection*(m: ELManager): bool =
   m.elConnections.len > 0
 
 func hasAnyWorkingConnection*(m: ELManager): bool =
-  m.elConnections.anyIt(it.state == Working)
+  m.elConnections.anyIt(it.state == Working or it.state == NeverTested)
 
 func hasProperlyConfiguredConnection*(m: ELManager): bool =
   for connection in m.elConnections:
