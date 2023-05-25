@@ -294,9 +294,9 @@ func getFailureReason*(failure: ApiNodeFailure): string =
       "n/a"
   let request =
     if failure.strategy.isSome():
-      request & "(" & $(failure.strategy.get()) & ")"
+      failure.request & "(" & $(failure.strategy.get()) & ")"
     else:
-      request & "()"
+      failure.request & "()"
   [failure.reason, status, request, $failure.failure].join(";")
 
 proc getFailureReason*(exc: ref ValidatorApiError): string =
