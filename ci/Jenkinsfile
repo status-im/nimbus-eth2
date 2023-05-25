@@ -111,7 +111,7 @@ pipeline {
             sh 'make local-testnet-minimal'
           } }
           post { always {
-            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/*.txt'
+            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
           } }
         }
 
@@ -120,7 +120,7 @@ pipeline {
             sh 'make local-testnet-mainnet'
           } }
           post { always {
-            sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/*.txt'
+            sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/logs/*'
           } }
         }
       }
