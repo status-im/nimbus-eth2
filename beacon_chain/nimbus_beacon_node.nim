@@ -246,7 +246,7 @@ proc initFullNode(
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
-        some node.dag.is_optimistic(data.root)
+        some node.dag.is_optimistic(data.toBlockId())
       else:
         none[bool]()
     node.eventBus.blocksQueue.emit(
@@ -255,7 +255,8 @@ proc initFullNode(
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
         var res = data
-        res.optimistic = some node.dag.is_optimistic(data.block_root)
+        res.optimistic = some node.dag.is_optimistic(
+          BlockId(slot: data.slot, root: data.block_root))
         res
       else:
         data
@@ -264,7 +265,8 @@ proc initFullNode(
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
         var res = data
-        res.optimistic = some node.dag.is_optimistic(data.new_head_block)
+        res.optimistic = some node.dag.is_optimistic(
+          BlockId(slot: data.slot, root: data.new_head_block))
         res
       else:
         data
@@ -285,7 +287,10 @@ proc initFullNode(
       let eventData =
         if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
           var res = data
-          res.optimistic = some node.dag.is_optimistic(data.block_root)
+          # `slot` in this `BlockId` may be higher than block's actual slot,
+          # this is alright for the purpose of calling `is_optimistic`.
+          res.optimistic = some node.dag.is_optimistic(
+            BlockId(slot: data.epoch.start_slot, root: data.block_root))
           res
         else:
           data
@@ -1186,7 +1191,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head
-  if node.isSynced(head) == SyncStatus.synced:
+  if node.isSynced(head) and head.executionValid:
     withState(node.dag.headState):
       if node.consensusManager[].actionTracker.needsUpdate(
           forkyState, slot.epoch + 1):

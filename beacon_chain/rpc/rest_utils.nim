@@ -33,23 +33,17 @@ func match(data: openArray[char], charset: set[char]): int =
 proc getSyncedHead*(
        node: BeaconNode,
        slot: Slot
-     ): Result[tuple[head: BlockRef, optimistic: bool], cstring] =
-  let
-    head = node.dag.head
-    optimistic =
-      case node.isSynced(head)
-      of SyncStatus.unsynced:
-        return err("Beacon node not fully and non-optimistically synced")
-      of SyncStatus.synced:
-        false
-      of SyncStatus.optimistic:
-        true
+     ): Result[BlockRef, cstring] =
+  let head = node.dag.head
+
+  if not node.isSynced(head):
+    return err("Beacon node not fully and non-optimistically synced")
 
   # Enough ahead not to know the shuffling
   if slot > head.slot + SLOTS_PER_EPOCH * 2:
     return err("Requesting far ahead of the current head")
 
-  ok((head, optimistic))
+  ok(head)
 
 func getCurrentSlot*(node: BeaconNode, slot: Slot):
     Result[Slot, cstring] =
@@ -61,7 +55,7 @@ func getCurrentSlot*(node: BeaconNode, slot: Slot):
 proc getSyncedHead*(
        node: BeaconNode,
        epoch: Epoch,
-     ): Result[tuple[head: BlockRef, optimistic: bool], cstring] =
+     ): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
   node.getSyncedHead(epoch.start_slot())
@@ -276,30 +270,22 @@ proc getShufflingOptimistic*(node: BeaconNode,
                              dependentSlot: Slot,
                              dependentRoot: Eth2Digest): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    if dependentSlot <= node.dag.finalizedHead.slot:
-      some[bool](false)
-    else:
-      some[bool](node.dag.is_optimistic(dependentRoot))
+    # `slot` in this `BlockId` may be higher than block's actual slot,
+    # this is alright for the purpose of calling `is_optimistic`.
+    let bid = BlockId(slot: dependentSlot, root: dependentRoot)
+    some[bool](node.dag.is_optimistic(bid))
   else:
     none[bool]()
 
 proc getStateOptimistic*(node: BeaconNode,
                          state: ForkedHashedBeaconState): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    case state.kind
-    of ConsensusFork.Phase0, ConsensusFork.Altair:
-      some[bool](false)
-    of  ConsensusFork.Bellatrix, ConsensusFork.Capella,
-        ConsensusFork.Deneb:
+    if state.kind >= ConsensusFork.Bellatrix:
       # A state is optimistic iff the block which created it is
-      withState(state):
-        # The block root which created the state at slot `n` is at slot `n-1`
-        if forkyState.data.slot == GENESIS_SLOT:
-          some[bool](false)
-        else:
-          doAssert forkyState.data.slot > 0
-          some[bool](node.dag.is_optimistic(
-            get_block_root_at_slot(forkyState.data, forkyState.data.slot - 1)))
+      let stateBid = withState(state): forkyState.latest_block_id
+      some[bool](node.dag.is_optimistic(stateBid))
+    else:
+      some[bool](false)
   else:
     none[bool]()
 
@@ -307,11 +293,10 @@ proc getBlockOptimistic*(node: BeaconNode,
                          blck: ForkedTrustedSignedBeaconBlock |
                                ForkedSignedBeaconBlock): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    case blck.kind
-    of ConsensusFork.Phase0, ConsensusFork.Altair:
+    if blck.kind >= ConsensusFork.Bellatrix:
+      some[bool](node.dag.is_optimistic(blck.toBlockId()))
+    else:
       some[bool](false)
-    of ConsensusFork.Bellatrix, ConsensusFork.Capella, ConsensusFork.Deneb:
-      some[bool](node.dag.is_optimistic(blck.root))
   else:
     none[bool]()
 

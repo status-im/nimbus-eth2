@@ -65,7 +65,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                         "Cannot request duties past next epoch")
         res
-    let (qhead, _) =
+    let qhead =
       block:
         let res = node.getSyncedHead(qepoch)
         if res.isErr():
@@ -126,7 +126,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                         "Cannot request duties past next epoch")
         res
-    let (qhead, _) =
+    let qhead =
       block:
         let res = node.getSyncedHead(qepoch)
         if res.isErr():
@@ -278,7 +278,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonResponseWOpt(res, optimistic)
     elif qSyncPeriod > headSyncPeriod:
       # The requested epoch may still be too far in the future.
-      if node.isSynced(node.dag.head) != SyncStatus.synced:
+      if not node.isSynced(node.dag.head) or not node.dag.head.executionValid:
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
       else:
         return RestApiResponse.jsonError(Http400, EpochFromFutureError)
@@ -378,9 +378,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                                $res.error())
             let tres = res.get()
-            if tres.optimistic:
+            if not tres.executionValid:
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-            tres.head
+            tres
         let
           proposer = node.dag.getProposer(qhead, qslot).valueOr:
             return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
@@ -488,9 +488,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                            $res.error())
         let tres = res.get()
-        if tres.optimistic:
+        if not tres.executionValid:
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-        tres.head
+        tres
     let proposer = node.dag.getProposer(qhead, qslot).valueOr:
       return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
 
@@ -586,9 +586,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                                $res.error())
             let tres = res.get()
-            if tres.optimistic:
+            if not tres.executionValid:
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-            tres.head
+            tres
         let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
           return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
@@ -677,7 +677,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    if node.isSynced(node.dag.head) == SyncStatus.unsynced:
+    if not node.isSynced(node.dag.head):
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     let
@@ -833,7 +833,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                          $res.error())
       let tres = res.get()
-      if tres.optimistic:
+      if not tres.executionValid:
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     var contribution = SyncCommitteeContribution()

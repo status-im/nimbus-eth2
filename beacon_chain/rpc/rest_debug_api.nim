@@ -114,7 +114,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         validity:
           if item.invalid:
             RestNodeValidity.invalid
-          elif node.dag.is_optimistic(item.bid.root):
+          elif node.dag.is_optimistic(item.bid):
             RestNodeValidity.optimistic
           else:
             RestNodeValidity.valid,
