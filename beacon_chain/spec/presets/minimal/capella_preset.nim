@@ -1,5 +1,5 @@
 # Minimal preset - Capella
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/minimal/capella.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/presets/minimal/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------
