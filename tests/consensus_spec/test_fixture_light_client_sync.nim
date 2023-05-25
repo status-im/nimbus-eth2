@@ -271,6 +271,6 @@ suite "EF - Light client - Sync" & preset():
       continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
       let combinedPath = basePath/path
-      if combinedPath.contains("/eip6110/"):
+      if combinedPath.contains("/eip6110/") or combinedPath.contains("\\eip6110\\"):
         continue
       runTest(basePath/path)
