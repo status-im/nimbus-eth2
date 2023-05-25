@@ -41,15 +41,6 @@ const
                       RestBeaconNodeStatus.OptSynced,
                       RestBeaconNodeStatus.Synced}
 
-proc `$`*(strategy: ApiStrategyKind): string =
-  case strategy
-  of ApiStrategyKind.First:
-    "first"
-  of ApiStrategyKind.Best:
-    "best"
-  of ApiStrategyKind.Priority:
-    "priority"
-
 proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase,
                 requestName: string, strategy: ApiStrategyKind) {.async.} =
   try:
@@ -1993,7 +1984,12 @@ proc produceBlindedBlock*(
           else:
             ApiResponse[ProduceBlindedBlockResponse].ok(res.get())
         of 400:
-          handle400()
+          # TODO(cheatfate): We not going to update BN status for this handler,
+          # because BN reports 400 for any type of error that does not mean
+          # that BN is incompatible.
+          let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
+            strategy, node, response.status, response.getErrorMessage())
+          failures.add(failure)
           ApiResponse[ProduceBlindedBlockResponse].err(ResponseInvalidError)
         of 500:
           handle500()

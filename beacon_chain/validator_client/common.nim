@@ -286,6 +286,15 @@ proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
 proc hash*(f: ApiNodeFailure): Hash =
   hash(f.failure)
 
+proc toString*(strategy: ApiStrategyKind): string =
+  case strategy
+  of ApiStrategyKind.First:
+    "first"
+  of ApiStrategyKind.Best:
+    "best"
+  of ApiStrategyKind.Priority:
+    "priority"
+
 func getFailureReason*(failure: ApiNodeFailure): string =
   let status =
     if failure.status.isSome():
@@ -294,7 +303,7 @@ func getFailureReason*(failure: ApiNodeFailure): string =
       "n/a"
   let request =
     if failure.strategy.isSome():
-      failure.request & "(" & $(failure.strategy.get()) & ")"
+      failure.request & "(" & failure.strategy.get().toString() & ")"
     else:
       failure.request & "()"
   [failure.reason, status, request, $failure.failure].join(";")
