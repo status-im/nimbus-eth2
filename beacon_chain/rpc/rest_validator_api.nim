@@ -508,7 +508,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-    let contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
+    let
+      payloadBuilderClient = node.getPayloadBuilderClient().valueOr:
+        return RestApiResponse.jsonError(
+          Http500, "Unable to initialize payload builder client: " & $error)
+      contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
+
     case contextFork
     of ConsensusFork.Deneb:
       # TODO
@@ -518,14 +523,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     of ConsensusFork.Capella:
       let res = await makeBlindedBeaconBlockForHeadAndSlot[
           capella_mev.BlindedBeaconBlock](
-        node, qrandao, proposer, qgraffiti, qhead, qslot)
+        node, payloadBuilderClient, qrandao, proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
       return responseVersioned(res.get().blindedBlckPart, contextFork)
     of ConsensusFork.Bellatrix:
       let res = await makeBlindedBeaconBlockForHeadAndSlot[
           bellatrix_mev.BlindedBeaconBlock](
-        node, qrandao, proposer, qgraffiti, qhead, qslot)
+        node, payloadBuilderClient, qrandao, proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
       return responseVersioned(res.get().blindedBlckPart, contextFork)
