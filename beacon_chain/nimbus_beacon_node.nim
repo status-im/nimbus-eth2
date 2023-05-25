@@ -246,7 +246,7 @@ proc initFullNode(
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
-        some node.dag.is_optimistic(blck.toBlockId())
+        some node.dag.is_optimistic(data.toBlockId())
       else:
         none[bool]()
     node.eventBus.blocksQueue.emit(
