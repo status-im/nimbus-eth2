@@ -538,15 +538,21 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
            safe_slot = safeSlot, fail_slot = failSlot
     safeSlot
 
-iterator blocks*[T](sq: SyncQueue[T],
-                    sr: SyncResult[T]): ref ForkedSignedBeaconBlock =
+iterator blocks[T](sq: SyncQueue[T],
+                    sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
   case sq.kind
   of SyncQueueKind.Forward:
     for i in countup(0, len(sr.data) - 1):
-      yield sr.data[i]
+      if sr.blobs.isSome:
+        yield (sr.data[i], Opt.some(sr.blobs.get()[i]))
+      else:
+        yield (sr.data[i], Opt.none(BlobSidecars))
   of SyncQueueKind.Backward:
     for i in countdown(len(sr.data) - 1, 0):
-      yield sr.data[i]
+      if sr.blobs.isSome:
+        yield (sr.data[i], Opt.some(sr.blobs.get()[i]))
+      else:
+        yield (sr.data[i], Opt.none(BlobSidecars))
 
 proc advanceOutput*[T](sq: SyncQueue[T], number: uint64) =
   case sq.kind
@@ -678,15 +684,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       res: Result[void, VerifierError]
 
     var i=0
-    for blk in sq.blocks(item):
-      if reqres.get().blobs.isNone():
-        res = await sq.blockVerifier(blk[],
-                                     Opt.none(BlobSidecars),
-                                     maybeFinalized)
-      else:
-        res = await sq.blockVerifier(blk[],
-                                     Opt.some(reqres.get().blobs.get()[i]),
-                                     maybeFinalized)
+    for blk, blb in sq.blocks(item):
+      res = await sq.blockVerifier(blk[], blb, maybeFinalized)
       inc(i)
 
       if res.isOk():
