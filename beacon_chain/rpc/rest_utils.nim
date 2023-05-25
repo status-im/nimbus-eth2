@@ -270,7 +270,7 @@ proc getShufflingOptimistic*(node: BeaconNode,
                              dependentSlot: Slot,
                              dependentRoot: Eth2Digest): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    # `dependentSlot` in this `BlockId` may be higher than block's actual slot,
+    # `slot` in this `BlockId` may be higher than block's actual slot,
     # this is alright for the purpose of calling `is_optimistic`.
     let bid = BlockId(slot: dependentSlot, root: dependentRoot)
     some[bool](node.dag.is_optimistic(bid))
