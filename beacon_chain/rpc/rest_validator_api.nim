@@ -325,6 +325,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       slot: Slot, randao_reveal: Option[ValidatorSig],
       graffiti: Option[GraffitiBytes],
       skip_randao_verification: Option[string]) -> RestApiResponse:
+    let contentType =
+      block:
+        let res = preferredContentType(jsonMediaType, sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
     let message =
       block:
         let qslot = block:
@@ -416,7 +422,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
         res.get.blck
-    return RestApiResponse.jsonResponsePlain(message)
+    return
+      if contentType == sszMediaType:
+        let headers = [("eth-consensus-version", message.kind.toString())]
+        RestApiResponse.sszResponse(message, headers)
+      elif contentType == jsonMediaType:
+        withBlck(message):
+          RestApiResponse.jsonResponseWVersion(message, message.kind)
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/blinded_block.yaml
