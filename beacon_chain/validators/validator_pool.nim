@@ -27,12 +27,6 @@ export
 
 const
   WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
-  WEB3_SIGNER_DEFAULT_TIMEOUT = (int64(SECONDS_PER_SLOT) + 1).seconds
-    # This timeout value should not be greater than default value specified at:
-    # https://docs.web3signer.consensys.net/Reference/CLI/CLI-Syntax#idle-connection-timeout-seconds
-  WEB3_SIGNER_CHECKING_PERIOD = ((int64(SECONDS_PER_SLOT) + 1) div 3).seconds
-    # Host often connection pool will collect/destroy connections which are
-    # expired.
 
 declareGauge validators,
   "Number of validators attached to the beacon node"
@@ -174,15 +168,13 @@ proc addRemoteValidator(pool: var ValidatorPool,
       else:
         {}
     prestoFlags = {RestClientFlag.CommaSeparatedArray}
+    socketFlags = {SocketFlags.TcpNoDelay}
     clients =
       block:
         var res: seq[(RestClientRef, RemoteSignerInfo)]
         for remote in keystore.remotes:
           let client = RestClientRef.new(
-            $remote.url, prestoFlags, httpFlags,
-            idleTimeout = WEB3_SIGNER_DEFAULT_TIMEOUT,
-            idlePeriod = WEB3_SIGNER_CHECKING_PERIOD,
-          )
+            $remote.url, prestoFlags, httpFlags, socketFlags = socketFlags)
           if client.isErr():
             # TODO keep trying in case of temporary network failure
             warn "Unable to resolve distributed signer address",
