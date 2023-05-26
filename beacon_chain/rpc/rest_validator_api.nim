@@ -425,10 +425,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       if contentType == sszMediaType:
         let headers = [("eth-consensus-version", message.kind.toString())]
-        RestApiResponse.sszResponse(message, headers)
+        withBlck(message):
+          RestApiResponse.sszResponse(blck, headers)
       elif contentType == jsonMediaType:
         withBlck(message):
-          RestApiResponse.jsonResponseWVersion(message, message.kind)
+          RestApiResponse.jsonResponseWVersion(blck, message.kind)
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
