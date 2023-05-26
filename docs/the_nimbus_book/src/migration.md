@@ -187,6 +187,9 @@ build/nimbus_beacon_node slashingdb import path/to/export_dir/slashing-protectio
 
 Replacing `/path/to/export_dir` with the file/directory you specified when you exported your slashing protection history.
 
+!!! tip
+    Additional slashing protection information can be safely added to slashing protection databases.
+
 ### 5. Start the Nimbus validator
 
 Follow the instructions [here](./connect-eth2.md) to start your validator using our pre-built [binaries](./binaries.md).
