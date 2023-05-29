@@ -94,7 +94,8 @@ proc getBlock(fork: ConsensusFork,
 
   decodeBytes(ProduceBlockResponseV2,
               blckData.toOpenArrayByte(0, len(blckData) - 1),
-              Opt.some(contentType)).tryGet()
+              Opt.some(contentType),
+              $fork).tryGet()
 
 proc init(t: typedesc[Web3SignerForkedBeaconBlock],
           forked: ForkedBeaconBlock): Web3SignerForkedBeaconBlock =
