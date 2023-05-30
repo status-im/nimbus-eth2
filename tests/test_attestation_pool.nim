@@ -164,12 +164,12 @@ suite "Attestation pool processing" & preset():
     # An additional compatibility check catches that (used in block production)
     withState(state[]):
       check:
-        check_attestation_compatible(dag, forkyState.data, att1).isOk
-        check_attestation_compatible(dag, forkyState.data, att2).isErr
+        check_attestation_compatible(dag, forkyState, att1).isOk
+        check_attestation_compatible(dag, forkyState, att2).isErr
     withState(state2[]):
       check:
-        check_attestation_compatible(dag, forkyState.data, att1).isErr
-        check_attestation_compatible(dag, forkyState.data, att2).isOk
+        check_attestation_compatible(dag, forkyState, att1).isErr
+        check_attestation_compatible(dag, forkyState, att2).isOk
 
   test "Can add and retrieve simple attestations" & preset():
     let
