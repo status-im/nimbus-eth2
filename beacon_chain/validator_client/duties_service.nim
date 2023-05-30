@@ -227,13 +227,13 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
                   validator = shortLog(validators[index]),
                   error_msg = sigRes.error()
             DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                              none[ValidatorSig]())
+                              Opt.none(ValidatorSig))
           else:
             DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                              some(sigRes.get()))
+                              Opt.some(sigRes.get()))
         else:
           DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                            none[ValidatorSig]())
+                            Opt.none(ValidatorSig))
 
       var validatorDuties = vc.attesters.getOrDefault(item.duty.pubkey)
       validatorDuties.duties[item.epoch] = dap

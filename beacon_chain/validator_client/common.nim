@@ -9,7 +9,7 @@ import
   std/[tables, os, sets, sequtils, strutils, uri],
   stew/[base10, results, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
-  chronicles, confutils, json_serialization/std/[options, net],
+  chronicles, confutils,
   metrics, metrics/chronos_httpserver,
   ".."/spec/datatypes/[phase0, altair],
   ".."/spec/[eth2_merkleization, helpers, signatures, validator],
@@ -22,7 +22,7 @@ from std/times import Time, toUnix, fromUnix, getTime
 
 export
   os, sets, sequtils, chronos, presto, chronicles, confutils,
-  nimbus_binary_common, version, conf, options, tables, results, base10,
+  nimbus_binary_common, version, conf, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
   beacon_clock, keystore_management, slashing_protection, validator_pool,
@@ -46,8 +46,8 @@ type
     Initialized, Running, Error, Closing, Closed
 
   RegistrationKind* {.pure.} = enum
-    Cached, IncorrectTime, MissingIndex, MissingFee, MissingGasLimit
-      ErrorSignature, NoSignature
+    Cached, IncorrectTime, MissingIndex, MissingFee, MissingGasLimit,
+    ErrorSignature, NoSignature
 
   PendingValidatorRegistration* = object
     registration*: SignedValidatorRegistrationV1
@@ -79,7 +79,7 @@ type
     epoch*: Epoch
     dependentRoot*: Eth2Digest
     data*: RestAttesterDuty
-    slotSig*: Option[ValidatorSig]
+    slotSig*: Opt[ValidatorSig]
 
   SyncCommitteeDuty* = object
     pubkey*: ValidatorPubKey
@@ -109,10 +109,10 @@ type
   BeaconNodeServer* = object
     client*: RestClientRef
     endpoint*: string
-    config*: Option[RestSpecVC]
-    ident*: Option[string]
-    genesis*: Option[RestGenesis]
-    syncInfo*: Option[RestSyncInfo]
+    config*: Opt[RestSpecVC]
+    ident*: Opt[string]
+    genesis*: Opt[RestGenesis]
+    syncInfo*: Opt[RestSyncInfo]
     status*: RestBeaconNodeStatus
     roles*: set[BeaconNodeRole]
     logIdent*: string
@@ -125,15 +125,16 @@ type
     duties*: Table[Epoch, SyncCommitteeDuty]
 
   RestBeaconNodeStatus* {.pure.} = enum
-    Offline,      ## BN is offline.
-    Online,       ## BN is online, passed checkOnline() check.
-    Incompatible, ## BN configuration is NOT compatible with VC configuration.
-    Compatible,   ## BN configuration is compatible with VC configuration.
-    NotSynced,    ## BN is not in sync.
-    OptSynced,    ## BN is optimistically synced (EL is not in sync).
-    Synced,       ## BN and EL are synced.
-    Unexpected,   ## BN sends unexpected/incorrect response.
-    InternalError ## BN reports internal error.
+    Offline,            ## BN is offline.
+    Online,             ## BN is online, passed checkOnline() check.
+    Incompatible,       ## BN configuration is NOT compatible with VC.
+    Compatible,         ## BN configuration is compatible with VC configuration.
+    NotSynced,          ## BN is not in sync.
+    OptSynced,          ## BN is optimistically synced (EL is not in sync).
+    Synced,             ## BN and EL are synced.
+    UnexpectedCode,     ## BN sends unexpected/incorrect HTTP status code .
+    UnexpectedResponse, ## BN sends unexpected/incorrect response.
+    InternalError       ## BN reports internal error.
 
   BeaconNodesCounters* = object
     data*: array[int(high(RestBeaconNodeStatus)) + 1, int]
@@ -152,7 +153,7 @@ type
 
   ValidatorClient* = object
     config*: ValidatorClientConf
-    metricsServer*: Option[MetricsHttpServerRef]
+    metricsServer*: Opt[MetricsHttpServerRef]
     graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
     fallbackService*: FallbackServiceRef
@@ -187,12 +188,20 @@ type
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     rng*: ref HmacDrbgContext
 
+  ApiStrategyKind* {.pure.} = enum
+    Priority, Best, First
+
   ApiFailure* {.pure.} = enum
-    Communication, Invalid, NotFound, NotSynced, Internal, Unexpected
+    Communication, Invalid, NotFound, OptSynced, NotSynced, Internal,
+    UnexpectedCode, UnexpectedResponse, NoError
 
   ApiNodeFailure* = object
     node*: BeaconNodeServerRef
+    request*: string
+    strategy*: Opt[ApiStrategyKind]
     failure*: ApiFailure
+    status*: Opt[int]
+    reason*: string
 
   ValidatorClientRef* = ref ValidatorClient
 
@@ -253,22 +262,51 @@ proc `$`*(status: RestBeaconNodeStatus): string =
   of RestBeaconNodeStatus.NotSynced: "bn-unsynced"
   of RestBeaconNodeStatus.OptSynced: "el-unsynced"
   of RestBeaconNodeStatus.Synced: "synced"
-  of RestBeaconNodeStatus.Unexpected: "unexpected data"
+  of RestBeaconNodeStatus.UnexpectedCode: "unexpected code"
+  of RestBeaconNodeStatus.UnexpectedResponse: "unexpected data"
   of RestBeaconNodeStatus.InternalError: "internal error"
 
 proc `$`*(failure: ApiFailure): string =
   case failure
-  of ApiFailure.Communication: "Connection with beacon node has been lost"
-  of ApiFailure.Invalid: "Invalid response received from beacon node"
-  of ApiFailure.NotFound: "Beacon node did not found requested entity"
-  of ApiFailure.NotSynced: "Beacon node not in sync with network"
-  of ApiFailure.Internal: "Beacon node reports internal failure"
-  of ApiFailure.Unexpected: "Beacon node reports unexpected status"
+  of ApiFailure.Communication: "communication"
+  of ApiFailure.Invalid: "invalid-request"
+  of ApiFailure.NotFound: "not-found"
+  of ApiFailure.NotSynced: "not-synced"
+  of ApiFailure.OptSynced: "opt-synced"
+  of ApiFailure.Internal: "internal-issue"
+  of ApiFailure.UnexpectedCode: "unexpected-code"
+  of ApiFailure.UnexpectedResponse: "unexpected-data"
+  of ApiFailure.NoError: "status-update"
 
 proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
   var res = BeaconNodesCounters()
   for node in vc.beaconNodes: inc(res.data[int(node.status)])
   res
+
+proc hash*(f: ApiNodeFailure): Hash =
+  hash(f.failure)
+
+proc toString*(strategy: ApiStrategyKind): string =
+  case strategy
+  of ApiStrategyKind.First:
+    "first"
+  of ApiStrategyKind.Best:
+    "best"
+  of ApiStrategyKind.Priority:
+    "priority"
+
+func getFailureReason*(failure: ApiNodeFailure): string =
+  let status =
+    if failure.status.isSome():
+      Base10.toString(uint32(failure.status.get()))
+    else:
+      "n/a"
+  let request =
+    if failure.strategy.isSome():
+      failure.request & "(" & failure.strategy.get().toString() & ")"
+    else:
+      failure.request & "()"
+  [failure.reason, status, request, $failure.failure].join(";")
 
 proc getFailureReason*(exc: ref ValidatorApiError): string =
   var counts: array[int(high(ApiFailure)) + 1, int]
@@ -277,19 +315,20 @@ proc getFailureReason*(exc: ref ValidatorApiError): string =
     errorsCount = len(errors)
 
   if errorsCount > 1:
-    var maxFailure =
+    let distinctErrors =
       block:
-        var maxCount = -1
-        var res = ApiFailure.Unexpected
-        for item in errors:
-          inc(counts[int(item.failure)])
-          if counts[int(item.failure)] > maxCount:
-            maxCount = counts[int(item.failure)]
-            res = item.failure
+        var res: seq[ApiNodeFailure]
+        for item in errors.toHashSet().items():
+          res.add(item)
         res
-    $maxFailure
+    if len(distinctErrors) > 1:
+      # If we have many unique errors, we going to report only failures,
+      # full reasons could be obtained via previosly made log statements.
+      "[" & distinctErrors.mapIt($it.failure).join(",") & "]"
+    else:
+      getFailureReason(distinctErrors[0])
   elif errorsCount == 1:
-    $errors[0].failure
+    getFailureReason(errors[0])
   else:
     exc.msg
 
@@ -381,13 +420,17 @@ proc checkConfig*(info: RestSpecVC): bool =
   info.DOMAIN_SELECTION_PROOF == DOMAIN_SELECTION_PROOF and
   info.DOMAIN_AGGREGATE_AND_PROOF == DOMAIN_AGGREGATE_AND_PROOF
 
-proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
+proc updateStatus*(node: BeaconNodeServerRef,
+                   status: RestBeaconNodeStatus,
+                   failure: ApiNodeFailure) =
   logScope:
-    endpoint = node
+    node = node
+
   case status
   of RestBeaconNodeStatus.Offline:
     if node.status != status:
-      warn "Beacon node down"
+      warn "Beacon node down",
+           reason = failure.getFailureReason()
       node.status = status
   of RestBeaconNodeStatus.Online:
     if node.status != status:
@@ -396,7 +439,8 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
       node.status = status
   of RestBeaconNodeStatus.Incompatible:
     if node.status != status:
-      warn "Beacon node has incompatible configuration"
+      warn "Beacon node has incompatible configuration",
+           reason = failure.getFailureReason()
       node.status = status
   of RestBeaconNodeStatus.Compatible:
     if node.status != status:
@@ -407,7 +451,7 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
                           RestBeaconNodeStatus.OptSynced}:
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
-      warn "Beacon node not in sync",
+      warn "Beacon node not in sync", reason = failure.getFailureReason(),
            last_head_slot = si.head_slot,
            last_sync_distance = si.sync_distance,
            last_optimistic = si.is_optimistic.get(false)
@@ -416,7 +460,8 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
     if node.status != status:
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
-      notice "Execution client not in sync (beacon node optimistically synced)",
+      notice "Beacon node optimistically synced (Execution client not in sync)",
+             reason = failure.getFailureReason(),
              last_head_slot = si.head_slot,
              last_sync_distance = si.sync_distance,
              last_optimistic = si.is_optimistic.get(false)
@@ -426,16 +471,24 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
       notice "Beacon node is in sync",
-             head_slot = si.head_slot, sync_distance = si.sync_distance,
+             head_slot = si.head_slot,
+             sync_distance = si.sync_distance,
              is_optimistic = si.is_optimistic.get(false)
       node.status = status
-  of RestBeaconNodeStatus.Unexpected:
+  of RestBeaconNodeStatus.UnexpectedResponse:
     if node.status != status:
-      error "Beacon node provides unexpected response"
+      error "Beacon node provides unexpected response",
+            reason = failure.getFailureReason()
+      node.status = status
+  of RestBeaconNodeStatus.UnexpectedCode:
+    if node.status != status:
+      error "Beacon node provides unexpected status code",
+            reason = failure.getFailureReason()
       node.status = status
   of RestBeaconNodeStatus.InternalError:
     if node.status != status:
-      warn "Beacon node reports internal error"
+      warn "Beacon node reports internal error",
+           reason = failure.getFailureReason()
       node.status = status
 
 proc stop*(csr: ClientServiceRef) {.async.} =
@@ -565,7 +618,7 @@ proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
 
 proc init*(t: typedesc[DutyAndProof], epoch: Epoch, dependentRoot: Eth2Digest,
            duty: RestAttesterDuty,
-           slotSig: Option[ValidatorSig]): DutyAndProof =
+           slotSig: Opt[ValidatorSig]): DutyAndProof =
   DutyAndProof(epoch: epoch, dependentRoot: dependentRoot, data: duty,
                slotSig: slotSig)
 
@@ -930,9 +983,35 @@ proc prepareRegistrationList*(
 
   return registrations
 
-proc init*(t: typedesc[ApiNodeFailure], node: BeaconNodeServerRef,
-           failure: ApiFailure): ApiNodeFailure =
-  ApiNodeFailure(node: node, failure: failure)
+func init*(t: typedesc[ApiNodeFailure], failure: ApiFailure,
+           request: string, strategy: ApiStrategyKind,
+           node: BeaconNodeServerRef): ApiNodeFailure =
+  ApiNodeFailure(node: node, request: request, strategy: Opt.some(strategy),
+                 failure: failure)
+
+func init*(t: typedesc[ApiNodeFailure], failure: ApiFailure,
+           request: string, strategy: ApiStrategyKind,
+           node: BeaconNodeServerRef, reason: string): ApiNodeFailure =
+  ApiNodeFailure(node: node, request: request, strategy: Opt.some(strategy),
+                 failure: failure, reason: reason)
+
+func init*(t: typedesc[ApiNodeFailure], failure: ApiFailure,
+           request: string, strategy: ApiStrategyKind,
+           node: BeaconNodeServerRef, status: int,
+           reason: string): ApiNodeFailure =
+  ApiNodeFailure(node: node, request: request, strategy: Opt.some(strategy),
+                 failure: failure, status: Opt.some(status), reason: reason)
+
+func init*(t: typedesc[ApiNodeFailure], failure: ApiFailure,
+           request: string, node: BeaconNodeServerRef, status: int,
+           reason: string): ApiNodeFailure =
+  ApiNodeFailure(node: node, request: request,
+                 failure: failure, status: Opt.some(status), reason: reason)
+
+func init*(t: typedesc[ApiNodeFailure], failure: ApiFailure,
+           request: string, node: BeaconNodeServerRef,
+           reason: string): ApiNodeFailure =
+  ApiNodeFailure(node: node, request: request, failure: failure, reason: reason)
 
 proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
                          offset: TimeDiff,
