@@ -32,5 +32,7 @@ if [ -f "${USER_ENV_FILE}" ]; then
   set +o allexport
 fi
 
+
 source ${ABS_PATH}/vendor/nimbus-build-system/scripts/env.sh
 
+NIM_COMMIT="dumpcells"

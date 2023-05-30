@@ -428,3 +428,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         all_peers: allPeers
       )
     )
+
+  router.api(MethodGet, "/nimbus/v1/debug/memory/gc_cells") do (
+    ) -> RestApiResponse:
+    return RestApiResponse.jsonResponse(GC_dumpCells())
