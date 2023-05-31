@@ -509,7 +509,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     let
-      payloadBuilderClient = node.getPayloadBuilderClient().valueOr:
+      payloadBuilderClient = node.getPayloadBuilderClient(
+          proposer.distinctBase).valueOr:
         return RestApiResponse.jsonError(
           Http500, "Unable to initialize payload builder client: " & $error)
       contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)

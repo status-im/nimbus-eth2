@@ -793,7 +793,8 @@ proc proposeBlockAux(
   # Collect bids
   var payloadBuilderClient: RestClientRef
 
-  let payloadBuilderClientMaybe = node.getPayloadBuilderClient()
+  let payloadBuilderClientMaybe = node.getPayloadBuilderClient(
+    validator_index.distinctBase)
   if payloadBuilderClientMaybe.isErr:
     warn "Unable to initialize payload builder client while proposing block",
       err = payloadBuilderClientMaybe.error
@@ -1399,7 +1400,7 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
 
     const HttpOk = 200
 
-    let payloadBuilderClient = node.getPayloadBuilderClient().valueOr:
+    let payloadBuilderClient = node.getPayloadBuilderClient(0).valueOr:
       debug "Unable to initialize payload builder client while registering validators",
         err = error
       return
