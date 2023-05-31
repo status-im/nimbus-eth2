@@ -627,6 +627,7 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
     withState(tgt):
       {.push warning[ProveField]: off.}
       assign(forkyState, src.forky(consensusFork))
+      {.pop.}
   else:
     # Ensure case object and discriminator get updated simultaneously, even
     # with nimOldCaseObjects. This is infrequent.
