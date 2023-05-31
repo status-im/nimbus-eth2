@@ -57,7 +57,7 @@
 	path = vendor/nim-chronicles
 	url = https://github.com/status-im/nim-chronicles.git
 	ignore = untracked
-	branch = master
+	branch = nbc-1.5.3
 [submodule "vendor/nim-faststreams"]
 	path = vendor/nim-faststreams
 	url = https://github.com/status-im/nim-faststreams.git
