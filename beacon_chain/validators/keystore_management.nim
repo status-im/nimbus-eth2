@@ -637,7 +637,7 @@ proc existsKeystore(keystoreDir: string, keyKind: KeystoreKind): bool {.
   of KeystoreKind.Remote:
     fileExists(keystoreDir / RemoteKeystoreFileName)
 
-func existsKeystore(keystoreDir: string,
+proc existsKeystore(keystoreDir: string,
                     keysMask: set[KeystoreKind]): bool {.raises: [Defect].} =
   if KeystoreKind.Local in keysMask:
     if existsKeystore(keystoreDir, KeystoreKind.Local):
