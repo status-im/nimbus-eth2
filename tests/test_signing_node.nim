@@ -963,7 +963,7 @@ suite "Nimbus remote signer/signing test (web3signer)":
         GenesisValidatorsRoot, Epoch(i)))
     await allFutures(futures1)
     for fut in futures1:
-      check fut.done()
+      check fut.completed()
 
     await sleepAsync(seconds(SigningRequestTimeoutSeconds) + 100.milliseconds)
 
@@ -974,7 +974,7 @@ suite "Nimbus remote signer/signing test (web3signer)":
     await allFutures(futures2)
 
     for fut in futures2:
-      check fut.done()
+      check fut.completed()
 
     for i in 0 ..< TestsCount:
       let

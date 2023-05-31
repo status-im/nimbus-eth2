@@ -894,7 +894,7 @@ proc getValidatorRegistration(
     let sigfut = validator.getBuilderSignature(fork, registration.message)
     if sigfut.finished():
       # This is short-path if we able to create signature locally.
-      if not(sigfut.done()):
+      if not(sigfut.completed()):
         let exc = sigfut.readError()
         debug "Got unexpected exception while signing validator registration",
               validator = shortLog(validator), error_name = $exc.name,
@@ -962,7 +962,7 @@ proc prepareRegistrationList*(
     await allFutures(futures)
 
   for index, future in futures.pairs():
-    if future.done():
+    if future.completed():
       let sres = future.read()
       if sres.isOk():
         var reg = messages[index]

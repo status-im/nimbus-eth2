@@ -122,7 +122,7 @@ proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
         raise exc
 
       for future in pendingSyncCommitteeMessages:
-        if future.done():
+        if future.completed():
           if future.read():
             inc(succeed)
           else:
@@ -246,7 +246,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
   let validatorContributions = block:
     var res: seq[ContributionItem]
     for idx, fut in slotSignatureReqs:
-      if fut.done:
+      if fut.completed:
         let
           sigRes = fut.read
           validator = validators[idx][0]
@@ -316,7 +316,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
           raise err
 
         for future in pendingAggregates:
-          if future.done():
+          if future.completed():
             if future.read():
               inc(succeed)
             else:

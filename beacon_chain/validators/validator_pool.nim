@@ -396,7 +396,7 @@ proc signWithDistributedKey(v: AttachedValidator,
 
   for i, req in signatureReqs:
     template shareInfo: untyped = v.clients[i][1]
-    if req.done and req.read.isOk:
+    if req.completed and req.read.isOk:
       shares.add req.read.get.toSignatureShare(shareInfo.id)
       neededShares = neededShares - 1
     else:
