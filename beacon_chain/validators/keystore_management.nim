@@ -629,7 +629,7 @@ func checkKeyName(keyName: string): bool =
       return false
   true
 
-func existsKeystore(keystoreDir: string, keyKind: KeystoreKind): bool {.
+proc existsKeystore(keystoreDir: string, keyKind: KeystoreKind): bool {.
      raises: [Defect].} =
   case keyKind
   of KeystoreKind.Local:
