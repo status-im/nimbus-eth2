@@ -585,7 +585,7 @@ type
     proof*: seq[Eth2Digest]
 
   Web3SignerRequestKind* {.pure.} = enum
-    AggregationSlot, AggregateAndProof, Attestation, Block, BlockV2,
+    AggregationSlot, AggregateAndProof, Attestation, BlockV2,
     Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
     SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof,
     ValidatorRegistration
@@ -602,9 +602,6 @@ type
         serializedFieldName: "aggregate_and_proof".}: AggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
-    of Web3SignerRequestKind.Block:
-      blck* {.
-        serializedFieldName: "block".}: phase0.BeaconBlock
     of Web3SignerRequestKind.BlockV2:
       beaconBlock* {.
         serializedFieldName: "beacon_block".}: Web3SignerForkedBeaconBlock
@@ -797,19 +794,6 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     )),
     signingRoot: signingRoot,
     attestation: data
-  )
-
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: phase0.BeaconBlock,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
-          ): Web3SignerRequest =
-  Web3SignerRequest(
-    kind: Web3SignerRequestKind.Block,
-    forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
-    signingRoot: signingRoot,
-    blck: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
