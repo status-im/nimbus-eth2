@@ -173,6 +173,7 @@ libbacktrace:
 #
 # Unit tests:
 # - NIMBUS_TEST_KEYMANAGER_BASE_PORT + [0, 4)
+# - NIMBUS_TEST_SIGNING_NODE_BASE_PORT + [0, 2)
 #
 # REST tests:
 # - --base-port
@@ -380,7 +381,8 @@ endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 )) \
+		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 + 0 )) \
+		NIMBUS_TEST_SIGNING_NODE_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 + 4 )) \
 			build/$${TEST_BINARY} $${PARAMS} || { \
 				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
 				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
