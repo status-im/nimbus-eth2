@@ -336,7 +336,7 @@ proc routeSyncCommitteeMessages*(
       await allFutures(pending)
 
       for index, future in pending:
-        if future.done():
+        if future.completed():
           let fres = future.read()
           if fres.isErr():
             statuses[indices[index]] = Opt.some(SendResult.err(fres.error()))

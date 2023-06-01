@@ -220,7 +220,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
     for index, fut in pendingRequests:
       let item = addOrReplaceItems[index]
       let dap =
-        if fut.done():
+        if fut.completed():
           let sigRes = fut.read()
           if sigRes.isErr():
             warn "Unable to create slot signature using remote signer",
