@@ -666,6 +666,12 @@ proc init*(T: type BeaconNode,
     withState(dag.headState):
       getValidator(forkyState().data.validators.asSeq(), pubkey)
 
+  proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
+    Opt.some(dag.forkAtEpoch(epoch))
+
+  proc getGenesisRoot(): Eth2Digest =
+    getStateField(dag.headState, genesis_validators_root)
+
   let
     slashingProtectionDB =
       SlashingProtectionDB.init(
@@ -685,7 +691,9 @@ proc init*(T: type BeaconNode,
         config.defaultFeeRecipient,
         config.suggestedGasLimit,
         getValidatorAndIdx,
-        getBeaconTime)
+        getBeaconTime,
+        getForkForEpoch,
+        getGenesisRoot)
     else: nil
 
     stateTtlCache =
