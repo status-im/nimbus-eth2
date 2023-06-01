@@ -655,7 +655,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     await allFutures(pending)
     for future in pending:
-      if future.done():
+      if future.completed():
         let res = future.read()
         if res.isErr():
           return RestApiResponse.jsonError(Http400,
@@ -878,7 +878,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         var res: seq[RestIndexedErrorMessageItem]
         await allFutures(pending)
         for index, future in pending:
-          if future.done():
+          if future.completed():
             let fres = future.read()
             if fres.isErr():
               let failure = RestIndexedErrorMessageItem(index: index,

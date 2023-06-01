@@ -212,7 +212,7 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
         raise exc
 
       for future in pendingAttestations:
-        if future.done():
+        if future.completed():
           if future.read():
             inc(succeed)
           else:
@@ -307,7 +307,7 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
           raise exc
 
         for future in pendingAggregates:
-          if future.done():
+          if future.completed():
             if future.read():
               inc(succeed)
             else:
