@@ -10,6 +10,7 @@
 
 import std/strutils
 import unittest2
+import chronos/unittest2/asynctests
 import ../beacon_chain/validator_client/common
 
 const
@@ -325,14 +326,14 @@ suite "Validator Client test suite":
     else:
       err("Content-Type not supported")
 
-  proc submitBeaconCommitteeSelectionsPlain*(
+  proc submitBeaconCommitteeSelectionsPlain(
          body: seq[RestBeaconCommitteeSelection]
        ): RestPlainResponse {.
        rest, endpoint: "/eth/v1/validator/beacon_committee_selections",
        meth: MethodPost.}
     ## https://ethereum.github.io/beacon-APIs/#/Validator/submitBeaconCommitteeSelections
 
-  proc submitSyncCommitteeSelectionsPlain*(
+  proc submitSyncCommitteeSelectionsPlain(
          body: seq[RestSyncCommitteeSelection]
        ): RestPlainResponse {.
        rest, endpoint: "/eth/v1/validator/sync_committee_selections",
@@ -343,7 +344,11 @@ suite "Validator Client test suite":
                     process: HttpProcessCallback, secure: bool): HttpServerRef =
     let
       socketFlags = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr}
-      res = HttpServerRef.new(address, process, socketFlags = socketFlags)
+      res =
+        try:
+          HttpServerRef.new(address, process, socketFlags = socketFlags)
+        except CatchableError as exc:
+          raiseAssert "Got an exception " & $exc.msg
     res.get()
 
   test "normalizeUri() test vectors":
