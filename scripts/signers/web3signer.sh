@@ -20,15 +20,15 @@ fi
 
 WEB3SIGNER_NODE_IDX=$1
 
-local secrets_dir="${DATA_DIR}/secrets_shares/$((WEB3SIGNER_NODE_IDX + 1))"
-local keystores_dir="${DATA_DIR}/validators_shares/$((WEB3SIGNER_NODE_IDX + 1))"
+SECRETS_DIR="${DATA_DIR}/secrets_shares/$((WEB3SIGNER_NODE_IDX + 1))"
+KEYSTORES_DIR="${DATA_DIR}/validators_shares/$((WEB3SIGNER_NODE_IDX + 1))"
 
 # We re-arrange the keystore files to match the layout expected by the Web3Signer
 # TODO generateSimulationDeposits can be refactored to produce the right layout from the start
-for validator_pubkey in $(ls "$secrets_dir")
+for validator_pubkey in $(ls "$SECRETS_DIR")
 do
-  mv "$secrets_dir/$validator_pubkey" "$secrets_dir/$validator_pubkey.txt"
-  mv "$keystores_dir/$validator_pubkey/keystore.json" "$keystores_dir/$validator_pubkey.json"
+  mv "$SECRETS_DIR/$validator_pubkey" "$SECRETS_DIR/$validator_pubkey.txt"
+  mv "$KEYSTORES_DIR/$validator_pubkey/keystore.json" "$KEYSTORES_DIR/$validator_pubkey.json"
 done
 
 # still participate in set -e, ideally
@@ -40,8 +40,8 @@ done
   --metrics-port=$(( BASE_REMOTE_SIGNER_METRICS_PORT + WEB3SIGNER_NODE_IDX )) \
   eth2 \
   --slashing-protection-enabled=false \
-  --keystores-passwords-path="${secrets_dir}" \
-  --keystores-path="${keystores_dir}" \
+  --keystores-passwords-path="${SECRETS_DIR}" \
+  --keystores-path="${KEYSTORES_DIR}" \
   --network="${RUNTIME_CONFIG_FILE}" &> "${DATA_DIR}/logs/web3signer.${WEB3SIGNER_NODE_IDX}.log" &
 
 echo $! > "${DATA_DIR}/pids/web3signer.${WEB3SIGNER_NODE_IDX}"
