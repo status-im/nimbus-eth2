@@ -7,13 +7,12 @@
 
 {.push raises: [].}
 
-import chronos, chronicles, stew/base10
+import chronos, chronicles
 import
-  eth/p2p/discoveryv5/random2,
   ../spec/network,
   ../networking/eth2_network,
   ../beacon_clock,
-  "."/sync_protocol, "."/sync_manager
+  "."/[light_client_sync_helpers, sync_protocol, sync_manager]
 export sync_manager
 
 logScope:
@@ -27,7 +26,9 @@ type
   Bootstrap =
     Endpoint[Eth2Digest, ForkedLightClientBootstrap]
   UpdatesByRange =
-    Endpoint[Slice[SyncCommitteePeriod], ForkedLightClientUpdate]
+    Endpoint[
+      tuple[startPeriod: SyncCommitteePeriod, count: uint64],
+      ForkedLightClientUpdate]
   FinalityUpdate =
     Endpoint[Nothing, ForkedLightClientFinalityUpdate]
   OptimisticUpdate =
@@ -105,13 +106,9 @@ proc isGossipSupported*(
   if not self.isLightClientStoreInitialized():
     return false
 
-  let
-    finalizedPeriod = self.getFinalizedPeriod()
-    isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
-  if isNextSyncCommitteeKnown:
-    period <= finalizedPeriod + 1
-  else:
-    period <= finalizedPeriod
+  period.isGossipSupported(
+    finalizedPeriod = self.getFinalizedPeriod(),
+    isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown())
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 proc doRequest(
@@ -128,47 +125,17 @@ type LightClientUpdatesByRangeResponse =
 proc doRequest(
     e: typedesc[UpdatesByRange],
     peer: Peer,
-    periods: Slice[SyncCommitteePeriod]
+    key: tuple[startPeriod: SyncCommitteePeriod, count: uint64]
 ): Future[LightClientUpdatesByRangeResponse] {.
     async, raises: [Defect, IOError].} =
-  let
-    startPeriod = periods.a
-    lastPeriod = periods.b
-    reqCount = min(periods.len, MAX_REQUEST_LIGHT_CLIENT_UPDATES).uint64
-  let response = await peer.lightClientUpdatesByRange(startPeriod, reqCount)
+  let (startPeriod, count) = key
+  doAssert count > 0 and count <= MAX_REQUEST_LIGHT_CLIENT_UPDATES
+  let response = await peer.lightClientUpdatesByRange(startPeriod, count)
   if response.isOk:
-    if response.get.lenu64 > reqCount:
-      raise newException(ResponseError, "Too many values in response" &
-        " (" & Base10.toString(response.get.lenu64) &
-        " > " & Base10.toString(reqCount.uint) & ")")
-    var expectedPeriod = startPeriod
-    for update in response.get:
-      withForkyUpdate(update):
-        when lcDataFork > LightClientDataFork.None:
-          let
-            attPeriod =
-              forkyUpdate.attested_header.beacon.slot.sync_committee_period
-            sigPeriod = forkyUpdate.signature_slot.sync_committee_period
-          if attPeriod != sigPeriod:
-            raise newException(
-              ResponseError, "Conflicting sync committee periods" &
-              " (signature: " & Base10.toString(distinctBase(sigPeriod)) &
-              " != " & Base10.toString(distinctBase(attPeriod)) & ")")
-          if attPeriod < expectedPeriod:
-            raise newException(
-              ResponseError, "Unexpected sync committee period" &
-              " (" & Base10.toString(distinctBase(attPeriod)) &
-              " < " & Base10.toString(distinctBase(expectedPeriod)) & ")")
-          if attPeriod > expectedPeriod:
-            if attPeriod > lastPeriod:
-              raise newException(
-                ResponseError, "Sync committee period too high" &
-                " (" & Base10.toString(distinctBase(attPeriod)) &
-                " > " & Base10.toString(distinctBase(lastPeriod)) & ")")
-            expectedPeriod = attPeriod
-          inc expectedPeriod
-        else:
-          raise newException(ResponseError, "Invalid context bytes")
+    let e = distinctBase(response.get)
+      .checkLightClientUpdates(startPeriod, count)
+    if e.isErr:
+      raise newException(ResponseError, e.error)
   return response
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
@@ -362,47 +329,11 @@ proc query[E](
     progressFut.cancel()
   return progressFut.completed
 
-template query(
-    self: LightClientManager,
-    e: typedesc[UpdatesByRange],
-    key: SyncCommitteePeriod
-): Future[bool] =
-  self.query(e, key .. key)
-
 template query[E](
     self: LightClientManager,
     e: typedesc[E]
 ): Future[bool] =
   self.query(e, Nothing())
-
-type SchedulingMode = enum
-  Soon,
-  CurrentPeriod,
-  NextPeriod
-
-func fetchTime(
-    self: LightClientManager,
-    wallTime: BeaconTime,
-    schedulingMode: SchedulingMode
-): BeaconTime =
-  let
-    remainingTime =
-      case schedulingMode:
-      of Soon:
-        chronos.seconds(0)
-      of CurrentPeriod:
-        let
-          wallPeriod = wallTime.slotOrZero().sync_committee_period
-          deadlineSlot = (wallPeriod + 1).start_slot - 1
-          deadline = deadlineSlot.start_beacon_time()
-        chronos.nanoseconds((deadline - wallTime).nanoseconds)
-      of NextPeriod:
-        chronos.seconds(
-          (SLOTS_PER_SYNC_COMMITTEE_PERIOD * SECONDS_PER_SLOT).int64)
-    minDelay = max(remainingTime div 8, chronos.seconds(10))
-    jitterSeconds = (minDelay * 2).seconds
-    jitterDelay = chronos.seconds(self.rng[].rand(jitterSeconds).int64)
-  return wallTime + minDelay + jitterDelay
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/light-client.md#light-client-sync-process
 proc loop(self: LightClientManager) {.async.} =
@@ -424,40 +355,39 @@ proc loop(self: LightClientManager) {.async.} =
 
       let didProgress = await self.query(Bootstrap, trustedBlockRoot.get)
       if not didProgress:
-        nextFetchTime = self.fetchTime(wallTime, Soon)
+        nextFetchTime = self.rng.nextLightClientFetchTime(
+          wallTime, SchedulingMode.Soon)
       continue
 
     # Fetch updates
-    var allowWaitNextPeriod = false
     let
-      finalized = self.getFinalizedPeriod()
-      optimistic = self.getOptimisticPeriod()
       current = wallTime.slotOrZero().sync_committee_period
-      isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
+
+      syncTask = nextLightClientSyncTask(
+        finalized = self.getFinalizedPeriod(),
+        optimistic = self.getOptimisticPeriod(),
+        current = current,
+        isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown())
 
       didProgress =
-        if finalized == optimistic and not isNextSyncCommitteeKnown:
-          if finalized >= current:
-            await self.query(UpdatesByRange, finalized)
-          else:
-            await self.query(UpdatesByRange, finalized ..< current)
-        elif finalized + 1 < current:
-          await self.query(UpdatesByRange, finalized + 1 ..< current)
-        elif finalized != optimistic:
+        case syncTask.kind
+        of LCSyncKind.UpdatesByRange:
+          await self.query(UpdatesByRange,
+            (startPeriod: syncTask.startPeriod, count: syncTask.count))
+        of LCSyncKind.FinalityUpdate:
           await self.query(FinalityUpdate)
-        else:
-          allowWaitNextPeriod = true
+        of LCSyncKind.OptimisticUpdate:
           await self.query(OptimisticUpdate)
 
       schedulingMode =
         if not didProgress or not self.isGossipSupported(current):
-          Soon
-        elif not allowWaitNextPeriod:
-          CurrentPeriod
+          SchedulingMode.Soon
+        elif syncTask.kind != LCSyncKind.OptimisticUpdate:
+          SchedulingMode.CurrentPeriod
         else:
-          NextPeriod
+          SchedulingMode.NextPeriod
 
-    nextFetchTime = self.fetchTime(wallTime, schedulingMode)
+    nextFetchTime = self.rng.nextLightClientFetchTime(wallTime, schedulingMode)
 
 proc start*(self: var LightClientManager) =
   ## Start light client manager's loop.
