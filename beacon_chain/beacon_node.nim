@@ -115,7 +115,8 @@ template rng*(node: BeaconNode): ref HmacDrbgContext =
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
 
-proc getPayloadBuilderClient*(node: BeaconNode): RestResult[RestClientRef] =
+proc getPayloadBuilderClient*(
+    node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
   if node.config.payloadBuilderEnable:
     # Logging done in caller
     let res = RestClientRef.new(node.config.payloadBuilderUrl)
