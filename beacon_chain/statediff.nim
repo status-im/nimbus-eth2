@@ -185,6 +185,17 @@ func getBeaconStateDiffSummary*(state0: capella.BeaconState):
   BeaconStateDiffPreSnapshot(
     eth1_data_votes_recent:
       if state0.eth1_data_votes.len > 0:
+        # replaceOrAddEncodeEth1Votes will check whether it needs to replace or add
+        # the votes. Which happens is a function of effectively external data, i.e.
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/beacon-chain.md#eth1-data
+        # notes it depends on things not deterministic, from a pure consensus-layer
+        # perspective. It thus must distinguish between adding and replacing votes,
+        # which it accomplishes by checking lengths and the most recent votes. This
+        # enables it to disambiguate when, for example, the number of Eth1 votes in
+        # both states is identical, but they're distinct because they were replaced
+        # between said states. This should not be feasible for the usual, intended,
+        # use case of exactly one epoch strides, but avoids a design coupling while
+        # not adding much runtime or storage cost.
         state0.eth1_data_votes[^1 .. ^1]
       else:
         @[],
