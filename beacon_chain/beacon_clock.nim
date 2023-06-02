@@ -17,6 +17,7 @@ from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 export chronos.Duration, Moment, now
 
 type
+  Time = times.Time
   BeaconClock* = object
     ## The beacon clock represents time as it passes on a beacon chain. Beacon
     ## time is locked to unix time, starting at a particular offset set during
