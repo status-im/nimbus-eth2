@@ -30,7 +30,7 @@ from  ../../vendor/nim-kzg4844/kzg4844 import KzgCommitment, KzgProof
 export json_serialization, base, kzg4844
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob

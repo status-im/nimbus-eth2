@@ -68,7 +68,7 @@ func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicAggregateAndProofsSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/capella/p2p-interface.md#topics-and-messages
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
@@ -100,7 +100,7 @@ func getSyncCommitteeTopic*(forkDigest: ForkDigest,
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $subcommitteeIdx & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
@@ -152,7 +152,7 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
       next_fork_version: current_fork_version,
       next_fork_epoch: FAR_FUTURE_EPOCH)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#transitioning-the-gossip
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/p2p-interface.md#transitioning-the-gossip
 type GossipState* = set[ConsensusFork]
 func getTargetGossipState*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,

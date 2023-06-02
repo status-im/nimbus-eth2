@@ -7,7 +7,7 @@
 
 # State transition - epoch processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/beacon-chain.md#epoch-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/beacon-chain.md#epoch-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#epoch-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#epoch-processing
 #
@@ -661,12 +661,12 @@ func get_unslashed_participating_increment*(
     info: altair.EpochInfo | bellatrix.BeaconState, flag_index: int): Gwei =
   info.balances.previous_epoch[flag_index] div EFFECTIVE_BALANCE_INCREMENT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#get_flag_index_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_active_increments*(
     info: altair.EpochInfo | bellatrix.BeaconState): Gwei =
   info.balances.current_epoch div EFFECTIVE_BALANCE_INCREMENT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#get_flag_index_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 iterator get_flag_index_deltas*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState,
@@ -889,7 +889,7 @@ func get_adjusted_total_slashing_balance*(
   min(sum(state.slashings.data) * multiplier, total_balance)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#slashings
 func slashing_penalty_applies*(validator: Validator, epoch: Epoch): bool =
   validator.slashed and
@@ -1021,7 +1021,7 @@ func process_sync_committee_updates*(
     state.current_sync_committee = state.next_sync_committee
     state.next_sync_committee = get_next_sync_committee(state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#inactivity-scores
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/beacon-chain.md#inactivity-scores
 func process_inactivity_updates*(
     cfg: RuntimeConfig,
     state: var (altair.BeaconState | bellatrix.BeaconState |
@@ -1211,7 +1211,7 @@ proc process_epoch*(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#slashings
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
 
   process_eth1_data_reset(state)
