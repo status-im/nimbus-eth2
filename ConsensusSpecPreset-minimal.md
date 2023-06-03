@@ -2288,16 +2288,6 @@ OK: 49/49 Fail: 0/49 Skip: 0/49
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## EF - Light client - Single merkle proof [Preset: minimal]
-```diff
-  Light client - Single merkle proof - eip6110                                               Skip
-```
-OK: 0/1 Fail: 0/1 Skip: 1/1
-## EF - Light client - Update ranking [Preset: minimal]
-```diff
-  Light client - Update ranking - eip6110                                                    Skip
-```
-OK: 0/1 Fail: 0/1 Skip: 1/1
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -2875,4 +2865,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 102/102 Fail: 0/102 Skip: 0/102
 
 ---TOTAL---
-OK: 2547/2557 Fail: 0/2557 Skip: 10/2557
+OK: 2547/2555 Fail: 0/2555 Skip: 8/2555

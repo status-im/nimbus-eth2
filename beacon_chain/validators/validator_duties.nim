@@ -784,6 +784,13 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
     else:
       return err("Attempt to create pre-Bellatrix blinded block")
 
+# TODO remove BlobsSidecar; it's not in consensus specs anymore
+type BlobsSidecar = object
+  beacon_block_root*: Eth2Digest
+  beacon_block_slot*: Slot
+  blobs*: Blobs
+  kzg_aggregated_proof*: kzg_abi.KzgProof
+
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
     validator: AttachedValidator, validator_index: ValidatorIndex,
@@ -913,7 +920,7 @@ proc proposeBlockAux(
   var forkedBlck = engineBlockFut.read.get().blck
 
   withBlck(forkedBlck):
-    var blobs_sidecar = deneb.BlobsSidecar(
+    var blobs_sidecar = BlobsSidecar(
       beacon_block_slot: slot,
     )
     when blck is deneb.BeaconBlock:
