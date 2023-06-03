@@ -100,10 +100,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers
 ```diff
++ commonAncestor sanity                                                                      OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## BlockSlot and helpers
 ```diff
 + atSlot sanity                                                                              OK
@@ -446,6 +447,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + RestErrorMessage writer tests                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Shufflings
+```diff
++ Accelerated shuffling computation                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -570,6 +576,12 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + BeaconBlockType                                                                            OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Validator Client test suite
+```diff
++ /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
++ normalizeUri() test vectors                                                                OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -580,12 +592,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + pre-pre-fork voluntary exit                                                                OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
-## Validator client test suite
-```diff
-+ /eth/v1/validator/beacon_committee_selections serialization/deserialization test           OK
-+ /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Validator pool
 ```diff
 + Doppelganger for genesis validator                                                         OK
@@ -686,4 +692,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 391/396 Fail: 0/396 Skip: 5/396
+OK: 393/398 Fail: 0/398 Skip: 5/398
