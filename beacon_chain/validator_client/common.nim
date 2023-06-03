@@ -20,8 +20,6 @@ import
 
 from std/times import Time, toUnix, fromUnix, getTime
 
-type Time = times.Time
-
 export
   os, sets, sequtils, chronos, presto, chronicles, confutils,
   nimbus_binary_common, version, conf, tables, results, base10,
