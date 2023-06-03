@@ -678,6 +678,12 @@ template handle500(): untyped {.dirty.} =
   node.updateStatus(RestBeaconNodeStatus.InternalError, failure)
   failures.add(failure)
 
+template handle501(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.NotImplemented, RequestName,
+    strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+  failures.add(failure)
+
 template handle503(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.NotSynced, RequestName,
     strategy, node, response.status, response.getErrorMessage())
@@ -2439,11 +2445,8 @@ proc submitBeaconCommitteeSelections*(
        data: seq[RestBeaconCommitteeSelection],
        strategy: ApiStrategyKind
      ): Future[SubmitBeaconCommitteeSelectionsResponse] {.async.} =
-  logScope:
-    request = "submitBeaconCommitteeSelections"
-    strategy = $strategy
-
-  const ErrorMessage = "Unable to submit beacon committee selections"
+  const
+    RequestName = "submitBeaconCommitteeSelections"
 
   var failures: seq[ApiNodeFailure]
 
@@ -2457,9 +2460,7 @@ proc submitBeaconCommitteeSelections*(
       {BeaconNodeRole.Duties},
       submitBeaconCommitteeSelectionsPlain(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
           apiResponse.error)
       else:
@@ -2469,43 +2470,28 @@ proc submitBeaconCommitteeSelections*(
           let res = decodeBytes(SubmitBeaconCommitteeSelectionsResponse,
                                 response.data, response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err($res.error)
           else:
             ApiResponse[SubmitBeaconCommitteeSelectionsResponse].ok(res.get())
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
             ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
             ResponseInternalError)
         of 501:
-          warn ResponseNotImplementedError, response_code = response.status,
-               endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle501()
           ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
             ResponseNotImplementedError)
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
             ResponseNoSyncError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
             ResponseUnexpectedError)
 
@@ -2520,9 +2506,7 @@ proc submitBeaconCommitteeSelections*(
                               {BeaconNodeRole.Duties},
                               submitBeaconCommitteeSelectionsPlain(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node,  error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -2530,56 +2514,35 @@ proc submitBeaconCommitteeSelections*(
         of 200:
           let res = decodeBytes(SubmitBeaconCommitteeSelectionsResponse,
                                 response.data, response.contentType)
-          if res.isOk():
-            return res.get()
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          if res.isOk(): return res.get()
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 501:
-          warn ResponseNotImplementedError, response_code = response.status,
-               endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle501()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to submit beacon committee selections", data: failures)
 
 proc submitSyncCommitteeSelections*(
        vc: ValidatorClientRef,
        data: seq[RestSyncCommitteeSelection],
        strategy: ApiStrategyKind
      ): Future[SubmitSyncCommitteeSelectionsResponse] {.async.} =
-  logScope:
-    request = "submitSyncCommitteeSelections"
-    strategy = $strategy
-
-  const ErrorMessage = "Unable to submit sync committee selections"
+  const
+    RequestName = "submitBeaconCommitteeSelections"
 
   var failures: seq[ApiNodeFailure]
 
@@ -2593,9 +2556,7 @@ proc submitSyncCommitteeSelections*(
       {BeaconNodeRole.Duties},
       submitSyncCommitteeSelectionsPlain(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
           apiResponse.error)
       else:
@@ -2605,43 +2566,28 @@ proc submitSyncCommitteeSelections*(
           let res = decodeBytes(SubmitSyncCommitteeSelectionsResponse,
                                 response.data, response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[SubmitSyncCommitteeSelectionsResponse].err($res.error)
           else:
             ApiResponse[SubmitSyncCommitteeSelectionsResponse].ok(res.get())
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
             ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
             ResponseInternalError)
         of 501:
-          warn ResponseNotImplementedError, response_code = response.status,
-               endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle501()
           ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
             ResponseNotImplementedError)
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
             ResponseNoSyncError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
             ResponseUnexpectedError)
 
@@ -2656,9 +2602,7 @@ proc submitSyncCommitteeSelections*(
                               {BeaconNodeRole.Duties},
                               submitSyncCommitteeSelectionsPlain(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node,  error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -2666,42 +2610,24 @@ proc submitSyncCommitteeSelections*(
         of 200:
           let res = decodeBytes(SubmitSyncCommitteeSelectionsResponse,
                                 response.data, response.contentType)
-          if res.isOk():
-            return res.get()
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          if res.isOk(): return res.get()
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 501:
-          warn ResponseNotImplementedError, response_code = response.status,
-               endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle501()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to submit sync committee selections", data: failures)

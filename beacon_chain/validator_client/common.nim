@@ -199,7 +199,7 @@ type
 
   ApiFailure* {.pure.} = enum
     Communication, Invalid, NotFound, OptSynced, NotSynced, Internal,
-    UnexpectedCode, UnexpectedResponse, NoError
+    NotImplemented, UnexpectedCode, UnexpectedResponse, NoError
 
   ApiNodeFailure* = object
     node*: BeaconNodeServerRef
@@ -281,6 +281,7 @@ proc `$`*(failure: ApiFailure): string =
   of ApiFailure.NotSynced: "not-synced"
   of ApiFailure.OptSynced: "opt-synced"
   of ApiFailure.Internal: "internal-issue"
+  of ApiFailure.NotImplemented: "not-implemented"
   of ApiFailure.UnexpectedCode: "unexpected-code"
   of ApiFailure.UnexpectedResponse: "unexpected-data"
   of ApiFailure.NoError: "status-update"
