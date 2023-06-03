@@ -243,7 +243,8 @@ const
     RestBeaconNodeStatus.NotSynced,
     RestBeaconNodeStatus.OptSynced,
     RestBeaconNodeStatus.Synced,
-    RestBeaconNodeStatus.Unexpected,
+    RestBeaconNodeStatus.UnexpectedCode,
+    RestBeaconNodeStatus.UnexpectedResponse,
     RestBeaconNodeStatus.InternalError
   }
 
