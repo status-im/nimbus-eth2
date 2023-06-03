@@ -1285,7 +1285,7 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     # historical_summaries initialized to correct default automatically
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/fork.md#upgrading-the-state
 func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
     ref deneb.BeaconState =
   let
@@ -1306,7 +1306,8 @@ func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
       block_hash: pre.latest_execution_payload_header.block_hash,
       transactions_root: pre.latest_execution_payload_header.transactions_root,
       withdrawals_root: pre.latest_execution_payload_header.withdrawals_root,
-      excess_data_gas: 0.u256  # [New in Deneb]
+      data_gas_used: 0,  # [New in Deneb]
+      excess_data_gas: 0 # [New in Deneb]
     )
 
   (ref deneb.BeaconState)(

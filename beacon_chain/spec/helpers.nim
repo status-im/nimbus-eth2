@@ -430,11 +430,16 @@ proc payloadToBlockHeader*(
         some payload.computeWithdrawalsTrieRoot()
       else:
         none(Hash256)
+    dataGasUsed =
+      when typeof(payload).toFork >= ConsensusFork.Deneb:
+        some payload.data_gas_used
+      else:
+        none(uint64)
     excessDataGas =
       when typeof(payload).toFork >= ConsensusFork.Deneb:
         some payload.excess_data_gas
       else:
-        none(UInt256)
+        none(uint64)
 
   ExecutionBlockHeader(
     parentHash     : payload.parent_hash,
@@ -454,7 +459,8 @@ proc payloadToBlockHeader*(
     nonce          : default(BlockNonce),
     fee            : some payload.base_fee_per_gas,
     withdrawalsRoot: withdrawalsRoot,
-    excessDataGas  : excessDataGas)
+    dataGasUsed    : dataGasUsed,         # EIP-4844
+    excessDataGas  : excessDataGas)       # EIP-4844
 
 proc compute_execution_block_hash*(
     payload: ForkyExecutionPayload): Eth2Digest =

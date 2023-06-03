@@ -54,13 +54,6 @@ type
 
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
-  # TODO remove BlobsSidecar; it's not in rc.3 anymore
-  BlobsSidecar* = object
-    beacon_block_root*: Eth2Digest
-    beacon_block_slot*: Slot
-    blobs*: Blobs
-    kzg_aggregated_proof*: KzgProof
-
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
     block_root*: Eth2Digest
@@ -108,7 +101,8 @@ type
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
-    excess_data_gas*: UInt256  # [New in Deneb]
+    data_gas_used*: uint64   # [New in Deneb]
+    excess_data_gas*: uint64 # [New in Deneb]
 
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
@@ -137,8 +131,8 @@ type
       ## Hash of execution block
     transactions_root*: Eth2Digest
     withdrawals_root*: Eth2Digest
-    excess_data_gas*: UInt256
-      ## [New in Deneb]
+    data_gas_used*: uint64   # [New in Deneb]
+    excess_data_gas*: uint64 # [New in Deneb]
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
@@ -616,7 +610,7 @@ func is_valid_light_client_header*(
   let epoch = header.beacon.slot.epoch
 
   if epoch < cfg.DENEB_FORK_EPOCH:
-    if header.execution.excess_data_gas != 0.u256:
+    if header.execution.excess_data_gas != 0:
       return false
 
   if epoch < cfg.CAPELLA_FORK_EPOCH:

@@ -732,7 +732,7 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
         if prop.path == ".execution_payload.fee_recipient":
           prop.bellatrixIndex = some GeneralizedIndex(401)
           prop.capellaIndex = some GeneralizedIndex(401)
-          prop.denebIndex = some GeneralizedIndex(401)
+          prop.denebIndex = some GeneralizedIndex(801)
         elif prop.path == ".graffiti":
           prop.bellatrixIndex = some GeneralizedIndex(18)
           prop.capellaIndex = some GeneralizedIndex(18)
