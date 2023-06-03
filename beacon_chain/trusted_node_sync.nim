@@ -124,17 +124,23 @@ proc doTrustedNodeSync*(
       let tmp = if genesisState != nil:
         genesisState
       else:
-        notice "Downloading genesis state", restUrl
-        try:
-          awaitWithTimeout(
-              client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
-              largeRequestsTimeout):
-            info "Attempt to download genesis state timed out"
+        case syncTarget.kind
+        of TrustedNodeSyncKind.TrustedBlockRoot:
+          error "Genesis state is required when using `trustedBlockRoot`",
+            missingNetworkMetadataFile = "genesis.ssz"
+          quit 1
+        of TrustedNodeSyncKind.StateId:
+          notice "Downloading genesis state", restUrl
+          try:
+            awaitWithTimeout(
+                client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
+                largeRequestsTimeout):
+              info "Attempt to download genesis state timed out"
+              nil
+          except CatchableError as exc:
+            info "Unable to download genesis state",
+              error = exc.msg, restUrl
             nil
-        except CatchableError as exc:
-          info "Unable to download genesis state",
-            error = exc.msg, restUrl
-          nil
 
       if isNil(tmp):
         notice "Server is missing genesis state, node will not be able to reindex history",
@@ -169,9 +175,7 @@ proc doTrustedNodeSync*(
               slot: store.finalized_header.beacon.slot,
               state_root: store.finalized_header.beacon.state_root))
 
-        if genesisState == nil:
-          error "Genesis state is required when using `trustedBlockRoot`"
-          quit 1
+        doAssert genesisState != nil, "Already checked for `TrustedBlockRoot`"
         let
           beaconClock = BeaconClock.init(
             getStateField(genesisState[], genesis_time))
@@ -367,6 +371,12 @@ proc doTrustedNodeSync*(
       quit 1
 
     if genesisState != nil:
+      if getStateField(state[], genesis_time) !=
+          getStateField(genesisState[], genesis_time):
+        error "Checkpoint state does not match genesis",
+          timeInCheckpoint = getStateField(state[], genesis_time),
+          timeInGenesis = getStateField(genesisState[], genesis_time)
+        quit 1
       if getStateField(state[], genesis_validators_root) !=
           getStateField(genesisState[], genesis_validators_root):
         error "Checkpoint state does not match genesis",
