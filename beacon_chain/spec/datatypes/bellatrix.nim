@@ -382,6 +382,9 @@ proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
     raiseUnexpectedValue(reader,
                          "ExecutionAddress value should be a valid hex string")
 
+func `$`*(v: ExecutionAddress): string =
+  v.data.toHex()
+
 func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),
