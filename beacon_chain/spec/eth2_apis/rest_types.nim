@@ -321,7 +321,7 @@ type
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
 
   RestSpec* = object
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/presets/mainnet/phase0.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/phase0.yaml
     MAX_COMMITTEES_PER_SLOT*: uint64
     TARGET_COMMITTEE_SIZE*: uint64
     MAX_VALIDATORS_PER_COMMITTEE*: uint64
@@ -355,7 +355,7 @@ type
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/presets/mainnet/altair.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/altair.yaml
     INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
@@ -364,7 +364,7 @@ type
     MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     UPDATE_TIMEOUT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/presets/mainnet/bellatrix.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/bellatrix.yaml
     INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
@@ -373,7 +373,7 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/presets/mainnet/capella.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/capella.yaml
     MAX_BLS_TO_EXECUTION_CHANGES*: uint64
     MAX_WITHDRAWALS_PER_PAYLOAD*: uint64
     MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP*: uint64
@@ -411,7 +411,7 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/beacon-chain.md#constants
     # GENESIS_SLOT
     # GENESIS_EPOCH
     # FAR_FUTURE_EPOCH
@@ -453,7 +453,7 @@ type
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
     ATTESTATION_SUBNET_COUNT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/validator.md#constants
     TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
     SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 

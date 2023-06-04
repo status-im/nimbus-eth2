@@ -21,7 +21,7 @@ const
   FAR_FUTURE_EPOCH* = Epoch(not 0'u64)
   FAR_FUTURE_PERIOD* = SyncCommitteePeriod(not 0'u64)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/beacon-chain.md#domain-types
   DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
   DOMAIN_BEACON_ATTESTER* = DomainType([byte 0x01, 0x00, 0x00, 0x00])
   DOMAIN_RANDAO* = DomainType([byte 0x02, 0x00, 0x00, 0x00])
