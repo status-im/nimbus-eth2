@@ -327,7 +327,12 @@ proc checkOffsetStatus(node: BeaconNodeServerRef, offset: TimeOffset) =
       if (offset <= FAIL_TIME_OFFSETS[0]) or (offset >= FAIL_TIME_OFFSETS[1]):
         # Beacon node's clock is out of acceptable offsets, we marking this
         # beacon node and remote it from the list of working nodes.
-        node.updateStatus(RestBeaconNodeStatus.BrokenClock)
+        warn "Remote beacon node has enormous time offset",
+             time_offset = offset
+        let failure = ApiNodeFailure.init(ApiFailure.NoError,
+          "checkTimeOffsetStatus()", node, 200,
+          "Remote beacon node has enormous time offset")
+        node.updateStatus(RestBeaconNodeStatus.BrokenClock, failure)
         false
       else:
         true
@@ -342,7 +347,10 @@ proc checkOffsetStatus(node: BeaconNodeServerRef, offset: TimeOffset) =
     if node.status == RestBeaconNodeStatus.BrokenClock:
       # Beacon node's clock has been recovered to some acceptable offset, so we
       # could restore beacon node.
-      node.updateStatus(RestBeaconNodeStatus.Offline)
+      let failure = ApiNodeFailure.init(ApiFailure.NoError,
+          "checkTimeOffsetStatus()", node, 200,
+          "Remote beacon node has acceptable time offset")
+      node.updateStatus(RestBeaconNodeStatus.Offline, failure)
 
 proc runTimeMonitor(service: FallbackServiceRef,
                     node: BeaconNodeServerRef) {.async.} =

@@ -267,7 +267,9 @@ const
     RestBeaconNodeStatus.NotSynced,
     RestBeaconNodeStatus.OptSynced,
     RestBeaconNodeStatus.Synced,
-    RestBeaconNodeStatus.Unexpected,
+    RestBeaconNodeStatus.UnexpectedCode,
+    RestBeaconNodeStatus.UnexpectedResponse,
+    RestBeaconNodeStatus.BrokenClock,
     RestBeaconNodeStatus.InternalError
   }
 
@@ -654,7 +656,8 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
   let
     flags = {RestClientFlag.CommaSeparatedArray}
     socketFlags = {SocketFlags.TcpNoDelay}
-    remoteUri = normalizeUri(remote)
+    remoteUri = normalizeUri(remote).valueOr:
+      return err($error)
     client = RestClientRef.new($remoteUri, flags = flags,
                                socketFlags = socketFlags).valueOr:
       return err($error)
