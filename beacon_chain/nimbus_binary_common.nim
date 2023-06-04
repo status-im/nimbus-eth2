@@ -356,7 +356,7 @@ proc init*(T: type RestServerRef,
     maxRequestBodySize = config.restMaxRequestBodySize * 1024
 
   let res = try:
-    RestServerRef.new(RestRouter.init(validateFn),
+    RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
                       address, serverFlags = serverFlags,
                       httpHeadersTimeout = headersTimeout,
                       maxHeadersSize = maxHeadersSize,

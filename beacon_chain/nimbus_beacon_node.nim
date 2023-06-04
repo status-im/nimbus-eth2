@@ -636,7 +636,7 @@ proc init*(T: type BeaconNode,
 
   let restServer = if config.restEnabled:
     RestServerRef.init(config.restAddress, config.restPort,
-                       config.keymanagerAllowedOrigin,
+                       config.restAllowedOrigin,
                        validateBeaconApiQueries,
                        config)
   else:
