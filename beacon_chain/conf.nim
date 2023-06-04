@@ -1349,11 +1349,15 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
   (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)
 
 proc loadKzgTrustedSetup*(): Result[void, string] =
+  const
+    vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../vendor"
+    trustedSetupDir = vendorDir & "/nim-kzg4844/kzg4844/csources/src"
+
   const trustedSetup =
     when const_preset == "mainnet":
-      staticRead"../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt"
+      staticRead trustedSetupDir & "/trusted_setup.txt"
     elif const_preset == "minimal":
-      staticRead"../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup_4.txt"
+      staticRead trustedSetupDir & "/trusted_setup_4.txt"
     else:
       ""
   if const_preset == "mainnet" or const_preset == "minimal":
