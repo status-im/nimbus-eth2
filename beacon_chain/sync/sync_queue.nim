@@ -538,6 +538,8 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
            safe_slot = safeSlot, fail_slot = failSlot
     safeSlot
 
+# This belongs inside the blocks iterator below, but can't be there due to
+# https://github.com/nim-lang/Nim/issues/21242
 func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
   if blobs.isSome:
     Opt.some(blobs.get()[i])
