@@ -238,7 +238,7 @@ ssh pi@195.177.101.93
 
 ### 10b. Boot from external SSD
 
-Follow [this guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb) to copy the contents of your SD card over to your SSD, and boot your Pi from your SSD.
+Follow [this RPi4 guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb) to copy the contents of your SD card over to your SSD, and boot your Pi from your SSD.
 
 !!! tip
     Make sure you connect your SSD the Pi's USB 3 port (the blue port).
@@ -280,7 +280,7 @@ Once you're done, `ssh` back into your Pi.
 === "Using package manager"
 
     1. Add Status APT repository to your system.
-       Follow [this guide](https://apt.status.im).
+       Follow our [APT guide](https://apt.status.im).
 
     2. Install Nimbus using APT:
 
@@ -293,12 +293,12 @@ Once you're done, `ssh` back into your Pi.
 ### 12. Copy signing key over to Pi
 
 !!! note
-    If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page](./deposit.md) before carrying on.
+    If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on the [deposit page](./deposit.md) before carrying on.
 
 We'll use the `scp` command to send files over SSH.
 It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.
 
-Copy the folder containing your validator key(s) from your computer to your `pi`'s homefolder by opening up a new terminal window and running the following command:
+Copy the folder containing your validator key(s) from your computer to your `pi`'s home folder by opening up a new terminal window and running the following command:
 
 ```sh
 scp -r <VALIDATOR_KEYS_DIRECTORY> pi@195.177.101.93:
@@ -333,7 +333,7 @@ We're finally ready to connect to the Prater testnet!
 
 !!! note
     If you haven't already, we recommend registering for, and running, your own eth1 node in parallel.
-    For instructions on how to do so, see [this page](./eth1.md).
+    For instructions on how to do so, see the [eth1 page](./eth1.md).
 
 To connect to Prater, run:
 ```
@@ -394,12 +394,12 @@ Now that you have Nimbus up and running, we recommend [setting up a systemd serv
 Systemd will also ensure your validator keeps running when you exit your ssh session (`Ctrl-C`) and/or switch off your laptop.
 
 
-For the details on how to do this, see [this page](./beacon-node-systemd.md).
+For the details on how to do this, see our [systemd guide](./beacon-node-systemd.md).
 
 
 ### Overclocking
 
-While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see [this guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
+While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see the [overclocking guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
 
 !!! note
     We have since improved performance in several ways which should make a vanilla Pi perform well.

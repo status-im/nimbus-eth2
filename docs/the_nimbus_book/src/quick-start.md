@@ -37,13 +37,13 @@ See the [execution client guide](./eth1.md) for instructions on how to pick and 
 
     We currently have binaries available for Linux `AMD64`, `ARM` and `ARM64`, Windows `AMD64` and macOS (`AMD64` and `ARM64`).
 
-    See [this guide](./binaries.md) on how to install them.
+    See the [binaries guide](./binaries.md) on how to install them.
 
 
 === "Build from source"
 
     Building Nimbus from source is simple and fully automated.
-    Follow [this guide](./build.md).
+    Follow the [build guide](./build.md).
 
 
 ### 4. Start the node
