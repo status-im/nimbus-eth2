@@ -2,7 +2,7 @@
 
 Once your beacon node is [running](./quick-start.md), the next step is to set up a validator.
 
-Unlike other beacon chain clients, Nimbus **doesn't require** setting up a separate validator client process — the beacon node can itself perform validator duties.
+Nimbus **doesn't require** setting up a separate validator client process — the beacon node can itself perform validator duties.
 This is a simple, safe and efficient way to get started.
 
 !!! tip "Separate validator client"
