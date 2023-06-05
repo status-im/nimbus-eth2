@@ -538,21 +538,21 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
            safe_slot = safeSlot, fail_slot = failSlot
     safeSlot
 
+func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
+  if blobs.isSome:
+    Opt.some(blobs.get()[i])
+  else:
+    Opt.none(BlobSidecars)
+
 iterator blocks[T](sq: SyncQueue[T],
-                    sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
+                   sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
   case sq.kind
   of SyncQueueKind.Forward:
     for i in countup(0, len(sr.data) - 1):
-      if sr.blobs.isSome:
-        yield (sr.data[i], Opt.some(sr.blobs.get()[i]))
-      else:
-        yield (sr.data[i], Opt.none(BlobSidecars))
+      yield (sr.data[i], sr.blobs.getOpt(i))
   of SyncQueueKind.Backward:
     for i in countdown(len(sr.data) - 1, 0):
-      if sr.blobs.isSome:
-        yield (sr.data[i], Opt.some(sr.blobs.get()[i]))
-      else:
-        yield (sr.data[i], Opt.none(BlobSidecars))
+      yield (sr.data[i], sr.blobs.getOpt(i))
 
 proc advanceOutput*[T](sq: SyncQueue[T], number: uint64) =
   case sq.kind
