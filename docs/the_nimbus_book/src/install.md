@@ -31,7 +31,7 @@ When building from source, you will need additional build dependencies to be ins
     # Fedora
     dnf install @development-tools cmake
 
-    # Archlinux, using an AUR manager
+    # Arch Linux, using an AUR manager
     yourAURmanager -S base-devel cmake
     ```
 

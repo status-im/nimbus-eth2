@@ -4,7 +4,7 @@ In order to perform validation duties, you **must have** an execution client run
 Relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
 Sharing the same execution client between multiple beacon nodes is not supported.
 
-Nimbus has been tested all major execution clients.
+Nimbus has been tested with all major execution clients.
 See the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
 !!! info

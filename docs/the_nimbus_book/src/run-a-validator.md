@@ -7,7 +7,7 @@ This is a simple, safe and efficient way to get started.
 
 !!! tip "Separate validator client"
 
-    While not needed, advanced users may want to use a [separate validator client](./validator-client.md) process instead.
+    While not needed, advanced users may want to use a [separate validator client](./validator-client.md) instead.
 
 
 ## Steps

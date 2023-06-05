@@ -15,7 +15,7 @@ The recommended system requirements for running the Nimbus beacon node are:
 In addition to the beacon node, you will need to run an [execution client](./eth1.md).
 Check the documentation of the client of choice and add them to the above requirements.
 
-Broadly, to run both an execution and a consensus client on the same machine, we recommend a **2 TB** SSD drive and **8 GB RAM**.
+Broadly, to run both an execution and a consensus client on the same machine, we recommend a **2 TB** SSD and **16 GB RAM**.
 
 
 ### Minimal requirements
