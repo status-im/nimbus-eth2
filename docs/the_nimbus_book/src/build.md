@@ -30,3 +30,19 @@ make -j4 nimbus_beacon_node
 
 !!! tip
     Omit `-j4` on systems with 4GB of memory or less.
+
+This step can take several minutes.
+After it has finished, you can check if the installation was successful by running:
+
+```sh
+build/nimbus_beacon_node --help
+```
+
+If you see the command-line options, your installation was successful!
+Otherwise, don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad).
+
+
+
+## Keeping Nimbus updated
+
+When you decide to upgrade Nimbus to a newer version, make sure to follow the [keeping updated guide](./keep-updated.md).
