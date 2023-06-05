@@ -325,7 +325,7 @@ proc initFullNode(
     blobQuarantine = newClone(BlobQuarantine())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
-      ActionTracker.init(rng, config.subscribeAllSubnets),
+      ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
     blockProcessor = BlockProcessor.new(

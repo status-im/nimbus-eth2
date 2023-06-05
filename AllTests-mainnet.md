@@ -258,10 +258,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + General pubsub topics                                                                      OK
 + Liveness failsafe conditions                                                               OK
 + Mainnet attestation topics                                                                 OK
++ Stability subnets                                                                          OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## ImportKeystores requests [Beacon Node] [Preset: mainnet]
 ```diff
 + ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
@@ -672,10 +673,9 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## subnet tracker
 ```diff
-+ should register stability subnets on attester duties                                       OK
 + should register sync committee duties                                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## weak-subjectivity-checkpoint
 ```diff
 + Correct values                                                                             OK
