@@ -672,6 +672,8 @@ type
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
   GetStateValidatorResponse* = DataEnclosedObject[RestValidator]
   GetStateValidatorsResponse* = DataOptimisticObject[seq[RestValidator]]
+  GetStateRandaoResponse* = DataOptimisticObject[RestEpochRandao]
+  GetNextWithdrawalsResponse* = DataOptimisticObject[seq[Withdrawal]]
   GetSyncCommitteeDutiesResponse* = DataOptimisticObject[seq[RestSyncCommitteeDuty]]
   GetSyncingStatusResponse* = DataEnclosedObject[RestSyncInfo]
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]

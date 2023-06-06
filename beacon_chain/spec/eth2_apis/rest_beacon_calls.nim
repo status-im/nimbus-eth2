@@ -86,6 +86,12 @@ proc getStateValidatorBalances*(state_id: StateIdent
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
 
+proc getStateRandao*(state_id: StateIdent
+             ): RestResponse[GetStateRandaoResponse] {.
+     rest, endpoint: "/eth/v1/beacon/states/{state_id}/randao",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateRandao
+
 proc getEpochCommittees*(state_id: StateIdent, epoch: Option[Epoch],
                         ): RestResponse[GetEpochCommitteesResponse] {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/committees",
