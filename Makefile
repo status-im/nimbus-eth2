@@ -58,6 +58,7 @@ TOOLS_CORE := \
 	deposit_contract \
 	resttest \
 	logtrace \
+        mev_mock \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \
