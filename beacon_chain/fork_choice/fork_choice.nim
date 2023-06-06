@@ -206,7 +206,7 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/fork-choice.md#on_attestation
 proc on_attestation*(
        self: var ForkChoice,
        dag: ChainDAGRef,

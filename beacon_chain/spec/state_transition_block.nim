@@ -410,7 +410,7 @@ proc process_bls_to_execution_change*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/beacon-chain.md#operations
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/beacon-chain.md#modified-process_operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
                         body: SomeForkyBeaconBlockBody,
@@ -726,7 +726,7 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     res.add versionedHash
   ok res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash(
     kzg_commitment: KzgCommitment): VersionedHash =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob
