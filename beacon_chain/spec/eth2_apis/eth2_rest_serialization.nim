@@ -923,7 +923,7 @@ template unrecognizedFieldWarning =
 
 ## ForkedBeaconBlock
 template prepareForkedBlockReading(
-    reader: var JsonReader[RestJson], value: untyped,
+    reader: var JsonReader[RestJson],
     version: var Option[ConsensusFork],
     data: var Option[JsonString],
     blockTypeName: cstring) =
@@ -967,7 +967,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     version: Option[ConsensusFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, value, version, data, "ForkedBeaconBlock")
+  prepareForkedBlockReading(reader, version, data, "ForkedBeaconBlock")
 
   case version.get():
   of ConsensusFork.Phase0:
@@ -1039,7 +1039,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     version: Option[ConsensusFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, value, version, data,
+  prepareForkedBlockReading(reader, version, data,
                             "ForkedBlindedBeaconBlock")
 
   case version.get():
@@ -1111,7 +1111,7 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     version: Option[ConsensusFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, value, version, data,
+  prepareForkedBlockReading(reader, version, data,
                             "Web3SignerForkedBeaconBlock")
 
   case version.get():
