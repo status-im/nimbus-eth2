@@ -1146,11 +1146,18 @@ proc handleIncomingStream(network: Eth2Node,
         # regardless if the request succeeds or fails - we don't count waiting
         # for this quota against timeouts so as not to prematurely disconnect
         # clients that are on the edge - nonetheless, the client will count it.
-        #
+
         # When a client exceeds their quota, they will be slowed down without
         # notification - as long as they don't make parallel requests (which is
         # limited by libp2p), this will naturally adapt them to the available
         # quota.
+
+        # Note that the `msg` will be stored in memory while we wait for the
+        # quota to be available. The amount of such messages in memory is
+        # bounded by the libp2p limit of parallel streams
+
+        # This quota also applies to invalid requests thanks to the use of
+        # `finally`.
 
         awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
 
