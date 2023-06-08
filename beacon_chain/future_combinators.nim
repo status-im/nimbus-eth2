@@ -34,8 +34,8 @@ proc firstCompletedFuture*(futs: varargs[FutureBase]): Future[FutureBase] =
 
   var failedFutures = 0
 
-  var cb: proc(udata: pointer) {.gcsafe, raises: [Defect].}
-  cb = proc(udata: pointer) {.gcsafe, raises: [Defect].} =
+  var cb: proc(udata: pointer) {.gcsafe, raises: [].}
+  cb = proc(udata: pointer) {.gcsafe, raises: [].} =
     if not(retFuture.finished()):
       var res: FutureBase
       var rfut = cast[FutureBase](udata)
