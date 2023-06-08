@@ -343,7 +343,7 @@ proc trackEngineApiRequest(connection: ELConnection,
                            request: FutureBase, requestName: string,
                            startTime: Moment, deadline: Future[void],
                            failureAllowed = false) =
-  request.addCallback do (udata: pointer) {.gcsafe, raises: [Defect].}:
+  request.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
     # TODO `udata` is nil here. How come?
     # This forces us to create a GC cycle between the Future and the closure
     if request.completed:
@@ -353,7 +353,7 @@ proc trackEngineApiRequest(connection: ELConnection,
 
       connection.setWorkingState()
 
-  deadline.addCallback do (udata: pointer) {.gcsafe, raises: [Defect].}:
+  deadline.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
     if not request.finished:
       request.cancel()
       engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
