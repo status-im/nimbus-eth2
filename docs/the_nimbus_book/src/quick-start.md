@@ -2,13 +2,13 @@
 
 This page takes you through the steps of getting a standard installation of the Nimbus beacon node running.
 
-The quickstart setup involves running two nodes: an [execution client](./eth1.md) and a beacon node - both are needed to run a full Ethereum setup.
+The quickstart setup involves running two nodes: an [execution client](./eth1.md) and a beacon node — both are needed to run a full Ethereum setup.
 
-The beacon node connects to the beacon chain network, syncs historical data and provides [API's](./rest-api.md) to monitor and interact with the beacon chain.
+The beacon node connects to the beacon chain network, syncs historical data, and provides [API's](./rest-api.md) to monitor and interact with the beacon chain.
 
 Running a beacon node is a [worthwhile endeavor](https://vitalik.ca/general/2021/05/23/scaling.html#its-crucial-for-blockchain-decentralization-for-regular-users-to-be-able-to-run-a-node) even if you are not planning on validating yourself!
 
-The guide assumes [Ubuntu Linux](https://ubuntu.com/download/server) is being used, and therefore some familiarity with [the linux command line](https://ubuntu.com/tutorials/command-line-for-beginners) is needed.
+The guide assumes [Ubuntu Linux](https://ubuntu.com/download/server) is being used, and therefore some familiarity with [the Linux command line](https://ubuntu.com/tutorials/command-line-for-beginners) is needed.
 
 !!! note
     To become a validator, you first need to set up a beacon node.
@@ -24,13 +24,15 @@ Prepare your machine by installing [Nimbus' dependencies](./install.md).
 
 ### 2. Set up an execution client
 
-To run a beacon node, you need to have access to an execution client exposing the web3 API - throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.
+To run a beacon node, you need to have access to an execution client exposing the web3 API.
+Throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.
 
-See the [execution client](./eth1.md) guide for instructions on how to pick and install an execution client!
+See the [execution client guide](./eth1.md) for instructions on how to pick and install an execution client!
 
 ### 3. Install Nimbus
 
-Next, download the [latest release](./binaries.md) and install it by unpacking the archive. Using a command line terminal:
+Next, download the [latest release](./binaries.md) and install it by unpacking the archive.
+Using a command line terminal:
 
 ```sh
 # Create a directory that can hold the beacon chain data and applications - this should be a fast SSD
@@ -76,10 +78,11 @@ Once the beacon node starts, you'll see it logging information to the console, l
 INF 2022-07-19 15:42:58.145+02:00 Launching beacon node                      topics="beacnde" version=v22.10.1-97a1cdc4-stateofus ...
 ```
 
-Congratulations! Your beacon node is up and running, and syncing the network!
+Congratulations!
+Your beacon node is up and running, and syncing the network!
 
 !!! success "What next?"
 
-    * If you will be running the node on a regular basis, it is recommended you set up a [systemd service](./beacon-node-systemd.md) that automatically restarts your node if the computer reboots.
+    * If you will be running the node on a regular basis, it is recommended that you [set up a systemd service](./beacon-node-systemd.md) that automatically restarts your node if the computer reboots.
     * If you wish to stake, continue your journey by following the [validator quick start](./run-a-validator.md).
-    * The [monitoring](./health.md) page contains information about how to keep your node healthy
+    * The [monitoring](./health.md) page contains information about how to keep your node healthy.

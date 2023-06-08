@@ -93,6 +93,7 @@ type
     dumpEnabled: bool
     dumpDirInvalid: string
     dumpDirIncoming: string
+    strictVerification: bool
 
     # Consumer
     # ----------------------------------------------------------------
@@ -144,12 +145,14 @@ proc new*(
     bootstrapObserver: BootstrapObserver = nil,
     updateObserver: UpdateObserver = nil,
     finalityUpdateObserver: FinalityUpdateObserver = nil,
-    optimisticUpdateObserver: OptimisticUpdateObserver = nil
+    optimisticUpdateObserver: OptimisticUpdateObserver = nil,
+    strictVerification = false
 ): ref LightClientProcessor =
   (ref LightClientProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
     dumpDirIncoming: dumpDirIncoming,
+    strictVerification: strictVerification,
     store: store,
     getBeaconTime: getBeaconTime,
     getTrustedBlockRoot: getTrustedBlockRoot,
@@ -526,7 +529,7 @@ func toValidationError(
       # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -535,11 +538,13 @@ proc processLightClientFinalityUpdate*(
     wallTime = self.getBeaconTime()
     r = self.storeObject(src, wallTime, finality_update)
     v = self.toValidationError(r, wallTime, finality_update)
-  if v.isOk:
-    self.latestFinalityUpdate = finality_update.toOptimistic
+  if v.isErr:
+    return checkedResult(v.error, self.strictVerification)
+
+  self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate
@@ -548,18 +553,20 @@ proc processLightClientOptimisticUpdate*(
     wallTime = self.getBeaconTime()
     r = self.storeObject(src, wallTime, optimistic_update)
     v = self.toValidationError(r, wallTime, optimistic_update)
-  if v.isOk:
-    let
-      latestFinalitySlot = withForkyOptimisticUpdate(self.latestFinalityUpdate):
-        when lcDataFork > LightClientDataFork.None:
-          forkyOptimisticUpdate.attested_header.beacon.slot
-        else:
-          GENESIS_SLOT
-      attestedSlot = withForkyOptimisticUpdate(optimistic_update):
-        when lcDataFork > LightClientDataFork.None:
-          forkyOptimisticUpdate.attested_header.beacon.slot
-        else:
-          GENESIS_SLOT
-    if attestedSlot >= latestFinalitySlot:
-      self.latestFinalityUpdate.reset() # Only forward once
+  if v.isErr:
+    return checkedResult(v.error, self.strictVerification)
+
+  let
+    latestFinalitySlot = withForkyOptimisticUpdate(self.latestFinalityUpdate):
+      when lcDataFork > LightClientDataFork.None:
+        forkyOptimisticUpdate.attested_header.beacon.slot
+      else:
+        GENESIS_SLOT
+    attestedSlot = withForkyOptimisticUpdate(optimistic_update):
+      when lcDataFork > LightClientDataFork.None:
+        forkyOptimisticUpdate.attested_header.beacon.slot
+      else:
+        GENESIS_SLOT
+  if attestedSlot >= latestFinalitySlot:
+    self.latestFinalityUpdate.reset()  # Only forward once
   v

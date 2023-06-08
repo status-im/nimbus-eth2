@@ -1,13 +1,10 @@
 # Validator monitoring
 
-!!! note ""
-    This feature is available from `v23.1.0` onwards - earlier Nimbus versions included a preview version this feature behind a feature flag without enabling it by default.
-
 The validator monitoring feature allows for tracking the life cycle and performance of one or more validators in detail.
-
 Monitoring can be carried out for any validator, with slightly more detail for validators that are running in the same beacon node.
 
-Every time the validator performs a duty, the duty is recorded and the monitor keeps track of the reward-related events for having performed it. For example:
+Every time the validator performs a duty, the duty is recorded and the monitor keeps track of the reward-related events for having performed it.
+For example:
 
 * When attesting, the attestation is added to an aggregate, then a block, before a reward is applied to the state
 * When performing sync committee duties, likewise
@@ -18,12 +15,15 @@ The metrics are broadly compatible with [Lighthouse](https://lighthouse-book.sig
 
 ## Command line options
 
-The monitor is by default enabled for all keys that are validating via the beacon node. It can also be configured to monitor a specific list of validators, or be disabled entirely with `--validator-monitor-auto=false`.
+The monitor is by default enabled for all keys that are validating via the beacon node.
+It can also be configured to monitor a specific list of validators, or be disabled entirely with `--validator-monitor-auto=false`.
 
-The `--validator-monitor-details` flag can be used to enable the detailed monitor mode - in this mode, the performance of each validator is monitored individually in metrics leading to a more detailed view of performance.
+The `--validator-monitor-details` flag can be used to enable the detailed monitor mode.
+In this mode, the performance of each validator is monitored individually in metrics leading to a more detailed view of performance.
 
 !!! tip
-    The detailed mode significantly increases the total number of published metrics for each monitored validator - when used with more than 10 validators, it may adversely impact performance of metrics collection and display
+    The detailed mode significantly increases the total number of published metrics for each monitored validator.
+    When used with more than 10 validators, it may adversely impact performance of metrics collection and display.
 
 ```sh
 # Disable automatic monitoring of all validators used with this beacon node beacon node
@@ -40,9 +40,12 @@ The `--validator-monitor-details` flag can be used to enable the detailed monito
 
 ## Understanding monitoring
 
-When a validator performs a duty, such as signing an attestation or a sync committee message, this is broadcast to the network. Other nodes pick it up and package the message into an aggregate and later a block. The block is included in the canonical chain and a reward is given two epochs (~13 minutes) later.
+When a validator performs a duty, such as signing an attestation or a sync committee message, this is broadcast to the network.
+Other nodes pick it up and package the message into an aggregate and later a block.
+The block is included in the canonical chain and a reward is given two epochs (~13 minutes) later.
 
-The monitor tracks each of these actions and will in detailed mode log each step at the `INF` level. If any step is missed (irrespective of detail mode), a `NOT` log is shown instead.
+The monitor tracks each of these actions and will in detailed mode log each step at the `INF` level.
+If any step is missed (irrespective of detail mode), a `NOT` log is shown instead.
 
 The typical life cycle of an attestation might look something like the following:
 
@@ -60,14 +63,20 @@ Failures at any point are recorded at a higher logging level, such as `NOT`(ice)
 NOT 2021-11-17 20:53:42.108+01:00 Attestation failed to match head           topics="chaindag" epoch=81972 validator=...
 ```
 
-Failures are reported with a lag of two epochs (~13 minutes) - to examine the log for potential root causes, the logs from the epoch in the failure message should be looked at.
+Failures are reported with a lag of two epochs (~13 minutes).
+To examine the log for potential root causes, the logs from the epoch in the failure message should be looked at.
 
 !!! warning
-    It should be noted that metrics are tracked for the current history - in the case of a reorg on the chain - in particular a deep reorg - no attempt is made to revisit previously reported values. In the case that finality is delayed, the risk of stale metrics increases.
+    It should be noted that metrics are tracked for the current history.
+    In the case of a reorg on the chain — in particular a deep reorg — no attempt is made to revisit previously reported values.
+    In the case that finality is delayed, the risk of stale metrics increases.
 
-Likewise, many metrics, such as aggregation inclusion, reflect conditions on the network - it may happen that the same message is counted more than once under certain conditions.
+Likewise, many metrics, such as aggregation inclusion, reflect conditions on the network.
+It may happen that the same message is counted more than once under certain conditions.
 
 ## Monitoring metrics
+
+For instructions on how to use Prometheus and Grafana, see [these instructions](./metrics-pretty-pictures.md).
 
 The full list of metrics supported by the validator monitoring feature can be seen in the [source code](https://github.com/status-im/nimbus-eth2/blob/unstable/beacon_chain/validators/validator_monitor.nim) or by examining the metrics output:
 

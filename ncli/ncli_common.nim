@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -56,7 +56,7 @@ const
 func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
                              forkedState: ForkedHashedBeaconState) =
   withState(forkedState):
-    when stateFork > ConsensusFork.Phase0:
+    when consensusFork > ConsensusFork.Phase0:
       template flags: untyped = auxiliaryState.epochParticipationFlags
       flags.currentEpochParticipation =
         forkyState.data.current_epoch_participation
@@ -269,7 +269,7 @@ proc collectEpochRewardsAndPenalties*(
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | eip4844.BeaconState),
+                capella.BeaconState | deneb.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -368,7 +368,7 @@ func collectFromAttestations(
     epochParticipationFlags: var ParticipationFlags,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    when stateFork > ConsensusFork.Phase0:
+    when consensusFork > ConsensusFork.Phase0:
       let base_reward_per_increment = get_base_reward_per_increment(
         get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0
@@ -419,7 +419,7 @@ func collectFromSyncAggregate(
     forkedBlock: ForkedTrustedSignedBeaconBlock,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    when stateFork > ConsensusFork.Phase0:
+    when consensusFork > ConsensusFork.Phase0:
       let
         total_active_balance = get_total_active_balance(forkyState.data, cache)
         participant_reward = get_participant_reward(total_active_balance)

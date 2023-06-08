@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2022 Status Research & Development GmbH
+# Copyright (c) 2019-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -129,7 +129,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
               if (rand(r, high(int)).float * attesterRatio).int <= high(int):
                 attestation.aggregation_bits.setBit index_in_committee
 
-            if attestation.aggregation_bits.countOnes() > 0:
+            if not attestation.aggregation_bits.isZeros:
               if validate:
                 attestation.signature = makeAttestationSig(
                   forkyState.data.fork, genesis_validators_root,

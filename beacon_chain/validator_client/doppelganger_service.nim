@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -56,6 +56,21 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
     debug "Service started"
   else:
     debug "Service disabled because of configuration settings"
+    return
+
+  debug "Doppelganger detection loop is waiting for initialization"
+  try:
+    await allFutures(
+      vc.preGenesisEvent.wait(),
+      vc.genesisEvent.wait(),
+      vc.indicesAvailable.wait()
+    )
+  except CancelledError:
+    debug "Service interrupted"
+    return
+  except CatchableError as exc:
+    warn "Service crashed with unexpected error", err_name = exc.name,
+         err_msg = exc.msg
     return
 
   # On (re)start, we skip the remainder of the epoch before we start monitoring

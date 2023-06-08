@@ -28,6 +28,20 @@ export
 from web3/ethtypes import BlockHash
 export ethtypes.BlockHash
 
+func decodeMediaType*(
+    contentType: Opt[ContentTypeData]): Result[MediaType, string] =
+  if contentType.isNone or isWildCard(contentType.get.mediaType):
+    return err("Missing or incorrect Content-Type")
+  ok contentType.get.mediaType
+
+func decodeEthConsensusVersion*(
+    value: string): Result[ConsensusFork, string] =
+  let normalizedValue = value.toLowerAscii()
+  for consensusFork in ConsensusFork:
+    if normalizedValue == ($consensusFork).toLowerAscii():
+      return ok consensusFork
+  err("Unsupported Eth-Consensus-Version: " & value)
+
 Json.createFlavor RestJson
 
 ## The RestJson format implements JSON serialization in the way specified
@@ -114,6 +128,7 @@ type
     DataEnclosedObject |
     DataMetaEnclosedObject |
     DataRootEnclosedObject |
+    DataOptimisticObject |
     DataVersionEnclosedObject |
     GetBlockV2Response |
     GetDistributedKeystoresResponse |
@@ -135,7 +150,9 @@ type
     Web3SignerSignatureResponse |
     Web3SignerStatusResponse |
     GetStateRootResponse |
-    GetBlockRootResponse
+    GetBlockRootResponse |
+    SomeForkedLightClientObject |
+    seq[SomeForkedLightClientObject]
 
   RestVersioned*[T] = object
     data*: T
@@ -906,7 +923,7 @@ template unrecognizedFieldWarning =
 
 ## ForkedBeaconBlock
 template prepareForkedBlockReading(
-    reader: var JsonReader[RestJson], value: untyped,
+    reader: var JsonReader[RestJson],
     version: var Option[ConsensusFork],
     data: var Option[JsonString],
     blockTypeName: cstring) =
@@ -926,8 +943,8 @@ template prepareForkedBlockReading(
         version = some(ConsensusFork.Bellatrix)
       of "capella":
         version = some(ConsensusFork.Capella)
-      of "eip4844":
-        version = some(ConsensusFork.EIP4844)
+      of "deneb":
+        version = some(ConsensusFork.Deneb)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "block", "block_header", "data":
@@ -950,7 +967,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     version: Option[ConsensusFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, value, version, data, "ForkedBeaconBlock")
+  prepareForkedBlockReading(reader, version, data, "ForkedBeaconBlock")
 
   case version.get():
   of ConsensusFork.Phase0:
@@ -1001,8 +1018,18 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
-  of ConsensusFork.EIP4844:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+  of ConsensusFork.Deneb:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             deneb.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[deneb.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect deneb block format")
+    value = ForkedBeaconBlock.init(res.get()).BlockType
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
@@ -1012,7 +1039,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     version: Option[ConsensusFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, value, version, data,
+  prepareForkedBlockReading(reader, version, data,
                             "ForkedBlindedBeaconBlock")
 
   case version.get():
@@ -1064,8 +1091,18 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
                                     exc.formatMsg("BlindedBlock") & "]")
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Capella,
                                      capellaData: res)
-  of ConsensusFork.EIP4844:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+  of ConsensusFork.Deneb:
+    let res =
+      try:
+        RestJson.decode(string(data.get()),
+                        capella_mev.BlindedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect deneb block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
+    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Deneb,
+                                     denebData: res)
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -1074,7 +1111,7 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     version: Option[ConsensusFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, value, version, data,
+  prepareForkedBlockReading(reader, version, data,
                             "Web3SignerForkedBeaconBlock")
 
   case version.get():
@@ -1134,8 +1171,20 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     value = Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Capella,
       capellaData: res.get())
-  of ConsensusFork.EIP4844:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+  of ConsensusFork.Deneb:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             BeaconBlockHeader,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[BeaconBlockHeader]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect deneb block format")
+    value = Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Deneb,
+      denebData: res.get())
 
 proc writeValue*[
     BlockType: Web3SignerForkedBeaconBlock](
@@ -1159,13 +1208,13 @@ proc writeValue*[
   of ConsensusFork.Capella:
     writer.writeField("version", forkIdentifier "capella")
     writer.writeField("block_header", value.capellaData)
-  of ConsensusFork.EIP4844:
-    writer.writeField("version", forkIdentifier "eip4844")
-    writer.writeField("block_header", value.eip4844Data)
+  of ConsensusFork.Deneb:
+    writer.writeField("version", forkIdentifier "deneb")
+    writer.writeField("block_header", value.denebData)
   writer.endRecord()
 
 proc writeValue*[
-    BlockType: ForkedBeaconBlock|ForkedBlindedBeaconBlock](
+    BlockType: ForkedBeaconBlock](
     writer: var JsonWriter[RestJson],
     value: BlockType) {.raises: [IOError, Defect].} =
 
@@ -1189,9 +1238,9 @@ proc writeValue*[
   of ConsensusFork.Capella:
     writer.writeField("version", forkIdentifier "capella")
     writer.writeField("data", value.capellaData)
-  of ConsensusFork.EIP4844:
-    writer.writeField("version", forkIdentifier "eip4844")
-    writer.writeField("data", value.eip4844Data)
+  of ConsensusFork.Deneb:
+    writer.writeField("version", forkIdentifier "deneb")
+    writer.writeField("data", value.denebData)
   writer.endRecord()
 
 ## RestPublishedBeaconBlockBody
@@ -1393,7 +1442,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     assign(
       value.capellaBody.execution_payload.withdrawals,
       ep_src.withdrawals.get())
-  of ConsensusFork.EIP4844:
+  of ConsensusFork.Deneb:
     reader.raiseUnexpectedValue($denebImplementationMissing)
 
 ## RestPublishedBeaconBlock
@@ -1491,8 +1540,16 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.capellaBody
         )
       )
-    of ConsensusFork.EIP4844:
-      reader.raiseUnexpectedValue($denebImplementationMissing)
+    of ConsensusFork.Deneb:
+      ForkedBeaconBlock.init(
+        deneb.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.denebBody
+        )
+      )
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -1552,8 +1609,13 @@ proc readValue*(reader: var JsonReader[RestJson],
           signature: signature.get()
         )
       )
-    of ConsensusFork.EIP4844:
-      reader.raiseUnexpectedValue($denebImplementationMissing)
+    of ConsensusFork.Deneb:
+      ForkedSignedBeaconBlock.init(
+        deneb.SignedBeaconBlock(
+          message: blck.denebData,
+          signature: signature.get()
+        )
+      )
   )
 
 ## ForkedSignedBeaconBlock
@@ -1580,8 +1642,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(ConsensusFork.Bellatrix)
       of "capella":
         version = some(ConsensusFork.Capella)
-      of "eip4844":
-        version = some(ConsensusFork.EIP4844)
+      of "deneb":
+        version = some(ConsensusFork.Deneb)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -1646,8 +1708,18 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedSignedBeaconBlock.init(res.get())
-  of ConsensusFork.EIP4844:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+  of ConsensusFork.Deneb:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             deneb.SignedBeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[deneb.SignedBeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect deneb block format")
+    value = ForkedSignedBeaconBlock.init(res.get())
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
 
@@ -1668,9 +1740,9 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   of ConsensusFork.Capella:
     writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData)
-  of ConsensusFork.EIP4844:
-    writer.writeField("version", "eip4844")
-    writer.writeField("data", value.eip4844Data)
+  of ConsensusFork.Deneb:
+    writer.writeField("version", "deneb")
+    writer.writeField("data", value.denebData)
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -1694,7 +1766,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       of "altair": some(ConsensusFork.Altair)
       of "bellatrix": some(ConsensusFork.Bellatrix)
       of "capella": some(ConsensusFork.Capella)
-      of "eip4844": some(ConsensusFork.EIP4844)
+      of "deneb": some(ConsensusFork.Deneb)
       else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -1764,16 +1836,16 @@ proc readValue*(reader: var JsonReader[RestJson],
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect capella beacon state format")
     toValue(capellaData)
-  of ConsensusFork.EIP4844:
+  of ConsensusFork.Deneb:
     try:
-      tmp[].eip4844Data.data = RestJson.decode(
+      tmp[].denebData.data = RestJson.decode(
         string(data.get()),
         deneb.BeaconState,
         requireAllFields = true,
         allowUnknownFields = true)
     except SerializationError:
-      reader.raiseUnexpectedValue("Incorrect EIP4844 beacon state format")
-    toValue(eip4844Data)
+      reader.raiseUnexpectedValue("Incorrect deneb beacon state format")
+    toValue(denebData)
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)
                 {.raises: [IOError, Defect].} =
@@ -1791,10 +1863,53 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
   of ConsensusFork.Capella:
     writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData.data)
-  of ConsensusFork.EIP4844:
-    writer.writeField("version", "eip4844")
-    writer.writeField("data", value.eip4844Data.data)
+  of ConsensusFork.Deneb:
+    writer.writeField("version", "deneb")
+    writer.writeField("data", value.denebData.data)
   writer.endRecord()
+
+## SomeForkedLightClientObject
+proc readValue*[T: SomeForkedLightClientObject](
+    reader: var JsonReader[RestJson], value: var T) {.
+    raises: [IOError, SerializationError, Defect].} =
+  var
+    version: Opt[ConsensusFork]
+    data: Opt[JsonString]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome:
+        reader.raiseUnexpectedField("Multiple version fields found", T.name)
+      let consensusFork =
+        decodeEthConsensusVersion(reader.readValue(string)).valueOr:
+          reader.raiseUnexpectedValue("Incorrect version field value")
+      version.ok consensusFork
+    of "data":
+      if data.isSome:
+        reader.raiseUnexpectedField("Multiple data fields found", T.name)
+      data.ok reader.readValue(JsonString)
+    else:
+      unrecognizedFieldWarning()
+
+  if version.isNone:
+    reader.raiseUnexpectedValue("Field version is missing")
+  if data.isNone:
+    reader.raiseUnexpectedValue("Field data is missing")
+
+  withLcDataFork(lcDataForkAtConsensusFork(version.get)):
+    when lcDataFork > LightClientDataFork.None:
+      value = T(kind: lcDataFork)
+      try:
+        value.forky(lcDataFork) = RestJson.decode(
+          string(data.get()),
+          T.Forky(lcDataFork),
+          requireAllFields = true,
+          allowUnknownFields = true)
+      except SerializationError:
+        reader.raiseUnexpectedValue("Incorrect format (" & $lcDataFork & ")")
+    else:
+      reader.raiseUnexpectedValue("Unsupported fork " & $version.get)
 
 ## Web3SignerRequest
 proc writeValue*(writer: var JsonWriter[RestJson],
@@ -1845,6 +1960,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     # https://github.com/ConsenSys/web3signer/blob/41c0cbfabcb1fca9587b59e058b7eb29f152c60c/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L418-L497
     writer.writeField("beacon_block", value.beaconBlock)
 
+    if isSome(value.proofs):
+      writer.writeField("proofs", value.proofs.get())
   of Web3SignerRequestKind.Deposit:
     writer.writeField("type", "DEPOSIT")
     if isSome(value.signingRoot):
@@ -1911,6 +2028,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     forkInfo: Option[Web3SignerForkInfo]
     signingRoot: Option[Eth2Digest]
     data: Option[JsonString]
+    proofs: seq[Web3SignerMerkleProof]
     dataName: string
 
   for fieldName in readObjectFields(reader):
@@ -1959,14 +2077,19 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField("Multiple `signingRoot` fields found",
                                     "Web3SignerRequest")
       signingRoot = some(reader.readValue(Eth2Digest))
+    of "proofs":
+      let newProofs = reader.readValue(seq[Web3SignerMerkleProof])
+      proofs.add(newProofs)
     of "aggregation_slot", "aggregate_and_proof", "block", "beacon_block",
        "randao_reveal", "voluntary_exit", "sync_committee_message",
-       "sync_aggregator_selection_data", "contribution_and_proof", "attestation":
+       "sync_aggregator_selection_data", "contribution_and_proof",
+       "attestation", "deposit", "validator_registration":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple data fields found",
                                     "Web3SignerRequest")
       dataName = fieldName
       data = some(reader.readValue(JsonString))
+
     else:
       unrecognizedFieldWarning()
 
@@ -2052,10 +2175,17 @@ proc readValue*(reader: var JsonReader[RestJson],
             reader.raiseUnexpectedValue(
               "Incorrect field `beacon_block` format")
           res.get()
-      Web3SignerRequest(
-        kind: Web3SignerRequestKind.BlockV2,
-        forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data
-      )
+      if len(proofs) > 0:
+        Web3SignerRequest(
+          kind: Web3SignerRequestKind.BlockV2,
+          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data,
+          proofs: Opt.some(proofs)
+        )
+      else:
+        Web3SignerRequest(
+          kind: Web3SignerRequestKind.BlockV2,
+          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data
+        )
     of Web3SignerRequestKind.Deposit:
       if dataName != "deposit":
         reader.raiseUnexpectedValue("Field `deposit` is missing")
@@ -2596,6 +2726,12 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## RestNodeValidity
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestNodeValidity) {.
+     raises: [IOError, Defect].} =
+  writer.writeValue($value)
+
 ## RestSyncInfo
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: RestSyncInfo) {.
@@ -2606,6 +2742,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   writer.writeField("is_syncing", value.is_syncing)
   if value.is_optimistic.isSome():
     writer.writeField("is_optimistic", value.is_optimistic.get())
+  if value.el_offline.isSome():
+    writer.writeField("el_offline", value.el_offline.get())
   writer.endRecord()
 
 ## RestErrorMessage
@@ -2691,8 +2829,8 @@ proc decodeBody*(
         return err("Unexpected deserialization error")
     ok(data)
   elif body.contentType == OctetStreamMediaType:
-    let blockFork = ? ConsensusFork.decodeString(version)
-    case blockFork
+    let consensusFork = ? ConsensusFork.decodeString(version)
+    case consensusFork
     of ConsensusFork.Phase0:
       let blck =
         try:
@@ -2729,8 +2867,15 @@ proc decodeBody*(
         except CatchableError:
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
-    of ConsensusFork.EIP4844:
-      return err($denebImplementationMissing)
+    of ConsensusFork.Deneb:
+      let blck =
+        try:
+          SSZ.decode(body.data, deneb.SignedBeaconBlock)
+        except SerializationError:
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
   else:
     return err("Unsupported or invalid content media type")
 
@@ -2875,7 +3020,14 @@ proc decodeBytes*[T: DecodeTypes](
 proc encodeString*(value: string): RestResult[string] =
   ok(value)
 
-proc encodeString*(value: Epoch|Slot|CommitteeIndex|SyncSubcommitteeIndex): RestResult[string] =
+proc encodeString*(
+    value:
+      uint64 |
+      SyncCommitteePeriod |
+      Epoch |
+      Slot |
+      CommitteeIndex |
+      SyncSubcommitteeIndex): RestResult[string] =
   ok(Base10.toString(uint64(value)))
 
 proc encodeString*(value: ValidatorSig): RestResult[string] =
@@ -3199,5 +3351,5 @@ proc decodeString*(t: typedesc[ConsensusFork],
   of "altair": ok(ConsensusFork.Altair)
   of "bellatrix": ok(ConsensusFork.Bellatrix)
   of "capella": ok(ConsensusFork.Capella)
-  of "eip4844": ok(ConsensusFork.EIP4844)
+  of "deneb": ok(ConsensusFork.Deneb)
   else: err("Unsupported or invalid beacon block fork version")

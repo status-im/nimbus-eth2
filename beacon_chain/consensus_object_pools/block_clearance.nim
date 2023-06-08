@@ -45,7 +45,8 @@ proc addResolvedHeadBlock(
 
   let
     blockRoot = trustedBlock.root
-    blockRef = BlockRef.init(blockRoot, trustedBlock.message)
+    blockRef = BlockRef.init(
+      blockRoot, executionValid = blockVerified, trustedBlock.message)
     startTick = Moment.now()
 
   link(parent, blockRef)
@@ -95,20 +96,14 @@ proc addResolvedHeadBlock(
     dag.putShufflingRef(
       ShufflingRef.init(state, cache, blockRef.slot.epoch + 1))
 
-  if not blockVerified:
-    dag.optimisticRoots.incl blockRoot
-
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    var unrealized: FinalityCheckpoints
-    if enableTestFeatures in dag.updateFlags:
-      unrealized = withState(state):
-        static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
-        when stateFork >= ConsensusFork.Altair:
-          forkyState.data.compute_unrealized_finality()
-        else:
-          forkyState.data.compute_unrealized_finality(cache)
+    let unrealized = withState(state):
+      when consensusFork >= ConsensusFork.Altair:
+        forkyState.data.compute_unrealized_finality()
+      else:
+        forkyState.data.compute_unrealized_finality(cache)
     onBlockAdded(blockRef, trustedBlock, epochRef, unrealized)
   if not(isNil(dag.onBlockAdded)):
     dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))
@@ -267,7 +262,7 @@ proc addHeadBlock*(
       return err(VerifierError.Invalid)
 
     if not verifier.batchVerify(sigs):
-      info "Block signature verification failed",
+      info "Block batch signature verification failed",
         signature = shortLog(signedBlock.signature)
       return err(VerifierError.Invalid)
 

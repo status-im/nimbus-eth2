@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import strutils
 
 --noNimblePath
@@ -79,12 +86,6 @@ if defined(windows):
   # toolchain: https://github.com/status-im/nimbus-eth2/issues/3121
   switch("define", "nimRawSetjmp")
 
-# This helps especially for 32-bit x86, which sans SSE2 and newer instructions
-# requires quite roundabout code generation for cryptography, and other 64-bit
-# and larger arithmetic use cases, along with register starvation issues. When
-# engineering a more portable binary release, this should be tweaked but still
-# use at least -msse2 or -msse3.
-#
 # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#ssse3-supplemental-sse3
 # suggests that SHA256 hashing with SSSE3 is 20% faster than without SSSE3, so
 # given its near-ubiquity in the x86 installed base, it renders a distribution
@@ -93,8 +94,7 @@ if defined(windows):
 if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
     if defined(macosx):
-      # https://support.apple.com/kb/sp803
-      # "macOS Catalina - Technical Specifications": EOL as of 2022-09
+      # macOS Catalina is EOL as of 2022-09
       # https://support.apple.com/kb/sp833
       # "macOS Big Sur - Technical Specifications" lists current oldest
       # supported models: MacBook (2015 or later), MacBook Air (2013 or later),
@@ -107,12 +107,17 @@ if defined(disableMarchNative):
       switch("passC", "-march=haswell -mtune=generic")
       switch("passL", "-march=haswell -mtune=generic")
     else:
-      switch("passC", "-mssse3")
-      switch("passL", "-mssse3")
+      if defined(marchOptimized):
+        # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#bmi2--adx
+        switch("passC", "-march=broadwell -mtune=generic")
+        switch("passL", "-march=broadwell -mtune=generic")
+      else:
+        switch("passC", "-mssse3")
+        switch("passL", "-mssse3")
 elif defined(macosx) and defined(arm64):
   # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
-  switch("passC", "-mcpu=apple-a14")
-  switch("passL", "-mcpu=apple-a14")
+  switch("passC", "-mcpu=apple-m1")
+  switch("passL", "-mcpu=apple-m1")
 else:
   switch("passC", "-march=native")
   switch("passL", "-march=native")
@@ -184,14 +189,15 @@ switch("warning", "LockLevel:off")
 
 # Too many right now to read compiler output. Warnings are legitimate, but
 # should be fixed out-of-band of `unstable` branch.
-if (NimMajor, NimMinor, NimPatch) >= (1, 6, 11):
-  switch("warning", "BareExcept:off")
+switch("warning", "BareExcept:off")
 
 # Too many of these because of Defect compat in 1.2
 switch("hint", "XCannotRaiseY:off")
 
 # Useful for Chronos metrics.
 #--define:chronosFutureTracking
+
+--define:kzgExternalBlst
 
 # ############################################################
 #

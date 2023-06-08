@@ -10,24 +10,31 @@
 import
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/signatures_batch,
+  ../spec/[signatures, signatures_batch],
   ../sszdump
 
+from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
+from std/sequtils import mapIt
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
-  runForkchoiceUpdated, runProposalForkchoiceUpdated, shouldSyncOptimistically,
-  updateHead, updateHeadWithExecution
+  runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
+  updateHeadWithExecution
+from ../consensus_object_pools/blockchain_dag import
+  getBlockRef, getProposer, forkAtEpoch, loadExecutionBlockHash,
+  markBlockVerified, validatorKey
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
-  addOrphan, addUnviable, pop, removeOrphan
+  addBlobless, addOrphan, addUnviable, pop, removeOrphan
+from ../consensus_object_pools/blob_quarantine import
+  BlobQuarantine, hasBlobs, popBlobs
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../spec/datatypes/eip4844 import BlobsSidecar
-from ../spec/state_transition_block import validate_blobs_sidecar
+from ../beacon_chain_db import putBlobSidecar
+from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
 
@@ -44,12 +51,16 @@ const
     ## syncing the finalized part of the chain
   PAYLOAD_PRE_WALL_SLOTS = SLOTS_PER_EPOCH * 2
     ## Number of slots from wall time that we start processing every payload
+  MAX_DEDUP_QUEUE_LEN = 16
+    ## Number of blocks, with FIFO discipline, against which to check queued
+    ## blocks before being processed to avoid spamming ELs. This should stay
+    ## small enough that even O(n) algorithms are reasonable.
 
 type
-  BlobSidecars* = List[Blob, Limit MAX_BLOBS_PER_BLOCK]
+  BlobSidecars* = seq[ref BlobSidecar]
   BlockEntry = object
     blck*: ForkedSignedBeaconBlock
-    blobs*: BlobSidecars
+    blobs*: Opt[BlobSidecars]
     maybeFinalized*: bool
       ## The block source claims the block has been finalized already
     resfut*: Future[Result[void, VerifierError]]
@@ -89,15 +100,19 @@ type
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
-      ## Blockchain DAG, AttestationPool, Quarantine, and Eth1Manager
+      ## Blockchain DAG, AttestationPool, Quarantine, and ELManager
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
+    blobQuarantine: ref BlobQuarantine
     verifier: BatchVerifier
 
     lastPayload: Slot
       ## The slot at which we sent a payload to the execution client the last
       ## time
+
+    dupBlckBuf: Deque[(Eth2Digest, ValidatorSig)]
+      # Small buffer to allow for filtering of duplicate blocks in block queue
 
   NewPayloadStatus {.pure.} = enum
     valid
@@ -111,7 +126,7 @@ type
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: BlobSidecars,
+    blobs: Opt[BlobSidecars],
     resfut: Future[Result[void, VerifierError]] = nil,
     maybeFinalized = false,
     validationDur = Duration())
@@ -125,6 +140,7 @@ proc new*(T: type BlockProcessor,
           rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
+          blobQuarantine: ref BlobQuarantine,
           getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
@@ -133,8 +149,11 @@ proc new*(T: type BlockProcessor,
     blockQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
+    blobQuarantine: blobQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier(rng: rng, taskpool: taskpool)
+    verifier: BatchVerifier(rng: rng, taskpool: taskpool),
+    dupBlckBuf: initDeque[(Eth2Digest, ValidatorSig)](
+      initialSize = MAX_DEDUP_QUEUE_LEN)
   )
 
 # Sync callbacks
@@ -166,24 +185,34 @@ proc dumpBlock[T](
 
 from ../consensus_object_pools/block_clearance import
   addBackfillBlock, addHeadBlock
-from ../beacon_chain_db import putBlobsSidecar
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobs: BlobSidecars): Result[void, VerifierError] =
+    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
-  let blobsOk =
-      when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
-          blobs.len > 0 or true
-        # TODO: validate blobs
-      else:
-        true
+  var blobsOk = true
+  when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+    if blobsOpt.isSome:
+      let blobs = blobsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if blobs.len > 0 or kzgCommits.len > 0:
+        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+                               blobs.mapIt(it.kzg_proof))
+        if r.isErr():
+          debug "backfill blob validation failed",
+           blockRoot = shortLog(signedBlock.root),
+           blobs = shortLog(blobs),
+           blck = shortLog(signedBlock.message),
+           signature = shortLog(signedBlock.signature),
+           msg = r.error()
+        blobsOk = r.isOk()
+
   if not blobsOk:
     return err(VerifierError.Invalid)
 
@@ -206,22 +235,29 @@ proc storeBackfillBlock(
     return res
 
   # Only store blobs after successfully establishing block viability.
-  # TODO: store blobs in db
+  let blobs = blobsOpt.valueOr: BlobSidecars @[]
+  for b in blobs:
+    self.consensusManager.dag.db.putBlobSidecar(b[])
 
   res
 
-
-from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
-from ../eth1/eth1_monitor import
-  Eth1Monitor, asEngineExecutionPayload, ensureDataProvider, newPayload
+from web3/engine_api_types import
+  PayloadAttributesV1, PayloadAttributesV2, PayloadExecutionStatus,
+  PayloadStatusV1
+from ../el/el_manager import
+  ELManager, asEngineExecutionPayload, forkchoiceUpdated, hasConnection,
+  hasProperlyConfiguredConnection, sendNewPayload
 
 proc expectValidForkchoiceUpdated(
-    eth1Monitor: Eth1Monitor,
+    elManager: ELManager, headBlockPayloadAttributesType: typedesc,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
     receivedBlock: ForkySignedBeaconBlock): Future[void] {.async.} =
   let
-    (payloadExecutionStatus, _) = await eth1Monitor.runForkchoiceUpdated(
-      headBlockHash, safeBlockHash, finalizedBlockHash)
+    (payloadExecutionStatus, _) = await elManager.forkchoiceUpdated(
+      headBlockHash = headBlockHash,
+      safeBlockHash = safeBlockHash,
+      finalizedBlockHash = finalizedBlockHash,
+      payloadAttributes = none headBlockPayloadAttributesType)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).toFork >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
@@ -253,46 +289,39 @@ proc expectValidForkchoiceUpdated(
 
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead, BeaconHead
-from ../consensus_object_pools/blockchain_dag import
-  is_optimistic, loadExecutionBlockRoot, markBlockVerified
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
 from ../spec/datatypes/altair import SignedBeaconBlock
 
-from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
 from ../spec/datatypes/capella import
   ExecutionPayload, SignedBeaconBlock, asTrusted, shortLog
 
+# TODO investigate why this seems to allow compilation even though it doesn't
+# directly address deneb.ExecutionPayload when complaint was that it didn't
+# know about "deneb"
+from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
+
 proc newExecutionPayload*(
-    eth1Monitor: Eth1Monitor,
-    executionPayload: bellatrix.ExecutionPayload | capella.ExecutionPayload |
-    eip4844.ExecutionPayload):
+    elManager: ELManager,
+    executionPayload: ForkyExecutionPayload):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
-  if eth1Monitor.isNil:
+
+  if not elManager.hasProperlyConfiguredConnection:
+    if elManager.hasConnection:
+      info "No execution client connected; cannot process block payloads",
+        executionPayload = shortLog(executionPayload)
+    else:
+      debug "No execution client connected; cannot process block payloads",
+        executionPayload = shortLog(executionPayload)
     return Opt.none PayloadExecutionStatus
 
   debug "newPayload: inserting block into execution engine",
     executionPayload = shortLog(executionPayload)
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#request
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/shanghai.md#request
-  const NEWPAYLOAD_TIMEOUT = 8.seconds
-
   try:
-    let
-      payloadResponse =
-        awaitWithTimeout(
-            eth1Monitor.newPayload(
-              executionPayload.asEngineExecutionPayload),
-            NEWPAYLOAD_TIMEOUT):
-          info "newPayload: newPayload timed out"
-          return Opt.none PayloadExecutionStatus
-
-          # Placeholder for type system
-          PayloadStatusV1(status: PayloadExecutionStatus.syncing)
-
-      payloadStatus = payloadResponse.status
+    let payloadStatus = await elManager.sendNewPayload(
+      executionPayload.asEngineExecutionPayload)
 
     debug "newPayload: succeeded",
       parentHash = executionPayload.parent_hash,
@@ -309,35 +338,29 @@ proc newExecutionPayload*(
       blockNumber = executionPayload.block_number
     return Opt.none PayloadExecutionStatus
 
-# TODO investigate why this seems to allow compilation even though it doesn't
-# directly address eip4844.ExecutionPayload when complaint was that it didn't
-# know about "eip4844"
-from ../spec/datatypes/eip4844 import SignedBeaconBlock, asTrusted, shortLog
-
 proc getExecutionValidity(
-    eth1Monitor: Eth1Monitor,
+    elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-    eip4844.SignedBeaconBlock):
+          deneb.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async.} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
 
-  if eth1Monitor.isNil:
-    return NewPayloadStatus.noResponse
-
   try:
-    # Minimize window for Eth1 monitor to shut down connection
-    await eth1Monitor.ensureDataProvider()
-
-    let executionPayloadStatus = await newExecutionPayload(
-      eth1Monitor, blck.message.body.execution_payload)
+    let executionPayloadStatus = await elManager.newExecutionPayload(
+      blck.message.body.execution_payload)
     if executionPayloadStatus.isNone:
       return NewPayloadStatus.noResponse
 
     case executionPayloadStatus.get
       of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-        debug "getExecutionValidity: execution payload invalid",
+        # Blocks come either from gossip or request manager requests. In the
+        # former case, they've passed libp2p gosisp validation which implies
+        # correct signature for correct proposer,which makes spam expensive,
+        # while for the latter, spam is limited by the request manager.
+        info "execution payload invalid from EL client newPayload",
           executionPayloadStatus = $executionPayloadStatus.get,
+          executionPayload = shortLog(blck.message.body.execution_payload),
           blck = shortLog(blck)
         return NewPayloadStatus.invalid
       of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
@@ -345,13 +368,37 @@ proc getExecutionValidity(
       of PayloadExecutionStatus.valid:
         return NewPayloadStatus.valid
   except CatchableError as err:
-    error "getExecutionValidity: newPayload failed", err = err.msg
+    error "newPayload failed and leaked exception",
+      err = err.msg,
+      executionPayload = shortLog(blck.message.body.execution_payload),
+      blck = shortLog(blck)
     return NewPayloadStatus.noResponse
+
+proc checkBloblessSignature(self: BlockProcessor,
+                            signed_beacon_block: deneb.SignedBeaconBlock):
+                              Result[void, cstring] =
+  let dag = self.consensusManager.dag
+  let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
+    return err("checkBloblessSignature called with orphan block")
+  let proposer = getProposer(
+        dag, parent, signed_beacon_block.message.slot).valueOr:
+    return err("checkBloblessSignature: Cannot compute proposer")
+  if uint64(proposer) != signed_beacon_block.message.proposer_index:
+    return err("checkBloblessSignature: Incorrect proposer")
+  if not verify_block_signature(
+      dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
+      getStateField(dag.headState, genesis_validators_root),
+      signed_beacon_block.message.slot,
+      signed_beacon_block.root,
+      dag.validatorKey(proposer).get(),
+      signed_beacon_block.signature):
+    return err("checkBloblessSignature: Invalid proposer signature")
+  ok()
 
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobs: BlobSidecars,
+    blobsOpt: Opt[BlobSidecars],
     maybeFinalized = false,
     queueTick: Moment = Moment.now(), validationDur = Duration()):
     Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
@@ -368,7 +415,8 @@ proc storeBlock*(
     payloadStatus =
       if maybeFinalized and
           (self.lastPayload + SLOTS_PER_PAYLOAD) > signedBlock.message.slot and
-          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot:
+          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot and
+          signedBlock.message.is_execution_block:
         # Skip payload validation when message source (reasonably) claims block
         # has been finalized - this speeds up forward sync - in the worst case
         # that the claim is false, we will correct every time we process a block
@@ -378,7 +426,7 @@ proc storeBlock*(
         NewPayloadStatus.noResponse
       else:
         when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
-          await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
+          await self.consensusManager.elManager.getExecutionValidity(signedBlock)
         else:
           NewPayloadStatus.valid # vacuously
     payloadValid = payloadStatus == NewPayloadStatus.valid
@@ -394,9 +442,9 @@ proc storeBlock*(
     # When the execution layer is not available to verify the payload, we do the
     # required check on the CL side instead and proceed as if the EL was syncing
 
-    # Client software MUST validate blockHash value as being equivalent to
-    # Keccak256(RLP(ExecutionBlockHeader))
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification
+    # Client software MUST validate `blockHash` value as being equivalent to
+    # `Keccak256(RLP(ExecutionBlockHeader))`
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification
     when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
@@ -416,10 +464,21 @@ proc storeBlock*(
 
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
-    if blobs.len > 0:
-      discard
-      # TODO: validate blobs
+  when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+    if blobsOpt.isSome:
+      let blobs = blobsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if blobs.len > 0 or kzgCommits.len > 0:
+        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+                               blobs.mapIt(it.kzg_proof))
+        if r.isErr():
+          debug "blob validation failed",
+            blockRoot = shortLog(signedBlock.root),
+            blobs = shortLog(blobs),
+            blck = shortLog(signedBlock.message),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
+          return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
   let blck = dag.addHeadBlock(self.verifier, signedBlock, payloadValid) do (
@@ -438,7 +497,7 @@ proc storeBlock*(
           trustedBlock.message.slot)
 
     withState(dag[].clearanceState):
-      when stateFork >= ConsensusFork.Altair and
+      when consensusFork >= ConsensusFork.Altair and
           Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
         for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
           vm[].registerSyncAggregateInBlock(
@@ -461,12 +520,14 @@ proc storeBlock*(
 
         return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
-      if not self.consensusManager.quarantine[].addOrphan(
-          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock)):
-        debug "Block quarantine full",
+      if (let r = self.consensusManager.quarantine[].addOrphan(
+          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock));
+              r.isErr()):
+        debug "storeBlock: could not add orphan",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
-          signature = shortLog(signedBlock.signature)
+          signature = shortLog(signedBlock.signature),
+          err = r.error()
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
@@ -478,7 +539,10 @@ proc storeBlock*(
     # If the EL responded at all, we don't need to try again for a while
     self[].lastPayload = signedBlock.message.slot
 
-  # TODO: store blobs in db
+  # write blobs now that block has been written.
+  let blobs = blobsOpt.valueOr: BlobSidecars @[]
+  for b in blobs:
+    self.consensusManager.dag.db.putBlobSidecar(b[])
 
   let storeBlockTick = Moment.now()
 
@@ -498,17 +562,13 @@ proc storeBlock*(
   # This reduces in-flight fcU spam, which both reduces EL load and decreases
   # otherwise somewhat unpredictable CL head movement.
 
-  if payloadValid:
-    self.consensusManager.dag.markBlockVerified(
-      self.consensusManager.quarantine[], signedBlock.root)
-
   # Grab the new head according to our latest attestation data; determines how
   # async this needs to be.
   let newHead = attestationPool[].selectOptimisticHead(
     wallSlot.start_beacon_time)
 
   if newHead.isOk:
-    template eth1Monitor(): auto = self.consensusManager.eth1Monitor
+    template elManager(): auto = self.consensusManager.elManager
     if self.consensusManager[].shouldSyncOptimistically(wallSlot):
       # Optimistic head is far in the future; report it as head block to EL.
 
@@ -517,7 +577,7 @@ proc storeBlock*(
       # > Client software MAY skip an update of the forkchoice state and MUST
       #   NOT begin a payload build process if `forkchoiceState.headBlockHash`
       #   references an ancestor of the head of canonical chain.
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification-1
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-1
       #
       # However, in practice, an EL client may not have completed importing all
       # block headers, so may be unaware of a block's ancestor status.
@@ -526,33 +586,59 @@ proc storeBlock*(
       # - "Beacon chain gapped" from DAG head to optimistic head,
       # - followed by "Beacon chain reorged" from optimistic head back to DAG.
       self.consensusManager[].updateHead(newHead.get.blck)
-      discard await eth1Monitor.runForkchoiceUpdated(
-        headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
-        safeBlockHash = newHead.get.safeExecutionPayloadHash,
-        finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash)
+
+      template callForkchoiceUpdated(attributes: untyped) =
+        discard await elManager.forkchoiceUpdated(
+          headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
+          safeBlockHash = newHead.get.safeExecutionPayloadHash,
+          finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+          payloadAttributes = none attributes)
+
+      case self.consensusManager.dag.cfg.consensusForkAtEpoch(
+          newHead.get.blck.bid.slot.epoch)
+      of ConsensusFork.Capella, ConsensusFork.Deneb:
+        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
+        # Consensus layer client MUST call this method instead of
+        # `engine_forkchoiceUpdatedV1` under any of the following conditions:
+        # `headBlockHash` references a block which `timestamp` is greater or
+        # equal to the Shanghai timestamp
+        callForkchoiceUpdated(PayloadAttributesV2)
+      of ConsensusFork.Bellatrix:
+        callForkchoiceUpdated(PayloadAttributesV1)
+      of ConsensusFork.Phase0, ConsensusFork.Altair:
+        discard
     else:
       let
         headExecutionPayloadHash =
-          self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
+          dag.loadExecutionBlockHash(newHead.get.blck)
         wallSlot = self.getBeaconTime().slotOrZero
       if  headExecutionPayloadHash.isZero or
           NewPayloadStatus.noResponse == payloadStatus:
         # Blocks without execution payloads can't be optimistic, and don't try
         # to fcU to a block the EL hasn't seen
         self.consensusManager[].updateHead(newHead.get.blck)
-      elif not self.consensusManager.dag.is_optimistic newHead.get.blck.root:
-        # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
-        # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
-        # client only.
+      elif newHead.get.blck.executionValid:
+        # `forkchoiceUpdated` necessary for EL client only.
         self.consensusManager[].updateHead(newHead.get.blck)
 
         if self.consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
-          await eth1Monitor.expectValidForkchoiceUpdated(
-            headBlockHash = headExecutionPayloadHash,
-            safeBlockHash = newHead.get.safeExecutionPayloadHash,
-            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
-            receivedBlock = signedBlock)
+
+          template callForkchoiceUpdated(payloadAttributeType: untyped): auto =
+            await elManager.expectValidForkchoiceUpdated(
+              headBlockPayloadAttributesType = payloadAttributeType,
+              headBlockHash = headExecutionPayloadHash,
+              safeBlockHash = newHead.get.safeExecutionPayloadHash,
+              finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+              receivedBlock = signedBlock)
+
+          case self.consensusManager.dag.cfg.consensusForkAtEpoch(
+              newHead.get.blck.bid.slot.epoch)
+          of ConsensusFork.Capella, ConsensusFork.Deneb:
+            callForkchoiceUpdated(payloadAttributeType = PayloadAttributesV2)
+          of  ConsensusFork.Phase0, ConsensusFork.Altair,
+              ConsensusFork.Bellatrix:
+            callForkchoiceUpdated(payloadAttributeType = PayloadAttributesV1)
         else:
           # Some attached validator is next proposer, so prepare payload. As
           # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
@@ -564,7 +650,7 @@ proc storeBlock*(
           newHead.get, self.getBeaconTime)
   else:
     warn "Head selection failed, using previous head",
-      head = shortLog(self.consensusManager.dag.head), wallSlot
+      head = shortLog(dag.head), wallSlot
 
   let
     updateHeadTick = Moment.now()
@@ -575,13 +661,33 @@ proc storeBlock*(
   beacon_store_block_duration_seconds.observe(storeBlockDur.toFloatSeconds())
 
   debug "Block processed",
-    localHeadSlot = self.consensusManager.dag.head.slot,
+    localHeadSlot = dag.head.slot,
     blockSlot = blck.get().slot,
     validationDur, queueDur, storeBlockDur, updateHeadDur
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
-    self[].addBlock(MsgSource.gossip, quarantined, BlobSidecars @[])
+    withBlck(quarantined):
+      when typeof(blck).toFork() < ConsensusFork.Deneb:
+        self[].addBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
+      else:
+        if len(blck.message.body.blob_kzg_commitments) == 0:
+          self[].addBlock(MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
+        else:
+          if (let res = checkBloblessSignature(self[], blck); res.isErr):
+            warn "Failed to verify signature of unorphaned blobless block",
+             blck = shortLog(blck),
+             error = res.error()
+            continue
+          if self.blobQuarantine[].hasBlobs(blck):
+            let blobs = self.blobQuarantine[].popBlobs(blck.root)
+            self[].addBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
+          else:
+            if not self.consensusManager.quarantine[].addBlobless(
+              dag.finalizedHead.slot, blck):
+              notice "Block quarantine full (blobless)",
+               blockRoot = shortLog(quarantined.root),
+               signature = shortLog(quarantined.signature)
 
   return Result[BlockRef, (VerifierError, ProcessingStatus)].ok blck.get
 
@@ -590,7 +696,7 @@ proc storeBlock*(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: BlobSidecars,
+    blobs: Opt[BlobSidecars],
     resfut: Future[Result[void, VerifierError]] = nil,
     maybeFinalized = false,
     validationDur = Duration()) =
@@ -623,6 +729,19 @@ proc addBlock*(
   except AsyncQueueFullError:
     raiseAssert "unbounded queue"
 
+# Dedup
+# ------------------------------------------------------------------------------
+
+func checkDuplicateBlocks(self: ref BlockProcessor, entry: BlockEntry): bool =
+  let key = (entry.blck.root, entry.blck.signature)
+  if self.dupBlckBuf.contains key:
+    return true
+  doAssert self.dupBlckBuf.len <= MAX_DEDUP_QUEUE_LEN
+  if self.dupBlckBuf.len >= MAX_DEDUP_QUEUE_LEN:
+    self.dupBlckBuf.shrink(fromFirst = 1)
+  self.dupBlckBuf.addLast key
+  false
+
 # Event Loop
 # ------------------------------------------------------------------------------
 
@@ -639,6 +758,12 @@ proc processBlock(
     error "Processing block before genesis, clock turned back?"
     quit 1
 
+  if self.checkDuplicateBlocks(entry):
+    if entry.resfut != nil:
+      entry.resfut.complete(Result[void, VerifierError].err(
+        VerifierError.Duplicate))
+    return
+
   let res = withBlck(entry.blck):
     await self.storeBlock(
       entry.src, wallTime, blck, entry.blobs, entry.maybeFinalized,
@@ -650,7 +775,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].addBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,

@@ -25,7 +25,7 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
-  BlindedBeaconBlockBody = object
+  BlindedBeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
@@ -73,7 +73,8 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     block_number: v.body.execution_payload_header.block_number,
     # TODO checksum hex? shortlog?
     fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
-    #bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),  # TODO validator_client/block_service.nim seems to want same shape of shortLogs across all block types
+    bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
+    blob_kzg_commitments_len: 0,  # Deneb compat
   )
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =

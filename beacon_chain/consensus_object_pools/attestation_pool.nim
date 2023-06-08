@@ -97,8 +97,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
   let finalizedEpochRef = dag.getFinalizedEpochRef()
 
   var forkChoice = ForkChoice.init(
-    finalizedEpochRef, dag.finalizedHead.blck,
-    experimental in dag.updateFlags)
+    finalizedEpochRef, dag.finalizedHead.blck)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
@@ -138,16 +137,19 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
         else:
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch, false).expect(
             "Getting an EpochRef should always work for non-finalized blocks")
-          let blck = dag.getForkedBlock(blckRef.bid).expect(
-            "Should be able to load initial fork choice blocks")
-          var unrealized: FinalityCheckpoints
-          if enableTestFeatures in dag.updateFlags and blckRef == dag.head:
-            unrealized = withState(dag.headState):
-              when stateFork >= ConsensusFork.Altair:
-                forkyState.data.compute_unrealized_finality()
+          let
+            blck = dag.getForkedBlock(blckRef.bid).expect(
+              "Should be able to load initial fork choice blocks")
+            unrealized =
+              if blckRef == dag.head:
+                withState(dag.headState):
+                  when consensusFork >= ConsensusFork.Altair:
+                    forkyState.data.compute_unrealized_finality()
+                  else:
+                    var cache: StateCache
+                    forkyState.data.compute_unrealized_finality(cache)
               else:
-                var cache: StateCache
-                forkyState.data.compute_unrealized_finality(cache)
+                default(FinalityCheckpoints)
           withBlck(blck):
             forkChoice.process_block(
               dag, epochRef, blckRef, unrealized, blck.message,
@@ -535,26 +537,21 @@ func score(
 
 proc check_attestation_compatible*(
     dag: ChainDAGRef,
-    state: ForkyBeaconState,
+    state: ForkyHashedBeaconState,
     attestation: SomeAttestation): Result[void, cstring] =
-  let targetEpoch = attestation.data.target.epoch
-  if targetEpoch <= MIN_SEED_LOOKAHEAD:
-    return ok()
-
   let
-    attestedBlck =
-      dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
-        return err("Unknown `beacon_block_root`")
+    targetEpoch = attestation.data.target.epoch
+    compatibleRoot = state.dependent_root(targetEpoch.get_previous_epoch)
 
-    dependentSlot = (targetEpoch - MIN_SEED_LOOKAHEAD).start_slot - 1
+    attestedBlck = dag.getBlockRef(attestation.data.target.root).valueOr:
+      return err("Unknown `target.root`")
+    dependentSlot = targetEpoch.attester_dependent_slot
     dependentBid = dag.atSlot(attestedBlck.bid, dependentSlot).valueOr:
       return err("Dependent root not found")
-
     dependentRoot = dependentBid.bid.root
-    compatibleRoot = state.get_block_root_at_slot(dependentSlot)
+
   if dependentRoot != compatibleRoot:
     return err("Incompatible shuffling")
-
   ok()
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
@@ -562,7 +559,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
-  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#attestations
+  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#attestations
   let newBlockSlot = state.data.slot.uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
@@ -608,8 +605,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
 
         # Filter out attestations that were created with a different shuffling.
         # As we don't re-check signatures, this needs to be done separately
-        if not check_attestation_compatible(
-              pool.dag, state.data, attestation).isOk():
+        if not pool.dag.check_attestation_compatible(state, attestation).isOk():
           continue
 
         # Attestations are checked based on the state that we're adding the
@@ -746,7 +742,7 @@ func getAggregatedAttestation*(pool: var AttestationPool,
                                index: CommitteeIndex): Opt[Attestation] =
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
-  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#construct-aggregate
+  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
   let candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
     return Opt.none(Attestation)
@@ -774,9 +770,9 @@ proc getBeaconHead*(
     pool: AttestationPool, headBlock: BlockRef): BeaconHead =
   let
     finalizedExecutionPayloadHash =
-      pool.dag.loadExecutionBlockRoot(pool.dag.finalizedHead.blck)
+      pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/fork_choice/safe-block.md#get_safe_execution_payload_hash
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/fork_choice/safe-block.md#get_safe_execution_payload_hash
     safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionPayloadHash =
@@ -789,7 +785,7 @@ proc getBeaconHead*(
         # let's just report the finalized execution payload hash instead.
         finalizedExecutionPayloadHash
       else:
-        pool.dag.loadExecutionBlockRoot(safeBlock.get)
+        pool.dag.loadExecutionBlockHash(safeBlock.get)
 
   BeaconHead(
     blck: headBlock,

@@ -24,7 +24,7 @@ logScope:
 
 export results
 
-# https://github.com/ethereum/consensus-specs/blob/v0.11.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -90,8 +90,7 @@ func nodeLeadsToViableHead(
 # ----------------------------------------------------------------------
 
 func init*(
-    T: type ProtoArray, checkpoints: FinalityCheckpoints,
-    experimental, hasLowParticipation: bool): T =
+    T: type ProtoArray, checkpoints: FinalityCheckpoints): T =
   let node = ProtoNode(
     bid: BlockId(
       slot: checkpoints.finalized.epoch.start_slot,
@@ -103,14 +102,12 @@ func init*(
     bestChild: none(int),
     bestDescendant: none(int))
 
-  T(experimental: experimental,
-    hasLowParticipation: hasLowParticipation,
-    checkpoints: checkpoints,
+  T(checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
 iterator realizePendingCheckpoints*(
-    self: var ProtoArray, resetTipTracking = true): FinalityCheckpoints =
+    self: var ProtoArray): FinalityCheckpoints =
   # Pull-up chain tips from previous epoch
   for idx, unrealized in self.currentEpochTips.pairs():
     let physicalIdx = idx - self.nodes.offset
@@ -124,27 +121,14 @@ iterator realizePendingCheckpoints*(
     yield unrealized
 
   # Reset tip tracking for new epoch
-  if resetTipTracking:
-    self.currentEpochTips.clear()
+  self.currentEpochTips.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_weight
 func calculateProposerBoost(validatorBalances: openArray[Gwei]): uint64 =
-  var
-    total_balance: uint64
-    num_validators: uint64
+  var total_balance: uint64
   for balance in validatorBalances:
-    # We need to filter zero balances here to get an accurate active validator
-    # count. This is because we default inactive validator balances to zero
-    # when creating this balances array.
-    if balance != 0:
-      total_balance += balance
-      num_validators += 1
-  if num_validators == 0:
-    return 0
-  let
-    average_balance = total_balance div num_validators.uint64
-    committee_size = num_validators div SLOTS_PER_EPOCH
-    committee_weight = committee_size * average_balance
+    total_balance += balance
+  let committee_weight = total_balance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
 func applyScoreChanges*(self: var ProtoArray,
@@ -206,7 +190,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # If we find the node matching the current proposer boost root, increase
     # the delta by the new score amount.
     #
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_weight
     if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
       if  nodeDelta >= 0 and
@@ -535,50 +519,46 @@ func nodeLeadsToViableHead(
 
 func nodeIsViableForHead(
     self: ProtoArray, node: ProtoNode, nodeIdx: Index): bool =
-  ## This is the equivalent of `filter_block_tree` function in eth2 spec
-  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/fork-choice.md#filter_block_tree
+  ## This is the equivalent of `filter_block_tree` function in consensus specs
+  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#filter_block_tree
 
   if node.invalid:
     return false
 
-  if self.experimental:
-    var correctJustified =
-      self.checkpoints.justified.epoch == GENESIS_EPOCH or
-      node.checkpoints.justified.epoch == self.checkpoints.justified.epoch
-    if not correctJustified and self.isPreviousEpochJustified and
-        node.bid.slot.epoch == self.currentEpoch:
-      let unrealized =
-        self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
-      correctJustified =
-        unrealized.justified.epoch >= self.checkpoints.justified.epoch and
-        node.checkpoints.justified.epoch + 2 >= self.currentEpoch
-    return
-      if not correctJustified:
-        false
-      elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
-        true
-      else:
-        let finalizedSlot = self.checkpoints.finalized.epoch.start_slot
-        var ancestor = some node
-        while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot:
-          if ancestor.unsafeGet.parent.isSome:
-            ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
-          else:
-            ancestor.reset()
-        if ancestor.isSome:
-          ancestor.unsafeGet.bid.root == self.checkpoints.finalized.root
-        else:
-          false
+  # The voting source should be at the same height as the store's
+  # justified checkpoint
+  var correctJustified =
+    self.checkpoints.justified.epoch == GENESIS_EPOCH or
+    node.checkpoints.justified.epoch == self.checkpoints.justified.epoch
 
-  ## Any node that has a different finalized or justified epoch
-  ## should not be viable for the head.
-  (
-    (node.checkpoints.justified == self.checkpoints.justified) or
-    (self.checkpoints.justified.epoch == GENESIS_EPOCH)
-  ) and (
-    (node.checkpoints.finalized == self.checkpoints.finalized) or
-    (self.checkpoints.finalized.epoch == GENESIS_EPOCH)
-  )
+  # If the previous epoch is justified, the block should be pulled-up.
+  # In this case, check that unrealized justification is higher than the store
+  # and that the voting source is not more than two epochs ago
+  if not correctJustified and self.isPreviousEpochJustified and
+      node.bid.slot.epoch == self.currentEpoch:
+    let unrealized =
+      self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
+    correctJustified =
+      unrealized.justified.epoch >= self.checkpoints.justified.epoch and
+      node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+      
+  return
+    if not correctJustified:
+      false
+    elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
+      true
+    else:
+      let finalizedSlot = self.checkpoints.finalized.epoch.start_slot
+      var ancestor = some node
+      while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot:
+        if ancestor.unsafeGet.parent.isSome:
+          ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
+        else:
+          ancestor.reset()
+      if ancestor.isSome:
+        ancestor.unsafeGet.bid.root == self.checkpoints.finalized.root
+      else:
+        false
 
 func propagateInvalidity*(
     self: var ProtoArray, startPhysicalIdx: Index) =

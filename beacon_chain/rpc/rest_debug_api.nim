@@ -76,66 +76,55 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (
           root: it.root,
           slot: it.slot,
-          execution_optimistic: node.getBlockRefOptimistic(it)
+          execution_optimistic: not it.executionValid
         )
       )
     )
 
-  # https://github.com/ethereum/beacon-APIs/pull/232
-  if node.config.debugForkChoice or experimental in node.dag.updateFlags:
-    router.api(MethodGet,
-               "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
-      type
-        ForkChoiceResponseExtraData = object
-          justified_root: Eth2Digest
-          finalized_root: Eth2Digest
-          u_justified_checkpoint: Option[Checkpoint]
-          u_finalized_checkpoint: Option[Checkpoint]
-          best_child: Eth2Digest
-          best_descendant: Eth2Digest
-          invalid: bool
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugForkChoice
+  router.api(MethodGet,
+             "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
+    template forkChoice: auto = node.attestationPool[].forkChoice
 
-        ForkChoiceResponse = object
-          slot: Slot
-          block_root: Eth2Digest
-          parent_root: Eth2Digest
-          justified_epoch: Epoch
-          finalized_epoch: Epoch
-          weight: uint64
-          execution_optimistic: bool
-          execution_payload_root: Eth2Digest
-          extra_data: Option[ForkChoiceResponseExtraData]
+    var response = GetForkChoiceResponse(
+      justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
+      finalized_checkpoint: forkChoice.checkpoints.finalized)
 
-      var responses: seq[ForkChoiceResponse]
-      for item in node.attestationPool[].forkChoice.backend.proto_array:
-        let
-          unrealized = item.unrealized.get(item.checkpoints)
-          u_justified_checkpoint =
-            if unrealized.justified != item.checkpoints.justified:
-              some unrealized.justified
-            else:
-              none(Checkpoint)
-          u_finalized_checkpoint =
-            if unrealized.finalized != item.checkpoints.finalized:
-              some unrealized.finalized
-            else:
-              none(Checkpoint)
+    for item in forkChoice.backend.proto_array:
+      let
+        unrealized = item.unrealized.get(item.checkpoints)
+        u_justified_checkpoint =
+          if unrealized.justified != item.checkpoints.justified:
+            some unrealized.justified
+          else:
+            none(Checkpoint)
+        u_finalized_checkpoint =
+          if unrealized.finalized != item.checkpoints.finalized:
+            some unrealized.finalized
+          else:
+            none(Checkpoint)
 
-        responses.add ForkChoiceResponse(
-          slot: item.bid.slot,
-          block_root: item.bid.root,
-          parent_root: item.parent,
-          justified_epoch: item.checkpoints.justified.epoch,
-          finalized_epoch: item.checkpoints.finalized.epoch,
-          weight: cast[uint64](item.weight),
-          execution_optimistic: node.dag.is_optimistic(item.bid.root),
-          execution_payload_root: node.dag.loadExecutionBlockRoot(item.bid),
-          extra_data: some ForkChoiceResponseExtraData(
-            justified_root: item.checkpoints.justified.root,
-            finalized_root: item.checkpoints.finalized.root,
-            u_justified_checkpoint: u_justified_checkpoint,
-            u_finalized_checkpoint: u_finalized_checkpoint,
-            best_child: item.bestChild,
-            bestDescendant: item.bestDescendant,
-            invalid: item.invalid))
-      return RestApiResponse.jsonResponse(responses)
+      response.fork_choice_nodes.add RestNode(
+        slot: item.bid.slot,
+        block_root: item.bid.root,
+        parent_root: item.parent,
+        justified_epoch: item.checkpoints.justified.epoch,
+        finalized_epoch: item.checkpoints.finalized.epoch,
+        weight: cast[uint64](item.weight),
+        validity:
+          if item.invalid:
+            RestNodeValidity.invalid
+          elif node.dag.is_optimistic(item.bid):
+            RestNodeValidity.optimistic
+          else:
+            RestNodeValidity.valid,
+        execution_block_hash: node.dag.loadExecutionBlockHash(item.bid),
+        extra_data: some RestNodeExtraData(
+          justified_root: item.checkpoints.justified.root,
+          finalized_root: item.checkpoints.finalized.root,
+          u_justified_checkpoint: u_justified_checkpoint,
+          u_finalized_checkpoint: u_finalized_checkpoint,
+          best_child: item.bestChild,
+          bestDescendant: item.bestDescendant))
+
+    return RestApiResponse.jsonResponsePlain(response)

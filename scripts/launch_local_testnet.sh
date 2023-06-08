@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020-2022 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2023 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -24,19 +24,10 @@ log() {
   fi
 }
 
-# OS detection
-OS="linux"
-if uname | grep -qi darwin; then
-  OS="macos"
-elif uname | grep -qiE "mingw|msys"; then
-  OS="windows"
-fi
-
-# architecture detection
-ARCH="$(uname -m)"
+source "$SCRIPTS_DIR/detect_platform.sh"
 
 # Created processed that will be cleaned up when the script exits
-PIDS=""
+PIDS_TO_WAIT=""
 
 ####################
 # argument parsing #
@@ -44,7 +35,8 @@ PIDS=""
 
 GETOPT_BINARY="getopt"
 if [[ "${OS}" == "macos" ]]; then
-  GETOPT_BINARY=$(find /opt/homebrew/opt/gnu-getopt/bin/getopt /usr/local/opt/gnu-getopt/bin/getopt 2> /dev/null || true)
+  # Without the head -n1 constraint, it gets confused by multiple matches
+  GETOPT_BINARY=$(find /opt/homebrew/opt/gnu-getopt/bin/getopt /usr/local/opt/gnu-getopt/bin/getopt 2> /dev/null | head -n1 || true)
   [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
 fi
 
@@ -59,14 +51,14 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,nimbus-signer-nodes:,web3signer-nodes:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,altair-fork-epoch:,bellatrix-fork-epoch:,capella-fork-epoch:,deneb-fork-epoch:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,altair-fork-epoch:,bellatrix-fork-epoch:,capella-fork-epoch:,deneb-fork-epoch:"
 
 # default values
 BINARIES=""
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
-USE_VC="1"
+: ${USE_VC:="1"}
 USE_PAYLOAD_BUILDER="false"
 : ${PAYLOAD_BUILDER_HOST:=127.0.0.1}
 : ${PAYLOAD_BUILDER_PORT:=4888}
@@ -96,7 +88,6 @@ TIMEOUT_DURATION="0"
 CONST_PRESET="mainnet"
 KILL_OLD_PROCESSES="0"
 ETH2_DOCKER_IMAGE=""
-NIMBUS_SIGNER_NODES=0
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
 LC_NODES=1
@@ -107,20 +98,20 @@ DL_GETH="0"
 : ${DL_NIMBUS_ETH2:="0"}
 
 # TODO: Add command-line flags for these
-: ${NIMBUS_ETH2_VERSION:=22.12.0}
-: ${NIMBUS_ETH2_REVISION:=f6a5a5b1}
+: ${NIMBUS_ETH2_VERSION:=23.3.2}
+: ${NIMBUS_ETH2_REVISION:=6c0d756d}
 
-: ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node"}
+: ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node$EXE_EXTENSION"}
 : ${CAPELLA_FORK_EPOCH:=40}
 : ${DENEB_FORK_EPOCH:=50}
 #NIMBUS EL VARS
 RUN_NIMBUS_ETH1="0"
-: ${NIMBUS_ETH1_BINARY:="./build/downloads/nimbus"}
-: ${WEB3SIGNER_VERSION:=22.11.0}
+: ${NIMBUS_ETH1_BINARY:="./build/downloads/nimbus$EXE_EXTENSION"}
+: ${WEB3SIGNER_VERSION:=23.1.0}
 : ${WEB3SIGNER_DIR:="${BUILD_DIR}/downloads/web3signer-${WEB3SIGNER_VERSION}"}
-: ${WEB3SIGNER_BINARY:="${WEB3SIGNER_DIR}/bin/web3signer"}
-WEB3SIGNER_NODES=0
-PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
+: ${WEB3SIGNER_BINARY:="${WEB3SIGNER_DIR}/bin/web3signer$BAT_EXTENSION"}
+: ${SIGNER_NODES:=0}
+: ${SIGNER_TYPE:="nimbus"}
 PORTS_TO_KILL=()
 WEB3_ARG=()
 CLEANUP_DIRS=()
@@ -166,8 +157,8 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --remote-validators-count   number of remote validators which will be generated
   --threshold                 used by a threshold secret sharing mechanism and determine how many shares are need to
                               restore signature of the original secret key
-  --web3signer-nodes          number of remote web3signer nodes
-  --nimbus-signer-nodes       number of remote nimbus signing nodes
+  --signer-nodes              number of remote signer nodes
+  --signer-type               a script in the scripts/signers directory, used to launch remote signers
   --light-clients             number of light clients
   --run-nimbus-eth1           Run nimbush-eth1 as EL
   --run-geth                  Run geth EL clients
@@ -195,12 +186,12 @@ while true; do
       NUM_NODES="$2"
       shift 2
       ;;
-    --web3signer-nodes)
-      WEB3SIGNER_NODES=$2
+    --signer-nodes)
+      SIGNER_NODES=$2
       shift 2
       ;;
-    --nimbus-signer-nodes)
-      NIMBUS_SIGNER_NODES=$2
+    --signer-type)
+      SIGNER_TYPE=$2
       shift 2
       ;;
     --remote-validators-count)
@@ -239,6 +230,10 @@ while true; do
     --disable-vc)
       USE_VC="0"
       shift
+      ;;
+    --use-vc)
+      USE_VC="$2"
+      shift 2
       ;;
     --enable-payload-builder)
       USE_PAYLOAD_BUILDER="true"
@@ -385,6 +380,9 @@ if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   rm -rf "${DATA_DIR}"
 fi
 
+rm -rf "${DATA_DIR}/pids/*"
+mkdir -p "${DATA_DIR}/pids" "${DATA_DIR}/logs"
+
 if [[ "${LIGHTHOUSE_VC_NODES}" != "0" && "${CONST_PRESET}" != "mainnet" ]]; then
   echo "The prebuilt Lighthouse binary we're using only supports mainnet. Aborting."
   exit 1
@@ -400,9 +398,11 @@ openssl rand -hex 32 | tr -d "\n" > "${JWT_FILE}"
 if [[ "$CONST_PRESET" == "minimal" ]]; then
   SECONDS_PER_SLOT=6
   SLOTS_PER_EPOCH=8
+  FIELD_ELEMENTS_PER_BLOB=4
 else
   SECONDS_PER_SLOT=12
   SLOTS_PER_EPOCH=32
+  FIELD_ELEMENTS_PER_BLOB=4096
 fi
 
 VALIDATORS_DIR="${DATA_DIR}/validators"
@@ -447,15 +447,14 @@ kill_by_port() {
 
 GETH_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
 NIMBUS_ETH1_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
-REMOTE_SIGNER_NODES=$(( NIMBUS_SIGNER_NODES + WEB3SIGNER_NODES ))
-LAST_REMOTE_SIGNER_NODE_IDX=$(( REMOTE_SIGNER_NODES - 1 ))
+LAST_SIGNER_NODE_IDX=$(( SIGNER_NODES - 1 ))
 
 if [[ "${RUN_GETH}" == "1" ]]; then
   source "${SCRIPTS_DIR}/geth_binaries.sh"
 
   if [[ $DENEB_FORK_EPOCH -lt $STOP_AT_EPOCH ]]; then
-    download_geth_eip_4844
-    GETH_BINARY="$GETH_EIP_4844_BINARY"
+    download_geth_deneb
+    GETH_BINARY="$GETH_DENEB_BINARY"
   elif [[ $CAPELLA_FORK_EPOCH -lt $STOP_AT_EPOCH ]]; then
     download_geth_capella
     GETH_BINARY="$GETH_CAPELLA_BINARY"
@@ -504,7 +503,7 @@ if [[ "${OS}" != "windows" ]]; then
   fi
 
   # Stop Remote Signers
-  for NUM_REMOTE in $(seq 0 $LAST_REMOTE_SIGNER_NODE_IDX); do
+  for NUM_REMOTE in $(seq 0 $LAST_SIGNER_NODE_IDX); do
     for PORT in $(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
                 $(( BASE_REMOTE_SIGNER_METRICS_PORT + NUM_REMOTE )) ; do
       PORTS_TO_KILL+=("${PORT}")
@@ -584,8 +583,9 @@ download_nimbus_eth1() {
     CLEANUP_DIRS+=("$tmp_extract_dir")
     tar -xzf "${NIMBUS_ETH1_TARBALL_NAME}" -C "$tmp_extract_dir" --strip-components=1
     mkdir -p "$(dirname "$NIMBUS_ETH1_BINARY")"
-    mv "$tmp_extract_dir/build/nimbus" "$NIMBUS_ETH1_BINARY"
+    mv "$tmp_extract_dir/build/nimbus$EXE_EXTENSION" "$NIMBUS_ETH1_BINARY"
     chmod +x "$NIMBUS_ETH1_BINARY"
+    patchelf_when_on_nixos "$NIMBUS_ETH1_BINARY"
   fi
 }
 
@@ -617,15 +617,15 @@ download_nimbus_eth2() {
     NIMBUS_ETH2_TARBALL_URL="https://github.com/status-im/nimbus-eth2/releases/download/v${NIMBUS_ETH2_VERSION}/${NIMBUS_ETH2_TARBALL_NAME}"
 
     log "Downloading Nimbus ETH2 binary"
-
     "${CURL_BINARY}" -o "$NIMBUS_ETH2_TARBALL_NAME" -sSL "$NIMBUS_ETH2_TARBALL_URL"
     local tmp_extract_dir
     tmp_extract_dir=$(mktemp -d nimbus-eth2-tarball-XXX)
     CLEANUP_DIRS+=("$tmp_extract_dir")
     tar -xzf "${NIMBUS_ETH2_TARBALL_NAME}" -C "$tmp_extract_dir" --strip-components=1
     mkdir -p "$(dirname "$BEACON_NODE_COMMAND")"
-    mv "$tmp_extract_dir/build/nimbus_beacon_node" "$BEACON_NODE_COMMAND"
+    mv "$tmp_extract_dir/build/nimbus_beacon_node$EXE_EXTENSION" "$BEACON_NODE_COMMAND"
     chmod +x "$BEACON_NODE_COMMAND"
+    patchelf_when_on_nixos "$BEACON_NODE_COMMAND"
 
     REUSE_BINARIES=1
   fi
@@ -650,7 +650,7 @@ case "${OS}" in
     ;;
 esac
 LH_URL="https://github.com/sigp/lighthouse/releases/download/v${LH_VERSION}/${LH_TARBALL}"
-LH_BINARY="lighthouse-${LH_VERSION}"
+LH_BINARY="lighthouse-${LH_VERSION}${EXE_EXTENSION}"
 
 if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_BINARY}" ]]; then
   echo "Downloading Lighthouse binary"
@@ -658,38 +658,33 @@ if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_
   "${CURL_BINARY}" -sSLO "${LH_URL}"
   tar -xzf "${LH_TARBALL}" # contains just one file named "lighthouse"
   rm lighthouse-* # deletes both the tarball and old binary versions
-  mv lighthouse "${LH_BINARY}"
+  mv "lighthouse$EXE_EXTENSION" "${LH_BINARY}"
   popd >/dev/null
 fi
 
+BINARIES="ncli_testnet"
+
+if [[ "$LC_NODES" -ge "1" ]]; then
+  BINARIES="${BINARIES} nimbus_light_client"
+fi
+
+if [[ "$SIGNER_NODES" -gt "0" ]]; then
+  if [[ "$SIGNER_TYPE" == "nimbus" ]]; then
+    BINARIES="${BINARIES} nimbus_signing_node"
+  elif [[ "$SIGNER_TYPE" == "web3signer" ]]; then
+    download_web3signer
+  fi
+fi
 
 # Don't build binaries if we are downloading them
 if [[ "${DL_NIMBUS_ETH2}" != "1" ]]; then
   # Build the binaries
-  BINARIES="ncli_testnet"
-
-  if [[ "$NIMBUS_SIGNER_NODES" -gt "0" ]]; then
-    BINARIES="${BINARIES} nimbus_signing_node"
-  fi
 
   if [[ "${USE_VC}" == "1" ]]; then
     BINARIES="${BINARIES} nimbus_validator_client"
   fi
 
-  if [[ "$LC_NODES" -ge "1" ]]; then
-    BINARIES="${BINARIES} nimbus_light_client"
-  fi
-
   BINARIES="${BINARIES} nimbus_beacon_node"
-fi
-
-if [[ "$WEB3SIGNER_NODES" -gt "0" ]]; then
-  download_web3signer
-fi
-
-if [[ "$WEB3SIGNER_NODES" -gt "0" && "$NIMBUS_SIGNER_NODES" -gt "0" ]]; then
-  echo "You can use either --web3signer-nodes or --nimbus-signer-nodes, but not together"
-  exit 1
 fi
 
 if [[ -n "${ETH2_DOCKER_IMAGE}" ]]; then
@@ -703,7 +698,6 @@ else
   CONTAINER_DATA_DIR="${DATA_DIR}"
   if [[ "${DL_NIMBUS_ETH2}" == "1" ]]; then
     download_nimbus_eth2
-    BINARIES=""
   fi
 fi
 
@@ -717,10 +711,8 @@ for BINARY in ${BINARIES}; do
 done
 
 if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
-  if [[ "${DL_NIMBUS_ETH2}" == "0" ]]; then
-    log "Rebuilding binaries ${BINARIES}"
-    ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
-  fi
+  log "Rebuilding binaries ${BINARIES}"
+  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET} -d:web3_consensus_const_preset=${CONST_PRESET} -d:FIELD_ELEMENTS_PER_BLOB=${FIELD_ELEMENTS_PER_BLOB}" ${BINARIES}
 fi
 
 if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
@@ -743,28 +735,18 @@ cleanup() {
     PKILL_ECHO_FLAG='-l'
   fi
 
-  echo "Existing processes:"
-  for proc in "${PROCS_TO_KILL[@]}"; do
-    PROC_NAME=$(basename "$proc")
-    pgrep -al "${PROC_NAME}" || true
-  done
+  PIDS_TO_KILL=$(find "${DATA_DIR}/pids" -type f -exec cat {} \+ 2>/dev/null)
 
-  echo "Terminating:"
-  for proc in "${PROCS_TO_KILL[@]}"; do
-    PROC_NAME=$(basename "$proc")
-    echo -n "Terminating ${PROC_NAME}: " >&2
-    # WARNING: The '-P $$' avoids killing unrelated processes.
-    pkill -SIGTERM "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" || true
+  echo Terminating processes...
+  for PID in $PIDS_TO_KILL; do
+    kill -SIGTERM $PID 2>/dev/null || true
   done
 
   sleep 2
 
-  echo "Killing:"
-  for proc in "${PROCS_TO_KILL[@]}"; do
-    PROC_NAME=$(basename "$proc")
-    echo -n "Killing ${PROC_NAME}: " >&2
-    # WARNING: The '-P $$' avoids killing unrelated processes.
-    pkill -SIGKILL "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" || true
+  echo Killing processes...
+  for PID in $PIDS_TO_KILL; do
+    kill -SIGKILL $PID 2>/dev/null || true
   done
 
   # Delete all binaries we just built, because these are unusable outside this
@@ -807,7 +789,7 @@ fi
 
 REMOTE_URLS=""
 
-for NUM_REMOTE in $(seq 0 $LAST_REMOTE_SIGNER_NODE_IDX); do
+for NUM_REMOTE in $(seq 0 $LAST_SIGNER_NODE_IDX); do
   REMOTE_PORT=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE ))
   REMOTE_URLS="${REMOTE_URLS} --remote-signer=http://127.0.0.1:${REMOTE_PORT}"
 done
@@ -820,6 +802,11 @@ NUM_JOBS=${NUM_NODES}
 DEPOSITS_FILE="${DATA_DIR}/deposits.json"
 CONTAINER_DEPOSITS_FILE="${CONTAINER_DATA_DIR}/deposits.json"
 CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE="${CONTAINER_DATA_DIR}/deposit_tree_snapshot.ssz"
+
+if command -v ulimit; then
+  echo "Raising limits"
+  ulimit -n $((TOTAL_VALIDATORS * 10))
+fi
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   ./build/ncli_testnet generateDeposits \
@@ -866,7 +853,6 @@ if [[ "${RUN_GETH}" == "1" ]]; then
 
   source "./scripts/start_geth_nodes.sh"
 
-  PROCS_TO_KILL+=("${GETH_BINARY}")
   CLEANUP_DIRS+=("${GETH_DATA_DIRS[@]}")
   MAIN_WEB3_URL="http://127.0.0.1:${GETH_RPC_PORTS[0]}"
   get_execution_genesis_block "${MAIN_WEB3_URL}" >  "$EXECUTION_GENESIS_BLOCK_JSON"
@@ -880,7 +866,6 @@ if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
 
   source "./scripts/start_nimbus_el_nodes.sh"
 
-  PROCS_TO_KILL+=("${NIMBUS_ETH1_BINARY}")
   CLEANUP_DIRS+=("${NIMBUS_ETH1_DATA_DIRS[@]}")
 
   MAIN_WEB3_URL="http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[0]}"
@@ -946,7 +931,7 @@ fi
 
 dump_logs() {
   LOG_LINES=20
-  for LOG in "${DATA_DIR}"/log*.txt; do
+  for LOG in "${DATA_DIR}"/logs/*; do
     echo "Last ${LOG_LINES} lines of ${LOG}:"
     tail -n ${LOG_LINES} "${LOG}"
     echo "======"
@@ -955,7 +940,7 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/ncli_testnet analyzeLogs --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
+    find "${DATA_DIR}/logs" -maxdepth 1 -type f -regex 'nimbus_beacon_node[0-9]+.jsonl' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/ncli_testnet analyzeLogs --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
   fi
 }
 
@@ -971,8 +956,8 @@ if [[ "${USE_VC}" == "1" ]]; then
   NUM_JOBS=$(( NUM_JOBS * 2 ))
 fi
 
-if [[ "$REMOTE_SIGNER_NODES" -ge "0" ]]; then
-  NUM_JOBS=$(( NUM_JOBS + REMOTE_SIGNER_NODES ))
+if [[ "$SIGNER_NODES" -ge "0" ]]; then
+  NUM_JOBS=$(( NUM_JOBS + SIGNER_NODES ))
 fi
 
 if [[ "$LC_NODES" -ge "1" ]]; then
@@ -1066,74 +1051,19 @@ metrics = true
 metrics-address = "127.0.0.1"
 END_CLI_CONFIG
 
+# Export some variables that can be used by the signer launch scripts
+export DATA_DIR
+export BASE_REMOTE_SIGNER_PORT
+export WEB3SIGNER_BINARY
+export RUNTIME_CONFIG_FILE
+
 # https://ss64.com/osx/seq.html documents that at macOS seq(1) counts backwards
 # as probably do some others
-if ((NIMBUS_SIGNER_NODES > 0)); then
-  launch_nimbus_signing_node() {
-    SIGNING_NODE_IDX=$1
-    ./build/nimbus_signing_node \
-      --validators-dir="${DATA_DIR}/validators_shares/${SIGNING_NODE_IDX}" \
-      --secrets-dir="${DATA_DIR}/secrets_shares/${SIGNING_NODE_IDX}" \
-      --bind-port=$(( BASE_REMOTE_SIGNER_PORT + SIGNING_NODE_IDX - 1 ))
-    echo "Signing not exited with code $?"
-  }
-
-  for NUM_REMOTE in $(seq 1 $NIMBUS_SIGNER_NODES); do
+if ((SIGNER_NODES > 0)); then
+  for NUM_REMOTE in $(seq 0 $LAST_SIGNER_NODE_IDX); do
     # TODO find some way for this and other background-launched processes to
     # still participate in set -e, ideally
-    launch_nimbus_signing_node $NUM_REMOTE > "${DATA_DIR}/log_nimbus_signing_node_${NUM_REMOTE}.txt" &
-  done
-
-  PROCS_TO_KILL+=("nimbus_signing_node")
-fi
-
-if ((WEB3SIGNER_NODES > 0)); then
-  if ! command javac > /dev/null || ! javac -version > /dev/null; then
-    # On macOS, homebrew doesn't make java available in your PATH by default.
-    # Instead, macOS ships with a stub executable that displays a message that
-    # Java is not installed (javac -version exits with an error code 1).
-    # If the user is running under these default settings, but a homebrew
-    # installation is disovered, we are happy to use it just in this script:
-    if [[ -d /opt/homebrew/opt/openjdk/bin ]]; then
-      export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-    fi
-  fi
-
-  launch_web3signer() {
-    WEB3SIGNER_NODE_IDX=$1
-
-    local secrets_dir="${DATA_DIR}/secrets_shares/${WEB3SIGNER_NODE_IDX}"
-    local keystores_dir="${DATA_DIR}/validators_shares/${WEB3SIGNER_NODE_IDX}"
-
-    # We re-arrange the keystore files to match the layout expected by the Web3Signer
-    # TODO generateSimulationDeposits can be refactored to produce the right layout from the start
-    for validator_pubkey in $(ls "$secrets_dir")
-    do
-      mv "$secrets_dir/$validator_pubkey" "$secrets_dir/$validator_pubkey.txt"
-      mv "$keystores_dir/$validator_pubkey/keystore.json" "$keystores_dir/$validator_pubkey.json"
-    done
-
-    # still participate in set -e, ideally
-    # TODO find some way for this and other background-launched processes to
-    "${WEB3SIGNER_BINARY}" \
-      --http-listen-port=$(( BASE_REMOTE_SIGNER_PORT + WEB3SIGNER_NODE_IDX - 1 )) \
-      --logging=DEBUG \
-      --metrics-enabled=true \
-      --metrics-port=$(( BASE_REMOTE_SIGNER_METRICS_PORT + WEB3SIGNER_NODE_IDX - 1 )) \
-      eth2 \
-      --slashing-protection-enabled=false \
-      --keystores-passwords-path="${secrets_dir}" \
-      --keystores-path="${keystores_dir}" \
-      --network="${RUNTIME_CONFIG_FILE}"
-
-    echo "Web3Signer exited with code $?"
-  }
-
-  PROCS_TO_KILL+=("${WEB3SIGNER_BINARY}")
-  PROCS_TO_KILL+=("java")
-
-  for NUM_REMOTE in $(seq 1 $WEB3SIGNER_NODES); do
-    launch_web3signer $NUM_REMOTE > "${DATA_DIR}/log_web3signer_${NUM_REMOTE}.txt" &
+    source "${SCRIPTS_DIR}/signers/${SIGNER_TYPE}.sh" $NUM_REMOTE
   done
 fi
 
@@ -1212,12 +1142,12 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
     --finalized-deposit-tree-snapshot="$CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE" \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE - 1 ))" \
-    --sync-light-client=on \
     --doppelganger-detection=off \
     ${EXTRA_ARGS} \
-    &> "${DATA_DIR}/log${NUM_NODE}.txt" &
-
-  PIDS="${PIDS},$!"
+    &> "${DATA_DIR}/logs/nimbus_beacon_node.${NUM_NODE}.jsonl" &
+  PID=$!
+  PIDS_TO_WAIT="${PIDS_TO_WAIT},$!"
+  echo $PID > "$DATA_DIR/pids/nimbus_beacon_node.${NUM_NODE}"
 
   if [[ "${USE_VC}" == "1" ]]; then
     if [[ "${LIGHTHOUSE_VC_NODES}" -ge "${NUM_NODE}" ]]; then
@@ -1237,9 +1167,8 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
         --beacon-nodes "http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \
         --testnet-dir "${DATA_DIR}" \
         --init-slashing-protection \
-        &> "${DATA_DIR}/log_val${NUM_NODE}.txt" &
-      # No "--stop-at-epoch" equivalent here, so we let these VC processes be
-      # killed the ugly way, when the script exits.
+        &> "${DATA_DIR}/logs/lighthouse_vc.${NUM_NODE}.txt" &
+      echo $! > "$DATA_DIR/pids/lighthouse_vc.${NUM_NODE}"
     else
       ./build/nimbus_validator_client \
         --log-level="${LOG_LEVEL}" \
@@ -1252,8 +1181,10 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
         --keymanager-port=$(( BASE_VC_KEYMANAGER_PORT + NUM_NODE - 1 )) \
         --keymanager-token-file="${DATA_DIR}/keymanager-token" \
         --beacon-node="http://127.0.0.1:$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
-        &> "${DATA_DIR}/log_val${NUM_NODE}.txt" &
-      PIDS="${PIDS},$!"
+        &> "${DATA_DIR}/logs/nimbus_validator_client.${NUM_NODE}.jsonl" &
+      PID=$!
+      PIDS_TO_WAIT="${PIDS_TO_WAIT},$PID"
+      echo $PID > "$DATA_DIR/pids/nimbus_validator_client.${NUM_NODE}"
     fi
   fi
 done
@@ -1316,8 +1247,10 @@ if [ "$LC_NODES" -ge "1" ]; then
       --jwt-secret="${JWT_FILE}" \
       "${WEB3_ARG[@]}" \
       ${STOP_AT_EPOCH_FLAG} \
-      &> "${DATA_DIR}/log_lc${NUM_LC}.txt" &
-    PIDS="${PIDS},$!"
+      &> "${DATA_DIR}/logs/nimbus_light_client.${NUM_LC}.jsonl" &
+    PID=$!
+    PIDS_TO_WAIT="${PIDS_TO_WAIT},${PID}"
+    echo $PID > "${DATA_DIR}/pids/nimbus_light_client.${NUM_LC}"
   done
 fi
 
@@ -1327,6 +1260,7 @@ BG_JOBS="$(jobs | wc -l | tr -d ' ')"
 if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
   BG_JOBS=$(( BG_JOBS - 1 )) # minus the timeout bg job
 fi
+
 if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
   echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client/nimbus_light_client instance(s) exited early. Aborting."
   dump_logs
@@ -1334,15 +1268,15 @@ if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
   exit 1
 fi
 
-echo "About to wait for the following sub-processes: " $PIDS
+echo "About to wait for the following sub-processes: " $PIDS_TO_WAIT
 
 # launch "htop" or wait for background jobs
 if [[ "$USE_HTOP" == "1" ]]; then
-  htop -p "$PIDS"
+  htop -p "$PIDS_TO_WAIT"
   # Cleanup is done when this script exists, since we listen to the EXIT signal.
 else
   FAILED=0
-  for PID in $(echo "$PIDS" | tr ',' ' '); do
+  for PID in $(echo "$PIDS_TO_WAIT" | tr ',' ' '); do
     wait "$PID" || FAILED="$(( FAILED += 1 ))"
     echo $PID has completed
   done

@@ -58,6 +58,7 @@ TOOLS_CORE := \
 	deposit_contract \
 	resttest \
 	logtrace \
+        mev_mock \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \
@@ -78,7 +79,7 @@ TOOLS := $(TOOLS_CORE) nimbus_beacon_node
 
 TOOLS_DIRS := \
 	beacon_chain \
-	beacon_chain/eth1 \
+	beacon_chain/el \
 	ncli \
 	research \
 	tools
@@ -173,6 +174,7 @@ libbacktrace:
 #
 # Unit tests:
 # - NIMBUS_TEST_KEYMANAGER_BASE_PORT + [0, 4)
+# - NIMBUS_TEST_SIGNING_NODE_BASE_PORT + [0, 2)
 #
 # REST tests:
 # - --base-port
@@ -185,8 +187,8 @@ libbacktrace:
 # - --base-metrics-port + [0, --nodes)
 # - --base-vc-keymanager-port + [0, --nodes)
 # - --base-vc-metrics-port + [0, --nodes]
-# - --base-remote-signer-port + [0, --nimbus-signer-nodes | --web3signer-nodes)
-# - --base-remote-signer-metrics-port + [0, --nimbus-signer-node | --web3signer-nodes)
+# - --base-remote-signer-port + [0, --signer-nodes)
+# - --base-remote-signer-metrics-port + [0, --signer-nodes)
 #
 # Local testnets with --run-geth or --run-nimbus (only these ports):
 # - --base-el-net-port + --el-port-offset * [0, --nodes + --light-clients)
@@ -204,11 +206,16 @@ restapi-test:
 		--resttest-delay 30 \
 		--kill-old-processes
 
+SIGNER_TYPE := nimbus
+
 local-testnet-minimal:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--preset minimal \
 		--nodes 2 \
+		--signer-nodes 1 \
+		--remote-validators-count 1024 \
+		--signer-type $(SIGNER_TYPE) \
 		--capella-fork-epoch 3 \
 		--deneb-fork-epoch 20 \
 		--stop-at-epoch 6 \
@@ -238,6 +245,7 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
+		--capella-fork-epoch 3 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
@@ -340,7 +348,7 @@ FORCE_BUILD_ALONE_ALL_TESTS_DEPS :=
 endif
 force_build_alone_all_tests: | $(FORCE_BUILD_ALONE_ALL_TESTS_DEPS)
 
-all_tests: | build deps force_build_alone_all_tests
+all_tests: | build deps nimbus_signing_node force_build_alone_all_tests
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
@@ -374,7 +382,8 @@ endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 )) \
+		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 + 0 )) \
+		NIMBUS_TEST_SIGNING_NODE_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 + 4 )) \
 			build/$${TEST_BINARY} $${PARAMS} || { \
 				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
 				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
@@ -459,12 +468,6 @@ force_build_alone_tools: | $(FORCE_BUILD_ALONE_TOOLS_DEPS)
 # Already defined as a reult
 nimbus_beacon_node: force_build_alone_tools
 
-clean_eth2_network_simulation_data:
-	rm -rf tests/simulation/data
-
-clean_eth2_network_simulation_all:
-	rm -rf tests/simulation/{data,validators}
-
 GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
@@ -472,10 +475,6 @@ GOERLI_TESTNETS_PARAMS := \
 	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
 	--rest \
 	--rest-port=$$(( $(BASE_REST_PORT) + $(NODE_ID) ))
-
-eth2_network_simulation: | build deps clean_eth2_network_simulation_all
-	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
-	killall prometheus &>/dev/null
 
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
@@ -507,7 +506,6 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		--sync-light-client=on \
 		--dump $(NODE_PARAMS)
 endef
 
@@ -673,14 +671,6 @@ sepolia-dev-deposit: | sepolia-build deposit_contract
 clean-sepolia:
 	$(call CLEAN_NETWORK,sepolia)
 
-### Capella devnets
-
-capella-devnet-3:
-	tmuxinator start -p scripts/tmuxinator-el-cl-pair-in-devnet.yml network="vendor/capella-testnets/withdrawal-devnet-3/custom_config_data"
-
-clean-capella-devnet-3:
-	scripts/clean-devnet-dir.sh vendor/capella-testnets/withdrawal-devnet-3/custom_config_data
-
 ###
 ### Gnosis chain binary
 ###
@@ -810,6 +800,10 @@ dist-amd64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh amd64
 
+dist-amd64-opt:
+	+ MAKE="$(MAKE)" \
+		scripts/make_dist.sh amd64-opt
+
 dist-arm64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm64
@@ -832,6 +826,7 @@ dist-macos-arm64:
 
 dist:
 	+ $(MAKE) dist-amd64
+	+ $(MAKE) dist-amd64-opt
 	+ $(MAKE) dist-arm64
 	+ $(MAKE) dist-arm
 	+ $(MAKE) dist-win64

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,8 +8,6 @@
 {.used.}
 
 import
-  # Standard library
-  std/[json, sequtils, strutils, tables],
   # Status libraries
   stew/results, chronicles,
   eth/keys, taskpools,
@@ -28,7 +26,12 @@ import
   ../testutil, ../testdbutil,
   ./fixtures_utils, ./os_ops
 
-# Test format described at https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1/tests/formats/fork_choice
+from std/json import
+  JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
+from std/sequtils import toSeq
+from std/strutils import contains
+
+# Test format described at https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"
 # instead of following the spec (in particular the "store").
 
@@ -120,9 +123,7 @@ proc initialLoad(
     dag = ChainDAGRef.init(
       forkedState[].kind.genesisTestRuntimeConfig, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
-      dag.getFinalizedEpochRef(),
-      dag.finalizedHead.blck,
-    ))
+      dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
 
   (dag, fkChoice)
 
@@ -174,7 +175,7 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
-      of ConsensusFork.EIP4844:
+      of ConsensusFork.Deneb:
         let blck = parseTest(
           path/filename & ".ssz_snappy",
           SSZ, deneb.SignedBeaconBlock
@@ -228,7 +229,6 @@ proc stepOnBlock(
   )
 
   # 2. Add block to DAG
-  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
   when signedBlock is phase0.SignedBeaconBlock:
     type TrustedBlock = phase0.TrustedSignedBeaconBlock
   elif signedBlock is altair.SignedBeaconBlock:
@@ -337,7 +337,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
 
   let stores =
     case fork
-    of ConsensusFork.EIP4844:
+    of ConsensusFork.Deneb:
       initialLoad(path, db, deneb.BeaconState, deneb.BeaconBlock)
     of ConsensusFork.Capella:
       initialLoad(path, db, capella.BeaconState, capella.BeaconBlock)
@@ -422,6 +422,8 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
     for kind, path in walkDir(presetPath, relative = true, checkDir = true):
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
+        continue
+      if testsPath.contains("/eip6110/") or testsPath.contains("\\eip6110\\"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath

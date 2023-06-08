@@ -234,7 +234,8 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
   ok(getStateRoot(state[]))
 
 proc getEraFile(
-    db: EraDB, historical_roots: openArray[Eth2Digest], era: Era):
+    db: EraDB, historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary], era: Era):
     Result[EraFile, string] =
   for f in db.files:
     if f.stateIdx.startSlot.era == era:
@@ -242,7 +243,8 @@ proc getEraFile(
 
   let
     eraRoot = eraRoot(
-        db.genesis_validators_root, historical_roots, era).valueOr:
+        db.genesis_validators_root, historical_roots, historical_summaries,
+        era).valueOr:
       return err("Era outside of known history")
     name = eraFileName(db.cfg, era, eraRoot)
     path = db.path / name
@@ -265,7 +267,8 @@ proc getEraFile(
   ok(f)
 
 proc getBlockSZ*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    db: EraDB, historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary], slot: Slot,
     bytes: var seq[byte]): Result[void, string] =
   ## Get a snappy-frame-compressed version of the block data - may overwrite
   ## `bytes` on error
@@ -276,23 +279,26 @@ proc getBlockSZ*(
   # Block content for the blocks of an era is found in the file for the _next_
   # era
   let
-    f = ? db.getEraFile(historical_roots, slot.era + 1)
+    f = ? db.getEraFile(historical_roots, historical_summaries, slot.era + 1)
 
   f.getBlockSZ(slot, bytes)
 
 proc getBlockSSZ*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    db: EraDB, historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary], slot: Slot,
     bytes: var seq[byte]): Result[void, string] =
   let
-    f = ? db.getEraFile(historical_roots, slot.era + 1)
+    f = ? db.getEraFile(historical_roots, historical_summaries, slot.era + 1)
 
   f.getBlockSSZ(slot, bytes)
 
 proc getBlock*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    db: EraDB, historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary], slot: Slot,
     root: Opt[Eth2Digest], T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
   var tmp: seq[byte]
-  ? db.getBlockSSZ(historical_roots, slot, tmp).mapErr(proc(x: auto) = discard)
+  ? db.getBlockSSZ(
+    historical_roots, historical_summaries, slot, tmp).mapErr(proc(x: auto) = discard)
 
   result.ok(default(T))
   try:
@@ -303,7 +309,8 @@ proc getBlock*(
     result.err()
 
 proc getStateSZ*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    db: EraDB, historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary], slot: Slot,
     bytes: var seq[byte]):
     Result[void, string] =
   ## Get a snappy-frame-compressed version of the state data - may overwrite
@@ -313,23 +320,25 @@ proc getStateSZ*(
   # Block content for the blocks of an era is found in the file for the _next_
   # era
   let
-    f = ? db.getEraFile(historical_roots, slot.era)
+    f = ? db.getEraFile(historical_roots, historical_summaries, slot.era)
 
   f.getStateSZ(slot, bytes)
 
 proc getStateSSZ*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    db: EraDB, historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary], slot: Slot,
     bytes: var seq[byte], partial = Opt.none(int)): Result[void, string] =
   let
-    f = ? db.getEraFile(historical_roots, slot.era)
+    f = ? db.getEraFile(historical_roots, historical_summaries, slot.era)
 
   f.getStateSSZ(slot, bytes, partial)
 
 proc getState*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    db: EraDB, historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary], slot: Slot,
     state: var ForkedHashedBeaconState): Result[void, string] =
   var bytes: seq[byte]
-  ? db.getStateSSZ(historical_roots, slot, bytes)
+  ? db.getStateSSZ(historical_roots, historical_summaries, slot, bytes)
 
   try:
     state = readSszForkedHashedBeaconState(db.cfg, slot, bytes)
@@ -356,7 +365,8 @@ type
     ## Needed to process attestations, older to newer
 
 proc getPartialState(
-    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    db: EraDB, historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary], slot: Slot,
     output: var PartialBeaconState): bool =
   static: doAssert isFixedSize(PartialBeaconState)
   const partialBytes = fixedPortionSize(PartialBeaconState)
@@ -366,7 +376,8 @@ proc getPartialState(
   # of reading the minimal number of bytes from disk
   var tmp: seq[byte]
   if (let e = db.getStateSSZ(
-      historical_roots, slot, tmp, Opt[int].ok(partialBytes));
+      historical_roots, historical_summaries, slot, tmp,
+      Opt[int].ok(partialBytes));
       e.isErr):
     return false
 
@@ -379,6 +390,7 @@ proc getPartialState(
 
 iterator getBlockIds*(
     db: EraDB, historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary],
     start_slot: Slot, prev_root: Eth2Digest): BlockId =
   ## Iterate over block roots starting from the given slot - `prev_root` must
   ## point out the last block added to the chain before `start_slot` such that
@@ -392,9 +404,10 @@ iterator getBlockIds*(
     # `case` ensures we're on a fork for which the `PartialBeaconState`
     # definition is consistent
     case db.cfg.consensusForkAtEpoch(slot.epoch)
-    of ConsensusFork.Phase0 .. ConsensusFork.EIP4844:
+    of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
       let stateSlot = (slot.era() + 1).start_slot()
-      if not getPartialState(db, historical_roots, stateSlot, state[]):
+      if not getPartialState(
+          db, historical_roots, historical_summaries, stateSlot, state[]):
         state = nil # No `return` in iterators
 
     if state == nil:
@@ -445,7 +458,7 @@ when isMainModule:
     got8191 = false
     got8192 = false
     got8193 = false
-  for bid in db.getBlockIds(historical_roots, Slot(0), Eth2Digest()):
+  for bid in db.getBlockIds(historical_roots, [], Slot(0), Eth2Digest()):
     if bid.slot == Slot(0):
       doAssert bid.root == Eth2Digest.fromHex(
         "0x4d611d5b93fdab69013a7f0a2f961caca0c853f87cfe9595fe50038163079360")

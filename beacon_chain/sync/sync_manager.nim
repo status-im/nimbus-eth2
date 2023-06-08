@@ -7,13 +7,14 @@
 
 {.push raises: [].}
 
-import std/[options, heapqueue, tables, strutils, sequtils, algorithm]
+import std/[heapqueue, tables, strutils, sequtils, algorithm]
 import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
   ../spec/[helpers, forks, network],
   ../networking/[peer_pool, peer_scores, eth2_network],
+  ../gossip_processing/block_processor,
   ../beacon_clock,
   "."/[sync_protocol, sync_queue]
 
@@ -63,7 +64,6 @@ type
     queue: SyncQueue[A]
     syncFut: Future[void]
     blockVerifier: BlockVerifier
-    blockBlobsVerifier: BlockBlobsVerifier
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
@@ -77,7 +77,7 @@ type
     slots*: uint64
 
   BeaconBlocksRes = NetRes[List[ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS]]
-  BlobsSidecarRes = NetRes[List[ref BlobsSidecar, MAX_REQUEST_BLOBS_SIDECARS]]
+  BlobSidecarsRes = NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -98,8 +98,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
     man.queue = SyncQueue.init(A, man.direction, man.getFirstSlot(),
                                man.getLastSlot(), man.chunkSize,
                                man.getSafeSlot, man.blockVerifier,
-                               man.blockBlobsVerifier, 1,
-                               man.ident)
+                               1, man.ident)
   of SyncQueueKind.Backward:
     let
       firstSlot = man.getFirstSlot()
@@ -112,11 +111,10 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     Slot(firstSlot - 1'u64)
     man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
                                man.chunkSize, man.getSafeSlot,
-                               man.blockVerifier, man.blockBlobsVerifier, 1,
-                               man.ident)
+                               man.blockVerifier, 1, man.ident)
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
-                           eip4844Epoch: Epoch,
+                           denebEpoch: Epoch,
                            direction: SyncQueueKind,
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
@@ -125,7 +123,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getFrontfillSlotCb: GetSlotCallback,
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
-                           blockBlobsVerifier: BlockBlobsVerifier,
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            flags: set[SyncManagerFlag] = {},
@@ -139,7 +136,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
   var res = SyncManager[A, B](
     pool: pool,
-    DENEB_FORK_EPOCH: eip4844Epoch,
+    DENEB_FORK_EPOCH: denebEpoch,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -149,7 +146,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     maxHeadAge: maxHeadAge,
     chunkSize: chunkSize,
     blockVerifier: blockVerifier,
-    blockBlobsVerifier: blockBlobsVerifier,
     notInSyncEvent: newAsyncEvent(),
     direction: direction,
     ident: ident,
@@ -160,7 +156,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
 proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
                       req: SyncRequest): Future[BeaconBlocksRes] {.async.} =
-  mixin beaconBlocksByRange, getScore, `==`
+  mixin getScore, `==`
 
   logScope:
     peer_score = peer.getScore()
@@ -190,11 +186,11 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
 proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
   let wallEpoch = man.getLocalWallSlot().epoch
   e >= man.DENEB_FORK_EPOCH and
-  (wallEpoch < MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS or
-   e >=  wallEpoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS)
+  (wallEpoch < MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
+   e >=  wallEpoch - MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
-proc getBlobsSidecars*[A, B](man: SyncManager[A, B], peer: A,
-                      req: SyncRequest): Future[BlobsSidecarRes] {.async.} =
+proc getBlobSidecars*[A, B](man: SyncManager[A, B], peer: A,
+                      req: SyncRequest): Future[BlobSidecarsRes] {.async.} =
   mixin getScore, `==`
 
   logScope:
@@ -207,18 +203,18 @@ proc getBlobsSidecars*[A, B](man: SyncManager[A, B], peer: A,
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blobs sidecars from peer", request = req
   try:
-    let res = await blobsSidecarsByRange(peer, req.slot, req.count)
+    let res = await blobSidecarsByRange(peer, req.slot, req.count)
 
     if res.isErr():
-      debug "Error, while reading blobsSidecarsByRange response", request = req,
+      debug "Error, while reading blobSidecarsByRange response", request = req,
              error = $res.error()
       return
     return res
   except CancelledError:
-    debug "Interrupt, while waiting blobsSidecarsByRange response", request = req
+    debug "Interrupt, while waiting blobSidecarsByRange response", request = req
     return
   except CatchableError as exc:
-    debug "Error, while waiting blobsSidecarsByRange response", request = req,
+    debug "Error, while waiting blobSidecarsByRange response", request = req,
           errName = exc.name, errMsg = exc.msg
     return
 
@@ -236,6 +232,34 @@ proc remainingSlots(man: SyncManager): uint64 =
       man.getFirstSlot() - man.getLastSlot()
     else:
       0'u64
+
+func groupBlobs*[T](req: SyncRequest[T],
+                    blocks: seq[ref ForkedSignedBeaconBlock],
+                    blobs: seq[ref BlobSidecar]):
+                      Result[seq[BlobSidecars], string] =
+  var grouped = newSeq[BlobSidecars](len(blocks))
+  var blobCursor = 0
+  var i = 0
+  for blck in blocks:
+    let slot = blck[].slot
+    if blobCursor == len(blobs):
+      # reached end of blobs, have more blobless blocks
+      break
+    for blob in blobs[blobCursor..len(blobs)-1]:
+      if blob.slot < slot:
+        return Result[seq[BlobSidecars], string].err "invalid blob sequence"
+      if blob.slot==slot:
+        grouped[i].add(blob)
+        blobCursor = blobCursor + 1
+    i = i + 1
+
+  if blobCursor != len(blobs):
+    # we reached end of blocks without consuming all blobs so either
+    # the peer we got too few blocks in the paired request, or the
+    # peer is sending us spurious blobs.
+    Result[seq[BlobSidecars], string].err "invalid block or blob sequence"
+  else:
+    Result[seq[BlobSidecars], string].ok grouped
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   logScope:
@@ -394,30 +418,44 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
            request = req
       return
 
+    func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
+      var copy = acc
+      if copy[copy.len-1] != cur:
+        copy.add(cur)
+      copy
+
     let blobData =
       if man.shouldGetBlobs(req.slot.epoch):
-        let blobs = await man.getBlobsSidecars(peer, req)
+        let blobs = await man.getBlobSidecars(peer, req)
         if blobs.isErr():
           peer.updateScore(PeerScoreNoValues)
           man.queue.push(req)
           debug "Failed to receive blobs on request", request = req
           return
         let blobData = blobs.get().asSeq()
-        let slots = mapIt(blobData, it[].beacon_block_slot)
-        if not(checkResponse(req, slots)):
-          peer.updateScore(PeerScoreBadResponse)
-          warn "Received blobs sequence is not in requested range",
-            blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
-            request = req
+        let blobSmap = getShortMap(req, blobData)
+        debug "Received blobs on request", blobs_count = len(blobData),
+                       blobs_map = blobSmap, request = req
+
+        if len(blobData) > 0:
+          let slots = mapIt(blobData, it[].slot)
+          let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
+          if not(checkResponse(req, uniqueSlots)):
+            peer.updateScore(PeerScoreBadResponse)
+            warn "Received blobs sequence is not in requested range",
+              blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
+                            request = req
+            return
+        let groupedBlobs = groupBlobs(req, blockData, blobData)
+        if groupedBlobs.isErr():
+          warn "Received blobs sequence is invalid",
+            blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
           return
-        Opt.some(blobData)
+        Opt.some(groupedBlobs.get())
       else:
-        Opt.none(seq[ref BlobsSidecar])
+        Opt.none(seq[BlobSidecars])
 
     if blobData.isSome:
-      let blobSmap = getShortMap(req, blobData.get(@[]))
-      debug "Received blobs on request", blobs_count = len(blobData.get(@[])),
-          blobs_map = blobSmap, request = req
       let blobs = blobData.get()
       if len(blobs) != len(blockData):
         info "block and blobs have different lengths", blobs=len(blobs), blocks=len(blockData)
@@ -425,7 +463,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
         man.queue.push(req)
         return
       for i, blk in blockData:
-        if blk[].slot != blobs[i].beacon_block_slot:
+        if len(blobs[i]) > 0 and blk[].slot != blobs[i][0].slot:
           peer.updateScore(PeerScoreNoValues)
           man.queue.push(req)
           debug "block and blobs data have inconsistent slots"

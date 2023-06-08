@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[options, sets, tables, hashes],
+  std/[sets, tables, hashes],
   # Status libraries
   chronicles,
   # Internals
@@ -25,7 +25,7 @@ from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
 from "."/vanity_logs/vanity_logs import VanityLogs
 
 export
-  options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
+  sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
   block_pools_types_light_client, validator_monitor, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
@@ -175,6 +175,12 @@ type
       ## The last prune point
       ## We can prune up to finalizedHead
 
+    lastHistoryPruneHorizon*: Slot
+      ## The horizon when we last pruned, for horizon diff computation
+
+    lastHistoryPruneBlockHorizon*: Slot
+      ## Block pruning progress at the last call
+
     # -----------------------------------
     # Rewinder - Mutable state processing
 
@@ -233,9 +239,6 @@ type
       ## using the head state is slightly wrong - if a reorg deeper than
       ## EPOCHS_PER_SYNC_COMMITTEE_PERIOD is happening, some valid sync
       ## committee messages will be rejected
-
-    optimisticRoots*: HashSet[Eth2Digest]
-      ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/sync/optimistic.md#helpers
 
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
@@ -308,7 +311,7 @@ type
     epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
-  OnEIP4844BlockAdded* = proc(
+  OnDenebBlockAdded* = proc(
     blckRef: BlockRef,
     blck: deneb.TrustedSignedBeaconBlock,
     epochRef: EpochRef,
@@ -316,7 +319,7 @@ type
 
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
-    OnCapellaBlockAdded | OnEIP4844BlockAdded
+    OnCapellaBlockAdded | OnDenebBlockAdded
 
   HeadChangeInfoObject* = object
     slot*: Slot
@@ -346,6 +349,12 @@ type
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+
+func proposer_dependent_slot*(epochRef: EpochRef): Slot =
+  epochRef.key.epoch.proposer_dependent_slot()
+
+func attester_dependent_slot*(shufflingRef: ShufflingRef): Slot =
+  shufflingRef.epoch.attester_dependent_slot()
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 

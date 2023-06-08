@@ -8,7 +8,8 @@
 
 This page will take you through how to use your laptop to program your Raspberry Pi.
 
-One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started. As such, we try our best to explain things from first-principles.
+One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started.
+As such, we try our best to explain things from first-principles.
 
 ## Prerequisites
 
@@ -16,21 +17,25 @@ One of the most important aspects of the Raspberry Pi experience is trying to ma
 - 64GB microSD Card
 - microSD USB adapter
 - 5V 3A USB-C charger
-- Reliable Wifi connection
+- Reliable Wi-Fi connection
 - Laptop
 - Basic understanding of the [command line](https://www.learnenough.com/command-line-tutorial/basics)
 - 200GB SSD (2TB recommended if also running execution client)
 
 !!! note
-    You will need an SSD to run the Nimbus - mechanical hard drives are typically too slow to run an Ethereum node. You have two options:
+    You will need an SSD to run the Nimbus: mechanical hard drives are typically too slow to run an Ethereum node.
+    You have two options:
 
     1. Use an USB portable SSD disk such as the Samsung T5 Portable SSD.
-    2. Use an USB 3.0 External Hard Drive Case with a SSD Disk. For example, [Ethereum on Arm](https://twitter.com/EthereumOnARM) use an Inateck 2.5 Hard Drive Enclosure FE2011. Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).
+    2. Use an USB 3.0 External Hard Drive Case with a SSD Disk.
+       For example, [Ethereum on Arm](https://twitter.com/EthereumOnARM) use an Inateck 2.5 Hard Drive Enclosure FE2011.
+       Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).
 
-    In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
+    In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time).
+    Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
 
 !!! note
-    If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please [read this recommended fix.](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426)
+    If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please [read this recommended fix](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426).
 
 ## Steps
 
@@ -64,7 +69,8 @@ Find the OS you downloaded in step 2
 
 ### 4b. Write to SD card
 
-Click on **CHOOSE SD CARD**. You should see a menu pop-up with your SD card listed -- Select it
+Click on **CHOOSE SD CARD**.
+You should see a menu pop-up with your SD card listed -- Select it
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_f90713c1ef782a94b5fce9eb8249c206.png)
 
@@ -80,7 +86,8 @@ Make a cup of coffee :)
 
 ### 5. Set up wireless LAN
 
-Since you have loaded Raspberry Pi OS onto a blank SD card, you will have two partitions. The first one, which is the smaller one, is the `boot` partition.
+Since you have loaded Raspberry Pi OS onto a blank SD card, you will have two partitions.
+The first one, which is the smaller one, is the `boot` partition.
 
 Create a `wpa_supplicant` configuration file in the `boot` partition with the following content:
 
@@ -98,7 +105,8 @@ network={
 ```
 
 !!! note
-    Don't forget to replace the placeholder `country`, `ssid`, and `psk` values. See [Wikipedia](https://en.wikipedia.org/wiki/ISO_3166-1) for a list of 2 letter `ISO 3166-1` country codes.
+    Don't forget to replace the placeholder `country`, `ssid`, and `psk` values.
+    See [Wikipedia](https://en.wikipedia.org/wiki/ISO_3166-1) for a list of 2 letter `ISO 3166-1` country codes.
 
 ### 6. Enable SSH (using Linux or macOS)
 
@@ -106,7 +114,9 @@ You can [access the command line](https://www.raspberrypi.org/documentation/remo
 
 While SSH is not enabled by default, you can enable it by placing a file named `ssh`, without any extension, onto the boot partition of the SD card.
 
-When the Pi boots, it will look for the `ssh` file. If it is found, SSH is enabled and the file is deleted. The content of the file does not matter; it can contain text, or nothing at all.
+When the Pi boots, it will look for the `ssh` file.
+If it is found, SSH is enabled and the file is deleted.
+The content of the file does not matter; it can contain text, or nothing at all.
 
 To create an empty `ssh` file, from the home directory of the `boot` partition file, run:
 
@@ -134,7 +144,8 @@ PING raspberrypi.local (195.177.101.93): 56 data bytes
 ...
 ```
 
-Keep note of your Pi's IP address. In the above case, that's `195.177.101.93`
+Keep note of your Pi's IP address.
+In the above case, that's `195.177.101.93`
 
 ### 8. SSH (using Linux or macOS)
 
@@ -178,7 +189,8 @@ pi@raspberrypi:~ $
 The first step is to increase the [swap size](https://itsfoss.com/swap-size/) to 2GB (2048MB).
 
 !!! note
-    Swap acts as a breather to your system when the RAM is exhausted. When the RAM is exhausted, your Linux system uses part of the hard disk memory and allocates it to the running application.
+    Swap acts as a breather to your system when the RAM is exhausted.
+    When the RAM is exhausted, your Linux system uses part of the hard disk memory and allocates it to the running application.
 
 
 Use the Pi's built-in text editor [nano](https://www.nano-editor.org/dist/latest/cheatsheet.html) to open up the swap file:
@@ -212,7 +224,8 @@ Reboot your Pi to have the above changes take effect:
 sudo reboot
 ```
 
-This will cause your connection to close. So you'll need to `ssh` into your Pi again:
+This will cause your connection to close.
+So you'll need to `ssh` into your Pi again:
 
 ```sh
 ssh pi@195.177.101.93
@@ -248,25 +261,41 @@ Once you're done, `ssh` back into your Pi.
 
 ### 11. Install the beacon node
 
-Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
+=== "Manual installation"
 
-Run this in your home directory to download nimbus-eth2:
+    Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
 
-```sh
-mkdir nimbus-eth2
-wget <insert download link here>
-tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
-rm nimbus-eth2_Linux_arm64v8*.tar.gz
-```
+    Run this in your home directory to download nimbus-eth2:
 
-Now you can find the software in the nimbus-eth2 directory.
+    ```sh
+    mkdir nimbus-eth2
+    wget <insert download link here>
+    tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
+    rm nimbus-eth2_Linux_arm64v8*.tar.gz
+    ```
+
+    Now you can find the software in the nimbus-eth2 directory.
+
+=== "Using package manager"
+
+    1. Add Status APT repository to your system.
+       Follow [this guide](https://apt.status.im).
+
+    2. Install Nimbus using APT:
+
+        ```sh
+        sudo apt-get install nimbus-beacon-node
+        ```
+
+
 
 ### 12. Copy signing key over to Pi
 
 !!! note
     If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page](./deposit.md) before carrying on.
 
-We'll use the `scp` command to send files over SSH. It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.
+We'll use the `scp` command to send files over SSH.
+It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.
 
 Copy the folder containing your validator key(s) from your computer to your `pi`'s homefolder by opening up a new terminal window and running the following command:
 
@@ -292,7 +321,9 @@ To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_prater_0 ../validator_keys
 ```
 
- You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
+ You'll be asked to enter the password you created to encrypt your keystore(s).
+ Don't worry, this is entirely normal.
+ Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
 
 ### 14. Connect to Prater
@@ -300,7 +331,8 @@ build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_prater_0 
 We're finally ready to connect to the Prater testnet!
 
 !!! note
-    If you haven't already, we recommend registering for, and running, your own eth1 node in parallel. For instructions on how to do so, see [this page](./eth1.md).
+    If you haven't already, we recommend registering for, and running, your own eth1 node in parallel.
+    For instructions on how to do so, see [this page](./eth1.md).
 
 To connect to Prater, run:
 ```
@@ -320,14 +352,15 @@ INF 2020-12-01 11:25:37.073+01:00 Generating new networking key
 ...
 NOT 2020-12-01 11:25:45.267+00:00 Local validator attached                   tid=22009 file=validator_pool.nim:33 pubkey=95e3cbe88c71ab2d0e3053b7b12ead329a37e9fb8358bdb4e56251993ab68e46b9f9fa61035fe4cf2abf4c07dfad6c45 validator=95e3cbe8
 ...
-NOT 2020-12-01 11:25:59.512+00:00 Eth1 sync progress                         topics="eth1" tid=21914 file=eth1_monitor.nim:705 blockNumber=3836397 depositsProcessed=106147
-NOT 2020-12-01 11:26:02.574+00:00 Eth1 sync progress                         topics="eth1" tid=21914 file=eth1_monitor.nim:705 blockNumber=3841412 depositsProcessed=106391
+NOT 2020-12-01 11:25:59.512+00:00 Eth1 sync progress                         topics="eth1" tid=21914 blockNumber=3836397 depositsProcessed=106147
+NOT 2020-12-01 11:26:02.574+00:00 Eth1 sync progress                         topics="eth1" tid=21914 blockNumber=3841412 depositsProcessed=106391
 ...
 INF 2020-12-01 11:26:31.000+00:00 Slot start                                 topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:505 lastSlot=96566 scheduledSlot=96567 beaconTime=1w6d9h53m24s944us774ns peers=7 head=b54486c4:96563 headEpoch=3017 finalized=2f5d12e4:96479 finalizedEpoch=3014
 INF 2020-12-01 11:26:36.285+00:00 Slot end                                   topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
 ```
 
-To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
+To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running.
+You should see something like:
 
 ```
 peers: 15 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:1.2313:1.0627:12h01m(280512)
@@ -335,12 +368,16 @@ peers: 15 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:
 
 Keep an eye on the number of peers you're currently connected to (in the above case that's `15`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
 
-> **Note:** 15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Prater` with a Pi. If your sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter. See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
+!!! note
+    15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Prater` with a Pi.
+    If your sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter.
+    See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
 
 
 ## Mainnet advice
 
-Whether or not your Pi is up to the task will depend on a number of factors such as SSD speed, network connectivity, etc. As such, it's best to verify performance  on a testnet first.
+Whether or not your Pi is up to the task will depend on a number of factors such as SSD speed, network connectivity, etc.
+As such, it's best to verify performance  on a testnet first.
 
 The best thing you can do is to set your Pi to run Prater. **If you have no trouble syncing and attesting on Prater, your setup should be more than good enough for mainnet** as well (Mainnet is expected to use fewer resources).
 
@@ -364,5 +401,6 @@ For the details on how to do this, see [this page](./beacon-node-systemd.md).
 While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see [this guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
 
 !!! note
-    We have since improved performance in several ways which should make a vanilla Pi perform well. However, overclocking may still give some benefits, in particular you have more performance to deal with anomalies (like spamming etc).
+    We have since improved performance in several ways which should make a vanilla Pi perform well.
+    However, overclocking may still give some benefits, in particular you have more performance to deal with anomalies (like spamming etc).
 

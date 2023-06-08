@@ -17,7 +17,7 @@ import
   ../spec/datatypes/base,
   ../spec/helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v0.11.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -88,8 +88,6 @@ type
     ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
-    experimental*: bool
-    hasLowParticipation*: bool
     currentEpoch*: Epoch
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
@@ -112,7 +110,6 @@ type
     balances*: seq[Gwei]
 
   Checkpoints* = object
-    experimental*: bool
     time*: BeaconTime
     justified*: BalanceCheckpoint
     finalized*: Checkpoint

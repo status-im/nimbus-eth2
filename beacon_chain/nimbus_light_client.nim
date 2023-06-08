@@ -7,16 +7,15 @@
 
 import
   std/os,
-  chronicles, chronicles/chronos_tools, chronos, stew/io2,
+  chronicles, chronos, stew/io2,
   eth/db/kvstore_sqlite3, eth/keys,
-  ./eth1/eth1_monitor,
+  ./el/el_manager,
   ./gossip_processing/optimistic_processor,
-  ./networking/topic_params,
+  ./networking/[topic_params, network_metadata],
   ./spec/beaconstate,
-  ./spec/datatypes/[phase0, altair, bellatrix, capella, eip4844],
+  ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
 
-from ./consensus_object_pools/consensus_manager import runForkchoiceUpdated
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
 
@@ -66,9 +65,7 @@ programMain:
   let
     genesisState =
       try:
-        template genesisData(): auto = metadata.genesisData
-        newClone(readSszForkedHashedBeaconState(
-          cfg, genesisData.toOpenArrayByte(genesisData.low, genesisData.high)))
+        newClone(readSszForkedHashedBeaconState(cfg, metadata.genesisBytes))
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
 
@@ -87,21 +84,16 @@ programMain:
     network = createEth2Node(
       rng, config, netKeys, cfg,
       forkDigests, getBeaconTime, genesis_validators_root)
-
-    eth1Monitor =
-      if config.web3Urls.len > 0:
-        let res = Eth1Monitor.init(
+    engineApiUrls = config.engineApiUrls
+    elManager =
+      if engineApiUrls.len > 0:
+        ELManager.new(
           cfg,
           metadata.depositContractBlock,
           metadata.depositContractBlockHash,
           db = nil,
-          getBeaconTime,
-          config.web3Urls,
-          metadata.eth1Network,
-          forcePolling = false,
-          rng[].loadJwtSecret(config, allowCreate = false))
-        waitFor res.ensureDataProvider()
-        res
+          engineApiUrls,
+          metadata.eth1Network)
       else:
         nil
 
@@ -111,21 +103,33 @@ programMain:
         opt = signedBlock.toBlockId(),
         wallSlot = getBeaconTime().slotOrZero
       withBlck(signedBlock):
-        when stateFork >= ConsensusFork.Bellatrix:
+        when consensusFork >= ConsensusFork.Capella:
+          # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
+          # Consensus layer client MUST call this method instead of
+          # `engine_forkchoiceUpdatedV1` under any of the following conditions:
+          # `headBlockHash` references a block which `timestamp` is greater or
+          # equal to the Shanghai timestamp
           if blck.message.is_execution_block:
             template payload(): auto = blck.message.body.execution_payload
 
-            if eth1Monitor != nil and not payload.block_hash.isZero:
-              await eth1Monitor.ensureDataProvider()
-
-              # engine_newPayloadV1
-              discard await eth1Monitor.newExecutionPayload(payload)
-
-              # engine_forkchoiceUpdatedV1
-              discard await eth1Monitor.runForkchoiceUpdated(
+            if elManager != nil and not payload.block_hash.isZero:
+              discard await elManager.newExecutionPayload(payload)
+              discard await elManager.forkchoiceUpdated(
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value
-                finalizedBlockHash = ZERO_HASH)
+                finalizedBlockHash = ZERO_HASH,
+                payloadAttributes = none PayloadAttributesV2)
+        elif consensusFork >= ConsensusFork.Bellatrix:
+          if blck.message.is_execution_block:
+            template payload(): auto = blck.message.body.execution_payload
+
+            if elManager != nil and not payload.block_hash.isZero:
+              discard await elManager.newExecutionPayload(payload)
+              discard await elManager.forkchoiceUpdated(
+                headBlockHash = payload.block_hash,
+                safeBlockHash = payload.block_hash,  # stub value
+                finalizedBlockHash = ZERO_HASH,
+                payloadAttributes = none PayloadAttributesV1)
         else: discard
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)
@@ -157,8 +161,8 @@ programMain:
       toValidationResult(
         optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   network.addValidator(
-    getBeaconBlocksTopic(forkDigests.eip4844),
-    proc (signedBlock: eip4844.SignedBeaconBlock): ValidationResult =
+    getBeaconBlocksTopic(forkDigests.deneb),
+    proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
       toValidationResult(
         optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
@@ -224,7 +228,7 @@ programMain:
 
   func shouldSyncOptimistically(wallSlot: Slot): bool =
     # Check whether an EL is connected
-    if eth1Monitor == nil:
+    if elManager == nil:
       return false
 
     isSynced(wallSlot)
@@ -257,11 +261,11 @@ programMain:
       oldGossipForks = currentGossipState - targetGossipState
 
     for gossipFork in oldGossipForks:
-      let forkDigest = forkDigests[].atStateFork(gossipFork)
+      let forkDigest = forkDigests[].atConsensusFork(gossipFork)
       network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
     for gossipFork in newGossipForks:
-      let forkDigest = forkDigests[].atStateFork(gossipFork)
+      let forkDigest = forkDigests[].atConsensusFork(gossipFork)
       network.subscribe(
         getBeaconBlocksTopic(forkDigest), blocksTopicParams,
         enableTopicMetrics = true)
@@ -323,16 +327,8 @@ programMain:
       nextSlot = wallSlot + 1
       timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
 
-  var nextExchangeTransitionConfTime = Moment.now + chronos.seconds(60)
   proc onSecond(time: Moment) =
     let wallSlot = getBeaconTime().slotOrZero()
-
-    # engine_exchangeTransitionConfigurationV1
-    if time > nextExchangeTransitionConfTime and eth1Monitor != nil:
-      nextExchangeTransitionConfTime = time + chronos.seconds(45)
-      if wallSlot.epoch >= cfg.BELLATRIX_FORK_EPOCH:
-        traceAsyncErrors eth1Monitor.exchangeTransitionConfiguration()
-
     if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
       quit(0)
 

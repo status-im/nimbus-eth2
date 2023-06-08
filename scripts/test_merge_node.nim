@@ -12,7 +12,7 @@ import
   std/options,
   stew/results,
   chronos,
-  ../beacon_chain/eth1/eth1_monitor
+  ../beacon_chain/el/el_manager
 
 {.push raises: [].}
 
@@ -26,9 +26,9 @@ from ../beacon_chain/spec/presets import Eth1Address, defaultRuntimeConfig
 # TODO factor this out and have a version with the result of the JWT secret
 # slurp for testing purposes
 proc readJwtSecret(jwtSecretFile: string): Result[seq[byte], cstring] =
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/authentication.md#key-distribution
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#key-distribution
   # If such a parameter is given, but the file cannot be read, or does not
-  # contain a hex-encoded key of 256 bits, the client should treat this as an
+  # contain a hex-encoded key of 256 bits, the client SHOULD treat this as an
   # error: either abort the startup, or show error and continue without
   # exposing the authenticated port.
   const MIN_SECRET_LEN = 32

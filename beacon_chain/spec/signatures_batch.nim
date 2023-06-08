@@ -64,8 +64,8 @@ func aggregateAttesters(
   if validatorIndices.len == 0:
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
-    # Eth2 spec requires at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # Consensus specs require at least one attesting index in attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   let
@@ -90,8 +90,8 @@ func aggregateAttesters(
   if validatorIndices.len == 0:
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
-    # Eth2 spec requires at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # Consensus specs require at least one attesting index in attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   var attestersAgg{.noinit.}: AggregatePublicKey
@@ -387,8 +387,8 @@ proc collectSignatureSets*(
       # 7. SyncAggregate
       # ----------------------------------------------------
       withState(state):
-        when stateFork >= ConsensusFork.Altair:
-          if signed_block.message.body.sync_aggregate.sync_committee_bits.countOnes() == 0:
+        when consensusFork >= ConsensusFork.Altair:
+          if signed_block.message.body.sync_aggregate.sync_committee_bits.isZeros:
             if signed_block.message.body.sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
               return err("collectSignatureSets: empty sync aggregates need signature of point at infinity")
           else:
@@ -412,7 +412,7 @@ proc collectSignatureSets*(
     # 8. BLS to execution changes
     when typeof(signed_block).toFork() >= ConsensusFork.Capella:
       withState(state):
-        when stateFork >= ConsensusFork.Capella:
+        when consensusFork >= ConsensusFork.Capella:
           for bls_change in signed_block.message.body.bls_to_execution_changes:
             let sig = bls_change.signature.load.valueOr:
               return err("collectSignatureSets: cannot load BLS to execution change signature")

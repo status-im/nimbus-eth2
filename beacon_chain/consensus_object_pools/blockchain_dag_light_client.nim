@@ -119,7 +119,7 @@ proc syncCommitteeRootForPeriod(
     bsi = ? dag.getExistingBlockIdAtSlot(syncCommitteeSlot)
   dag.withUpdatedExistingState(tmpState, bsi) do:
     withState(updatedState):
-      when stateFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Altair:
         ok forkyState.syncCommitteeRoot
       else: raiseAssert "Unreachable"
   do: err()
@@ -150,7 +150,7 @@ func targetLightClientTailSlot(dag: ChainDAGRef): Slot =
   let
     maxPeriods = dag.lcDataStore.maxPeriods
     headPeriod = dag.head.slot.sync_committee_period
-    lowSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
+    lowSlot = dag.cfg.ALTAIR_FORK_EPOCH.start_slot
     tail = max(headPeriod + 1, maxPeriods.SyncCommitteePeriod) - maxPeriods
   max(tail.start_slot, lowSlot)
 
@@ -182,7 +182,8 @@ proc initLightClientBootstrapForPeriod(
   let
     periodStartSlot = period.start_slot
     periodEndSlot = periodStartSlot + SLOTS_PER_SYNC_COMMITTEE_PERIOD - 1
-    lowSlot = max(periodStartSlot, dag.targetLightClientTailSlot)
+    tailSlot = max(dag.targetLightClientTailSlot, dag.tail.slot)
+    lowSlot = max(periodStartSlot, tailSlot)
     highSlot = min(periodEndSlot, dag.finalizedHead.blck.slot)
     lowBoundarySlot = lowSlot.nextEpochBoundarySlot
     highBoundarySlot = highSlot.nextEpochBoundarySlot
@@ -212,8 +213,8 @@ proc initLightClientBootstrapForPeriod(
         res.err()
         continue
       withStateAndBlck(tmpState[], bdata):
-        when stateFork >= ConsensusFork.Altair:
-          const lcDataFork = lcDataForkAtStateFork(stateFork)
+        when consensusFork >= ConsensusFork.Altair:
+          const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
           if not dag.lcDataStore.db.hasSyncCommittee(period):
             dag.lcDataStore.db.putSyncCommittee(
               period, forkyState.data.current_sync_committee)
@@ -273,7 +274,7 @@ proc initLightClientUpdateForPeriod(
           break
         numParticipants =
           withBlck(bdata):
-            when stateFork >= ConsensusFork.Altair:
+            when consensusFork >= ConsensusFork.Altair:
               blck.message.body.sync_aggregate.num_active_participants
             else: raiseAssert "Unreachable"
       if numParticipants >= maxParticipants:
@@ -286,7 +287,8 @@ proc initLightClientUpdateForPeriod(
   let
     periodStartSlot = period.start_slot
     periodEndSlot = periodStartSlot + SLOTS_PER_SYNC_COMMITTEE_PERIOD - 1
-    lowSlot = max(periodStartSlot, dag.targetLightClientTailSlot)
+    tailSlot = max(dag.targetLightClientTailSlot, dag.tail.slot)
+    lowSlot = max(periodStartSlot, tailSlot)
     highSlot = min(periodEndSlot, dag.finalizedHead.blck.slot)
     fullPeriodCovered = (dag.finalizedHead.slot > periodEndSlot)
     highBsi = dag.getExistingBlockIdAtSlot(highSlot).valueOr:
@@ -330,7 +332,7 @@ proc initLightClientUpdateForPeriod(
       finalizedEpoch = block:
         dag.withUpdatedExistingState(tmpState[], attestedBid.atSlot) do:
           withState(updatedState):
-            when stateFork >= ConsensusFork.Altair:
+            when consensusFork >= ConsensusFork.Altair:
               forkyState.data.finalized_checkpoint.epoch
             else: raiseAssert "Unreachable"
         do:
@@ -362,8 +364,8 @@ proc initLightClientUpdateForPeriod(
       dag.handleUnexpectedLightClientError(bid.slot)
       return err()
     withStateAndBlck(updatedState, bdata):
-      when stateFork >= ConsensusFork.Altair:
-        const lcDataFork = lcDataForkAtStateFork(stateFork)
+      when consensusFork >= ConsensusFork.Altair:
+        const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
         update = ForkedLightClientUpdate(kind: lcDataFork)
         template forkyUpdate: untyped = update.forky(lcDataFork)
         forkyUpdate.attested_header = blck.toLightClientHeader(lcDataFork)
@@ -384,14 +386,14 @@ proc initLightClientUpdateForPeriod(
     withBlck(bdata):
       withForkyUpdate(update):
         when lcDataFork > LightClientDataFork.None:
-          when lcDataFork >= lcDataForkAtStateFork(stateFork):
+          when lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
             forkyUpdate.finalized_header = blck.toLightClientHeader(lcDataFork)
           else: raiseAssert "Unreachable"
   let bdata = dag.getExistingForkedBlock(signatureBid).valueOr:
     dag.handleUnexpectedLightClientError(signatureBid.slot)
     return err()
   withBlck(bdata):
-    when stateFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       withForkyUpdate(update):
         when lcDataFork > LightClientDataFork.None:
           forkyUpdate.sync_aggregate =
@@ -475,7 +477,7 @@ template lazy_header(name: untyped): untyped {.dirty.} =
         `name _ ok` = false
       else:
         withBlck(bdata.get):
-          when data_fork >= lcDataForkAtStateFork(stateFork):
+          when data_fork >= lcDataForkAtConsensusFork(consensusFork):
             obj.name = blck.toLightClientHeader(data_fork)
           else: raiseAssert "Unreachable"
         `name _ ptr` = addr obj.name
@@ -493,7 +495,7 @@ template lazy_header(name: untyped): untyped {.dirty.} =
       else:
         obj.migrateToDataFork(data_fork)
         withBlck(bdata.get):
-          when data_fork >= lcDataForkAtStateFork(stateFork):
+          when data_fork >= lcDataForkAtConsensusFork(consensusFork):
             obj.forky(data_fork).name = blck.toLightClientHeader(data_fork)
           else: raiseAssert "Unreachable"
         `name _ ptr` = addr obj.forky(data_fork).name
@@ -677,14 +679,14 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
   dag.lcDataStore.db.delNonFinalizedPeriodsFrom(dag.firstNonFinalizedPeriod)
 
   # Initialize tail slot
-  let targetTailSlot = dag.targetLightClientTailSlot
+  let targetTailSlot = max(dag.targetLightClientTailSlot, dag.tail.slot)
   dag.lcDataStore.cache.tailSlot = max(dag.head.slot, targetTailSlot)
 
   # Import head state
   if dag.head.slot < dag.lcDataStore.cache.tailSlot:
     return
   withState(dag.headState):
-    when stateFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       dag.cacheLightClientData(forkyState, dag.head.bid)
     else: raiseAssert "Unreachable" # `tailSlot` cannot be before Altair
   if dag.lcDataStore.importMode == LightClientDataImportMode.OnlyNew:
@@ -735,7 +737,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       res.err()
       continue
     withStateAndBlck(dag.headState, bdata):
-      when stateFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Altair:
         # Cache light client data (non-finalized blocks may refer to this)
         if i != blocks.low:
           dag.cacheLightClientData(forkyState, bid)  # `dag.head` already cached
@@ -781,8 +783,8 @@ proc processNewBlockForLightClient*(
     return
 
   when signedBlock is deneb.TrustedSignedBeaconBlock:
-    dag.cacheLightClientData(state.eip4844Data, signedBlock.toBlockId())
-    dag.createLightClientUpdates(state.eip4844Data, signedBlock, parentBid)
+    dag.cacheLightClientData(state.denebData, signedBlock.toBlockId())
+    dag.createLightClientUpdates(state.denebData, signedBlock, parentBid)
   elif signedBlock is capella.TrustedSignedBeaconBlock:
     dag.cacheLightClientData(state.capellaData, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.capellaData, signedBlock, parentBid)
@@ -824,7 +826,7 @@ proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
         dag.lcDataStore.db.putBestUpdate(
           period, dag.lcDataStore.cache.pendingBest.getOrDefault(key))
     withState(dag.headState): # Common case separate to avoid `tmpState` copy
-      when stateFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Altair:
         let key = (headPeriod, forkyState.syncCommitteeRoot)
         dag.lcDataStore.db.putBestUpdate(
           headPeriod, dag.lcDataStore.cache.pendingBest.getOrDefault(key))
@@ -860,7 +862,7 @@ proc processFinalizationForLightClient*(
         period = bid.slot.sync_committee_period
       if not dag.lcDataStore.db.hasSyncCommittee(period):
         let didPutSyncCommittee = withState(dag.headState):
-          when stateFork >= ConsensusFork.Altair:
+          when consensusFork >= ConsensusFork.Altair:
             if period == forkyState.data.slot.sync_committee_period:
               dag.lcDataStore.db.putSyncCommittee(
                 period, forkyState.data.current_sync_committee)
@@ -878,8 +880,8 @@ proc processFinalizationForLightClient*(
                 break
           dag.lcDataStore.db.putSyncCommittee(period, syncCommittee)
       withBlck(bdata):
-        when stateFork >= ConsensusFork.Altair:
-          const lcDataFork = lcDataForkAtStateFork(stateFork)
+        when consensusFork >= ConsensusFork.Altair:
+          const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
           dag.lcDataStore.db.putHeader(blck.toLightClientHeader(lcDataFork))
         else: raiseAssert "Unreachable"
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
@@ -947,7 +949,7 @@ proc getLightClientBootstrap(
       tmpState = assignClone(dag.headState)
     dag.withUpdatedExistingState(tmpState[], bsi) do:
       withState(updatedState):
-        when stateFork >= ConsensusFork.Altair:
+        when consensusFork >= ConsensusFork.Altair:
           if not dag.lcDataStore.db.hasSyncCommittee(period):
             dag.lcDataStore.db.putSyncCommittee(
               period, forkyState.data.current_sync_committee)
@@ -1001,8 +1003,8 @@ proc getLightClientBootstrap*(
     debug "LC bootstrap unavailable: Block not found", blockRoot
     return default(ForkedLightClientBootstrap)
   withBlck(bdata):
-    when stateFork >= ConsensusFork.Altair:
-      const lcDataFork = lcDataForkAtStateFork(stateFork)
+    when consensusFork >= ConsensusFork.Altair:
+      const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       let
         header = blck.toLightClientHeader(lcDataFork)
         bootstrap = dag.getLightClientBootstrap(header)

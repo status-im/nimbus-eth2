@@ -55,12 +55,12 @@ proc getCapellaStateRef(db: BeaconChainDB, root: Eth2Digest):
   if db.getState(root, res[], noRollback):
     return res
 
-from ../beacon_chain/spec/datatypes/eip4844 import TrustedSignedBeaconBlock
+from ../beacon_chain/spec/datatypes/deneb import TrustedSignedBeaconBlock
 
-proc getEIP4844StateRef(db: BeaconChainDB, root: Eth2Digest):
-    eip4844.NilableBeaconStateRef =
+proc getDenebStateRef(db: BeaconChainDB, root: Eth2Digest):
+    deneb.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
-  let res = (eip4844.BeaconStateRef)()
+  let res = (deneb.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
     return res
 
@@ -92,19 +92,19 @@ func withDigest(blck: capella.TrustedBeaconBlock):
     root: hash_tree_root(blck)
   )
 
-func withDigest(blck: eip4844.TrustedBeaconBlock):
-    eip4844.TrustedSignedBeaconBlock =
-  eip4844.TrustedSignedBeaconBlock(
+func withDigest(blck: deneb.TrustedBeaconBlock):
+    deneb.TrustedSignedBeaconBlock =
+  deneb.TrustedSignedBeaconBlock(
     message: blck,
     root: hash_tree_root(blck)
   )
 
-proc getTestStates(stateFork: ConsensusFork): auto =
+proc getTestStates(consensusFork: ConsensusFork): auto =
   let
     db = makeTestDB(SLOTS_PER_EPOCH)
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-  var testStates = getTestStates(dag.headState, stateFork)
+  var testStates = getTestStates(dag.headState, consensusFork)
 
   # Ensure transitions beyond just adding validators and increasing slots
   sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
@@ -118,12 +118,12 @@ let
   testStatesAltair    = getTestStates(ConsensusFork.Altair)
   testStatesBellatrix = getTestStates(ConsensusFork.Bellatrix)
   testStatesCapella   = getTestStates(ConsensusFork.Capella)
-  testStatesEIP4844   = getTestStates(ConsensusFork.EIP4844)
+  testStatesDeneb     = getTestStates(ConsensusFork.Deneb)
 doAssert len(testStatesPhase0) > 8
 doAssert len(testStatesAltair) > 8
 doAssert len(testStatesBellatrix) > 8
 doAssert len(testStatesCapella) > 8
-doAssert len(testStatesEIP4844) > 8
+doAssert len(testStatesDeneb) > 8
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
@@ -149,7 +149,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
-      not db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
       db.getBlock(root, phase0.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
@@ -164,7 +164,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
-      not db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
       db.getBlock(root, phase0.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
@@ -196,7 +196,7 @@ suite "Beacon chain DB" & preset():
       db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
-      not db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
       db.getBlock(root, altair.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, altair.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
@@ -211,7 +211,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
-      not db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
       db.getBlock(root, altair.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, altair.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
@@ -243,7 +243,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
-      not db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
       db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
@@ -258,7 +258,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
-      not db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
       db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
@@ -289,7 +289,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
-      not db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
       db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       db.getBlock(root, capella.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, capella.TrustedSignedBeaconBlock)
@@ -305,7 +305,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
-      not db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
       db.getBlock(root, capella.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, capella.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, capella.TrustedSignedBeaconBlock)
@@ -321,11 +321,11 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check EIP4844 blocks" & preset():
+  test "sanity check Deneb blocks" & preset():
     let db = BeaconChainDB.new("", inMemory = true)
 
     let
-      signedBlock = withDigest((eip4844.TrustedBeaconBlock)())
+      signedBlock = withDigest((deneb.TrustedBeaconBlock)())
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)
@@ -337,25 +337,25 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
-      db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
-      db.getBlock(root, eip4844.TrustedSignedBeaconBlock).get() == signedBlock
-      db.getBlockSSZ(root, tmp, eip4844.TrustedSignedBeaconBlock)
-      db.getBlockSZ(root, tmp2, eip4844.TrustedSignedBeaconBlock)
+      db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      db.getBlock(root, deneb.TrustedSignedBeaconBlock).get() == signedBlock
+      db.getBlockSSZ(root, tmp, deneb.TrustedSignedBeaconBlock)
+      db.getBlockSZ(root, tmp2, deneb.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
       tmp2 == encodeFramed(tmp)
       uncompressedLenFramed(tmp2).isSome
 
     check:
-      db.delBlock(ConsensusFork.EIP4844, root)
+      db.delBlock(ConsensusFork.Deneb, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
-      not db.containsBlock(root, eip4844.TrustedSignedBeaconBlock)
-      db.getBlock(root, eip4844.TrustedSignedBeaconBlock).isErr()
-      not db.getBlockSSZ(root, tmp, eip4844.TrustedSignedBeaconBlock)
-      not db.getBlockSZ(root, tmp2, eip4844.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      db.getBlock(root, deneb.TrustedSignedBeaconBlock).isErr()
+      not db.getBlockSSZ(root, tmp, deneb.TrustedSignedBeaconBlock)
+      not db.getBlockSZ(root, tmp2, deneb.TrustedSignedBeaconBlock)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -440,21 +440,21 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check EIP4844 states" & preset():
+  test "sanity check Deneb states" & preset():
     let db = makeTestDB(SLOTS_PER_EPOCH)
 
-    for state in testStatesEIP4844:
-      let root = state[].eip4844Data.root
-      db.putState(root, state[].eip4844Data.data)
+    for state in testStatesDeneb:
+      let root = state[].denebData.root
+      db.putState(root, state[].denebData.data)
 
       check:
         db.containsState(root)
-        hash_tree_root(db.getEIP4844StateRef(root)[]) == root
+        hash_tree_root(db.getDenebStateRef(root)[]) == root
 
-      db.delState(ConsensusFork.EIP4844, root)
+      db.delState(ConsensusFork.Deneb, root)
       check:
         not db.containsState(root)
-        db.getEIP4844StateRef(root).isNil
+        db.getDenebStateRef(root).isNil
 
     db.close()
 
@@ -538,20 +538,20 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check EIP4844 states, reusing buffers" & preset():
+  test "sanity check Deneb states, reusing buffers" & preset():
     let db = makeTestDB(SLOTS_PER_EPOCH)
-    let stateBuffer = (eip4844.BeaconStateRef)()
+    let stateBuffer = (deneb.BeaconStateRef)()
 
-    for state in testStatesEIP4844:
-      let root = state[].eip4844Data.root
-      db.putState(root, state[].eip4844Data.data)
+    for state in testStatesDeneb:
+      let root = state[].denebData.root
+      db.putState(root, state[].denebData.data)
 
       check:
         db.getState(root, stateBuffer[], noRollback)
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(ConsensusFork.EIP4844, root)
+      db.delState(ConsensusFork.Deneb, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -659,18 +659,18 @@ suite "Beacon chain DB" & preset():
       state[].kind == ConsensusFork.Phase0
       state[].phase0Data.data.slot != 10.Slot
 
-  test "sanity check EIP4844 and cross-fork getState rollback" & preset():
+  test "sanity check Deneb and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.EIP4844,
-        eip4844Data: eip4844.HashedBeaconState(data: eip4844.BeaconState(
+        kind: ConsensusFork.Deneb,
+        denebData: deneb.HashedBeaconState(data: deneb.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptState(ConsensusFork.EIP4844, root)
+    db.putCorruptState(ConsensusFork.Deneb, root)
 
     let restoreAddr = addr dag.headState
 
@@ -678,8 +678,8 @@ suite "Beacon chain DB" & preset():
       assign(state[], restoreAddr[])
 
     check:
-      state[].eip4844Data.data.slot == 10.Slot
-      not db.getState(root, state[].eip4844Data.data, restore)
+      state[].denebData.data.slot == 10.Slot
+      not db.getState(root, state[].denebData.data, restore)
 
       # assign() has switched the case object fork
       state[].kind == ConsensusFork.Phase0

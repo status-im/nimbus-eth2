@@ -1,3 +1,328 @@
+2023-05-18 v23.5.1
+==================
+
+Nimbus `v23.5.1` is a `medium-urgency` point release improving the compatibility of Nimbus with 3rd party validator clients and beacon nodes and introducing the support for incremental pruning. If you are still not using the `--history:prune` option, we recommend testing it in a non-production environment, as it will be enabled by default in our next release.
+
+### Breaking changes
+
+* The Nimbus validator client no longer accepts under-specified beacon node URLs that doesn't include a port number or a protocol scheme. When a protocol scheme is specified, Nimbus now uses the default port for the selected protocol (80 for HTTP and 443 for HTTPS):
+
+  https://github.com/status-im/nimbus-eth2/pull/4921
+
+### Improvements
+
+* The history pruning is now incremental and no longer results in start-up delays when the `--history:prune` option is enabled on an existing node:
+  https://github.com/status-im/nimbus-eth2/pull/4887
+
+* Nimbus now uses the withdrawal address of the validator as a default choice for the fee recipient address if the user has not provided any value in the configuration:
+  https://github.com/status-im/nimbus-eth2/pull/4968
+
+* Nimbus now supports the upcoming Capella hard-fork in the Gnosis network:
+  https://github.com/status-im/nimbus-eth2/pull/4936
+
+### Fixes
+
+* The Capella-related properties `MAX_BLS_TO_EXECUTION_CHANGES`, `MAX_WITHDRAWALS_PER_PAYLOAD`, `MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP` and `DOMAIN_BLS_TO_EXECUTION_CHANGE` were missing from the `/eth/v1/config/spec` REST API end-point:
+  https://github.com/status-im/nimbus-eth2/pull/4925
+
+* The `/eth/v1/validator/blinded_blocks/{slot}` was supplying incorrectly encoded response when requested to return SSZ data:
+  https://github.com/status-im/nimbus-eth2/pull/4943
+
+* The safety checks associated with the `--weak-subjectivity-checkpoint` parameter are now compliant with the latest Ethereum specs:
+  https://github.com/status-im/nimbus-eth2/pull/4923
+
+* The Nimbus validator client was using HTTP pipelining which is not supported by all beacon node implementations:
+  https://github.com/status-im/nimbus-eth2/pull/4950
+
+* The "Connection to EL node degraded" warning is now printed only after sufficiently persistent connectivity issues with the EL client:
+  https://github.com/status-im/nimbus-eth2/pull/4960
+
+* After being only briefly disconnected from the execution layer client, the Nimbus beacon node was prematurely setting the `execution_optimistic` flag when returning validator duties:
+  https://github.com/status-im/nimbus-eth2/pull/4955
+
+* Nimbus now allows the builder to respond 500ms later than the spec-mandated timeout in order to account for possible additional delays introduced by proxies such as mev-boost:
+  https://github.com/status-im/nimbus-eth2/pull/4964
+
+* During sync committee period transitions, for a brief period of time there was a low risk of producing an invalid sync committee contribution:
+  https://github.com/status-im/nimbus-eth2/pull/4953
+
+* Nimbus `v23.5.0` introduced an unintended backwards-incompatible change in the parsing of remote keystores which is addressed in this release:
+  https://github.com/status-im/nimbus-eth2/pull/4967
+
+
+2023-05-09 v23.5.0
+==================
+
+Nimbus `v23.5.0` is a `medium-urgency` upgrade that addresses a critical issue which was introduced in the previous version (`v23.4.0`). The issue was causing missed block proposals for users who were utilizing an external builder.
+
+### Improvements
+
+* After Nimbus completes a trusted node sync executed with the `--trusted-block-root` flag, it will enable signature verification of all backfilled blocks, thereby reducing the assumed trust in the specified beacon node URL to merely expected data availability rather than expected data authenticity:
+
+  https://github.com/status-im/nimbus-eth2/pull/4858
+
+* The `/eth/v1/node/syncing` BeaconAPI endpoint now supports the standardized `el_offline` property:
+
+  https://github.com/status-im/nimbus-eth2/pull/4860
+  https://github.com/ethereum/beacon-APIs/pull/290
+
+* The `secp256k1` library has been upgraded to version `0.3.1`.
+
+* Nimbus now supports an experimental extension of the Web3Signer protocol, allowing the signer server to verify certain properties of the signed block, such as the specified fee recipient:
+
+  https://nimbus.guide/web3signer.html#verifying-web3signer
+  https://github.com/status-im/nimbus-eth2/pull/4775
+  https://github.com/status-im/nimbus-eth2/pull/4912
+
+### Fixes
+
+* Nimbus was submitting blocks with incorrect state root to the attached external builder which resulted in missed block proposals:
+
+  https://github.com/status-im/nimbus-eth2/pull/4889
+
+* Nimbus was skipping block proposals due to an inappropriate triggering of the slashing protection logic when an external builder was providing a block with insufficient value to be selected under the new `--local-block-value-boost` mechanism:
+
+  https://github.com/status-im/nimbus-eth2/pull/4894
+
+* Nimbus was crashing after certain unsuccessful requests to the external block builder:
+
+  https://github.com/status-im/nimbus-eth2/pull/4890
+
+* The Nimbus validator client was failing to perform sync committee duties when attached to multiple beacon nodes and when some of them were only optimistically synced:
+
+  https://github.com/status-im/nimbus-eth2/pull/4878
+
+* The `--trusted-block-root` option was not visible in the `trustedNodeSync` help listing:
+
+  https://github.com/status-im/nimbus-eth2/pull/4859
+
+* Nimbus was experiencing sporadic request time outs when being connected to the execution client over HTTP. Under specific circumstances this was introducing risk for missed attestation:
+
+  https://github.com/status-im/nimbus-eth2/commit/d784672c107f846163082262334d4d7a4e625bd5
+
+* The required traffic to the execution client was reduced by preventing the sending of the same block multiple times:
+
+  https://github.com/status-im/nimbus-eth2/pull/4850
+
+
+2023-04-25 v23.4.0
+==================
+
+Nimbus `v23.4.0` is a `medium-urgency` upgrade addressing a number of low probability risks for missed block proposals, bringing performance improvements in setups relying on the Nimbus validator client, and introducing some exciting new capabilities of the Nimbus light client and Builder API implementations.
+
+### Improvements
+
+* Nimbus now obtains blocks from the configured builder and execution layer nodes without providing timing advantage to any source. You can use the newly added `--local-block-value-boost` option to give preference to the best block provided by an execution layer node, as long as its value is within the specified percentage of the value advertised by the best external builder. Setting this flag to a non-zero value is recommended because the usage of an external builder introduces an additional risk that the advertised block won't be published by the builder:
+
+  https://github.com/status-im/nimbus-eth2/pull/4749
+  https://github.com/status-im/nimbus-eth2/pull/4795
+  https://github.com/status-im/nimbus-eth2/pull/4847
+
+* Nimbus now supports the standardized Builder API liveness failsafe mechanism:
+
+  https://github.com/status-im/nimbus-eth2/pull/4746
+
+* The `--sync-light-client` option is now enabled by default, providing significant speedups in beacon chain syncing and re-syncing:
+
+  https://github.com/status-im/nimbus-eth2/pull/4805
+
+* The `trustedNodeSync` command features a new `--trusted-block-root` option that leverages the Nimbus light client in order to minimize the required trust in the specified Beacon API endpoint. After downloading the state snapshot, the light client will verify that it conforms to the established consensus in the network. Note that the provided `--trusted-block-root` should be somewhat recent, and that additional security precautions such as comparing the state root against block explorers are still recommended.
+
+  https://github.com/status-im/nimbus-eth2/pull/4736
+
+* Improved scheduling mechanisms in the Nimbus validator client deliver stability and performance improvements:
+
+  https://github.com/status-im/nimbus-eth2/pull/4743
+
+* The `deposits exit` command can now be used to perform voluntary exits for multiple validators at once:
+
+  https://github.com/status-im/nimbus-eth2/pull/4855
+  https://nimbus.guide/voluntary-exit.html
+
+* Nimbus now supports the [`/eth/v1/beacon/states/{state_id}/randao`](https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateRandao) REST API endpoint:
+
+  https://github.com/status-im/nimbus-eth2/pull/4799
+
+* Nimbus now uses only the Capella-enabled `engine_forkchoiceUpdatedV2` endpoint in all communication with the execution layer:
+
+  https://github.com/status-im/nimbus-eth2/pull/4817
+
+### Fixes
+
+* Nimbus has addressed a risk of missed block proposal due to incorrectly computed withdrawals at epoch boundaries:
+
+  https://github.com/status-im/nimbus-eth2/pull/4820
+
+* Nimbus has addressed a low probability risk of missed block proposals when the configured builder doesn't respond in time:
+
+  https://github.com/status-im/nimbus-eth2/pull/4764/
+
+* Nimbus has addressed a low probability risk of missed block proposals when a late block triggers a chain re-org while an `engine_forkchoiceUpdated` request to the execution layer is in flight:
+
+  https://github.com/status-im/nimbus-eth2/pull/4800
+
+* Nimbus will no longer experience occasional response timeouts when performing a large number of concurrent HTTP requests (e.g. when configured to operate with a large number of remote keystores):
+
+  https://github.com/status-im/nim-presto/pull/44
+  https://github.com/status-im/nim-chronos/pull/324
+  https://github.com/status-im/nimbus-eth2/pull/4779
+
+* The Nimbus validator client will no longer crash on start-up when supplied with incorrect beacon node configuration:
+
+  https://github.com/status-im/nimbus-eth2/pull/4765
+
+* Nimbus will no longer crash when there is a network mismatch between the imported slashing protection database and the specified data directory:
+
+  https://github.com/status-im/nimbus-eth2/pull/4791
+
+* Inactive validators will no longer affect the initial GossipSub topic subscriptions:
+
+  https://github.com/status-im/nimbus-eth2/pull/4793
+
+* Failed or timed out request to `engine_exchangeTransitionConfigurationV1` will no longer degrade the status of the connection to the execution layer:
+
+  https://github.com/status-im/nimbus-eth2/pull/4831
+
+
+2023-03-22 v23.3.2
+==================
+
+Nimbus `v23.3.2` is a `low-urgency`, but mandatory upgrade providing full-support for the upcoming Capella hard-fork on Mainnet. Please upgrade at your earliest convenience - **before the 12th of April**.
+
+### Improvements
+
+* The `deposits exit` can now be executed with a path to a keystore file that was generated by `deposit-staking-cli` or `ethdo`. All users are advised to use this method for exiting, due to a [known issue](https://github.com/status-im/nimbus-eth2/issues/4216) preventing the other formerly supported methods from working:
+
+  https://nimbus.guide/voluntary-exit.html
+  https://github.com/status-im/nimbus-eth2/pull/4753
+
+* The metrics `beacon_light_client_finality_update_received`, `beacon_light_client_finality_update_dropped`, `beacon_light_client_optimistic_update_received` and `beacon_light_client_optimistic_update_dropped` provide information regarding the observed light client gossip traffic:
+
+  https://github.com/status-im/nimbus-eth2/pull/4745
+
+* Nimbus now recognizes the `/eth/v1/validator/beacon_committee_selections` and `/eth/v1/validator/sync_committee_selections` Beacon API end-points in accordance to the latest spec:
+
+  https://github.com/status-im/nimbus-eth2/pull/4760
+
+### Fixes
+
+* Nimbus will no longer report warnings such as "Connection to EL node degraded" when paired with an execution node that hasn't been synced up to the deployment block of the validator deposit contract:
+
+  https://github.com/status-im/nimbus-eth2/pull/4761
+
+* Nimbus was sporadically triggering an inappropriate assertion error under normal operating conditions:
+
+  https://github.com/status-im/nimbus-eth2/pull/4759
+
+
+2023-03-14 v23.3.1
+==================
+
+Nimbus `v23.3.1` is a `medium-urgency` point release addressing a number of accidental configuration handling breaking changes that were shipped in the `v23.3.0` release. It also improves the stability of Nimbus when paired with a Besu execution client and improves the fault-tolerance when driving multiple execution clients.
+
+### Fixes
+
+* Nimbus was performing `eth_getLogs` request with parameters that were exceeding the default `--rpc-max-logs-range=1000` limit on Besu. This was a non-fatal issue that resulted in slower deposit syncing speed and the frequent warning message "Connection to EL node degraded". The limit will be increased in the next mainnet release of Besu, but Nimbus `v23.3.1` honours the existing limit at the cost of a slightly slower syncing speed with all other execution clients:
+
+  https://github.com/status-im/nimbus-eth2/commit/6fb48aca7dedc7ba3c6b2f2ae8a4926ddcf7a00e
+
+* `v23.3.0` did not support Engine API URLs which don't specify a protocol in the URL (e.g. `http`, `https`, `ws` or `wss`). `v23.3.1` is backwards-compatible with all previous Nimbus releases:
+
+  https://github.com/status-im/nimbus-eth2/commit/3a35809a02b4fbe23b2dc843806ec81f67521c6d
+
+* `v23.3.0` produced a parsing error on TOML configuration files that specify the `web3-url` parameter as an array of strings. `v23.3.1` is backwards-compatible with all previous Nimbus releases and introduces a new more convenient way for specifying the Engine API configuration in TOML:
+
+  https://nimbus.guide/eth1.html#running-multiple-execution-clients
+  https://github.com/status-im/nimbus-eth2/commit/46f48269ef899f19cd9932b27d30c68e2ccf035b
+
+* `v23.3.0` removed the hidden configuration option `--web3-force-polling` which remained in use by some users. `v23.3.1` restores the option as a deprecated one. Please note that all hidden configuration options are intended for use only by the Nimbus development team for testing purposes:
+
+  https://github.com/status-im/nimbus-eth2/commit/ee610cbf34cebea24576c25bf6702de4205a260a
+
+* The release addresses a potential crash triggered by Engine API connections experiencing frequent error responses:
+
+  https://github.com/status-im/nimbus-eth2/commit/d899a6a834c083a62e1246eade5027a7019ace82
+
+* The release addresses a potential issue where a single non-synced execution client may cause the Nimbus sync state to revert to `synced/opt`, even when all validator duties can be performed through the remaining execution clients that are still synced:
+
+  https://github.com/status-im/nimbus-eth2/commit/d899a6a834c083a62e1246eade5027a7019ace82
+
+
+2023-03-11 v23.3.0
+==================
+
+Nimbus `v23.3.0` is a `low-urgency` upgrade bringing full support for the upcoming Capella hard-fork on the Goerli testnet. Keep an eye out for future mainnet releases!
+
+### Improvements
+
+* You can increase the resilience of your setup and eliminate any downtime during upgrade procedures of the execution client by allowing your beacon node to manage multiple execution clients. To enable this mode, just specify multiple URLs through the `--el` option (alias of `--web3-url`) when starting your beacon node:
+
+  ```sh
+  ./run-mainnet-beacon-node.sh \
+    --el=http://127.0.0.1:8551 \
+    --el=ws://other:8551 \
+    --jwt-secret=/tmp/jwtsecret
+  ```
+
+  As long as any of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties. To carry out an upgrade procedure without any downtime, just restart the execution clients one by one, waiting for each instance to re-sync before moving to the next one.
+
+  If you use this mode with different execution client implementations, Nimbus will act as an execution layer consensus violation detector, preventing the publishing of blocks that may trigger a catastrophic partitioning in the network.
+
+  https://github.com/status-im/nimbus-eth2/pull/4465
+  https://nimbus.guide/eth1.html
+
+* The metrics `engine_api_responses`, `engine_api_request_duration_seconds` and `engine_api_timeouts` provide statistics about latency and response status codes for all requests sent to each individual execution layer URL:
+
+  https://github.com/status-im/nimbus-eth2/pull/4465
+  https://github.com/status-im/nimbus-eth2/pull/4707
+
+* Nimbus will now attempt to connect to a locally running execution client even when the options `--el` and `--jwt-secret` are not specified. This is made possible by the following proposed standard:
+
+  https://github.com/ethereum/execution-apis/pull/302
+
+  Please note that the standard hasn't been implemented in any execution client yet.
+
+* Nimbus now support the latest version of the Builder API, adding support for the Capella hard-fork:
+
+  https://github.com/status-im/nimbus-eth2/pull/4643
+
+* Improved diagnostic messages and more spec-compliant behavior of the Nimbus validator client when being paired with a non-synced or optimistically synced beacon nodes:
+
+  https://github.com/status-im/nimbus-eth2/pull/4643
+  https://github.com/status-im/nimbus-eth2/pull/4657
+  https://github.com/status-im/nimbus-eth2/pull/4673
+
+* The Sqlite3 database engine has been upgraded to version 3.40.1:
+
+  https://github.com/status-im/nimbus-eth2/pull/4649
+
+### Fixes
+
+* The doppelganger detection now acts safer after a period of lost network connectivity
+
+  https://github.com/status-im/nimbus-eth2/pull/4616
+
+* The doppelganger detection now acts safer in the presence of out-of-order responses from the beacon node:
+
+  https://github.com/status-im/nimbus-eth2/pull/4691
+
+* Nimbus can now export ERA files for the Sepolia network:
+
+  https://github.com/status-im/nimbus-eth2/pull/4689
+
+* The `--history=prune` mode will no longer interfere with serving light client data for the full retention period as mandated by the spec:
+
+  https://github.com/status-im/nimbus-eth2/pull/4702
+
+* Nimbus now downloads a longer range of recent execution blocks in order to avoid potential situations where our `Eth1Data` votes fail to agree with the honest majority in the network:
+
+  https://github.com/status-im/nimbus-eth2/pull/4588
+
+* Nimbus has addressed a potential interruption of deposit syncing when connected to Geth over WebSocket:
+
+  https://github.com/status-im/nimbus-eth2/pull/4708
+
+
 2023-02-16 v23.2.0
 ==================
 
@@ -27,7 +352,7 @@ Capella hard-fork on the Sepolia testnet. Keep an eye out for future mainnet rel
   https://github.com/status-im/nimbus-eth2/pull/4591
 
 * The Keymanager API now supports all `gas_limit` end-points:
-  https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit  
+  https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit
   https://github.com/status-im/nimbus-eth2/pull/4612
 
 * Nimbus serves light client updates up to the retention period mandated by

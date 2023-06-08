@@ -23,7 +23,7 @@ import
   "."/[beacon_chain_db_light_client, filepath]
 
 from ./spec/datatypes/capella import BeaconState
-from ./spec/datatypes/deneb import TrustedSignedBeaconBlock, BlobsSidecar
+from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
@@ -249,6 +249,8 @@ func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
   var ret: array[40, byte]
   ret[0..<8] = toBytes(index)
   ret[8..<40] = root.data
+
+  ret
 
 template expectDb(x: auto): untyped =
   # There's no meaningful error handling implemented for a corrupt database or
@@ -509,7 +511,7 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("altair_blocks").expectDb(),
       kvStore db.openKvStore("bellatrix_blocks").expectDb(),
       kvStore db.openKvStore("capella_blocks").expectDb(),
-      kvStore db.openKvStore("eip4844_blocks").expectDb()]
+      kvStore db.openKvStore("deneb_blocks").expectDb()]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
@@ -518,7 +520,7 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("altair_state_no_validators").expectDb(),
       kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
       kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
-      kvStore db.openKvStore("eip4844_state_no_validator_pubkeys").expectDb()]
+      kvStore db.openKvStore("deneb_state_no_validator_pubkeys").expectDb()]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -531,10 +533,9 @@ proc new*(T: type BeaconChainDB,
           "lc_capella_headers"
         else:
           "",
-      eip4844Headers:
+      denebHeaders:
         if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          # TODO: We should probably rename this to match the official fork name
-          "lc_eip4844_headers"
+          "lc_deneb_headers"
         else:
           "",
       altairCurrentBranches: "lc_altair_current_branches",
@@ -542,11 +543,11 @@ proc new*(T: type BeaconChainDB,
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
-  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
 
   var blobs : KvStoreRef
   if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    blobs = kvStore db.openKvStore("eip4844_blobs").expectDb()
+    blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
@@ -801,11 +802,6 @@ proc putBlobSidecar*(
     value: BlobSidecar) =
   db.blobs.putSZSSZ(blobkey(value.block_root, value.index), value)
 
-proc putBlobsSidecar*(
-    db: BeaconChainDB,
-    value: BlobsSidecar) =
-  db.blobs.putSZSSZ(value.beacon_block_root.data, value)
-
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
   # Must be called before storing a state that references the new validators
@@ -837,8 +833,8 @@ template toBeaconStateNoImmutableValidators(state: capella.BeaconState):
   isomorphicCast[CapellaBeaconStateNoImmutableValidators](state)
 
 template toBeaconStateNoImmutableValidators(state: deneb.BeaconState):
-    EIP4844BeaconStateNoImmutableValidators =
-  isomorphicCast[EIP4844BeaconStateNoImmutableValidators](state)
+    DenebBeaconStateNoImmutableValidators =
+  isomorphicCast[DenebBeaconStateNoImmutableValidators](state)
 
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
@@ -995,20 +991,6 @@ proc getBlock*[
   else:
     result.err()
 
-proc getBlobsSidecar*(db: BeaconChainDB, key: Eth2Digest): Opt[BlobsSidecar] =
-  var blobs: BlobsSidecar
-  result.ok(blobs)
-  if db.blobs.getSZSSZ(key.data, result.get) != GetResult.found:
-    result.err()
-
-proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex):
-                    Opt[BlobSidecar] =
-  var blobs: BlobSidecar
-  result.ok(blobs)
-  if db.blobs.getSZSSZ(blobkey(root, index), result.get) != GetResult.found:
-    result.err()
-
-
 proc getPhase0BlockSSZ(
     db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
@@ -1075,15 +1057,8 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of ConsensusFork.Capella:
     getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.EIP4844:
+  of ConsensusFork.Deneb:
     getBlockSSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
-
-proc getBlobsSidecarSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]):
-    bool =
-  let dataPtr = addr data # Short-lived
-  func decode(data: openArray[byte]) =
-    assign(dataPtr[], data)
-  db.blobs.get(key.data, decode).expectDb()
 
 proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
                        data: var seq[byte]):
@@ -1137,7 +1112,7 @@ proc getBlockSZ*(
     getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of ConsensusFork.Capella:
     getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.EIP4844:
+  of ConsensusFork.Deneb:
     getBlockSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
@@ -1520,7 +1495,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
 
   # Backwards compat for reading old databases, or those that for whatever
   # reason lost a summary along the way..
-  static: doAssert ConsensusFork.high == ConsensusFork.EIP4844
+  static: doAssert ConsensusFork.high == ConsensusFork.Deneb
   while true:
     if db.v0.backend.getSnappySSZ(
         subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:

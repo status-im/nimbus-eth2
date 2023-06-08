@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,17 +9,17 @@
 
 import
   chronos,
-  std/[options, sequtils],
+  std/sequtils,
   unittest2,
   eth/keys, taskpools,
   ../beacon_chain/[conf, beacon_clock],
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
-  ../beacon_chain/spec/datatypes/eip4844,
+  ../beacon_chain/spec/datatypes/deneb,
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, block_clearance,
-    consensus_manager],
-  ../beacon_chain/eth1/eth1_monitor,
+    attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
+    block_clearance, consensus_manager],
+  ../beacon_chain/el/el_manager,
   ./testutil, ./testdbutil, ./testblockutil
 
 from chronos/unittest2/asynctests import asyncTest
@@ -41,14 +41,15 @@ suite "Block processor" & preset():
       taskpool = Taskpool.new()
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
+      blobQuarantine = newClone(BlobQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
-      eth1Monitor = new Eth1Monitor
+      elManager = new ELManager # TODO: initialise this properly
       actionTracker: ActionTracker
       keymanagerHost: ref KeymanagerHost
       consensusManager = ConsensusManager.new(
-        dag, attestationPool, quarantine, eth1Monitor, actionTracker,
+        dag, attestationPool, quarantine, elManager, actionTracker,
         newClone(DynamicFeeRecipientsStore.init()), "",
-        default(Eth1Address), defaultGasLimit)
+        Opt.some default(Eth1Address), defaultGasLimit)
       state = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data
@@ -56,11 +57,11 @@ suite "Block processor" & preset():
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
         false, "", "", keys.newRng(), taskpool, consensusManager,
-        validatorMonitor, getTimeFn)
+        validatorMonitor, blobQuarantine, getTimeFn)
 
   asyncTest "Reverse order block add & get" & preset():
     let missing = await processor.storeBlock(
-      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2, BlobSidecars @[])
+      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2, Opt.none(BlobSidecars))
     check: missing.error[0] == VerifierError.MissingParent
 
     check:
@@ -70,7 +71,7 @@ suite "Block processor" & preset():
 
     let
       status = await processor.storeBlock(
-        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1, BlobSidecars @[])
+        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1, Opt.none(BlobSidecars))
       b1Get = dag.getBlockRef(b1.root)
 
     check:

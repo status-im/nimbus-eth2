@@ -10,7 +10,7 @@
 # and attesting when they're supposed to.
 
 import
-  std/[strformat, options, sequtils, tables],
+  std/[strformat, sequtils, tables],
   chronicles,
   confutils,
   stew/io2,
@@ -40,7 +40,7 @@ proc findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
     Opt.some idx.ValidatorIndex
 
 from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
-from ../beacon_chain/spec/datatypes/eip4844 import SignedBeaconBlock
+from ../beacon_chain/spec/datatypes/deneb import SignedBeaconBlock
 
 cli do(validatorsDir: string, secretsDir: string,
        startState: string, network: string):
@@ -162,8 +162,7 @@ cli do(validatorsDir: string, secretsDir: string,
           @[],
           BeaconBlockValidatorChanges(),
           syncAggregate,
-          default(bellatrix.ExecutionPayload),
-          default(eip4844.KZGCommitmentList),
+          default(bellatrix.ExecutionPayloadForSigning),
           noRollback,
           cache).get()
 
@@ -204,10 +203,10 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
-      of ConsensusFork.EIP4844:
-        blockRoot = hash_tree_root(message.eip4844Data)
-        let signedBlock = eip4844.SignedBeaconBlock(
-          message: message.eip4844Data,
+      of ConsensusFork.Deneb:
+        blockRoot = hash_tree_root(message.denebData)
+        let signedBlock = deneb.SignedBeaconBlock(
+          message: message.denebData,
           root: blockRoot,
           signature: get_block_signature(
             fork, genesis_validators_root, slot, blockRoot,
@@ -241,13 +240,13 @@ cli do(validatorsDir: string, secretsDir: string,
             signature = get_attestation_signature(
               fork, genesis_validators_root, attestation.data,
               validators[validator_index])
-          if attestation.aggregation_bits.countOnes() == 0:
+          if attestation.aggregation_bits.isZeros:
             agg = AggregateSignature.init(signature)
           else:
             agg.aggregate(signature)
           attestation.aggregation_bits.setBit(index_in_committee)
 
-        if attestation.aggregation_bits.countOnes() > 0:
+        if not attestation.aggregation_bits.isZeros:
           attestation.signature = agg.finish().toValidatorSig()
 
           if aggregates.len == 128:
@@ -255,7 +254,7 @@ cli do(validatorsDir: string, secretsDir: string,
 
           aggregates.add(attestation)
 
-      when stateFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Altair:
         let
           nextSlot = slot + 1
           pubkeys =

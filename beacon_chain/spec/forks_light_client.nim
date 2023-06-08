@@ -16,7 +16,7 @@ type
     None = 0,  # only use non-0 in DB to detect accidentally uninitialized data
     Altair = 1,
     Capella = 2,
-    EIP4844 = 3
+    Deneb = 3
 
   ForkyLightClientHeader* =
     altair.LightClientHeader |
@@ -72,8 +72,8 @@ type
       altairData*: altair.LightClientHeader
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientHeader
-    of LightClientDataFork.EIP4844:
-      eip4844Data*: deneb.LightClientHeader
+    of LightClientDataFork.Deneb:
+      denebData*: deneb.LightClientHeader
 
   ForkedLightClientBootstrap* = object
     case kind*: LightClientDataFork
@@ -83,8 +83,8 @@ type
       altairData*: altair.LightClientBootstrap
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientBootstrap
-    of LightClientDataFork.EIP4844:
-      eip4844Data*: deneb.LightClientBootstrap
+    of LightClientDataFork.Deneb:
+      denebData*: deneb.LightClientBootstrap
 
   ForkedLightClientUpdate* = object
     case kind*: LightClientDataFork
@@ -94,8 +94,8 @@ type
       altairData*: altair.LightClientUpdate
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientUpdate
-    of LightClientDataFork.EIP4844:
-      eip4844Data*: deneb.LightClientUpdate
+    of LightClientDataFork.Deneb:
+      denebData*: deneb.LightClientUpdate
 
   ForkedLightClientFinalityUpdate* = object
     case kind*: LightClientDataFork
@@ -105,8 +105,8 @@ type
       altairData*: altair.LightClientFinalityUpdate
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientFinalityUpdate
-    of LightClientDataFork.EIP4844:
-      eip4844Data*: deneb.LightClientFinalityUpdate
+    of LightClientDataFork.Deneb:
+      denebData*: deneb.LightClientFinalityUpdate
 
   ForkedLightClientOptimisticUpdate* = object
     case kind*: LightClientDataFork
@@ -116,8 +116,8 @@ type
       altairData*: altair.LightClientOptimisticUpdate
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientOptimisticUpdate
-    of LightClientDataFork.EIP4844:
-      eip4844Data*: deneb.LightClientOptimisticUpdate
+    of LightClientDataFork.Deneb:
+      denebData*: deneb.LightClientOptimisticUpdate
 
   SomeForkedLightClientUpdateWithSyncCommittee* =
     ForkedLightClientUpdate
@@ -143,14 +143,14 @@ type
       altairData*: altair.LightClientStore
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientStore
-    of LightClientDataFork.EIP4844:
-      eip4844Data*: deneb.LightClientStore
+    of LightClientDataFork.Deneb:
+      denebData*: deneb.LightClientStore
 
 func lcDataForkAtEpoch*(
     cfg: RuntimeConfig, epoch: Epoch): LightClientDataFork =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
   if epoch >= cfg.DENEB_FORK_EPOCH:
-    LightClientDataFork.EIP4844
+    LightClientDataFork.Deneb
   elif epoch >= cfg.CAPELLA_FORK_EPOCH:
     LightClientDataFork.Capella
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:
@@ -186,10 +186,10 @@ template kind*(
       deneb.LightClientFinalityUpdate |
       deneb.LightClientOptimisticUpdate |
       deneb.LightClientStore]): LightClientDataFork =
-  LightClientDataFork.EIP4844
+  LightClientDataFork.Deneb
 
 template LightClientHeader*(kind: static LightClientDataFork): auto =
-  when kind == LightClientDataFork.EIP4844:
+  when kind == LightClientDataFork.Deneb:
     typedesc[deneb.LightClientHeader]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientHeader]
@@ -199,7 +199,7 @@ template LightClientHeader*(kind: static LightClientDataFork): auto =
     static: raiseAssert "Unreachable"
 
 template LightClientBootstrap*(kind: static LightClientDataFork): auto =
-  when kind == LightClientDataFork.EIP4844:
+  when kind == LightClientDataFork.Deneb:
     typedesc[deneb.LightClientBootstrap]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientBootstrap]
@@ -209,7 +209,7 @@ template LightClientBootstrap*(kind: static LightClientDataFork): auto =
     static: raiseAssert "Unreachable"
 
 template LightClientUpdate*(kind: static LightClientDataFork): auto =
-  when kind == LightClientDataFork.EIP4844:
+  when kind == LightClientDataFork.Deneb:
     typedesc[deneb.LightClientUpdate]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientUpdate]
@@ -219,8 +219,8 @@ template LightClientUpdate*(kind: static LightClientDataFork): auto =
     static: raiseAssert "Unreachable"
 
 template LightClientFinalityUpdate*(kind: static LightClientDataFork): auto =
-  when kind == LightClientDataFork.EIP4844:
-    typedesc[eip4844.LightClientFinalityUpdate]
+  when kind == LightClientDataFork.Deneb:
+    typedesc[deneb.LightClientFinalityUpdate]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientFinalityUpdate]
   elif kind == LightClientDataFork.Altair:
@@ -229,7 +229,7 @@ template LightClientFinalityUpdate*(kind: static LightClientDataFork): auto =
     static: raiseAssert "Unreachable"
 
 template LightClientOptimisticUpdate*(kind: static LightClientDataFork): auto =
-  when kind == LightClientDataFork.EIP4844:
+  when kind == LightClientDataFork.Deneb:
     typedesc[deneb.LightClientOptimisticUpdate]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientOptimisticUpdate]
@@ -239,7 +239,7 @@ template LightClientOptimisticUpdate*(kind: static LightClientDataFork): auto =
     static: raiseAssert "Unreachable"
 
 template LightClientStore*(kind: static LightClientDataFork): auto =
-  when kind == LightClientDataFork.EIP4844:
+  when kind == LightClientDataFork.Deneb:
     typedesc[deneb.LightClientStore]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientStore]
@@ -298,9 +298,9 @@ template Forked*(x: typedesc[ForkyLightClientStore]): auto =
 
 template withAll*(
     x: typedesc[LightClientDataFork], body: untyped): untyped =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
   block:
-    const lcDataFork {.inject, used.} = LightClientDataFork.EIP4844
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
     body
   block:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
@@ -315,8 +315,8 @@ template withAll*(
 template withLcDataFork*(
     x: LightClientDataFork, body: untyped): untyped =
   case x
-  of LightClientDataFork.EIP4844:
-    const lcDataFork {.inject, used.} = LightClientDataFork.EIP4844
+  of LightClientDataFork.Deneb:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
     body
   of LightClientDataFork.Capella:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
@@ -331,9 +331,9 @@ template withLcDataFork*(
 template withForkyHeader*(
     x: ForkedLightClientHeader, body: untyped): untyped =
   case x.kind
-  of LightClientDataFork.EIP4844:
-    const lcDataFork {.inject, used.} = LightClientDataFork.EIP4844
-    template forkyHeader: untyped {.inject, used.} = x.eip4844Data
+  of LightClientDataFork.Deneb:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
+    template forkyHeader: untyped {.inject, used.} = x.denebData
     body
   of LightClientDataFork.Capella:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
@@ -350,9 +350,9 @@ template withForkyHeader*(
 template withForkyBootstrap*(
     x: ForkedLightClientBootstrap, body: untyped): untyped =
   case x.kind
-  of LightClientDataFork.EIP4844:
-    const lcDataFork {.inject, used.} = LightClientDataFork.EIP4844
-    template forkyBootstrap: untyped {.inject, used.} = x.eip4844Data
+  of LightClientDataFork.Deneb:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
+    template forkyBootstrap: untyped {.inject, used.} = x.denebData
     body
   of LightClientDataFork.Capella:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
@@ -369,9 +369,9 @@ template withForkyBootstrap*(
 template withForkyUpdate*(
     x: ForkedLightClientUpdate, body: untyped): untyped =
   case x.kind
-  of LightClientDataFork.EIP4844:
-    const lcDataFork {.inject, used.} = LightClientDataFork.EIP4844
-    template forkyUpdate: untyped {.inject, used.} = x.eip4844Data
+  of LightClientDataFork.Deneb:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
+    template forkyUpdate: untyped {.inject, used.} = x.denebData
     body
   of LightClientDataFork.Capella:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
@@ -388,9 +388,9 @@ template withForkyUpdate*(
 template withForkyFinalityUpdate*(
     x: ForkedLightClientFinalityUpdate, body: untyped): untyped =
   case x.kind
-  of LightClientDataFork.EIP4844:
-    const lcDataFork {.inject, used.} = LightClientDataFork.EIP4844
-    template forkyFinalityUpdate: untyped {.inject, used.} = x.eip4844Data
+  of LightClientDataFork.Deneb:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
+    template forkyFinalityUpdate: untyped {.inject, used.} = x.denebData
     body
   of LightClientDataFork.Capella:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
@@ -407,9 +407,9 @@ template withForkyFinalityUpdate*(
 template withForkyOptimisticUpdate*(
     x: ForkedLightClientOptimisticUpdate, body: untyped): untyped =
   case x.kind
-  of LightClientDataFork.EIP4844:
-    const lcDataFork {.inject, used.} = LightClientDataFork.EIP4844
-    template forkyOptimisticUpdate: untyped {.inject, used.} = x.eip4844Data
+  of LightClientDataFork.Deneb:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
+    template forkyOptimisticUpdate: untyped {.inject, used.} = x.denebData
     body
   of LightClientDataFork.Capella:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
@@ -426,9 +426,9 @@ template withForkyOptimisticUpdate*(
 template withForkyObject*(
     x: SomeForkedLightClientObject, body: untyped): untyped =
   case x.kind
-  of LightClientDataFork.EIP4844:
-    const lcDataFork {.inject, used.} = LightClientDataFork.EIP4844
-    template forkyObject: untyped {.inject, used.} = x.eip4844Data
+  of LightClientDataFork.Deneb:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
+    template forkyObject: untyped {.inject, used.} = x.denebData
     body
   of LightClientDataFork.Capella:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
@@ -445,9 +445,9 @@ template withForkyObject*(
 template withForkyStore*(
     x: ForkedLightClientStore, body: untyped): untyped =
   case x.kind
-  of LightClientDataFork.EIP4844:
-    const lcDataFork {.inject, used.} = LightClientDataFork.EIP4844
-    template forkyStore: untyped {.inject, used.} = x.eip4844Data
+  of LightClientDataFork.Deneb:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
+    template forkyStore: untyped {.inject, used.} = x.denebData
     body
   of LightClientDataFork.Capella:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
@@ -587,8 +587,8 @@ template forky*(
       SomeForkedLightClientObject |
       ForkedLightClientStore,
     kind: static LightClientDataFork): untyped =
-  when kind == LightClientDataFork.EIP4844:
-    x.eip4844Data
+  when kind == LightClientDataFork.Deneb:
+    x.denebData
   elif kind == LightClientDataFork.Capella:
     x.capellaData
   elif kind == LightClientDataFork.Altair:
@@ -620,15 +620,15 @@ func migrateToDataFork*(
           capellaData: upgrade_lc_header_to_capella(
             x.forky(LightClientDataFork.Altair)))
 
-    # Upgrade to EIP4844
-    when newKind >= LightClientDataFork.EIP4844:
+    # Upgrade to Deneb
+    when newKind >= LightClientDataFork.Deneb:
       if x.kind == LightClientDataFork.Capella:
         x = ForkedLightClientHeader(
-          kind: LightClientDataFork.EIP4844,
-          eip4844Data: upgrade_lc_header_to_eip4844(
+          kind: LightClientDataFork.Deneb,
+          denebData: upgrade_lc_header_to_deneb(
             x.forky(LightClientDataFork.Capella)))
 
-    static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+    static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
     doAssert x.kind == newKind
 
 func migrateToDataFork*(
@@ -655,15 +655,15 @@ func migrateToDataFork*(
           capellaData: upgrade_lc_bootstrap_to_capella(
             x.forky(LightClientDataFork.Altair)))
 
-    # Upgrade to EIP4844
-    when newKind >= LightClientDataFork.EIP4844:
+    # Upgrade to Deneb
+    when newKind >= LightClientDataFork.Deneb:
       if x.kind == LightClientDataFork.Capella:
         x = ForkedLightClientBootstrap(
-          kind: LightClientDataFork.EIP4844,
-          eip4844Data: upgrade_lc_bootstrap_to_eip4844(
+          kind: LightClientDataFork.Deneb,
+          denebData: upgrade_lc_bootstrap_to_deneb(
             x.forky(LightClientDataFork.Capella)))
 
-    static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+    static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
     doAssert x.kind == newKind
 
 func migrateToDataFork*(
@@ -690,15 +690,15 @@ func migrateToDataFork*(
           capellaData: upgrade_lc_update_to_capella(
             x.forky(LightClientDataFork.Altair)))
 
-    # Upgrade to EIP4844
-    when newKind >= LightClientDataFork.EIP4844:
+    # Upgrade to Deneb
+    when newKind >= LightClientDataFork.Deneb:
       if x.kind == LightClientDataFork.Capella:
         x = ForkedLightClientUpdate(
-          kind: LightClientDataFork.EIP4844,
-          eip4844Data: upgrade_lc_update_to_eip4844(
+          kind: LightClientDataFork.Deneb,
+          denebData: upgrade_lc_update_to_deneb(
             x.forky(LightClientDataFork.Capella)))
 
-    static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+    static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
     doAssert x.kind == newKind
 
 func migrateToDataFork*(
@@ -725,15 +725,15 @@ func migrateToDataFork*(
           capellaData: upgrade_lc_finality_update_to_capella(
             x.forky(LightClientDataFork.Altair)))
 
-    # Upgrade to EIP4844
-    when newKind >= LightClientDataFork.EIP4844:
+    # Upgrade to Deneb
+    when newKind >= LightClientDataFork.Deneb:
       if x.kind == LightClientDataFork.Capella:
         x = ForkedLightClientFinalityUpdate(
-          kind: LightClientDataFork.EIP4844,
-          eip4844Data: upgrade_lc_finality_update_to_eip4844(
+          kind: LightClientDataFork.Deneb,
+          denebData: upgrade_lc_finality_update_to_deneb(
             x.forky(LightClientDataFork.Capella)))
 
-    static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+    static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
     doAssert x.kind == newKind
 
 func migrateToDataFork*(
@@ -760,15 +760,15 @@ func migrateToDataFork*(
           capellaData: upgrade_lc_optimistic_update_to_capella(
             x.forky(LightClientDataFork.Altair)))
 
-    # Upgrade to EIP4844
-    when newKind >= LightClientDataFork.EIP4844:
+    # Upgrade to Deneb
+    when newKind >= LightClientDataFork.Deneb:
       if x.kind == LightClientDataFork.Capella:
         x = ForkedLightClientOptimisticUpdate(
-          kind: LightClientDataFork.EIP4844,
-          eip4844Data: upgrade_lc_optimistic_update_to_eip4844(
+          kind: LightClientDataFork.Deneb,
+          denebData: upgrade_lc_optimistic_update_to_deneb(
             x.forky(LightClientDataFork.Capella)))
 
-    static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+    static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
     doAssert x.kind == newKind
 
 func migrateToDataFork*(
@@ -795,15 +795,15 @@ func migrateToDataFork*(
           capellaData: upgrade_lc_store_to_capella(
             x.forky(LightClientDataFork.Altair)))
 
-    # Upgrade to EIP4844
-    when newKind >= LightClientDataFork.EIP4844:
+    # Upgrade to Deneb
+    when newKind >= LightClientDataFork.Deneb:
       if x.kind == LightClientDataFork.Capella:
         x = ForkedLightClientStore(
-          kind: LightClientDataFork.EIP4844,
-          eip4844Data: upgrade_lc_store_to_eip4844(
+          kind: LightClientDataFork.Deneb,
+          denebData: upgrade_lc_store_to_deneb(
             x.forky(LightClientDataFork.Capella)))
 
-    static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+    static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
     doAssert x.kind == newKind
 
 func migratingToDataFork*[
@@ -816,7 +816,7 @@ func migratingToDataFork*[
   upgradedObject.migrateToDataFork(newKind)
   upgradedObject
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/full-node.md#block_to_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/full-node.md#block_to_light_client_header
 func toAltairLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
@@ -826,7 +826,7 @@ func toAltairLightClientHeader(
   altair.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/full-node.md#block_to_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/full-node.md#modified-block_to_light_client_header
 func toCapellaLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
@@ -868,8 +868,8 @@ func toCapellaLightClientHeader(
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_INDEX).get)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/full-node.md#block_to_light_client_header
-func toEIP4844LightClientHeader(
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/light-client/full-node.md#modified-block_to_light_client_header
+func toDenebLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
@@ -884,7 +884,7 @@ func toEIP4844LightClientHeader(
   deneb.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
-func toEIP4844LightClientHeader(
+func toDenebLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
@@ -910,7 +910,7 @@ func toEIP4844LightClientHeader(
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_INDEX).get)
 
-func toEIP4844LightClientHeader(
+func toDenebLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
@@ -930,10 +930,10 @@ func toEIP4844LightClientHeader(
       timestamp: payload.timestamp,
       extra_data: payload.extra_data,
       base_fee_per_gas: payload.base_fee_per_gas,
-      excess_data_gas: payload.excess_data_gas,
       block_hash: payload.block_hash,
       transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals)),
+      withdrawals_root: hash_tree_root(payload.withdrawals),
+      excess_data_gas: payload.excess_data_gas),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_INDEX).get)
 
@@ -945,11 +945,45 @@ func toLightClientHeader*(
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock |
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock,
     kind: static LightClientDataFork): auto =
-  when kind == LightClientDataFork.EIP4844:
-    blck.toEIP4844LightClientHeader()
+  when kind == LightClientDataFork.Deneb:
+    blck.toDenebLightClientHeader()
   elif kind == LightClientDataFork.Capella:
     blck.toCapellaLightClientHeader()
   elif kind == LightClientDataFork.Altair:
     blck.toAltairLightClientHeader()
   else:
     static: raiseAssert "Unreachable"
+
+import chronicles
+
+func shortLog*[
+    T:
+      ForkedLightClientHeader |
+      SomeForkedLightClientObject |
+      ForkedLightClientStore](
+    x: T): auto =
+  type ResultType = object
+    case kind: LightClientDataFork
+    of LightClientDataFork.None:
+      discard
+    of LightClientDataFork.Altair:
+      altairData: typeof(x.altairData.shortLog())
+    of LightClientDataFork.Capella:
+      capellaData: typeof(x.capellaData.shortLog())
+    of LightClientDataFork.Deneb:
+      denebData: typeof(x.denebData.shortLog())
+
+  let xKind = x.kind  # Nim 1.6.12: Using `kind: x.kind` inside case is broken
+  case xKind
+  of LightClientDataFork.Deneb:
+    ResultType(kind: xKind, denebData: x.denebData.shortLog())
+  of LightClientDataFork.Capella:
+    ResultType(kind: xKind, capellaData: x.capellaData.shortLog())
+  of LightClientDataFork.Altair:
+    ResultType(kind: xKind, altairData: x.altairData.shortLog())
+  of LightClientDataFork.None:
+    ResultType(kind: xKind)
+
+chronicles.formatIt ForkedLightClientHeader: it.shortLog
+chronicles.formatIt SomeForkedLightClientObject: it.shortLog
+chronicles.formatIt ForkedLightClientStore: it.shortLog

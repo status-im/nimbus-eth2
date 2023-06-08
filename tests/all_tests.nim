@@ -23,7 +23,8 @@ import # Unit test
   ./test_deposit_snapshots,
   ./test_discovery,
   ./test_engine_authentication,
-  ./test_eth1_monitor,
+  ./test_el_manager,
+  ./test_el_conf,
   ./test_eth2_ssz_serialization,
   ./test_exit_pool,
   ./test_forks,
@@ -35,6 +36,7 @@ import # Unit test
   ./test_light_client_processor,
   ./test_light_client,
   ./test_message_signatures,
+  ./test_network_metadata,
   ./test_peer_pool,
   ./test_remote_keystore,
   ./test_serialization,
@@ -44,17 +46,20 @@ import # Unit test
   ./test_sync_manager,
   ./test_validator_pool,
   ./test_zero_signature,
-  ./fork_choice/tests_fork_choice,
+  ./test_signing_node,
   ./consensus_spec/all_tests as consensus_all_tests,
   ./slashing_protection/test_fixtures,
-  ./slashing_protection/test_slashing_protection_db
+  ./slashing_protection/test_slashing_protection_db,
+  ./test_validator_client
 
 when not defined(i386):
   # Avoids "Out of memory" CI failures
   import
     ./test_blockchain_dag,
     ./test_keystore,
-    ./test_keystore_management,
-    ./test_keymanager_api
+    ./test_keystore_management
+
+  when not defined(windows):
+    import ./test_keymanager_api
 
 summarizeLongTests("AllTests")

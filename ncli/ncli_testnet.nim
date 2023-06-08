@@ -13,7 +13,7 @@ import
   web3, web3/confutils_defs, eth/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils], json_rpc/jsonmarshal,
   ../beacon_chain/[conf, filepath],
-  ../beacon_chain/eth1/eth1_monitor,
+  ../beacon_chain/el/el_manager,
   ../beacon_chain/networking/eth2_network,
   ../beacon_chain/spec/[beaconstate, eth2_merkleization],
   ../beacon_chain/spec/datatypes/base,
@@ -23,7 +23,7 @@ import
 
 # Compiled version of /scripts/depositContract.v.py in this repo
 # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
-const depositContractCode = staticRead "../beacon_chain/eth1/deposit_contract_code.txt"
+const depositContractCode = staticRead "../beacon_chain/el/deposit_contract_code.txt"
 
 type
   Eth1Address = web3.Address
@@ -300,10 +300,11 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     timestamp: uint64 blk.timestamp,
     extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
-    excess_data_gas: blk.excessDataGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
-    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest)
+    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
+    data_gas_used: uint64 blk.dataGasUsed.getOrDefault(),
+    excess_data_gas: uint64 blk.excessDataGas.getOrDefault())
 
 proc createDepositTreeSnapshot(deposits: seq[DepositData],
                                blockHash: Eth2Digest,

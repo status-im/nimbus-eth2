@@ -9,16 +9,22 @@ Setting up external block building typically involves running an additional serv
 !!! warning
     External block builders introduce additional risk to the block building process which may cause loss of rewards.
 
-    In particular, once Nimbus has signed the block header proposed by the external builder, the execution client can no longer be used as fallback and the external builder is trusted to complete the building process.
+    In particular, once Nimbus has signed the block header proposed by the external builder, the execution client can no longer be used as fallback, and the external builder is trusted to complete the building process.
 
 !!! note
     By default, [priority and maximum gas fees](https://eips.ethereum.org/EIPS/eip-1559#abstract) determine transaction inclusion in blocks.
 
-    External block builders may use other strategies for transaction selection, including regulatory constraints and extracted value. For further information, check the documentation of the block builder.
+    External block builders may use other strategies for transaction selection, including regulatory constraints and extracted value.
+    For further information, check the documentation of the block builder.
 
 ## Command line
 
 External block building is must be enabled on both beacon node and [validator client](./validator-client.md) using the `--payload-builder=true` flag.
+
+You can use the `--local-block-value-boost` option to give preference to the best block provided by an execution client, as long as its value is within the specified percentage of the value advertised by the best external builder.
+
+!!! tip
+    Setting this flag to a non-zero value is recommended due to the additional risk introduced by the usage of an external block builder.
 
 Additionally, the URL of the service exposing the [builder API](https://ethereum.github.io/builder-specs/) must be provided to the beacon node:
 

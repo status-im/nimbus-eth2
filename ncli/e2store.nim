@@ -54,9 +54,15 @@ proc toString(v: IoErrorCode): string =
 
 func eraRoot*(
     genesis_validators_root: Eth2Digest,
-    historical_roots: openArray[Eth2Digest], era: Era): Opt[Eth2Digest] =
+    historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary],
+    era: Era): Opt[Eth2Digest] =
   if era == Era(0): ok(genesis_validators_root)
-  elif era <= historical_roots.lenu64(): ok(historical_roots[int(uint64(era) - 1)])
+  elif era <= historical_roots.lenu64():
+    ok(historical_roots[int(uint64(era) - 1)])
+  elif era <= historical_roots.lenu64() + historical_summaries.lenu64():
+    ok(hash_tree_root(
+      historical_summaries[int(uint64(era) - 1) - historical_roots.len()]))
   else: err()
 
 func eraFileName*(

@@ -61,18 +61,3 @@ suite "Spec helpers":
           process(fieldVar, i shl childDepth)
         i += 1
     process(state, state.numLeaves)
-
-  test "build_empty_execution_payload - Bellatrix":
-    var cfg = defaultRuntimeConfig
-    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-
-    let state = newClone(initGenesisState(cfg = cfg).bellatrixData)
-
-    proc testCase(recipient: Eth1Address) =
-      let payload = build_empty_execution_payload(state[].data, recipient)
-      check payload.fee_recipient ==
-        bellatrix.ExecutionAddress(data: distinctBase(recipient))
-
-    testCase default(Eth1Address)
-    testCase Eth1Address.fromHex("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")

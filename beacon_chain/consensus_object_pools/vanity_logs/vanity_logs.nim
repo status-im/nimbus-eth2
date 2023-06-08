@@ -30,6 +30,10 @@ type
     # known by this node appears in a head block
     onKnownBlsToExecutionChange*: LogProc
 
+    # Gets displayed on upgrade to Deneb. May be displayed multiple times
+    # in case of chain reorgs around the upgrade.
+    onUpgradeToDeneb*: LogProc
+
 # Created by http://beatscribe.com/ (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
 
@@ -40,3 +44,6 @@ proc blink🐼*() = notice "\n" & staticRead("bellatrix" / "blink.ans")
 proc mono🦉*()  = notice "\n" & staticRead("capella" / "mono.txt")
 proc color🦉*() = notice "\n" & staticRead("capella" / "color.ans")
 proc blink🦉*() = notice "\n" & staticRead("capella" / "blink.ans")
+
+proc mono🐟*()  = notice "\n" & staticRead("deneb" / "mono.txt")
+proc color🐟*() = notice "\n" & staticRead("deneb" / "color.ans")

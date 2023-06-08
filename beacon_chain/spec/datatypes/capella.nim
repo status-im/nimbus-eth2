@@ -27,51 +27,55 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/sync-protocol.md#constants
   # This index is rooted in `BeaconBlockBody`.
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/ssz/merkle-proofs.md
   EXECUTION_PAYLOAD_INDEX* = 25.GeneralizedIndex # `execution_payload`
 
 type
   SignedBLSToExecutionChangeList* =
     List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#withdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
     index*: WithdrawalIndex
     validator_index*: uint64
     address*: ExecutionAddress
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#blstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#blstoexecutionchange
   BLSToExecutionChange* = object
     validator_index*: uint64
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/beacon-chain.md#signedblstoexecutionchange
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#historicalsummary
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#historicalsummary
   HistoricalSummary* = object
     # `HistoricalSummary` matches the components of the phase0
     # `HistoricalBatch` making the two hash_tree_root-compatible.
     block_summary_root*: Eth2Digest
     state_summary_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/beacon-chain.md#executionpayload
   ExecutionPayload* = object
+    # Execution block header fields
     parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
+    fee_recipient*: ExecutionAddress
+      ## 'beneficiary' in the yellow paper
     state_root*: Eth2Digest
-    receipts_root*: Eth2Digest # 'receipts root' in the yellow paper
+    receipts_root*: Eth2Digest
     logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest  # 'difficulty' in the yellow paper
-    block_number*: uint64  # 'number' in the yellow paper
+    prev_randao*: Eth2Digest
+      ## 'difficulty' in the yellow paper
+    block_number*: uint64
+      ## 'number' in the yellow paper
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
@@ -79,12 +83,19 @@ type
     base_fee_per_gas*: UInt256
 
     # Extra payload fields
-    block_hash*: Eth2Digest # Hash of execution block
+    block_hash*: Eth2Digest
+      ## Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
-    withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]  # [New in Capella]
+    withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
+      ## [New in Capella]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#executionpayloadheader
+  ExecutionPayloadForSigning* = object
+    executionPayload*: ExecutionPayload
+    blockValue*: Wei
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
+    # Execution block header fields
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
     state_root*: Eth2Digest
@@ -99,9 +110,11 @@ type
     base_fee_per_gas*: UInt256
 
     # Extra payload fields
-    block_hash*: Eth2Digest  # Hash of execution block
+    block_hash*: Eth2Digest
+      ## Hash of execution block
     transactions_root*: Eth2Digest
-    withdrawals_root*: Eth2Digest  # [New in Capella]
+    withdrawals_root*: Eth2Digest
+      ## [New in Capella]
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
@@ -109,7 +122,7 @@ type
   ExecutionBranch* =
     array[log2trunc(EXECUTION_PAYLOAD_INDEX), Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#lightclientheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
@@ -118,7 +131,7 @@ type
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
     execution_branch*: ExecutionBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
     header*: LightClientHeader
       ## Header matching the requested beacon block root
@@ -127,13 +140,14 @@ type
       ## Current sync committee corresponding to `header.beacon.state_root`
     current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: LightClientHeader
       ## Header attested to by the sync committee
 
     next_sync_committee*: SyncCommittee
-      ## Next sync committee corresponding to `attested_header.beacon.state_root`
+      ## Next sync committee corresponding to
+      ## `attested_header.beacon.state_root`
     next_sync_committee_branch*: altair.NextSyncCommitteeBranch
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
@@ -145,7 +159,7 @@ type
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
@@ -159,7 +173,7 @@ type
     # Slot at which the aggregate signature was created (untrusted)
     signature_slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
   LightClientOptimisticUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
@@ -185,7 +199,7 @@ type
     LightClientBootstrap |
     SomeLightClientUpdate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#lightclientstore
   LightClientStore* = object
     finalized_header*: LightClientHeader
       ## Header that is finalized
@@ -195,17 +209,18 @@ type
     next_sync_committee*: SyncCommittee
 
     best_valid_update*: Opt[LightClientUpdate]
-      ## Best available header to switch finalized head to if we see nothing else
+      ## Best available header to switch finalized head to
+      ## if we see nothing else
 
     optimistic_header*: LightClientHeader
       ## Most recent available reasonably-safe header
 
     previous_max_active_participants*: uint64
-      ## Max number of active participants in a sync committee (used to compute
-      ## safety threshold)
+      ## Max number of active participants in a sync committee
+      ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -221,8 +236,8 @@ type
       ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT] # \
-    # Frozen in Capella, replaced by historical_summaries
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+      ## Frozen in Capella, replaced by historical_summaries
 
     # Eth1
     eth1_data*: Eth1Data
@@ -247,10 +262,9 @@ type
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
-
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
@@ -263,9 +277,10 @@ type
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader
+      ## [Modified in Capella]
 
     # Withdrawals
-    next_withdrawal_index*: WithdrawalIndex # [New in Capella]
+    next_withdrawal_index*: WithdrawalIndex  # [New in Capella]
     next_withdrawal_validator_index*: uint64  # [New in Capella]
 
     # Deep history valid from Capella onwards
@@ -284,7 +299,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -341,7 +356,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -363,7 +378,8 @@ type
     execution_payload*: ExecutionPayload
 
     # Capella operations
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
+      ## [New in Capella]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -425,7 +441,7 @@ type
     # Capella operations
     bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -477,10 +493,6 @@ type
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
 
-  BlockParams = object
-    parentHash*: string
-    timestamp*: string
-
   BeaconBlockValidatorChanges* = object
     # Collection of exits that are suitable for block production
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -488,6 +500,93 @@ type
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
+
+  BeaconStateDiffPreSnapshot* = object
+    eth1_data_votes_recent*: seq[Eth1Data]
+    eth1_data_votes_len*: int
+    slot*: Slot
+    historical_summaries_len*: int
+    eth1_withdrawal_credential*: seq[bool]
+
+  IndexedWithdrawalCredentials* = object
+    validator_index*: uint64
+    withdrawal_credentials*: Eth2Digest
+
+  BeaconStateDiff* = object
+    # Small and/or static; always include
+    slot*: Slot
+    latest_block_header*: BeaconBlockHeader
+
+    # Mod-increment/circular
+    block_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
+    state_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
+
+    # Replace
+    eth1_data*: Eth1Data
+
+    eth1_data_votes_replaced*: bool
+    eth1_data_votes*:
+      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+
+    # Replace
+    eth1_deposit_index*: uint64
+
+    # Validators come in two parts, the immutable public key and mutable
+    # entrance/exit/slashed information about that validator.
+    #
+    # Capella allows changing from BLS to execution withdrawal credentials, so
+    # it's not completely immutable, but it's a one-time change per validator,
+    # and no other possibilities exist. So for diff purposes still optimize if
+    # and when possible, by using the version of ValidatorStatus which doesn't
+    # serialize withdrawal_credentials, and including only those necessary for
+    # a correct state reconstruction.
+    #
+    # It's worth some complexity here, because a full Validator object is 128
+    # bytes, of which 48 bytes are the pubkey, and 32 withdrawal credentials,
+    # so using a (128 - 48) = 80 byte baseline for sometimes-mutable parts of
+    # the Validator objecet, one typically save another 40% of incompressible
+    # hash data by avoiding repeating this when feasible.
+    validator_statuses*:
+      List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+    withdrawal_credential_changes*:
+      List[IndexedWithdrawalCredentials, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Represent in full
+    balances*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Mod-increment
+    randao_mix*: Eth2Digest
+    slashing*: uint64
+
+    # Represent in full; for the next epoch, current_epoch_participation in
+    # epoch n is previous_epoch_participation in epoch n+1 but this doesn't
+    # generalize.
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
+
+    justification_bits*: JustificationBits
+    previous_justified_checkpoint*: Checkpoint
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
+    # Represent in full
+    inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Represent in full; for the next epoch, next_sync_committee is
+    # current_sync_committee, but this doesn't generalize.
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+    # Not tiny, but small and infeasible to reliably reduce much
+    latest_execution_payload_header*: ExecutionPayloadHeader
+
+    # Small, so represent in full
+    next_withdrawal_index*: WithdrawalIndex
+    next_withdrawal_validator_index*: uint64
+
+    # Append-only; either 0 or 1 per epoch
+    historical_summary_added*: bool
+    historical_summary*: HistoricalSummary
 
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
@@ -510,6 +609,8 @@ func shortLog*(v: SomeBeaconBlock): auto =
     block_number: v.body.execution_payload.block_number,
     # TODO checksum hex? shortlog?
     fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
+    bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
+    blob_kzg_commitments_len: 0,  # Deneb compat
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
@@ -549,7 +650,7 @@ func shortLog*(v: SignedBLSToExecutionChange): auto =
     signature: shortLog(v.signature)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#get_lc_execution_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/sync-protocol.md#get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
@@ -559,7 +660,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
@@ -576,13 +677,13 @@ func is_valid_light_client_header*(
     get_subtree_index(EXECUTION_PAYLOAD_INDEX),
     header.beacon.body_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_header_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_capella*(
     pre: altair.LightClientHeader): LightClientHeader =
   LightClientHeader(
     beacon: pre.beacon)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_bootstrap_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_capella*(
     pre: altair.LightClientBootstrap): LightClientBootstrap =
   LightClientBootstrap(
@@ -590,7 +691,7 @@ func upgrade_lc_bootstrap_to_capella*(
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: pre.current_sync_committee_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_update_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_capella*(
     pre: altair.LightClientUpdate): LightClientUpdate =
   LightClientUpdate(
@@ -602,7 +703,7 @@ func upgrade_lc_update_to_capella*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_finality_update_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_finality_update_to_capella*(
     pre: altair.LightClientFinalityUpdate): LightClientFinalityUpdate =
   LightClientFinalityUpdate(
@@ -612,7 +713,7 @@ func upgrade_lc_finality_update_to_capella*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_optimistic_update_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_optimistic_update_to_capella*(
     pre: altair.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
   LightClientOptimisticUpdate(
@@ -663,7 +764,7 @@ chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_store_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/capella/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_capella*(
     pre: altair.LightClientStore): LightClientStore =
   let best_valid_update =

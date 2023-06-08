@@ -26,7 +26,7 @@ type
     ## which blocks are valid - in particular, blocks are not valid if they
     ## come from the future as seen from the local clock.
     ##
-    ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/fork-choice.md#fork-choice
+    ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#fork-choice
     ##
     # TODO consider NTP and network-adjusted timestamps as outlined here:
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
@@ -70,18 +70,39 @@ proc fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duratio
   c.fromNow(slot.start_beacon_time())
 
 proc durationToNextSlot*(c: BeaconClock): Duration =
-  let (afterGenesis, slot) = c.now().toSlot()
-  if afterGenesis:
-    c.fromNow(slot + 1'u64).offset
+  let
+    currentTime = c.now()
+    currentSlot = currentTime.toSlot()
+
+  if currentSlot.afterGenesis:
+    let nextSlot = currentSlot.slot + 1
+    chronos.nanoseconds(
+      (nextSlot.start_beacon_time() - currentTime).nanoseconds)
   else:
-    c.fromNow(Slot(0)).offset
+    # absoluteTime = BeaconTime(-currentTime.ns_since_genesis).
+    let
+      absoluteTime = Slot(0).start_beacon_time() +
+        (Slot(0).start_beacon_time() - currentTime)
+      timeToNextSlot = absoluteTime - currentSlot.slot.start_beacon_time()
+    chronos.nanoseconds(timeToNextSlot.nanoseconds)
 
 proc durationToNextEpoch*(c: BeaconClock): Duration =
-  let (afterGenesis, slot) = c.now().toSlot()
-  if afterGenesis:
-    c.fromNow((slot.epoch + 1).start_slot()).offset
+  let
+    currentTime = c.now()
+    currentSlot = currentTime.toSlot()
+
+  if currentSlot.afterGenesis:
+    let nextEpochSlot = (currentSlot.slot.epoch() + 1).start_slot()
+    chronos.nanoseconds(
+      (nextEpochSlot.start_beacon_time() - currentTime).nanoseconds)
   else:
-    c.fromNow(Epoch(0).start_slot()).offset
+    # absoluteTime = BeaconTime(-currentTime.ns_since_genesis).
+    let
+      absoluteTime = Slot(0).start_beacon_time() +
+        (Slot(0).start_beacon_time() - currentTime)
+      timeToNextEpoch = absoluteTime -
+        currentSlot.slot.epoch().start_slot().start_beacon_time()
+    chronos.nanoseconds(timeToNextEpoch.nanoseconds)
 
 func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
   if d.inFuture: d.offset else: seconds(0)

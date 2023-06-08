@@ -90,7 +90,8 @@ proc createLightClient(
     forkDigests: ref ForkDigests,
     getBeaconTime: GetBeaconTimeFn,
     genesis_validators_root: Eth2Digest,
-    finalizationMode: LightClientFinalizationMode
+    finalizationMode: LightClientFinalizationMode,
+    strictVerification = false
 ): LightClient =
   let lightClient = LightClient(
     network: network,
@@ -136,7 +137,8 @@ proc createLightClient(
     cfg, genesis_validators_root, finalizationMode,
     lightClient.store, getBeaconTime, getTrustedBlockRoot,
     onStoreInitialized, onFinalizedHeader, onOptimisticHeader,
-    bootstrapObserver, updateObserver, finalityObserver, optimisticObserver)
+    bootstrapObserver, updateObserver, finalityObserver, optimisticObserver,
+    strictVerification)
 
   proc lightClientVerifier(obj: SomeForkedLightClientObject):
       Future[Result[void, VerifierError]] =
@@ -199,7 +201,8 @@ proc createLightClient*(
   createLightClient(
     network, rng,
     config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-    cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode)
+    cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode,
+    strictVerification = config.strictVerification)
 
 proc createLightClient*(
     network: Eth2Node,
@@ -343,21 +346,27 @@ proc installMessageValidators*(
     ValidationResult.Ignore
 
   let forkDigests = lightClient.forkDigests
-  for stateFork in ConsensusFork:
-    withLcDataFork(lcDataForkAtStateFork(stateFork)):
+  for consensusFork in ConsensusFork:
+    withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
       when lcDataFork > LightClientDataFork.None:
         let
-          contextFork = stateFork  # Copy to avoid capturing `EIP4844` (Nim 1.6)
-          digest = forkDigests[].atStateFork(contextFork)
+          contextFork = consensusFork  # Avoid capturing `Deneb` (Nim 1.6)
+          digest = forkDigests[].atConsensusFork(contextFork)
 
+        # light_client_optimistic_update
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/p2p-interface.md#light_client_finality_update
         lightClient.network.addValidator(
-          getLightClientFinalityUpdateTopic(digest),
-          proc(msg: lcDataFork.LightClientFinalityUpdate): ValidationResult =
+          getLightClientFinalityUpdateTopic(digest), proc (
+            msg: lcDataFork.LightClientFinalityUpdate
+          ): ValidationResult =
             validate(msg, contextFork, processLightClientFinalityUpdate))
 
+        # light_client_optimistic_update
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
         lightClient.network.addValidator(
-          getLightClientOptimisticUpdateTopic(digest),
-          proc(msg: lcDataFork.LightClientOptimisticUpdate): ValidationResult =
+          getLightClientOptimisticUpdateTopic(digest), proc (
+            msg: lcDataFork.LightClientOptimisticUpdate
+          ): ValidationResult =
             validate(msg, contextFork, processLightClientOptimisticUpdate))
 
 proc updateGossipStatus*(
@@ -413,7 +422,7 @@ proc updateGossipStatus*(
 
   for gossipFork in oldGossipForks:
     if gossipFork >= ConsensusFork.Altair:
-      let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
+      let forkDigest = lightClient.forkDigests[].atConsensusFork(gossipFork)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
       lightClient.network.unsubscribe(
@@ -421,7 +430,7 @@ proc updateGossipStatus*(
 
   for gossipFork in newGossipForks:
     if gossipFork >= ConsensusFork.Altair:
-      let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
+      let forkDigest = lightClient.forkDigests[].atConsensusFork(gossipFork)
       lightClient.network.subscribe(
         getLightClientFinalityUpdateTopic(forkDigest),
         basicParams)

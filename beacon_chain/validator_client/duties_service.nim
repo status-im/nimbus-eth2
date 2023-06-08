@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -38,7 +38,9 @@ proc checkDuty(duty: RestAttesterDuty): bool =
 proc checkSyncDuty(duty: RestSyncCommitteeDuty): bool =
   uint64(duty.validator_index) <= VALIDATOR_REGISTRY_LIMIT
 
-proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
+proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+
   let validatorIdents =
     block:
       var res: seq[ValidatorIdent]
@@ -66,7 +68,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       try:
         await vc.getValidators(idents, ApiStrategyKind.First)
       except ValidatorApiError as exc:
-        error "Unable to get head state's validator information",
+        warn "Unable to get head state's validator information",
               reason = exc.getFailureReason()
         return
       except CancelledError as exc:
@@ -107,16 +109,12 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
           updated_validators = updated
     vc.indicesAvailable.fire()
 
-proc pollForAttesterDuties*(vc: ValidatorClientRef,
+proc pollForAttesterDuties*(service: DutiesServiceRef,
                             epoch: Epoch): Future[int] {.async.} =
-  let validatorIndices =
-    block:
-      var res: seq[ValidatorIndex]
-      for index in vc.attachedValidators[].indices():
-        res.add(index)
-      res
+  let vc = service.client
+  let validatorIndices = toSeq(vc.attachedValidators[].indices())
 
-  if validatorIndices.len == 0:
+  if len(validatorIndices) == 0:
     return 0
 
   var duties: seq[RestAttesterDuty]
@@ -140,8 +138,8 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
       try:
         await vc.getAttesterDuties(epoch, indices, ApiStrategyKind.First)
       except ValidatorApiError as exc:
-        notice "Unable to get attester duties", epoch = epoch,
-               reason = exc.getFailureReason()
+        warn "Unable to get attester duties", epoch = epoch,
+             reason = exc.getFailureReason()
         return 0
       except CancelledError as exc:
         debug "Attester duties processing was interrupted"
@@ -222,20 +220,20 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     for index, fut in pendingRequests:
       let item = addOrReplaceItems[index]
       let dap =
-        if fut.done():
+        if fut.completed():
           let sigRes = fut.read()
           if sigRes.isErr():
-            error "Unable to create slot signature using remote signer",
+            warn "Unable to create slot signature using remote signer",
                   validator = shortLog(validators[index]),
                   error_msg = sigRes.error()
             DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                              none[ValidatorSig]())
+                              Opt.none(ValidatorSig))
           else:
             DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                              some(sigRes.get()))
+                              Opt.some(sigRes.get()))
         else:
           DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                            none[ValidatorSig]())
+                            Opt.none(ValidatorSig))
 
       var validatorDuties = vc.attesters.getOrDefault(item.duty.pubkey)
       validatorDuties.duties[item.epoch] = dap
@@ -243,7 +241,8 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
 
   return len(addOrReplaceItems)
 
-proc pruneSyncCommitteeDuties*(vc: ValidatorClientRef, slot: Slot) =
+proc pruneSyncCommitteeDuties*(service: DutiesServiceRef, slot: Slot) =
+  let vc = service.client
   if slot.is_sync_committee_period():
     var newSyncCommitteeDuties: SyncCommitteeDutiesMap
     let epoch = slot.epoch()
@@ -255,8 +254,9 @@ proc pruneSyncCommitteeDuties*(vc: ValidatorClientRef, slot: Slot) =
       newSyncCommitteeDuties[key] = currentPeriodDuties
     vc.syncCommitteeDuties = newSyncCommitteeDuties
 
-proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
+proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
                                  epoch: Epoch): Future[int] {.async.} =
+  let vc = service.client
   let validatorIndices = toSeq(vc.attachedValidators[].indices())
   var
     filteredDuties: seq[RestSyncCommitteeDuty]
@@ -274,8 +274,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
         try:
           await vc.getSyncCommitteeDuties(epoch, indices, ApiStrategyKind.First)
         except ValidatorApiError as exc:
-          notice "Unable to get sync committee duties", epoch = epoch,
-                 reason = exc.getFailureReason()
+          warn "Unable to get sync committee duties", epoch = epoch,
+               reason = exc.getFailureReason()
           return 0
         except CancelledError as exc:
           debug "Sync committee duties processing was interrupted"
@@ -335,7 +335,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
 
   return len(addOrReplaceItems)
 
-proc pruneAttesterDuties(vc: ValidatorClientRef, epoch: Epoch) =
+proc pruneAttesterDuties(service: DutiesServiceRef, epoch: Epoch) =
+  let vc = service.client
   var attesters: AttesterMap
   for key, item in vc.attesters:
     var v = EpochDuties()
@@ -348,7 +349,7 @@ proc pruneAttesterDuties(vc: ValidatorClientRef, epoch: Epoch) =
     attesters[key] = v
   vc.attesters = attesters
 
-proc pollForAttesterDuties*(vc: ValidatorClientRef) {.async.} =
+proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
   ## Query the beacon node for attestation duties for all known validators.
   ##
   ## This function will perform (in the following order):
@@ -356,125 +357,127 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef) {.async.} =
   ## 1. Poll for current-epoch duties and update the local `attesters` map.
   ## 2. Poll for next-epoch duties and update the local `attesters` map.
   ## 3. Push out any attestation subnet subscriptions to the BN.
-  let sres = vc.getCurrentSlot()
-  if sres.isSome():
-    let
-      currentSlot = sres.get()
-      currentEpoch = currentSlot.epoch()
-      nextEpoch = currentEpoch + 1'u64
+  let vc = service.client
+  let
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    currentEpoch = currentSlot.epoch()
+    nextEpoch = currentEpoch + 1'u64
 
-    if vc.attachedValidators[].count() != 0:
-      var counts: array[2, tuple[epoch: Epoch, count: int]]
-      counts[0] = (currentEpoch, await vc.pollForAttesterDuties(currentEpoch))
-      counts[1] = (nextEpoch, await vc.pollForAttesterDuties(nextEpoch))
+  if vc.attachedValidators[].count() != 0:
+    var counts: array[2, tuple[epoch: Epoch, count: int]]
+    counts[0] = (currentEpoch,
+                 await service.pollForAttesterDuties(currentEpoch))
+    counts[1] = (nextEpoch,
+                 await service.pollForAttesterDuties(nextEpoch))
 
-      if (counts[0].count == 0) and (counts[1].count == 0):
-        debug "No new attester's duties received", slot = currentSlot
+    if (counts[0].count == 0) and (counts[1].count == 0):
+      debug "No new attester's duties received", slot = currentSlot
 
-      let subscriptions =
-        block:
-          var res: seq[RestCommitteeSubscription]
-          for item in counts:
-            if item.count > 0:
-              for duty in vc.attesterDutiesForEpoch(item.epoch):
-                if currentSlot + SUBSCRIPTION_BUFFER_SLOTS < duty.data.slot:
-                  let isAggregator =
-                    if duty.slotSig.isSome():
-                      is_aggregator(duty.data.committee_length,
-                                    duty.slotSig.get())
-                    else:
-                      false
-                  let sub = RestCommitteeSubscription(
-                    validator_index: duty.data.validator_index,
-                    committee_index: duty.data.committee_index,
-                    committees_at_slot: duty.data.committees_at_slot,
-                    slot: duty.data.slot,
-                    is_aggregator: isAggregator
-                  )
-                  res.add(sub)
-          res
-
-      if len(subscriptions) > 0:
-        let res = await vc.prepareBeaconCommitteeSubnet(subscriptions)
-        if res == 0:
-          error "Failed to subscribe validators to beacon committee subnets",
-                slot = currentSlot, epoch = currentEpoch,
-                subscriptions_count = len(subscriptions)
-
-    vc.pruneAttesterDuties(currentEpoch)
-
-proc pollForSyncCommitteeDuties* (vc: ValidatorClientRef) {.async.} =
-  let sres = vc.getCurrentSlot()
-  if sres.isSome():
-    let
-      currentSlot = sres.get()
-      currentEpoch = currentSlot.epoch()
-
-    if vc.attachedValidators[].count() != 0:
-      let
-        dutyPeriods =
-          block:
-            var res: seq[tuple[epoch: Epoch, period: SyncCommitteePeriod]]
-            let
-              currentPeriod = currentSlot.sync_committee_period()
-              lookaheadSlot = currentSlot +
-                              SUBSCRIPTION_LOOKAHEAD_EPOCHS * SLOTS_PER_EPOCH
-              lookaheadPeriod = lookaheadSlot.sync_committee_period()
-            res.add(
-              (epoch: currentSlot.epoch(),
-               period: currentPeriod)
-            )
-            if lookAheadPeriod > currentPeriod:
-              res.add(
-                (epoch: lookaheadPeriod.start_epoch(),
-                 period: lookAheadPeriod)
-              )
-            res
-
-        (counts, total) =
-          block:
-            var res: seq[tuple[epoch: Epoch, period: SyncCommitteePeriod,
-                               count: int]]
-            var total = 0
-            if len(dutyPeriods) > 0:
-              for (epoch, period) in dutyPeriods:
-                let count = await vc.pollForSyncCommitteeDuties(epoch)
-                res.add((epoch: epoch, period: period, count: count))
-                total += count
-            (res, total)
-
-      if total == 0:
-        debug "No new sync committee member's duties received",
-              slot = currentSlot
-
-      let subscriptions =
-        block:
-          var res: seq[RestSyncCommitteeSubscription]
-          for item in counts:
-            if item.count > 0:
-              let untilEpoch = start_epoch(item.period + 1'u64)
-              let subscriptionsInfo =
-                vc.syncMembersSubscriptionInfoForEpoch(item.epoch)
-              for subInfo in subscriptionsInfo:
-                let sub = RestSyncCommitteeSubscription(
-                  validator_index: subInfo.validator_index,
-                  sync_committee_indices:
-                    subInfo.validator_sync_committee_indices,
-                  until_epoch: untilEpoch
+    let subscriptions =
+      block:
+        var res: seq[RestCommitteeSubscription]
+        for item in counts:
+          if item.count > 0:
+            for duty in vc.attesterDutiesForEpoch(item.epoch):
+              if currentSlot + SUBSCRIPTION_BUFFER_SLOTS < duty.data.slot:
+                let isAggregator =
+                  if duty.slotSig.isSome():
+                    is_aggregator(duty.data.committee_length,
+                                  duty.slotSig.get())
+                  else:
+                    false
+                let sub = RestCommitteeSubscription(
+                  validator_index: duty.data.validator_index,
+                  committee_index: duty.data.committee_index,
+                  committees_at_slot: duty.data.committees_at_slot,
+                  slot: duty.data.slot,
+                  is_aggregator: isAggregator
                 )
                 res.add(sub)
+        res
+
+    if len(subscriptions) > 0:
+      let res = await vc.prepareBeaconCommitteeSubnet(subscriptions)
+      if res == 0:
+        warn "Failed to subscribe validators to beacon committee subnets",
+             slot = currentSlot, epoch = currentEpoch,
+             subscriptions_count = len(subscriptions)
+
+  service.pruneAttesterDuties(currentEpoch)
+
+proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  let
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    currentEpoch = currentSlot.epoch()
+
+  if vc.attachedValidators[].count() != 0:
+    let
+      dutyPeriods =
+        block:
+          var res: seq[tuple[epoch: Epoch, period: SyncCommitteePeriod]]
+          let
+            currentPeriod = currentSlot.sync_committee_period()
+            lookaheadSlot = currentSlot +
+                            SUBSCRIPTION_LOOKAHEAD_EPOCHS * SLOTS_PER_EPOCH
+            lookaheadPeriod = lookaheadSlot.sync_committee_period()
+          res.add(
+            (epoch: currentSlot.epoch(),
+             period: currentPeriod)
+          )
+          if lookaheadPeriod > currentPeriod:
+            res.add(
+              (epoch: lookaheadPeriod.start_epoch(),
+               period: lookaheadPeriod)
+            )
           res
 
-      if len(subscriptions) > 0:
-        let res = await vc.prepareSyncCommitteeSubnets(subscriptions)
-        if res != 0:
-          error "Failed to subscribe validators to sync committee subnets",
-                slot = currentSlot, epoch = currentEpoch,
-                subscriptions_count = len(subscriptions)
+      (counts, total) =
+        block:
+          var res: seq[tuple[epoch: Epoch, period: SyncCommitteePeriod,
+                             count: int]]
+          var total = 0
+          if len(dutyPeriods) > 0:
+            for (epoch, period) in dutyPeriods:
+              let count = await service.pollForSyncCommitteeDuties(epoch)
+              res.add((epoch: epoch, period: period, count: count))
+              total += count
+          (res, total)
 
-      vc.pruneSyncCommitteeDuties(currentSlot)
+    if total == 0:
+      debug "No new sync committee member's duties received",
+            slot = currentSlot
 
-proc pruneBeaconProposers(vc: ValidatorClientRef, epoch: Epoch) =
+    let subscriptions =
+      block:
+        var res: seq[RestSyncCommitteeSubscription]
+        for item in counts:
+          if item.count > 0:
+            let untilEpoch = start_epoch(item.period + 1'u64)
+            let subscriptionsInfo =
+              vc.syncMembersSubscriptionInfoForEpoch(item.epoch)
+            for subInfo in subscriptionsInfo:
+              let sub = RestSyncCommitteeSubscription(
+                validator_index: subInfo.validator_index,
+                sync_committee_indices:
+                  subInfo.validator_sync_committee_indices,
+                until_epoch: untilEpoch
+              )
+              res.add(sub)
+        res
+
+    if len(subscriptions) > 0:
+      let res = await vc.prepareSyncCommitteeSubnets(subscriptions)
+      if res == 0:
+        warn "Failed to subscribe validators to sync committee subnets",
+             slot = currentSlot, epoch = currentEpoch,
+             subscriptions_count = len(subscriptions)
+
+  service.pruneSyncCommitteeDuties(currentSlot)
+
+proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
+  let vc = service.client
+
   var proposers: ProposerMap
   for epochKey, data in vc.proposers:
     if (epochKey + HISTORICAL_DUTIES_EPOCHS) >= epoch:
@@ -484,94 +487,88 @@ proc pruneBeaconProposers(vc: ValidatorClientRef, epoch: Epoch) =
             loop = ProposerLoop
   vc.proposers = proposers
 
-proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
-  let sres = vc.getCurrentSlot()
-  if sres.isSome():
-    let
-      currentSlot = sres.get()
-      currentEpoch = currentSlot.epoch()
+proc pollForBeaconProposers*(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  let
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    currentEpoch = currentSlot.epoch()
 
-    if vc.attachedValidators[].count() != 0:
-      try:
-        let res = await vc.getProposerDuties(currentEpoch,
-                                             ApiStrategyKind.First)
-        let
-          dependentRoot = res.dependent_root
-          duties = res.data
-          relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators[])
+  if vc.attachedValidators[].count() != 0:
+    try:
+      let res = await vc.getProposerDuties(currentEpoch,
+                                           ApiStrategyKind.First)
+      let
+        dependentRoot = res.dependent_root
+        duties = res.data
+        relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators[])
 
-        if len(relevantDuties) > 0:
-          vc.addOrReplaceProposers(currentEpoch, dependentRoot, relevantDuties)
-        else:
-          debug "No relevant proposer duties received", slot = currentSlot,
-                duties_count = len(duties)
-      except ValidatorApiError as exc:
-        notice "Unable to get proposer duties", slot = currentSlot,
-               epoch = currentEpoch, reason = exc.getFailureReason()
-      except CancelledError as exc:
-        debug "Proposer duties processing was interrupted"
-        raise exc
-      except CatchableError as exc:
-        debug "Unexpected error occured while getting proposer duties",
-              slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
-              err_msg = exc.msg
+      if len(relevantDuties) > 0:
+        vc.addOrReplaceProposers(currentEpoch, dependentRoot, relevantDuties)
+      else:
+        debug "No relevant proposer duties received", slot = currentSlot,
+              duties_count = len(duties)
+    except ValidatorApiError as exc:
+      notice "Unable to get proposer duties", slot = currentSlot,
+             epoch = currentEpoch, reason = exc.getFailureReason()
+    except CancelledError as exc:
+      debug "Proposer duties processing was interrupted"
+      raise exc
+    except CatchableError as exc:
+      debug "Unexpected error occured while getting proposer duties",
+            slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
+            err_msg = exc.msg
 
-    vc.pruneBeaconProposers(currentEpoch)
+    service.pruneBeaconProposers(currentEpoch)
 
 proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
   let vc = service.client
-  let sres = vc.getCurrentSlot()
-  if sres.isSome():
-    let
-      currentSlot = sres.get()
-      currentEpoch = currentSlot.epoch()
-      proposers = vc.prepareProposersList(currentEpoch)
+  let
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    currentEpoch = currentSlot.epoch()
+    proposers = vc.prepareProposersList(currentEpoch)
 
-    if len(proposers) > 0:
-      let count =
-        try:
-          await prepareBeaconProposer(vc, proposers)
-        except ValidatorApiError as exc:
-          warn "Unable to prepare beacon proposers", slot = currentSlot,
-                epoch = currentEpoch, err_name = exc.name,
-                err_msg = exc.msg, reason = exc.getFailureReason()
-          0
-        except CancelledError as exc:
-          debug "Beacon proposer preparation processing was interrupted"
-          raise exc
-        except CatchableError as exc:
-          error "Unexpected error occured while preparing beacon proposers",
-                slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
-                err_msg = exc.msg
-          0
-      debug "Beacon proposers prepared",
-            validators_count = vc.attachedValidators[].count(),
-            proposers_count = len(proposers),
-            prepared_count = count
+  if len(proposers) > 0:
+    let count =
+      try:
+        await prepareBeaconProposer(vc, proposers)
+      except ValidatorApiError as exc:
+        warn "Unable to prepare beacon proposers", slot = currentSlot,
+              epoch = currentEpoch, err_name = exc.name,
+              err_msg = exc.msg, reason = exc.getFailureReason()
+        0
+      except CancelledError as exc:
+        debug "Beacon proposer preparation processing was interrupted"
+        raise exc
+      except CatchableError as exc:
+        error "Unexpected error occured while preparing beacon proposers",
+              slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
+              err_msg = exc.msg
+        0
+    debug "Beacon proposers prepared",
+          validators_count = vc.attachedValidators[].count(),
+          proposers_count = len(proposers),
+          prepared_count = count
 
 proc registerValidators*(service: DutiesServiceRef) {.async.} =
   let vc = service.client
-  let sres = vc.getCurrentSlot()
+  let
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    genesisFork = vc.forks[0]
+    registrations =
+      try:
+        await vc.prepareRegistrationList(getTime(), genesisFork)
+      except CancelledError as exc:
+        debug "Validator registration preparation was interrupted",
+              slot = currentSlot, fork = genesisFork
+        raise exc
+      except CatchableError as exc:
+        var default: seq[SignedValidatorRegistrationV1]
+        error "Unexpected error occured while preparing validators " &
+              "registration data", slot = currentSlot, fork = genesisFork,
+              err_name = exc.name, err_msg = exc.msg
+        default
 
-  var default: seq[SignedValidatorRegistrationV1]
-  if sres.isSome():
-    let
-      genesisFork = vc.forks[0]
-      currentSlot = sres.get()
-      registrations =
-        try:
-          await vc.prepareRegistrationList(getTime(), genesisFork)
-        except CancelledError as exc:
-          debug "Validator registration preparation was interrupted",
-                slot = currentSlot, fork = genesisFork
-          raise exc
-        except CatchableError as exc:
-          error "Unexpected error occured while preparing validators " &
-                "registration data", slot = currentSlot, fork = genesisFork,
-                err_name = exc.name, err_msg = exc.msg
-          default
-
-    let count =
+    count =
       if len(registrations) > 0:
         try:
           await registerValidator(vc, registrations)
@@ -592,10 +589,10 @@ proc registerValidators*(service: DutiesServiceRef) {.async.} =
       else:
         0
 
-    if count > 0:
-      debug "Validators registered", slot = currentSlot,
-            beacon_nodes_count = count, registrations = len(registrations),
-            validators_count = vc.attachedValidators[].count()
+  if count > 0:
+    debug "Validators registered", slot = currentSlot,
+          beacon_nodes_count = count, registrations = len(registrations),
+          validators_count = vc.attachedValidators[].count()
 
 proc waitForNextSlot(service: DutiesServiceRef,
                      serviceLoop: DutiesServiceLoop) {.async.} =
@@ -605,35 +602,45 @@ proc waitForNextSlot(service: DutiesServiceRef,
 
 proc attesterDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
-
-  debug "Attester duties loop waiting for fork schedule update"
-  await vc.forksAvailable.wait()
+  debug "Attester duties loop is waiting for initialization"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await vc.pollForAttesterDuties()
+    await service.pollForAttesterDuties()
     await service.waitForNextSlot(AttesterLoop)
 
 proc proposerDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
-
-  debug "Proposer duties loop waiting for fork schedule update"
-  await vc.forksAvailable.wait()
+  debug "Proposer duties loop is waiting for initialization"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await vc.pollForBeaconProposers()
+    await service.pollForBeaconProposers()
     await service.waitForNextSlot(ProposerLoop)
 
 proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
+  debug "Validator indices loop is waiting for initialization"
+  await vc.preGenesisEvent.wait()
   while true:
-    await vc.pollForValidatorIndices()
+    await service.pollForValidatorIndices()
     await service.waitForNextSlot(IndicesLoop)
 
 proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
-
-  debug "Beacon proposer preparation loop waiting for validator indices update"
-  await vc.indicesAvailable.wait()
+  debug "Beacon proposer preparation loop is waiting for initialization"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait()
+  )
   while true:
     await service.prepareBeaconProposers()
     await service.waitForNextSlot(ProposerPreparationLoop)
@@ -641,21 +648,28 @@ proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
 proc validatorRegisterLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
   doAssert(vc.config.payloadBuilderEnable)
-
   debug "Validator registration loop is waiting for initialization"
-  await allFutures(vc.indicesAvailable.wait(), vc.forksAvailable.wait())
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
     await service.registerValidators()
     await service.waitForNextSlot(ValidatorRegisterLoop)
 
 proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
-
-  debug "Sync committee duties loop waiting for fork schedule update"
-  await vc.forksAvailable.wait()
+  debug "Sync committee duties loop is waiting for initialization"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await vc.pollForSyncCommitteeDuties()
+    await service.pollForSyncCommitteeDuties()
     await service.waitForNextSlot(SyncCommitteeLoop)
 
 template checkAndRestart(serviceLoop: DutiesServiceLoop,
@@ -696,9 +710,13 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     # become safe to combine loops, breaks and exception handlers.
     let breakLoop =
       try:
-        var futures = @[FutureBase(attestFut), FutureBase(proposeFut),
-                        FutureBase(indicesFut), FutureBase(syncFut),
-                        FutureBase(prepareFut)]
+        var futures = @[
+          FutureBase(attestFut),
+          FutureBase(proposeFut),
+          FutureBase(indicesFut),
+          FutureBase(syncFut),
+          FutureBase(prepareFut)
+        ]
         if not(isNil(registerFut)): futures.add(FutureBase(registerFut))
         discard await race(futures)
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
@@ -743,8 +761,6 @@ proc init*(t: typedesc[DutiesServiceRef],
   let res = DutiesServiceRef(name: ServiceName,
                              client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
-  # We query for indices first, to avoid empty queries for duties.
-  await vc.pollForValidatorIndices()
   return res
 
 proc start*(service: DutiesServiceRef) =

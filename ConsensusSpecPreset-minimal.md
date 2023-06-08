@@ -295,33 +295,33 @@ ConsensusSpecPreset-minimal
 + EF - Deneb - Slots - over_epoch_boundary [Preset: minimal]                                 OK
 + EF - Deneb - Slots - slots_1 [Preset: minimal]                                             OK
 + EF - Deneb - Slots - slots_2 [Preset: minimal]                                             OK
-+ EF - EIP4844 - Transition - normal_transition [Preset: minimal]                            OK
-+ EF - EIP4844 - Transition - simple_transition [Preset: minimal]                            OK
-+ EF - EIP4844 - Transition - transition_missing_first_post_block [Preset: minimal]          OK
-+ EF - EIP4844 - Transition - transition_missing_last_pre_fork_block [Preset: minimal]       OK
-+ EF - EIP4844 - Transition - transition_only_blocks_post_fork [Preset: minimal]             OK
-+ EF - EIP4844 - Transition - transition_randomized_state [Preset: minimal]                  OK
-+ EF - EIP4844 - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]     OK
-+ EF - EIP4844 - Transition - transition_with_attester_slashing_right_after_fork [Preset: mi OK
-+ EF - EIP4844 - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
-+ EF - EIP4844 - Transition - transition_with_btec_right_after_fork [Preset: minimal]        OK
-+ EF - EIP4844 - Transition - transition_with_btec_right_before_fork [Preset: minimal]       OK
-+ EF - EIP4844 - Transition - transition_with_deposit_right_after_fork [Preset: minimal]     OK
-+ EF - EIP4844 - Transition - transition_with_deposit_right_before_fork [Preset: minimal]    OK
-+ EF - EIP4844 - Transition - transition_with_finality [Preset: minimal]                     OK
-+ EF - EIP4844 - Transition - transition_with_leaking_at_fork [Preset: minimal]              OK
-+ EF - EIP4844 - Transition - transition_with_leaking_pre_fork [Preset: minimal]             OK
-+ EF - EIP4844 - Transition - transition_with_no_attestations_until_after_fork [Preset: mini OK
-+ EF - EIP4844 - Transition - transition_with_non_empty_activation_queue [Preset: minimal]   OK
-+ EF - EIP4844 - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
-+ EF - EIP4844 - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [ OK
-+ EF - EIP4844 - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork  OK
-+ EF - EIP4844 - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mi OK
-+ EF - EIP4844 - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
-+ EF - EIP4844 - Transition - transition_with_random_half_participation [Preset: minimal]    OK
-+ EF - EIP4844 - Transition - transition_with_random_three_quarters_participation [Preset: m OK
-+ EF - EIP4844 - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
-+ EF - EIP4844 - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
++ EF - Deneb - Transition - normal_transition [Preset: minimal]                              OK
++ EF - Deneb - Transition - simple_transition [Preset: minimal]                              OK
++ EF - Deneb - Transition - transition_missing_first_post_block [Preset: minimal]            OK
++ EF - Deneb - Transition - transition_missing_last_pre_fork_block [Preset: minimal]         OK
++ EF - Deneb - Transition - transition_only_blocks_post_fork [Preset: minimal]               OK
++ EF - Deneb - Transition - transition_randomized_state [Preset: minimal]                    OK
++ EF - Deneb - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]       OK
++ EF - Deneb - Transition - transition_with_attester_slashing_right_after_fork [Preset: mini OK
++ EF - Deneb - Transition - transition_with_attester_slashing_right_before_fork [Preset: min OK
++ EF - Deneb - Transition - transition_with_btec_right_after_fork [Preset: minimal]          OK
++ EF - Deneb - Transition - transition_with_btec_right_before_fork [Preset: minimal]         OK
++ EF - Deneb - Transition - transition_with_deposit_right_after_fork [Preset: minimal]       OK
++ EF - Deneb - Transition - transition_with_deposit_right_before_fork [Preset: minimal]      OK
++ EF - Deneb - Transition - transition_with_finality [Preset: minimal]                       OK
++ EF - Deneb - Transition - transition_with_leaking_at_fork [Preset: minimal]                OK
++ EF - Deneb - Transition - transition_with_leaking_pre_fork [Preset: minimal]               OK
++ EF - Deneb - Transition - transition_with_no_attestations_until_after_fork [Preset: minima OK
++ EF - Deneb - Transition - transition_with_non_empty_activation_queue [Preset: minimal]     OK
++ EF - Deneb - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pres OK
++ EF - Deneb - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [Pr OK
++ EF - Deneb - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork [P OK
++ EF - Deneb - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mini OK
++ EF - Deneb - Transition - transition_with_proposer_slashing_right_before_fork [Preset: min OK
++ EF - Deneb - Transition - transition_with_random_half_participation [Preset: minimal]      OK
++ EF - Deneb - Transition - transition_with_random_three_quarters_participation [Preset: min OK
++ EF - Deneb - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
++ EF - Deneb - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]           OK
 + EF - Phase 0 - Rewards - empty [Preset: minimal]                                           OK
@@ -381,126 +381,186 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
 + ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
-+ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/discard_equivocations        OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/discard_equivocations_on_att OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/discard_equivocations_slashe OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/filtered_block_tree          OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/genesis                      OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epo OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/voting_source_within_two_epo OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/basic                        OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/incompatible_justification_u OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/incompatible_justification_u OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_update_beginni OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_update_end_of_ OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_withholding    OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_withholding_re OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_always_if_b OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_monotonic   OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_not_realize OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justif OK
-+ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_ju OK
-+ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/new_justified_is_later_than_ OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_bl OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_before_finalized    OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_checkpoints         OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
   ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
-+ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots_ OK
-+ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost               OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/pull_up_on_tick              OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block     OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/delayed_justification_current_e OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/delayed_justification_previous_ OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/include_votes_another_empty_cha OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/include_votes_another_empty_cha OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/include_votes_another_empty_cha OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_ OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_ OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_ OK
++ ForkChoice - minimal/altair/fork_choice/withholding/pyspec_tests/withholding_attack        OK
++ ForkChoice - minimal/altair/fork_choice/withholding/pyspec_tests/withholding_attack_unviab OK
 + ForkChoice - minimal/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_hone OK
 + ForkChoice - minimal/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_a OK
 + ForkChoice - minimal/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla            OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/chain_no_attestations     OK
-+ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations     OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations_on_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations_sla OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/filtered_block_tree       OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/genesis                   OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_correct_he OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_atte OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/voting_source_within_two_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/basic                     OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/incompatible_justificatio OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/incompatible_justificatio OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_update_begi OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_update_end_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_withholding OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_withholding OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_always_i OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_monotoni OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_not_real OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_jus OK
-+ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not OK
-+ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/new_justified_is_later_th OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_before_finalized OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_checkpoints      OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_s OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_s OK
   ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_future_block     Skip
-+ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slo OK
-+ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_update_justified OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost            OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/pull_up_on_tick           OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block  OK
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/all_valid           Skip
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_early_for_merge Skip
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/delayed_justification_curren OK
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/delayed_justification_previo OK
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delay OK
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delay OK
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_witho OK
++ ForkChoice - minimal/bellatrix/fork_choice/withholding/pyspec_tests/withholding_attack     OK
++ ForkChoice - minimal/bellatrix/fork_choice/withholding/pyspec_tests/withholding_attack_unv OK
 + ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
 + ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
 + ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
-+ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations       OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations_on_at OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations_slash OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/filtered_block_tree         OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/genesis                     OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ep OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/voting_source_within_two_ep OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/basic                       OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/incompatible_justification_ OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/incompatible_justification_ OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_update_beginn OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_update_end_of OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_withholding   OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_withholding_r OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_always_if_ OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_monotonic  OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_not_realiz OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
-+ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_j OK
-+ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_justified_is_later_than OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_b OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_before_finalized   OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_checkpoints        OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
   ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
-+ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots OK
-+ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_update_justified_c OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/pull_up_on_tick             OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block    OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/delayed_justification_current_ OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/delayed_justification_previous OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ch OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ch OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ch OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without OK
++ ForkChoice - minimal/capella/fork_choice/withholding/pyspec_tests/withholding_attack       OK
++ ForkChoice - minimal/capella/fork_choice/withholding/pyspec_tests/withholding_attack_unvia OK
 + ForkChoice - minimal/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
 + ForkChoice - minimal/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attes OK
 + ForkChoice - minimal/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
-+ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations         OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations_on_atte OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations_slashed OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/filtered_block_tree           OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/genesis                       OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head   OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epoc OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoc OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_update_beginnin OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_update_end_of_e OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding     OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding_rev OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_always_if_be OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_monotonic    OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_not_realized OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justifi OK
-+ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_jus OK
-+ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/new_justified_is_later_than_s OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_blo OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_before_finalized     OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_checkpoints          OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots OK
   ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
-+ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots_b OK
-+ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_update_justified_che OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost                OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
-+ ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
-+ ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
-+ ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
-+ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
-+ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/discard_equivocations        OK
-+ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/filtered_block_tree          OK
-+ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
-+ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
-+ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
-+ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justif OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_ju OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_justified_is_later_than_ OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_before_finalized    OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_checkpoints         OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots_ OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
-+ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/pull_up_on_tick               OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block      OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/delayed_justification_current_ep OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/delayed_justification_previous_e OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_e OK
++ ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack         OK
++ ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack_unviabl OK
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -582,6 +642,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
@@ -596,10 +657,12 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: min OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [ OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pres OK
++ [Invalid] EF - Deneb - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: minim OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]     OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expecte OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]    OK
++ [Invalid] EF - Deneb - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minim OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mini OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]   OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
@@ -793,7 +856,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Sanity - Blocks - historical_batch [Preset: minimal]              OK
 + [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
 + [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - is_execution_enabled_false [Preset: minimal]    OK
 + [Valid]   EF - Capella - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
 + [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
 + [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
@@ -865,9 +927,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - historical_batch [Preset: minimal]                OK
 + [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
 + [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - is_execution_enabled_false [Preset: minimal]      OK
 + [Valid]   EF - Deneb - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - max_blobs [Preset: minimal]                       OK
++ [Valid]   EF - Deneb - Sanity - Blocks - max_blobs_per_block [Preset: minimal]             OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: m OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pres OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
@@ -889,6 +950,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mini OK
 + [Valid]   EF - Deneb - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
 + [Valid]   EF - Deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
++ [Valid]   EF - Deneb - Sanity - Blocks - zero_blob [Preset: minimal]                       OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_1 [Preset: minimal]                      OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_2 [Preset: minimal]                      OK
@@ -940,7 +1002,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 ```
-OK: 928/937 Fail: 0/937 Skip: 9/937
+OK: 991/999 Fail: 0/999 Skip: 8/999
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -1494,13 +1556,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
 + Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
 + Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Altair - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -1680,13 +1744,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
 + Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
 + Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Bellatrix - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -1861,13 +1927,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
 + Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
 + Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Capella - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -2054,13 +2122,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
 + Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
 + Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Deneb - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -2210,7 +2280,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    Withdrawal                                                                    OK
 ```
 OK: 49/49 Fail: 0/49 Skip: 0/49
-## EF - EIP4844 - Unittests - Light client - Sync protocol [Preset: minimal]
+## EF - Deneb - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
 + process_light_client_update_timeout                                                        OK
@@ -2364,6 +2434,7 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_everything_regular_p OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_execution_first_payl OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_execution_regular_pa OK
++ [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_parent_hash_first_pa OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_parent_hash_regular_ OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_pre_randao_regular_p OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_prev_randao_first_pa OK
@@ -2377,9 +2448,12 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_everything_regular_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_execution_first_payloa OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_execution_regular_payl OK
++ [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_parent_hash_first_payl OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_parent_hash_regular_pa OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
++ [Invalid] EF - Deneb - Operations - Execution Payload - invalid_correct_input__execution_i OK
++ [Invalid] EF - Deneb - Operations - Execution Payload - invalid_exceed_max_blobs_per_block OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
@@ -2399,7 +2473,6 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_regular_payload_with_g OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_first_ OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_regula OK
-+ [Valid]   EF - Capella - Operations - Execution Payload - bad_parent_hash_first_payload    OK
 + [Valid]   EF - Capella - Operations - Execution Payload - non_empty_extra_data_first_paylo OK
 + [Valid]   EF - Capella - Operations - Execution Payload - non_empty_extra_data_regular_pay OK
 + [Valid]   EF - Capella - Operations - Execution Payload - non_empty_transactions_first_pay OK
@@ -2412,7 +2485,12 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Capella - Operations - Execution Payload - success_regular_payload_with_gap OK
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_first_pa OK
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_regular_ OK
-+ [Valid]   EF - Deneb - Operations - Execution Payload - bad_parent_hash_first_payload      OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_blob_tx_type             OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_block_hash               OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_commitment               OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_commitments_order        OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_1_byt OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_32_by OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_first_payload OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_regular_paylo OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_transactions_first_paylo OK
@@ -2425,8 +2503,9 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Deneb - Operations - Execution Payload - success_regular_payload_with_gap_s OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - zero_length_transaction_first_payl OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - zero_length_transaction_regular_pa OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - zeroed_commitment                  OK
 ```
-OK: 78/78 Fail: 0/78 Skip: 0/78
+OK: 87/87 Fail: 0/87 Skip: 0/87
 ## Proposer Slashing
 ```diff
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_different_proposer_indice OK
@@ -2786,4 +2865,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 102/102 Fail: 0/102 Skip: 0/102
 
 ---TOTAL---
-OK: 2467/2476 Fail: 0/2476 Skip: 9/2476
+OK: 2547/2555 Fail: 0/2555 Skip: 8/2555

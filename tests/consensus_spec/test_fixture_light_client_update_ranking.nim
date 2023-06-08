@@ -61,8 +61,8 @@ suite "EF - Light client - Update ranking" & preset():
         skip()
       continue
     for kind, path in walkDir(testsPath, relative = true, checkDir = true):
-      withStateFork(fork):
-        const lcDataFork = lcDataForkAtStateFork(stateFork)
+      withConsensusFork(fork):
+        const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
         when lcDataFork > LightClientDataFork.None:
           runTest(testsPath/path, lcDataFork)
         else: raiseAssert "Unreachable"

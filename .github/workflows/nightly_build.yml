@@ -56,52 +56,6 @@ jobs:
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
-  build-i386:
-    name: Linux i386 release asset
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          ref: unstable
-
-      - name: Build project
-        id: make_dist
-        run: |
-          make dist-i386
-          cd dist
-          ARCHIVE=$(echo *.tar.gz)
-          tar -xzf ${ARCHIVE}
-          NEW_ARCHIVE_DIR="nimbus-eth2_Linux_i386_$(date +%Y%m%d)_$(git rev-parse --short=8 HEAD)"
-          mv ${ARCHIVE%.tar.gz} ${NEW_ARCHIVE_DIR}
-          tar -czf ${NEW_ARCHIVE_DIR}.tar.gz ${NEW_ARCHIVE_DIR}
-          cp ${NEW_ARCHIVE_DIR}.tar.gz nimbus-eth2_Linux_i386_nightly_latest.tar.gz
-          echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
-          echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
-
-      - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
-        with:
-          name: Linux_i386_archive
-          path: |
-            ./dist/${{ steps.make_dist.outputs.archive }}
-            ./dist/nimbus-eth2_Linux_i386_nightly_latest.tar.gz
-          retention-days: 2
-
-      - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
-        with:
-          name: Linux_i386_checksum
-          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
-          retention-days: 2
-
-      - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
-        with:
-          name: Linux_i386_checksum
-          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
-          retention-days: 2
-
   build-arm64:
     name: Linux ARM64 release asset
     runs-on: ubuntu-latest
@@ -383,7 +337,7 @@ jobs:
           echo '```' >> release_notes.md
 
       - name: Delete tag
-        uses: dev-drprasad/delete-tag-and-release@v0.2.0
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
         with:
           delete_release: true
           tag_name: nightly

@@ -9,7 +9,6 @@
 
 import
   chronicles,
-  std/options,
   ./mocking/mock_deposits,
   ./helpers/math_helpers,
   ../beacon_chain/spec/[
@@ -42,7 +41,7 @@ proc valid_deposit(state: var ForkyHashedBeaconState) =
   state.root = hash_tree_root(state.data)
 
 proc getTestStates*(
-    initialState: ForkedHashedBeaconState, stateFork: ConsensusFork):
+    initialState: ForkedHashedBeaconState, consensusFork: ConsensusFork):
     seq[ref ForkedHashedBeaconState] =
   # Randomly generated slot numbers, with a jump to around
   # SLOTS_PER_HISTORICAL_ROOT to force wraparound of those
@@ -65,14 +64,14 @@ proc getTestStates*(
     info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
-  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
-  if stateFork >= ConsensusFork.Altair:
+  static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+  if consensusFork >= ConsensusFork.Altair:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
-  if stateFork >= ConsensusFork.Bellatrix:
+  if consensusFork >= ConsensusFork.Bellatrix:
     cfg.BELLATRIX_FORK_EPOCH = 2.Epoch
-  if stateFork >= ConsensusFork.Capella:
+  if consensusFork >= ConsensusFork.Capella:
     cfg.CAPELLA_FORK_EPOCH = 3.Epoch
-  if stateFork >= ConsensusFork.EIP4844:
+  if consensusFork >= ConsensusFork.Deneb:
     cfg.DENEB_FORK_EPOCH = 4.Epoch
 
   for i, epoch in stateEpochs:
@@ -86,5 +85,5 @@ proc getTestStates*(
         valid_deposit(forkyState)
     doAssert getStateField(tmpState[], slot) == slot
 
-    if tmpState[].kind == stateFork:
+    if tmpState[].kind == consensusFork:
       result.add assignClone(tmpState[])

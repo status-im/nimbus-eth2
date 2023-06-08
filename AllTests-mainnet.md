@@ -39,10 +39,10 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check Capella blocks [Preset: mainnet]                                              OK
 + sanity check Capella states [Preset: mainnet]                                              OK
 + sanity check Capella states, reusing buffers [Preset: mainnet]                             OK
-+ sanity check EIP4844 and cross-fork getState rollback [Preset: mainnet]                    OK
-+ sanity check EIP4844 blocks [Preset: mainnet]                                              OK
-+ sanity check EIP4844 states [Preset: mainnet]                                              OK
-+ sanity check EIP4844 states, reusing buffers [Preset: mainnet]                             OK
++ sanity check Deneb and cross-fork getState rollback [Preset: mainnet]                      OK
++ sanity check Deneb blocks [Preset: mainnet]                                                OK
++ sanity check Deneb states [Preset: mainnet]                                                OK
++ sanity check Deneb states, reusing buffers [Preset: mainnet]                               OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -64,9 +64,10 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Beacon time
 ```diff
++ Dependent slots                                                                            OK
 + basics                                                                                     OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -99,10 +100,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers
 ```diff
++ commonAncestor sanity                                                                      OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## BlockSlot and helpers
 ```diff
 + atSlot sanity                                                                              OK
@@ -161,13 +163,22 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Testing uints        inputs - valid                                                        OK
 ```
 OK: 10/12 Fail: 0/12 Skip: 2/12
+## EL Configuration
+```diff
++ Empty config file                                                                          OK
++ Invalid URls                                                                               OK
++ New style config files                                                                     OK
++ Old style config files                                                                     OK
++ URL parsing                                                                                OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Eth1 monitor
 ```diff
 + Deposits chain                                                                             OK
-+ Rewrite HTTPS Infura URLs                                                                  OK
++ Rewrite URLs                                                                               OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
-+ Roundtrip engine RPC V3 and eip4844 ExecutionPayload representations                       OK
++ Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Eth2 specific discovery tests
@@ -179,12 +190,12 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
-+ Configuring the fee recpient [Beacon Node] [Preset: mainnet]                               OK
++ Configuring the fee recipient [Beacon Node] [Preset: mainnet]                              OK
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-+ Obtaining the fee recpient of a missing validator returns 404 [Beacon Node] [Preset: mainn OK
-+ Obtaining the fee recpient of an unconfigured validator returns the suggested default [Bea OK
++ Obtaining the fee recipient of a missing validator returns 404 [Beacon Node] [Preset: main OK
++ Obtaining the fee recipient of an unconfigured validator returns the suggested default [Be OK
 + Setting the fee recipient on a missing validator creates a record for it [Beacon Node] [Pr OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7
@@ -193,14 +204,6 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + Basic ops [Preset: mainnet]                                                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Fork Choice + Finality  [Preset: mainnet]
-```diff
-+ fork_choice - testing finality #01                                                         OK
-+ fork_choice - testing finality #02                                                         OK
-+ fork_choice - testing no votes                                                             OK
-+ fork_choice - testing with votes                                                           OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Fork id compatibility test
 ```diff
 + Digest check                                                                               OK
@@ -214,11 +217,15 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + load altair state                                                                          OK
 + load bellatrix block                                                                       OK
 + load bellatrix state                                                                       OK
++ load capella block                                                                         OK
++ load capella state                                                                         OK
++ load deneb block                                                                           OK
++ load deneb state                                                                           OK
 + load phase0 block                                                                          OK
 + load phase0 state                                                                          OK
 + should raise on unknown data                                                               OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Gas limit management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the gas limit [Beacon Node] [Preset: mainnet]                                  OK
@@ -249,11 +256,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
++ Liveness failsafe conditions                                                               OK
 + Mainnet attestation topics                                                                 OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## ImportKeystores requests [Beacon Node] [Preset: mainnet]
 ```diff
 + ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
@@ -350,6 +358,49 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Voluntary exit signatures                                                                  OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## Network metadata
+```diff
++ goerli                                                                                     OK
++ mainnet                                                                                    OK
++ sepolia                                                                                    OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
+## Nimbus remote signer/signing test (verifying-web3signer)
+```diff
++ Signing BeaconBlock (getBlockSignature(altair))                                            OK
++ Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
++ Signing BeaconBlock (getBlockSignature(capella))                                           OK
++ Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
++ Waiting for signing node (/upcheck) test                                                   OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
+## Nimbus remote signer/signing test (web3signer)
+```diff
++ Connection timeout test                                                                    OK
++ Connections pool stress test                                                               OK
++ Idle connection test                                                                       OK
++ Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
++ Public keys reload (/reload) test                                                          OK
++ Signing BeaconBlock (getBlockSignature(altair))                                            OK
++ Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
++ Signing BeaconBlock (getBlockSignature(capella))                                           OK
++ Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
++ Signing SC contribution and proof (getContributionAndProofSignature())                     OK
++ Signing SC message (getSyncCommitteeMessage())                                             OK
++ Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
++ Signing aggregate and proof (getAggregateAndProofSignature())                              OK
++ Signing aggregation slot (getSlotSignature())                                              OK
++ Signing attestation (getAttestationSignature())                                            OK
++ Signing deposit message (getDepositMessageSignature())                                     OK
++ Signing phase0 block                                                                       OK
++ Signing randao reveal (getEpochSignature())                                                OK
++ Signing validator registration (getBuilderSignature())                                     OK
++ Signing voluntary exit (getValidatorExitSignature())                                       OK
++ Waiting for signing node (/upcheck) test                                                   OK
+```
+OK: 22/22 Fail: 0/22 Skip: 0/22
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -378,11 +429,13 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Remove keystore testing suite
 ```diff
++ Many remotes                                                                               OK
++ Single remote                                                                              OK
++ Verifying Signer / Many remotes                                                            OK
++ Verifying Signer / Single remote                                                           OK
 + vesion 1                                                                                   OK
-+ vesion 2 many remotes                                                                      OK
-+ vesion 2 single remote                                                                     OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
 + Deserialization test vectors                                                               OK
@@ -394,6 +447,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + RestErrorMessage writer tests                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Shufflings
+```diff
++ Accelerated shuffling computation                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -459,11 +517,10 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
-+ build_empty_execution_payload - Bellatrix                                                  OK
 + build_proof - BeaconState                                                                  OK
 + integer_squareroot                                                                         OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -481,11 +538,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + An empty pool is safe to prune                                                             OK
 + An empty pool is safe to prune 2                                                           OK
 + An empty pool is safe to use                                                               OK
++ Missed slots across fork transition                                                        OK
++ Missed slots across sync committee period boundary                                         OK
++ isSeen                                                                                     OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## SyncManager test suite
 ```diff
 + Process all unviable blocks                                                                OK
++ [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue#Backward] Async unordered push test                                             OK
 + [SyncQueue#Backward] Async unordered push with rewind test                                 OK
 + [SyncQueue#Backward] Good response with missing values towards end                         OK
@@ -509,10 +570,15 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SyncQueue] getLastNonEmptySlot() test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 23/23 Fail: 0/23 Skip: 0/23
+OK: 24/24 Fail: 0/24 Skip: 0/24
 ## Type helpers
 ```diff
 + BeaconBlockType                                                                            OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Validator Client test suite
+```diff
++ normalizeUri() test vectors                                                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator change pool testing suite
@@ -625,4 +691,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 346/351 Fail: 0/351 Skip: 5/351
+OK: 392/397 Fail: 0/397 Skip: 5/397

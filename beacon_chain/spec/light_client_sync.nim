@@ -15,7 +15,7 @@ import
 from ../consensus_object_pools/block_pools_types import VerifierError
 export block_pools_types.VerifierError
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store*(
     trusted_block_root: Eth2Digest,
     bootstrap: ForkyLightClientBootstrap,
@@ -42,7 +42,7 @@ func initialize_light_client_store*(
     current_sync_committee: bootstrap.current_sync_committee,
     optimistic_header: bootstrap.header))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(
     store: ForkyLightClientStore,
     update: SomeForkyLightClientUpdate,
@@ -90,8 +90,10 @@ proc validate_light_client_update*(
     else:
       return err(VerifierError.Duplicate)
 
-  # Verify that the `finalized_header`, if present, actually is the
-  # finalized header saved in the state of the `attested_header`
+  # Verify that the `finality_branch`, if present, confirms `finalized_header`
+  # to match the finalized checkpoint root saved in the state of
+  # `attested_header`. Note that the genesis finalized checkpoint root is
+  # represented as a zero hash.
   when update is SomeForkyLightClientUpdateWithFinality:
     if not update.is_finality_update:
       if update.finalized_header != default(typeof(update.finalized_header)):
@@ -145,7 +147,8 @@ proc validate_light_client_update*(
     if bit:
       participant_pubkeys.add(sync_committee.pubkeys.data[idx])
   let
-    fork_version = cfg.forkVersionAtEpoch(update.signature_slot.epoch)
+    fork_version_slot = max(update.signature_slot, 1.Slot) - 1
+    fork_version = cfg.forkVersionAtEpoch(fork_version_slot.epoch)
     domain = compute_domain(
       DOMAIN_SYNC_COMMITTEE, fork_version, genesis_validators_root)
     signing_root = compute_signing_root(update.attested_header.beacon, domain)
@@ -156,7 +159,7 @@ proc validate_light_client_update*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#apply_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
     store: var ForkyLightClientStore,
     update: SomeForkyLightClientUpdate): bool =
@@ -187,7 +190,7 @@ func apply_light_client_update(
     didProgress = true
   didProgress
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_store_force_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#process_light_client_store_force_update
 type
   ForceUpdateResult* = enum
     NoUpdate,
@@ -200,7 +203,7 @@ func process_light_client_store_force_update*(
   var res = NoUpdate
   if store.best_valid_update.isSome and
       current_slot > store.finalized_header.beacon.slot + UPDATE_TIMEOUT:
-    # Forced best update when the update timeout has elapsed
+    # Forced best update when the update timeout has elapsed.
     # Because the apply logic waits for `finalized_header.beacon.slot`
     # to indicate sync committee finality, the `attested_header` may be
     # treated as `finalized_header` in extended periods of non-finality
@@ -220,7 +223,7 @@ func process_light_client_store_force_update*(
     store.best_valid_update.reset()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/sync-protocol.md#process_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#process_light_client_update
 proc process_light_client_update*(
     store: var ForkyLightClientStore,
     update: SomeForkyLightClientUpdate,

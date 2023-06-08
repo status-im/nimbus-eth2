@@ -228,8 +228,6 @@ proc getValidatorChangeMessagesForBlock(
     if not output.add validator_change_message:
       break
 
-  subpool.clear()
-
 proc getBeaconBlockValidatorChanges*(
     pool: var ValidatorChangePool, cfg: RuntimeConfig, state: ForkyBeaconState):
     BeaconBlockValidatorChanges =

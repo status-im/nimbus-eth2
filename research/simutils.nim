@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Copyright (c) 2020-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 import
   stats, strformat, times,
   ../tests/testblockutil, ../tests/consensus_spec/os_ops,
-  ../beacon_chain/beacon_chain_db,
+  ../beacon_chain/[beacon_chain_db, filepath],
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/spec/[beaconstate, deposit_snapshots, forks, helpers],
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types]
@@ -68,10 +68,16 @@ func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: auto) =
 
 proc loadGenesis*(validators: Natural, validate: bool):
                  (ref ForkedHashedBeaconState, DepositTreeSnapshot) =
+  const genesisDir = "test_sim"
+  if (let res = secureCreatePath(genesisDir); res.isErr):
+    fatal "Could not create directory",
+      path = genesisDir, err = ioErrorMsg(res.error)
+    quit 1
+
   let
-    genesisFn =
+    genesisFn = genesisDir /
       &"genesis_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
-    contractSnapshotFn =
+    contractSnapshotFn = genesisDir /
       &"deposit_contract_snapshot_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
     cfg = defaultRuntimeConfig
 
@@ -89,7 +95,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
 
       echo &"Loaded {genesisFn}..."
 
-      # TODO check that the private keys are interop keys
+      # TODO check that the private keys are EF test keys
 
       let contractSnapshot = SSZ.loadFile(contractSnapshotFn,
                                           DepositTreeSnapshot)

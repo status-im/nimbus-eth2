@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 [submodule "vendor/nim-eth2-scenarios"]
 	path = vendor/nim-eth2-scenarios
 	url = https://github.com/status-im/nim-eth2-scenarios
@@ -57,7 +64,7 @@
 	path = vendor/nim-chronicles
 	url = https://github.com/status-im/nim-chronicles.git
 	ignore = untracked
-	branch = master
+	branch = nbc-1.5.3
 [submodule "vendor/nim-faststreams"]
 	path = vendor/nim-faststreams
 	url = https://github.com/status-im/nim-faststreams.git
@@ -193,14 +200,12 @@
 	url = https://github.com/status-im/nim-toml-serialization.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/merge-testnets"]
-	path = vendor/merge-testnets
-	url = https://github.com/eth-clients/merge-testnets.git
-	branch = main
 [submodule "vendor/gnosis-chain-configs"]
 	path = vendor/gnosis-chain-configs
 	url = https://github.com/gnosischain/configs.git
-[submodule "vendor/capella-testnets"]
-	path = vendor/capella-testnets
-	url = https://github.com/ethpandaops/withdrawals-testnet.git
-	branch = master
+[submodule "vendor/sepolia"]
+	path = vendor/sepolia
+	url = https://github.com/eth-clients/sepolia.git
+[submodule "vendor/nim-kzg4844"]
+	path = vendor/nim-kzg4844
+	url = https://github.com/status-im/nim-kzg4844/

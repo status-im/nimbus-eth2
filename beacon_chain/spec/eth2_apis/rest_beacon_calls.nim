@@ -56,6 +56,14 @@ proc getStateValidators*(state_id: StateIdent,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
 
+proc getStateValidatorsPlain*(
+       state_id: StateIdent,
+       id: seq[ValidatorIdent]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/states/{state_id}/validators",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
+
 proc getStateValidator*(state_id: StateIdent,
                         validator_id: ValidatorIdent
                        ): RestResponse[GetStateValidatorResponse] {.
@@ -77,6 +85,12 @@ proc getStateValidatorBalances*(state_id: StateIdent
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/validator_balances",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
+
+proc getStateRandao*(state_id: StateIdent
+             ): RestResponse[GetStateRandaoResponse] {.
+     rest, endpoint: "/eth/v1/beacon/states/{state_id}/randao",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateRandao
 
 proc getEpochCommittees*(state_id: StateIdent, epoch: Option[Epoch],
                         ): RestResponse[GetEpochCommitteesResponse] {.
@@ -220,6 +234,11 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
       raiseRestResponseError(resp)
 
 proc getBlockRoot*(block_id: BlockIdent): RestResponse[GetBlockRootResponse] {.
+     rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
+
+proc getBlockRootPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot

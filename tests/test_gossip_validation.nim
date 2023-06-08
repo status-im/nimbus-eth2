@@ -22,7 +22,8 @@ import
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     sync_committee_msg_pool],
   ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/spec/[state_transition, helpers, network, validator],
+  ../beacon_chain/spec/[
+    beaconstate, state_transition, helpers, network, validator],
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
@@ -74,10 +75,9 @@ suite "Gossip validation " & preset():
       committeeLen(63) == 0
 
   test "validateAttestation":
-    var
-      cache: StateCache
+    var cache: StateCache
     for blck in makeTestBlocks(
-        dag.headState, cache, int(SLOTS_PER_EPOCH * 5), false):
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 5), attested = false):
       let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef, unrealized: FinalityCheckpoints):
@@ -196,7 +196,8 @@ suite "Gossip validation - Extra": # Not based on preset config
             cfg, makeTestDB(num_validators), validatorMonitor, {})
         var cache = StateCache()
         for blck in makeTestBlocks(
-            dag.headState, cache, int(SLOTS_PER_EPOCH), false, cfg = cfg):
+            dag.headState, cache, int(SLOTS_PER_EPOCH),
+            attested = false, cfg = cfg):
           let added =
             case blck.kind
             of ConsensusFork.Phase0:
@@ -211,9 +212,9 @@ suite "Gossip validation - Extra": # Not based on preset config
             of ConsensusFork.Capella:
               const nilCallback = OnCapellaBlockAdded(nil)
               dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
-            of ConsensusFork.EIP4844:
-              const nilCallback = OnEIP4844BlockAdded(nil)
-              dag.addHeadBlock(verifier, blck.eip4844Data, nilCallback)
+            of ConsensusFork.Deneb:
+              const nilCallback = OnDenebBlockAdded(nil)
+              dag.addHeadBlock(verifier, blck.denebData, nilCallback)
           check: added.isOk()
           dag.updateHead(added[], quarantine[], [])
         dag
@@ -238,48 +239,51 @@ suite "Gossip validation - Extra": # Not based on preset config
       validator = AttachedValidator(
         kind: ValidatorKind.Local, data: keystoreData, index: Opt.some index)
       resMsg = waitFor getSyncCommitteeMessage(
-        validator, state[].data.fork, state[].data.genesis_validators_root, slot,
-        state[].root)
+        validator, state[].data.fork, state[].data.genesis_validators_root,
+        slot, state[].latest_block_root)
       msg = resMsg.get()
 
-      syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
+      syncCommitteePool = newClone(
+        SyncCommitteeMsgPool.init(keys.newRng(), cfg))
       res = waitFor validateSyncCommitteeMessage(
-        dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
-        slot.start_beacon_time(), true)
-      (positions, cookedSig) = res.get()
+        dag, quarantine, batchCrypto, syncCommitteePool,
+        msg, subcommitteeIdx, slot.start_beacon_time(), true)
+      (bid, cookedSig, positions) = res.get()
 
-    syncCommitteeMsgPool[].addSyncCommitteeMessage(
+    syncCommitteePool[].addSyncCommitteeMessage(
       msg.slot,
-      msg.beacon_block_root,
+      bid,
       msg.validator_index,
       cookedSig,
       subcommitteeIdx,
       positions)
 
     let
-      contribution = block:
-        let contribution = (ref SignedContributionAndProof)()
+      contrib = block:
+        let contrib = (ref SignedContributionAndProof)()
         check:
-          syncCommitteeMsgPool[].produceContribution(
-            slot, state[].root, subcommitteeIdx,
-            contribution.message.contribution)
-        syncCommitteeMsgPool[].addContribution(
-          contribution[], contribution.message.contribution.signature.load.get)
+          syncCommitteePool[].produceContribution(
+            slot, bid, subcommitteeIdx,
+            contrib.message.contribution)
+        syncCommitteePool[].addContribution(
+          contrib[], bid,
+          contrib.message.contribution.signature.load.get)
         let signRes = waitFor validator.getContributionAndProofSignature(
           state[].data.fork, state[].data.genesis_validators_root,
-          contribution[].message)
+          contrib[].message)
         doAssert(signRes.isOk())
-        contribution[].signature = signRes.get()
-        contribution
-      aggregate = syncCommitteeMsgPool[].produceSyncAggregate(state[].root)
+        contrib[].signature = signRes.get()
+        contrib
+      aggregate = syncCommitteePool[].produceSyncAggregate(bid, slot)
 
     check:
       expectedCount > 1 # Cover edge case
       res.isOk
-      contribution.message.contribution.aggregation_bits.countOnes == expectedCount
+      contrib.message.contribution.aggregation_bits.countOnes == expectedCount
       aggregate.sync_committee_bits.countOnes == expectedCount
 
       # Same message twice should be ignored
       validateSyncCommitteeMessage(
-        dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
-        state[].data.slot.start_beacon_time(), true).waitFor().isErr()
+        dag, quarantine, batchCrypto, syncCommitteePool,
+        msg, subcommitteeIdx, state[].data.slot.start_beacon_time(), true
+      ).waitFor().isErr()

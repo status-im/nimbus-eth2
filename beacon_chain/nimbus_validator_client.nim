@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,8 +9,11 @@ import
   libp2p/crypto/crypto,
   ./rpc/rest_key_management_api,
   ./validator_client/[
-    common, fallback_service, duties_service, fork_service,
+    common, fallback_service, duties_service, fork_service, block_service,
     doppelganger_service, attestation_service, sync_committee_service]
+
+const
+  PREGENESIS_EPOCHS_COUNT = 1
 
 proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
@@ -38,7 +41,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
         var bres: seq[BeaconNodeServerRef]
         for i in 0 ..< len(pendingRequests):
           let fut = pendingRequests[i]
-          if fut.done():
+          if fut.completed():
             let resp = fut.read()
             if resp.status == 200:
               debug "Received genesis information", endpoint = nodes[i],
@@ -93,16 +96,22 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
 proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
   # This procedure performs initialization of BeaconClock using current genesis
   # information. It also performs waiting for genesis.
-  let res = BeaconClock.init(vc.beaconGenesis.genesis_time)
-  let currentSlot = res.now().slotOrZero()
-  let currentEpoch = currentSlot.epoch()
-  info "Initializing beacon clock",
-       genesis_time = vc.beaconGenesis.genesis_time,
-       current_slot = currentSlot, current_epoch = currentEpoch
-  let genesisTime = res.fromNow(start_beacon_time(Slot(0)))
+  let
+    res = BeaconClock.init(vc.beaconGenesis.genesis_time)
+    currentTime = res.now()
+    currentSlot = currentTime.slotOrZero()
+    currentEpoch = currentSlot.epoch()
+    genesisTime = res.fromNow(Slot(0))
+
   if genesisTime.inFuture:
-    notice "Waiting for genesis", genesisIn = genesisTime.offset
-    await sleepAsync(genesisTime.offset)
+    info "Initializing beacon clock",
+         genesis_time = vc.beaconGenesis.genesis_time,
+         current_slot = "<n/a>", current_epoch = "<n/a>",
+         time_to_genesis = genesisTime.offset
+  else:
+    info "Initializing beacon clock",
+         genesis_time = vc.beaconGenesis.genesis_time,
+         current_slot = currentSlot, current_epoch = currentEpoch
   return res
 
 proc initMetrics(vc: ValidatorClientRef): Future[bool] {.async.} =
@@ -120,7 +129,7 @@ proc initMetrics(vc: ValidatorClientRef): Future[bool] {.async.} =
                 error_msg = res.error()
           return false
         res.get()
-    vc.metricsServer = some(server)
+    vc.metricsServer = Opt.some(server)
     try:
       await server.start()
     except MetricsError as exc:
@@ -139,58 +148,66 @@ proc shutdownSlashingProtection(vc: ValidatorClientRef) =
   info "Closing slashing protection", path = vc.config.validatorsDir()
   vc.attachedValidators[].slashingProtection.close()
 
-proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
-                 lastSlot: Slot): Future[bool] {.async.} =
-  ## Called at the beginning of a slot - usually every slot, but sometimes might
-  ## skip a few in case we're running late.
-  ## wallTime: current system time - we will strive to perform all duties up
-  ##           to this point in time
-  ## lastSlot: the last slot that we successfully processed, so we know where to
-  ##           start work from - there might be jumps if processing is delayed
+proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
+  var
+    startTime = vc.beaconClock.now()
+    curSlot = startTime.slotOrZero()
+    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
+    timeToNextSlot = nextSlot.start_beacon_time() - startTime
 
-  let
-    # The slot we should be at, according to the clock
-    beaconTime = wallTime
-    wallSlot = wallTime.toSlot()
+  info "Scheduling first slot action",
+       start_time = shortLog(startTime),
+       current_slot = shortLog(curSlot),
+       next_slot = shortLog(nextSlot),
+       time_to_next_slot = shortLog(timeToNextSlot)
 
-  let
-    # If everything was working perfectly, the slot that we should be processing
-    expectedSlot = lastSlot + 1
-    delay = wallTime - expectedSlot.start_beacon_time()
+  var currentSlot = Opt.some(curSlot)
 
-  if checkIfShouldStopAtEpoch(wallSlot.slot, vc.config.stopAtEpoch):
-    return true
+  while true:
+    currentSlot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff,
+                                                  true)
+    if currentSlot.isNone():
+      ## Fatal log line should be printed by checkedWaitForNextSlot().
+      return
 
-  if len(vc.beaconNodes) > 1:
     let
-      counts = vc.getNodeCounts()
-      # Good nodes are nodes which can be used for ALL the requests.
-      goodNodes = counts.data[int(RestBeaconNodeStatus.Synced)]
-      # Viable nodes are nodes which can be used only SOME of the requests.
-      viableNodes = counts.data[int(RestBeaconNodeStatus.OptSynced)] +
-                    counts.data[int(RestBeaconNodeStatus.NotSynced)] +
-                    counts.data[int(RestBeaconNodeStatus.Compatible)]
-      # Bad nodes are nodes which can't be used at all.
-      badNodes = counts.data[int(RestBeaconNodeStatus.Offline)] +
-                 counts.data[int(RestBeaconNodeStatus.Online)] +
-                 counts.data[int(RestBeaconNodeStatus.Incompatible)]
-    info "Slot start",
-      slot = shortLog(wallSlot.slot),
-      attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
-      blockIn = vc.getDurationToNextBlock(wallSlot.slot),
-      validators = vc.attachedValidators[].count(),
-      good_nodes = goodNodes, viable_nodes = viableNodes, bad_nodes = badNodes,
-      delay = shortLog(delay)
-  else:
-    info "Slot start",
-      slot = shortLog(wallSlot.slot),
-      attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
-      blockIn = vc.getDurationToNextBlock(wallSlot.slot),
-      validators = vc.attachedValidators[].count(),
-      node_status = $vc.beaconNodes[0].status,
-      delay = shortLog(delay)
+      wallTime = vc.beaconClock.now()
+      wallSlot = currentSlot.get()
+      delay = wallTime - wallSlot.start_beacon_time()
 
-  return false
+    if checkIfShouldStopAtEpoch(wallSlot, vc.config.stopAtEpoch):
+      return
+
+    if len(vc.beaconNodes) > 1:
+      let
+        counts = vc.getNodeCounts()
+        # Good nodes are nodes which can be used for ALL the requests.
+        goodNodes = counts.data[int(RestBeaconNodeStatus.Synced)]
+        # Viable nodes are nodes which can be used only SOME of the requests.
+        viableNodes = counts.data[int(RestBeaconNodeStatus.OptSynced)] +
+                      counts.data[int(RestBeaconNodeStatus.NotSynced)] +
+                      counts.data[int(RestBeaconNodeStatus.Compatible)]
+        # Bad nodes are nodes which can't be used at all.
+        badNodes = counts.data[int(RestBeaconNodeStatus.Offline)] +
+                   counts.data[int(RestBeaconNodeStatus.Online)] +
+                   counts.data[int(RestBeaconNodeStatus.Incompatible)]
+      info "Slot start",
+        slot = shortLog(wallSlot),
+        epoch = shortLog(wallSlot.epoch()),
+        attestationIn = vc.getDurationToNextAttestation(wallSlot),
+        blockIn = vc.getDurationToNextBlock(wallSlot),
+        validators = vc.attachedValidators[].count(),
+        good_nodes = goodNodes, viable_nodes = viableNodes,
+        bad_nodes = badNodes, delay = shortLog(delay)
+    else:
+      info "Slot start",
+        slot = shortLog(wallSlot),
+        epoch = shortLog(wallSlot.epoch()),
+        attestationIn = vc.getDurationToNextAttestation(wallSlot),
+        blockIn = vc.getDurationToNextBlock(wallSlot),
+        validators = vc.attachedValidators[].count(),
+        node_status = $vc.beaconNodes[0].status,
+        delay = shortLog(delay)
 
 proc new*(T: type ValidatorClientRef,
           config: ValidatorClientConf,
@@ -205,18 +222,18 @@ proc new*(T: type ValidatorClientRef,
                 url = $url, error = res.error()
         else:
           debug "Beacon node was initialized", node = res.get()
-        servers.add(res.get())
+          servers.add(res.get())
       let missingRoles = getMissingRoles(servers)
       if len(missingRoles) != 0:
-        fatal "Beacon nodes do not use all required roles",
-              missing_roles = $missingRoles, nodes_count = len(servers)
-        quit 1
+        if len(servers) == 0:
+          fatal "Not enough beacon nodes available",
+                nodes_count = len(servers)
+          quit 1
+        else:
+          fatal "Beacon nodes do not cover all required roles",
+                missing_roles = $missingRoles, nodes_count = len(servers)
+          quit 1
       servers
-
-  if len(beaconNodes) == 0:
-    # This should not happen, thanks to defaults in `conf.nim`
-    fatal "Not enough beacon nodes in command line"
-    quit 1
 
   when declared(waitSignal):
     ValidatorClientRef(
@@ -224,6 +241,8 @@ proc new*(T: type ValidatorClientRef,
       config: config,
       beaconNodes: beaconNodes,
       graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
+      preGenesisEvent: newAsyncEvent(),
+      genesisEvent: newAsyncEvent(),
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
       doppelExit: newAsyncEvent(),
@@ -239,6 +258,8 @@ proc new*(T: type ValidatorClientRef,
       config: config,
       beaconNodes: beaconNodes,
       graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
+      preGenesisEvent: newAsyncEvent(),
+      genesisEvent: newAsyncEvent(),
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
       indicesAvailable: newAsyncEvent(),
@@ -255,10 +276,13 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
                                        config = vc.config,
                                        beacon_nodes_count = len(vc.beaconNodes)
 
+  for node in vc.beaconNodes:
+    notice "Beacon node initialized", node = node
+
   vc.beaconGenesis = await vc.initGenesis()
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
-    genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
-    genesis_root = vc.beaconGenesis.genesis_validators_root
+       genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
+       genesis_root = vc.beaconGenesis.genesis_validators_root
 
   vc.beaconClock = await vc.initClock()
 
@@ -292,6 +316,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
     vc.dutiesService = await DutiesServiceRef.init(vc)
     vc.doppelgangerService = await DoppelgangerServiceRef.init(vc)
     vc.attestationService = await AttestationServiceRef.init(vc)
+    vc.blockService = await BlockServiceRef.init(vc)
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
     vc.keymanagerServer = keymanagerInitResult.server
     if vc.keymanagerServer != nil:
@@ -319,12 +344,65 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
 
   return vc
 
+proc runPreGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
+  var breakLoop = false
+  while not(breakLoop):
+    let
+      genesisTime = vc.beaconClock.fromNow(Slot(0))
+      currentEpoch = vc.beaconClock.now().toSlot().slot.epoch()
+
+    if not(genesisTime.inFuture) or currentEpoch < PREGENESIS_EPOCHS_COUNT:
+      break
+
+    notice "Waiting for genesis",
+           genesis_time = vc.beaconGenesis.genesis_time,
+           time_to_genesis = genesisTime.offset
+
+    breakLoop =
+      try:
+        await sleepAsync(vc.beaconClock.durationToNextSlot())
+        false
+      except CancelledError:
+        debug "Pre-genesis waiting loop was interrupted"
+        true
+      except CatchableError as exc:
+        error "Pre-genesis waiting loop failed with unexpected error",
+              err_name = $exc.name, err_msg = $exc.msg
+        true
+  vc.preGenesisEvent.fire()
+
+proc runGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
+  var breakLoop = false
+  while not(breakLoop):
+    let genesisTime = vc.beaconClock.fromNow(Slot(0))
+
+    if not(genesisTime.inFuture):
+      break
+
+    notice "Waiting for genesis",
+           genesis_time = vc.beaconGenesis.genesis_time,
+           time_to_genesis = genesisTime.offset
+
+    breakLoop =
+      try:
+        await sleepAsync(vc.beaconClock.durationToNextSlot())
+        false
+      except CancelledError:
+        debug "Genesis waiting loop was interrupted"
+        true
+      except CatchableError as exc:
+        error "Genesis waiting loop failed with unexpected error",
+              err_name = $exc.name, err_msg = $exc.msg
+        true
+  vc.genesisEvent.fire()
+
 proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
   vc.forkService.start()
   vc.dutiesService.start()
   vc.doppelgangerService.start()
   vc.attestationService.start()
+  vc.blockService.start()
   vc.syncCommitteeService.start()
 
   if not isNil(vc.keymanagerServer):
@@ -334,9 +412,14 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
 
   let doppelEventFut = vc.doppelExit.wait()
   try:
-    vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
+    # Waiting for `GENESIS - PREGENESIS_EPOCHS_COUNT` loop.
+    await vc.runPreGenesisWaitingLoop()
+    # Waiting for `GENESIS` loop.
+    await vc.runGenesisWaitingLoop()
+    # Main processing loop.
+    vc.runSlotLoopFut = vc.runVCSlotLoop()
     vc.runKeystoreCachePruningLoopFut =
-      runKeystorecachePruningLoop(vc.keystoreCache)
+      runKeystoreCachePruningLoop(vc.keystoreCache)
     discard await race(vc.runSlotLoopFut, doppelEventFut)
     if not(vc.runSlotLoopFut.finished()):
       notice "Received shutdown event, exiting"
@@ -352,8 +435,6 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   if doppelEventFut.completed():
     # Critically, database has been shut down - the rest doesn't matter, we need
     # to stop as soon as possible
-    # TODO we need to actually quit _before_ any other async tasks have had the
-    #      chance to happen
     quitDoppelganger()
 
   debug "Stopping main processing loop"
@@ -370,10 +451,10 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   pending.add(vc.dutiesService.stop())
   pending.add(vc.doppelgangerService.stop())
   pending.add(vc.attestationService.stop())
+  pending.add(vc.blockService.stop())
   pending.add(vc.syncCommitteeService.stop())
   if not isNil(vc.keymanagerServer):
     pending.add(vc.keymanagerServer.stop())
-
   await allFutures(pending)
 
 template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =

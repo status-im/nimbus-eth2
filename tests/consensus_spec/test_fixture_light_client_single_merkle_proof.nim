@@ -65,12 +65,12 @@ suite "EF - Light client - Single merkle proof" & preset():
       if kind != pcDir or not dirExists(suitePath):
         continue
       let objName = path
-      withStateFork(fork):
+      withConsensusFork(fork):
         for kind, path in walkDir(suitePath, relative = true, checkDir = true):
           case objName
           of "BeaconBlockBody":
-            runTest(suitePath/path, BeaconBlockBodyType(stateFork))
+            runTest(suitePath/path, BeaconBlockBodyType(consensusFork))
           of "BeaconState":
-            runTest(suitePath/path, BeaconStateType(stateFork))
+            runTest(suitePath/path, BeaconStateType(consensusFork))
           else:
             raiseAssert "Unknown test object: " & suitePath/path

@@ -1,15 +1,18 @@
 # The Nimbus Guide
 
 !!! note ""
-    Eager to get started? The [quickstart guide](./quick-start.md) is for you.
+    Eager to get started?
+    The [quickstart guide](./quick-start.md) is for you.
 
-    Coming from a different client? Check out the [migration guide](./migration.md).
+    Coming from a different client?
+    Check out the [migration guide](./migration.md).
 
 Nimbus is a client for the Ethereum network that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and [easy to use](./run-a-validator.md).
 
-Its efficiency and low resource consumption allows it to perform well on all kinds of systems, ranging from Raspberry Pi's and mobile devices where it contributes to low power consumption and security -- to powerful servers where it leaves resources free to perform other tasks, such as running an [execution node](./eth1.md).
+Its efficiency and low resource consumption allows it to perform well on all kinds of systems: ranging from Raspberry Pi's and mobile devices — where it contributes to low power consumption and security — to powerful servers where it leaves resources free to perform other tasks, such as running an [execution node](./eth1.md).
 
-This book describes the consensus layer client, [`nimbus-eth2`](https://github.com/status-im/nimbus-eth2). A execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth2), is also under development.
+This book describes the consensus layer client, [`nimbus-eth2`](https://github.com/status-im/nimbus-eth2).
+An execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth2), is also under development.
 
 ## Feature highlights
 
@@ -23,13 +26,14 @@ This book describes the consensus layer client, [`nimbus-eth2`](https://github.c
 
 ## Get in touch
 
-Need help with anything? Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https://discord.gg/9dWwPnG).
+Need help with anything?
+Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https://discord.gg/9dWwPnG).
 
 ## Donate
 
 If you'd like to contribute to Nimbus development:
 
-* Our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
+* Our donation address is [`0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557`](https://etherscan.io/address/0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557)
 * We're also listed on [GitCoin](https://gitcoin.co/grants/137/nimbus-2)
 
 ## Stay updated
@@ -38,4 +42,6 @@ Subscribe to our newsletter [here](https://subscribe.nimbus.guide/).
 
 ## Disclaimer
 
-This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a [Github issue](https://github.com/status-im/nimbus-eth2/issues) if you come across a problem.
+This documentation assumes Nimbus is in its ideal state.
+The project is still under active development.
+Please submit a [Github issue](https://github.com/status-im/nimbus-eth2/issues) if you come across a problem.

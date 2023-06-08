@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -33,6 +33,10 @@ proc otherNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
 
 proc otherNodesCount*(vc: ValidatorClientRef): int =
   vc.beaconNodes.countIt(it.status != RestBeaconNodeStatus.Synced)
+
+proc preGenesisNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
+  vc.beaconNodes.filterIt(it.status notin {RestBeaconNodeStatus.Synced,
+                                           RestBeaconNodeStatus.OptSynced})
 
 proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
                 statuses: set[RestBeaconNodeStatus],
@@ -74,6 +78,7 @@ proc checkCompatible(
        vc: ValidatorClientRef,
        node: BeaconNodeServerRef
      ): Future[RestBeaconNodeStatus] {.async.} =
+  ## Could return only {Offline, Incompatible, Compatible}
   logScope: endpoint = node
   let info =
     try:
@@ -113,31 +118,12 @@ proc checkCompatible(
               error_message = exc.msg
       return RestBeaconNodeStatus.Offline
 
-  let genesisFlag = (genesis != vc.beaconGenesis)
-  let configFlag =
-    # /!\ Keep in sync with `spec/eth2_apis/rest_types.nim` > `RestSpecVC`.
-    info.MAX_VALIDATORS_PER_COMMITTEE != MAX_VALIDATORS_PER_COMMITTEE or
-    info.SLOTS_PER_EPOCH != SLOTS_PER_EPOCH or
-    info.SECONDS_PER_SLOT != SECONDS_PER_SLOT or
-    info.EPOCHS_PER_ETH1_VOTING_PERIOD != EPOCHS_PER_ETH1_VOTING_PERIOD or
-    info.SLOTS_PER_HISTORICAL_ROOT != SLOTS_PER_HISTORICAL_ROOT or
-    info.EPOCHS_PER_HISTORICAL_VECTOR != EPOCHS_PER_HISTORICAL_VECTOR or
-    info.EPOCHS_PER_SLASHINGS_VECTOR != EPOCHS_PER_SLASHINGS_VECTOR or
-    info.HISTORICAL_ROOTS_LIMIT != HISTORICAL_ROOTS_LIMIT or
-    info.VALIDATOR_REGISTRY_LIMIT != VALIDATOR_REGISTRY_LIMIT or
-    info.MAX_PROPOSER_SLASHINGS != MAX_PROPOSER_SLASHINGS or
-    info.MAX_ATTESTER_SLASHINGS != MAX_ATTESTER_SLASHINGS or
-    info.MAX_ATTESTATIONS != MAX_ATTESTATIONS or
-    info.MAX_DEPOSITS != MAX_DEPOSITS or
-    info.MAX_VOLUNTARY_EXITS != MAX_VOLUNTARY_EXITS or
-    info.DOMAIN_BEACON_PROPOSER != DOMAIN_BEACON_PROPOSER or
-    info.DOMAIN_BEACON_ATTESTER != DOMAIN_BEACON_ATTESTER or
-    info.DOMAIN_RANDAO != DOMAIN_RANDAO or
-    info.DOMAIN_DEPOSIT != DOMAIN_DEPOSIT or
-    info.DOMAIN_VOLUNTARY_EXIT != DOMAIN_VOLUNTARY_EXIT or
-    info.DOMAIN_SELECTION_PROOF != DOMAIN_SELECTION_PROOF or
-    info.DOMAIN_AGGREGATE_AND_PROOF != DOMAIN_AGGREGATE_AND_PROOF
+  let
+    genesisFlag = (genesis != vc.beaconGenesis)
+    configFlag = not(checkConfig(info))
 
+  node.config = Opt.some(info)
+  node.genesis = Opt.some(genesis)
   let res =
     if configFlag or genesisFlag:
       if node.status != RestBeaconNodeStatus.Incompatible:
@@ -145,10 +131,6 @@ proc checkCompatible(
               genesis_flag = genesisFlag, config_flag = configFlag
       RestBeaconNodeStatus.Incompatible
     else:
-      if node.status != RestBeaconNodeStatus.Compatible:
-        debug "Beacon node has compatible configuration"
-      node.config = some(info)
-      node.genesis = some(genesis)
       RestBeaconNodeStatus.Compatible
   return res
 
@@ -156,6 +138,7 @@ proc checkSync(
        vc: ValidatorClientRef,
        node: BeaconNodeServerRef
      ): Future[RestBeaconNodeStatus] {.async.} =
+  ## Could return only {Offline, NotSynced, Synced, OptSynced}
   logScope: endpoint = node
   let syncInfo =
     try:
@@ -175,7 +158,7 @@ proc checkSync(
         error "Unexpected exception", error_name = exc.name,
               error_message = exc.msg
       return RestBeaconNodeStatus.Offline
-  node.syncInfo = some(syncInfo)
+  node.syncInfo = Opt.some(syncInfo)
   let res =
     block:
       let optimistic =
@@ -186,29 +169,17 @@ proc checkSync(
 
       if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
         if not(syncInfo.is_optimistic.get(false)):
-          if node.status != RestBeaconNodeStatus.Synced:
-            info "Beacon node is in sync",
-                 sync_distance = syncInfo.sync_distance,
-                 head_slot = syncInfo.head_slot, is_optimistic = optimistic
           RestBeaconNodeStatus.Synced
         else:
-          if node.status != RestBeaconNodeStatus.OptSynced:
-            info "Execution client not in sync " &
-                 "(beacon node optimistically synced)",
-                 sync_distance = syncInfo.sync_distance,
-                 head_slot = syncInfo.head_slot, is_optimistic = optimistic
           RestBeaconNodeStatus.OptSynced
       else:
-        if node.status != RestBeaconNodeStatus.NotSynced:
-          warn "Beacon node not in sync",
-               sync_distance = syncInfo.sync_distance,
-               head_slot = syncInfo.head_slot, is_optimistic = optimistic
         RestBeaconNodeStatus.NotSynced
   return res
 
 proc checkOnline(
        node: BeaconNodeServerRef
      ): Future[RestBeaconNodeStatus] {.async.} =
+  ## Could return only {Offline, Online}.
   logScope: endpoint = node
   debug "Checking beacon node status"
   let agent =
@@ -219,51 +190,80 @@ proc checkOnline(
       debug "Status request was interrupted"
       raise exc
     except RestError as exc:
-      if node.status != RestBeaconNodeStatus.Offline:
-        debug "Unable to check beacon node's status",
-              error_name = exc.name, error_message = exc.msg
+      debug "Unable to check beacon node's status",
+            error_name = exc.name, error_message = exc.msg
       return RestBeaconNodeStatus.Offline
     except CatchableError as exc:
-      if node.status != RestBeaconNodeStatus.Offline:
-        error "Unexpected exception", error_name = exc.name,
-              error_message = exc.msg
+      error "Unexpected exception", error_name = exc.name,
+            error_message = exc.msg
       return RestBeaconNodeStatus.Offline
-  if node.status != RestBeaconNodeStatus.Online:
-    debug "Beacon node has been identified", agent = agent.version
+  node.ident = Opt.some(agent.version)
   return RestBeaconNodeStatus.Online
+
+func getReason(status: RestBeaconNodeStatus): string =
+  case status
+  of RestBeaconNodeStatus.Offline:
+    "Connection with node has been lost"
+  of RestBeaconNodeStatus.Online:
+    "Connection with node has been established"
+  else:
+    "Beacon node reports"
 
 proc checkNode(vc: ValidatorClientRef,
                node: BeaconNodeServerRef): Future[bool] {.async.} =
   let nstatus = node.status
   debug "Checking beacon node", endpoint = node, status = node.status
 
-  if nstatus in {RestBeaconNodeStatus.Offline}:
-    let status = await node.checkOnline()
-    node.status = status
+  if nstatus in {RestBeaconNodeStatus.Offline,
+                 RestBeaconNodeStatus.UnexpectedCode,
+                 RestBeaconNodeStatus.UnexpectedResponse,
+                 RestBeaconNodeStatus.InternalError}:
+    let
+      status = await node.checkOnline()
+      failure = ApiNodeFailure.init(ApiFailure.NoError, "checkOnline",
+                                    node, status.getReason())
+    node.updateStatus(status, failure)
     if status != RestBeaconNodeStatus.Online:
       return nstatus != status
 
   if nstatus in {RestBeaconNodeStatus.Offline,
+                 RestBeaconNodeStatus.UnexpectedCode,
+                 RestBeaconNodeStatus.UnexpectedResponse,
+                 RestBeaconNodeStatus.InternalError,
                  RestBeaconNodeStatus.Online,
                  RestBeaconNodeStatus.Incompatible}:
-    let status = await vc.checkCompatible(node)
-    node.status = status
+    let
+      status = await vc.checkCompatible(node)
+      failure = ApiNodeFailure.init(ApiFailure.NoError, "checkCompatible",
+                                    node, status.getReason())
+    node.updateStatus(status, failure)
     if status != RestBeaconNodeStatus.Compatible:
       return nstatus != status
 
   if nstatus in {RestBeaconNodeStatus.Offline,
+                 RestBeaconNodeStatus.UnexpectedCode,
+                 RestBeaconNodeStatus.UnexpectedResponse,
+                 RestBeaconNodeStatus.InternalError,
                  RestBeaconNodeStatus.Online,
                  RestBeaconNodeStatus.Incompatible,
                  RestBeaconNodeStatus.Compatible,
                  RestBeaconNodeStatus.OptSynced,
                  RestBeaconNodeStatus.NotSynced}:
-    let status = await vc.checkSync(node)
-    node.status = status
+    let
+      status = await vc.checkSync(node)
+      failure = ApiNodeFailure.init(ApiFailure.NoError, "checkSync",
+                                    node, status.getReason())
+    node.updateStatus(status, failure)
     return nstatus != status
 
 proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
   let
-    nodesToCheck = service.client.otherNodes()
+    vc = service.client
+    nodesToCheck =
+      if vc.genesisEvent.isSet():
+        service.client.otherNodes()
+      else:
+        service.client.preGenesisNodes()
     pendingChecks = nodesToCheck.mapIt(service.client.checkNode(it))
   var res = false
   try:
@@ -285,6 +285,16 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
   service.state = ServiceState.Running
   debug "Service started"
 
+  try:
+    await vc.preGenesisEvent.wait()
+  except CancelledError:
+    debug "Service interrupted"
+    return
+  except CatchableError as exc:
+    warn "Service crashed with unexpected error", err_name = exc.name,
+         err_msg = exc.msg
+    return
+
   while true:
     # This loop could look much more nicer/better, when
     # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
@@ -298,8 +308,8 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
         debug "Service interrupted"
         true
       except CatchableError as exc:
-        warn "Service crashed with unexpected error", err_name = exc.name,
-             err_msg = exc.msg
+        error "Service crashed with unexpected error", err_name = exc.name,
+              err_msg = exc.msg
         true
 
     if breakLoop:
@@ -312,8 +322,6 @@ proc init*(t: typedesc[FallbackServiceRef],
                                state: ServiceState.Initialized,
                                changesEvent: newAsyncEvent())
   debug "Initializing service"
-  # Perform initial nodes check.
-  if await res.checkNodes(): res.changesEvent.fire()
   return res
 
 proc start*(service: FallbackServiceRef) =

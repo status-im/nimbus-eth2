@@ -7,8 +7,11 @@ mkShell {
     git
     gnumake
 
-    # For installing ganache for local simulations
-    nodePackages.ganache-cli
+    # For the local simulation
+    openssl # for generating the JWT file
+    lsof    # for killing processes by port
+    killall # for killing processes manually
+    curl    # for working with the node APIs
   ] ++ lib.optionals (!stdenv.isDarwin) [
     lsb-release
   ];

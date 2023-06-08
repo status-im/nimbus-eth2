@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,18 +16,28 @@ import
 
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
-proc makeTestDB*(validators: Natural): BeaconChainDB =
+proc makeTestDB*(
+    validators: Natural,
+    eth1Data = Opt.none(Eth1Data),
+    flags: UpdateFlags = {skipBlsValidation},
+    cfg = defaultRuntimeConfig): BeaconChainDB =
   let
     genState = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.Phase0,
       phase0Data: initialize_hashed_beacon_state_from_eth1(
-        defaultRuntimeConfig,
+        cfg,
         ZERO_HASH,
         0,
-        makeInitialDeposits(validators.uint64, flags = {skipBlsValidation}),
-        {skipBlsValidation}))
+        makeInitialDeposits(validators.uint64, flags),
+        flags))
 
-  result = BeaconChainDB.new("", inMemory = true)
+  # Override Eth1Data on request, skipping the lengthy Eth1 voting process
+  if eth1Data.isOk:
+    withState(genState[]):
+      forkyState.data.eth1_data = eth1Data.get
+      forkyState.root = hash_tree_root(forkyState.data)
+
+  result = BeaconChainDB.new("", cfg = cfg, inMemory = true)
   ChainDAGRef.preInit(result, genState[])
 
 proc getEarliestInvalidBlockRoot*(
@@ -50,19 +60,19 @@ proc getEarliestInvalidBlockRoot*(
 
   # Only allow this special case outside loop; it's when the LVH is the direct
   # parent of the reported invalid block
-  if  curBlck.executionBlockRoot.isSome and
-      curBlck.executionBlockRoot.get == latestValidHash:
+  if  curBlck.executionBlockHash.isSome and
+      curBlck.executionBlockHash.get == latestValidHash:
     return defaultEarliestInvalidBlockRoot
 
   while true:
     # This was supposed to have been either caught by the pre-loop check or the
     # parent check.
-    if  curBlck.executionBlockRoot.isSome and
-        curBlck.executionBlockRoot.get == latestValidHash:
+    if  curBlck.executionBlockHash.isSome and
+        curBlck.executionBlockHash.get == latestValidHash:
       doAssert false, "getEarliestInvalidBlockRoot: unexpected LVH in loop body"
 
     if (curBlck.parent.isNil) or
-       curBlck.parent.executionBlockRoot.get(latestValidHash) ==
+       curBlck.parent.executionBlockHash.get(latestValidHash) ==
          latestValidHash:
       break
     curBlck = curBlck.parent

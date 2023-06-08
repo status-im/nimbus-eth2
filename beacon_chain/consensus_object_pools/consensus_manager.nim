@@ -8,29 +8,23 @@
 {.push raises: [].}
 
 import
-  chronicles, chronos,
+  chronicles, chronos, web3/[ethtypes, engine_api_types],
   ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
-  ../eth1/eth1_monitor
+  ../el/el_manager,
+  ../beacon_clock
 
-from ../spec/beaconstate import get_expected_withdrawals
+from ../spec/beaconstate import
+  get_expected_withdrawals, has_eth1_withdrawal_credential
 from ../spec/datatypes/capella import Withdrawal
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/keystore_management import
-  KeymanagerHost, getSuggestedFeeRecipient, getSuggestedGasLimit
+  KeymanagerHost, getPerValidatorDefaultFeeRecipient, getSuggestedFeeRecipient,
+  getSuggestedGasLimit
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 
 type
-  ForkChoiceUpdatedInformation* = object
-    payloadId*: PayloadID
-    headBlockRoot*: Eth2Digest
-    safeBlockRoot*: Eth2Digest
-    finalizedBlockRoot*: Eth2Digest
-    timestamp*: uint64
-    feeRecipient*: Eth1Address
-    withdrawals*: Opt[seq[Withdrawal]]
-
   ConsensusManager* = object
     expectedSlot: Slot
     expectedBlockReceived: Future[bool]
@@ -46,7 +40,7 @@ type
 
     # Execution layer integration
     # ----------------------------------------------------------------
-    eth1Monitor*: Eth1Monitor
+    elManager*: ELManager
 
     # Allow determination of whether there's an upcoming proposal
     # ----------------------------------------------------------------
@@ -56,12 +50,11 @@ type
     # ----------------------------------------------------------------
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
     validatorsDir: string
-    defaultFeeRecipient: Eth1Address
+    defaultFeeRecipient: Opt[Eth1Address]
     defaultGasLimit: uint64
 
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
-    forkchoiceUpdatedInfo*: Opt[ForkchoiceUpdatedInformation]
     optimisticHead: tuple[bid: BlockId, execution_block_hash: Eth2Digest]
 
 # Initialization
@@ -71,22 +64,21 @@ func new*(T: type ConsensusManager,
           dag: ChainDAGRef,
           attestationPool: ref AttestationPool,
           quarantine: ref Quarantine,
-          eth1Monitor: Eth1Monitor,
+          elManager: ELManager,
           actionTracker: ActionTracker,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
           validatorsDir: string,
-          defaultFeeRecipient: Eth1Address,
+          defaultFeeRecipient: Opt[Eth1Address],
           defaultGasLimit: uint64
          ): ref ConsensusManager =
   (ref ConsensusManager)(
     dag: dag,
     attestationPool: attestationPool,
     quarantine: quarantine,
-    eth1Monitor: eth1Monitor,
+    elManager: elManager,
     actionTracker: actionTracker,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
     validatorsDir: validatorsDir,
-    forkchoiceUpdatedInfo: Opt.none ForkchoiceUpdatedInformation,
     defaultFeeRecipient: defaultFeeRecipient,
     defaultGasLimit: defaultGasLimit
   )
@@ -122,10 +114,6 @@ proc expectBlock*(self: var ConsensusManager, expectedSlot: Slot): Future[bool] 
 
   return fut
 
-from eth/async_utils import awaitWithTimeout
-from web3/engine_api_types import
-  ForkchoiceUpdatedResponse, PayloadExecutionStatus, PayloadStatusV1
-
 func `$`(h: BlockHash): string = $h.asEth2Digest
 
 func shouldSyncOptimistically*(
@@ -146,8 +134,6 @@ func shouldSyncOptimistically*(
   true
 
 func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
-  if self.eth1Monitor == nil:
-    return false
   if self.optimisticHead.execution_block_hash.isZero:
     return false
 
@@ -167,85 +153,54 @@ func setOptimisticHead*(
     bid: BlockId, execution_block_hash: Eth2Digest) =
   self.optimisticHead = (bid: bid, execution_block_hash: execution_block_hash)
 
-proc runForkchoiceUpdated*(
-    eth1Monitor: Eth1Monitor,
-    headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest):
-    Future[(PayloadExecutionStatus, Option[BlockHash])] {.async.} =
-  # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
-  #
-  # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3675.md#pos-events
-  # has "Before the first finalized block occurs in the system the finalized
-  # block hash provided by this event is stubbed with
-  # `0x0000000000000000000000000000000000000000000000000000000000000000`."
-  # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/bellatrix/validator.md#executionpayload
-  # notes "`finalized_block_hash` is the hash of the latest finalized execution
-  # payload (`Hash32()` if none yet finalized)"
-  doAssert not headBlockHash.isZero
-
-  try:
-    # Minimize window for Eth1 monitor to shut down connection
-    await eth1Monitor.ensureDataProvider()
-
-    let fcuR = awaitWithTimeout(
-      forkchoiceUpdated(
-        eth1Monitor, headBlockHash, safeBlockHash, finalizedBlockHash),
-      FORKCHOICEUPDATED_TIMEOUT):
-        debug "runForkchoiceUpdated: forkchoiceUpdated timed out",
-          headBlockHash = shortLog(headBlockHash),
-          safeBlockHash = shortLog(safeBlockHash),
-          finalizedBlockHash = shortLog(finalizedBlockHash)
-        ForkchoiceUpdatedResponse(
-          payloadStatus: PayloadStatusV1(
-            status: PayloadExecutionStatus.syncing))
-
-    debug "runForkchoiceUpdated: ran forkchoiceUpdated",
-      headBlockHash, safeBlockHash, finalizedBlockHash,
-      payloadStatus = $fcuR.payloadStatus.status,
-      latestValidHash = $fcuR.payloadStatus.latestValidHash,
-      validationError = $fcuR.payloadStatus.validationError
-
-    return (fcuR.payloadStatus.status, fcuR.payloadStatus.latestValidHash)
-  except CatchableError as err:
-    warn "forkchoiceUpdated failed - check execution client",
-      err = err.msg,
-      headBlockHash = shortLog(headBlockHash),
-      safeBlockHash = shortLog(safeBlockHash),
-      finalizedBlockHash = shortLog(finalizedBlockHash)
-    return (PayloadExecutionStatus.syncing, none BlockHash)
-
-from ../beacon_clock import GetBeaconTimeFn
-from ../fork_choice/fork_choice import mark_root_invalid
-
-proc updateExecutionClientHead(
-    self: ref ConsensusManager, newHead: BeaconHead):
-    Future[Opt[void]] {.async.} =
-  if self.eth1Monitor.isNil:
-    return Opt[void].ok()
-
-  let headExecutionPayloadHash = self.dag.loadExecutionBlockRoot(newHead.blck)
+proc updateExecutionClientHead(self: ref ConsensusManager,
+                               newHead: BeaconHead): Future[Opt[void]] {.async.} =
+  let headExecutionPayloadHash = self.dag.loadExecutionBlockHash(newHead.blck)
 
   if headExecutionPayloadHash.isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
     return Opt[void].ok()
+
+  template callForkchoiceUpdated(attributes: untyped): auto =
+    await self.elManager.forkchoiceUpdated(
+      headBlockHash = headExecutionPayloadHash,
+      safeBlockHash = newHead.safeExecutionPayloadHash,
+      finalizedBlockHash = newHead.finalizedExecutionPayloadHash,
+      payloadAttributes = none attributes)
 
   # Can't use dag.head here because it hasn't been updated yet
   let (payloadExecutionStatus, latestValidHash) =
-    await self.eth1Monitor.runForkchoiceUpdated(
-      headExecutionPayloadHash,
-      newHead.safeExecutionPayloadHash,
-      newHead.finalizedExecutionPayloadHash)
+    case self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
+    of ConsensusFork.Capella, ConsensusFork.Deneb:
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
+      # Consensus layer client MUST call this method instead of
+      # `engine_forkchoiceUpdatedV1` under any of the following conditions:
+      # `headBlockHash` references a block which `timestamp` is greater or
+      # equal to the Shanghai timestamp
+      callForkchoiceUpdated(PayloadAttributesV2)
+    of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
+      callForkchoiceUpdated(PayloadAttributesV1)
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
     self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
     return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    self.dag.optimisticRoots.incl newHead.blck.root
+    # Don't do anything. Either newHead.blck.executionValid was already false,
+    # in which case it'd be superfluous to set it to false again, or the block
+    # was marked as `VALID` in the `newPayload` path already, in which case it
+    # is fine to keep it as valid here. Conceptually, were this to be lines of
+    # code, it'd be something like
+    # if newHead.blck.executionValid:
+    #   do nothing because of latter case
+    # else:
+    #   do nothing because it's a no-op
+    # So, either way, do nothing.
+    discard
 
   return Opt[void].ok()
 
@@ -294,9 +249,9 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
       head = shortLog(self.dag.head), wallSlot
     return
 
-  if self.dag.loadExecutionBlockRoot(newHead.blck).isZero:
+  if self.dag.loadExecutionBlockHash(newHead.blck).isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
 
   self.updateHead(newHead.blck)
 
@@ -314,7 +269,7 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   if dag.head.slot + defaultSyncHorizon < wallSlot:
     false
   else:
-    not dag.is_optimistic(dag.head.root)
+    dag.head.executionValid
 
 proc checkNextProposer(
     dag: ChainDAGRef, actionTracker: ActionTracker,
@@ -353,10 +308,28 @@ proc getFeeRecipient*(
     Opt.none(Eth1Address)
 
   dynFeeRecipient.valueOr:
+    let
+      withdrawalAddress =
+        if validatorIdx.isSome:
+          withState(self.dag.headState):
+            if validatorIdx.get < forkyState.data.validators.lenu64:
+              let validator = forkyState.data.validators.item(validatorIdx.get)
+              if has_eth1_withdrawal_credential(validator):
+                var address: distinctBase(Eth1Address)
+                address[0..^1] = validator.withdrawal_credentials.data[12..^1]
+                Opt.some Eth1Address address
+              else:
+                Opt.none Eth1Address
+            else:
+              Opt.none Eth1Address
+        else:
+          Opt.none Eth1Address
+      defaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
+        self.defaultFeeRecipient, withdrawalAddress)
     self.validatorsDir.getSuggestedFeeRecipient(
-        pubkey, self.defaultFeeRecipient).valueOr:
+        pubkey, defaultFeeRecipient).valueOr:
       # Ignore errors and use default - errors are logged in gsfr
-      self.defaultFeeRecipient
+      defaultFeeRecipient
 
 proc getGasLimit*(
     self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
@@ -375,59 +348,65 @@ proc runProposalForkchoiceUpdated*(
   debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
     nextWallSlot, validatorIndex, nextProposer
 
-  withState(self.dag.headState):
-    let
-      nextSlotFork = self.dag.cfg.forkAtEpoch(nextWallSlot.epoch)
-      nextSlotForkVersion = self.dag.cfg.forkVersionAtEpoch(nextWallSlot.epoch)
-    if  nextSlotForkVersion == self.dag.cfg.CAPELLA_FORK_VERSION and
-        forkyState.data.fork.current_version != nextSlotFork.current_version:
-      debug "runProposalForkchoiceUpdated: about to do Capella transition; don't have appropriate state to fcU ahead",
-        nextWallSlot, validatorIndex, nextProposer, nextSlotFork,
-        nextSlotForkVersion, stateFork = forkyState.data.fork
+  # In Capella and later, computing correct withdrawals would mean creating a
+  # proposal state. Instead, only do that at proposal time.
+  if nextWallSlot.is_epoch:
+    debug "runProposalForkchoiceUpdated: not running early fcU for epoch-aligned proposal slot",
+      nextWallSlot, validatorIndex, nextProposer
+    return
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
   let
     timestamp = withState(self.dag.headState):
       compute_timestamp_at_slot(forkyState.data, nextWallSlot)
+    # If the current head block still forms the basis of the eventual proposal
+    # state, then its `get_randao_mix` will remain unchanged as well, as it is
+    # constant until the next block.
     randomData = withState(self.dag.headState):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
-    withdrawals = withState(self.dag.headState):
-      when stateFork >= ConsensusFork.Capella:
-        Opt.some get_expected_withdrawals(forkyState.data)
+    withdrawals =
+      if self.dag.headState.kind >= ConsensusFork.Capella:
+        # Head state is not eventual proposal state, but withdrawals will be
+        # identical within an epoch.
+        withState(self.dag.headState):
+          when consensusFork >= ConsensusFork.Capella:
+            Opt.some get_expected_withdrawals(forkyState.data)
+          else:
+            Opt.none(seq[Withdrawal])
       else:
         Opt.none(seq[Withdrawal])
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
-    headBlockRoot = self.dag.loadExecutionBlockRoot(beaconHead.blck)
+    headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck)
 
-  if headBlockRoot.isZero:
+  if headBlockHash.isZero:
     return
 
   try:
-    let fcResult = awaitWithTimeout(
-      forkchoiceUpdated(
-        self.eth1Monitor, headBlockRoot, beaconHead.safeExecutionPayloadHash,
-        beaconHead.finalizedExecutionPayloadHash, timestamp, randomData,
-        feeRecipient, withdrawals),
-      FORKCHOICEUPDATED_TIMEOUT):
-        debug "runProposalForkchoiceUpdated: forkchoiceUpdated timed out"
-        ForkchoiceUpdatedResponse(
-          payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+    let safeBlockHash = beaconHead.safeExecutionPayloadHash
 
-    if  fcResult.payloadStatus.status != PayloadExecutionStatus.valid or
-        fcResult.payloadId.isNone:
-      return
+    withState(self.dag.headState):
+      template callForkchoiceUpdated(fcPayloadAttributes: auto) =
+        let (status, _) = await self.elManager.forkchoiceUpdated(
+          headBlockHash, safeBlockHash,
+          beaconHead.finalizedExecutionPayloadHash,
+          payloadAttributes = some fcPayloadAttributes)
+        debug "Fork-choice updated for proposal", status
 
-    self.forkchoiceUpdatedInfo = Opt.some ForkchoiceUpdatedInformation(
-      payloadId: bellatrix.PayloadID(fcResult.payloadId.get),
-      headBlockRoot: headBlockRoot,
-      safeBlockRoot: beaconHead.safeExecutionPayloadHash,
-      finalizedBlockRoot: beaconHead.finalizedExecutionPayloadHash,
-      timestamp: timestamp,
-      feeRecipient: feeRecipient,
-      withdrawals: withdrawals)
+      static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+      when consensusFork >= ConsensusFork.Capella:
+        callForkchoiceUpdated(PayloadAttributesV2(
+          timestamp: Quantity timestamp,
+          prevRandao: FixedBytes[32] randomData,
+          suggestedFeeRecipient: feeRecipient,
+          withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
+      else:
+        callForkchoiceUpdated(PayloadAttributesV1(
+          timestamp: Quantity timestamp,
+          prevRandao: FixedBytes[32] randomData,
+          suggestedFeeRecipient: feeRecipient))
   except CatchableError as err:
     error "Engine API fork-choice update failed", err = err.msg
 

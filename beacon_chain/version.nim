@@ -9,20 +9,38 @@
 
 {.push raises: [].}
 
-import strutils
-
-when not defined(nimscript):
-  import times
-  let copyrights* = "Copyright (c) 2019-" & $(now().utc.year) & " Status Research & Development GmbH"
+import std/[strutils, compilesettings]
 
 const
+  compileYear = CompileDate[0 ..< 4]  # YYYY-MM-DD (UTC)
+  copyrights* =
+    "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
+
   versionMajor* = 23
-  versionMinor* = 2
-  versionBuild* = 0
+  versionMinor* = 5
+  versionBuild* = 1
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
-  gitRevision* = strip(staticExec("git rev-parse --short HEAD"))[0..5]
+  ## You can override this if you are building the
+  ## sources outside the git tree of Nimbus:
+  git_revision_override* {.strdefine.} =
+    when querySetting(SingleValueSetting.command) == "check":
+      # The staticExec call below returns an empty string
+      # when `nim check` is used and this leads to a faux
+      # compile-time error.
+      # We work-around the problem with this override and
+      # save some time in executing the external command.
+      "123456"
+    else:
+      ""
+
+  gitRevisionLong* = when git_revision_override.len == 0:
+    staticExec "git rev-parse --short HEAD"
+  else:
+    git_revision_override
+
+  gitRevision* = strip(gitRevisionLong)[0..5]
 
   nimFullBanner* = staticExec("nim --version")
   nimBanner* = staticExec("nim --version | grep Version")

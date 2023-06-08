@@ -8,14 +8,12 @@
 {.push raises: [].}
 
 import
-  chronicles,
+  chronicles, web3/engine_api_types,
   ./beacon_node
 
 logScope: topics = "beacnde"
 
 func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
-  if node.eth1Monitor == nil:
-    return false
   let optimisticHeader = node.lightClient.optimisticHeader
   withForkyHeader(optimisticHeader):
     when lcDataFork > LightClientDataFork.None:
@@ -41,20 +39,19 @@ proc initLightClient*(
 
   let
     optimisticHandler = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
-        Future[void] {.async.} =
-      info "New LC optimistic block",
+                             Future[void] {.async.} =
+      debug "New LC optimistic block",
         opt = signedBlock.toBlockId(),
         dag = node.dag.head.bid,
         wallSlot = node.currentSlot
       withBlck(signedBlock):
-        when stateFork >= ConsensusFork.Bellatrix:
+        when consensusFork >= ConsensusFork.Bellatrix:
           if blck.message.is_execution_block:
-            template payload(): auto = blck.message.body.execution_payload
+            template blckPayload(): auto = blck.message.body.execution_payload
 
-            let eth1Monitor = node.eth1Monitor
-            if eth1Monitor != nil and not payload.block_hash.isZero:
+            if not blckPayload.block_hash.isZero:
               # engine_newPayloadV1
-              discard await eth1Monitor.newExecutionPayload(payload)
+              discard await node.elManager.newExecutionPayload(blckPayload)
 
               # Retain optimistic head for other `forkchoiceUpdated` callers.
               # May temporarily block `forkchoiceUpdatedV1` calls, e.g., Geth:
@@ -63,14 +60,32 @@ proc initLightClient*(
               # Once DAG sync catches up or as new optimistic heads are fetched
               # the situation recovers
               node.consensusManager[].setOptimisticHead(
-                blck.toBlockId(), payload.block_hash)
+                blck.toBlockId(), blckPayload.block_hash)
 
-              # engine_forkchoiceUpdatedV1
+              # engine_forkchoiceUpdatedV1 or engine_forkchoiceUpdatedV2,
+              # depending on pre or post-Shapella
               let beaconHead = node.attestationPool[].getBeaconHead(nil)
-              discard await eth1Monitor.runForkchoiceUpdated(
-                headBlockHash = payload.block_hash,
-                safeBlockHash = beaconHead.safeExecutionPayloadHash,
-                finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash)
+
+              template callForkchoiceUpdated(attributes: untyped) =
+                discard await node.elManager.forkchoiceUpdated(
+                  headBlockHash = blckPayload.block_hash,
+                  safeBlockHash = beaconHead.safeExecutionPayloadHash,
+                  finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash,
+                  payloadAttributes = none attributes)
+
+              case node.dag.cfg.consensusForkAtEpoch(blck.message.slot.epoch)
+              of ConsensusFork.Capella, ConsensusFork.Deneb:
+                # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
+                # Consensus layer client MUST call this method instead of
+                # `engine_forkchoiceUpdatedV1` under any of the following
+                # conditions:
+                # `headBlockHash` references a block which `timestamp` is
+                # greater or equal to the Shanghai timestamp
+                callForkchoiceUpdated(PayloadAttributesV2)
+              of ConsensusFork.Bellatrix:
+                callForkchoiceUpdated(PayloadAttributesV1)
+              of ConsensusFork.Phase0, ConsensusFork.Altair:
+                discard
           else: discard
 
     optimisticProcessor = initOptimisticProcessor(
@@ -153,7 +168,7 @@ proc updateLightClientFromDag*(node: BeaconNode) =
     return
   var header {.noinit.}: ForkedLightClientHeader
   withBlck(bdata):
-    const lcDataFork = lcDataForkAtStateFork(stateFork)
+    const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
     when lcDataFork > LightClientDataFork.None:
       header = ForkedLightClientHeader(kind: lcDataFork)
       header.forky(lcDataFork) = blck.toLightClientHeader(lcDataFork)

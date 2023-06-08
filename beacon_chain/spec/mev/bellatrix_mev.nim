@@ -35,7 +35,7 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#blindedbeaconblockbody
-  BlindedBeaconBlockBody = object
+  BlindedBeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
@@ -66,7 +66,10 @@ const
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#constants
   EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION* = 1
-  BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1.seconds
+
+  # Spec is 1 second, but mev-boost indirection can induce delay when the relay
+  # itself has already consumed the entire second.
+  BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1500.milliseconds
 
 func shortLog*(v: BlindedBeaconBlock): auto =
   (
@@ -85,6 +88,8 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     block_number: v.body.execution_payload_header.block_number,
     # TODO checksum hex? shortlog?
     fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
+    bls_to_execution_changes_len: 0,  # Capella compat
+    blob_kzg_commitments_len: 0,  # Deneb compat
   )
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =

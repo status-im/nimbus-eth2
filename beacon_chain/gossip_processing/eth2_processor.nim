@@ -12,10 +12,10 @@ import
   stew/results,
   chronicles, chronos, metrics, taskpools,
   ../spec/[helpers, forks],
-  ../spec/datatypes/[altair, phase0, eip4844],
+  ../spec/datatypes/[altair, phase0, deneb],
   ../consensus_object_pools/[
-    block_clearance, block_quarantine, blockchain_dag, exit_pool, attestation_pool,
-    light_client_pool, sync_committee_msg_pool],
+    blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
+    exit_pool, attestation_pool, light_client_pool, sync_committee_msg_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -41,6 +41,10 @@ declareCounter beacon_blocks_received,
   "Number of valid blocks processed by this node"
 declareCounter beacon_blocks_dropped,
   "Number of invalid blocks dropped by this node", labels = ["reason"]
+declareCounter blob_sidecars_received,
+  "Number of valid blobs processed by this node"
+declareCounter blob_sidecars_dropped,
+  "Number of invalid blobs dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -65,6 +69,14 @@ declareCounter beacon_sync_committee_contributions_received,
   "Number of valid sync committee contributions processed by this node"
 declareCounter beacon_sync_committee_contributions_dropped,
   "Number of invalid sync committee contributions dropped by this node", labels = ["reason"]
+declareCounter beacon_light_client_finality_update_received,
+  "Number of valid light client finality update processed by this node"
+declareCounter beacon_light_client_finality_update_dropped,
+  "Number of invalid light client finality update dropped by this node", labels = ["reason"]
+declareCounter beacon_light_client_optimistic_update_received,
+  "Number of valid light client optimistic update processed by this node"
+declareCounter beacon_light_client_optimistic_update_dropped,
+  "Number of invalid light client optimistic update dropped by this node", labels = ["reason"]
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -76,6 +88,9 @@ declareHistogram beacon_aggregate_delay,
 
 declareHistogram beacon_block_delay,
   "Time(s) between slot start and beacon block reception", buckets = delayBuckets
+
+declareHistogram blob_sidecar_delay,
+  "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
 
 type
   DoppelgangerProtection = object
@@ -130,6 +145,8 @@ type
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
 
+    blobQuarantine*: ref BlobQuarantine
+
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
 
@@ -152,6 +169,7 @@ proc new*(T: type Eth2Processor,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
+          blobQuarantine: ref BlobQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: TaskPoolPtr
@@ -169,6 +187,7 @@ proc new*(T: type Eth2Processor,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
     lightClientPool: lightClientPool,
     quarantine: quarantine,
+    blobQuarantine: blobQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
@@ -219,9 +238,22 @@ proc processSignedBeaconBlock*(
     # propagation of seemingly good blocks
     trace "Block validated"
 
+    var blobs = Opt.none(BlobSidecars)
+    when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+      if self.blobQuarantine[].hasBlobs(signedBlock):
+        blobs = Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root))
+      else:
+        if not self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
+                                             signedBlock):
+          notice "Block quarantine full (blobless)",
+           blockRoot = shortLog(signedBlock.root),
+           blck = shortLog(signedBlock.message),
+           signature = shortLog(signedBlock.signature)
+        return v
+
     self.blockProcessor[].addBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
-      BlobSidecars @[],
+      blobs,
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
@@ -235,6 +267,62 @@ proc processSignedBeaconBlock*(
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
 
     beacon_blocks_dropped.inc(1, [$v.error[0]])
+
+  v
+
+proc processSignedBlobSidecar*(
+    self: var Eth2Processor, src: MsgSource,
+    signedBlobSidecar: deneb.SignedBlobSidecar, idx: BlobIndex): ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (afterGenesis, wallSlot) = wallTime.toSlot()
+
+  logScope:
+    blob = shortLog(signedBlobSidecar.message)
+    signature = shortLog(signedBlobSidecar.signature)
+    wallSlot
+
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - signedBlobSidecar.message.slot.start_beacon_time
+
+  if self.blobQuarantine[].hasBlob(signedBlobSidecar.message):
+    debug "Blob received, already in quarantine", delay
+    return ValidationRes.ok
+  else:
+    debug "Blob received", delay
+
+  let v =
+    self.dag.validateBlobSidecar(self.quarantine, self.blob_quarantine,
+                                 signedBlobSidecar, wallTime, idx)
+
+  if v.isErr():
+    debug "Dropping blob", error = v.error()
+    blob_sidecars_dropped.inc(1, [$v.error[0]])
+    return v
+
+  debug "Blob validated, putting in blob quarantine"
+  self.blobQuarantine[].put(newClone(signedBlobSidecar.message))
+  var toAdd: seq[deneb.SignedBeaconBlock]
+
+  var skippedBlocks = false
+
+  if (let o = self.quarantine[].popBlobless(
+    signedBlobSidecar.message.block_root); o.isSome):
+    let blobless = o.unsafeGet()
+
+    if self.blobQuarantine[].hasBlobs(blobless):
+      self.blockProcessor[].addBlock(
+        MsgSource.gossip,
+        ForkedSignedBeaconBlock.init(blobless),
+        Opt.some(self.blobQuarantine[].popBlobs(
+          signedBlobSidecar.message.block_root))
+      )
+    else:
+      discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
+                                            blobless)
+
+  blob_sidecars_received.inc()
+  blob_sidecar_delay.observe(delay.toFloatSeconds())
 
   v
 
@@ -499,15 +587,15 @@ proc processSyncCommitteeMessage*(
 
   # Now proceed to validation
   let v = await validateSyncCommitteeMessage(
-    self.dag, self.batchCrypto, self.syncCommitteeMsgPool,
+    self.dag, self.quarantine, self.batchCrypto, self.syncCommitteeMsgPool,
     syncCommitteeMsg, subcommitteeIdx, wallTime, checkSignature)
   return if v.isOk():
     trace "Sync committee message validated"
-    let (positions, cookedSig) = v.get()
+    let (bid, cookedSig, positions) = v.get()
 
     self.syncCommitteeMsgPool[].addSyncCommitteeMessage(
       syncCommitteeMsg.slot,
-      syncCommitteeMsg.beacon_block_root,
+      bid,
       syncCommitteeMsg.validator_index,
       cookedSig,
       subcommitteeIdx,
@@ -545,16 +633,19 @@ proc processSignedContributionAndProof*(
 
   # Now proceed to validation
   let v = await validateContribution(
-    self.dag, self.batchCrypto, self.syncCommitteeMsgPool,
+    self.dag, self.quarantine, self.batchCrypto, self.syncCommitteeMsgPool,
     contributionAndProof, wallTime, checkSignature)
 
   return if v.isOk():
     trace "Contribution validated"
+
+    let (bid, sig, participants) = v.get
+
     self.syncCommitteeMsgPool[].addContribution(
-      contributionAndProof, v.get()[0])
+      contributionAndProof, bid, sig)
 
     self.validatorMonitor[].registerSyncContribution(
-      src, wallTime, contributionAndProof.message, v.get()[1])
+      src, wallTime, contributionAndProof.message, participants)
 
     beacon_sync_committee_contributions_received.inc()
 
@@ -565,7 +656,7 @@ proc processSignedContributionAndProof*(
 
     err(v.error())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -574,9 +665,14 @@ proc processLightClientFinalityUpdate*(
     wallTime = self.getCurrentBeaconTime()
     v = validateLightClientFinalityUpdate(
       self.lightClientPool[], self.dag, finality_update, wallTime)
+
+  if v.isOk():
+    beacon_light_client_finality_update_received.inc()
+  else:
+    beacon_light_client_finality_update_dropped.inc(1, [$v.error[0]])
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
     self: var Eth2Processor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate
@@ -585,4 +681,8 @@ proc processLightClientOptimisticUpdate*(
     wallTime = self.getCurrentBeaconTime()
     v = validateLightClientOptimisticUpdate(
       self.lightClientPool[], self.dag, optimistic_update, wallTime)
+  if v.isOk():
+    beacon_light_client_optimistic_update_received.inc()
+  else:
+    beacon_light_client_optimistic_update_dropped.inc(1, [$v.error[0]])
   v

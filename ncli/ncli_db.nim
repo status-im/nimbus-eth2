@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Copyright (c) 2020-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -241,7 +241,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[phase0.TrustedSignedBeaconBlock],
       seq[altair.TrustedSignedBeaconBlock],
       seq[bellatrix.TrustedSignedBeaconBlock],
-      seq[capella.TrustedSignedBeaconBlock])
+      seq[capella.TrustedSignedBeaconBlock],
+      seq[deneb.TrustedSignedBeaconBlock])
 
   echo &"Loaded head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
@@ -263,8 +264,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Capella:
         blocks[3].add dag.db.getBlock(
           blck.root, capella.TrustedSignedBeaconBlock).get()
-      of ConsensusFork.EIP4844:
-        raiseAssert $denebImplementationMissing
+      of ConsensusFork.Deneb:
+        blocks[4].add dag.db.getBlock(
+          blck.root, deneb.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -275,7 +277,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref phase0.HashedBeaconState)(),
       (ref altair.HashedBeaconState)(),
       (ref bellatrix.HashedBeaconState)(),
-      (ref capella.HashedBeaconState)())
+      (ref capella.HashedBeaconState)(),
+      (ref deneb.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -320,7 +323,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               dbBenchmark.checkpoint()
 
             withTimer(timers[tDbLoad]):
-              case stateFork
+              case consensusFork
               of ConsensusFork.Phase0:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[0][].data, noRollback)
@@ -333,16 +336,17 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Capella:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[3][].data, noRollback)
-              of ConsensusFork.EIP4844:
-                raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (1)"
+              of ConsensusFork.Deneb:
+                doAssert dbBenchmark.getState(
+                  forkyState.root, loadedState[4][].data, noRollback)
 
             if forkyState.data.slot.epoch mod 16 == 0:
-              let loadedRoot = case stateFork
+              let loadedRoot = case consensusFork
                 of ConsensusFork.Phase0:    hash_tree_root(loadedState[0][].data)
                 of ConsensusFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)
                 of ConsensusFork.Capella:   hash_tree_root(loadedState[3][].data)
-                of ConsensusFork.EIP4844:   raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (2)"
+                of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])
@@ -524,6 +528,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         eraRoot(
           forkyState.data.genesis_validators_root,
           forkyState.data.historical_roots.asSeq,
+          dag.headState.historical_summaries().asSeq,
           era).expect("have era root since we checked slot")
       name = eraFileName(cfg, era, eraRoot)
 
