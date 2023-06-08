@@ -120,6 +120,11 @@ type
     Normal = "normal"
     SingleSalt = "single-salt"
 
+  BlockMonitoringType* {.pure.} = enum
+    Disabled = "disabled"
+    Poll = "poll"
+    Event = "event"
+
   BeaconNodeConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"
@@ -943,6 +948,11 @@ type
       defaultValue: @[defaultBeaconNodeUri]
       defaultValueDesc: $defaultBeaconNodeUri
       name: "beacon-node" .}: seq[Uri]
+
+    monitoringType* {.
+      desc: "Enable block monitoring which are seen by beacon node (BETA)"
+      defaultValue: BlockMonitoringType.Disabled
+      name: "block-monitor-type".}: BlockMonitoringType
 
   SigningNodeConf* = object
     configFile* {.
