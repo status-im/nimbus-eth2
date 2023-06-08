@@ -1108,21 +1108,21 @@ proc handleIncomingStream(network: Eth2Node,
     # TODO(zah) The TTFB timeout is not implemented in LibP2P streams back-end
     let deadline = sleepAsync RESP_TIMEOUT
 
-    try:
-      const isEmptyMsg = when MsgRec is object:
-        # We need nested `when` statements here, because Nim doesn't properly
-        # apply boolean short-circuit logic at compile time and this causes
-        # `totalSerializedFields` to be applied to non-object types that it
-        # doesn't know how to support.
-        when totalSerializedFields(MsgRec) == 0: true
-        else: false
-      else:
-        false
+    const isEmptyMsg = when MsgRec is object:
+      # We need nested `when` statements here, because Nim doesn't properly
+      # apply boolean short-circuit logic at compile time and this causes
+      # `totalSerializedFields` to be applied to non-object types that it
+      # doesn't know how to support.
+      when totalSerializedFields(MsgRec) == 0: true
+      else: false
+    else:
+      false
 
-      let msg = when isEmptyMsg:
-        NetRes[MsgRec].ok default(MsgRec)
-      else:
-        try:
+    let msg =
+      try:
+        when isEmptyMsg:
+          NetRes[MsgRec].ok default(MsgRec)
+        else:
           awaitWithTimeout(
             readChunkPayload(conn, peer, MsgRec), deadline):
               # Timeout, e.g., cancellation due to fulfillment by different peer.
@@ -1133,26 +1133,26 @@ proc handleIncomingStream(network: Eth2Node,
                 errorMsgLit "Request full data not sent in time")
               return
 
-        except SerializationError as err:
-          nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
-          returnInvalidRequest err.formatMsg("msg")
+      except SerializationError as err:
+        nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
+        returnInvalidRequest err.formatMsg("msg")
 
-        except SnappyError as err:
-          nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
-          returnInvalidRequest err.msg
-    finally:
-      # The request quota is shared between all requests - it represents the
-      # cost to perform a service on behalf of a client and is incurred
-      # regardless if the request succeeds or fails - we don't count waiting
-      # for this quota against timeouts so as not to prematurely disconnect
-      # clients that are on the edge - nonetheless, the client will count it.
-      #
-      # When a client exceeds their quota, they will be slowed down without
-      # notification - as long as they don't make parallel requests (which is
-      # limited by libp2p), this will naturally adapt them to the available
-      # quota.
+      except SnappyError as err:
+        nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
+        returnInvalidRequest err.msg
+      finally:
+        # The request quota is shared between all requests - it represents the
+        # cost to perform a service on behalf of a client and is incurred
+        # regardless if the request succeeds or fails - we don't count waiting
+        # for this quota against timeouts so as not to prematurely disconnect
+        # clients that are on the edge - nonetheless, the client will count it.
+        #
+        # When a client exceeds their quota, they will be slowed down without
+        # notification - as long as they don't make parallel requests (which is
+        # limited by libp2p), this will naturally adapt them to the available
+        # quota.
 
-      awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
+        awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
 
     if msg.isErr:
       if msg.error.kind in ProtocolViolations:
