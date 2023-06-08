@@ -128,6 +128,15 @@ proc doTrustedNodeSync*(
         of TrustedNodeSyncKind.TrustedBlockRoot:
           error "Genesis state is required when using `trustedBlockRoot`",
             missingNetworkMetadataFile = "genesis.ssz"
+          # `genesis_time` and `genesis_validators_root` are required to check
+          # light client data signatures. They are not part of `config.yaml`.
+          # We could download the initial state based on `LightClientBootstrap`
+          # `state_root`, but that state is unlikely to be readily available and
+          # can be much larger than the genesis state. Furthermore, the major
+          # known networks bundle the `genesis.ssz` file with network metadata,
+          # so adding this complexity doesn't solve a practical usecase. Users
+          # on private networks may obtain a trusted `genesis.ssz` file and mark
+          # it as trusted by moving it into the network metadata folder.
           quit 1
         of TrustedNodeSyncKind.StateId:
           notice "Downloading genesis state", restUrl
