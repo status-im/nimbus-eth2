@@ -964,7 +964,7 @@ type
     genesis_validators_root: Eth2Digest
     slot: Slot
 
-func readSszForkedHashedBeaconState(
+func readSszForkedHashedBeaconState*(
     consensusFork: ConsensusFork, data: openArray[byte]):
     ForkedHashedBeaconState {.raises: [Defect, SszError].} =
   # TODO https://github.com/nim-lang/Nim/issues/19357
