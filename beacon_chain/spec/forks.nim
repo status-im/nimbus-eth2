@@ -964,16 +964,20 @@ type
     genesis_validators_root: Eth2Digest
     slot: Slot
 
-func readSszForkedHashedBeaconState*(
-    cfg: RuntimeConfig, slot: Slot, data: openArray[byte]):
+func readSszForkedHashedBeaconState(
+    consensusFork: ConsensusFork, data: openArray[byte]):
     ForkedHashedBeaconState {.raises: [Defect, SszError].} =
   # TODO https://github.com/nim-lang/Nim/issues/19357
-  result = ForkedHashedBeaconState(
-    kind: cfg.consensusForkAtEpoch(slot.epoch()))
+  result = ForkedHashedBeaconState(kind: consensusFork)
 
   withState(result):
     readSszBytes(data, forkyState.data)
     forkyState.root = hash_tree_root(forkyState.data)
+
+template readSszForkedHashedBeaconState*(
+    cfg: RuntimeConfig, slot: Slot, data: openArray[byte]):
+    ForkedHashedBeaconState =
+  cfg.consensusForkAtEpoch(slot.epoch()).readSszForkedHashedBeaconState(data)
 
 func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     ForkedHashedBeaconState {.raises: [Defect, SszError].} =

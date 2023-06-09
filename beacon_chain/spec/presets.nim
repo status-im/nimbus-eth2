@@ -473,8 +473,8 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError, Defect].} =
   DomainType hexToByteArray(input, 4)
 
-proc readRuntimeConfig*(
-    path: string): (RuntimeConfig, seq[string]) {.
+proc readRuntimeConfig(
+    fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
     raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
   var
     lineNum = 0
@@ -492,7 +492,7 @@ proc readRuntimeConfig*(
     names.add name
 
   var values: Table[string, string]
-  for line in splitLines(readFile(path)):
+  for line in splitLines(fileContent):
     inc lineNum
     if line.len == 0 or line[0] == '#': continue
     # remove any trailing comments
@@ -605,6 +605,11 @@ proc readRuntimeConfig*(
     unknowns.add name
 
   (cfg, unknowns)
+
+proc readRuntimeConfig*(
+    path: string): (RuntimeConfig, seq[string]) {.
+    raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
+  readRuntimeConfig(readFile(path), path)
 
 template name*(cfg: RuntimeConfig): string =
   if cfg.CONFIG_NAME.len() > 0:
