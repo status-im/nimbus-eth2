@@ -627,7 +627,7 @@ proc runBlockPollMonitor(service: BlockServiceRef,
           block:
             var res = false
             for future in pendingTasks:
-              if not(future.done()): continue
+              if not(future.completed()): continue
               if not(cast[Future[bool]](future).read()): continue
               res = true
               break
