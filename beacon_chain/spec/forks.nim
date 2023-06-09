@@ -641,9 +641,8 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   #   for index, validator in getStateField(stateData.data, validators):
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
-  template getStateFieldAddr(): untyped =
-    withState(x): unsafeAddr forkyState.data.y
-  getStateFieldAddr()[]
+  (block:
+    withState(x): unsafeAddr forkyState.data.y)[]
 
 func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   withState(x): forkyState.root
