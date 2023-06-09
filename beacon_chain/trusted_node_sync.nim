@@ -124,17 +124,37 @@ proc doTrustedNodeSync*(
       let tmp = if genesisState != nil:
         genesisState
       else:
-        notice "Downloading genesis state", restUrl
-        try:
-          awaitWithTimeout(
-              client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
-              largeRequestsTimeout):
-            info "Attempt to download genesis state timed out"
+        case syncTarget.kind
+        of TrustedNodeSyncKind.TrustedBlockRoot:
+          error "Genesis state is required when using `trustedBlockRoot`",
+            missingNetworkMetadataFile = "genesis.ssz"
+          # `genesis_time` and `genesis_validators_root` are required to check
+          # light client data signatures. They are not part of `config.yaml`.
+          # We could download the initial state based on `LightClientBootstrap`
+          # `state_root`, but that state is unlikely to be readily available and
+          # can be much larger than the genesis state. Furthermore, the major
+          # known networks bundle the `genesis.ssz` file with network metadata,
+          # so adding this complexity doesn't solve a practical usecase. Users
+          # on private networks may obtain a trusted `genesis.ssz` file and mark
+          # it as trusted by moving it into the network metadata folder.
+          #
+          # Note that `historical_roots` / `historical_summaries` may be used to
+          # prove correctness of a particular genesis state. However, there is
+          # currently no endpoint to obtain proofs, and they change for every
+          # slot, making it tricky to actually provide them.
+          quit 1
+        of TrustedNodeSyncKind.StateId:
+          notice "Downloading genesis state", restUrl
+          try:
+            awaitWithTimeout(
+                client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
+                largeRequestsTimeout):
+              info "Attempt to download genesis state timed out"
+              nil
+          except CatchableError as exc:
+            info "Unable to download genesis state",
+              error = exc.msg, restUrl
             nil
-        except CatchableError as exc:
-          info "Unable to download genesis state",
-            error = exc.msg, restUrl
-          nil
 
       if isNil(tmp):
         notice "Server is missing genesis state, node will not be able to reindex history",
@@ -169,9 +189,7 @@ proc doTrustedNodeSync*(
               slot: store.finalized_header.beacon.slot,
               state_root: store.finalized_header.beacon.state_root))
 
-        if genesisState == nil:
-          error "Genesis state is required when using `trustedBlockRoot`"
-          quit 1
+        doAssert genesisState != nil, "Already checked for `TrustedBlockRoot`"
         let
           beaconClock = BeaconClock.init(
             getStateField(genesisState[], genesis_time))
@@ -367,6 +385,12 @@ proc doTrustedNodeSync*(
       quit 1
 
     if genesisState != nil:
+      if getStateField(state[], genesis_time) !=
+          getStateField(genesisState[], genesis_time):
+        error "Checkpoint state does not match genesis",
+          timeInCheckpoint = getStateField(state[], genesis_time),
+          timeInGenesis = getStateField(genesisState[], genesis_time)
+        quit 1
       if getStateField(state[], genesis_validators_root) !=
           getStateField(genesisState[], genesis_validators_root):
         error "Checkpoint state does not match genesis",
