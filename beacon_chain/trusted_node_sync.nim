@@ -137,6 +137,11 @@ proc doTrustedNodeSync*(
           # so adding this complexity doesn't solve a practical usecase. Users
           # on private networks may obtain a trusted `genesis.ssz` file and mark
           # it as trusted by moving it into the network metadata folder.
+          #
+          # Note that `historical_roots` / `historical_summaries` may be used to
+          # prove correctness of a particular genesis state. However, there is
+          # currently no endpoint to obtain proofs, and they change for every
+          # slot, making it tricky to actually provide them.
           quit 1
         of TrustedNodeSyncKind.StateId:
           notice "Downloading genesis state", restUrl
