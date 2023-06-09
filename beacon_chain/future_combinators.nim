@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 # TODO: These should be added to the Chronos's asyncfutures2 module
 #       See https://github.com/status-im/nim-chronos/pull/339
 
@@ -34,8 +41,8 @@ proc firstCompletedFuture*(futs: varargs[FutureBase]): Future[FutureBase] =
 
   var failedFutures = 0
 
-  var cb: proc(udata: pointer) {.gcsafe, raises: [Defect].}
-  cb = proc(udata: pointer) {.gcsafe, raises: [Defect].} =
+  var cb: proc(udata: pointer) {.gcsafe, raises: [].}
+  cb = proc(udata: pointer) {.gcsafe, raises: [].} =
     if not(retFuture.finished()):
       var res: FutureBase
       var rfut = cast[FutureBase](udata)

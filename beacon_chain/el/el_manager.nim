@@ -343,7 +343,7 @@ proc trackEngineApiRequest(connection: ELConnection,
                            request: FutureBase, requestName: string,
                            startTime: Moment, deadline: Future[void],
                            failureAllowed = false) =
-  request.addCallback do (udata: pointer) {.gcsafe, raises: [Defect].}:
+  request.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
     # TODO `udata` is nil here. How come?
     # This forces us to create a GC cycle between the Future and the closure
     if request.completed:
@@ -353,7 +353,7 @@ proc trackEngineApiRequest(connection: ELConnection,
 
       connection.setWorkingState()
 
-  deadline.addCallback do (udata: pointer) {.gcsafe, raises: [Defect].}:
+  deadline.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
     if not request.finished:
       request.cancel()
       engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
@@ -439,7 +439,7 @@ func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   compute_time_at_slot(
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -553,7 +553,8 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
-    excess_data_gas: rpcExecutionPayload.excessDataGas)
+    data_gas_used: rpcExecutionPayload.dataGasUsed.uint64,
+    excess_data_gas: rpcExecutionPayload.excessDataGas.uint64)
 
 func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     deneb.ExecutionPayloadForSigning =
@@ -641,7 +642,8 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
-    excessDataGas: executionPayload.excess_data_gas)
+    dataGasUsed: Quantity(executionPayload.data_gas_used),
+    excessDataGas: Quantity(executionPayload.excess_data_gas))
 
 func shortLog*(b: Eth1Block): string =
   try:
@@ -1664,7 +1666,7 @@ template trackFinalizedState*(m: ELManager,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,

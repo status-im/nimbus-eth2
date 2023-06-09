@@ -1105,19 +1105,6 @@ proc handleIncomingStream(network: Eth2Node,
 
     nbc_reqresp_messages_received.inc(1, [shortProtocolId(protocolId)])
 
-    # The request quota is shared between all requests - it represents the
-    # cost to perform a service on behalf of a client and is incurred
-    # regardless if the request succeeds or fails - we don't count waiting
-    # for this quota against timeouts so as not to prematurely disconnect
-    # clients that are on the edge - nonetheless, the client will count it.
-    #
-    # When a client exceeds their quota, they will be slowed down without
-    # notification - as long as they don't make parallel requests (which is
-    # limited by libp2p), this will naturally adapt them to the available
-    # quota.
-
-    awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
-
     # TODO(zah) The TTFB timeout is not implemented in LibP2P streams back-end
     let deadline = sleepAsync RESP_TIMEOUT
 
@@ -1131,19 +1118,20 @@ proc handleIncomingStream(network: Eth2Node,
     else:
       false
 
-    let msg = when isEmptyMsg:
-      NetRes[MsgRec].ok default(MsgRec)
-    else:
+    let msg =
       try:
-        awaitWithTimeout(
-          readChunkPayload(conn, peer, MsgRec), deadline):
-            # Timeout, e.g., cancellation due to fulfillment by different peer.
-            # Treat this similarly to `UnexpectedEOF`, `PotentiallyExpectedEOF`.
-            nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
-            await sendErrorResponse(
-              peer, conn, InvalidRequest,
-              errorMsgLit "Request full data not sent in time")
-            return
+        when isEmptyMsg:
+          NetRes[MsgRec].ok default(MsgRec)
+        else:
+          awaitWithTimeout(
+            readChunkPayload(conn, peer, MsgRec), deadline):
+              # Timeout, e.g., cancellation due to fulfillment by different peer.
+              # Treat this similarly to `UnexpectedEOF`, `PotentiallyExpectedEOF`.
+              nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
+              await sendErrorResponse(
+                peer, conn, InvalidRequest,
+                errorMsgLit "Request full data not sent in time")
+              return
 
       except SerializationError as err:
         nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
@@ -1152,6 +1140,26 @@ proc handleIncomingStream(network: Eth2Node,
       except SnappyError as err:
         nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
         returnInvalidRequest err.msg
+      finally:
+        # The request quota is shared between all requests - it represents the
+        # cost to perform a service on behalf of a client and is incurred
+        # regardless if the request succeeds or fails - we don't count waiting
+        # for this quota against timeouts so as not to prematurely disconnect
+        # clients that are on the edge - nonetheless, the client will count it.
+
+        # When a client exceeds their quota, they will be slowed down without
+        # notification - as long as they don't make parallel requests (which is
+        # limited by libp2p), this will naturally adapt them to the available
+        # quota.
+
+        # Note that the `msg` will be stored in memory while we wait for the
+        # quota to be available. The amount of such messages in memory is
+        # bounded by the libp2p limit of parallel streams
+
+        # This quota also applies to invalid requests thanks to the use of
+        # `finally`.
+
+        awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
 
     if msg.isErr:
       if msg.error.kind in ProtocolViolations:
@@ -2244,7 +2252,7 @@ proc getPersistentNetKeys*(
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
@@ -2529,7 +2537,7 @@ proc unsubscribeAttestationSubnets*(
       node.unsubscribe(getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
 proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/p2p-interface.md#metadata
   if node.metadata.attnets == attnets:
     return
 
@@ -2549,7 +2557,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 

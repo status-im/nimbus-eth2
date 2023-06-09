@@ -784,6 +784,13 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
     else:
       return err("Attempt to create pre-Bellatrix blinded block")
 
+# TODO remove BlobsSidecar; it's not in consensus specs anymore
+type BlobsSidecar = object
+  beacon_block_root*: Eth2Digest
+  beacon_block_slot*: Slot
+  blobs*: Blobs
+  kzg_aggregated_proof*: kzg_abi.KzgProof
+
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
     validator: AttachedValidator, validator_index: ValidatorIndex,
@@ -913,7 +920,7 @@ proc proposeBlockAux(
   var forkedBlck = engineBlockFut.read.get().blck
 
   withBlck(forkedBlck):
-    var blobs_sidecar = deneb.BlobsSidecar(
+    var blobs_sidecar = BlobsSidecar(
       beacon_block_slot: slot,
     )
     when blck is deneb.BeaconBlock:
@@ -1545,6 +1552,42 @@ proc updateValidators(
             index: index, validator: validators[int index]
           )))
 
+proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
+                           head: Opt[BlockRef] = Opt.none(BlockRef)) {.async.} =
+  # The expected block arrived (or expectBlock was called again which
+  # shouldn't happen as this is the only place we use it) - in our async
+  # loop however, we might have been doing other processing that caused delays
+  # here so we'll cap the waiting to the time when we would have sent out
+  # attestations had the block not arrived.
+  # An opposite case is that we received (or produced) a block that has
+  # not yet reached our neighbours. To protect against our attestations
+  # being dropped (because the others have not yet seen the block), we'll
+  # impose a minimum delay of 2000ms. The delay is enforced only when we're
+  # not hitting the "normal" cutoff time for sending out attestations.
+  # An earlier delay of 250ms has proven to be not enough, increasing the
+  # risk of losing attestations, and with growing block sizes, 1000ms
+  # started to be risky as well.
+  # Regardless, because we "just" received the block, we'll impose the
+  # delay.
+
+  # Take into consideration chains with a different slot time
+  const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
+  let
+    afterBlockTime = clock.now() + afterBlockDelay
+    afterBlockCutoff = clock.fromNow(
+      min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
+
+  if afterBlockCutoff.inFuture:
+    if head.isSome():
+      debug "Got block, waiting to send attestations",
+            head = shortLog(head.get()), slot = slot,
+            afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+    else:
+      debug "Got block, waiting to send attestations",
+            slot = slot, afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+
+    await sleepAsync(afterBlockCutoff.offset)
+
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators[].count == 0:
@@ -1617,35 +1660,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     # Wait either for the block or the attestation cutoff time to arrive
     if await node.consensusManager[].expectBlock(slot)
         .withTimeout(attestationCutoff.offset):
-      # The expected block arrived (or expectBlock was called again which
-      # shouldn't happen as this is the only place we use it) - in our async
-      # loop however, we might have been doing other processing that caused delays
-      # here so we'll cap the waiting to the time when we would have sent out
-      # attestations had the block not arrived.
-      # An opposite case is that we received (or produced) a block that has
-      # not yet reached our neighbours. To protect against our attestations
-      # being dropped (because the others have not yet seen the block), we'll
-      # impose a minimum delay of 2000ms. The delay is enforced only when we're
-      # not hitting the "normal" cutoff time for sending out attestations.
-      # An earlier delay of 250ms has proven to be not enough, increasing the
-      # risk of losing attestations, and with growing block sizes, 1000ms
-      # started to be risky as well.
-      # Regardless, because we "just" received the block, we'll impose the
-      # delay.
-
-      # Take into consideration chains with a different slot time
-      const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
-      let
-        afterBlockTime = node.beaconClock.now() + afterBlockDelay
-        afterBlockCutoff = node.beaconClock.fromNow(
-          min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
-
-      if afterBlockCutoff.inFuture:
-        debug "Got block, waiting to send attestations",
-          head = shortLog(head),
-          afterBlockCutoff = shortLog(afterBlockCutoff.offset)
-
-        await sleepAsync(afterBlockCutoff.offset)
+      await waitAfterBlockCutoff(node.beaconClock, slot, Opt.some(head))
 
     # Time passed - we might need to select a new head in that case
     node.consensusManager[].updateHead(slot)
@@ -1659,7 +1674,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

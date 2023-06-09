@@ -244,7 +244,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
           of ConsensusFork.Capella:
             (GeneralizedIndex(401), request.beaconBlock.capellaData)
           of ConsensusFork.Deneb:
-            (GeneralizedIndex(401), request.beaconBlock.denebData)
+            (GeneralizedIndex(801), request.beaconBlock.denebData)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
           return errorResponse(Http400, MissingMerkleProofError)

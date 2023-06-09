@@ -28,7 +28,7 @@
 # name_size = 64-bit length in bytes
 
 gnosis_mainnet_genesis_data:
-    .incbin "../../vendor/gnosis-chain-configs/mainnet/genesis.ssz"
+    .incbin "gnosis-chain-configs/mainnet/genesis.ssz"
 gnosis_mainnet_genesis_end:
     .global cdecl(gnosis_mainnet_genesis_size)
 cdecl(gnosis_mainnet_genesis_size):

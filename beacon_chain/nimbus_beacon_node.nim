@@ -636,7 +636,7 @@ proc init*(T: type BeaconNode,
 
   let restServer = if config.restEnabled:
     RestServerRef.init(config.restAddress, config.restPort,
-                       config.keymanagerAllowedOrigin,
+                       config.restAllowedOrigin,
                        validateBeaconApiQueries,
                        config)
   else:
@@ -1362,7 +1362,11 @@ proc handleMissingBlobs(node: BeaconNode) =
 
     if not node.blobQuarantine[].hasBlobs(blobless):
       let missing = node.blobQuarantine[].blobFetchRecord(blobless)
-      doAssert not len(missing.indices) == 0
+      if len(missing.indices) == 0:
+        warn "quarantine missing blobs, but missing indices is empty",
+         blk=blobless.root,
+         indices=node.blobQuarantine[].blobIndices(blobless.root),
+         kzgs=len(blobless.message.body.blob_kzg_commitments)
       fetches.add(missing)
     else:
       # this is a programming error should it occur.
@@ -1418,6 +1422,7 @@ func connectedPeersCount(node: BeaconNode): int =
 
 proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installBeaconApiHandlers(node)
+  restServer.router.installBuilderApiHandlers(node)
   restServer.router.installConfigApiHandlers(node)
   restServer.router.installDebugApiHandlers(node)
   restServer.router.installEventApiHandlers(node)
