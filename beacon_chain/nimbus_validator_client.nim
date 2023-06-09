@@ -41,7 +41,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
         var bres: seq[BeaconNodeServerRef]
         for i in 0 ..< len(pendingRequests):
           let fut = pendingRequests[i]
-          if fut.done():
+          if fut.completed():
             let resp = fut.read()
             if resp.status == 200:
               debug "Received genesis information", endpoint = nodes[i],

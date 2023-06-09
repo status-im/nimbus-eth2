@@ -9,7 +9,7 @@ import
   std/sets,
   chronicles,
   ../validators/activity_metrics,
-  "."/[common, api, block_service]
+  "."/[common, api]
 
 const
   ServiceName = "attestation_service"
@@ -212,7 +212,7 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
         raise exc
 
       for future in pendingAttestations:
-        if future.done():
+        if future.completed():
           if future.read():
             inc(succeed)
           else:
@@ -307,7 +307,7 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
           raise exc
 
         for future in pendingAggregates:
-          if future.done():
+          if future.completed():
             if future.read():
               inc(succeed)
             else:
@@ -332,7 +332,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
                                       duties: seq[DutyAndProof]) {.async.} =
   let vc = service.client
   # Waiting for blocks to be published before attesting.
-  await vc.waitForBlockPublished(slot, attestationSlotOffset)
+  await vc.waitForBlock(slot, attestationSlotOffset)
 
   block:
     let delay = vc.getDelay(slot.attestation_deadline())
@@ -431,7 +431,7 @@ proc mainLoop(service: AttestationServiceRef) {.async.} =
       try:
         let
           # We use zero offset here, because we do waiting in
-          # waitForBlockPublished(attestationSlotOffset).
+          # waitForBlock(attestationSlotOffset).
           slot = await vc.checkedWaitForNextSlot(currentSlot,
                                                  ZeroTimeDiff, false)
         if slot.isNone():

@@ -886,21 +886,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         currentEpochFork.toString != version:
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
-    let payloadBuilderClient = node.getPayloadBuilderClient().valueOr:
-      return RestApiResponse.jsonError(
-        Http400, "Unable to initialize payload builder client: " & $error)
-
     case currentEpochFork
     of ConsensusFork.Deneb:
       return RestApiResponse.jsonError(Http500, $denebImplementationMissing)
     of ConsensusFork.Capella:
-      let res =
-        block:
-          let restBlock = decodeBodyJsonOrSsz(
-              capella_mev.SignedBlindedBeaconBlock, body).valueOr:
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                             $error)
-          await node.unblindAndRouteBlockMEV(payloadBuilderClient, restBlock)
+      let
+        restBlock = decodeBodyJsonOrSsz(
+            capella_mev.SignedBlindedBeaconBlock, body).valueOr:
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                           $error)
+        payloadBuilderClient = node.getPayloadBuilderClient(
+            restBlock.message.proposer_index).valueOr:
+          return RestApiResponse.jsonError(
+            Http400, "Unable to initialize payload builder client: " & $error)
+        res = await node.unblindAndRouteBlockMEV(
+          payloadBuilderClient, restBlock)
 
       if res.isErr():
         return RestApiResponse.jsonError(
@@ -910,13 +910,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
     of ConsensusFork.Bellatrix:
-      let res =
-        block:
-          let restBlock = decodeBodyJsonOrSsz(
-              bellatrix_mev.SignedBlindedBeaconBlock, body).valueOr:
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                             $error)
-          await node.unblindAndRouteBlockMEV(payloadBuilderClient, restBlock)
+      let
+        restBlock = decodeBodyJsonOrSsz(
+            bellatrix_mev.SignedBlindedBeaconBlock, body).valueOr:
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                           $error)
+        payloadBuilderClient = node.getPayloadBuilderClient(
+            restBlock.message.proposer_index).valueOr:
+          return RestApiResponse.jsonError(
+            Http400, "Unable to initialize payload builder client: " & $error)
+        res = await node.unblindAndRouteBlockMEV(
+          payloadBuilderClient, restBlock)
 
       if res.isErr():
         return RestApiResponse.jsonError(
@@ -1091,7 +1095,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         var res: seq[RestIndexedErrorMessageItem]
         await allFutures(pending)
         for index, future in pending:
-          if future.done():
+          if future.completed():
             let fres = future.read()
             if fres.isErr():
               let failure = RestIndexedErrorMessageItem(index: index,

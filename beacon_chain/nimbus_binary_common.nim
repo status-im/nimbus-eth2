@@ -208,19 +208,22 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
     )
   except CatchableError as err:
     # We need to log to stderr here, because logging hasn't been configured yet
-    stderr.write "Failure while loading the configuration:\n"
-    stderr.write err.msg
-    stderr.write "\n"
+    try:
+      stderr.write "Failure while loading the configuration:\n"
+      stderr.write err.msg
+      stderr.write "\n"
 
-    if err[] of ConfigurationError and
-       err.parent != nil and
-       err.parent[] of TomlFieldReadingError:
-      let fieldName = ((ref TomlFieldReadingError)(err.parent)).field
-      if fieldName in ["web3-url", "bootstrap-node",
-                       "direct-peer", "validator-monitor-pubkey"]:
-        stderr.write "Since the '" & fieldName & "' option is allowed to " &
-                     "have more than one value, please make sure to supply " &
-                     "a properly formatted TOML array\n"
+      if err[] of ConfigurationError and
+        err.parent != nil and
+        err.parent[] of TomlFieldReadingError:
+        let fieldName = ((ref TomlFieldReadingError)(err.parent)).field
+        if fieldName in ["web3-url", "bootstrap-node",
+                        "direct-peer", "validator-monitor-pubkey"]:
+          stderr.write "Since the '" & fieldName & "' option is allowed to " &
+                       "have more than one value, please make sure to supply " &
+                       "a properly formatted TOML array\n"
+    except IOError:
+      discard
     quit 1
   {.pop.}
   config
@@ -353,7 +356,7 @@ proc init*(T: type RestServerRef,
     maxRequestBodySize = config.restMaxRequestBodySize * 1024
 
   let res = try:
-    RestServerRef.new(RestRouter.init(validateFn),
+    RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
                       address, serverFlags = serverFlags,
                       httpHeadersTimeout = headersTimeout,
                       maxHeadersSize = maxHeadersSize,

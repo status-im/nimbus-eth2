@@ -220,6 +220,9 @@ when const_preset == "gnosis":
     let
       gnosisGenesis {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
       gnosisGenesisSize {.importc: "gnosis_mainnet_genesis_size".}: int
+
+    # let `.incbin` in assembly file find the binary file through search path
+    {.passc: "-I" & vendorDir.}
     {.compile: "network_metadata_gnosis.S".}
 
   const
@@ -248,6 +251,8 @@ elif const_preset == "mainnet":
       sepoliaGenesis {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
       sepoliaGenesisSize {.importc: "eth2_sepolia_genesis_size".}: int
 
+    # let `.incbin` in assembly file find the binary file through search path
+    {.passc: "-I" & vendorDir.}
     {.compile: "network_metadata_mainnet.S".}
 
   const

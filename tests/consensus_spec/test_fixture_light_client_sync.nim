@@ -20,8 +20,6 @@ import
   ../testutil,
   ./fixtures_utils, ./os_ops
 
-from std/strutils import contains
-
 type
   TestMeta = object
     genesis_validators_root: Eth2Digest
@@ -271,6 +269,4 @@ suite "EF - Light client - Sync" & preset():
       continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
       let combinedPath = basePath/path
-      if combinedPath.contains("/eip6110/") or combinedPath.contains("\\eip6110\\"):
-        continue
       runTest(basePath/path)

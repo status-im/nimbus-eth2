@@ -156,7 +156,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
 proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
                       req: SyncRequest): Future[BeaconBlocksRes] {.async.} =
-  mixin beaconBlocksByRange, getScore, `==`
+  mixin getScore, `==`
 
   logScope:
     peer_score = peer.getScore()

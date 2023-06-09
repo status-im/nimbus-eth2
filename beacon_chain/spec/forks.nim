@@ -578,6 +578,21 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
     template forkyState: untyped {.inject, used.} = x.phase0Data
     body
 
+template forky(
+    x: ForkedHashedBeaconState, kind: static ConsensusFork): untyped =
+  when kind == ConsensusFork.Deneb:
+    x.denebData
+  elif kind == ConsensusFork.Capella:
+    x.capellaData
+  elif kind == ConsensusFork.Bellatrix:
+    x.bellatrixData
+  elif kind == ConsensusFork.Altair:
+    x.altairData
+  elif kind == ConsensusFork.Phase0:
+    x.phase0Data
+  else:
+    static: raiseAssert "Unreachable"
+
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
   case x.kind
   of EpochInfoFork.Phase0:
@@ -609,17 +624,10 @@ template withEpochInfo*(
 
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.kind == src.kind:
-    case tgt.kind
-    of ConsensusFork.Deneb:
-      assign(tgt.denebData,     src.denebData):
-    of ConsensusFork.Capella:
-      assign(tgt.capellaData,   src.capellaData):
-    of ConsensusFork.Bellatrix:
-      assign(tgt.bellatrixData, src.bellatrixData):
-    of ConsensusFork.Altair:
-      assign(tgt.altairData,    src.altairData):
-    of ConsensusFork.Phase0:
-      assign(tgt.phase0Data,    src.phase0Data):
+    withState(tgt):
+      {.push warning[ProveField]: off.}
+      assign(forkyState, src.forky(consensusFork))
+      {.pop.}
   else:
     # Ensure case object and discriminator get updated simultaneously, even
     # with nimOldCaseObjects. This is infrequent.
@@ -1004,7 +1012,7 @@ func readSszForkedSignedBeaconBlock*(
   withBlck(result):
     readSszBytes(data, blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and
@@ -1016,7 +1024,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and
