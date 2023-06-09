@@ -25,6 +25,7 @@ import
 
 from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
+from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
   el_conf, engine_api, deques, base, DepositTreeSnapshot
@@ -1064,10 +1065,11 @@ proc sendNewPayloadToSingleEL(connection: ELConnection,
   return await rpcClient.engine_newPayloadV2(payload)
 
 proc sendNewPayloadToSingleEL(connection: ELConnection,
-                              payload: engine_api.ExecutionPayloadV3):
+                              payload: engine_api.ExecutionPayloadV3,
+                              versioned_hashes: seq[engine_api.VersionedHash]):
                               Future[PayloadStatusV1] {.async.} =
   let rpcClient = await connection.connectedRpcClient()
-  return await rpcClient.engine_newPayloadV3(payload)
+  return await rpcClient.engine_newPayloadV3(payload, versioned_hashes)
 
 type
   StatusRelation = enum
@@ -1159,15 +1161,28 @@ proc processResponse[ELResponseType](
             url2 = connections[idx].engineUrl.url,
             status2 = status
 
-proc sendNewPayload*(m: ELManager,
-                     payload: engine_api.ExecutionPayloadV1 | engine_api.ExecutionPayloadV2 | engine_api.ExecutionPayloadV3):
+proc sendNewPayload*(m: ELManager, blockBody: SomeForkyBeaconBlockBody):
                      Future[PayloadExecutionStatus] {.async.} =
   let
     earlyDeadline = sleepAsync(chronos.seconds 1)
     startTime = Moment.now
     deadline = sleepAsync(NEWPAYLOAD_TIMEOUT)
+    payload = blockBody.execution_payload.asEngineExecutionPayload
     requests = m.elConnections.mapIt:
-      let req = sendNewPayloadToSingleEL(it, payload)
+      let req =
+        when payload is engine_api.ExecutionPayloadV3:
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
+          # Verify the execution payload is valid
+          # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
+          let versioned_hashes = mapIt(
+            blockBody.blob_kzg_commitments,
+            engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+          sendNewPayloadToSingleEL(it, payload, versioned_hashes)
+        elif payload is engine_api.ExecutionPayloadV1 or
+             payload is engine_api.ExecutionPayloadV2:
+          sendNewPayloadToSingleEL(it, payload)
+        else:
+          static: doAssert false
       trackEngineApiRequest(it, req, "newPayload", startTime, deadline)
       req
 

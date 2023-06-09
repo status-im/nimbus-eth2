@@ -727,9 +727,9 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
   ok res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
-func kzg_commitment_to_versioned_hash(
+func kzg_commitment_to_versioned_hash*(
     kzg_commitment: KzgCommitment): VersionedHash =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#blob
   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
   var res: VersionedHash
@@ -752,20 +752,15 @@ func verify_kzg_commitments_against_transactions*(
       #all_versioned_hashes.add tx_peek_blob_versioned_hashes(tx).valueOr:
       #  return false
 
-  all_versioned_hashes == mapIt(kzg_commitments, it.kzg_commitment_to_versioned_hash)
+  all_versioned_hashes == mapIt(
+    kzg_commitments, it.kzg_commitment_to_versioned_hash)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob-kzg-commitments
 func process_blob_kzg_commitments(
-    state: var deneb.BeaconState,
     body: deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
-          deneb.SigVerifiedBeaconBlockBody):
-    Result[void, cstring] =
-  if verify_kzg_commitments_against_transactions(
-      body.execution_payload.transactions.asSeq,
-      body.blob_kzg_commitments.asSeq):
-    return ok()
-  else:
-    return err("process_blob_kzg_commitments: verify_kzg_commitments_against_transactions failed")
+          deneb.SigVerifiedBeaconBlockBody): bool =
+  verify_kzg_commitments_against_transactions(
+    body.execution_payload.transactions.asSeq,
+    body.blob_kzg_commitments.asSeq)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#validate_blobs
 proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
@@ -875,6 +870,9 @@ proc process_block*(
   ## block application fails (!)
 
   ? process_block_header(state, blck, flags, cache)
+
+  # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
+  # true, but intentionally keep such a check.
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(
         state, blck.body.execution_payload)  # [New in Capella]
@@ -909,6 +907,9 @@ proc process_block*(
   ## block application fails (!)
 
   ? process_block_header(state, blck, flags, cache)
+
+  # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
+  # true, but intentionally keep such a check.
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(state, blck.body.execution_payload)
     ? process_execution_payload(
@@ -925,7 +926,5 @@ proc process_block*(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
   ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, cache)
-
-  ? process_blob_kzg_commitments(state, blck.body)  # [New in Deneb]
 
   ok()
