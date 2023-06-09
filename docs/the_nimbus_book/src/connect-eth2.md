@@ -1,32 +1,39 @@
-# Connect your validator to eth2
+# Start validating
 
-**Prater**
+Once your keys have been [imported](./keys.md), it is time to configure a [fee recipient](./suggested-fee-recipient.md) and restart the beacon node to start validating.
 
-To connect your validator to the Prater testnet, from the `nimbus-eth2` repository run:
+## Steps
+
+### 1. Choose a fee recipient
+
+The [fee recipient](./suggested-fee-recipient.md) is an Ethereum address that receives transaction fees from the blocks that your validators produce.
+You can set up a separate address or reuse the address from which you funded your deposits.
+
+### 2. (Re)start the node
+
+Press `Ctrl-c` to stop the beacon node if it's running, then use the same command as before to run it again, this time adding the `--suggested-fee-recipient` option in addition to `--web3-url`:
+
+=== "Mainnet"
+    ```sh
+    ./run-mainnet-beacon-node.sh --web3-url=http://127.0.0.1:8551 --suggested-fee-recipient=0x...
+    ```
+
+=== "Prater"
+    ```sh
+    ./run-prater-beacon-node.sh --web3-url=http://127.0.0.1:8551 --suggested-fee-recipient=0x...
+    ```
+
+### 3. Check the logs
+
+Your beacon node will launch and connect your validator to the beacon chain network.
+To check that keys were imported correctly, look for `Local validator attached` in the logs:
 
 ```
- ./run-prater-beacon-node.sh
-```
-
-**Mainnet**
-
-To connect your validator to mainnet, from the `nimbus-eth2` repository run:
-
-```
-./run-mainnet-beacon-node.sh
-```
-
-In both cases, you'll be asked to enter your [Web3 provider URL](./start-syncing.md#web3-provider-url) again.
-
-> **Note:** If your beacon node is already running, you'll need to shut it down gracefully (`Ctrl+c`) and re-run the above command.
-
-To ensure your Validator is correctly monitoring the eth1 chain, it's important you enter a valid web3 provider.
-
-Your beacon node will launch and connect your validator to the eth2 network. To check that this has happened correctly, check your logs for the following:
-
-```
-INF 2020-11-18 11:20:00.181+01:00 Launching beacon node 
+INF 2020-11-18 11:20:00.181+01:00 Launching beacon node
 ...
 NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
 ```
 
+Congratulations!
+Your node is now ready to perform validator duties.
+Depending on when the deposit was made, it may take a while before the first attestation is sent — this is normal.

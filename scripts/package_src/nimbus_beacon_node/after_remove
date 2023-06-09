@@ -1,0 +1,6 @@
+#!/bin/sh
+
+set -e
+
+# We don't do anything here since a normal "uninstall" should generally not
+# remove data - debian has "purge" to deal with this, others don't.

@@ -1,48 +1,77 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
+
 
 import
-  strutils, os, options, unicode, uri,
+  std/[strutils, os, options, unicode, uri],
+  metrics,
 
   chronicles, chronicles/options as chroniclesOptions,
-  confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
+  confutils, confutils/defs, confutils/std/net,
+  confutils/toml/defs as confTomlDefs,
+  confutils/toml/std/net as confTomlNet,
+  confutils/toml/std/uri as confTomlUri,
+  serialization/errors, stew/shims/net as stewNet,
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
-
-  ./spec/[keystore, network],
+  kzg4844/kzg_ex,
+  ./spec/[engine_authentication, keystore, network, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata,
   ./validators/slashing_protection_common,
+  ./el/el_conf,
   ./filepath
 
+from consensus_object_pools/block_pools_types_light_client
+  import LightClientDataImportMode
+
 export
-  uri,
+  uri, nat, enr,
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
-  defs, parseCmdArg, completeCmdArg, network_metadata
+  defs, parseCmdArg, completeCmdArg, network_metadata,
+  el_conf, network, BlockHashOrNumber,
+  confTomlDefs, confTomlNet, confTomlUri
+
+declareGauge network_name, "network name", ["name"]
 
 const
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
+  defaultSigningNodeRequestTimeout* = 60
+  defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
+  defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
+  defaultGasLimit* = 30_000_000
+
+  defaultListenAddressDesc* = $defaultListenAddress
+  defaultAdminListenAddressDesc* = $defaultAdminListenAddress
+  defaultBeaconNodeDesc* = $defaultBeaconNode
+
+when defined(windows):
+  {.pragma: windowsOnly.}
+  {.pragma: posixOnly, hidden.}
+else:
+  {.pragma: windowsOnly, hidden.}
+  {.pragma: posixOnly.}
 
 type
-  BNStartUpCmd* = enum
+  BNStartUpCmd* {.pure.} = enum
     noCommand
-    createTestnet
     deposits
     wallets
     record
     web3
     slashingdb
+    trustedNodeSync
 
   WalletsCmd* {.pure.} = enum
     create  = "Creates a new EIP-2386 wallet"
@@ -55,8 +84,8 @@ type
     # status   = "Displays status information about all deposits"
     exit     = "Submits a validator voluntary exit"
 
-  VCStartUpCmd* = enum
-    VCNoCommand
+  SNStartUpCmd* = enum
+    SNNoCommand
 
   RecordCmd* {.pure.} = enum
     create  = "Create a new ENR"
@@ -77,130 +106,186 @@ type
     Json = "json"
     None = "none"
 
+  HistoryMode* {.pure.} = enum
+    Archive = "archive"
+    Prune = "prune"
+
   SlashProtCmd* = enum
     `import` = "Import a EIP-3076 slashing protection interchange file"
     `export` = "Export a EIP-3076 slashing protection interchange file"
     # migrateAll = "Export and remove the whole validator slashing protection DB."
     # migrate = "Export and remove specified validators from Nimbus."
 
+  ImportMethod* {.pure.} = enum
+    Normal = "normal"
+    SingleSalt = "single-salt"
+
   BeaconNodeConf* = object
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" .}: Option[InputFile]
+
     logLevel* {.
       desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
       defaultValue: "INFO"
-      name: "log-level" }: string
+      name: "log-level" .}: string
 
     logStdout* {.
       hidden
       desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
       defaultValueDesc: "auto"
       defaultValue: StdoutLogKind.Auto
-      name: "log-format" }: StdoutLogKind
+      name: "log-format" .}: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file (deprecated)"
-      name: "log-file" }: Option[OutFile]
+      desc: "Specifies a path for the written JSON log file (deprecated)"
+      name: "log-file" .}: Option[OutFile]
 
     eth2Network* {.
       desc: "The Eth2 network to join"
       defaultValueDesc: "mainnet"
-      name: "network" }: Option[string]
+      name: "network" .}: Option[string]
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data"
       defaultValue: config.defaultDataDir()
       defaultValueDesc: ""
       abbr: "d"
-      name: "data-dir" }: OutDir
+      name: "data-dir" .}: OutDir
 
     validatorsDirFlag* {.
       desc: "A directory containing validator keystores"
-      name: "validators-dir" }: Option[InputDir]
+      name: "validators-dir" .}: Option[InputDir]
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
-      name: "secrets-dir" }: Option[InputDir]
+      name: "secrets-dir" .}: Option[InputDir]
 
     walletsDirFlag* {.
       desc: "A directory containing wallet files"
-      name: "wallets-dir" }: Option[InputDir]
+      name: "wallets-dir" .}: Option[InputDir]
+
+    eraDirFlag* {.
+      hidden
+      desc: "A directory containing era files"
+      name: "era-dir" .}: Option[InputDir]
+
+    web3ForcePolling* {.
+      hidden
+      desc: "Force the use of polling when determining the head block of Eth1 (obsolete)"
+      name: "web3-force-polling" .}: Option[bool]
 
     web3Urls* {.
-      desc: "One or more Web3 provider URLs used for obtaining deposit contract data"
-      name: "web3-url" }: seq[string]
+      desc: "One or more execution layer Engine API URLs"
+      name: "web3-url" .}: seq[EngineApiUrlConfigValue]
+
+    elUrls* {.
+      desc: "One or more execution layer Engine API URLs"
+      name: "el" .}: seq[EngineApiUrlConfigValue]
+
+    noEl* {.
+      defaultValue: false
+      desc: "Don't use an EL. The node will remain optimistically synced and won't be able to perform validator duties"
+      name: "no-el" .}: bool
+
+    optimistic* {.
+      hidden # deprecated > 22.12
+      desc: "Run the node in optimistic mode, allowing it to optimistically sync without an execution client (flag deprecated, always on)"
+      name: "optimistic".}: Option[bool]
+
+    requireEngineAPI* {.
+      hidden  # Deprecated > 22.9
+      desc: "Require Nimbus to be configured with an Engine API end-point after the Bellatrix fork epoch"
+      name: "require-engine-api-in-bellatrix" .}: Option[bool]
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration"
-      name: "non-interactive" }: bool
+      desc: "Do not display interactive prompts. Quit on missing configuration"
+      name: "non-interactive" .}: bool
 
     netKeyFile* {.
       desc: "Source of network (secp256k1) private key file " &
             "(random|<path>)"
       defaultValue: "random",
-      name: "netkey-file" }: string
+      name: "netkey-file" .}: string
 
     netKeyInsecurePassword* {.
       desc: "Use pre-generated INSECURE password for network private key file"
       defaultValue: false,
-      name: "insecure-netkey-password" }: bool
+      name: "insecure-netkey-password" .}: bool
 
     agentString* {.
       defaultValue: "nimbus",
       desc: "Node agent string which is used as identifier in network"
-      name: "agent-string" }: string
+      name: "agent-string" .}: string
 
     subscribeAllSubnets* {.
       defaultValue: false,
-      desc: "Subscribe to all attestation subnet topics when gossiping"
-      name: "subscribe-all-subnets" }: bool
+      desc: "Subscribe to all subnet topics when gossiping"
+      name: "subscribe-all-subnets" .}: bool
 
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
       desc: "The slashing DB flavour to use"
-      name: "slashing-db-kind" }: SlashingDbKind
+      name: "slashing-db-kind" .}: SlashingDbKind
 
     numThreads* {.
-      defaultValue: 1,
-      desc: "Number of worker threads (set this to 0 to use as many threads as there are CPU cores available)"
-      name: "num-threads" }: int
+      defaultValue: 0,
+      desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
+      name: "num-threads" .}: int
+
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#key-distribution
+    jwtSecret* {.
+      desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
+      name: "jwt-secret" .}: Option[InputFile]
 
     case cmd* {.
       command
-      defaultValue: noCommand }: BNStartUpCmd
+      defaultValue: BNStartUpCmd.noCommand .}: BNStartUpCmd
 
-    of noCommand:
+    of BNStartUpCmd.noCommand:
+      runAsServiceFlag* {.
+        windowsOnly
+        defaultValue: false,
+        desc: "Run as a Windows service"
+        name: "run-as-service" .}: bool
+
       bootstrapNodes* {.
         desc: "Specifies one or more bootstrap nodes to use when connecting to the network"
         abbr: "b"
-        name: "bootstrap-node" }: seq[string]
+        name: "bootstrap-node" .}: seq[string]
 
       bootstrapNodesFile* {.
         desc: "Specifies a line-delimited file of bootstrap Ethereum network addresses"
         defaultValue: ""
-        name: "bootstrap-file" }: InputFile
+        name: "bootstrap-file" .}: InputFile
 
       listenAddress* {.
         desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
         defaultValue: defaultListenAddress
-        defaultValueDesc: "0.0.0.0"
-        name: "listen-address" }: ValidIpAddress
+        defaultValueDesc: $defaultListenAddressDesc
+        name: "listen-address" .}: ValidIpAddress
 
       tcpPort* {.
         desc: "Listening TCP port for Ethereum LibP2P traffic"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: "9000"
-        name: "tcp-port" }: Port
+        defaultValueDesc: $defaultEth2TcpPortDesc
+        name: "tcp-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: "9000"
-        name: "udp-port" }: Port
+        defaultValueDesc: $defaultEth2TcpPortDesc
+        name: "udp-port" .}: Port
 
       maxPeers* {.
-        desc: "The maximum number of peers to connect to"
+        desc: "The target number of peers to connect to"
         defaultValue: 160 # 5 (fanout) * 64 (subnets) / 2 (subs) for a heathy mesh
-        name: "max-peers" }: int
+        name: "max-peers" .}: int
+
+      hardMaxPeers* {.
+        desc: "The maximum number of peers to connect to. Defaults to maxPeers * 1.5"
+        name: "hard-max-peers" .}: Option[int]
 
       nat* {.
         desc: "Specify method to use for determining public address. " &
@@ -218,59 +303,84 @@ type
 
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
-        name: "weak-subjectivity-checkpoint" }: Option[Checkpoint]
+        name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
+
+      syncLightClient* {.
+        desc: "Accelerate execution layer sync using light client"
+        defaultValue: true
+        name: "sync-light-client" .}: bool
+
+      trustedBlockRoot* {.
+        hidden
+        desc: "Recent trusted finalized block root to initialize light client from"
+        name: "trusted-block-root" .}: Option[Eth2Digest]
 
       finalizedCheckpointState* {.
         desc: "SSZ file specifying a recent finalized state"
-        name: "finalized-checkpoint-state" }: Option[InputFile]
+        name: "finalized-checkpoint-state" .}: Option[InputFile]
+
+      finalizedDepositTreeSnapshot* {.
+        desc: "SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot"
+        name: "finalized-deposit-tree-snapshot" .}: Option[InputFile]
 
       finalizedCheckpointBlock* {.
+        hidden
         desc: "SSZ file specifying a recent finalized block"
-        name: "finalized-checkpoint-block" }: Option[InputFile]
+        name: "finalized-checkpoint-block" .}: Option[InputFile]
 
       nodeName* {.
         desc: "A name for this node that will appear in the logs. " &
               "If you set this to 'auto', a persistent automatically generated ID will be selected for each --data-dir folder"
         defaultValue: ""
-        name: "node-name" }: string
+        name: "node-name" .}: string
 
       graffiti* {.
         desc: "The graffiti value that will appear in proposed blocks. " &
               "You can use a 0x-prefixed hex encoded string to specify raw bytes"
-        name: "graffiti" }: Option[GraffitiBytes]
+        name: "graffiti" .}: Option[GraffitiBytes]
 
-      verifyFinalization* {.
-        desc: "Specify whether to verify finalization occurs on schedule, for testing"
+      strictVerification* {.
+        hidden
+        desc: "Specify whether to verify finalization occurs on schedule (debug only)"
         defaultValue: false
-        name: "verify-finalization" }: bool
+        name: "verify-finalization" .}: bool
 
       stopAtEpoch* {.
-        desc: "A positive epoch selects the epoch at which to stop"
+        hidden
+        desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
         defaultValue: 0
-        name: "stop-at-epoch" }: uint64
+        name: "stop-at-epoch" .}: uint64
+
+      stopAtSyncedEpoch* {.
+        hidden
+        desc: "The synced epoch at which to exit the program. (for testing purposes)"
+        defaultValue: 0
+        name: "stop-at-synced-epoch" .}: uint64
 
       metricsEnabled* {.
         desc: "Enable the metrics server"
         defaultValue: false
-        name: "metrics" }: bool
+        name: "metrics" .}: bool
 
       metricsAddress* {.
         desc: "Listening address of the metrics server"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
-        name: "metrics-address" }: ValidIpAddress
+        defaultValueDesc: $defaultAdminListenAddressDesc
+        name: "metrics-address" .}: ValidIpAddress
 
       metricsPort* {.
         desc: "Listening HTTP port of the metrics server"
         defaultValue: 8008
-        name: "metrics-port" }: Port
+        name: "metrics-port" .}: Port
 
       statusBarEnabled* {.
+        posixOnly
         desc: "Display a status bar at the bottom of the terminal screen"
         defaultValue: true
-        name: "status-bar" }: bool
+        name: "status-bar" .}: bool
 
       statusBarContents* {.
+        posixOnly
         desc: "Textual template for the contents of the status bar"
         defaultValue: "peers: $connected_peers;" &
                       "finalized: $finalized_root:$finalized_epoch;" &
@@ -279,130 +389,240 @@ type
                       "sync: $sync_status|" &
                       "ETH: $attached_validators_balance"
         defaultValueDesc: ""
-        name: "status-bar-contents" }: string
+        name: "status-bar-contents" .}: string
 
       rpcEnabled* {.
-        desc: "Enable the JSON-RPC server"
-        defaultValue: false
-        name: "rpc" }: bool
+        # Deprecated > 1.7.0
+        hidden
+        desc: "Deprecated for removal"
+        name: "rpc" .}: Option[bool]
 
       rpcPort* {.
-        desc: "HTTP port for the JSON-RPC service"
-        defaultValue: defaultEth2RpcPort
-        defaultValueDesc: "9190"
-        name: "rpc-port" }: Port
+        # Deprecated > 1.7.0
+        hidden
+        desc: "Deprecated for removal"
+        name: "rpc-port" .}: Option[Port]
 
       rpcAddress* {.
-        desc: "Listening address of the RPC server"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
-        name: "rpc-address" }: ValidIpAddress
+        # Deprecated > 1.7.0
+        hidden
+        desc: "Deprecated for removal"
+        name: "rpc-address" .}: Option[ValidIpAddress]
 
       restEnabled* {.
         desc: "Enable the REST server"
         defaultValue: false
-        name: "rest" }: bool
+        name: "rest" .}: bool
 
       restPort* {.
         desc: "Port for the REST server"
-        defaultValue: DefaultEth2RestPort
-        defaultValueDesc: "5052"
-        name: "rest-port" }: Port
+        defaultValue: defaultEth2RestPort
+        defaultValueDesc: $defaultEth2RestPortDesc
+        name: "rest-port" .}: Port
 
       restAddress* {.
         desc: "Listening address of the REST server"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
-        name: "rest-address" }: ValidIpAddress
+        defaultValueDesc: $defaultAdminListenAddressDesc
+        name: "rest-address" .}: ValidIpAddress
 
-      validatorApiEnabled* {.
-        desc: "Enable the REST (BETA version) validator keystore management " &
-              "API",
-        defaultValue: false,
-        name: "validator-api"}: bool
+      restAllowedOrigin* {.
+        desc: "Limit the access to the REST API to a particular hostname " &
+              "(for CORS-enabled clients such as browsers)"
+        name: "rest-allow-origin" .}: Option[string]
+
+      restCacheSize* {.
+        defaultValue: 3
+        desc: "The maximum number of recently accessed states that are kept in " &
+              "memory. Speeds up requests obtaining information for consecutive " &
+              "slots or epochs."
+        name: "rest-statecache-size" .}: Natural
+
+      restCacheTtl* {.
+        defaultValue: 60
+        desc: "The number of seconds to keep recently accessed states in memory"
+        name: "rest-statecache-ttl" .}: Natural
+
+      restRequestTimeout* {.
+        defaultValue: 0
+        defaultValueDesc: "infinite"
+        desc: "The number of seconds to wait until complete REST request " &
+              "will be received"
+        name: "rest-request-timeout" .}: Natural
+
+      restMaxRequestBodySize* {.
+        defaultValue: 16_384
+        desc: "Maximum size of REST request body (kilobytes)"
+        name: "rest-max-body-size" .}: Natural
+
+      restMaxRequestHeadersSize* {.
+        defaultValue: 128
+        desc: "Maximum size of REST request headers (kilobytes)"
+        name: "rest-max-headers-size" .}: Natural
+        ## NOTE: If you going to adjust this value please check value
+        ## ``ClientMaximumValidatorIds`` and comments in
+        ## `spec/eth2_apis/rest_types.nim`. This values depend on each other.
+
+      keymanagerEnabled* {.
+        desc: "Enable the REST keymanager API"
+        defaultValue: false
+        name: "keymanager" .}: bool
+
+      keymanagerPort* {.
+        desc: "Listening port for the REST keymanager API"
+        defaultValue: defaultEth2RestPort
+        defaultValueDesc: $defaultEth2RestPortDesc
+        name: "keymanager-port" .}: Port
+
+      keymanagerAddress* {.
+        desc: "Listening port for the REST keymanager API"
+        defaultValue: defaultAdminListenAddress
+        defaultValueDesc: $defaultAdminListenAddressDesc
+        name: "keymanager-address" .}: ValidIpAddress
+
+      keymanagerAllowedOrigin* {.
+        desc: "Limit the access to the Keymanager API to a particular hostname " &
+              "(for CORS-enabled clients such as browsers)"
+        name: "keymanager-allow-origin" .}: Option[string]
+
+      keymanagerTokenFile* {.
+        desc: "A file specifying the authorization token required for accessing the keymanager API"
+        name: "keymanager-token-file" .}: Option[InputFile]
+
+      lightClientDataServe* {.
+        desc: "Serve data for enabling light clients to stay in sync with the network"
+        defaultValue: true
+        name: "light-client-data-serve" .}: bool
+
+      lightClientDataImportMode* {.
+        desc: "Which classes of light client data to import. " &
+              "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
+        defaultValue: LightClientDataImportMode.OnlyNew
+        defaultValueDesc: $LightClientDataImportMode.OnlyNew
+        name: "light-client-data-import-mode" .}: LightClientDataImportMode
+
+      lightClientDataMaxPeriods* {.
+        desc: "Maximum number of sync committee periods to retain light client data"
+        name: "light-client-data-max-periods" .}: Option[uint64]
 
       inProcessValidators* {.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
         defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
-        name: "in-process-validators" }: bool
+        name: "in-process-validators" .}: bool
 
       discv5Enabled* {.
         desc: "Enable Discovery v5"
         defaultValue: true
-        name: "discv5" }: bool
+        name: "discv5" .}: bool
 
       dumpEnabled* {.
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         defaultValue: false
-        name: "dump" }: bool
+        name: "dump" .}: bool
 
       directPeers* {.
-        desc: "The list of priviledged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering agreements are established out of band and must be reciprocal."
+        desc: "The list of privileged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering agreements are established out of band and must be reciprocal."
         name: "direct-peer" .}: seq[string]
 
       doppelgangerDetection* {.
         desc: "If enabled, the beacon node prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself. This protects against slashing (due to double-voting) but means you will miss two attestations when restarting."
         defaultValue: true
-        name: "doppelganger-detection"
-      }: bool
+        name: "doppelganger-detection" .}: bool
 
-    of createTestnet:
-      testnetDepositsFile* {.
-        desc: "A LaunchPad deposits file for the genesis state validators"
-        name: "deposits-file" }: InputFile
+      syncHorizon* {.
+        hidden
+        desc: "Number of empty slots to process before considering the client out of sync"
+        defaultValue: MaxEmptySlotCount
+        defaultValueDesc: "50"
+        name: "sync-horizon" .}: uint64
 
-      totalValidators* {.
-        desc: "The number of validator deposits in the newly created chain"
-        name: "total-validators" }: uint64
+      terminalTotalDifficultyOverride* {.
+        hidden
+        desc: "Deprecated for removal"
+        name: "terminal-total-difficulty-override" .}: Option[string]
 
-      bootstrapAddress* {.
-        desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
-        defaultValue: init(ValidIpAddress, "127.0.0.1")
-        defaultValueDesc: "127.0.0.1"
-        name: "bootstrap-address" }: ValidIpAddress
+      validatorMonitorAuto* {.
+        desc: "Monitor validator activity automatically for validators active on this beacon node"
+        defaultValue: true
+        name: "validator-monitor-auto" .}: bool
 
-      bootstrapPort* {.
-        desc: "The TCP/UDP port that will be used by the bootstrap node"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: "9000"
-        name: "bootstrap-port" }: Port
+      validatorMonitorPubkeys* {.
+        desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled"
+        name: "validator-monitor-pubkey" .}: seq[ValidatorPubKey]
 
-      genesisOffset* {.
-        desc: "Seconds from now to add to genesis time"
-        defaultValue: 5
-        name: "genesis-offset" }: int
+      validatorMonitorDetails* {.
+        desc: "Publish detailed metrics for each validator individually - may incur significant overhead with large numbers of validators"
+        defaultValue: false
+        name: "validator-monitor-details" .}: bool
 
-      outputGenesis* {.
-        desc: "Output file where to write the initial state snapshot"
-        name: "output-genesis" }: OutFile
+      validatorMonitorTotals* {.
+        hidden
+        desc: "Deprecated in favour of --validator-monitor-details"
+        name: "validator-monitor-totals" .}: Option[bool]
 
-      outputBootstrapFile* {.
-        desc: "Output file with list of bootstrap nodes for the network"
-        name: "output-bootstrap-file" }: OutFile
+      safeSlotsToImportOptimistically* {.
+        # Never unhidden or documented, and deprecated > 22.9.1
+        hidden
+        desc: "Deprecated for removal"
+        name: "safe-slots-to-import-optimistically" .}: Option[uint16]
 
-    of wallets:
+      # Same option as appears in Lighthouse and Prysm
+      # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
+      # https://github.com/prysmaticlabs/prysm/pull/10312
+      suggestedFeeRecipient* {.
+        desc: "Suggested fee recipient"
+        name: "suggested-fee-recipient" .}: Option[Address]
+
+      suggestedGasLimit* {.
+        desc: "Suggested gas limit"
+        defaultValue: defaultGasLimit
+        name: "suggested-gas-limit" .}: uint64
+
+      payloadBuilderEnable* {.
+        desc: "Enable external payload builder"
+        defaultValue: false
+        name: "payload-builder" .}: bool
+
+      payloadBuilderUrl* {.
+        desc: "Payload builder URL"
+        defaultValue: ""
+        name: "payload-builder-url" .}: string
+
+      # Flag name and semantics borrowed from Prysm
+      # https://github.com/prysmaticlabs/prysm/pull/12227/files
+      localBlockValueBoost* {.
+        desc: "Increase execution layer block values for builder bid comparison by a percentage"
+        defaultValue: 0
+        name: "local-block-value-boost" .}: uint8
+
+      historyMode* {.
+        desc: "Retention strategy for historical data (archive/prune)"
+        defaultValue: HistoryMode.Archive
+        name: "history".}: HistoryMode
+
+    of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
       of WalletsCmd.create:
         nextAccount* {.
           desc: "Initial value for the 'nextaccount' property of the wallet"
-          name: "next-account" }: Option[Natural]
+          name: "next-account" .}: Option[Natural]
 
         createdWalletNameFlag* {.
           desc: "An easy-to-remember name for the wallet of your choice"
-          name: "name"}: Option[WalletName]
+          name: "name" .}: Option[WalletName]
 
         createdWalletFileFlag* {.
           desc: "Output wallet file"
-          name: "out" }: Option[OutFile]
+          name: "out" .}: Option[OutFile]
 
       of WalletsCmd.restore:
         restoredWalletNameFlag* {.
           desc: "An easy-to-remember name for the wallet of your choice"
-          name: "name"}: Option[WalletName]
+          name: "name" .}: Option[WalletName]
 
         restoredWalletFileFlag* {.
           desc: "Output wallet file"
-          name: "out" }: Option[OutFile]
+          name: "out" .}: Option[OutFile]
 
         restoredDepositsCount* {.
           desc: "Expected number of deposits to recover. If not specified, " &
@@ -413,39 +633,39 @@ type
       of WalletsCmd.list:
         discard
 
-    of deposits:
+    of BNStartUpCmd.deposits:
       case depositsCmd* {.command.}: DepositsCmd
       of DepositsCmd.createTestnetDeposits:
         totalDeposits* {.
           desc: "Number of deposits to generate"
           defaultValue: 1
-          name: "count" }: int
+          name: "count" .}: int
 
         existingWalletId* {.
           desc: "An existing wallet ID. If not specified, a new wallet will be created"
-          name: "wallet" }: Option[WalletName]
+          name: "wallet" .}: Option[WalletName]
 
         outValidatorsDir* {.
           desc: "Output folder for validator keystores"
           defaultValue: "validators"
-          name: "out-validators-dir" }: string
+          name: "out-validators-dir" .}: string
 
         outSecretsDir* {.
           desc: "Output folder for randomly generated keystore passphrases"
           defaultValue: "secrets"
-          name: "out-secrets-dir" }: string
+          name: "out-secrets-dir" .}: string
 
         outDepositsFile* {.
           desc: "The name of generated deposits file"
-          name: "out-deposits-file" }: Option[OutFile]
+          name: "out-deposits-file" .}: Option[OutFile]
 
         newWalletNameFlag* {.
           desc: "An easy-to-remember name for the wallet of your choice"
-          name: "new-wallet-name" }: Option[WalletName]
+          name: "new-wallet-name" .}: Option[WalletName]
 
         newWalletFileFlag* {.
           desc: "Output wallet file"
-          name: "new-wallet-file" }: Option[OutFile]
+          name: "new-wallet-file" .}: Option[OutFile]
 
       #[
       of DepositsCmd.status:
@@ -455,24 +675,42 @@ type
       of DepositsCmd.`import`:
         importedDepositsDir* {.
           argument
-          desc: "A directory with keystores to import" }: Option[InputDir]
+          desc: "A directory with keystores to import" .}: Option[InputDir]
+
+        importMethod* {.
+          desc: "Specifies which import method will be used (" &
+                "normal, single-salt)"
+          defaultValue: ImportMethod.Normal
+          name: "method" .}: ImportMethod
 
       of DepositsCmd.exit:
-        exitedValidator* {.
-          name: "validator"
-          desc: "Validator index or a public key of the exited validator" }: string
+        exitedValidators* {.
+          desc: "One or more validator index, public key or a keystore path of " &
+                "the exited validator(s)"
+          name: "validator" .}: seq[string]
 
-        rpcUrlForExit* {.
-          desc: "URL of the beacon node JSON-RPC service"
-          defaultValue: parseUri("http://localhost:" & $defaultEth2RpcPort)
-          defaultValueDesc: "http://localhost:9190"
-          name: "rpc-url" }: Uri
+        exitAllValidatorsFlag* {.
+          desc: "Exit all validators in the specified data directory or validators directory"
+          defaultValue: false
+          name: "all" .}: bool
 
         exitAtEpoch* {.
           name: "epoch"
-          desc: "The desired exit epoch" }: Option[uint64]
+          defaultValueDesc: "immediately"
+          desc: "The desired exit epoch" .}: Option[uint64]
 
-    of record:
+        restUrlForExit* {.
+          desc: "URL of the beacon node REST service"
+          defaultValue: defaultBeaconNode
+          defaultValueDesc: $defaultBeaconNodeDesc
+          name: "rest-url" .}: string
+
+        printData* {.
+          desc: "Print signed exit message instead of publishing it"
+          defaultValue: false
+          name: "print" .}: bool
+
+    of BNStartUpCmd.record:
       case recordCmd* {.command.}: RecordCmd
       of RecordCmd.create:
         ipExt* {.
@@ -502,15 +740,15 @@ type
           desc: "ENR URI of the record to print"
           name: "enr" .}: Record
 
-    of web3:
+    of BNStartUpCmd.web3:
       case web3Cmd* {.command.}: Web3Cmd
       of Web3Cmd.test:
         web3TestUrl* {.
           argument
           desc: "The web3 provider URL to test"
-          name: "url" }: Uri
+          name: "url" .}: Uri
 
-    of slashingdb:
+    of BNStartUpCmd.slashingdb:
       case slashingdbCmd* {.command.}: SlashProtCmd
       of SlashProtCmd.`import`:
         importedInterchangeFile* {.
@@ -521,74 +759,273 @@ type
           desc: "Limit the export to specific validators " &
                 "(specified as numeric indices or public keys)"
           abbr: "v"
-          name: "validator" }: seq[PubKey0x]
+          name: "validator" .}: seq[PubKey0x]
         exportedInterchangeFile* {.
           desc: "EIP-3076 slashing protection interchange file to export"
-          argument }: OutFile
+          argument .}: OutFile
+
+    of BNStartUpCmd.trustedNodeSync:
+      trustedNodeUrl* {.
+        desc: "URL of the REST API to sync from"
+        defaultValue: defaultBeaconNode
+        defaultValueDesc: $defaultBeaconNodeDesc
+        name: "trusted-node-url"
+      .}: string
+
+      stateId* {.
+        desc: "State id to sync to - this can be \"finalized\", a slot number or state hash or \"head\""
+        name: "state-id"
+      .}: Option[string]
+
+      blockId* {.
+        hidden
+        desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\" (deprecated)"
+      .}: Option[string]
+
+      lcTrustedBlockRoot* {.
+        desc: "Recent trusted finalized block root to initialize light client from"
+        name: "trusted-block-root" .}: Option[Eth2Digest]
+
+      backfillBlocks* {.
+        desc: "Backfill blocks directly from REST server instead of fetching via API"
+        defaultValue: true
+        name: "backfill" .}: bool
+
+      reindex* {.
+        desc: "Recreate historical state index at end of backfill, allowing full history access (requires full backfill)"
+        defaultValue: false .}: bool
+
+      downloadDepositSnapshot* {.
+        desc: "Also try to download a snapshot of the deposit contract state"
+        defaultValue: false
+        name: "with-deposit-snapshot" .}: bool
 
   ValidatorClientConf* = object
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" .}: Option[InputFile]
+
     logLevel* {.
       desc: "Sets the log level"
       defaultValue: "INFO"
-      name: "log-level" }: string
+      name: "log-level" .}: string
 
     logStdout* {.
       hidden
       desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
       defaultValueDesc: "auto"
       defaultValue: StdoutLogKind.Auto
-      name: "log-format" }: StdoutLogKind
+      name: "log-format" .}: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file (deprecated)"
-      name: "log-file" }: Option[OutFile]
+      desc: "Specifies a path for the written JSON log file (deprecated)"
+      name: "log-file" .}: Option[OutFile]
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data"
       defaultValue: config.defaultDataDir()
       defaultValueDesc: ""
       abbr: "d"
-      name: "data-dir" }: OutDir
+      name: "data-dir" .}: OutDir
+
+    doppelgangerDetection* {.
+      # TODO This description is shared between the BN and the VC.
+      #      Extract it in a constant (confutils fix may be needed).
+      desc: "If enabled, the validator client prudently listens for 2 epochs " &
+            "for attestations from a validator with the same index " &
+            "(a doppelganger), before sending an attestation itself. This " &
+            "protects against slashing (due to double-voting) but means you " &
+            "will miss two attestations when restarting."
+      defaultValue: true
+      name: "doppelganger-detection" .}: bool
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration"
-      name: "non-interactive" }: bool
+      desc: "Do not display interactive prompts. Quit on missing configuration"
+      name: "non-interactive" .}: bool
 
     validatorsDirFlag* {.
       desc: "A directory containing validator keystores"
-      name: "validators-dir" }: Option[InputDir]
+      name: "validators-dir" .}: Option[InputDir]
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
-      name: "secrets-dir" }: Option[InputDir]
+      name: "secrets-dir" .}: Option[InputDir]
 
-    validatorApiEnabled* {.
-      desc: "Enable the REST (BETA version) validator keystore management " &
-            "API",
-      defaultValue: false,
-      name: "validator-api"}: bool
+    restRequestTimeout* {.
+      defaultValue: 0
+      defaultValueDesc: "infinite"
+      desc: "The number of seconds to wait until complete REST request " &
+            "will be received"
+      name: "rest-request-timeout" .}: Natural
 
-    case cmd* {.
-      command
-      defaultValue: VCNoCommand }: VCStartUpCmd
+    restMaxRequestBodySize* {.
+      defaultValue: 16_384
+      desc: "Maximum size of REST request body (kilobytes)"
+      name: "rest-max-body-size" .}: Natural
 
-    of VCNoCommand:
-      graffiti* {.
-        desc: "The graffiti value that will appear in proposed blocks. " &
-              "You can use a 0x-prefixed hex encoded string to specify " &
-              "raw bytes"
-        name: "graffiti" }: Option[GraffitiBytes]
+    restMaxRequestHeadersSize* {.
+      defaultValue: 64
+      desc: "Maximum size of REST request headers (kilobytes)"
+      name: "rest-max-headers-size" .}: Natural
 
-      stopAtEpoch* {.
-        desc: "A positive epoch selects the epoch at which to stop"
-        defaultValue: 0
-        name: "stop-at-epoch" }: uint64
+    # Same option as appears in Lighthouse and Prysm
+    # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
+    # https://github.com/prysmaticlabs/prysm/pull/10312
+    suggestedFeeRecipient* {.
+      desc: "Suggested fee recipient"
+      name: "suggested-fee-recipient" .}: Option[Address]
 
-      beaconNodes* {.
-        desc: "URL addresses to one or more beacon node HTTP REST APIs",
-        name: "beacon-node" }: seq[string]
+    suggestedGasLimit* {.
+      desc: "Suggested gas limit"
+      defaultValue: 30_000_000
+      name: "suggested-gas-limit" .}: uint64
 
-proc defaultDataDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+    keymanagerEnabled* {.
+      desc: "Enable the REST keymanager API"
+      defaultValue: false
+      name: "keymanager" .}: bool
+
+    keymanagerPort* {.
+      desc: "Listening port for the REST keymanager API"
+      defaultValue: defaultEth2RestPort
+      defaultValueDesc: $defaultEth2RestPortDesc
+      name: "keymanager-port" .}: Port
+
+    keymanagerAddress* {.
+      desc: "Listening port for the REST keymanager API"
+      defaultValue: defaultAdminListenAddress
+      defaultValueDesc: $defaultAdminListenAddressDesc
+      name: "keymanager-address" .}: ValidIpAddress
+
+    keymanagerAllowedOrigin* {.
+      desc: "Limit the access to the Keymanager API to a particular hostname " &
+            "(for CORS-enabled clients such as browsers)"
+      name: "keymanager-allow-origin" .}: Option[string]
+
+    keymanagerTokenFile* {.
+      desc: "A file specifying the authorizition token required for accessing the keymanager API"
+      name: "keymanager-token-file" .}: Option[InputFile]
+
+    metricsEnabled* {.
+      desc: "Enable the metrics server (BETA)"
+      defaultValue: false
+      name: "metrics" .}: bool
+
+    metricsAddress* {.
+      desc: "Listening address of the metrics server (BETA)"
+      defaultValue: defaultAdminListenAddress
+      defaultValueDesc: $defaultAdminListenAddressDesc
+      name: "metrics-address" .}: ValidIpAddress
+
+    metricsPort* {.
+      desc: "Listening HTTP port of the metrics server (BETA)"
+      defaultValue: 8108
+      name: "metrics-port" .}: Port
+
+    graffiti* {.
+      desc: "The graffiti value that will appear in proposed blocks. " &
+            "You can use a 0x-prefixed hex encoded string to specify " &
+            "raw bytes"
+      name: "graffiti" .}: Option[GraffitiBytes]
+
+    stopAtEpoch* {.
+      desc: "A positive epoch selects the epoch at which to stop"
+      defaultValue: 0
+      name: "stop-at-epoch" .}: uint64
+
+    payloadBuilderEnable* {.
+      desc: "Enable usage of beacon node with external payload builder (BETA)"
+      defaultValue: false
+      name: "payload-builder" .}: bool
+
+    beaconNodes* {.
+      desc: "URL addresses to one or more beacon node HTTP REST APIs",
+      defaultValue: @[defaultBeaconNodeUri]
+      defaultValueDesc: $defaultBeaconNodeUri
+      name: "beacon-node" .}: seq[Uri]
+
+  SigningNodeConf* = object
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" .}: Option[InputFile]
+
+    logLevel* {.
+      desc: "Sets the log level"
+      defaultValue: "INFO"
+      name: "log-level" .}: string
+
+    logStdout* {.
+      desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
+      defaultValueDesc: "auto"
+      defaultValue: StdoutLogKind.Auto
+      name: "log-stdout" .}: StdoutLogKind
+
+    logFile* {.
+      desc: "Specifies a path for the written JSON log file"
+      name: "log-file" .}: Option[OutFile]
+
+    nonInteractive* {.
+      desc: "Do not display interactive prompts. Quit on missing configuration"
+      name: "non-interactive" .}: bool
+
+    dataDir* {.
+      desc: "The directory where nimbus will store validator's keys"
+      defaultValue: config.defaultDataDir()
+      defaultValueDesc: ""
+      abbr: "d"
+      name: "data-dir" .}: OutDir
+
+    validatorsDirFlag* {.
+      desc: "A directory containing validator keystores"
+      name: "validators-dir" .}: Option[InputDir]
+
+    secretsDirFlag* {.
+      desc: "A directory containing validator keystore passwords"
+      name: "secrets-dir" .}: Option[InputDir]
+
+    expectedFeeRecipient* {.
+      desc: "Signatures for blocks will require proofs of the specified " &
+            "fee recipient"
+      name: "expected-fee-recipient".}: Option[Address]
+
+    serverIdent* {.
+      desc: "Server identifier which will be used in HTTP Host header"
+      name: "server-ident" .}: Option[string]
+
+    requestTimeout* {.
+      desc: "Request timeout, maximum time that node will wait for remote " &
+            "client request (in seconds)"
+      defaultValue: defaultSigningNodeRequestTimeout
+      name: "request-timeout" .}: int
+
+    bindPort* {.
+      desc: "Port for the REST HTTP server"
+      defaultValue: defaultEth2RestPort
+      defaultValueDesc: $defaultEth2RestPortDesc
+      name: "bind-port" .}: Port
+
+    bindAddress* {.
+      desc: "Listening address of the REST HTTP server"
+      defaultValue: defaultAdminListenAddress
+      defaultValueDesc: $defaultAdminListenAddressDesc
+      name: "bind-address" .}: ValidIpAddress
+
+    tlsEnabled* {.
+      desc: "Use secure TLS communication for REST server"
+      defaultValue: false
+      name: "tls" .}: bool
+
+    tlsCertificate* {.
+      desc: "Path to SSL certificate file"
+      name: "tls-cert" .}: Option[InputFile]
+
+    tlsPrivateKey* {.
+      desc: "Path to SSL ceritificate's private key"
+      name: "tls-key" .}: Option[InputFile]
+
+  AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
+
+proc defaultDataDir*[Conf](config: Conf): string =
   let dataDir = when defined(windows):
     "AppData" / "Roaming" / "Nimbus"
   elif defined(macosx):
@@ -598,84 +1035,107 @@ proc defaultDataDir*(config: BeaconNodeConf|ValidatorClientConf): string =
 
   getHomeDir() / dataDir / "BeaconNode"
 
-func dumpDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+func dumpDir(config: AnyConf): string =
   config.dataDir / "dump"
 
-func dumpDirInvalid*(config: BeaconNodeConf|ValidatorClientConf): string =
+func dumpDirInvalid*(config: AnyConf): string =
   config.dumpDir / "invalid" # things that failed validation
 
-func dumpDirIncoming*(config: BeaconNodeConf|ValidatorClientConf): string =
+func dumpDirIncoming*(config: AnyConf): string =
   config.dumpDir / "incoming" # things that couldn't be validated (missingparent etc)
 
-func dumpDirOutgoing*(config: BeaconNodeConf|ValidatorClientConf): string =
+func dumpDirOutgoing*(config: AnyConf): string =
   config.dumpDir / "outgoing" # things we produced
 
 proc createDumpDirs*(config: BeaconNodeConf) =
   if config.dumpEnabled:
-    let resInv = secureCreatePath(config.dumpDirInvalid)
-    if resInv.isErr():
-      warn "Could not create dump directory", path = config.dumpDirInvalid
-    let resInc = secureCreatePath(config.dumpDirIncoming)
-    if resInc.isErr():
-      warn "Could not create dump directory", path = config.dumpDirIncoming
-    let resOut = secureCreatePath(config.dumpDirOutgoing)
-    if resOut.isErr():
-      warn "Could not create dump directory", path = config.dumpDirOutgoing
+    if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
+      warn "Could not create dump directory",
+        path = config.dumpDirInvalid, err = ioErrorMsg(res.error)
+    if (let res = secureCreatePath(config.dumpDirIncoming); res.isErr):
+      warn "Could not create dump directory",
+        path = config.dumpDirIncoming, err = ioErrorMsg(res.error)
+    if (let res = secureCreatePath(config.dumpDirOutgoing); res.isErr):
+      warn "Could not create dump directory",
+        path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
 
-func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
+func parseCmdArg*(T: type Eth2Digest, input: string): T
                  {.raises: [ValueError, Defect].} =
-  GraffitiBytes.init(string input)
+  Eth2Digest.fromHex(input)
 
-func completeCmdArg*(T: type GraffitiBytes, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type Eth2Digest, input: string): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type BlockHashOrNumber, input: TaintedString): T
+func parseCmdArg*(T: type GraffitiBytes, input: string): T
                  {.raises: [ValueError, Defect].} =
-  init(BlockHashOrNumber, string input)
+  GraffitiBytes.init(input)
 
-func completeCmdArg*(T: type BlockHashOrNumber, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type GraffitiBytes, input: string): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type Uri, input: TaintedString): T
+func parseCmdArg*(T: type BlockHashOrNumber, input: string): T
                  {.raises: [ValueError, Defect].} =
-  parseUri(input.string)
+  init(BlockHashOrNumber, input)
 
-func completeCmdArg*(T: type Uri, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type BlockHashOrNumber, input: string): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type PubKey0x, input: TaintedString): T
+func parseCmdArg*(T: type Uri, input: string): T
                  {.raises: [ValueError, Defect].} =
-  PubKey0x(hexToPaddedByteArray[RawPubKeySize](input.string))
+  parseUri(input)
 
-func completeCmdArg*(T: type PubKey0x, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type Uri, input: string): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type Checkpoint, input: TaintedString): T
+func parseCmdArg*(T: type PubKey0x, input: string): T
                  {.raises: [ValueError, Defect].} =
-  let sepIdx = find(input.string, ':')
-  if sepIdx == -1:
+  PubKey0x(hexToPaddedByteArray[RawPubKeySize](input))
+
+func parseCmdArg*(T: type ValidatorPubKey, input: string): T
+                 {.raises: [ValueError, Defect].} =
+  let res = ValidatorPubKey.fromHex(input)
+  if res.isErr(): raise (ref ValueError)(msg: $res.error())
+  res.get()
+
+func completeCmdArg*(T: type PubKey0x, input: string): seq[string] =
+  return @[]
+
+func parseCmdArg*(T: type Checkpoint, input: string): T
+                 {.raises: [ValueError, Defect].} =
+  let sepIdx = find(input, ':')
+  if sepIdx == -1 or sepIdx == input.len - 1:
     raise newException(ValueError,
       "The weak subjectivity checkpoint must be provided in the `block_root:epoch_number` format")
-  T(root: Eth2Digest.fromHex(input[0 ..< sepIdx]),
-    epoch: parseBiggestUInt(input[sepIdx .. ^1]).Epoch)
 
-func completeCmdArg*(T: type Checkpoint, input: TaintedString): seq[string] =
+  var root: Eth2Digest
+  hexToByteArrayStrict(input.toOpenArray(0, sepIdx - 1), root.data)
+
+  T(root: root, epoch: parseBiggestUInt(input[sepIdx + 1 .. ^1]).Epoch)
+
+func completeCmdArg*(T: type Checkpoint, input: string): seq[string] =
   return @[]
 
-proc isPrintable(rune: Rune): bool =
+func parseCmdArg*(T: type Epoch, input: string): T
+                 {.raises: [ValueError, Defect].} =
+  Epoch parseBiggestUInt(input)
+
+func completeCmdArg*(T: type Epoch, input: string): seq[string] =
+  return @[]
+
+func isPrintable(rune: Rune): bool =
   # This can be eventually replaced by the `unicodeplus` package, but a single
   # proc does not justify the extra dependencies at the moment:
   # https://github.com/nitely/nim-unicodeplus
   # https://github.com/nitely/nim-segmentation
   rune == Rune(0x20) or unicodeCategory(rune) notin ctgC+ctgZ
 
-func parseCmdArg*(T: type WalletName, input: TaintedString): T
+func parseCmdArg*(T: type WalletName, input: string): T
                  {.raises: [ValueError, Defect].} =
   if input.len == 0:
     raise newException(ValueError, "The wallet name should not be empty")
   if input[0] == '_':
     raise newException(ValueError, "The wallet name should not start with an underscore")
-  for rune in runes(input.string):
+  for rune in runes(input):
     if not rune.isPrintable:
       raise newException(ValueError, "The wallet name should consist only of printable characters")
 
@@ -684,31 +1144,32 @@ func parseCmdArg*(T: type WalletName, input: TaintedString): T
   # (see UTR #36 http://www.unicode.org/reports/tr36/)
   return T(toNFKC(input))
 
-func completeCmdArg*(T: type WalletName, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type WalletName, input: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type enr.Record, p: TaintedString): T
+proc parseCmdArg*(T: type enr.Record, p: string): T
     {.raises: [ConfigurationError, Defect].} =
   if not fromURI(result, p):
     raise newException(ConfigurationError, "Invalid ENR")
 
-proc completeCmdArg*(T: type enr.Record, val: TaintedString): seq[string] =
+func completeCmdArg*(T: type enr.Record, val: string): seq[string] =
   return @[]
 
-func validatorsDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+func validatorsDir*[Conf](config: Conf): string =
   string config.validatorsDirFlag.get(InputDir(config.dataDir / "validators"))
 
-func secretsDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+func secretsDir*[Conf](config: Conf): string =
   string config.secretsDirFlag.get(InputDir(config.dataDir / "secrets"))
 
 func walletsDir*(config: BeaconNodeConf): string =
-  if config.walletsDirFlag.isSome:
-    config.walletsDirFlag.get.string
-  else:
-    config.dataDir / "wallets"
+  string config.walletsDirFlag.get(InputDir(config.dataDir / "wallets"))
+
+func eraDir*(config: BeaconNodeConf): string =
+  # The era directory should be shared between networks of the same type..
+  string config.eraDirFlag.get(InputDir(config.dataDir / "era"))
 
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
-  proc fail {.noReturn.} =
+  proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
 
   case config.cmd
@@ -725,7 +1186,7 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     fail()
 
 func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
-  proc fail {.noReturn.} =
+  proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
 
   case config.cmd
@@ -741,9 +1202,162 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   else:
     fail()
 
-func databaseDir*(config: BeaconNodeConf|ValidatorClientConf): string =
-  config.dataDir / "db"
+func databaseDir*(dataDir: OutDir): string =
+  dataDir / "db"
+
+template databaseDir*(config: AnyConf): string =
+  config.dataDir.databaseDir
+
+func runAsService*(config: BeaconNodeConf): bool =
+  config.cmd == noCommand and config.runAsServiceFlag
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
+
+template raiseUnexpectedValue(r: var TomlReader, msg: string) =
+  # TODO: We need to implement `raiseUnexpectedValue` for TOML,
+  # so the correct line and column information can be included
+  # in error messages:
+  raise newException(SerializationError, msg)
+
+proc readValue*(r: var TomlReader, value: var Epoch)
+               {.raises: [Defect, SerializationError, IOError].} =
+  value = Epoch r.parseInt(uint64)
+
+proc readValue*(r: var TomlReader, value: var GraffitiBytes)
+               {.raises: [Defect, SerializationError, IOError].} =
+  try:
+    value = GraffitiBytes.init(r.readValue(string))
+  except ValueError as err:
+    r.raiseUnexpectedValue("A printable string or 0x-prefixed hex-encoded raw bytes expected")
+
+proc readValue*(r: var TomlReader, val: var NatConfig)
+               {.raises: [Defect, IOError, SerializationError].} =
+  val = try: parseCmdArg(NatConfig, r.readValue(string))
+        except CatchableError as err:
+          raise newException(SerializationError, err.msg)
+
+proc readValue*(r: var TomlReader, a: var Eth2Digest)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = fromHex(type(a), r.readValue(string))
+  except ValueError:
+    r.raiseUnexpectedValue("Hex string expected")
+
+proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
+               {.raises: [Defect, IOError, SerializationError].} =
+  let keyAsString = try:
+    reader.readValue(string)
+  except CatchableError:
+    raiseUnexpectedValue(reader, "A hex-encoded string expected")
+
+  let key = ValidatorPubKey.fromHex(keyAsString)
+  if key.isOk:
+    value = key.get
+  else:
+    # TODO: Can we provide better diagnostic?
+    raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
+
+proc readValue*(r: var TomlReader, a: var PubKey0x)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = parseCmdArg(PubKey0x, r.readValue(string))
+  except CatchableError:
+    r.raiseUnexpectedValue("a 0x-prefixed hex-encoded string expected")
+
+proc readValue*(r: var TomlReader, a: var WalletName)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = parseCmdArg(WalletName, r.readValue(string))
+  except CatchableError:
+    r.raiseUnexpectedValue("string expected")
+
+proc readValue*(r: var TomlReader, a: var Address)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = parseCmdArg(Address, r.readValue(string))
+  except CatchableError:
+    r.raiseUnexpectedValue("string expected")
+
+proc loadEth2Network*(
+    eth2Network: Option[string]
+): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+  const defaultName =
+    when const_preset == "gnosis":
+      "gnosis"
+    elif const_preset == "mainnet":
+      "mainnet"
+    else:
+      "(unspecified)"
+  network_name.set(2, labelValues = [eth2Network.get(otherwise = defaultName)])
+
+  if eth2Network.isSome:
+    getMetadataForNetwork(eth2Network.get)
+  else:
+    when const_preset == "gnosis":
+      getMetadataForNetwork("gnosis")
+    elif const_preset == "mainnet":
+      getMetadataForNetwork("mainnet")
+    else:
+      # Presumably other configurations can have other defaults, but for now
+      # this simplifies the flow
+      fatal "Must specify network on non-mainnet node"
+      quit 1
+
+template loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata =
+  loadEth2Network(config.eth2Network)
+
+func defaultFeeRecipient*(conf: AnyConf): Opt[Eth1Address] =
+  if conf.suggestedFeeRecipient.isSome:
+    Opt.some conf.suggestedFeeRecipient.get
+  else:
+    # https://github.com/nim-lang/Nim/issues/19802
+    (static(Opt.none Eth1Address))
+
+proc loadJwtSecret*(
+    rng: var HmacDrbgContext,
+    dataDir: string,
+    jwtSecret: Option[InputFile],
+    allowCreate: bool): Option[seq[byte]] =
+  # Some Web3 endpoints aren't compatible with JWT, but if explicitly chosen,
+  # use it regardless.
+  if jwtSecret.isSome or allowCreate:
+    let secret = rng.checkJwtSecret(dataDir, jwtSecret)
+    if secret.isErr:
+      fatal "Specified a JWT secret file which couldn't be loaded",
+        err = secret.error
+      quit 1
+
+    some secret.get
+  else:
+    none(seq[byte])
+
+proc loadJwtSecret*(
+    rng: var HmacDrbgContext,
+    config: BeaconNodeConf,
+    allowCreate: bool): Option[seq[byte]] =
+  rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)
+
+proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
+  let elUrls = if config.noEl:
+    return newSeq[EngineApiUrl]()
+  elif config.elUrls.len == 0 and config.web3Urls.len == 0:
+    @[defaultEngineApiUrl]
+  else:
+    config.elUrls
+
+  (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)
+
+proc loadKzgTrustedSetup*(): Result[void, string] =
+  const trustedSetup =
+    when const_preset == "mainnet":
+      staticRead"../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt"
+    elif const_preset == "minimal":
+      staticRead"../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup_4.txt"
+    else:
+      ""
+  if const_preset == "mainnet" or const_preset == "minimal":
+    Kzg.loadTrustedSetupFromString(trustedSetup)
+  else:
+    ok()

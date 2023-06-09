@@ -5,6 +5,10 @@ on:
   workflow_dispatch:
   #pull_request:
 
+env:
+  # Build and include deposit_contract nimbus_signing_node nimbus_light_client logtrace in archive
+  BUILD_TOOLS: 1
+
 jobs:
   build-amd64:
     name: Linux AMD64 release asset
@@ -25,21 +29,31 @@ jobs:
           NEW_ARCHIVE_DIR="nimbus-eth2_Linux_amd64_$(date +%Y%m%d)_$(git rev-parse --short=8 HEAD)"
           mv ${ARCHIVE%.tar.gz} ${NEW_ARCHIVE_DIR}
           tar -czf ${NEW_ARCHIVE_DIR}.tar.gz ${NEW_ARCHIVE_DIR}
+          cp ${NEW_ARCHIVE_DIR}.tar.gz nimbus-eth2_Linux_amd64_nightly_latest.tar.gz
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Linux_amd64_archive
-          path: ./dist/${{ steps.make_dist.outputs.archive }}
+          path: |
+            ./dist/${{ steps.make_dist.outputs.archive }}
+            ./dist/nimbus-eth2_Linux_amd64_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload checksum artefact
-        uses: actions/upload-artifact@v2
+      - name: Upload BN checksum artefact
+        uses: actions/upload-artifact@v3
         with:
           name: Linux_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Linux_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-arm64:
@@ -69,21 +83,31 @@ jobs:
           NEW_ARCHIVE_DIR="nimbus-eth2_Linux_arm64v8_$(date +%Y%m%d)_$(git rev-parse --short=8 HEAD)"
           mv ${ARCHIVE%.tar.gz} ${NEW_ARCHIVE_DIR}
           tar -czf ${NEW_ARCHIVE_DIR}.tar.gz ${NEW_ARCHIVE_DIR}
+          cp ${NEW_ARCHIVE_DIR}.tar.gz nimbus-eth2_Linux_arm64v8_nightly_latest.tar.gz
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Linux_arm64_archive
-          path: ./dist/${{ steps.make_dist.outputs.archive }}
+          path: |
+            ./dist/${{ steps.make_dist.outputs.archive }}
+            ./dist/nimbus-eth2_Linux_arm64v8_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload checksum artefact
-        uses: actions/upload-artifact@v2
+      - name: Upload BN checksum artefact
+        uses: actions/upload-artifact@v3
         with:
           name: Linux_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Linux_arm64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-arm:
@@ -113,21 +137,31 @@ jobs:
           NEW_ARCHIVE_DIR="nimbus-eth2_Linux_arm32v7_$(date +%Y%m%d)_$(git rev-parse --short=8 HEAD)"
           mv ${ARCHIVE%.tar.gz} ${NEW_ARCHIVE_DIR}
           tar -czf ${NEW_ARCHIVE_DIR}.tar.gz ${NEW_ARCHIVE_DIR}
+          cp ${NEW_ARCHIVE_DIR}.tar.gz nimbus-eth2_Linux_arm32v7_nightly_latest.tar.gz
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Linux_arm_archive
-          path: ./dist/${{ steps.make_dist.outputs.archive }}
+          path: |
+            ./dist/${{ steps.make_dist.outputs.archive }}
+            ./dist/nimbus-eth2_Linux_arm32v7_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload checksum artefact
-        uses: actions/upload-artifact@v2
+      - name: Upload BN checksum artefact
+        uses: actions/upload-artifact@v3
         with:
           name: Linux_arm_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Linux_arm_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-win64:
@@ -149,21 +183,31 @@ jobs:
           NEW_ARCHIVE_DIR="nimbus-eth2_Windows_amd64_$(date +%Y%m%d)_$(git rev-parse --short=8 HEAD)"
           mv ${ARCHIVE%.tar.gz} ${NEW_ARCHIVE_DIR}
           tar -czf ${NEW_ARCHIVE_DIR}.tar.gz ${NEW_ARCHIVE_DIR}
+          cp ${NEW_ARCHIVE_DIR}.tar.gz nimbus-eth2_Windows_amd64_nightly_latest.tar.gz
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Windows_amd64_archive
-          path: ./dist/${{ steps.make_dist.outputs.archive }}
+          path: |
+            ./dist/${{ steps.make_dist.outputs.archive }}
+            ./dist/nimbus-eth2_Windows_amd64_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload checksum artefact
-        uses: actions/upload-artifact@v2
+      - name: Upload BN checksum artefact
+        uses: actions/upload-artifact@v3
         with:
           name: Windows_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Windows_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-macos-amd64:
@@ -185,21 +229,31 @@ jobs:
           NEW_ARCHIVE_DIR="nimbus-eth2_macOS_amd64_$(date +%Y%m%d)_$(git rev-parse --short=8 HEAD)"
           mv ${ARCHIVE%.tar.gz} ${NEW_ARCHIVE_DIR}
           tar -czf ${NEW_ARCHIVE_DIR}.tar.gz ${NEW_ARCHIVE_DIR}
+          cp ${NEW_ARCHIVE_DIR}.tar.gz nimbus-eth2_macOS_amd64_nightly_latest.tar.gz
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: macOS_amd64_archive
-          path: ./dist/${{ steps.make_dist.outputs.archive }}
+          path: |
+            ./dist/${{ steps.make_dist.outputs.archive }}
+            ./dist/nimbus-eth2_macOS_amd64_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload checksum artefact
-        uses: actions/upload-artifact@v2
+      - name: Upload BN checksum artefact
+        uses: actions/upload-artifact@v3
         with:
           name: macOS_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v3
+        with:
+          name: macOS_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-macos-arm64:
@@ -221,21 +275,31 @@ jobs:
           NEW_ARCHIVE_DIR="nimbus-eth2_macOS_arm64_$(date +%Y%m%d)_$(git rev-parse --short=8 HEAD)"
           mv ${ARCHIVE%.tar.gz} ${NEW_ARCHIVE_DIR}
           tar -czf ${NEW_ARCHIVE_DIR}.tar.gz ${NEW_ARCHIVE_DIR}
+          cp ${NEW_ARCHIVE_DIR}.tar.gz nimbus-eth2_macOS_arm64_nightly_latest.tar.gz
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: macOS_arm64_archive
-          path: ./dist/${{ steps.make_dist.outputs.archive }}
+          path: |
+            ./dist/${{ steps.make_dist.outputs.archive }}
+            ./dist/nimbus-eth2_macOS_arm64_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload checksum artefact
-        uses: actions/upload-artifact@v2
+      - name: Upload BN checksum artefact
+        uses: actions/upload-artifact@v3
         with:
           name: macOS_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v3
+        with:
+          name: macOS_arm64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   prepare-prerelease:
@@ -273,7 +337,7 @@ jobs:
           echo '```' >> release_notes.md
 
       - name: Delete tag
-        uses: dev-drprasad/delete-tag-and-release@v0.2.0
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
         with:
           delete_release: true
           tag_name: nightly

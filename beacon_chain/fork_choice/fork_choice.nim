@@ -1,20 +1,20 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   # Standard library
   std/[sequtils, tables],
   # Status libraries
-  stew/results, chronicles,
+  stew/[objects, results], chronicles,
   # Internal
-  ../spec/[beaconstate, helpers],
-  ../spec/datatypes/[phase0, altair, merge],
+  ../spec/[beaconstate, helpers, state_transition_block],
+  ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ./fork_choice_types, ./proto_array,
   ../consensus_object_pools/[spec_cache, blockchain_dag]
@@ -22,7 +22,7 @@ import
 export results, fork_choice_types
 export proto_array.len
 
-# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -32,6 +32,8 @@ export proto_array.len
 
 # Forward declarations
 # ----------------------------------------------------------------------
+
+type Index = fork_choice_types.Index
 
 func compute_deltas(
        deltas: var openArray[Delta],
@@ -44,45 +46,32 @@ func compute_deltas(
 # Fork choice routines
 # ----------------------------------------------------------------------
 
-logScope:
-  topics = "fork_choice"
+logScope: topics = "fork_choice"
 
-proc init*(T: type ForkChoiceBackend,
-           justified_epoch: Epoch,
-           finalized_root: Eth2Digest,
-           finalized_epoch: Epoch): T =
-  T(
-    proto_array: ProtoArray.init(
-      justified_epoch,
-      finalized_root,
-      finalized_epoch
-    )
-  )
+func init*(
+    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
+  T(proto_array: ProtoArray.init(checkpoints))
 
-proc init*(T: type ForkChoice,
-           epochRef: EpochRef,
-           blck: BlockRef): T =
-  ## Initialize a fork choice context for a genesis state - in the genesis
+proc init*(
+    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
+  ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
   debug "Initializing fork choice",
     epoch = epochRef.epoch, blck = shortLog(blck)
 
-  let
-    justified = BalanceCheckpoint(
-      blck: blck, epoch: epochRef.epoch, balances: epochRef.effective_balances)
-    finalized = Checkpoint(root: blck.root, epoch: epochRef.epoch)
-    best_justified = Checkpoint(
-      root: justified.blck.root, epoch: justified.epoch)
-
+  let checkpoint = Checkpoint(root: blck.root, epoch: epochRef.epoch)
   ForkChoice(
     backend: ForkChoiceBackend.init(
-      epochRef.epoch, blck.root, epochRef.epoch),
+      FinalityCheckpoints(
+        justified: checkpoint,
+        finalized: checkpoint)),
     checkpoints: Checkpoints(
-      justified: justified,
-      finalized: finalized,
-      best_justified: best_justified)
-  )
+      justified: BalanceCheckpoint(
+        checkpoint: checkpoint,
+        balances: epochRef.effective_balances),
+      finalized: checkpoint,
+      best_justified: checkpoint))
 
 func extend[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.
@@ -91,37 +80,89 @@ func extend[T](s: var seq[T], minLen: int) =
   if s.len < minLen:
     s.setLen(minLen)
 
-proc compute_slots_since_epoch_start(slot: Slot): uint64 =
-    slot - slot.epoch().compute_start_slot_at_epoch()
+proc update_justified(
+    self: var Checkpoints, dag: ChainDAGRef, blck: BlockRef, epoch: Epoch) =
+  let
+    epochRef = dag.getEpochRef(blck, epoch, false).valueOr:
+      # Shouldn't happen for justified data unless out of sync with ChainDAG
+      warn "Skipping justified checkpoint update, no EpochRef - report bug",
+        blck, epoch, error
+      return
+    justified = Checkpoint(root: blck.root, epoch: epochRef.epoch)
 
-proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void] =
-  if self.time > time:
-    return err ForkChoiceError(kind: fcInconsistentTick)
+  trace "Updating justified",
+    store = self.justified.checkpoint, state = justified
+  self.justified = BalanceCheckpoint(
+    checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    balances: epochRef.effective_balances)
 
-  let newEpoch = self.time.epoch() != time.epoch()
-  self.time = time
+proc update_justified(
+    self: var Checkpoints, dag: ChainDAGRef,
+    justified: Checkpoint): FcResult[void] =
+  let blck = dag.getBlockRef(justified.root).valueOr:
+    return err ForkChoiceError(
+      kind: fcJustifiedNodeUnknown,
+      blockRoot: justified.root)
 
-  if newEpoch and
-      self.best_justified.epoch > self.justified.epoch:
-    let blck = dag.getRef(self.best_justified.root)
-    if blck.isNil:
-      return err ForkChoiceError(
-        kind: fcJustifiedNodeUnknown,
-        blockRoot: self.best_justified.root)
-
-    let epochRef = dag.getEpochRef(blck, self.best_justified.epoch)
-    self.justified = BalanceCheckpoint(
-      blck: blck,
-      epoch: epochRef.epoch,
-      balances: epochRef.effective_balances)
+  self.update_justified(dag, blck, justified.epoch)
   ok()
 
-proc process_attestation_queue(self: var ForkChoice) {.gcsafe.}
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#update_checkpoints
+proc update_checkpoints(
+    self: var Checkpoints, dag: ChainDAGRef,
+    checkpoints: FinalityCheckpoints): FcResult[void] =
+  ## Update checkpoints in store if necessary
+  # Update justified checkpoint
+  if checkpoints.justified.epoch > self.justified.checkpoint.epoch:
+    ? self.update_justified(dag, checkpoints.justified)
 
-proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: Slot): FcResult[void] =
+  # Update finalized checkpoint
+  if checkpoints.finalized.epoch > self.finalized.epoch:
+    trace "Updating finalized",
+      store = self.finalized, state = checkpoints.finalized
+    self.finalized = checkpoints.finalized
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_tick_per_slot
+proc on_tick(
+    self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
+  ## Must be called at least once per slot.
+  let previous_time = self.checkpoints.time
+
+  # Update store time
+  if time < previous_time:
+    return err ForkChoiceError(kind: fcInconsistentTick)
+  self.checkpoints.time = time
+
+  let
+    current_slot = time.slotOrZero
+    previous_slot = previous_time.slotOrZero
+
+  # If this is a new slot, reset store.proposer_boost_root
+  if current_slot > previous_slot:
+    self.checkpoints.proposer_boost_root = ZERO_HASH
+
+  # If a new epoch, pull-up justification and finalization from previous epoch
+  if current_slot > previous_slot and current_slot.is_epoch:
+    for realized in self.backend.proto_array.realizePendingCheckpoints():
+      ? self.checkpoints.update_checkpoints(dag, realized)
+
+  ok()
+
+func process_attestation_queue(self: var ForkChoice) {.gcsafe.}
+
+proc update_time*(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
+    FcResult[void] =
+  const step_size = seconds(SECONDS_PER_SLOT.int)
   if time > self.checkpoints.time:
-    while time > self.checkpoints.time:
-      ? on_tick(self.checkpoints, dag, self.checkpoints.time + 1)
+    # Call on_tick at least once per slot.
+    while time >= self.checkpoints.time + step_size:
+      ? self.on_tick(dag, self.checkpoints.time + step_size)
+
+    if time > self.checkpoints.time:
+      # Might create two ticks for the last slot.
+      ? self.on_tick(dag, time)
 
     self.process_attestation_queue() # Only run if time changed!
 
@@ -133,28 +174,24 @@ func process_attestation*(
        block_root: Eth2Digest,
        target_epoch: Epoch
      ) =
-  if block_root == Eth2Digest():
+  if block_root.isZero:
     return
 
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
   template vote: untyped = self.votes[validator_index]
-    # alias
-
-  if target_epoch > vote.next_epoch or vote == default(VoteTracker):
-    # TODO: the "default" condition is probably unneeded
+  if target_epoch > vote.next_epoch or vote.isZeroMemory:
     vote.next_root = block_root
     vote.next_epoch = target_epoch
 
-    {.noSideEffect.}:
-      trace "Integrating vote in fork choice",
-        validator_index = validator_index,
-        new_vote = shortLog(vote)
+    trace "Integrating vote in fork choice",
+      validator_index = validator_index,
+      new_vote = shortLog(vote)
 
-proc process_attestation_queue(self: var ForkChoice) =
+func process_attestation_queue(self: var ForkChoice) =
   self.queuedAttestations.keepItIf:
-    if it.slot < self.checkpoints.time:
+    if it.slot < self.checkpoints.time.slotOrZero:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
           validator_index, it.block_root, it.slot.epoch())
@@ -169,21 +206,21 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#on_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_attestation
 proc on_attestation*(
        self: var ForkChoice,
        dag: ChainDAGRef,
        attestation_slot: Slot,
        beacon_block_root: Eth2Digest,
        attesting_indices: openArray[ValidatorIndex],
-       wallSlot: Slot
+       wallTime: BeaconTime
      ): FcResult[void] =
-  ? self.update_time(dag, wallSlot)
+  ? self.update_time(dag, wallTime)
 
-  if beacon_block_root == Eth2Digest():
+  if beacon_block_root.isZero:
     return ok()
 
-  if attestation_slot < self.checkpoints.time:
+  if attestation_slot < self.checkpoints.time.slotOrZero:
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
@@ -198,143 +235,92 @@ proc on_attestation*(
       block_root: beacon_block_root))
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#should_update_justified_checkpoint
-proc should_update_justified_checkpoint(
-        self: var Checkpoints,
-        dag: ChainDAGRef,
-        epochRef: EpochRef): FcResult[bool] =
-  if compute_slots_since_epoch_start(self.time) < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
-    return ok(true)
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_attester_slashing
+func process_equivocation*(
+       self: var ForkChoice,
+       validator_index: ValidatorIndex
+     ) =
+  self.backend.votes.extend(validator_index.int + 1)
 
-  let
-    justified_slot = compute_start_slot_at_epoch(self.justified.epoch)
-    new_justified_checkpoint = epochRef.current_justified_checkpoint
-    justified_blck = dag.getRef(new_justified_checkpoint.root)
+  # Disallow future votes
+  template vote: untyped = self.backend.votes[validator_index]
+  if vote.next_epoch != FAR_FUTURE_EPOCH or not vote.next_root.isZero:
+    vote.next_epoch = FAR_FUTURE_EPOCH
+    vote.next_root.reset()
 
-  if justified_blck.isNil:
-    return err ForkChoiceError(
-      kind: fcJustifiedNodeUnknown,
-      blockRoot: new_justified_checkpoint.root)
+    trace "Integrating equivocation in fork choice",
+      validator_index
 
-  let justified_ancestor = justified_blck.atSlot(justified_slot)
-
-  if justified_ancestor.blck.root != self.justified.blck.root:
-    return ok(false)
-
-  ok(true)
-
-proc process_state(self: var Checkpoints,
-                   dag: ChainDAGRef,
-                   epochRef: EpochRef,
-                   blck: BlockRef): FcResult[void] =
-  let
-    state_justified_epoch = epochRef.current_justified_checkpoint.epoch
-    state_finalized_epoch = epochRef.finalized_checkpoint.epoch
-
-  trace "Processing epoch",
-    epoch = epochRef.epoch,
-    state_justified_epoch = state_justified_epoch,
-    current_justified = self.justified.epoch,
-    state_finalized_epoch = state_finalized_epoch,
-    current_finalized = self.finalized.epoch
-
-  if state_justified_epoch > self.justified.epoch:
-    if state_justified_epoch > self.best_justified.epoch:
-      self.best_justified = epochRef.current_justified_checkpoint
-
-    if ? should_update_justified_checkpoint(self, dag, epochRef):
-      let
-        justifiedBlck = blck.atEpochStart(state_justified_epoch)
-        justifiedEpoch = dag.getEpochRef(justifiedBlck.blck, state_justified_epoch)
-
-      self.justified =
-        BalanceCheckpoint(
-          blck: justifiedBlck.blck,
-          epoch: justifiedEpoch.epoch,
-          balances: justifiedEpoch.effective_balances)
-
-  if state_finalized_epoch > self.finalized.epoch:
-    self.finalized = epochRef.finalized_checkpoint
-
-    if self.justified.epoch != state_justified_epoch or
-      self.justified.blck.root != epochRef.current_justified_checkpoint.root:
-
-      if (state_justified_epoch > self.justified.epoch) or
-          (self.justified.blck.atEpochStart(self.finalized.epoch).blck.root !=
-            self.finalized.root):
-
-        let
-          justifiedBlck = blck.atEpochStart(state_justified_epoch)
-          justifiedEpoch = dag.getEpochRef(justifiedBlck.blck, state_justified_epoch)
-
-        self.justified =
-          BalanceCheckpoint(
-            blck: justifiedBlck.blck,
-            epoch: justifiedEpoch.epoch,
-            balances: justifiedEpoch.effective_balances)
-  ok()
-
-proc process_block*(self: var ForkChoiceBackend,
-                    block_root: Eth2Digest,
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_block
+func process_block*(self: var ForkChoiceBackend,
+                    bid: BlockId,
                     parent_root: Eth2Digest,
-                    justified_epoch: Epoch,
-                    finalized_epoch: Epoch): FcResult[void] =
-  self.proto_array.onBlock(
-    block_root, parent_root, justified_epoch, finalized_epoch)
+                    checkpoints: FinalityCheckpoints,
+                    unrealized = none(FinalityCheckpoints)): FcResult[void] =
+  self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# it expresses as much of:
-# blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock
-# or
-# blck: SomeSomeBeaconBlock
-# as comes up. Other types can be added as needed.
-type ReallyAnyBeaconBlock =
-  phase0.BeaconBlock | altair.BeaconBlock | merge.BeaconBlock |
-  phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock |
-  merge.TrustedBeaconBlock
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: ReallyAnyBeaconBlock,
-                    wallSlot: Slot): FcResult[void] =
-  ? update_time(self, dag, wallSlot)
-  ? process_state(self.checkpoints, dag, epochRef, blckRef)
+                    unrealized: FinalityCheckpoints,
+                    blck: ForkyTrustedBeaconBlock,
+                    wallTime: BeaconTime): FcResult[void] =
+  ? update_time(self, dag, wallTime)
 
-  let committees_per_slot = get_committee_count_per_slot(epochRef)
+  for attester_slashing in blck.body.attester_slashings:
+    for idx in getValidatorIndices(attester_slashing):
+      let i = ValidatorIndex.init(idx).valueOr:
+        continue
+      self.process_equivocation(i)
 
   for attestation in blck.body.attestations:
-    let targetBlck = dag.getRef(attestation.data.target.root)
-    if targetBlck.isNil:
-      continue
-    if attestation.data.beacon_block_root in self.backend and
-        # TODO not-actually-correct hotfix for crash
-        # https://github.com/status-im/nimbus-eth2/issues/1879
-        attestation.data.index < committees_per_slot:
-      for validator in get_attesting_indices(
-          epochRef, attestation.data, attestation.aggregation_bits):
+    if attestation.data.beacon_block_root in self.backend:
+      for validator_index in dag.get_attesting_indices(attestation):
         self.backend.process_attestation(
-          validator,
+          validator_index,
           attestation.data.beacon_block_root,
           attestation.data.target.epoch)
-
-  ? process_block(
-      self.backend, blckRef.root, blck.parent_root,
-      epochRef.current_justified_checkpoint.epoch,
-      epochRef.finalized_checkpoint.epoch
-    )
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
 
+  # Add proposer score boost if the block is timely
+  let slot = self.checkpoints.time.slotOrZero
+  if slot == blck.slot and self.checkpoints.time < slot.attestation_deadline:
+    self.checkpoints.proposer_boost_root = blckRef.root
+
+  # Update checkpoints in store if necessary
+  ? update_checkpoints(self.checkpoints, dag, epochRef.checkpoints)
+
+  # If block is from a prior epoch, pull up the post-state to next epoch to
+  # realize new finality info
+  let unrealized_is_better =
+    unrealized.justified.epoch > epochRef.checkpoints.justified.epoch or
+    unrealized.finalized.epoch > epochRef.checkpoints.finalized.epoch
+  if unrealized_is_better:
+    if epochRef.epoch < slot.epoch:
+      trace "Pulling up chain tip",
+        blck = shortLog(blckRef), checkpoints = epochRef.checkpoints, unrealized
+      ? update_checkpoints(self.checkpoints, dag, unrealized)
+      ? process_block(
+        self.backend, blckRef.bid, blck.parent_root, unrealized)
+    else:
+      ? process_block(
+        self.backend, blckRef.bid, blck.parent_root,
+        epochRef.checkpoints, some unrealized)  # Realized in `on_tick`
+  else:
+    ? process_block(
+      self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
+
   ok()
 
-proc find_head*(
+func find_head*(
        self: var ForkChoiceBackend,
-       justified_epoch: Epoch,
-       justified_root: Eth2Digest,
-       finalized_epoch: Epoch,
-       justified_state_balances: seq[Gwei]
+       current_epoch: Epoch,
+       checkpoints: FinalityCheckpoints,
+       justified_state_balances: seq[Gwei],
+       proposer_boost_root: Eth2Digest
      ): FcResult[Eth2Digest] =
   ## Returns the new blockchain head
 
@@ -346,50 +332,66 @@ proc find_head*(
     indices_offset = self.proto_array.nodes.offset,
     votes = self.votes,
     old_balances = self.balances,
-    new_balances = justified_state_balances
-  )
+    new_balances = justified_state_balances)
 
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
-    deltas, justified_epoch, finalized_epoch
-  )
+    deltas, current_epoch, checkpoints,
+    justified_state_balances, proposer_boost_root)
 
   self.balances = justified_state_balances
 
   # Find the best block
-  var new_head{.noInit.}: Eth2Digest
-  ? self.proto_array.findHead(new_head, justified_root)
+  var new_head{.noinit.}: Eth2Digest
+  ? self.proto_array.findHead(new_head, checkpoints.justified.root)
 
-  {.noSideEffect.}:
-    trace "Fork choice requested",
-      justified_epoch = justified_epoch,
-      justified_root = shortLog(justified_root),
-      finalized_epoch = finalized_epoch,
-      fork_choice_head = shortLog(new_head)
+  trace "Fork choice requested",
+    checkpoints, fork_choice_head = shortLog(new_head)
 
   return ok(new_head)
 
-# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_head
 proc get_head*(self: var ForkChoice,
                dag: ChainDAGRef,
-               wallSlot: Slot): FcResult[Eth2Digest] =
-  ? self.update_time(dag, wallSlot)
+               wallTime: BeaconTime): FcResult[Eth2Digest] =
+  ? self.update_time(dag, wallTime)
 
   self.backend.find_head(
-    self.checkpoints.justified.epoch,
-    self.checkpoints.justified.blck.root,
-    self.checkpoints.finalized.epoch,
+    self.checkpoints.time.slotOrZero.epoch,
+    FinalityCheckpoints(
+      justified: self.checkpoints.justified.checkpoint,
+      finalized: self.checkpoints.finalized),
     self.checkpoints.justified.balances,
-  )
+    self.checkpoints.proposer_boost_root)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/fork_choice/safe-block.md#get_safe_beacon_block_root
+func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
+  # Use most recent justified block as a stopgap
+  self.checkpoints.justified.checkpoint.root
 
 func prune*(
-       self: var ForkChoiceBackend, finalized_root: Eth2Digest
+       self: var ForkChoiceBackend, checkpoints: FinalityCheckpoints
      ): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
-  self.proto_array.prune(finalized_root)
+  self.proto_array.prune(checkpoints)
 
 func prune*(self: var ForkChoice): FcResult[void] =
-  self.backend.prune(self.checkpoints.finalized.root)
+  self.backend.prune(
+    FinalityCheckpoints(
+      justified: self.checkpoints.justified.checkpoint,
+      finalized: self.checkpoints.finalized))
+
+func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
+  try:
+    let nodePhysicalIdx =
+      self.backend.proto_array.indices[root] -
+        self.backend.proto_array.nodes.offset
+    if nodePhysicalIdx < self.backend.proto_array.nodes.buf.len:
+      self.backend.proto_array.nodes.buf[nodePhysicalIdx].invalid = true
+    self.backend.proto_array.propagateInvalidity(nodePhysicalIdx)
+  # Best-effort; attempts to mark unknown roots invalid harmlessly ignored
+  except KeyError:
+    discard
 
 func compute_deltas(
        deltas: var openArray[Delta],
@@ -403,7 +405,7 @@ func compute_deltas(
   ##   between old and new balances
   ##   between votes
   ##
-  ## `deltas.len` must match `indices.len` (lenght match)
+  ## `deltas.len` must match `indices.len` (length match)
   ##
   ## Error:
   ## - If a value in indices is greater than `indices.len`
@@ -413,7 +415,7 @@ func compute_deltas(
   for val_index, vote in votes.mpairs():
     # No need to create a score change if the validator has never voted
     # or if votes are for the zero hash (alias to the genesis block)
-    if vote.current_root == default(Eth2Digest) and vote.next_root == default(Eth2Digest):
+    if vote.current_root.isZero and vote.next_root.isZero:
       continue
 
     # If the validator was not included in `old_balances` (i.e. did not exist)
@@ -444,15 +446,16 @@ func compute_deltas(
           # Note that delta can be negative
           # TODO: is int64 big enough?
 
-      if vote.next_root in indices:
-        let index = indices.unsafeGet(vote.next_root) - indices_offset
-        if index >= deltas.len:
-          return err ForkChoiceError(
-            kind: fcInvalidNodeDelta,
-            index: index)
-        deltas[index] += Delta new_balance
-          # Note that delta can be negative
-          # TODO: is int64 big enough?
+      if vote.next_epoch != FAR_FUTURE_EPOCH or not vote.next_root.isZero:
+        if vote.next_root in indices:
+          let index = indices.unsafeGet(vote.next_root) - indices_offset
+          if index >= deltas.len:
+            return err ForkChoiceError(
+              kind: fcInvalidNodeDelta,
+              index: index)
+          deltas[index] += Delta new_balance
+            # Note that delta can be negative
+            # TODO: is int64 big enough?
 
       vote.current_root = vote.next_root
   return ok()
@@ -530,7 +533,7 @@ when isMainModule:
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    for i, delta in deltas.pairs:
+    for i, delta in deltas:
       if i == 0:
         doAssert delta == Delta(Balance * validator_count), "The 0th root should have a delta"
       else:
@@ -569,7 +572,7 @@ when isMainModule:
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    for i, delta in deltas.pairs:
+    for i, delta in deltas:
       doAssert delta == Delta(Balance), "Each root should have a delta"
 
     for vote in votes:
@@ -607,7 +610,7 @@ when isMainModule:
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    for i, delta in deltas.pairs:
+    for i, delta in deltas:
       if i == 0:
         doAssert delta == -TotalDeltas, "0th root should have a negative delta"
       elif i == 1:
@@ -694,7 +697,7 @@ when isMainModule:
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
-    for i, delta in deltas.pairs:
+    for i, delta in deltas:
       if i == 0:
         doAssert delta == -TotalOldDeltas, "0th root should have a negative delta"
       elif i == 1:

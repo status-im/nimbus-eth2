@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,12 +13,12 @@ import
   math,
 
   # Specs
-  ../../beacon_chain/spec/[eth2_merkleization, keystore, signatures],
+  ../../beacon_chain/spec/[eth2_merkleization, keystore, forks, signatures],
   ../../beacon_chain/spec/datatypes/base,
 
   # Internals
   ../../beacon_chain/extras,
-  ../../beacon_chain/eth1/merkle_minimal,
+  ../../beacon_chain/el/merkle_minimal,
 
   # Test utilities
   ../testblockutil
@@ -66,7 +66,7 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] = 
+      result[valIdx] =
         mockDepositData(MockPubKeys[valIdx.ValidatorIndex], amount)
   else: # With signing
     var depositsDataHash: seq[Eth2Digest]
@@ -80,10 +80,10 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] = 
+      result[valIdx] =
         mockDepositData(
-          MockPubKeys[valIdx.ValidatorIndex], 
-          MockPrivKeys[valIdx.ValidatorIndex], 
+          MockPubKeys[valIdx.ValidatorIndex],
+          MockPrivKeys[valIdx.ValidatorIndex],
           amount, flags)
 
       depositsData.add result[valIdx]
@@ -106,8 +106,8 @@ proc mockGenesisBalancedDeposits*(
   mockGenesisDepositsImpl(result, validatorCount,amount,flags):
     discard
 
-proc mockUpdateStateForNewDeposit*[T](
-       state: var T,
+proc mockUpdateStateForNewDeposit*(
+       state: var ForkyBeaconState,
        validator_index: uint64,
        amount: uint64,
        # withdrawal_credentials: Eth2Digest
@@ -126,12 +126,11 @@ proc mockUpdateStateForNewDeposit*[T](
   )
 
   var result_seq = @[result]
-  attachMerkleProofs(result_seq)
+  let deposit_root = attachMerkleProofs(result_seq)
   result.proof = result_seq[0].proof
 
   # TODO: this logic from the consensus-specs test suite seems strange
   #       but confirmed by running it
   state.eth1_deposit_index = 0
-  state.eth1_data.deposit_root =
-     hash_tree_root(List[DepositData, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH](@[result.data]))
+  state.eth1_data.deposit_root = deposit_root
   state.eth1_data.deposit_count = 1

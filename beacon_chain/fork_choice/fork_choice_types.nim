@@ -1,24 +1,23 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   # Standard library
-  std/[options, tables],
+  std/tables,
   # Status
   stew/results,
-
   chronicles,
   # Internal
   ../spec/datatypes/base,
-  ../consensus_object_pools/block_pools_types
+  ../spec/helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v0.11.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -40,11 +39,13 @@ type
     fcInvalidParentDelta
     fcInvalidNodeDelta
     fcDeltaUnderflow
+    fcDeltaOverflow
     fcInvalidDeltaLen
     fcInvalidBestNode
     fcInconsistentTick
     fcUnknownParent
     fcPruningFromOutdatedFinalizedRoot
+    fcInvalidEpochRef
 
   Index* = int
   Delta* = int64
@@ -55,25 +56,24 @@ type
     of fcFinalizedNodeUnknown,
        fcJustifiedNodeUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick:
+    of fcInconsistentTick, fcInvalidEpochRef:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,
        fcInvalidBestDescendant,
        fcInvalidParentDelta,
        fcInvalidNodeDelta,
-       fcDeltaUnderflow:
+       fcDeltaUnderflow,
+       fcDeltaOverflow:
          index*: Index
     of fcInvalidDeltaLen:
       deltasLen*: int
       indicesLen*: int
     of fcInvalidBestNode:
       startRoot*: Eth2Digest
-      justifiedEpoch*: Epoch
-      finalizedEpoch*: Epoch
+      fkChoiceCheckpoints*: FinalityCheckpoints
       headRoot*: Eth2Digest
-      headJustifiedEpoch*: Epoch
-      headFinalizedEpoch*: Epoch
+      headCheckpoints*: FinalityCheckpoints
     of fcUnknownParent:
       childRoot*: Eth2Digest
       parentRoot*: Eth2Digest
@@ -85,34 +85,36 @@ type
   ProtoNodes* = object
     buf*: seq[ProtoNode]
     offset*: int ##\
-    ## Substracted from logical Index
-    ## to get the physical index
+    ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
-    justifiedEpoch*: Epoch
-    finalizedEpoch*: Epoch
-    nodes*: Protonodes
+    currentEpoch*: Epoch
+    checkpoints*: FinalityCheckpoints
+    nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
+    currentEpochTips*: Table[Index, FinalityCheckpoints]
+    previousProposerBoostRoot*: Eth2Digest
+    previousProposerBoostScore*: uint64
 
   ProtoNode* = object
-    root*: Eth2Digest
+    bid*: BlockId
     parent*: Option[Index]
-    justifiedEpoch*: Epoch
-    finalizedEpoch*: Epoch
+    checkpoints*: FinalityCheckpoints
     weight*: int64
+    invalid*: bool
     bestChild*: Option[Index]
     bestDescendant*: Option[Index]
 
   BalanceCheckpoint* = object
-    blck*: BlockRef
-    epoch*: Epoch
+    checkpoint*: Checkpoint
     balances*: seq[Gwei]
 
   Checkpoints* = object
-    time*: Slot
+    time*: BeaconTime
     justified*: BalanceCheckpoint
     finalized*: Checkpoint
     best_justified*: Checkpoint
+    proposer_boost_root*: Eth2Digest
 
 # Fork choice high-level types
 # ----------------------------------------------------------------------
@@ -137,13 +139,12 @@ type
   ForkChoice* = object
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
-    finalizedBlock*: BlockRef ## Any finalized block used at startup
     queuedAttestations*: seq[QueuedAttestation]
 
-func shortlog*(vote: VoteTracker): auto =
+func shortLog*(vote: VoteTracker): auto =
   (
-    current_root: vote.current_root,
-    next_root: vote.next_root,
+    current_root: shortLog(vote.current_root),
+    next_root: shortLog(vote.next_root),
     next_epoch: vote.next_epoch
   )
 

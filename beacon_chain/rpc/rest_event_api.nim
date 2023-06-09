@@ -1,8 +1,11 @@
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# beacon_chain
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
 
 import
   stew/results,
@@ -14,104 +17,91 @@ export rest_utils
 
 logScope: topics = "rest_eventapi"
 
-proc validateEventTopics(events: seq[EventTopic]): Result[EventTopics,
-                                                          cstring] =
+proc validateEventTopics(events: seq[EventTopic],
+                         withLightClient: bool): Result[EventTopics, cstring] =
   const NonUniqueError = cstring("Event topics must be unique")
+  const UnsupportedError = cstring("Unsupported event topic value")
   var res: set[EventTopic]
   for item in events:
-    case item
-    of EventTopic.Head:
-      if EventTopic.Head in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.Head)
-    of EventTopic.Block:
-      if EventTopic.Block in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.Block)
-    of EventTopic.Attestation:
-      if EventTopic.Attestation in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.Attestation)
-    of EventTopic.VoluntaryExit:
-      if EventTopic.VoluntaryExit in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.VoluntaryExit)
-    of EventTopic.FinalizedCheckpoint:
-      if EventTopic.FinalizedCheckpoint in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.FinalizedCheckpoint)
-    of EventTopic.ChainReorg:
-      if EventTopic.ChainReorg in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.ChainReorg)
-    of EventTopic.ContributionAndProof:
-      if EventTopic.ContributionAndProof in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.ContributionAndProof)
+    if item in res:
+      return err(NonUniqueError)
+    if not withLightClient and item in [
+        EventTopic.LightClientFinalityUpdate,
+        EventTopic.LightClientOptimisticUpdate]:
+      return err(UnsupportedError)
+    res.incl(item)
+
   if res == {}:
     err("Empty topics list")
   else:
     ok(res)
 
-proc eventHandler*(response: HttpResponseRef, node: BeaconNode,
-                   T: typedesc, event: string,
-                   serverEvent: string) {.async.} =
-  var fut = node.eventBus.waitEvent(T, event)
+proc eventHandler*[T](response: HttpResponseRef,
+                      eventQueue: AsyncEventQueue[T],
+                      serverEvent: string) {.async.} =
+  var empty: seq[T]
+  let key = eventQueue.register()
+
   while true:
-    let jsonRes =
+    var exitLoop = false
+
+    let events =
       try:
-        let res = await fut
-        when T is ForkedTrustedSignedBeaconBlock:
-          let blockInfo = RestBlockInfo.init(res)
-          some(RestApiResponse.prepareJsonStringResponse(blockInfo))
+        let res = await eventQueue.waitEvents(key)
+        res
+      except CancelledError:
+        empty
+
+    for event in events:
+      let jsonRes =  RestApiResponse.prepareJsonStringResponse(event)
+
+      exitLoop =
+        if response.state != HttpResponseState.Sending:
+          true
         else:
-          some(RestApiResponse.prepareJsonStringResponse(res))
-      except CancelledError:
-        none[string]()
-    if jsonRes.isNone() or (response.state != HttpResponseState.Sending):
-      # Cancellation happened or connection with remote peer has been lost.
+          try:
+            await response.sendEvent(serverEvent, jsonRes)
+            false
+          except CancelledError:
+            true
+          except HttpError as exc:
+            debug "Unable to deliver event to remote peer",
+                  error_name = $exc.name, error_msg = $exc.msg
+            true
+          except CatchableError as exc:
+            debug "Unexpected error encountered, while trying to deliver event",
+                  error_name = $exc.name, error_msg = $exc.msg
+            true
+
+      if exitLoop:
+        break
+
+    if exitLoop or len(events) == 0:
       break
-    # Initiating new event waiting to avoid race conditions and event misses.
-    fut = node.eventBus.waitEvent(T, event)
-    # Sending event and payload over wire.
-    let exitLoop =
-      try:
-        await response.sendEvent(serverEvent, jsonRes.get())
-        false
-      except CancelledError:
-        true
-      except HttpError as exc:
-        debug "Unable to deliver event to remote peer", error_name = $exc.name,
-              error_msg = $exc.msg
-        true
-      except CatchableError as exc:
-        debug "Unexpected error encountered", error_name = $exc.name,
-              error_msg = $exc.msg
-        true
-    if exitLoop:
-      if not(fut.finished()):
-        await fut.cancelAndWait()
-      break
+
+  eventQueue.unregister(key)
 
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
-  router.api(MethodGet, "/api/eth/v1/events") do (
+  router.api(MethodGet, "/eth/v1/events") do (
     topics: seq[EventTopic]) -> RestApiResponse:
     let eventTopics =
       block:
         if topics.isErr():
           return RestApiResponse.jsonError(Http400, "Invalid topics value",
                                            $topics.error())
-        let res = validateEventTopics(topics.get())
+        let res = validateEventTopics(topics.get(),
+                                      node.dag.lcDataStore.serve)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, "Invalid topics value",
                                            $res.error())
         res.get()
 
-    let res = preferredContentType("text/event-stream")
+    let res = preferredContentType(textEventStreamMediaType)
+
     if res.isErr():
       return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-    if res.get() != "text/event-stream":
+    if res.get() != textEventStreamMediaType:
       return RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     var response = request.getResponse()
@@ -127,37 +117,42 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[Future[void]]
         if EventTopic.Head in eventTopics:
-          let handler = response.eventHandler(node, HeadChangeInfoObject,
-                                              "head-change", "head")
+          let handler = response.eventHandler(node.eventBus.headQueue,
+                                              "head")
           res.add(handler)
         if EventTopic.Block in eventTopics:
-          let handler = response.eventHandler(node,
-                                              ForkedTrustedSignedBeaconBlock,
-                                              "signed-beacon-block", "block")
+          let handler = response.eventHandler(node.eventBus.blocksQueue,
+                                              "block")
           res.add(handler)
         if EventTopic.Attestation in eventTopics:
-          let handler = response.eventHandler(node, Attestation,
-                                              "attestation-received",
+          let handler = response.eventHandler(node.eventBus.attestQueue,
                                               "attestation")
           res.add(handler)
         if EventTopic.VoluntaryExit in eventTopics:
-          let handler = response.eventHandler(node, SignedVoluntaryExit,
-                                              "voluntary-exit",
+          let handler = response.eventHandler(node.eventBus.exitQueue,
                                               "voluntary_exit")
           res.add(handler)
         if EventTopic.FinalizedCheckpoint in eventTopics:
-          let handler = response.eventHandler(node, FinalizationInfoObject,
-                                              "finalization",
+          let handler = response.eventHandler(node.eventBus.finalQueue,
                                               "finalized_checkpoint")
           res.add(handler)
         if EventTopic.ChainReorg in eventTopics:
-          let handler = response.eventHandler(node, ReorgInfoObject,
-                                              "chain-reorg", "chain_reorg")
+          let handler = response.eventHandler(node.eventBus.reorgQueue,
+                                              "chain_reorg")
           res.add(handler)
         if EventTopic.ContributionAndProof in eventTopics:
-          let handler = response.eventHandler(node, SignedContributionAndProof,
-                                              "sync-contribution-and-proof",
+          let handler = response.eventHandler(node.eventBus.contribQueue,
                                               "contribution_and_proof")
+          res.add(handler)
+        if EventTopic.LightClientFinalityUpdate in eventTopics:
+          doAssert node.dag.lcDataStore.serve
+          let handler = response.eventHandler(node.eventBus.finUpdateQueue,
+                                              "light_client_finality_update")
+          res.add(handler)
+        if EventTopic.LightClientOptimisticUpdate in eventTopics:
+          doAssert node.dag.lcDataStore.serve
+          let handler = response.eventHandler(node.eventBus.optUpdateQueue,
+                                              "light_client_optimistic_update")
           res.add(handler)
         res
 
@@ -174,9 +169,3 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     await allFutures(pending)
     return
-
-  router.redirect(
-    MethodGet,
-    "/eth/v1/events",
-    "/api/eth/v1/events"
-  )

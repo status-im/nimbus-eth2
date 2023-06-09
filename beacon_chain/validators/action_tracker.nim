@@ -1,26 +1,32 @@
-import
-  std/[sequtils, sets, tables],
-  chronicles,
-  bearssl,
-  eth/p2p/discoveryv5/random2,
-  ../spec/datatypes/base,
-  ../spec/[helpers, network],
-  ../consensus_object_pools/[block_pools_types, spec_cache]
+# beacon_chain
+# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-export base, helpers, network, sets, tables
+import
+  std/[sequtils, tables],
+  stew/shims/[sets, hashes], chronicles,
+  eth/p2p/discoveryv5/random2,
+  ../spec/forks,
+  ../consensus_object_pools/spec_cache
+
+export forks, tables, sets
+
+{.push raises: [].}
 
 const
-  SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS* = 4 ##\
+  SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS* = 4
     ## The number of slots before we're up for aggregation duty that we'll
     ## actually subscribe to the subnet we're aggregating for - this gives
     ## the node time to find a mesh etc - can likely be further trimmed
-  KNOWN_VALIDATOR_DECAY = 3 * 32 * SLOTS_PER_EPOCH ##\
+  KNOWN_VALIDATOR_DECAY* = 3 * SLOTS_PER_EPOCH
     ## The number of slots before we "forget" about validators that have
     ## registered for duties - once we've forgotten about a validator, we'll
-    ## eventually decrease the number of stability subnets we're subscribed to -
-    ## 3 epochs because we perform attestations once every epoch, +1 to deal
-    ## with rounding + 1 to deal with the network growing beyond 260k validators
-    ## and us not validating every epoch any more.
+    ## eventually decrease the number of stability subnets we're subscribed to.
+    ## Active validators are expected to register for duty every epoch - we use
+    ## 3 epochs here to counter rounding errors and communication delays.
     ## When known validators decrease, we will keep the stability subnet around
     ## until it "naturally" expires.
 
@@ -30,39 +36,49 @@ type
     slot*: Slot
 
   ActionTracker* = object
-    rng: ref BrHmacDrbgContext
+    rng: ref HmacDrbgContext
 
-    subscribeAllSubnets*: bool
+    subscribeAllAttnets: bool
 
-    currentSlot*: Slot ##\
+    currentSlot: Slot
       ## Duties that we accept are limited to a range around the current slot
 
-    subscribedSubnets*: AttnetBits ##\
+    subscribedSubnets*: AttnetBits
       ## All subnets we're currently subscribed to
 
-    stabilitySubnets: seq[tuple[subnet_id: SubnetId, expiration: Epoch]] ##\
+    stabilitySubnets: seq[tuple[subnet_id: SubnetId, expiration: Epoch]]
       ## The subnets on which we listen and broadcast gossip traffic to maintain
       ## the health of the network - these are advertised in the ENR
-    nextCycleEpoch*: Epoch
+    nextCycleEpoch: Epoch
 
     # Used to track the next attestation and proposal slots using an
     # epoch-relative coordinate system. Doesn't need initialization.
-    attestingSlots*: array[2, uint32]
-    proposingSlots*: array[2, uint32]
+    attestingSlots: array[2, uint32]
+    proposingSlots: array[2, uint32]
     lastCalculatedEpoch*: Epoch
 
-    knownValidators*: Table[ValidatorIndex, Slot] ##\
+    attesterDepRoot*: Eth2Digest
+      ## The latest dependent root we used to compute attestation duties
+      ## for internal validators
+
+    knownValidators*: Table[ValidatorIndex, Slot]
       ## Validators that we've recently seen - we'll subscribe to one stability
       ## subnet for each such validator - the slot is used to expire validators
       ## that no longer are posting duties
 
-    duties*: seq[AggregatorDuty] ##\
+    duties: HashSet[AggregatorDuty]
       ## Known aggregation duties in the near future - before each such
       ## duty, we'll subscribe to the corresponding subnet to collect
       ## attestations for the aggregate
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-func randomStabilitySubnet*(
+    lastSyncUpdate*: Opt[SyncCommitteePeriod]
+    syncDuties*: Table[ValidatorPubKey, Epoch]
+
+func hash*(x: AggregatorDuty): Hash =
+  hashAllFields(x)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+func randomStabilitySubnet(
     self: ActionTracker, epoch: Epoch): tuple[subnet_id: SubnetId, expiration: Epoch] =
   (
     self.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId,
@@ -84,12 +100,31 @@ proc registerDuty*(
   if isAggregator:
     let newDuty = AggregatorDuty(slot: slot, subnet_id: subnet_id)
 
-    for duty in tracker.duties.mitems():
-      if duty == newDuty:
-        return
+    if newDuty in tracker.duties:
+      return
 
     debug "Registering aggregation duty", slot, subnet_id, vidx
-    tracker.duties.add(newDuty)
+    tracker.duties.incl(newDuty)
+
+proc registerSyncDuty*(
+    tracker: var ActionTracker, pubkey: ValidatorPubKey, until_epoch: Epoch) =
+  if tracker.currentSlot.epoch >= until_epoch:
+    return
+
+  tracker.syncDuties.withValue(pubkey, entry) do:
+    if entry[] < until_epoch:
+      debug "Updating sync duty",
+        pubkey = shortLog(pubkey), prev_until_epoch = entry[], until_epoch
+      entry[] = until_epoch
+      reset(tracker.lastSyncUpdate)
+  do:
+    debug "Registering sync duty", pubkey = shortLog(pubkey), until_epoch
+    tracker.syncDuties[pubkey] = until_epoch
+    reset(tracker.lastSyncUpdate)
+
+proc hasSyncDuty*(
+    tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
+  epoch < tracker.syncDuties.getOrDefault(pubkey, GENESIS_EPOCH)
 
 const allSubnetBits = block:
   var res: AttnetBits
@@ -100,7 +135,6 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   var res: AttnetBits
   # Subscribe to subnets for upcoming duties
   for duty in tracker.duties:
-
     if wallSlot <= duty.slot and
         wallSlot + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS > duty.slot:
 
@@ -108,7 +142,7 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   res
 
 func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
-  if tracker.subscribeAllSubnets:
+  if tracker.subscribeAllAttnets:
     allSubnetBits
   else:
     var res: AttnetBits
@@ -116,24 +150,34 @@ func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
       res[v.subnet_id.int] = true
     res
 
-func updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
+proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # Prune duties from the past - this collection is kept small because there
   # are only so many slot/subnet combos - prune both internal and API-supplied
   # duties at the same time
   tracker.duties.keepItIf(it.slot >= wallSlot)
 
+  block:
+    var dels: seq[ValidatorPubKey]
+    for k, v in tracker.syncDuties:
+      if wallSlot.epoch >= v:
+        dels.add k
+    for k in dels:
+      tracker.syncDuties.del(k)
+
   # Keep stability subnets for as long as validators are validating
   var toPrune: seq[ValidatorIndex]
   for k, v in tracker.knownValidators:
     if v + KNOWN_VALIDATOR_DECAY < wallSlot: toPrune.add k
-  for k in toPrune: tracker.knownValidators.del k
+  for k in toPrune:
+    debug "Validator no longer active", index = k
+    tracker.knownValidators.del k
 
   # One stability subnet per known validator
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let expectedSubnets =
-    min(ATTESTATION_SUBNET_COUNT, tracker.knownValidators.len)
+    min(ATTESTATION_SUBNET_COUNT.int, tracker.knownValidators.len)
 
   let epoch = wallSlot.epoch
   block:
@@ -156,7 +200,7 @@ func updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
 
   tracker.currentSlot = wallSlot
 
-func getNextValidatorAction*(
+func getNextValidatorAction(
     actionSlotSource: auto, lastCalculatedEpoch: Epoch, slot: Slot): Slot =
   # The relevant actions are in, depending on calculated bounds:
   # [aS[epoch mod 2], aS[1 - (epoch mod 2)]]
@@ -177,21 +221,39 @@ func getNextValidatorAction*(
       return FAR_FUTURE_SLOT
 
     for slotOffset in 0 ..< SLOTS_PER_EPOCH:
-      let nextActionSlot =
-        compute_start_slot_at_epoch(bitmapEpoch) + slotOffset
+      let nextActionSlot = start_slot(bitmapEpoch) + slotOffset
       if ((orderedActionSlots[i] and (1'u32 shl slotOffset)) != 0) and
           nextActionSlot > slot:
         return nextActionSlot
 
   FAR_FUTURE_SLOT
 
-proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
+func getNextAttestationSlot*(tracker: ActionTracker, slot: Slot): Slot =
+  getNextValidatorAction(
+    tracker.attestingSlots,
+    tracker.lastCalculatedEpoch, slot)
+
+func getNextProposalSlot*(tracker: ActionTracker, slot: Slot): Slot =
+  getNextValidatorAction(
+    tracker.proposingSlots,
+    tracker.lastCalculatedEpoch, slot)
+
+func needsUpdate*(
+    tracker: ActionTracker, state: ForkyHashedBeaconState, epoch: Epoch): bool =
+  # Using the attester dependent root here means we lock the action tracking to
+  # the dependent root for attestation duties and not block proposal -
+  # however, the risk of a proposer reordering in the last epoch is small
+  # and the action tracker is speculative in nature.
+  tracker.attesterDepRoot !=
+    state.dependent_root(if epoch > Epoch(0): epoch - 1 else: epoch)
+
+func updateActions*(
+    tracker: var ActionTracker, epochRef: EpochRef) =
   # Updates the schedule for upcoming attestation and proposal work
   let
     epoch = epochRef.epoch
 
-  if tracker.lastCalculatedEpoch == epoch:
-    return
+  tracker.attesterDepRoot = epochRef.shufflingRef.attester_dependent_root
   tracker.lastCalculatedEpoch = epoch
 
   let validatorIndices = toHashSet(toSeq(tracker.knownValidators.keys()))
@@ -209,9 +271,9 @@ proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
   static: doAssert SLOTS_PER_EPOCH <= 32
 
   for (committeeIndex, subnet_id, slot) in
-      get_committee_assignments(epochRef, validatorIndices):
+      get_committee_assignments(epochRef.shufflingRef, validatorIndices):
 
-    doAssert compute_epoch_at_slot(slot) == epoch
+    doAssert epoch(slot) == epoch
 
     # Each get_committee_assignments() call here is on the next epoch. At any
     # given time, only care about two epochs, the current and next epoch. So,
@@ -224,14 +286,16 @@ proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
     # when there hasn't been a block substantially through an epoch, it might
     # prove misleading to claim that there aren't attestations known, when it
     # only might be known either way for 3 more slots. However, it's also not
-    # as important to attest when blocks aren't flowing as only attestions in
+    # as important to attest if blocks aren't flowing as only attestations in
     # blocks garner rewards.
     tracker.attestingSlots[epoch mod 2] =
       tracker.attestingSlots[epoch mod 2] or
         (1'u32 shl (slot mod SLOTS_PER_EPOCH))
 
-proc init*(T: type ActionTracker, rng: ref BrHmacDrbgContext, subscribeAllSubnets: bool): T =
+func init*(
+    T: type ActionTracker, rng: ref HmacDrbgContext,
+    subscribeAllAttnets: bool): T =
   T(
     rng: rng,
-    subscribeAllSubnets: subscribeAllSubnets
+    subscribeAllAttnets: subscribeAllAttnets
   )

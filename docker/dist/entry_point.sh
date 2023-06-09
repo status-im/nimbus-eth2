@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Copyright (c) 2020-2021 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2023 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -17,16 +17,34 @@ if [[ -z "${1}" ]]; then
   exit 1
 fi
 PLATFORM="${1}"
-BINARIES="nimbus_beacon_node nimbus_signing_process"
+BINARIES="${BINARIES:-nimbus_beacon_node nimbus_validator_client}"
 
-#- we need to build everything against libraries available inside this container, including the Nim compiler
+echo "==================STARTING BUILD=================="
+echo "Build Tools = ${BUILD_TOOLS}"
+
+if [[ "${BUILD_TOOLS}" == "1" ]]; then
+  echo "Including tools in distribution"
+  BINARIES="${BINARIES} deposit_contract nimbus_signing_node nimbus_light_client logtrace"
+fi
+
+echo -e "\nPLATFORM=${PLATFORM}"
+
+# we need to build everything against libraries available inside this container, including the Nim compiler
+# the nimbus-build-system.paths file needs to be re-created because it may include absolute paths that are
+# valid only on the host system (and not in the docker container where the build is executing)
+rm -f nimbus-build-system.paths
 make clean
+make update -j$(nproc)
+
 NIMFLAGS_COMMON="-d:disableMarchNative --gcc.options.debug:'-g1' --clang.options.debug:'-gline-tables-only'"
 if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # Cross-compilation using the MXE distribution of Mingw-w64
-  export PATH="/usr/lib/mxe/usr/bin:${PATH}"
+  export PATH="/opt/mxe/usr/bin:${PATH}"
   CC=x86_64-w64-mingw32.static-gcc
   CXX=x86_64-w64-mingw32.static-g++
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -53,6 +71,9 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # undefined symbols, so we're forced to use g++ as a linker wrapper.
   # For some reason, macOS's Clang doesn't need this trick, nor do native (and
   # newer) Mingw-w64 toolchains on Windows.
+  #
+  # nim-blscurve's Windows SSSE3 detection doesn't work when cross-compiling,
+  # so we enable it here.
   make \
     -j$(nproc) \
     CC="${CC}" \
@@ -60,10 +81,13 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     CXXFLAGS="${CXXFLAGS} -D__STDC_FORMAT_MACROS -D_WIN32_WINNT=0x0600" \
     USE_VENDORED_LIBUNWIND=1 \
     LOG_LEVEL="TRACE" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --passL:-static" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --passL:-static -d:BLSTuseSSSE3=1" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
   CC="arm-linux-gnueabihf-gcc"
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -78,6 +102,9 @@ elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
   CC="aarch64-linux-gnu-gcc"
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -96,6 +123,9 @@ elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
   export ZERO_AR_DATE=1 # avoid timestamps in binaries
   DARWIN_VER="20.4"
   CC="o64-clang"
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -126,6 +156,9 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
   export ZERO_AR_DATE=1 # avoid timestamps in binaries
   DARWIN_VER="20.4"
   CC="oa64-clang"
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -136,7 +169,7 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     CC="${CC}" \
     LIBTOOL="arm64-apple-darwin${DARWIN_VER}-libtool" \
     OS="darwin" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --clang.exe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --clang.exe=${CC}" \
     nat-libs
   make \
     -j$(nproc) \
@@ -148,10 +181,24 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     DSYMUTIL="arm64-apple-darwin${DARWIN_VER}-dsymutil" \
     FORCE_DSYMUTIL=1 \
     USE_VENDORED_LIBUNWIND=1 \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --passL:'-mcpu=apple-a13' --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    ${BINARIES}
+elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then
+  gcc --version
+  echo
+
+  make \
+    -j$(nproc) \
+    LOG_LEVEL="TRACE" \
+    NIMFLAGS="${NIMFLAGS_COMMON} -d:marchOptimized" \
+    PARTIAL_STATIC_LINKING=1 \
+    QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}
 else
   # Linux AMD64
+  gcc --version
+  echo
+
   make \
     -j$(nproc) \
     LOG_LEVEL="TRACE" \
@@ -178,17 +225,18 @@ mkdir "${DIST_PATH}/scripts"
 mkdir "${DIST_PATH}/build"
 
 # copy and checksum binaries, copy scripts and docs
+EXT=""
+if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
+  EXT=".exe"
+fi
 for BINARY in ${BINARIES}; do
-  cp -a "./build/${BINARY}" "${DIST_PATH}/build/"
+  cp -a "./build/${BINARY}${EXT}" "${DIST_PATH}/build/"
   if [[ "${PLATFORM}" =~ macOS ]]; then
     # debug info
     cp -a "./build/${BINARY}.dSYM" "${DIST_PATH}/build/"
   fi
   cd "${DIST_PATH}/build"
-  sha512sum "${BINARY}" > "${BINARY}.sha512sum"
-  if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
-    mv "${BINARY}" "${BINARY}.exe"
-  fi
+  sha512sum "${BINARY}${EXT}" > "${BINARY}.sha512sum"
   cd - >/dev/null
 done
 sed -e "s/GIT_COMMIT/${GIT_COMMIT}/" docker/dist/README.md.tpl > "${DIST_PATH}/README.md"

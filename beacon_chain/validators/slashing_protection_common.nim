@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   # Stdlib
@@ -225,7 +225,7 @@ proc writeValue*(w: var JsonWriter, a: SlotString or EpochString)
 proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
                {.raises: [SerializationError, IOError, Defect].} =
   try:
-    a = (typeof a)(r.readValue(string).parseBiggestUint())
+    a = (typeof a)(r.readValue(string).parseBiggestUInt())
   except ValueError:
     raiseUnexpectedValue(r, "Integer in a string expected")
 
@@ -294,6 +294,7 @@ proc importInterchangeV5Impl*(
         continue
       key.get()
 
+    # TODO: with minification sorting is unnecessary, cleanup
     # Sort by ascending minimum slot so that we don't trigger MinSlotViolation
     spdir.data[v].signed_blocks.sort do (a, b: SPDIR_SignedBlock) -> int:
       result = cmp(a.slot.int, b.slot.int)
@@ -305,6 +306,8 @@ proc importInterchangeV5Impl*(
 
     const ZeroDigest = Eth2Digest()
 
+    let (dbSlot, dbSource, dbTarget) = db.retrieveLatestValidatorData(parsedKey)
+
     # Blocks
     # ---------------------------------------------------
     # After import we need to prune the DB from everything
@@ -312,9 +315,12 @@ proc importInterchangeV5Impl*(
     # This ensures that even if 2 slashing DB are imported in the wrong order
     # (the last before the earliest) the minSlotViolation check stays consistent.
     var maxValidSlotSeen = -1
+    if dbSlot.isSome():
+      maxValidSlotSeen = int dbSlot.get()
 
-    for b in 0 ..< spdir.data[v].signed_blocks.len:
-      template B: untyped = spdir.data[v].signed_blocks[b]
+    if spdir.data[v].signed_blocks.len >= 1:
+      # Minification, to limit Sqlite IO we only import the last block after sorting
+      template B: untyped = spdir.data[v].signed_blocks[^1]
       let status = db.registerBlock(
         parsedKey, B.slot.Slot, B.signing_root.Eth2Digest
       )
@@ -332,20 +338,19 @@ proc importInterchangeV5Impl*(
           warn "Block already exists in the DB",
             pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
             candidateBlock = B
-          continue
         else:
           error "Slashable block. Skipping its import.",
             pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
             candidateBlock = B,
             conflict = status.error()
           result = siPartial
-          continue
 
       if B.slot.int > maxValidSlotSeen:
-        maxValidSlotSeen = B.slot.int
+        maxValidSlotSeen = int B.slot
 
     # Now prune everything that predates
-    # this interchange file max slot
+    # this DB or interchange file max slot
+    # Even if the block is not imported, pruning will keep the latest one.
     db.pruneBlocks(parsedKey, Slot maxValidSlotSeen)
 
     # Attestations
@@ -357,43 +362,42 @@ proc importInterchangeV5Impl*(
     var maxValidSourceEpochSeen = -1
     var maxValidTargetEpochSeen = -1
 
+    if dbSource.isSome():
+      maxValidSourceEpochSeen = int dbSource.get()
+    if dbTarget.isSome():
+      maxValidTargetEpochSeen = int dbTarget.get()
+
+    # We do a first pass over the data to find the max source/target seen
     for a in 0 ..< spdir.data[v].signed_attestations.len:
       template A: untyped = spdir.data[v].signed_attestations[a]
-      let status = db.registerAttestation(
-        parsedKey,
-        A.source_epoch.Epoch,
-        A.target_epoch.Epoch,
-        A.signing_root.Eth2Digest
-      )
-      if status.isErr():
-        # We might be importing a duplicate which EIP-3076 allows
-        # there is no reason during normal operation to integrate
-        # a duplicate so checkSlashableAttestation would have rejected it.
-        # We special-case that for imports.
-        if status.error.kind == DoubleVote and
-            A.signing_root.Eth2Digest != ZeroDigest and
-            status.error.existingAttestation == A.signing_root.Eth2Digest:
-          warn "Attestation already exists in the DB",
-            pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
-            candidateAttestation = A
-          continue
-        else:
-          error "Slashable vote. Skipping its import.",
-            pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
-            candidateAttestation = A,
-            conflict = status.error()
-          result = siPartial
-          continue
 
       if A.source_epoch.int > maxValidSourceEpochSeen:
         maxValidSourceEpochSeen = A.source_epoch.int
       if A.target_epoch.int > maxValidTargetEpochSeen:
         maxValidTargetEpochSeen = A.target_epoch.int
 
-    # Now prune everything that predates
-    # this interchange file max slot
     if maxValidSourceEpochSeen < 0 or maxValidTargetEpochSeen < 0:
       doAssert maxValidSourceEpochSeen == -1 and maxValidTargetEpochSeen == -1
-      notice "No attestation found in slashing interchange file"
-      return
+      notice "No attestation found in slashing interchange file for validator",
+        pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex()
+      continue
+
+    # See formal proof https://github.com/michaelsproul/slashing-proofs
+    # of synthetic attestation
+    if not(maxValidSourceEpochSeen < maxValidTargetEpochSeen) and
+       not(maxValidSourceEpochSeen == 0 and maxValidTargetEpochSeen == 0):
+      # Special-case genesis (Slashing prot is deactivated anyway)
+      warn "Invalid attestation(s), source epochs should be less than target epochs, skipping import",
+        pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
+        maxValidSourceEpochSeen = maxValidSourceEpochSeen,
+        maxValidTargetEpochSeen = maxValidTargetEpochSeen
+      result = siPartial
+      continue
+
+    db.registerSyntheticAttestation(
+      parsedKey,
+      Epoch maxValidSourceEpochSeen,
+      Epoch maxValidTargetEpochSeen
+    )
+
     db.pruneAttestations(parsedKey, maxValidSourceEpochSeen, maxValidTargetEpochSeen)

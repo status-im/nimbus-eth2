@@ -6,7 +6,7 @@ set -e
 BASE_PORT="49000"
 BASE_METRICS_PORT="48008"
 BASE_REST_PORT="47000"
-TIMEOUT_DURATION="30"
+RESTTEST_DELAY="30"
 TEST_DIRNAME="resttest0_data"
 KILL_OLD_PROCESSES="0"
 
@@ -17,7 +17,8 @@ KILL_OLD_PROCESSES="0"
 GETOPT_BINARY="getopt"
 if uname | grep -qi darwin; then
   # macOS
-  GETOPT_BINARY="/usr/local/opt/gnu-getopt/bin/getopt"
+  # Without the head -n1 constraint, it gets confused by multiple matches
+  GETOPT_BINARY=$(find /opt/homebrew/opt/gnu-getopt/bin/getopt /usr/local/opt/gnu-getopt/bin/getopt 2> /dev/null | head -n1 || true)
   [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
 fi
 
@@ -28,7 +29,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="h"
-LONGOPTS="help,data-dir:,base-port:,base-rest-port:,base-metrics-port:,sleep-timeout:,kill-old-processes"
+LONGOPTS="help,data-dir:,base-port:,base-rest-port:,base-metrics-port:,resttest-delay:,kill-old-processes"
 
 print_help() {
   cat <<EOF
@@ -39,7 +40,7 @@ Usage: $(basename "$0") [OPTIONS] -- [BEACON NODE OPTIONS]
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
-  --sleep-timeout             timeout in seconds (default: ${TIMEOUT_DURATION} seconds)
+  --resttest-delay            resttest delay in seconds (default: ${RESTTEST_DELAY} seconds)
   --kill-old-processes        if any process is found listening on a port we use, kill it (default: disabled)
 EOF
 }
@@ -74,8 +75,8 @@ while true; do
       BASE_METRICS_PORT="$2"
       shift 2
       ;;
-    --sleep-timeout)
-      TIMEOUT_DURATION="$2"
+    --resttest-delay)
+      RESTTEST_DELAY="$2"
       shift 2
       ;;
     --kill-old-processes)
@@ -101,19 +102,22 @@ LOG_TEST_FILE="${TEST_DIR}/client_log.txt"
 VALIDATORS_DIR="${TEST_DIR}/validators"
 SECRETS_DIR="${TEST_DIR}/secrets"
 SNAPSHOT_FILE="${TEST_DIR}/genesis.ssz"
+DEPOSIT_TREE_SNAPSHOT_FILE="${TEST_DIR}/deposit_tree_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_nodes.txt"
 RESTTEST_RULES="${GIT_ROOT}/ncli/resttest-rules.json"
-DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
 RESTTEST_BIN="${GIT_ROOT}/build/resttest"
 NIMBUS_BEACON_NODE_BIN="${GIT_ROOT}/build/nimbus_beacon_node"
+LOCAL_TESTNET_SIMULATION_BIN="${GIT_ROOT}/build/ncli_testnet"
 BOOTSTRAP_ENR_FILE="${TEST_DIR}/beacon_node.enr"
 RUNTIME_CONFIG_FILE="${TEST_DIR}/config.yaml"
 DEPOSITS_FILE="${TEST_DIR}/deposits.json"
 REST_ADDRESS="127.0.0.1"
 METRICS_ADDRESS="127.0.0.1"
 MKDIR_SCRIPT="${GIT_ROOT}/scripts/makedir.sh"
+TOKEN_FILE="${TEST_DIR}/testTokenFile.txt"
 
 $MKDIR_SCRIPT "${TEST_DIR}"
+printf "testToken" > "${TOKEN_FILE}"
 
 HAVE_LSOF=0
 
@@ -161,10 +165,13 @@ if [[ -f "${DEPOSITS_FILE}" ]]; then
   EXISTING_VALIDATORS=$(grep -o -i deposit_data_root "${DEPOSITS_FILE}" | wc -l)
 fi
 
+build_if_missing nimbus_beacon_node
+build_if_missing ncli_testnet
+build_if_missing resttest
+
 if [[ ${EXISTING_VALIDATORS} -ne ${NUM_VALIDATORS} ]]; then
-  build_if_missing deposit_contract
   rm -rf "${VALIDATORS_DIR}" "${SECRETS_DIR}"
-  ${DEPOSIT_CONTRACT_BIN} generateSimulationDeposits \
+  ${LOCAL_TESTNET_SIMULATION_BIN} generateDeposits \
     --count="${NUM_VALIDATORS}" \
     --out-validators-dir="${VALIDATORS_DIR}" \
     --out-secrets-dir="${SECRETS_DIR}" \
@@ -172,22 +179,17 @@ if [[ ${EXISTING_VALIDATORS} -ne ${NUM_VALIDATORS} ]]; then
   echo "All deposits prepared"
 fi
 
-build_if_missing nimbus_beacon_node
-build_if_missing resttest
-
-if [[ ! -f "${SNAPSHOT_FILE}" ]]; then
-  echo "Creating testnet genesis..."
-  ${NIMBUS_BEACON_NODE_BIN} \
-    --data-dir="${TEST_DIR}" \
-    createTestnet \
-    --deposits-file="${DEPOSITS_FILE}" \
-    --total-validators="${NUM_VALIDATORS}" \
-    --output-genesis="${SNAPSHOT_FILE}" \
-    --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
-    --netkey-file=network_key.json \
-    --insecure-netkey-password=true \
-    --genesis-offset=0 # Delay in seconds
-fi
+# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
+# instance as the parent and the target process name as a pattern to the
+# "pkill" command.
+cleanup() {
+  pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -P $$ resttest &>/dev/null || true
+  sleep 2
+  pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -9 -P $$ resttest &>/dev/null || true
+}
+trap 'cleanup' SIGINT SIGTERM EXIT
 
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -196,13 +198,31 @@ echo Wrote $RUNTIME_CONFIG_FILE:
 
 tee "$RUNTIME_CONFIG_FILE" <<EOF
 PRESET_BASE: "mainnet"
-MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
+MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${NUM_VALIDATORS}
 MIN_GENESIS_TIME: 0
 GENESIS_DELAY: 10
 GENESIS_FORK_VERSION: 0x00000000
 DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
+ALTAIR_FORK_EPOCH: 0
+BELLATRIX_FORK_EPOCH: 0
 EOF
+
+echo "Creating testnet genesis..."
+${LOCAL_TESTNET_SIMULATION_BIN} \
+  createTestnet \
+  --data-dir="${TEST_DIR}" \
+  --deposits-file="${DEPOSITS_FILE}" \
+  --total-validators="${NUM_VALIDATORS}" \
+  --output-genesis="${SNAPSHOT_FILE}" \
+  --output-deposit-tree-snapshot="${DEPOSIT_TREE_SNAPSHOT_FILE}" \
+  --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
+  --netkey-file=network_key.json \
+  --insecure-netkey-password=true \
+  --genesis-offset=-60 # Chain that has already started allows testing empty slots
+# Make sure we use the newly generated genesis
+echo "Removing existing database..."
+rm -rf "${TEST_DIR}/db" "${TEST_DIR}/validators/slashing_protection.sqlite3"
 
 ${NIMBUS_BEACON_NODE_BIN} \
   --tcp-port=${BASE_PORT} \
@@ -213,12 +233,17 @@ ${NIMBUS_BEACON_NODE_BIN} \
   --secrets-dir="${SECRETS_DIR}" \
   --doppelganger-detection=off \
   --nat=none \
+  --no-el \
   --metrics \
   --metrics-address=${METRICS_ADDRESS} \
   --metrics-port=${BASE_METRICS_PORT} \
   --rest \
   --rest-address=${REST_ADDRESS} \
   --rest-port=${BASE_REST_PORT} \
+  --keymanager \
+  --keymanager-address=${REST_ADDRESS} \
+  --keymanager-port=${BASE_REST_PORT} \
+  --keymanager-token-file="${TOKEN_FILE}" \
   --discv5=no \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@" > ${LOG_NODE_FILE} 2>&1 &
@@ -230,12 +255,12 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
   BEACON_NODE_PID="$(jobs -p)"
 
   ${RESTTEST_BIN} \
-    --delay=${TIMEOUT_DURATION} \
+    --delay=${RESTTEST_DELAY} \
     --timeout=60 \
     --skip-topic=slow \
     --connections=4 \
     --rules-file="${RESTTEST_RULES}" \
-    http://${REST_ADDRESS}:${BASE_REST_PORT}/api \
+    http://${REST_ADDRESS}:${BASE_REST_PORT} \
     > ${LOG_TEST_FILE} 2>&1
   RESTTEST_STATUS=$?
 

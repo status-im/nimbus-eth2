@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,8 +9,8 @@
 
 import
   # Standard library
-  os, strutils, streams, strformat,
-  macros, sets,
+  strutils, streams, strformat,
+  macros,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -18,7 +18,7 @@ import
   # Status libraries
   snappy,
   # Test utilities
-  ../../testutil, ../fixtures_utils
+  ../../testutil, ../fixtures_utils, ../os_ops
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -47,7 +47,7 @@ proc checkSSZ(T: type altair.SignedBeaconBlock, dir: string, expectedHash: SSZHa
 
   # SignedBeaconBlocks usually not hashed because they're identified by
   # htr(BeaconBlock), so do it manually
-  check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(
+  check: expectedHash.root == "0x" & toLowerAscii($hash_tree_root(
     [hash_tree_root(deserialized.message),
     hash_tree_root(deserialized.signature)]))
 
@@ -63,7 +63,7 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
   let deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
-  check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(deserialized[]))
+  check: expectedHash.root == "0x" & toLowerAscii($hash_tree_root(deserialized[]))
 
   check SSZ.encode(deserialized[]) == encoded
   check sszSize(deserialized[]) == encoded.len
@@ -71,15 +71,15 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
   # TODO check the value (requires YAML loader)
 
 proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
-  var s = openFileStream(dir/"roots.yaml")
+  let s = openFileStream(dir/"roots.yaml")
   yaml.load(s, result)
   s.close()
 
 # Test runner
 # ----------------------------------------------------------------
 
-suite "Ethereum Foundation - Altair - SSZ consensus objects " & preset():
-  doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
+suite "EF - Altair - SSZ consensus objects " & preset():
+  doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
@@ -114,8 +114,16 @@ suite "Ethereum Foundation - Altair - SSZ consensus objects " & preset():
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
-          of "LightClientSnapshot": checkSSZ(LightClientSnapshot, path, hash)
-          of "LightClientUpdate": checkSSZ(LightClientUpdate, path, hash)
+          of "LightClientBootstrap":
+            checkSSZ(altair.LightClientBootstrap, path, hash)
+          of "LightClientHeader":
+            checkSSZ(altair.LightClientHeader, path, hash)
+          of "LightClientUpdate":
+            checkSSZ(altair.LightClientUpdate, path, hash)
+          of "LightClientFinalityUpdate":
+            checkSSZ(altair.LightClientFinalityUpdate, path, hash)
+          of "LightClientOptimisticUpdate":
+            checkSSZ(altair.LightClientOptimisticUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":

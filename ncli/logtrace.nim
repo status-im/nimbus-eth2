@@ -1,12 +1,14 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import confutils, json, times, streams, os, strutils, options, chronicles,
-       tables, sequtils
-import json_serialization
+import
+  std/[tables, sequtils, json, times, streams, os, strutils, options, typetraits],
+  confutils, chronicles, json_serialization
+
+from stew/io2 import IoErrorCode
 
 const
   LogTraceName = "Beacon-Chain LogTrace Tool"
@@ -15,57 +17,62 @@ const
   LogTracePatch: int = 4
   LogTraceVersion = $LogTraceMajor & "." & $LogTraceMinor & "." &
                       $LogTracePatch
-  LogTraceCopyright = "Copyright(C) 2021" &
+  LogTraceCopyright = "Copyright(C) 2021-2023" &
                        " Status Research & Development GmbH"
   LogTraceHeader = LogTraceName & ", Version " & LogTraceVersion &
                     " [" & hostOS & ": " & hostCPU & "]\r\n" &
                     LogTraceCopyright & "\r\n"
 
 type
-  StartUpCommand {.pure.} = enum
-    pubsub, asl, asr, aggasr, lat
+  StartUpCommand* {.pure.} = enum
+    pubsub, asl, asr, aggasr, scmsr, csr, lat, traceAll, localSimChecks
 
-  LogTraceConf = object
-    logFiles {.
+  LogTraceConf* = object
+    logFiles* {.
       desc: "Specifies one or more log files",
       abbr: "f",
-      name: "log-file" }: seq[string]
+      name: "log-file" .}: seq[string]
 
-    simDir {.
+    simDir* {.
       desc: "Specifies path to eth2_network_simulation directory",
-      name: "sim-dir",
-      defaultValue: "" }: string
+      defaultValue: "",
+      name: "sim-dir" .}: string
 
-    netDir {.
+    netDir* {.
       desc: "Specifies path to network build directory",
-      name: "net-dir",
-      defaultValue: "" }: string
+      defaultValue: "",
+      name: "net-dir" .}: string
 
-    logDir {.
+    logDir* {.
       desc: "Specifies path with bunch of logs",
-      name: "log-dir",
-      defaultValue: "" }: string
+      defaultValue: "",
+      name: "log-dir" .}: string
 
-    ignoreSerializationErrors {.
+    ignoreSerializationErrors* {.
       desc: "Ignore serialization errors while parsing log files",
-      name: "ignore-errors",
-      defaultValue: true }: bool
+      defaultValue: true,
+      name: "ignore-errors" .}: bool
 
-    dumpSerializationErrors {.
+    dumpSerializationErrors* {.
       desc: "Dump full serialization errors while parsing log files",
-      name: "dump-errors",
-      defaultValue: false }: bool
+      defaultValue: false ,
+      name: "dump-errors" .}: bool
 
-    nodes {.
+    nodes* {.
       desc: "Specifies node names which logs will be used",
-      name: "nodes" }: seq[string]
+      name: "nodes" .}: seq[string]
 
-    allowedLag {.
+    allowedLag* {.
       desc: "Allowed latency lag multiplier",
-      name: "lag",
-      defaultValue: 2.0 }: float
+      defaultValue: 2.0,
+      name: "lag" .}: float
 
-    case cmd {.command.}: StartUpCommand
+    constPreset* {.
+      desc: "The const preset being used"
+      defaultValue: "mainnet"
+      name: "const-preset" .}: string
+
+    case cmd* {.command.}: StartUpCommand
     of pubsub:
       discard
     of asl:
@@ -74,8 +81,33 @@ type
       discard
     of aggasr:
       discard
+    of scmsr:
+      discard
+    of csr:
+      discard
     of lat:
       discard
+    of traceAll:
+      discard
+    of localSimChecks:
+      discard
+
+  IssuesGroup = ref object
+    name: string
+    fatalIssues: seq[string]
+    warnings: seq[string]
+
+  FileReport = object
+    categories: seq[IssuesGroup]
+
+  LogVisitor = object
+    visitLine: proc(msg, fullLine: string) {.gcsafe, raises: [Defect].}
+    produceReport: proc(): FileReport {.gcsafe, raises: [Defect].}
+
+  LogVisitorFactory = proc(): LogVisitor {.gcsafe, raises: [Defect].}
+
+  LogTracer = object
+    enabledVisitors: seq[LogVisitorFactory]
 
   GossipDirection = enum
     None, Incoming, Outgoing
@@ -120,8 +152,6 @@ type
 
   AttestationSentMessage = object of LogMessage
     attestation: AttestationObject
-    indexInCommittee: uint64
-    validator: string
 
   AttestationReceivedMessage = object of LogMessage
     attestation: AttestationObject
@@ -131,14 +161,89 @@ type
 
   AggregatedAttestationSentMessage = object of LogMessage
     attestation: AttestationObject
-    validator: string
     signature: string
-    aggregationSlot: uint64
 
   AggregatedAttestationReceivedMessage = object of LogMessage
     aggregate: AttestationObject
     wallSlot: uint64
     signature: string
+
+  BlockSentMessage = object
+    # The message structure is as follows:
+    #[
+      {
+        "lvl": "NOT",
+        "ts": "2022-11-21 23:02:37.032+02:00",
+        "msg": "Block sent",
+        "topics": "beacval",
+        "blockRoot": "7a0836e4",
+        "blck": {
+          "slot": 15,
+          "proposer_index": 96,
+          "parent_root": "487372dc",
+          "state_root": "06699625",
+          "eth1data": {
+            "deposit_root": "6c3ff67871b79b7aecc7a125e7ec9ff857879a1c83e50513be113103acf8ca3f",
+            "deposit_count": 1024,
+            "block_hash": "4242424242424242424242424242424242424242424242424242424242424242"
+          },
+          "graffiti": "Nimbus/v22.10.1-eb6615-stateofus",
+          "proposer_slashings_len": 0,
+          "attester_slashings_len": 0,
+          "attestations_len": 4,
+          "deposits_len": 0,
+          "voluntary_exits_len": 0,
+          "sync_committee_participants": 32,
+          "block_number": 0,
+          "fee_recipient": "",
+          "bls_to_execution_changes_len": 0,
+          "blob_kzg_commitments_len": 0
+        },
+        "signature": "b544f144",
+        "delay": "32ms3us"
+      }
+    ]#
+    # So far, logtrace needs only a single property of the block object.
+    # Feel free to add additional fields to be parsed as necessary.
+    blck: BlockShortLog
+
+  BlockShortLog = object
+    sync_committee_participants: int
+
+  SyncCommitteeMessageObject = object
+    slot: uint64
+    beaconBlockRoot {.serializedFieldName: "beacon_block_root".}: string
+    validatorIndex {.serializedFieldName: "validator_index".}: uint64
+    signature: string
+
+  ContributionObject = object
+    slot: uint64
+    beaconBlockRoot {.serializedFieldName: "beacon_block_root".}: string
+    subcommittee_index: uint64
+    aggregationBits {.serializedFieldName: "aggregation_bits".}: string
+
+  ContributionSentObject = object
+    contribution: ContributionObject
+    aggregatorIndex {.serializedFieldName: "aggregator_index".}: uint64
+    signature: string
+
+  SCMSentMessage = object of LogMessage
+    message: SyncCommitteeMessageObject
+
+  SCMReceivedMessage = object of LogMessage
+    wallSlot: uint64
+    syncCommitteeMsg: SyncCommitteeMessageObject
+    subcommitteeIdx: uint64
+
+  ContributionSentMessage = object of LogMessage
+    contribution: ContributionSentObject
+
+  ContributionReceivedMessage = object of LogMessage
+    contribution: ContributionObject
+    wallSlot: uint64
+    aggregatorIndex {.serializedFieldName: "aggregator_index".}: uint64
+    signature: string
+    selectionProof {.serializedFieldName: "selection_proof".}: string
 
   GossipMessage = object
     kind: GossipDirection
@@ -146,15 +251,24 @@ type
     datetime: DateTime
     processed: bool
 
-  SaMessageType {.pure.} = enum
-    AttestationSent, SlotStart
+  SMessageType {.pure.} = enum
+    AttestationSent, SCMSent, SlotStart
 
-  SlotAttMessage = object
-    case kind: SaMessageType
-    of SaMessageType.AttestationSent:
+  SlotMessage = object
+    case kind: SMessageType
+    of SMessageType.AttestationSent:
       asmsg: AttestationSentMessage
-    of SaMessageType.SlotStart:
+    of SMessageType.SCMSent:
+      scmsmsg: SCMSentMessage
+    of SMessageType.SlotStart:
       ssmsg: SlotStartMessage
+
+  # SlotMessage = object
+  #   case kind: SMessageType
+  #   of SMessageType.SCMSent:
+  #     scmsmsg: SCMSentMessage
+  #   of SMessageType.SlotStart:
+  #     ssmsg: SlotStartMessage
 
   SRANode = object
     directory: NodeDirectory
@@ -163,12 +277,66 @@ type
     aggSends: seq[AggregatedAttestationSentMessage]
     aggRecvs: TableRef[string, AggregatedAttestationReceivedMessage]
 
-proc readValue(reader: var JsonReader, value: var DateTime) =
+  SRSCNode = object
+    directory: NodeDirectory
+    sends: seq[SCMSentMessage]
+    recvs: TableRef[string, SCMReceivedMessage]
+    contributionSends: seq[ContributionSentMessage]
+    contributionRecvs: TableRef[string, ContributionReceivedMessage]
+
+template noIssues: FileReport =
+  FileReport()
+
+template hasIssues(issuesCategories: varargs[IssuesGroup]): FileReport =
+  FileReport(categories: @issuesCategories)
+
+proc copyEntriesTo(src: FileReport, dst: var FileReport) =
+  for c in src.categories:
+    dst.categories.add c
+
+func isEmpty(r: FileReport): bool =
+  r.categories.len == 0
+
+proc printCategory(severityLevel: string, issues: openArray[string]) =
+  if issues.len > 0:
+    echo ""
+    echo severityLevel, ":"
+    for issue in issues:
+      echo "* ", issue
+
+proc print(r: FileReport) =
+  for category in r.categories:
+    echo "### ", category.name
+    printCategory "Fatal Issues", category.fatalIssues
+    printCategory "Warnings", category.warnings
+    echo ""
+
+template fatal(issuesGroup: IssuesGroup, msg: string) =
+  issuesGroup.fatalIssues.add msg
+
+template warning(issuesGroup: IssuesGroup, msg: string) =
+  issuesGroup.warnings.add msg
+
+proc new(T: type IssuesGroup, name: string): T =
+  T(name: name)
+
+# TODO These definition can be moved to a more widely accessible module.
+# It's needed when we compile logtrace itself with JSON logging.
+proc writeValue*(writer: var JsonWriter, value: DateTime) =
+  writer.writeValue($value)
+
+proc readValue*(reader: var JsonReader, value: var DateTime) =
   let s = reader.readValue(string)
   try:
     value = parse(s, "YYYY-MM-dd HH:mm:ss'.'fffzzz", utc())
   except CatchableError:
     raiseUnexpectedValue(reader, "Invalid date time")
+
+proc writeValue*(writer: var JsonWriter, value: IoErrorCode) =
+  writer.writeValue(distinctBase value)
+
+proc readValue*(reader: var JsonReader, value: var IoErrorCode) =
+  IoErrorCode reader.readValue(distinctBase IoErrorCode)
 
 proc init(t: typedesc[GossipMessage], kind: GossipDirection, id,
           datestr: string): GossipMessage =
@@ -198,8 +366,8 @@ proc readLogFile(file: string): seq[JsonNode] =
 
 proc readLogFileForAttsMessages(file: string,
                                 ignoreErrors = true,
-                                dumpErrors = false): seq[SlotAttMessage] =
-  var res = newSeq[SlotAttMessage]()
+                                dumpErrors = false): seq[SlotMessage] =
+  var res = newSeq[SlotMessage]()
   var stream = newFileStream(file)
   var line: string
   var counter = 0
@@ -225,13 +393,13 @@ proc readLogFileForAttsMessages(file: string,
       if m.msg == "Attestation sent":
         let am = Json.decode(line, AttestationSentMessage,
                              allowUnknownFields = true)
-        let m = SlotAttMessage(kind: SaMessageType.AttestationSent,
+        let m = SlotMessage(kind: SMessageType.AttestationSent,
                                asmsg: am)
         res.add(m)
       elif m.msg == "Slot start":
         let sm = Json.decode(line, SlotStartMessage,
                              allowUnknownFields = true)
-        let m = SlotAttMessage(kind: SaMessageType.SlotStart,
+        let m = SlotMessage(kind: SMessageType.SlotStart,
                                ssmsg: sm)
         res.add(m)
 
@@ -297,6 +465,197 @@ proc readLogFileForASRMessages(file: string, srnode: var SRANode,
     warn "Error reading data from file", file = file, errorMsg = exc.msg
   finally:
     stream.close()
+
+proc readLogFileForSCMSendMessages(file: string,
+                                   ignoreErrors = true,
+                                   dumpErrors = false): seq[SlotMessage] =
+  var res = newSeq[SlotMessage]()
+  var stream = newFileStream(file)
+  var line: string
+  var counter = 0
+  try:
+    while not(stream.atEnd()):
+      line = stream.readLine()
+      inc(counter)
+      var m: LogMessage
+      try:
+        m = Json.decode(line, LogMessage, allowUnknownFields = true)
+      except SerializationError as exc:
+        if dumpErrors:
+          error "Serialization error while reading file, ignoring", file = file,
+                 line_number = counter, errorMsg = exc.formatMsg(line)
+        else:
+          error "Serialization error while reading file, ignoring", file = file,
+                 line_number = counter
+        if not(ignoreErrors):
+          raise exc
+        else:
+          continue
+
+      if m.msg == "Sync committee message sent":
+        let scmm = Json.decode(line, SCMSentMessage,
+                             allowUnknownFields = true)
+        let m = SlotMessage(kind: SMessageType.SCMSent,
+                               scmsmsg: scmm)
+        res.add(m)
+      elif m.msg == "Slot start":
+        let sm = Json.decode(line, SlotStartMessage,
+                             allowUnknownFields = true)
+        let m = SlotMessage(kind: SMessageType.SlotStart,
+                               ssmsg: sm)
+        res.add(m)
+
+      if counter mod 10_000 == 0:
+        info "Processing file", file = extractFilename(file),
+                                lines_processed = counter,
+                                lines_filtered = len(res)
+    result = res
+
+  except CatchableError as exc:
+    warn "Error reading data from file", file = file, errorMsg = exc.msg
+  finally:
+    stream.close()
+
+proc readLogFileForSCMSRMessages(file: string, srnode: var SRSCNode,
+                                 ignoreErrors = true, dumpErrors = false) =
+  var stream = newFileStream(file)
+  var line: string
+  var counter = 0
+  try:
+    while not(stream.atEnd()):
+      var m: LogMessage
+      line = stream.readLine()
+      inc(counter)
+      try:
+        m = Json.decode(line, LogMessage, allowUnknownFields = true)
+      except SerializationError as exc:
+        if dumpErrors:
+          error "Serialization error while reading file, ignoring", file = file,
+                 line_number = counter, errorMsg = exc.formatMsg(line)
+        else:
+          error "Serialization error while reading file, ignoring", file = file,
+                 line_number = counter
+        if not(ignoreErrors):
+          raise exc
+        else:
+          continue
+
+      if m.msg == "Sync committee message sent":
+        let sm = Json.decode(line, SCMSentMessage,
+                             allowUnknownFields = true)
+        srnode.sends.add(sm)
+      elif m.msg == "Sync committee message received":
+        let rm = Json.decode(line, SCMReceivedMessage,
+                             allowUnknownFields = true)
+        discard srnode.recvs.hasKeyOrPut(rm.syncCommitteeMsg.signature, rm)
+
+      elif m.msg == "Contribution received":
+        let rm = Json.decode(line, ContributionReceivedMessage,
+                             allowUnknownFields = true)
+        discard srnode.contributionRecvs.hasKeyOrPut(rm.signature, rm)
+
+      elif m.msg == "Contribution sent":
+        let sm = Json.decode(line, ContributionSentMessage,
+                             allowUnknownFields = true)
+        srnode.contributionSends.add(sm)
+
+      if counter mod 10_000 == 0:
+        info "Processing file", file = extractFilename(file),
+                                lines_processed = counter,
+                                sends_filtered = len(srnode.sends),
+                                recvs_filtered = len(srnode.recvs)
+
+  except CatchableError as exc:
+    warn "Error reading data from file", file = file, errorMsg = exc.msg
+  finally:
+    stream.close()
+
+proc processFile(tracer: LogTracer, file: string): FileReport =
+  var stream = newFileStream(file)
+  let visitors = mapIt(tracer.enabledVisitors, it())
+
+  try:
+    while not (stream.atEnd()):
+      let line = stream.readLine()
+      var reader = JsonReader[DefaultFlavor].init(memoryInput(line))
+      for fieldName in reader.readObjectFields:
+        if fieldName == "msg":
+          let msg = reader.readValue(string)
+          for visitor in visitors:
+            visitor.visitLine(msg, line)
+          break
+        else:
+          reader.skipSingleJsValue()
+  except CatchableError as exc:
+    warn "Error reading data from file", file = file, errorMsg = exc.msg
+  finally:
+    stream.close()
+
+  for vistor in visitors:
+    let report = vistor.produceReport()
+    if not report.isEmpty:
+      report.copyEntriesTo result
+
+proc failedValidationsChecker: LogVisitorFactory =
+  return proc (): LogVisitor =
+    var failedValidations = initCountTable[string]()
+
+    LogVisitor(
+      visitLine: proc (msg, line: string) =
+        if msg.endsWith("failed validation"):
+          failedValidations.inc msg
+      ,
+      produceReport: proc (): FileReport =
+        if failedValidations.len > 0:
+          let issues = IssuesGroup.new "Failed Validations"
+          for msg, count in failedValidations:
+            issues.fatal(msg & " " & $count & " times")
+
+          return hasIssues(issues)
+        else:
+          return noIssues()
+    )
+
+proc syncAggregateChecker(constPreset: string): LogVisitorFactory =
+  return proc (): LogVisitor =
+    var totalBlocks = 0
+    var minSyncAggregate = 512
+    var syncAggregatesCombinedSize = 0
+
+    let minExpectedAggregateSize = if constPreset == "mainnet":
+      450
+    else:
+      20
+
+    LogVisitor(
+      visitLine: proc (msgLabel, line: string) =
+        if msgLabel == "Block sent":
+          let msg = try:
+            Json.decode(line, BlockSentMessage, allowUnknownFields = true)
+          except SerializationError as err:
+            echo "Failure to parse a 'Block sent' message:"
+            echo err.formatMsg("<msg>")
+            quit 1
+
+          let syncAggregateSize = msg.blck.sync_committee_participants
+          if syncAggregateSize != -1:
+            inc totalBlocks
+            syncAggregatesCombinedSize += syncAggregateSize
+            if minSyncAggregate > syncAggregateSize:
+              minSyncAggregate = syncAggregateSize
+      ,
+      produceReport: proc (): FileReport =
+        let avgSyncAggregateSize = syncAggregatesCombinedSize div totalBlocks
+        if avgSyncAggregateSize < minExpectedAggregateSize:
+          let issues = IssuesGroup.new "SyncAggregate Stats"
+
+          issues.fatal("Minimal sync aggregate size: " & $minSyncAggregate)
+          issues.fatal("Average sync aggregate size: " & $avgSyncAggregateSize)
+
+          return hasIssues(issues)
+        else:
+          return noIssues()
+    )
 
 proc readLogFileForSecondMessages(file: string, ignoreErrors = true,
                                   dumpErrors = false): seq[LogMessage] =
@@ -480,10 +839,10 @@ proc runAttSend(logConf: LogTraceConf, logFiles: seq[string]) =
 
     var currentSlot: Option[SlotStartMessage]
     for item in data:
-      if item.kind == SaMessageType.SlotStart:
+      if item.kind == SMessageType.SlotStart:
         currentSlot = some(item.ssmsg)
         inc(slotMessagesCount)
-      elif item.kind == SaMessageType.AttestationSent:
+      elif item.kind == SMessageType.AttestationSent:
         if currentSlot.isSome():
           let attestationTime = currentSlot.get().timestamp -
                                 item.asmsg.timestamp
@@ -606,6 +965,109 @@ proc runAggAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
        successful_broadcasts = success, failed_broadcasts = failed,
        total_broadcasts = len(srnodes[i].aggSends)
 
+proc runSCMSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
+  info "Check for Sync Committee Message sent/received messages"
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+  var srnodes = newSeq[SRSCNode]()
+
+  for node in nodes:
+    var srnode = SRSCNode(
+      directory: node,
+      sends: newSeq[SCMSentMessage](),
+      recvs: newTable[string, SCMReceivedMessage](),
+      contributionSends: newSeq[ContributionSentMessage](),
+      contributionRecvs: newTable[string, ContributionReceivedMessage]()
+    )
+    info "Processing node", node = node.name
+    for logfile in node.logs:
+      let path = node.path & DirSep & logfile
+      info "Processing node's logfile", node = node.name, logfile = path
+      readLogFileForSCMSRMessages(path, srnode,
+                                  logConf.ignoreSerializationErrors,
+                                  logConf.dumpSerializationErrors)
+    srnodes.add(srnode)
+
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+
+  for i in 0 ..< len(srnodes):
+    var success = 0
+    var failed = 0
+    for item in srnodes[i].sends:
+      var k = (i + 1) mod len(srnodes)
+      var misses = newSeq[string]()
+      while k != i:
+        if item.message.signature notin srnodes[k].recvs:
+          misses.add(srnodes[k].directory.name)
+        k = (k + 1) mod len(srnodes)
+
+      if len(misses) == 0:
+        inc(success)
+      else:
+        inc(failed)
+        info "Sync committee message was not received", sender = srnodes[i].directory.name,
+             signature = item.message.signature,
+             receivers = misses.toSimple(), send_stamp = item.timestamp
+
+    info "Statistics for sender node", sender = srnodes[i].directory.name,
+         successful_broadcasts = success, failed_broadcasts = failed,
+         total_broadcasts = len(srnodes[i].sends)
+
+proc runContributionSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
+  info "Check for contribution sent/received messages"
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+  var srnodes = newSeq[SRSCNode]()
+
+  for node in nodes:
+    var srnode = SRSCNode(
+      directory: node,
+      sends: newSeq[SCMSentMessage](),
+      recvs: newTable[string, SCMReceivedMessage](),
+      contributionSends: newSeq[ContributionSentMessage](),
+      contributionRecvs: newTable[string, ContributionReceivedMessage]()
+    )
+    info "Processing node", node = node.name
+    for logfile in node.logs:
+      let path = node.path & DirSep & logfile
+      info "Processing node's logfile", node = node.name, logfile = path
+      readLogFileForSCMSRMessages(path, srnode,
+                                  logConf.ignoreSerializationErrors,
+                                  logConf.dumpSerializationErrors)
+    srnodes.add(srnode)
+
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+
+  for i in 0 ..< len(srnodes):
+    var success = 0
+    var failed = 0
+    for item in srnodes[i].contributionSends:
+      var k = (i + 1) mod len(srnodes)
+      var misses = newSeq[string]()
+      while k != i:
+        if item.contribution.signature notin srnodes[k].contributionRecvs:
+          misses.add(srnodes[k].directory.name)
+        k = (k + 1) mod len(srnodes)
+
+      if len(misses) == 0:
+        inc(success)
+      else:
+        inc(failed)
+        info "Contribution was not received",
+           sender = srnodes[i].directory.name,
+           signature = item.contribution.signature,
+           receivers = misses.toSimple(), send_stamp = item.timestamp
+
+    info "Statistics for sender node", sender = srnodes[i].directory.name,
+       successful_broadcasts = success, failed_broadcasts = failed,
+       total_broadcasts = len(srnodes[i].contributionSends)
+
 proc runLatencyCheck(logConf: LogTraceConf, logFiles: seq[string],
                      nodes: seq[NodeDirectory]) =
   info "Check for async responsiveness"
@@ -652,7 +1114,7 @@ proc runLatencyCheck(logConf: LogTraceConf, logFiles: seq[string],
     info "Latency statistics", min_time = minTime, max_time = maxTime,
                                avg_time = avgTime, seconds_count = len(msgs)
 
-proc run(conf: LogTraceConf) =
+proc run*(conf: LogTraceConf) =
   var logFiles: seq[string]
   var logNodes: seq[NodeDirectory]
 
@@ -686,8 +1148,47 @@ proc run(conf: LogTraceConf) =
     runAttSendReceive(conf, logNodes)
   of StartUpCommand.aggasr:
     runAggAttSendReceive(conf, logNodes)
+  of StartUpCommand.scmsr:
+    runSCMSendReceive(conf, logNodes)
+  of StartUpCommand.csr:
+    runContributionSendReceive(conf, logNodes)
   of StartUpCommand.lat:
     runLatencyCheck(conf, logFiles, logNodes)
+  of StartUpCommand.traceAll:
+    runContributionSendReceive(conf, logNodes)
+    runSCMSendReceive(conf, logNodes)
+    runAggAttSendReceive(conf, logNodes)
+    runAttSendReceive(conf, logNodes)
+    runLatencyCheck(conf, logFiles, logNodes)
+    runPubsub(conf, logFiles)
+    runAttSend(conf, logFiles)
+  of StartUpCommand.localSimChecks:
+    runAggAttSendReceive(conf, logNodes)
+
+    # TODO All analysis types can be converted to the more efficient
+    #      LogVisitor style, so they can enabled together here.
+    #      See the discussion below for some potential caveats:
+    #      https://github.com/status-im/nimbus-eth2/pull/3583#pullrequestreview-941934055
+
+    var tracer = LogTracer()
+    tracer.enabledVisitors.add failedValidationsChecker()
+    tracer.enabledVisitors.add syncAggregateChecker(conf.constPreset)
+
+    var issuesDetected = false
+
+    for node in logNodes:
+      for logFile in node.logs:
+        let report = tracer.processFile(node.path / logFile)
+        if not report.isEmpty:
+          if not issuesDetected:
+            issuesDetected = true
+            echo "# Logtrace Report"
+            echo ""
+          echo "## ", logFile
+          echo ""
+          print report
+
+    quit ord(issuesDetected)
 
 when isMainModule:
   echo LogTraceHeader

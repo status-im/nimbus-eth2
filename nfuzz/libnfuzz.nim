@@ -1,8 +1,16 @@
+# beacon_chain
+# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 # Required for deserialisation of ValidatorSig in Attestation due to
 # https://github.com/nim-lang/Nim/issues/11225
 
 import
-  stew/ptrops, stew/ranges/ptr_arith, chronicles,
+  stew/ptrops, chronicles,
+  ../beacon_chain/networking/network_metadata,
   ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[
     beaconstate, eth2_ssz_serialization, forks, validator, state_transition,
@@ -102,7 +110,7 @@ proc nfuzz_attestation(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_attester_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(AttesterSlashingInput):
-    process_attester_slashing(defaultRuntimeConfig, data.state, data.attesterSlashing, flags, cache).isOk
+    process_attester_slashing(getRuntimeConfig(some "mainnet"), data.state, data.attesterSlashing, flags, cache).isOk
 
 proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
@@ -116,7 +124,7 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
       fhState = (ref ForkedHashedBeaconState)(
         phase0Data: phase0.HashedBeaconState(
           data: data.state, root: hash_tree_root(data.state)),
-        kind: BeaconStateFork.Phase0)
+        kind: ConsensusFork.Phase0)
       cache = StateCache()
       info = ForkedEpochInfo()
     result =
@@ -125,7 +133,8 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
     data.state = fhState.phase0Data.data
 
   decodeAndProcess(BlockInput):
-    state_transition(defaultRuntimeConfig, data, data.beaconBlock, flags, noRollback)
+    state_transition(
+      getRuntimeConfig(some "mainnet"), data, data.beaconBlock, flags, noRollback).isOk
 
 proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
@@ -135,17 +144,17 @@ proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(DepositInput):
-    process_deposit(defaultRuntimeConfig, data.state, data.deposit, flags).isOk
+    process_deposit(getRuntimeConfig(some "mainnet"), data.state, data.deposit, flags).isOk
 
 proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(ProposerSlashingInput):
-    process_proposer_slashing(defaultRuntimeConfig, data.state, data.proposerSlashing, flags, cache).isOk
+    process_proposer_slashing(getRuntimeConfig(some "mainnet"), data.state, data.proposerSlashing, flags, cache).isOk
 
 proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(VoluntaryExitInput):
-    process_voluntary_exit(defaultRuntimeConfig, data.state, data.exit, flags, cache).isOk
+    process_voluntary_exit(getRuntimeConfig(some "mainnet"), data.state, data.exit, flags, cache).isOk
 
 # Note: Could also accept raw input pointer and access list_size + seed here.
 # However, list_size needs to be known also outside this proc to allocate xoutput.

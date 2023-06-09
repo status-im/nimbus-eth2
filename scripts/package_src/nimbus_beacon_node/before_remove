@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+SERVICE_NAME="nimbus_beacon_node"
+
+if systemctl --all --type service | grep -q "$SERVICE_NAME"; then
+  systemctl stop "$SERVICE_NAME"
+  systemctl disable "$SERVICE_NAME"
+fi
+

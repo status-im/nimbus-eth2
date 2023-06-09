@@ -1,54 +1,72 @@
-# Import your validator keys into Nimbus
+# Import your validator keys
 
-To import your signing key(s) into Nimbus, copy the `validator_keys` directory -- the directory that was created for you when you generated your keys using the [command line app](https://github.com/ethereum/eth2.0-deposit-cli) -- into `nimbus-eth2`. Then run:
+!!! tip
+    `systemd` service file users will want to follow the [service file guide](./beacon-node-systemd.md#import-validator-keys) instead!
 
-**Prater**
+Having followed the [deposit guide](./deposit.md), you will have a `validator_keys` folder containing several `.json` files in the `nimbus-eth2` directory.
+
+We'll import the signing key of each validator to the [data directory](./data-dir.md) using the `deposits import` command:
+
+!!! note ""
+    You'll be asked to enter the password you used when creating your keystore(s).
+
+=== "Mainnet"
+    ```sh
+    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_mainnet_0
+    ```
+
+=== "Prater"
+    ```sh
+    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_prater_0
+    ```
+
+On success, a message will be printed that your keys have been imported:
 ```
-build/nimbus_beacon_node deposits import --data-dir=build/data/shared_prater_0
+NOT 2022-07-19 17:36:37.578+02:00 Keystore imported
 ```
 
-**Mainnet**
-```
-build/nimbus_beacon_node deposits import --data-dir=build/data/shared_mainnet_0
-```
+!!! note ""
+    `NOT` is short for `NOTICE` and not not :)
 
->**Note:** You can also specify a different path to your `validator_keys` directory as follows:
->
->*Prater*
->```
->build/nimbus_beacon_node deposits import \
-> --data-dir=build/data/shared_prater_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
-> ```
-> 
-> *Mainnet*
-> ```
->build/nimbus_beacon_node deposits import \ 
-> --data-dir=build/data/shared_mainnet_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
->```
-> 
-> Replacing `<YOUR VALIDATOR KEYS DIRECTORY>` with the full pathname of the `validator_keys` directory that was created when you generated your keys using the [command line app](https://github.com/ethereum/eth2.0-deposit-cli/releases/).
- 
- > **Tip:** You can run `pwd` in your `validator_keys` directory to print the full pathname to the console (if you're on Windows, run `cd` instead).
- 
- 
- You'll be asked to enter the password you created to encrypt your keystore(s).
- 
- Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
- 
- >**Note:** If you come across an error, it's probably because the wrong permissions have been set on either a folder or file. See [here](faq.md#folder-permissions) for how to fix this.
- 
- 
+After importing keys, it's time to [restart the node](./connect-eth2.md) and check that the keys have been picked up by the beacon node.
 
-## Storage 
+!!! info "All the keys"
+    You can read more about the different types of keys [here](https://blog.ethereum.org/2020/05/21/keys/) — the `deposits import` command will import the **signing key** only.
 
-When you import your keys into Nimbus, your validator signing key(s) are stored in the `build/data/shared_<prater or mainnet>_0/` folder, under `secrets` and `validators` - **make sure you keep these folders backed up somewhere safe.**
- 
- The `secrets` folder contains the common secret that gives you access to all your validator keys.
- 
- The `validators` folder contains your signing keystore(s) (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see [here](https://blog.ethereum.org/2020/05/21/keys/).
- 
- >**Note:** The Nimbus client will only ever import your signing key. In any case, if you used the deposit launchpad, this is the only key you should have (thanks to the way these keys are derived, it is possible to generate the withdrawal key from your mnemonic when you wish to withdraw).
-  
-## Export
+## Command line
 
-*Todo*
+If your `validator_keys` folder is stored elsewhere, you can pass its location to the import command:
+
+=== "Mainnet"
+    ```sh
+    build/nimbus_beacon_node deposits import \
+      --data-dir=build/data/shared_mainnet_0 \
+      /path/to/keys
+    ```
+
+=== "Prater"
+    ```sh
+    build/nimbus_beacon_node deposits import \
+      --data-dir=build/data/shared_prater_0 \
+      /path/to/keys
+    ```
+
+Replacing `/path/to/keys` with the full pathname of where the `validator_keys` directory is found.
+
+## Optimized import for a large number of validators
+
+If you plan to use a large number of validators (e.g. more than 100) on a single beacon node or a validator client, you might benefit from running the `deposits import` command with the option `--method=single-salt`.
+This will force Nimbus to use the same password and random salt value when encrypting all of the imported keystores which will later enable it to load the large number of validator keys almost instantly.
+The theoretical downside of using this approach is that it makes the brute-force cracking of all imported keystores computationally equivalent to cracking just one of them.
+Nevertheless, the security parameters used by Ethereum are such that cracking even a single keystore is considered computationally infeasible with current hardware.
+
+## Troubleshooting
+
+If you come across an error, make sure that:
+
+* You are using the correct [data directory](./data-dir.md).
+    * For `systemd` users, look for the `--data-dir` option in the `.service` file.
+* You are running the command as the correct user.
+    * For `systemd` users, look for the `User=` option in the `.service`. Assuming the user is called `nimbus`,  prefix all commands with: `sudo -u nimbus`.
+* Permissions for the data directory are wrong.
+    * See [folder permissions](./data-dir.md#permissions) for how to fix this.

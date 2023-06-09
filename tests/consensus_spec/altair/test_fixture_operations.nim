@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[os, sequtils, sets],
+  std/[sequtils, sets],
   # Utilities
   chronicles,
   unittest2,
@@ -19,7 +19,7 @@ import
   ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils,
+  ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
 
 const
@@ -32,7 +32,7 @@ const
   OpSyncAggregateDir    = OpDir/"sync_aggregate"
   OpVoluntaryExitDir    = OpDir/"voluntary_exit"
 
-  baseDescription = "Ethereum Foundation - Altair - Operations - "
+  baseDescription = "EF - Altair - Operations - "
 
 doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
   toHashSet([OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
@@ -46,18 +46,18 @@ proc runTest[T, U](
 
   proc testImpl() =
     let prefix =
-      if existsFile(testDir/"post.ssz_snappy"):
+      if fileExists(testDir/"post.ssz_snappy"):
         "[Valid]   "
       else:
         "[Invalid] "
 
     test prefix & baseDescription & testSuiteName & " - " & identifier:
-      var preState = newClone(
+      let preState = newClone(
         parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
       let done = applyProc(
         preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
-      if existsFile(testDir/"post.ssz_snappy"):
+      if fileExists(testDir/"post.ssz_snappy"):
         let postState =
           newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
 

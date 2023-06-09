@@ -1,11 +1,17 @@
+# beacon_chain
+# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
-  stats, os, strformat, times,
-  ../tests/testblockutil,
-  ../beacon_chain/beacon_chain_db,
+  stats, strformat, times,
+  ../tests/testblockutil, ../tests/consensus_spec/os_ops,
+  ../beacon_chain/[beacon_chain_db, filepath],
   ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/spec/[beaconstate, forks, helpers],
-  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types],
-  ../beacon_chain/eth1/eth1_monitor
+  ../beacon_chain/spec/[beaconstate, deposit_snapshots, forks, helpers],
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types]
 
 template withTimer*(stats: var RunningStat, body: untyped) =
   # TODO unify timing somehow
@@ -61,31 +67,39 @@ func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: auto) =
       state, finalized_checkpoint).epoch + 2 >= current_epoch
 
 proc loadGenesis*(validators: Natural, validate: bool):
-                 (ref phase0.HashedBeaconState, DepositContractSnapshot) =
+                 (ref ForkedHashedBeaconState, DepositTreeSnapshot) =
+  const genesisDir = "test_sim"
+  if (let res = secureCreatePath(genesisDir); res.isErr):
+    fatal "Could not create directory",
+      path = genesisDir, err = ioErrorMsg(res.error)
+    quit 1
+
   let
-    genesisFn =
+    genesisFn = genesisDir /
       &"genesis_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
-    contractSnapshotFn =
+    contractSnapshotFn = genesisDir /
       &"deposit_contract_snapshot_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
-    res = (ref phase0.HashedBeaconState)()
+    cfg = defaultRuntimeConfig
 
   if fileExists(genesisFn) and fileExists(contractSnapshotFn):
-    res.data = SSZ.loadFile(genesisFn, phase0.BeaconState)
-    res.root = hash_tree_root(res.data)
-    if res.data.slot != GENESIS_SLOT:
-      echo "Can only start from genesis state"
-      quit 1
+    let res = newClone(readSszForkedHashedBeaconState(
+      cfg, readAllBytes(genesisFn).tryGet()))
 
-    if res.data.validators.len != validators:
-      echo &"Supplied genesis file has {res.data.validators.len} validators, while {validators} where requested, running anyway"
+    withState(res[]):
+      if forkyState.data.slot != GENESIS_SLOT:
+        echo "Can only start from genesis state"
+        quit 1
 
-    echo &"Loaded {genesisFn}..."
+      if forkyState.data.validators.len != validators:
+        echo &"Supplied genesis file has {forkyState.data.validators.len} validators, while {validators} where requested, running anyway"
 
-    # TODO check that the private keys are interop keys
+      echo &"Loaded {genesisFn}..."
 
-    let contractSnapshot = SSZ.loadFile(contractSnapshotFn,
-                                        DepositContractSnapshot)
-    (res, contractSnapshot)
+      # TODO check that the private keys are EF test keys
+
+      let contractSnapshot = SSZ.loadFile(contractSnapshotFn,
+                                          DepositTreeSnapshot)
+      (res, contractSnapshot)
   else:
     echo "Genesis file not found, making one up (use nimbus_beacon_node createTestnet to make one)"
 
@@ -98,20 +112,16 @@ proc loadGenesis*(validators: Natural, validate: bool):
     var merkleizer = init DepositsMerkleizer
     for d in deposits:
       merkleizer.addChunk hash_tree_root(d).data
-    let contractSnapshot = DepositContractSnapshot(
+    let contractSnapshot = DepositTreeSnapshot(
       depositContractState: merkleizer.toDepositContractState)
 
-    res.data = initialize_beacon_state_from_eth1(
-      defaultRuntimeConfig,
-      Eth2Digest(),
-      0,
-      deposits,
-      flags)[]
-
-    res.root = hash_tree_root(res.data)
+    let res = (ref ForkedHashedBeaconState)(
+      kind: ConsensusFork.Phase0,
+      phase0Data: initialize_hashed_beacon_state_from_eth1(
+        cfg, ZERO_HASH, 0, deposits, flags))
 
     echo &"Saving to {genesisFn}..."
-    SSZ.saveFile(genesisFn, res.data)
+    SSZ.saveFile(genesisFn, res.phase0Data.data)
     echo &"Saving to {contractSnapshotFn}..."
     SSZ.saveFile(contractSnapshotFn, contractSnapshot)
 
