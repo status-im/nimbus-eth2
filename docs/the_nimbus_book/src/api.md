@@ -466,6 +466,14 @@ Equivalent call in the official REST API:
 curl http://localhost:5052/eth/v2/debug/beacon/states/head -s | jq
 ```
 
+### [`get_v1_debug_beacon_heads`](https://ethereum.github.io/eth2.0-APIs/#/Debug/getDebugChainHeads)
+
+Equivalent call in the official REST API:
+
+```
+curl http://localhost:5052/eth/v1/debug/beacon/heads -s | jq
+```
+
 ## Nimbus extensions
 
 ### getBeaconHead
