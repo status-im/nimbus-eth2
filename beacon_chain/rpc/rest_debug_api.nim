@@ -61,13 +61,6 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
-  # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeads
-  router.api(MethodGet,
-             "/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(
-      node.dag.heads.mapIt((root: it.root, slot: it.slot))
-    )
-
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeadsV2
   router.api(MethodGet,
              "/eth/v2/debug/beacon/heads") do () -> RestApiResponse:

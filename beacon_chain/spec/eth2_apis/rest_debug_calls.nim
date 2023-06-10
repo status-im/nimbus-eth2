@@ -13,11 +13,6 @@ import
 
 export chronos, client, rest_types, eth2_rest_serialization
 
-proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
-     rest, endpoint: "/eth/v1/debug/beacon/heads",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getDebugChainHeads
-
 proc getStateV2Plain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",
      accept: preferSSZ,
