@@ -684,6 +684,7 @@ proc init*(T: type BeaconNode,
         config.secretsDir,
         config.defaultFeeRecipient,
         config.suggestedGasLimit,
+        config.getPayloadBuilderAddress,
         getValidatorAndIdx,
         getBeaconTime)
     else: nil
