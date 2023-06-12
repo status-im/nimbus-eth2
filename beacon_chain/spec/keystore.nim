@@ -556,8 +556,94 @@ proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T) {.
   if len(seq[byte](value)) == 0:
     r.raiseUnexpectedValue("Valid hex string expected")
 
-proc readValue*(r: var JsonReader, value: var Kdf)
-               {.raises: [SerializationError, IOError, Defect].} =
+template readValueImpl(r: var JsonReader, value: var Checksum) =
+  var
+    functionSpecified = false
+    paramsSpecified = false
+    messageSpecified = false
+
+  for fieldName in readObjectFields(r):
+    case fieldName
+    of "function":
+      value = Checksum(function: r.readValue(ChecksumFunctionKind))
+      functionSpecified = true
+
+    of "params":
+      if functionSpecified:
+        case value.function
+        of sha256Checksum:
+          r.readValue(value.params)
+      else:
+        r.raiseUnexpectedValue(
+          "The 'params' field must be specified after the 'function' field")
+      paramsSpecified = true
+
+    of "message":
+      if functionSpecified:
+        case value.function
+        of sha256Checksum:
+          r.readValue(value.message)
+      else:
+        r.raiseUnexpectedValue(
+          "The 'message' field must be specified after the 'function' field")
+      messageSpecified = true
+
+    else:
+      r.raiseUnexpectedField(fieldName, "Kdf")
+
+  if not (functionSpecified and paramsSpecified and messageSpecified):
+    r.raiseUnexpectedValue(
+      "The Checksum value should have sub-fields named " &
+      "'function', 'params', and 'message'")
+
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
+proc readValue*(r: var JsonReader[DefaultFlavor], value: var Checksum)
+    {.raises: [SerializationError, IOError].} =
+  readValueImpl(r, value)
+{.pop.}
+
+template readValueImpl(r: var JsonReader, value: var Cipher) =
+  var
+    functionSpecified = false
+    paramsSpecified = false
+    messageSpecified = false
+
+  for fieldName in readObjectFields(r):
+    case fieldName
+    of "function":
+      value = Cipher(
+        function: r.readValue(CipherFunctionKind), message: value.message)
+      functionSpecified = true
+
+    of "params":
+      if functionSpecified:
+        case value.function
+        of aes128CtrCipher:
+          r.readValue(value.params)
+      else:
+        r.raiseUnexpectedValue(
+          "The 'params' field must be specified after the 'function' field")
+      paramsSpecified = true
+
+    of "message":
+      r.readValue(value.message)
+      messageSpecified = true
+
+    else:
+      r.raiseUnexpectedField(fieldName, "Kdf")
+
+  if not (functionSpecified and paramsSpecified and messageSpecified):
+    r.raiseUnexpectedValue(
+      "The Cipher value should have sub-fields named " &
+      "'function', 'params', and 'message'")
+
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
+proc readValue*(r: var JsonReader[DefaultFlavor], value: var Cipher)
+    {.raises: [SerializationError, IOError].} =
+  readValueImpl(r, value)
+{.pop.}
+
+template readValueImpl(r: var JsonReader, value: var Kdf) =
   var
     functionSpecified = false
     paramsSpecified = false
@@ -565,7 +651,7 @@ proc readValue*(r: var JsonReader, value: var Kdf)
   for fieldName in readObjectFields(r):
     case fieldName
     of "function":
-      value.function = r.readValue(KdfKind)
+      value = Kdf(function: r.readValue(KdfKind), message: value.message)
       functionSpecified = true
 
     of "params":
@@ -589,6 +675,16 @@ proc readValue*(r: var JsonReader, value: var Kdf)
   if not (functionSpecified and paramsSpecified):
     r.raiseUnexpectedValue(
       "The Kdf value should have sub-fields named 'function' and 'params'")
+
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
+proc readValue*(r: var JsonReader[DefaultFlavor], value: var Kdf)
+    {.raises: [SerializationError, IOError].} =
+  readValueImpl(r, value)
+{.pop.}
+
+proc readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
+  static: raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
+    "]` for `readValue` of `" & $typeof(value) & "`"
 
 # HttpHostUri
 proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
