@@ -7,13 +7,13 @@
 
 {.push raises: [].}
 
-import chronos, chronicles, stew/base10
+import chronos, chronicles
 import
   eth/p2p/discoveryv5/random2,
   ../spec/network,
   ../networking/eth2_network,
   ../beacon_clock,
-  "."/sync_protocol, "."/sync_manager
+  "."/[light_client_sync_helpers, sync_protocol, sync_manager]
 export sync_manager
 
 logScope:
@@ -137,38 +137,10 @@ proc doRequest(
     reqCount = min(periods.len, MAX_REQUEST_LIGHT_CLIENT_UPDATES).uint64
   let response = await peer.lightClientUpdatesByRange(startPeriod, reqCount)
   if response.isOk:
-    if response.get.lenu64 > reqCount:
-      raise newException(ResponseError, "Too many values in response" &
-        " (" & Base10.toString(response.get.lenu64) &
-        " > " & Base10.toString(reqCount.uint) & ")")
-    var expectedPeriod = startPeriod
-    for update in response.get:
-      withForkyUpdate(update):
-        when lcDataFork > LightClientDataFork.None:
-          let
-            attPeriod =
-              forkyUpdate.attested_header.beacon.slot.sync_committee_period
-            sigPeriod = forkyUpdate.signature_slot.sync_committee_period
-          if attPeriod != sigPeriod:
-            raise newException(
-              ResponseError, "Conflicting sync committee periods" &
-              " (signature: " & Base10.toString(distinctBase(sigPeriod)) &
-              " != " & Base10.toString(distinctBase(attPeriod)) & ")")
-          if attPeriod < expectedPeriod:
-            raise newException(
-              ResponseError, "Unexpected sync committee period" &
-              " (" & Base10.toString(distinctBase(attPeriod)) &
-              " < " & Base10.toString(distinctBase(expectedPeriod)) & ")")
-          if attPeriod > expectedPeriod:
-            if attPeriod > lastPeriod:
-              raise newException(
-                ResponseError, "Sync committee period too high" &
-                " (" & Base10.toString(distinctBase(attPeriod)) &
-                " > " & Base10.toString(distinctBase(lastPeriod)) & ")")
-            expectedPeriod = attPeriod
-          inc expectedPeriod
-        else:
-          raise newException(ResponseError, "Invalid context bytes")
+    let e = distinctBase(response.get)
+      .checkLightClientUpdates(startPeriod, reqCount)
+    if e.isErr:
+      raise newException(ResponseError, e.error)
   return response
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.2/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate

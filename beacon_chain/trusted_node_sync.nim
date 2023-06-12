@@ -9,7 +9,7 @@
 import
   stew/[base10, results],
   chronicles, chronos, eth/async_utils,
-  ./sync/sync_manager,
+  ./sync/[light_client_sync_helpers, sync_manager],
   ./consensus_object_pools/[block_clearance, blockchain_dag],
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync,
@@ -267,34 +267,16 @@ proc doTrustedNodeSync*(
             except CatchableError as exc:
               error "Unable to download LC updates", error = exc.msg
               quit 1
-          if updates.lenu64 > count:
-            error "Malformed LC updates response: Too many values"
+          let e = updates.checkLightClientUpdates(startPeriod, count)
+          if e.isErr:
+            error "Malformed LC updates response", resError = e.error
             quit 1
           if updates.len == 0:
             warn "Server does not appear to be fully synced"
             break
-          var expectedPeriod = startPeriod
           for i in 0 ..< updates.len:
             doAssert updates[i].kind > LightClientDataFork.None
             updates[i].migrateToDataFork(lcDataFork)
-            let
-              attPeriod = updates[i].forky(lcDataFork)
-                .attested_header.beacon.slot.sync_committee_period
-              sigPeriod = updates[i].forky(lcDataFork)
-                .signature_slot.sync_committee_period
-            if attPeriod != sigPeriod:
-              error "Malformed LC updates response: Conflicting periods"
-              quit 1
-            if attPeriod < expectedPeriod:
-              error "Malformed LC updates response: Unexpected period"
-              quit 1
-            if attPeriod > expectedPeriod:
-              if attPeriod > lastPeriod:
-                error "Malformed LC updates response: Period too high"
-                quit 1
-              expectedPeriod = attPeriod
-            inc expectedPeriod
-
             let res = process_light_client_update(
               store, updates[i].forky(lcDataFork),
               getBeaconTime().slotOrZero(), cfg, genesis_validators_root)
