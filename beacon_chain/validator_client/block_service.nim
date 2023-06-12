@@ -41,7 +41,7 @@ proc produceBlock(
     wall_slot = currentSlot
     validator = shortLog(validator)
   let
-    beaconBlock =
+    produceBlockResponse =
       try:
         await vc.produceBlockV2(slot, randao_reveal, graffiti,
                                 ApiStrategyKind.Best)
@@ -55,9 +55,30 @@ proc produceBlock(
         error "An unexpected error occurred while getting block data",
               error_name = exc.name, error_msg = exc.msg
         return Opt.none(PreparedBeaconBlock)
-    blockRoot = withBlck(beaconBlock): hash_tree_root(blck)
+  case produceBlockResponse.kind
+  of ConsensusFork.Phase0:
+    let blck = produceBlockResponse.phase0Data
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck)))
+  of ConsensusFork.Altair:
+    let blck = produceBlockResponse.altairData
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck)))
+  of ConsensusFork.Bellatrix:
+    let blck = produceBlockResponse.bellatrixData
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck)))
+  of ConsensusFork.Capella:
+    let blck = produceBlockResponse.capellaData
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck)))
+  of ConsensusFork.Deneb:
+    debugRaiseAssert $denebImplementationMissing
+    # TODO return blobs as well
+    let blck = produceBlockResponse.denebData.`block`
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck)))
 
-  return Opt.some(PreparedBeaconBlock(blockRoot: blockRoot, data: beaconBlock))
 
 proc produceBlindedBlock(
        vc: ValidatorClientRef,

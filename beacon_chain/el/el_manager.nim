@@ -89,9 +89,6 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/experimental/blob-extension.md#request-2
-  GETBLOBS_TIMEOUT = 1.seconds
-
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see
     ## before declaring the connection as degraded/restored
@@ -909,12 +906,7 @@ proc getPayload*(m: ELManager,
     randomData, suggestedFeeRecipient, engineApiWithdrawals)
 
   let
-    timeout = when PayloadType is deneb.ExecutionPayloadForSigning:
-      # TODO We should follow the spec and track the timeouts of
-      #      the individual engine API calls inside `getPayloadFromSingleEL`.
-      GETPAYLOAD_TIMEOUT + GETBLOBS_TIMEOUT
-    else:
-      GETPAYLOAD_TIMEOUT
+    timeout = GETPAYLOAD_TIMEOUT
     deadline = sleepAsync(timeout)
     requests = m.elConnections.mapIt(it.getPayloadFromSingleEL(
       EngineApiResponseType(PayloadType),
