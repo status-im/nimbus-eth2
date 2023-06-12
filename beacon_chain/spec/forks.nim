@@ -622,16 +622,18 @@ template withEpochInfo*(
   template info: untyped {.inject.} = x.altairData
   body
 
+{.push warning[ProveField]:off.}
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.kind == src.kind:
     withState(tgt):
-      {.push warning[ProveField]: off.}
-      assign(forkyState, src.forky(consensusFork))
-      {.pop.}
+      template forkyTgt: untyped = forkyState
+      template forkySrc: untyped = src.forky(consensusFork)
+      assign(forkyTgt, forkySrc)
   else:
     # Ensure case object and discriminator get updated simultaneously, even
     # with nimOldCaseObjects. This is infrequent.
     tgt = src
+{.pop.}
 
 template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # The use of `unsafeAddr` avoids excessive copying in certain situations, e.g.,
@@ -639,18 +641,16 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   #   for index, validator in getStateField(stateData.data, validators):
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
-  (case x.kind
-  of ConsensusFork.Deneb:     unsafeAddr x.denebData.data.y
-  of ConsensusFork.Capella:   unsafeAddr x.capellaData.data.y
-  of ConsensusFork.Bellatrix: unsafeAddr x.bellatrixData.data.y
-  of ConsensusFork.Altair:    unsafeAddr x.altairData.data.y
-  of ConsensusFork.Phase0:    unsafeAddr x.phase0Data.data.y)[]
+  (block:
+    withState(x): unsafeAddr forkyState.data.y)[]
 
 func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   withState(x): forkyState.root
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   withState(x): forkyState.root = root
+{.pop.}
 
 func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
   ## Return the current fork for the given epoch.
