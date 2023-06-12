@@ -526,6 +526,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
     return RestApiResponse.jsonResponsePlain(response)
 
+  # https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Voluntary%20Exit/signVoluntaryExit
   router.api(MethodPost, "/eth/v1/validator/{pubkey}/voluntary_exit") do (
     pubkey: ValidatorPubKey, epoch: Option[Epoch],
     contentBody: Option[ContentBody]) -> RestApiResponse:
