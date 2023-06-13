@@ -82,7 +82,7 @@ jobs:
             exit 2
           fi
 
-      - name: Check submouldes (Linux)
+      - name: Check submodules (Linux)
         if: github.event_name == 'pull_request' && runner.os == 'Linux'
         run: |
           while IFS='' read -r line; do
