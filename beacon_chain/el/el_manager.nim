@@ -1659,7 +1659,7 @@ proc trackFinalizedState(chain: var Eth1Chain,
     else:
       error "Corrupted deposits history detected",
             ourDepositsCount = matchingBlock.depositCount,
-            taretDepositsCount = finalizedEth1Data.deposit_count,
+            targetDepositsCount = finalizedEth1Data.deposit_count,
             ourDepositsRoot = matchingBlock.depositRoot,
             targetDepositsRoot = finalizedEth1Data.deposit_root
       chain.hasConsensusViolation = true
