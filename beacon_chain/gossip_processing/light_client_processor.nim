@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  stew/objects,
   chronos, metrics,
   ../spec/light_client_sync,
   ../consensus_object_pools/block_pools_types,
