@@ -86,6 +86,16 @@ jobs:
         if: github.event_name == 'pull_request' && runner.os == 'Linux'
         run: |
           while IFS='' read -r line; do
+            # Format:
+            # - +/-/U/space to indicate changes
+            # - 40 characters commit
+            # - space
+            # - path to submodule
+            # - space
+            # - (
+            # - ref
+            # - )
+
             if [[ "${line:0:1}" == ' ' ]]; then
               # No changes, skip
               continue
