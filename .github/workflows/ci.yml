@@ -108,7 +108,6 @@ jobs:
               echo "Submodule '$path': '.gitmodules' lacks 'branch' entry"
               exit 2
             fi
-
             if ! error="$(git -C "$path" fetch -q origin "$branch")"; then
               echo "Submodule '$path': Failed to fetch '$branch': $error"
               exit 2
