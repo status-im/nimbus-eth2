@@ -82,42 +82,6 @@ jobs:
             exit 2
           fi
 
-      - name: Check submodules (Linux)
-        if: github.event_name == 'pull_request' && runner.os == 'Linux'
-        run: |
-          while IFS='' read -r line; do
-            # Format:
-            # - +/-/U/space to indicate changes
-            # - 40 characters commit
-            # - space
-            # - path to submodule
-            # - space
-            # - (
-            # - ref
-            # - )
-
-            if [[ "${line:0:1}" == ' ' ]]; then
-              # No changes, skip
-              continue
-            fi
-
-            commit="${line:1:40}"
-            path="$(cut -f 1 -d ' ' <<<${line:42})"
-
-            if ! branch="$(git config -f .gitmodules --get "submodule.$path.branch")"; then
-              echo "Submodule '$path': '.gitmodules' lacks 'branch' entry"
-              exit 2
-            fi
-            if ! error="$(git -C "$path" fetch -q origin "$branch")"; then
-              echo "Submodule '$path': Failed to fetch '$branch': $error"
-              exit 2
-            fi
-            if ! git -C "$path" merge-base --is-ancestor "$commit" "origin/$branch"; then
-              echo "Submodule '$path': '$commit' is not on '$branch'"
-              exit 2
-            fi
-          done < <(git submodule status)
-
       - name: MSYS2 (Windows amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
         uses: msys2/setup-msys2@v2
@@ -198,6 +162,42 @@ jobs:
         run: |
           ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
           ./env.sh nim --version
+
+      - name: Check submodules (Linux)
+        if: github.event_name == 'pull_request' && runner.os == 'Linux'
+        run: |
+          while IFS='' read -r line; do
+            # Format:
+            # - +/-/U/space to indicate changes
+            # - 40 characters commit
+            # - space
+            # - path to submodule
+            # - space
+            # - (
+            # - ref
+            # - )
+
+            if [[ "${line:0:1}" == ' ' ]]; then
+              # No changes, skip
+              continue
+            fi
+
+            commit="${line:1:40}"
+            path="$(cut -f 1 -d ' ' <<<${line:42})"
+
+            if ! branch="$(git config -f .gitmodules --get "submodule.$path.branch")"; then
+              echo "Submodule '$path': '.gitmodules' lacks 'branch' entry"
+              exit 2
+            fi
+            if ! error="$(git -C "$path" fetch -q origin "$branch")"; then
+              echo "Submodule '$path': Failed to fetch '$branch': $error"
+              exit 2
+            fi
+            if ! git -C "$path" merge-base --is-ancestor "$commit" "origin/$branch"; then
+              echo "Submodule '$path': '$commit' is not on '$branch'"
+              exit 2
+            fi
+          done < <(git submodule status)
 
       - name: Get latest fixtures commit hash
         id: fixtures_version
