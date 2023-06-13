@@ -295,7 +295,11 @@ proc getMetadataForNetwork*(
   template withGenesis(metadata, genesis: untyped): untyped =
     when incbinEnabled:
       var tmp = metadata
-      assign(tmp.genesisData, genesis.toOpenArray(0, `genesis Size` - 1))
+      case tmp.incompatible
+      of false:
+        assign(tmp.genesisData, genesis.toOpenArray(0, `genesis Size` - 1))
+      of true:
+        raiseAssert "Unreachable"  # `loadCompileTimeNetworkMetadata`
       tmp
     else:
       metadata
@@ -343,15 +347,24 @@ proc getRuntimeConfig*(
   ## quite appropriate in such as low-level function. The "assume mainnet by
   ## default" behavior is something that should be handled closer to the `conf`
   ## layer.
-  if eth2Network.isSome:
-    return getMetadataForNetwork(eth2Network.get).cfg
+  let metadata =
+    if eth2Network.isSome:
+      getMetadataForNetwork(eth2Network.get)
+    else:
+      when const_preset == "mainnet":
+        mainnetMetadata
+      elif const_preset == "gnosis":
+        gnosisMetadata
+      else:
+        # This is a non-standard build (i.e. minimal), and the function was
+        # most likely executed in a test. The best we can do is return a fully
+        # default config:
+        return defaultRuntimeConfig
 
-  when const_preset == "mainnet":
-    mainnetMetadata.cfg
-  elif const_preset == "gnosis":
-    gnosisMetadata.cfg
-  else:
-    # This is a non-standard build (i.e. minimal), and the function was most
-    # likely executed in a test. The best we can do is return a fully default
-    # config:
-    defaultRuntimeConfig
+  return
+    case metadata.incompatible
+    of false:
+      metadata.cfg
+    of true:
+      # `getMetadataForNetwork` / `loadCompileTimeNetworkMetadata`
+      raiseAssert "Unreachable"
