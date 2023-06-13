@@ -181,7 +181,7 @@ jobs:
               echo "Submodule '$file': '$commit' is not on '$branch'"
               exit 2
             fi
-          done < <(git diff --name-only --diff-filter=AM HEAD^2 HEAD | grep -f <(git config --file .gitmodules --get-regexp path | awk '{ print $2 }') || true)
+          done < <(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep -f <(git config --file .gitmodules --get-regexp path | awk '{ print $2 }') || true)
 
       - name: Get latest fixtures commit hash
         id: fixtures_version
