@@ -107,6 +107,15 @@ func get_block_signature*(
 
   blsSign(privkey, signing_root.data)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/validator.md#constructing-the-signedblobsidecars
+proc get_blob_sidecar_signature*(
+  fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    blob: BlobSidecar, privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_blob_signing_root(
+    fork, genesis_validators_root, slot, blob)
+
+  blsSign(privkey, signing_root.data)
+
 proc verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader,
