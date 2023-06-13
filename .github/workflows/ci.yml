@@ -104,7 +104,7 @@ jobs:
             commit="${line:1:40}"
             path="$(cut -f 1 -d ' ' <<<${line:42})"
 
-            if ! branch="$(git config -f .gitmodules --get submodule.$path.branch)"; then
+            if ! branch="$(git config -f .gitmodules --get "submodule.$path.branch")"; then
               echo "Submodule '$path': '.gitmodules' lacks 'branch' entry"
               exit 2
             fi
