@@ -325,6 +325,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       slot: Slot, randao_reveal: Option[ValidatorSig],
       graffiti: Option[GraffitiBytes],
       skip_randao_verification: Option[string]) -> RestApiResponse:
+    let
+      contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
     let message =
       block:
         let qslot = block:
@@ -348,8 +351,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             let res = skip_randao_verification.get()
             if res.isErr() or res.get() != "":
-              return RestApiResponse.jsonError(Http400,
-                                               InvalidSkipRandaoVerificationValue)
+              return RestApiResponse.jsonError(
+                Http400, InvalidSkipRandaoVerificationValue)
             true
         let qrandao =
           if randao_reveal.isNone():
@@ -416,7 +419,16 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
         res.get.blck
-    return RestApiResponse.jsonResponsePlain(message)
+    return
+      if contentType == sszMediaType:
+        let headers = [("eth-consensus-version", message.kind.toString())]
+        withBlck(message):
+          RestApiResponse.sszResponse(blck, headers)
+      elif contentType == jsonMediaType:
+        withBlck(message):
+          RestApiResponse.jsonResponseWVersion(blck, message.kind)
+      else:
+        raiseAssert "preferredContentType() returns invalid content type"
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/blinded_block.yaml

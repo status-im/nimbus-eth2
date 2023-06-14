@@ -666,6 +666,12 @@ proc init*(T: type BeaconNode,
     withState(dag.headState):
       getValidator(forkyState().data.validators.asSeq(), pubkey)
 
+  proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
+    Opt.some(dag.forkAtEpoch(epoch))
+
+  proc getGenesisRoot(): Eth2Digest =
+    getStateField(dag.headState, genesis_validators_root)
+
   let
     slashingProtectionDB =
       SlashingProtectionDB.init(
@@ -685,7 +691,9 @@ proc init*(T: type BeaconNode,
         config.defaultFeeRecipient,
         config.suggestedGasLimit,
         getValidatorAndIdx,
-        getBeaconTime)
+        getBeaconTime,
+        getForkForEpoch,
+        getGenesisRoot)
     else: nil
 
     stateTtlCache =
@@ -1513,7 +1521,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Altair:
         # sync_committee_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/p2p-interface.md#sync_committee_subnet_id
         for subcommitteeIdx in SyncSubcommitteeIndex:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = subcommitteeIdx
@@ -1885,7 +1893,11 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   let node = BeaconNode.init(rng, config, metadata)
 
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    let res = conf.loadKzgTrustedSetup()
+    let res =
+      if config.trustedSetupFile.isNone:
+        conf.loadKzgTrustedSetup()
+      else:
+        conf.loadKzgTrustedSetup(config.trustedSetupFile.get)
     if res.isErr():
       raiseAssert res.error()
 

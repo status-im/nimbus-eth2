@@ -69,6 +69,11 @@ type
     proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
          {.raises: [Defect], gcsafe.}
 
+  GetForkFn* =
+    proc (epoch: Epoch): Opt[Fork] {.raises: [Defect], gcsafe.}
+  GetGenesisFn* =
+    proc (): Eth2Digest {.raises: [Defect], gcsafe.}
+
   KeymanagerHost* = object
     validatorPool*: ref ValidatorPool
     rng*: ref HmacDrbgContext
@@ -79,6 +84,8 @@ type
     defaultGasLimit*: uint64
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
+    getForkFn*: GetForkFn
+    getGenesisFn*: GetGenesisFn
 
   MultipleKeystoresDecryptor* = object
     previouslyUsedPassword*: string
@@ -104,7 +111,9 @@ func init*(T: type KeymanagerHost,
            defaultFeeRecipient: Opt[Eth1Address],
            defaultGasLimit: uint64,
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
-           getBeaconTimeFn: GetBeaconTimeFn): T =
+           getBeaconTimeFn: GetBeaconTimeFn,
+           getForkFn: GetForkFn,
+           getGenesisFn: GetGenesisFn): T =
   T(validatorPool: validatorPool,
     rng: rng,
     keymanagerToken: keymanagerToken,
@@ -113,7 +122,9 @@ func init*(T: type KeymanagerHost,
     defaultFeeRecipient: defaultFeeRecipient,
     defaultGasLimit: defaultGasLimit,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
-    getBeaconTimeFn: getBeaconTimeFn)
+    getBeaconTimeFn: getBeaconTimeFn,
+    getForkFn: getForkFn,
+    getGenesisFn: getGenesisFn)
 
 proc echoP*(msg: string) =
   ## Prints a paragraph aligned to 80 columns

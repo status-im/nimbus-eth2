@@ -246,7 +246,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
   let validatorContributions = block:
     var res: seq[ContributionItem]
     for idx, fut in slotSignatureReqs:
-      if fut.completed:
+      if fut.completed():
         let
           sigRes = fut.read
           validator = validators[idx][0]
