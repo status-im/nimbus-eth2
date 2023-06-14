@@ -1893,7 +1893,11 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   let node = BeaconNode.init(rng, config, metadata)
 
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    let res = conf.loadKzgTrustedSetup()
+    let res =
+      if config.trustedSetupFile.isNone:
+        conf.loadKzgTrustedSetup()
+      else:
+        conf.loadKzgTrustedSetup(config.trustedSetupFile.get)
     if res.isErr():
       raiseAssert res.error()
 
