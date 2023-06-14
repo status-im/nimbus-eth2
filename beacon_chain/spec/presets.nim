@@ -91,7 +91,6 @@ const
   ignoredValues = [
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
     "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "SAFE_SLOTS_TO_UPDATE_JUSTIFIED",  # Removed in consensus-specs v1.3.0
   ]
 
 when const_preset == "mainnet":
