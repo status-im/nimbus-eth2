@@ -748,17 +748,18 @@ func `==`*(a, b: RestValidatorIndex): bool =
 
 func init*(T: type ForkedSignedBeaconBlock,
            contents: RestPublishedSignedBlockContents): T =
-  case contents.kind
-  of ConsensusFork.Phase0:
-    return ForkedSignedBeaconBlock.init(contents.phase0Data)
-  of ConsensusFork.Altair:
-    return ForkedSignedBeaconBlock.init(contents.altairData)
-  of ConsensusFork.Bellatrix:
-    return ForkedSignedBeaconBlock.init(contents.bellatrixData)
-  of ConsensusFork.Capella:
-    return ForkedSignedBeaconBlock.init(contents.capellaData)
-  of ConsensusFork.Deneb:
-    return ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
+  return
+    case contents.kind
+    of ConsensusFork.Phase0:
+      ForkedSignedBeaconBlock.init(contents.phase0Data)
+    of ConsensusFork.Altair:
+      ForkedSignedBeaconBlock.init(contents.altairData)
+    of ConsensusFork.Bellatrix:
+      ForkedSignedBeaconBlock.init(contents.bellatrixData)
+    of ConsensusFork.Capella:
+      ForkedSignedBeaconBlock.init(contents.capellaData)
+    of ConsensusFork.Deneb:
+      ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
