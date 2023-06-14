@@ -115,6 +115,8 @@ const
     "Invalid subscription request object(s)"
   ValidatorNotFoundError* =
     "Could not find validator"
+  ValidatorIndexMissingError* =
+    "Validator missing index value"
   ValidatorStatusNotFoundError* =
     "Could not obtain validator's status"
   TooHighValidatorIndexValueError* =
@@ -234,3 +236,5 @@ const
     "The given merkle proof is invalid"
   InvalidMerkleProofIndexError* =
     "The given merkle proof index is invalid"
+  FailedToObtainForkError* =
+    "Failed to obtain fork information"
