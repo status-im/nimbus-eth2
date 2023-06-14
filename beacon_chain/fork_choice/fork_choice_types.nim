@@ -88,8 +88,9 @@ type
     ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
-    currentEpoch*: Epoch
+    currentSlot*: Slot
     checkpoints*: FinalityCheckpoints
+    justifiedTotalActiveBalance*: Gwei
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
     currentEpochTips*: Table[Index, FinalityCheckpoints]
@@ -100,6 +101,7 @@ type
     bid*: BlockId
     parent*: Option[Index]
     checkpoints*: FinalityCheckpoints
+    totalActiveBalance*: Gwei
     weight*: int64
     invalid*: bool
     bestChild*: Option[Index]
@@ -107,6 +109,7 @@ type
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
+    total_active_balance*: Gwei
     balances*: seq[Gwei]
 
   Checkpoints* = object
@@ -139,6 +142,7 @@ type
   ForkChoice* = object
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
+    safeBlockRoot*: Eth2Digest
     queuedAttestations*: seq[QueuedAttestation]
 
 func shortLog*(vote: VoteTracker): auto =

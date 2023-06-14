@@ -72,7 +72,150 @@ func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
 func isPreviousEpochJustified(self: ProtoArray): bool =
-  self.checkpoints.justified.epoch + 1 == self.currentEpoch
+  self.checkpoints.justified.epoch + 1 == self.currentSlot.epoch
+
+func parentNode(self: ProtoArray, node: ProtoNode): Option[ProtoNode] =
+  if node.parent.isSome:
+    self.nodes[node.parent.unsafeGet]
+  else:
+    none(ProtoNode)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/fork-choice.md#get_checkpoint_block
+func get_checkpoint_block(
+    self: ProtoArray, node: ProtoNode, epoch: Epoch): Option[ProtoNode] =
+  ## Compute the checkpoint block for epoch ``epoch`` in the chain of ``node``
+  let slot = epoch.start_slot
+  var ancestor = some node
+  while ancestor.isSome and ancestor.unsafeGet.bid.slot > slot:
+    if ancestor.unsafeGet.parent.isSome:
+      ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
+    else:
+      ancestor.reset()
+  ancestor
+
+# https://github.com/ethereum/consensus-specs/blob/17d528a8ab40d765a7f3f765f370181dc5c795c1/specs/phase0/fork-choice.md#get_proposer_score
+func get_proposer_score(self: ProtoArray): Gwei =
+  let committeeWeight = self.justifiedTotalActiveBalance div SLOTS_PER_EPOCH
+  (committeeWeight * PROPOSER_SCORE_BOOST) div 100
+
+# Confirmation rule
+# ----------------------------------------------------------------------
+
+# https://github.com/ethereum/consensus-specs/blob/17d528a8ab40d765a7f3f765f370181dc5c795c1/fork_choice/confirmation-rule.md#get_committee_weight_between_slots
+func get_committee_weight_between_slots(
+    self: ProtoArray, slots: Slice[Slot]): Gwei =
+  ## Returns the total weight of committees between ``slots``.
+  ## Uses the justified state to compute committee weights.
+
+  # If an entire epoch is covered by the range, return the total active balance
+  let
+    startEpoch = slots.a.epoch
+    endEpoch = slots.b.epoch
+  if endEpoch > startEpoch + 1:
+    return self.justifiedTotalActiveBalance
+
+  let
+    committeeWeight = self.justifiedTotalActiveBalance div SLOTS_PER_EPOCH
+    numCommittees =
+      if startEpoch == endEpoch:
+        slots.len.float
+      else:
+        # A range that spans an epoch boundary, but does not span any full epoch
+        # needs pro-rata calculation
+        let
+          # First, calculate the number of committees in the current epoch
+          numSlotsInCurrentEpoch =
+            slots.b.since_epoch_start + 1
+          # Next, calculate the number of slots remaining in the current epoch
+          remainingSlotsInCurrentEpoch =
+            SLOTS_PER_EPOCH - numSlotsInCurrentEpoch
+          # Then, calculate the number of slots in the previous epoch
+          numSlotsInPreviousEpoch =
+            SLOTS_PER_EPOCH - slots.a.since_epoch_start
+
+          # Each committee from the previous epoch only contributes a
+          # pro-rated weight
+          multiplier =
+            remainingSlotsInCurrentEpoch.float / SLOTS_PER_EPOCH.float
+        numSlotsInCurrentEpoch.float +
+          numSlotsInPreviousEpoch.float * multiplier
+  (numCommittees * committeeWeight.float).Gwei
+
+# https://github.com/ethereum/consensus-specs/blob/17d528a8ab40d765a7f3f765f370181dc5c795c1/fork_choice/confirmation-rule.md#is_one_confirmed
+func is_one_confirmed(self: ProtoArray, node, parentNode: ProtoNode): bool =
+  let
+    support = node.weight.float
+    maximumSupport = self.get_committee_weight_between_slots(
+      parentNode.bid.slot + 1 .. self.currentSlot).float
+    proposerScore = self.get_proposer_score().float
+  (support / maximumSupport) >
+    0.5 * proposerScore / maximumSupport +
+    static((50 + confirmation_byzantine_threshold).float / 100.0)
+
+# https://github.com/ethereum/consensus-specs/blob/17d528a8ab40d765a7f3f765f370181dc5c795c1/fork_choice/confirmation-rule.md#is_lmd_confirmed
+func is_lmd_confirmed(self: ProtoArray, node: ProtoNode): bool =
+  return
+    if node.bid.root == self.checkpoints.finalized.root:
+      true
+    elif node.bid.slot <= self.checkpoints.finalized.epoch.start_slot:
+      # This block is not in the finalized chain.
+      false
+    else:
+      # Check is_one_confirmed for this block and is_lmd_confirmed for
+      # the preceding chain.
+      let parentNode = self.parentNode(node)
+      if parentNode.isSome:
+        self.is_one_confirmed(node, parentNode.unsafeGet) and
+          self.is_lmd_confirmed(parentNode.unsafeGet)
+      else:
+        false
+
+# https://github.com/ethereum/consensus-specs/blob/17d528a8ab40d765a7f3f765f370181dc5c795c1/fork_choice/confirmation-rule.md#get_remaining_weight_in_epoch
+func get_remaining_weight_in_epoch(self: ProtoArray): Gwei =
+  ## Returns the total weight of votes for this epoch from future committees
+  ## after the current slot
+  let firstSlotNextEpoch = (self.currentSlot.epoch + 1).start_slot
+  self.get_committee_weight_between_slots(
+    self.currentSlot + 1 ..< firstSlotNextEpoch)
+
+# https://github.com/ethereum/consensus-specs/blob/17d528a8ab40d765a7f3f765f370181dc5c795c1/fork_choice/confirmation-rule.md#is_ffg_confirmed
+func is_ffg_confirmed(self: ProtoArray, node: ProtoNode): bool =
+  let currentEpoch = self.currentSlot.epoch
+  doAssert node.bid.slot.epoch == currentEpoch
+
+  let checkpointNode = self.get_checkpoint_block(node, currentEpoch)
+  if checkpointNode.isNone:
+    return false
+
+  let
+    remainingFfgWeight = self.get_remaining_weight_in_epoch()
+    totalActiveBalance = checkpointNode.unsafeGet.totalActiveBalance
+    currentWeightInEpoch =
+
+
+# https://github.com/ethereum/consensus-specs/blob/17d528a8ab40d765a7f3f765f370181dc5c795c1/fork_choice/confirmation-rule.md#is_confirmed
+func is_confirmed(self: ProtoArray, node: ProtoNode): bool =
+  # This function is only applicable to current epoch blocks
+  let currentEpoch = self.currentSlot.epoch
+  doAssert node.bid.slot.epoch == currentEpoch
+
+  node.checkpoints.justified.epoch + 1 == currentEpoch and
+    self.is_lmd_confirmed(node) and self.is_ffg_confirmed(node)
+
+# https://github.com/ethereum/consensus-specs/blob/17d528a8ab40d765a7f3f765f370181dc5c795c1/fork_choice/confirmation-rule.md#find_confirmed_block
+func find_confirmed_block(self: ProtoArray, node: ProtoNode): Eth2Digest =
+  let currentEpoch = self.currentSlot.epoch
+  return
+    if node.bid.slot.epoch != currentEpoch:
+      self.checkpoints.finalized.root
+    elif self.is_confirmed(node):
+      node.bid.root
+    else:
+      let parentNode = self.parentNode(node)
+      if parentNode.isSome:
+        self.find_confirmed_block(parentNode.unsafeGet)
+      else:
+        self.checkpoints.finalized.root
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -90,13 +233,16 @@ func nodeLeadsToViableHead(
 # ----------------------------------------------------------------------
 
 func init*(
-    T: type ProtoArray, checkpoints: FinalityCheckpoints): T =
+    T: type ProtoArray,
+    checkpoints: FinalityCheckpoints,
+    totalActiveBalance: Gwei): T =
   let node = ProtoNode(
     bid: BlockId(
       slot: checkpoints.finalized.epoch.start_slot,
       root: checkpoints.finalized.root),
     parent: none(int),
     checkpoints: checkpoints,
+    totalActiveBalance: totalActiveBalance,
     weight: 0,
     invalid: false,
     bestChild: none(int),
@@ -123,19 +269,11 @@ iterator realizePendingCheckpoints*(
   # Reset tip tracking for new epoch
   self.currentEpochTips.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_weight
-func calculateProposerBoost(validatorBalances: openArray[Gwei]): uint64 =
-  var total_balance: uint64
-  for balance in validatorBalances:
-    total_balance += balance
-  let committee_weight = total_balance div SLOTS_PER_EPOCH
-  (committee_weight * PROPOSER_SCORE_BOOST) div 100
-
 func applyScoreChanges*(self: var ProtoArray,
                         deltas: var openArray[Delta],
-                        currentEpoch: Epoch,
+                        currentSlot: Slot,
                         checkpoints: FinalityCheckpoints,
-                        newBalances: openArray[Gwei],
+                        justifiedTotalActiveBalance: Gwei,
                         proposerBoostRoot: Eth2Digest): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
@@ -158,8 +296,9 @@ func applyScoreChanges*(self: var ProtoArray,
       deltasLen: deltas.len,
       indicesLen: self.indices.len)
 
-  self.currentEpoch = currentEpoch
+  self.currentSlot = currentSlot
   self.checkpoints = checkpoints
+  self.justifiedTotalActiveBalance = justifiedTotalActiveBalance
 
   ## Alias
   # This cannot raise the IndexError exception, how to tell compiler?
@@ -192,7 +331,7 @@ func applyScoreChanges*(self: var ProtoArray,
     #
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/fork-choice.md#get_weight
     if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
-      proposerBoostScore = calculateProposerBoost(newBalances)
+      proposerBoostScore = self.get_proposer_score()
       if  nodeDelta >= 0 and
           high(Delta) - nodeDelta < proposerBoostScore.int64:
         return err ForkChoiceError(
@@ -268,6 +407,7 @@ func onBlock*(self: var ProtoArray,
               bid: BlockId,
               parent: Eth2Digest,
               checkpoints: FinalityCheckpoints,
+              totalActiveBalance: Gwei,
               unrealized = none(FinalityCheckpoints)): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
@@ -296,6 +436,7 @@ func onBlock*(self: var ProtoArray,
     bid: bid,
     parent: some(parentIdx),
     checkpoints: checkpoints,
+    totalActiveBalance: totalActiveBalance,
     weight: 0,
     invalid: false,
     bestChild: none(int),
@@ -314,6 +455,7 @@ func onBlock*(self: var ProtoArray,
 
 func findHead*(self: var ProtoArray,
                head: var Eth2Digest,
+               confirmed: var Eth2Digest,
                justifiedRoot: Eth2Digest): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
@@ -352,6 +494,7 @@ func findHead*(self: var ProtoArray,
       headCheckpoints: justifiedNode.get().checkpoints)
 
   head = bestNode.get().bid.root
+  confirmed = self.find_confirmed_block(bestNode.get())
   ok()
 
 func prune*(
@@ -534,27 +677,23 @@ func nodeIsViableForHead(
   # If the previous epoch is justified, the block should be pulled-up.
   # In this case, check that unrealized justification is higher than the store
   # and that the voting source is not more than two epochs ago
+  let currentEpoch = self.currentSlot.epoch
   if not correctJustified and self.isPreviousEpochJustified and
-      node.bid.slot.epoch == self.currentEpoch:
+      node.bid.slot.epoch == currentEpoch:
     let unrealized =
       self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
     correctJustified =
       unrealized.justified.epoch >= self.checkpoints.justified.epoch and
-      node.checkpoints.justified.epoch + 2 >= self.currentEpoch
-      
+      node.checkpoints.justified.epoch + 2 >= currentEpoch
+
   return
     if not correctJustified:
       false
     elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
       true
     else:
-      let finalizedSlot = self.checkpoints.finalized.epoch.start_slot
-      var ancestor = some node
-      while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot:
-        if ancestor.unsafeGet.parent.isSome:
-          ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
-        else:
-          ancestor.reset()
+      let ancestor = self.get_checkpoint_block(
+        node, self.checkpoints.finalized.epoch)
       if ancestor.isSome:
         ancestor.unsafeGet.bid.root == self.checkpoints.finalized.root
       else:

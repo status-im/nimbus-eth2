@@ -133,7 +133,8 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           # and then to make sure the fork choice data structure doesn't grow
           # too big - getting an EpochRef can be expensive.
           forkChoice.backend.process_block(
-            blckRef.bid, blckRef.parent.root, epochRef.checkpoints)
+            blckRef.bid, blckRef.parent.root,
+            epochRef.checkpoints, epochRef.total_active_balance)
         else:
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch, false).expect(
             "Getting an EpochRef should always work for non-finalized blocks")
@@ -777,12 +778,10 @@ proc getBeaconHead*(
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionPayloadHash =
       if safeBlock.isErr:
-        # Safe block is currently the justified block determined by fork choice.
-        # If finality already advanced beyond the current justified checkpoint,
-        # e.g., because we have selected a head that did not yet realize the cp,
-        # the justified block may end up not having a `BlockRef` anymore.
-        # Because we know that a different fork already finalized a later point,
-        # let's just report the finalized execution payload hash instead.
+        # If finality already advanced beyond the current safe block,
+        # the safe block may end up not having a `BlockRef` anymore.
+        # Because a different fork already finalized a later point,
+        # report the finalized execution payload hash instead.
         finalizedExecutionPayloadHash
       else:
         pool.dag.loadExecutionBlockHash(safeBlock.get)

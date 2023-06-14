@@ -185,6 +185,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.CHURN_LIMIT_QUOTIENT),
           PROPOSER_SCORE_BOOST:
             Base10.toString(PROPOSER_SCORE_BOOST),
+          confirmation_byzantine_threshold:
+            Base10.toString(confirmation_byzantine_threshold),
+          confirmation_slashing_threshold:
+            Base10.toString(confirmation_slashing_threshold),
           DEPOSIT_CHAIN_ID:
             Base10.toString(cfg.DEPOSIT_CHAIN_ID),
           DEPOSIT_NETWORK_ID:

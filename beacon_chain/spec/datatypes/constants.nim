@@ -48,5 +48,11 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
 
+  # https://github.com/ethereum/consensus-specs/blob/17d528a8ab40d765a7f3f765f370181dc5c795c1/fork_choice/confirmation-rule.md#confirmation-rule
+  confirmation_byzantine_threshold*: uint64 = 33
+    ## the maximum percentage of Byzantine validators among the validator set
+  confirmation_slashing_threshold*: uint64 = confirmation_byzantine_threshold
+    ## the maximum percentage of slashings among the validator set
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT*: uint64 = 64

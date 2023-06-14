@@ -49,8 +49,10 @@ func compute_deltas(
 logScope: topics = "fork_choice"
 
 func init*(
-    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
-  T(proto_array: ProtoArray.init(checkpoints))
+    T: type ForkChoiceBackend,
+    checkpoints: FinalityCheckpoints,
+    total_active_balance: Gwei): T =
+  T(proto_array: ProtoArray.init(checkpoints, total_active_balance))
 
 proc init*(
     T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
@@ -65,10 +67,12 @@ proc init*(
     backend: ForkChoiceBackend.init(
       FinalityCheckpoints(
         justified: checkpoint,
-        finalized: checkpoint)),
+        finalized: checkpoint),
+      epochRef.total_active_balance),
     checkpoints: Checkpoints(
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
+        total_active_balance: epochRef.total_active_balance,
         balances: epochRef.effective_balances),
       finalized: checkpoint,
       best_justified: checkpoint))
@@ -94,6 +98,7 @@ proc update_justified(
     store = self.justified.checkpoint, state = justified
   self.justified = BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    total_active_balance: epochRef.total_active_balance,
     balances: epochRef.effective_balances)
 
 proc update_justified(
@@ -256,8 +261,10 @@ func process_block*(self: var ForkChoiceBackend,
                     bid: BlockId,
                     parent_root: Eth2Digest,
                     checkpoints: FinalityCheckpoints,
+                    total_active_balance: Gwei,
                     unrealized = none(FinalityCheckpoints)): FcResult[void] =
-  self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
+  self.proto_array.onBlock(
+    bid, parent_root, checkpoints, total_active_balance, unrealized)
 
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
@@ -304,24 +311,28 @@ proc process_block*(self: var ForkChoice,
         blck = shortLog(blckRef), checkpoints = epochRef.checkpoints, unrealized
       ? update_checkpoints(self.checkpoints, dag, unrealized)
       ? process_block(
-        self.backend, blckRef.bid, blck.parent_root, unrealized)
+        self.backend, blckRef.bid, blck.parent_root,
+        unrealized, epochRef.total_active_balance)
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
-        epochRef.checkpoints, some unrealized)  # Realized in `on_tick`
+        epochRef.checkpoints, epochRef.total_active_balance,
+        some unrealized)  # Realized in `on_tick`
   else:
     ? process_block(
-      self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
+      self.backend, blckRef.bid, blck.parent_root,
+      epochRef.checkpoints, epochRef.total_active_balance)
 
   ok()
 
-func find_head*(
+func find_head(
        self: var ForkChoiceBackend,
-       current_epoch: Epoch,
+       current_slot: Slot,
        checkpoints: FinalityCheckpoints,
+       justified_total_active_balance: Gwei,
        justified_state_balances: seq[Gwei],
        proposer_boost_root: Eth2Digest
-     ): FcResult[Eth2Digest] =
+     ): FcResult[tuple[headBlockRoot, safeBlockRoot: Eth2Digest]] =
   ## Returns the new blockchain head
 
   # Compute deltas with previous call
@@ -336,19 +347,21 @@ func find_head*(
 
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
-    deltas, current_epoch, checkpoints,
-    justified_state_balances, proposer_boost_root)
+    deltas, current_slot, checkpoints,
+    justified_total_active_balance, proposer_boost_root)
 
   self.balances = justified_state_balances
 
   # Find the best block
-  var new_head{.noinit.}: Eth2Digest
-  ? self.proto_array.findHead(new_head, checkpoints.justified.root)
+  var
+    new_head {.noinit.}: Eth2Digest
+    confirmed {.noinit.}: Eth2Digest
+  ? self.proto_array.findHead(new_head, confirmed, checkpoints.justified.root)
 
   trace "Fork choice requested",
     checkpoints, fork_choice_head = shortLog(new_head)
 
-  return ok(new_head)
+  ok (headBlockRoot: new_head, safeBlockRoot: confirmed)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/fork-choice.md#get_head
 proc get_head*(self: var ForkChoice,
@@ -356,13 +369,16 @@ proc get_head*(self: var ForkChoice,
                wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
 
-  self.backend.find_head(
-    self.checkpoints.time.slotOrZero.epoch,
+  let res = ? self.backend.find_head(
+    self.checkpoints.time.slotOrZero,
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized),
+    self.checkpoints.justified.total_active_balance,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
+  self.safeBlockRoot = res.safeBlockRoot
+  ok res.headBlockRoot
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
