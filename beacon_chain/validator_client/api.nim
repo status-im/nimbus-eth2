@@ -1777,8 +1777,10 @@ proc produceBlockV2*(
         let response = apiResponse.get()
         case response.status:
         of 200:
-          let res = decodeBytes(ProduceBlockResponseV2, response.data,
-                                response.contentType)
+          let
+            version = response.headers.getString("eth-consensus-version")
+            res = decodeBytes(ProduceBlockResponseV2, response.data,
+                              response.contentType, version)
           if res.isErr():
             handleUnexpectedData()
             ApiResponse[ProduceBlockResponseV2].err($res.error)
@@ -1815,8 +1817,10 @@ proc produceBlockV2*(
         let response = apiResponse.get()
         case response.status:
         of 200:
-          let res = decodeBytes(ProduceBlockResponseV2, response.data,
-                                response.contentType)
+          let
+            version = response.headers.getString("eth-consensus-version")
+            res = decodeBytes(ProduceBlockResponseV2, response.data,
+                              response.contentType, version)
           if res.isOk(): return res.get()
           handleUnexpectedData()
           false
@@ -1976,8 +1980,10 @@ proc produceBlindedBlock*(
         let response = apiResponse.get()
         case response.status:
         of 200:
-          let res = decodeBytes(ProduceBlindedBlockResponse, response.data,
-                                response.contentType)
+          let
+            version = response.headers.getString("eth-consensus-version")
+            res = decodeBytes(ProduceBlindedBlockResponse, response.data,
+                              response.contentType, version)
           if res.isErr():
             handleUnexpectedData()
             ApiResponse[ProduceBlindedBlockResponse].err($res.error)
@@ -2019,8 +2025,10 @@ proc produceBlindedBlock*(
         let response = apiResponse.get()
         case response.status:
         of 200:
-          let res = decodeBytes(ProduceBlindedBlockResponse, response.data,
-                                response.contentType)
+          let
+            version = response.headers.getString("eth-consensus-version")
+            res = decodeBytes(ProduceBlindedBlockResponse, response.data,
+                              response.contentType, version)
           if res.isOk(): return res.get()
           handleUnexpectedData()
           false

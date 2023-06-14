@@ -58,32 +58,14 @@ proc getSyncCommitteeDutiesPlain*(
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
 
-proc produceBlockV2*(
-       slot: Slot,
-       randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes
-     ): RestResponse[ProduceBlockResponseV2] {.
-     rest, endpoint: "/eth/v2/validator/blocks/{slot}",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
-
 proc produceBlockV2Plain*(
        slot: Slot,
        randao_reveal: ValidatorSig,
        graffiti: GraffitiBytes
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v2/validator/blocks/{slot}",
-     meth: MethodGet.}
+     accept: preferSSZ, meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
-
-proc produceBlindedBlock*(
-       slot: Slot,
-       randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes
-     ): RestResponse[ProduceBlindedBlockResponse] {.
-     rest, endpoint: "/eth/v1/validator/blinded_blocks/{slot}",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
 
 proc produceBlindedBlockPlain*(
        slot: Slot,
@@ -91,7 +73,7 @@ proc produceBlindedBlockPlain*(
        graffiti: GraffitiBytes
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/blinded_blocks/{slot}",
-     meth: MethodGet.}
+     accept: preferSSZ, meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
 
 proc produceAttestationData*(
