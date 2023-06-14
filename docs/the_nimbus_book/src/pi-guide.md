@@ -293,7 +293,7 @@ Once you're done, `ssh` back into your Pi.
 ### 12. Copy signing key over to Pi
 
 !!! note
-    If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on the [deposit page](./deposit.md) before carrying on.
+    If you haven't generated your validator key(s) and/or made your deposit yet, follow the [deposit instructions](./run-a-validator.md#1-make-a-deposit-for-your-validator) of our validator guide before carrying on.
 
 We'll use the `scp` command to send files over SSH.
 It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.
