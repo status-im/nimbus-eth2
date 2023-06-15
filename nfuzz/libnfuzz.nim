@@ -72,14 +72,10 @@ template decodeAndProcess(typ, process: untyped): bool =
     data {.inject.} = newClone(
       try:
         SSZ.decode(input, typ)
-      except MalformedSszError as e:
+      except SerializationError as e:
         raise newException(
           FuzzCrashError,
           "Malformed SSZ, likely bug in preprocessing.", e)
-      except SszSizeMismatchError as e:
-        raise newException(
-          FuzzCrashError,
-          "SSZ size mismatch, likely bug in preprocessing.", e)
     )
   let processOk =
     try:

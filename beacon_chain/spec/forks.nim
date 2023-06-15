@@ -980,7 +980,7 @@ template readSszForkedHashedBeaconState*(
   cfg.consensusForkAtEpoch(slot.epoch()).readSszForkedHashedBeaconState(data)
 
 func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
-    ForkedHashedBeaconState {.raises: [Defect, SszError].} =
+    ForkedHashedBeaconState {.raises: [SerializationError].} =
   ## Read a state picking the right fork by first reading the slot from the byte
   ## source
   if data.len() < sizeof(BeaconStateHeader):
@@ -1000,7 +1000,7 @@ type
 
 func readSszForkedSignedBeaconBlock*(
     cfg: RuntimeConfig, data: openArray[byte]):
-    ForkedSignedBeaconBlock {.raises: [Defect, SszError].} =
+    ForkedSignedBeaconBlock {.raises: [SerializationError].} =
   ## Helper to read a header from bytes when it's not certain what kind of block
   ## it is
   if data.len() < sizeof(ForkedBeaconBlockHeader):
