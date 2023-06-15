@@ -2394,7 +2394,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     discovery = config.discv5Enabled, rng = rng)
 
   node.pubsub.subscriptionValidator =
-    proc(topic: string): bool {.gcsafe, raises: [Defect].} =
+    proc(topic: string): bool {.gcsafe, raises: [].} =
       topic in node.validTopics
 
   node
@@ -2431,7 +2431,7 @@ proc addValidator*[MsgType](node: Eth2Node,
   # or not - validation is `async` but implemented without the macro because
   # this is a performance hotspot.
   proc execValidator(topic: string, message: GossipMsg):
-      Future[ValidationResult] {.raises: [Defect].} =
+      Future[ValidationResult] {.raises: [].} =
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message", len = message.data.len, topic
 
@@ -2462,7 +2462,7 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
                             msgValidator: proc(msg: MsgType):
                             Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
   proc execValidator(topic: string, message: GossipMsg):
-      Future[ValidationResult] {.raises: [Defect].} =
+      Future[ValidationResult] {.raises: [].} =
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message", len = message.data.len, topic
 
