@@ -305,6 +305,11 @@ type
         defaultValue: false
         name: "enr-auto-update" .}: bool
 
+      enableYamux* {.
+        desc: "Enable the Yamux multiplexer"
+        defaultValue: false
+        name: "enable-yamux" .}: bool
+
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]

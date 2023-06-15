@@ -102,6 +102,11 @@ type LightClientConf* = object
     defaultValue: false
     name: "enr-auto-update" .}: bool
 
+  enableYamux* {.
+    desc: "Enable the Yamux multiplexer"
+    defaultValue: false
+    name: "enable-yamux" .}: bool
+
   agentString* {.
     defaultValue: "nimbus",
     desc: "Node agent string which is used as identifier in network"
