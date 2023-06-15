@@ -306,7 +306,8 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
         res
 
     nextEpoch = epoch + 1
-    nextEpochHasSameDuties = not nextEpoch.is_sync_committee_period
+    nextEpochHasSameDuties = 
+      epoch.sync_committee_period == nextEpoch.sync_committee_period
 
   let addOrReplaceItems =
     block:
