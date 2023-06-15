@@ -60,7 +60,6 @@ The following options are available:
      --enr-auto-update         Discovery can automatically update its ENR with the IP address and UDP port as
                                seen by other nodes it communicates with. This option allows to enable/disable
                                this functionality [=false].
-     --enable-yamux            Enable the Yamux multiplexer [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
      --sync-light-client       Accelerate execution layer sync using light client [=true].
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.

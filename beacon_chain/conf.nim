@@ -306,6 +306,7 @@ type
         name: "enr-auto-update" .}: bool
 
       enableYamux* {.
+        hidden
         desc: "Enable the Yamux multiplexer"
         defaultValue: false
         name: "enable-yamux" .}: bool
