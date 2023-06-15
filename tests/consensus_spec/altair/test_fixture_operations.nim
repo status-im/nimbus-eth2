@@ -140,7 +140,8 @@ suite baseDescription & "Sync Aggregate " & preset():
       Result[void, cstring] =
     var cache = StateCache()
     process_sync_aggregate(
-      preState, syncAggregate, get_total_active_balance(preState, cache), cache)
+      preState, syncAggregate, get_total_active_balance(preState, cache),
+      {}, cache)
 
   for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](
