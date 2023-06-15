@@ -855,16 +855,24 @@ proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
     return DecryptionStatus.InvalidKeystore
   if len(decKey) < keyLen:
     return DecryptionStatus.InvalidKeystore
-  let derivedChecksum = shaChecksum(decKey.toOpenArray(16, 31),
-                                    crypto.cipher.message.bytes)
-  if derivedChecksum != crypto.checksum.message:
+  let valid =
+    case crypto.checksum.function
+    of sha256Checksum:
+      template params: auto {.used.} = crypto.checksum.params
+      template message: auto = crypto.checksum.message
+      message == shaChecksum(decKey.toOpenArray(16, 31),
+                             crypto.cipher.message.bytes)
+  if not valid:
     return DecryptionStatus.InvalidPassword
 
-  var aesCipher: CTR[aes128]
-  outSecret.setLen(crypto.cipher.message.bytes.len)
-  aesCipher.init(decKey.toOpenArray(0, 15), crypto.cipher.params.iv.bytes)
-  aesCipher.decrypt(crypto.cipher.message.bytes, outSecret)
-  aesCipher.clear()
+  case crypto.cipher.function
+  of aes128CtrCipher:
+    template params: auto = crypto.cipher.params
+    var aesCipher: CTR[aes128]
+    outSecret.setLen(crypto.cipher.message.bytes.len)
+    aesCipher.init(decKey.toOpenArray(0, 15), params.iv.bytes)
+    aesCipher.decrypt(crypto.cipher.message.bytes, outSecret)
+    aesCipher.clear()
   DecryptionStatus.Success
 
 proc getDecryptionKey*(crypto: Crypto, password: KeystorePass,
@@ -943,6 +951,7 @@ proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
 proc `==`*(a, b: KdfSaltKey): bool {.borrow.}
 proc hash*(salt: KdfSaltKey): Hash {.borrow.}
 
+{.push warning[ProveField]:off.}
 func `==`*(a, b: Kdf): bool =
   # We do not care about `message` field.
   if a.function != b.function:
@@ -961,6 +970,7 @@ func `==`*(a, b: Kdf): bool =
     (aparams.p == bparams.p) and (aparams.r == bparams.r) and
     (len(seq[byte](aparams.salt)) > 0) and
     (seq[byte](aparams.salt) == seq[byte](bparams.salt))
+{.pop.}
 
 func `==`*(a, b: Cipher): bool =
   # We do not care about `params` and `message` fields.
