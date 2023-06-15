@@ -409,7 +409,9 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
-    currentEpoch = currentSlot.epoch()
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/validator.md#sync-committee
+    dutySlot = currentSlot + 1
+    dutyEpoch = dutySlot.epoch()
 
   if vc.attachedValidators[].count() != 0:
     let
@@ -417,15 +419,14 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
         block:
           var res: seq[tuple[epoch: Epoch, period: SyncCommitteePeriod]]
           let
-            currentPeriod = currentSlot.sync_committee_period()
-            lookaheadSlot = currentSlot +
-                            SUBSCRIPTION_LOOKAHEAD_EPOCHS * SLOTS_PER_EPOCH
-            lookaheadPeriod = lookaheadSlot.sync_committee_period()
+            dutyPeriod = dutySlot.sync_committee_period()
+            lookaheadEpoch = dutyEpoch + SUBSCRIPTION_LOOKAHEAD_EPOCHS
+            lookaheadPeriod = lookaheadEpoch.sync_committee_period()
           res.add(
-            (epoch: currentSlot.epoch(),
-             period: currentPeriod)
+            (epoch: dutyEpoch,
+             period: dutyPeriod)
           )
-          if lookaheadPeriod > currentPeriod:
+          if lookaheadPeriod > dutyPeriod:
             res.add(
               (epoch: lookaheadPeriod.start_epoch(),
                period: lookaheadPeriod)
@@ -446,7 +447,7 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
 
     if total == 0:
       debug "No new sync committee member's duties received",
-            slot = currentSlot
+            slot = dutySlot
 
     let subscriptions =
       block:
@@ -470,10 +471,10 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
       let res = await vc.prepareSyncCommitteeSubnets(subscriptions)
       if res == 0:
         warn "Failed to subscribe validators to sync committee subnets",
-             slot = currentSlot, epoch = currentEpoch,
+             slot = dutySlot, epoch = dutyEpoch,
              subscriptions_count = len(subscriptions)
 
-  service.pruneSyncCommitteeDuties(currentSlot)
+  service.pruneSyncCommitteeDuties(dutySlot)
 
 proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client
