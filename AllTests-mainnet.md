@@ -394,13 +394,12 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
 + Signing deposit message (getDepositMessageSignature())                                     OK
-+ Signing phase0 block                                                                       OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 22/22 Fail: 0/22 Skip: 0/22
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -691,4 +690,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 392/397 Fail: 0/397 Skip: 5/397
+OK: 391/396 Fail: 0/396 Skip: 5/396

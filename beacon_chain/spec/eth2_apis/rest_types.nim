@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Types used by both client and server in the common REST API:
-# https://ethereum.github.io/eth2.0-APIs/#/
+# https://ethereum.github.io/beacon-APIs/
 # Be mindful that changing these changes the serialization and deserialization
 # in the API which may lead to incompatibilities between clients - tread
 # carefully!
@@ -355,7 +355,7 @@ type
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.2/presets/mainnet/altair.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/presets/mainnet/altair.yaml
     INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
@@ -364,7 +364,7 @@ type
     MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     UPDATE_TIMEOUT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.2/presets/mainnet/bellatrix.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/presets/mainnet/bellatrix.yaml
     INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
@@ -373,7 +373,7 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.2/presets/mainnet/capella.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/presets/mainnet/capella.yaml
     MAX_BLS_TO_EXECUTION_CHANGES*: uint64
     MAX_WITHDRAWALS_PER_PAYLOAD*: uint64
     MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP*: uint64
@@ -411,7 +411,7 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.2/specs/phase0/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
     # GENESIS_SLOT
     # GENESIS_EPOCH
     # FAR_FUTURE_EPOCH
@@ -453,7 +453,7 @@ type
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
     ATTESTATION_SUBNET_COUNT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.2/specs/altair/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/validator.md#constants
     TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
     SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 
@@ -585,7 +585,7 @@ type
     proof*: seq[Eth2Digest]
 
   Web3SignerRequestKind* {.pure.} = enum
-    AggregationSlot, AggregateAndProof, Attestation, Block, BlockV2,
+    AggregationSlot, AggregateAndProof, Attestation, BlockV2,
     Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
     SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof,
     ValidatorRegistration
@@ -602,9 +602,6 @@ type
         serializedFieldName: "aggregate_and_proof".}: AggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
-    of Web3SignerRequestKind.Block:
-      blck* {.
-        serializedFieldName: "block".}: phase0.BeaconBlock
     of Web3SignerRequestKind.BlockV2:
       beaconBlock* {.
         serializedFieldName: "beacon_block".}: Web3SignerForkedBeaconBlock
@@ -799,19 +796,6 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     )),
     signingRoot: signingRoot,
     attestation: data
-  )
-
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: phase0.BeaconBlock,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
-          ): Web3SignerRequest =
-  Web3SignerRequest(
-    kind: Web3SignerRequestKind.Block,
-    forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
-    signingRoot: signingRoot,
-    blck: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,

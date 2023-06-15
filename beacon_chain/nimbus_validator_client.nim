@@ -310,6 +310,15 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
   let
     keymanagerInitResult = initKeymanagerServer(vc.config, nil)
 
+  proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
+    if len(vc.forks) > 0:
+      Opt.some(vc.forkAtEpoch(epoch))
+    else:
+      Opt.none(Fork)
+
+  proc getGenesisRoot(): Eth2Digest =
+    vc.beaconGenesis.genesis_validators_root
+
   try:
     vc.fallbackService = await FallbackServiceRef.init(vc)
     vc.forkService = await ForkServiceRef.init(vc)
@@ -329,7 +338,10 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         vc.config.defaultFeeRecipient,
         vc.config.suggestedGasLimit,
         nil,
-        vc.beaconClock.getBeaconTimeFn)
+        vc.beaconClock.getBeaconTimeFn,
+        getForkForEpoch,
+        getGenesisRoot
+        )
 
   except CatchableError as exc:
     warn "Unexpected error encountered while initializing",

@@ -115,6 +115,8 @@ const
     "Invalid subscription request object(s)"
   ValidatorNotFoundError* =
     "Could not find validator"
+  ValidatorIndexMissingError* =
+    "Validator missing index value"
   ValidatorStatusNotFoundError* =
     "Could not obtain validator's status"
   TooHighValidatorIndexValueError* =
@@ -209,11 +211,14 @@ const
     "LC optimistic update unavailable"
   DeprecatedRemovalBeaconBlocksDebugStateV1* =
     "v1/beacon/blocks/{block_id} and v1/debug/beacon/states/{state_id} " &
-      "endpoints were deprecated and replaced by v2, see " &
+      "endpoints were deprecated and replaced by v2: " &
       "https://github.com/ethereum/beacon-APIs/pull/218"
   DeprecatedRemovalValidatorBlocksV1* =
-    "v1/validator/blocks/{slot} endpoint was deprecated and replaced by v2, see " &
+    "v1/validator/blocks/{slot} endpoint was deprecated and replaced by v2: " &
       "https://github.com/ethereum/beacon-APIs/pull/220"
+  DeprecatedRemovalGetDebugChainHeadsV1* =
+    "v1/debug/beacon/heads endpoint was deprecated and replaced by v2: " &
+      "https://github.com/ethereum/beacon-APIs/pull/319"
   BlockIncorrectFork* =
     "Block has incorrect fork"
   ValidatorNotActive* =
@@ -234,3 +239,5 @@ const
     "The given merkle proof is invalid"
   InvalidMerkleProofIndexError* =
     "The given merkle proof index is invalid"
+  FailedToObtainForkError* =
+    "Failed to obtain fork information"

@@ -17,7 +17,7 @@ export constants
 export stint, ethtypes.toHex, ethtypes.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.2/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
@@ -91,7 +91,6 @@ const
   ignoredValues = [
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
     "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "SAFE_SLOTS_TO_UPDATE_JUSTIFIED",  # Removed in consensus-specs v1.3.0
   ]
 
 when const_preset == "mainnet":
@@ -473,8 +472,8 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError, Defect].} =
   DomainType hexToByteArray(input, 4)
 
-proc readRuntimeConfig*(
-    path: string): (RuntimeConfig, seq[string]) {.
+proc readRuntimeConfig(
+    fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
     raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
   var
     lineNum = 0
@@ -492,7 +491,7 @@ proc readRuntimeConfig*(
     names.add name
 
   var values: Table[string, string]
-  for line in splitLines(readFile(path)):
+  for line in splitLines(fileContent):
     inc lineNum
     if line.len == 0 or line[0] == '#': continue
     # remove any trailing comments
@@ -606,13 +605,18 @@ proc readRuntimeConfig*(
 
   (cfg, unknowns)
 
+proc readRuntimeConfig*(
+    path: string): (RuntimeConfig, seq[string]) {.
+    raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
+  readRuntimeConfig(readFile(path), path)
+
 template name*(cfg: RuntimeConfig): string =
   if cfg.CONFIG_NAME.len() > 0:
     cfg.CONFIG_NAME
   else:
     const_preset
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#configuration
 func MIN_EPOCHS_FOR_BLOCK_REQUESTS*(cfg: RuntimeConfig): uint64 =
   cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
 

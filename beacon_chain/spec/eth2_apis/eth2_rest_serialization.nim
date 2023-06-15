@@ -140,8 +140,6 @@ type
     KeystoresAndSlashingProtection |
     ListFeeRecipientResponse |
     PrepareBeaconProposer |
-    ProduceBlockResponseV2 |
-    ProduceBlindedBlockResponse |
     RestIndexedErrorMessage |
     RestErrorMessage |
     RestValidator |
@@ -154,10 +152,18 @@ type
     SomeForkedLightClientObject |
     seq[SomeForkedLightClientObject]
 
+  DecodeConsensysTypes* =
+    ProduceBlockResponseV2 | ProduceBlindedBlockResponse
+
   RestVersioned*[T] = object
     data*: T
     jsonVersion*: ConsensusFork
     sszContext*: ForkDigest
+
+  RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
+                    bellatrix.BeaconBlock | capella.BeaconBlock |
+                    deneb.BeaconBlock | bellatrix_mev.BlindedBeaconBlock |
+                    capella_mev.BlindedBeaconBlock
 
 {.push raises: [].}
 
@@ -1941,14 +1947,6 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     if isSome(value.signingRoot):
       writer.writeField("signingRoot", value.signingRoot)
     writer.writeField("attestation", value.attestation)
-  of Web3SignerRequestKind.Block:
-    doAssert(value.forkInfo.isSome(),
-             "forkInfo should be set for this type of request")
-    writer.writeField("type", "BLOCK")
-    writer.writeField("fork_info", value.forkInfo.get())
-    if isSome(value.signingRoot):
-      writer.writeField("signingRoot", value.signingRoot)
-    writer.writeField("block", value.blck)
   of Web3SignerRequestKind.BlockV2:
     doAssert(value.forkInfo.isSome(),
              "forkInfo should be set for this type of request")
@@ -2046,8 +2044,6 @@ proc readValue*(reader: var JsonReader[RestJson],
           Web3SignerRequestKind.AggregateAndProof
         of "ATTESTATION":
           Web3SignerRequestKind.Attestation
-        of "BLOCK":
-          Web3SignerRequestKind.Block
         of "BLOCK_V2":
           Web3SignerRequestKind.BlockV2
         of "DEPOSIT":
@@ -2144,22 +2140,6 @@ proc readValue*(reader: var JsonReader[RestJson],
       Web3SignerRequest(
         kind: Web3SignerRequestKind.Attestation,
         forkInfo: forkInfo, signingRoot: signingRoot, attestation: data
-      )
-    of Web3SignerRequestKind.Block:
-      if dataName != "block":
-        reader.raiseUnexpectedValue("Field `block` is missing")
-      if forkInfo.isNone():
-        reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(phase0.BeaconBlock, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `block` format")
-          res.get()
-      Web3SignerRequest(
-        kind: Web3SignerRequestKind.Block,
-        forkInfo: forkInfo, signingRoot: signingRoot, blck: data
       )
     of Web3SignerRequestKind.BlockV2:
       # https://github.com/ConsenSys/web3signer/blob/41834a927088f1bde7a097e17d19e954d0058e54/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L421-L425 (branch v22.7.0)
@@ -2989,6 +2969,87 @@ proc encodeBytes*[T: EncodeOctetTypes](
     ok(data)
   else:
     err("Content-Type not supported")
+
+func readSszResBytes(T: typedesc[RestBlockTypes],
+                     data: openArray[byte]): RestResult[T] =
+  var res: T
+  try:
+    readSszBytes(data, res)
+    ok(res)
+  except MalformedSszError as exc:
+    err("Invalid SSZ object")
+  except SszSizeMismatchError:
+    err("Incorrect SSZ object's size")
+
+proc decodeBytes*[T: DecodeConsensysTypes](
+       t: typedesc[T],
+       value: openArray[byte],
+       contentType: Opt[ContentTypeData],
+       consensusVersion: string
+     ): RestResult[T] =
+  let mediaType =
+    if contentType.isNone() or
+       isWildCard(contentType.get().mediaType):
+      return err("Invalid/missing Content-Type value")
+    else:
+      contentType.get().mediaType
+
+  if mediaType == ApplicationJsonMediaType:
+    try:
+      ok(RestJson.decode(value, T,
+                         requireAllFields = true,
+                         allowUnknownFields = true))
+    except SerializationError as exc:
+      debug "Failed to deserialize REST JSON data",
+            err = exc.formatMsg("<data>"),
+            data = string.fromBytes(value)
+      return err("Serialization error")
+  elif mediaType == OctetStreamMediaType:
+    when t is ProduceBlockResponseV2:
+      let fork = decodeEthConsensusVersion(consensusVersion).valueOr:
+        return err("Invalid or Unsupported consensus version")
+      case fork
+      of ConsensusFork.Deneb:
+        let blck = ? readSszResBytes(deneb.BeaconBlock, value)
+        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+      of ConsensusFork.Capella:
+        let blck = ? readSszResBytes(capella.BeaconBlock, value)
+        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+      of ConsensusFork.Bellatrix:
+        let blck = ? readSszResBytes(bellatrix.BeaconBlock, value)
+        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+      of ConsensusFork.Altair:
+        let blck = ? readSszResBytes(altair.BeaconBlock, value)
+        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+      of ConsensusFork.Phase0:
+        let blck = ? readSszResBytes(phase0.BeaconBlock, value)
+        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+    elif t is ProduceBlindedBlockResponse:
+      let fork = decodeEthConsensusVersion(consensusVersion).valueOr:
+        return err("Invalid or Unsupported consensus version")
+      case fork
+      of ConsensusFork.Deneb:
+        let
+          blck = ? readSszResBytes(capella_mev.BlindedBeaconBlock, value)
+          forked = ForkedBlindedBeaconBlock(
+            kind: ConsensusFork.Deneb, denebData: blck)
+        ok(ProduceBlindedBlockResponse(forked))
+      of ConsensusFork.Capella:
+        let
+          blck = ? readSszResBytes(capella_mev.BlindedBeaconBlock, value)
+          forked = ForkedBlindedBeaconBlock(
+            kind: ConsensusFork.Capella, capellaData: blck)
+        ok(ProduceBlindedBlockResponse(forked))
+      of ConsensusFork.Bellatrix:
+        let
+          blck = ? readSszResBytes(bellatrix_mev.BlindedBeaconBlock, value)
+          forked = ForkedBlindedBeaconBlock(
+            kind: ConsensusFork.Bellatrix, bellatrixData: blck)
+        ok(ProduceBlindedBlockResponse(forked))
+      of ConsensusFork.Altair, ConsensusFork.Phase0:
+        err("Unable to decode blinded block for Altair and Phase0 fork")
+  else:
+    err("Unsupported Content-Type")
 
 proc decodeBytes*[T: DecodeTypes](
        t: typedesc[T],
