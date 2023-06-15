@@ -1947,14 +1947,6 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     if isSome(value.signingRoot):
       writer.writeField("signingRoot", value.signingRoot)
     writer.writeField("attestation", value.attestation)
-  of Web3SignerRequestKind.Block:
-    doAssert(value.forkInfo.isSome(),
-             "forkInfo should be set for this type of request")
-    writer.writeField("type", "BLOCK")
-    writer.writeField("fork_info", value.forkInfo.get())
-    if isSome(value.signingRoot):
-      writer.writeField("signingRoot", value.signingRoot)
-    writer.writeField("block", value.blck)
   of Web3SignerRequestKind.BlockV2:
     doAssert(value.forkInfo.isSome(),
              "forkInfo should be set for this type of request")
@@ -2052,8 +2044,6 @@ proc readValue*(reader: var JsonReader[RestJson],
           Web3SignerRequestKind.AggregateAndProof
         of "ATTESTATION":
           Web3SignerRequestKind.Attestation
-        of "BLOCK":
-          Web3SignerRequestKind.Block
         of "BLOCK_V2":
           Web3SignerRequestKind.BlockV2
         of "DEPOSIT":
@@ -2150,22 +2140,6 @@ proc readValue*(reader: var JsonReader[RestJson],
       Web3SignerRequest(
         kind: Web3SignerRequestKind.Attestation,
         forkInfo: forkInfo, signingRoot: signingRoot, attestation: data
-      )
-    of Web3SignerRequestKind.Block:
-      if dataName != "block":
-        reader.raiseUnexpectedValue("Field `block` is missing")
-      if forkInfo.isNone():
-        reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(phase0.BeaconBlock, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `block` format")
-          res.get()
-      Web3SignerRequest(
-        kind: Web3SignerRequestKind.Block,
-        forkInfo: forkInfo, signingRoot: signingRoot, blck: data
       )
     of Web3SignerRequestKind.BlockV2:
       # https://github.com/ConsenSys/web3signer/blob/41834a927088f1bde7a097e17d19e954d0058e54/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L421-L425 (branch v22.7.0)

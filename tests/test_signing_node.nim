@@ -426,55 +426,6 @@ suite "Nimbus remote signer/signing test (web3signer)":
     finally:
       await client.closeWait()
 
-  asyncTest "Signing phase0 block":
-    let
-      forked = getBlock(ConsensusFork.Phase0)
-      blockRoot = withBlck(forked): hash_tree_root(blck)
-      request = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
-                                       forked.phase0Data)
-      remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(basePort, RemoteSignerType.Web3Signer)
-      prestoFlags = {RestClientFlag.CommaSeparatedArray}
-      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
-
-    check rclient.isOk()
-    let client = rclient.get()
-    let
-      sres1 =
-        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      sres2 =
-        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      sres3 =
-        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-
-    check:
-      sres1.isOk()
-      sres2.isOk()
-      sres3.isOk()
-
-    try:
-      let
-        publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
-        publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
-        publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
-        response1 = await client.signData(publicKey1, request)
-        response2 = await client.signData(publicKey2, request)
-        response3 = await client.signData(publicKey3, request)
-
-      check:
-        response1.isOk()
-        response2.isOk()
-        response3.isOk()
-        response1.get().toValidatorSig() == sres1.get()
-        response2.get().toValidatorSig() == sres2.get()
-        response3.get().toValidatorSig() == sres3.get()
-
-    finally:
-      await client.closeWait()
-
   asyncTest "Signing aggregation slot (getSlotSignature())":
     let
       sres1 =
