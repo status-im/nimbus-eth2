@@ -589,7 +589,7 @@ template readValueImpl(r: var JsonReader, value: var Checksum) =
       messageSpecified = true
 
     else:
-      r.raiseUnexpectedField(fieldName, "Kdf")
+      r.raiseUnexpectedField(fieldName, "Checksum")
 
   if not (functionSpecified and paramsSpecified and messageSpecified):
     r.raiseUnexpectedValue(
@@ -630,7 +630,7 @@ template readValueImpl(r: var JsonReader, value: var Cipher) =
       messageSpecified = true
 
     else:
-      r.raiseUnexpectedField(fieldName, "Kdf")
+      r.raiseUnexpectedField(fieldName, "Cipher")
 
   if not (functionSpecified and paramsSpecified and messageSpecified):
     r.raiseUnexpectedValue(
