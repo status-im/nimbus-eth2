@@ -618,7 +618,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/validator.md#constructing-the-signedblobsidecars
 proc getBlobSignature*(v: AttachedValidator, fork: Fork,
                        genesis_validators_root: Eth2Digest, slot: Slot,
-                       blob: BlobSidecar): Future[SignatureResult] {.async.} =
+                       blob: BlobSidecar): SignatureResult =
   return
     case v.kind
     of ValidatorKind.Local:

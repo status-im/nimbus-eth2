@@ -1842,7 +1842,7 @@ proc produceBlockV2*(
 
 proc publishBlock*(
        vc: ValidatorClientRef,
-       data: ForkedSignedBeaconBlock,
+       data: RestPublishedSignedBlockContents,
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
   const
@@ -1869,12 +1869,7 @@ proc publishBlock*(
         of ConsensusFork.Capella:
           publishBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
-          debugRaiseAssert $denebImplementationMissing &
-                           ": validator_client/api.nim:publishBlock (1)"
-          let f = newFuture[RestPlainResponse]("")
-          f.fail(new RestError)
-          f
-
+          publishBlock(it, data.denebData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -1885,7 +1880,8 @@ proc publishBlock*(
           of 200:
             ApiResponse[bool].ok(true)
           of 202:
-            debug BlockBroadcasted, node = node, blck = shortLog(data)
+            debug BlockBroadcasted, node = node,
+             blck = shortLog(ForkedSignedBeaconBlock.init(data))
             ApiResponse[bool].ok(true)
           of 400:
             handle400()
@@ -1919,11 +1915,8 @@ proc publishBlock*(
       of ConsensusFork.Capella:
         publishBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
-        debugRaiseAssert $denebImplementationMissing &
-                         ": validator_client/api.nim:publishBlock (2)"
-        let f = newFuture[RestPlainResponse]("")
-        f.fail(new RestError)
-        f
+        publishBlock(it, data.denebData)
+
     do:
       if apiResponse.isErr():
         handleCommunicationError()
@@ -1934,7 +1927,8 @@ proc publishBlock*(
         of 200:
           return true
         of 202:
-          debug BlockBroadcasted, node = node, blck = shortLog(data)
+          debug BlockBroadcasted, node = node,
+           blck = shortLog(ForkedSignedBeaconBlock.init(data))
           return true
         of 400:
           handle400()

@@ -331,7 +331,7 @@ type
 
   DenebBlockContents* = object
     `block`*: deneb.BeaconBlock
-    blob_sidecars*: List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+    blob_sidecars*: List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
 
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
