@@ -162,7 +162,7 @@ type
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
-                    deneb.BeaconBlock | bellatrix_mev.BlindedBeaconBlock |
+                    DenebBlockContents | bellatrix_mev.BlindedBeaconBlock |
                     capella_mev.BlindedBeaconBlock
 
 {.push raises: [].}
@@ -3294,20 +3294,25 @@ proc decodeBytes*[T: DecodeConsensysTypes](
         return err("Invalid or Unsupported consensus version")
       case fork
       of ConsensusFork.Deneb:
-        let blck = ? readSszResBytes(deneb.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+        let blckContents = ? readSszResBytes(DenebBlockContents, value)
+        ok(ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
+                                  denebData: blckContents))
       of ConsensusFork.Capella:
         let blck = ? readSszResBytes(capella.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+        ok(ProduceBlockResponseV2(kind: ConsensusFork.Capella,
+                                  capellaData: blck))
       of ConsensusFork.Bellatrix:
         let blck = ? readSszResBytes(bellatrix.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+        ok(ProduceBlockResponseV2(kind: ConsensusFork.Bellatrix,
+                                  bellatrixData: blck))
       of ConsensusFork.Altair:
         let blck = ? readSszResBytes(altair.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+        ok(ProduceBlockResponseV2(kind: ConsensusFork.Altair,
+                                  altairData: blck))
       of ConsensusFork.Phase0:
         let blck = ? readSszResBytes(phase0.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(ForkedBeaconBlock.init(blck)))
+        ok(ProduceBlockResponseV2(kind: ConsensusFork.Phase0,
+                                  phase0Data: blck))
     elif t is ProduceBlindedBlockResponse:
       let fork = decodeEthConsensusVersion(consensusVersion).valueOr:
         return err("Invalid or Unsupported consensus version")
