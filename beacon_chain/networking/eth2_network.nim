@@ -2441,7 +2441,7 @@ proc addValidator*[MsgType](node: Eth2Node,
         let decoded = SSZ.decode(decompressed, MsgType)
         decompressed = newSeq[byte](0) # release memory before validating
         msgValidator(decoded) # doesn't raise!
-      except SszError as e:
+      except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
           topic, len = message.data.len, decompressed = decompressed.len,
@@ -2472,7 +2472,7 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
         let decoded = SSZ.decode(decompressed, MsgType)
         decompressed = newSeq[byte](0) # release memory before validating
         msgValidator(decoded) # doesn't raise!
-      except SszError as e:
+      except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
           topic, len = message.data.len, decompressed = decompressed.len,

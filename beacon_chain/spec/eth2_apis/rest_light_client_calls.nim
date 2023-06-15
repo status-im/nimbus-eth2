@@ -53,7 +53,7 @@ func decodeSszLightClientObject[T: SomeForkedLightClientObject](
       else:
         raiseRestDecodingBytesError(
           cstring("Unsupported fork: " & $consensusFork))
-  except SszError as exc:
+  except SerializationError as exc:
     raiseRestDecodingBytesError(cstring("Malformed data: " & $exc.msg))
 
 proc decodeJsonLightClientObject[T: SomeForkedLightClientObject](
@@ -145,7 +145,7 @@ proc decodeSszLightClientObjects[S: seq[SomeForkedLightClientObject]](
         else:
           raiseRestDecodingBytesError(
             cstring("Unsupported fork: " & $consensusFork))
-    except SszError as exc:
+    except SerializationError as exc:
       raiseRestDecodingBytesError(cstring("Malformed data: " & $exc.msg))
   res
 

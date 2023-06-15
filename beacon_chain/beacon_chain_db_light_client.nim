@@ -194,7 +194,7 @@ proc getHeader*[T: ForkyLightClientHeader](
     res.expect("SQL query OK")
     try:
       return ok SSZ.decode(header, T)
-    except SszError as exc:
+    except SerializationError as exc:
       error "LC data store corrupted", store = "headers", kind = T.kind,
         blockRoot, exc = exc.msg
       return Opt.none(T)
@@ -278,7 +278,7 @@ proc getCurrentSyncCommitteeBranch*(
     res.expect("SQL query OK")
     try:
       return ok SSZ.decode(branch, altair.CurrentSyncCommitteeBranch)
-    except SszError as exc:
+    except SerializationError as exc:
       error "LC data store corrupted", store = "currentBranches",
         slot, exc = exc.msg
       return Opt.none(altair.CurrentSyncCommitteeBranch)
@@ -361,7 +361,7 @@ proc getSyncCommittee*(
     res.expect("SQL query OK")
     try:
       return ok SSZ.decode(branch, altair.SyncCommittee)
-    except SszError as exc:
+    except SerializationError as exc:
       error "LC data store corrupted", store = "syncCommittees",
         period, exc = exc.msg
       return Opt.none(altair.SyncCommittee)
@@ -511,7 +511,7 @@ proc getBestUpdate*(
       warn "Unsupported LC data store kind", store = "bestUpdates",
         period, kind = update[0]
       return default(ForkedLightClientUpdate)
-    except SszError as exc:
+    except SerializationError as exc:
       error "LC data store corrupted", store = "bestUpdates",
         period, kind = update[0], exc = exc.msg
       return default(ForkedLightClientUpdate)
