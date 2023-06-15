@@ -13,7 +13,7 @@ This is a simple, safe and efficient way to get started.
 
 ## Overview
 
-To start validating, you need to do these three steps, which will be explained in more detail below:
+To start validating, you need to do these three steps, explained in more detail below:
 
 1. [Make a deposit](./run-a-validator.md#1-make-a-deposit-for-your-validator) for your validator.
 2. [Import your validator keys](./run-a-validator.md#2-import-your-validator-keys) into Nimbus.
@@ -32,7 +32,7 @@ To make a deposit, you will need to generate keys then submit a deposit transact
     * [Goerli/Prater EthStaker Launchpad](https://goerli.launchpad.ethstaker.cc/en/) or [Goerli/Prater EF Launchpad](https://prater.launchpad.ethereum.org/)
 
 !!! tip
-    Use Prater to stress test and future proof your set up against peak mainnet load.
+    Use Prater to stress test and future-proof your setup against peak mainnet load.
     See [here](./prater.md) for all you need to know.
 
 
@@ -54,8 +54,8 @@ tar xvf staking_deposit-cli-9ab0b05-linux-amd64.tar.gz --strip-components 2
 ### 2. Generate keys
 
 !!! tip "Live image"
-    You can increase the security of this process by downloading a [Live linux image](https://ubuntu.com/tutorials/try-ubuntu-before-you-install). To do so, copy `deposit` to a USB stick, boot into the live image, and run the tool from inside the image.
-    Make sure you **don't** enable Wifi and unplug any Ethernet cables when using this process.
+    You can increase the security of this process by downloading a [Live Linux image](https://ubuntu.com/tutorials/try-ubuntu-before-you-install). To do so, copy `deposit` to a USB stick, boot into the live image, and run the tool from inside the image.
+    Make sure you **don't** enable Wi-Fi and unplug any Ethernet cables when using this process.
 
 The deposit tool generates a seed phrase, and uses this to create validator and withdrawal keys.
 
