@@ -305,7 +305,9 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
               validator_sync_committee_index: validatorSyncCommitteeIndex))
         res
 
-    fork = vc.forkAtEpoch(epoch)
+    nextEpoch = epoch + 1
+    nextEpochHasSameDuties = 
+      epoch.sync_committee_period == nextEpoch.sync_committee_period
 
   let addOrReplaceItems =
     block:
@@ -318,6 +320,10 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
           map.duties.withValue(epoch, epochDuty):
             if epochDuty[] != duty:
               dutyFound = true
+          if nextEpochHasSameDuties:
+            map.duties.withValue(nextEpoch, epochDuty):
+              if epochDuty[] != duty:
+                dutyFound = true
 
         if dutyFound and not alreadyWarned:
           info "Sync committee duties re-organization", duty, epoch
@@ -331,6 +337,8 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
       var validatorDuties =
         vc.syncCommitteeDuties.getOrDefault(duty.pubkey)
       validatorDuties.duties[epoch] = duty
+      if nextEpochHasSameDuties:
+        validatorDuties.duties[nextEpoch] = duty
       vc.syncCommitteeDuties[duty.pubkey] = validatorDuties
 
   return len(addOrReplaceItems)
