@@ -12,8 +12,6 @@ import metrics
 import ../beacon_node
 
 from eth/async_utils import awaitWithTimeout
-from ../spec/datatypes/bellatrix import SignedBeaconBlock
-from ../spec/mev/rest_bellatrix_mev_calls import submitBlindedBlock
 from ../spec/mev/rest_capella_mev_calls import submitBlindedBlock
 
 const
@@ -41,84 +39,10 @@ macro copyFields*(
       result.add newAssignment(
         newDotExpr(dst, ident(name)), newDotExpr(src, ident(name)))
 
-# TODO when https://github.com/nim-lang/Nim/issues/21346 and/or
-# https://github.com/nim-lang/Nim/issues/21347 fixed, combine and make generic
-# these two very similar versions of unblindAndRouteBlockMEV
-proc unblindAndRouteBlockMEV*(
-    node: BeaconNode, payloadBuilderRestClient: RestClientRef,
-    blindedBlock: bellatrix_mev.SignedBlindedBeaconBlock):
-    Future[Result[Opt[BlockRef], string]] {.async.} =
-  # By time submitBlindedBlock is called, must already have done slashing
-  # protection check
-  let unblindedPayload =
-    try:
-      awaitWithTimeout(
-          payloadBuilderRestClient.submitBlindedBlock(blindedBlock),
-          BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE):
-        return err("Submitting blinded block timed out")
-      # From here on, including error paths, disallow local EL production by
-      # returning Opt.some, regardless of whether on head or newBlock.
-    except RestDecodingError as exc:
-      return err("REST decoding error submitting blinded block: " & exc.msg)
-    except CatchableError as exc:
-      return err("exception in submitBlindedBlock: " & exc.msg)
-
-  const httpOk = 200
-  if unblindedPayload.status == httpOk:
-    if  hash_tree_root(
-          blindedBlock.message.body.execution_payload_header) !=
-        hash_tree_root(unblindedPayload.data.data):
-      debug "unblindAndRouteBlockMEV: unblinded payload doesn't match blinded payload",
-        blindedPayload =
-          blindedBlock.message.body.execution_payload_header
-    else:
-      # Signature provided is consistent with unblinded execution payload,
-      # so construct full beacon block
-      # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
-      var signedBlock = bellatrix.SignedBeaconBlock(
-        signature: blindedBlock.signature)
-      copyFields(
-        signedBlock.message, blindedBlock.message,
-        getFieldNames(typeof(signedBlock.message)))
-      copyFields(
-        signedBlock.message.body, blindedBlock.message.body,
-        getFieldNames(typeof(signedBlock.message.body)))
-      signedBlock.message.body.execution_payload = unblindedPayload.data.data
-
-      signedBlock.root = hash_tree_root(signedBlock.message)
-
-      doAssert signedBlock.root == hash_tree_root(blindedBlock.message)
-
-      debug "unblindAndRouteBlockMEV: proposing unblinded block",
-        blck = shortLog(signedBlock)
-
-      let newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
-          # submitBlindedBlock has run, so don't allow fallback to run
-          return err("routeSignedBeaconBlock error") # Errors logged in router
-
-      if newBlockRef.isSome:
-        beacon_block_builder_proposed.inc()
-        notice "Block proposed (MEV)",
-          blockRoot = shortLog(signedBlock.root), blck = shortLog(signedBlock),
-          signature = shortLog(signedBlock.signature)
-
-      return ok newBlockRef
-  else:
-    debug "unblindAndRouteBlockMEV: submitBlindedBlock failed",
-      blindedBlock, payloadStatus = unblindedPayload.status
-
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#proposer-slashing
-  # This means if a validator publishes a signature for a
-  # `BlindedBeaconBlock` (via a dissemination of a
-  # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
-  # local build process as a fallback, even in the event of some failure
-  # with the external builder network.
-  return err("unblindAndRouteBlockMEV error")
-
-# TODO currently cannot be combined into one generic function
-# Only difference is `var signedBlock = capella.SignedBeaconBlock` instead of
-# `var signedBlock = bellatrix.SignedBeaconBlock`
+# TODO currently cannot be made into a generic function with
+# blindedBlock being of different forks, until
+# https://github.com/nim-lang/Nim/issues/21346 and/or
+# https://github.com/nim-lang/Nim/issues/21347 fixed
 proc unblindAndRouteBlockMEV*(
     node: BeaconNode, payloadBuilderRestClient: RestClientRef,
     blindedBlock: capella_mev.SignedBlindedBeaconBlock):

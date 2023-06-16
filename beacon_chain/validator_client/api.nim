@@ -2073,7 +2073,10 @@ proc publishBlindedBlock*(
         of ConsensusFork.Altair:
           publishBlindedBlock(it, data.altairData)
         of ConsensusFork.Bellatrix:
-          publishBlindedBlock(it, data.bellatrixData)
+          # TODO best kind of error to publish
+          let f = newFuture[RestPlainResponse]("")
+          f.fail(new RestError)
+          f
         of ConsensusFork.Capella:
           publishBlindedBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
@@ -2122,7 +2125,10 @@ proc publishBlindedBlock*(
       of ConsensusFork.Altair:
         publishBlindedBlock(it, data.altairData)
       of ConsensusFork.Bellatrix:
-        publishBlindedBlock(it, data.bellatrixData)
+        # TODO create better/more descriptive error
+        let f = newFuture[RestPlainResponse]("")
+        f.fail(new RestError)
+        f
       of ConsensusFork.Capella:
         publishBlindedBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
