@@ -615,6 +615,20 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 proofs)
       await v.signData(web3SignerRequest)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/validator.md#constructing-the-signedblobsidecars
+proc getBlobSignature*(v: AttachedValidator, fork: Fork,
+                       genesis_validators_root: Eth2Digest, slot: Slot,
+                       blob: BlobSidecar): Future[SignatureResult] {.async.} =
+  return
+    case v.kind
+    of ValidatorKind.Local:
+      SignatureResult.ok(
+        get_blob_sidecar_signature(
+          fork, genesis_validators_root, slot, blob,
+          v.data.privateKey).toValidatorSig())
+    of ValidatorKind.Remote:
+      return SignatureResult.err("web3signer not supported for blobs")
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,

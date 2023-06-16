@@ -123,7 +123,7 @@ iterator realizePendingCheckpoints*(
   # Reset tip tracking for new epoch
   self.currentEpochTips.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_weight
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/fork-choice.md#get_weight
 func calculateProposerBoost(validatorBalances: openArray[Gwei]): uint64 =
   var total_balance: uint64
   for balance in validatorBalances:
