@@ -274,7 +274,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         doAssert(signRes.isOk())
         contrib[].signature = signRes.get()
         contrib
-      aggregate = syncCommitteePool[].produceSyncAggregate(bid, slot)
+      aggregate = syncCommitteePool[].produceSyncAggregate(bid, slot + 1)
 
     check:
       expectedCount > 1 # Cover edge case

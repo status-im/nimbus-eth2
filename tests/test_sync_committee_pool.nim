@@ -43,7 +43,7 @@ suite "Sync committee pool":
 
     check(success == false)
 
-    let aggregate = pool.produceSyncAggregate(headBid, headBid.slot)
+    let aggregate = pool.produceSyncAggregate(headBid, headBid.slot + 1)
 
     check:
       aggregate.sync_committee_bits.isZeros
@@ -326,21 +326,21 @@ suite "Sync committee pool":
     #
     block:
       # Checking for a block that got no votes
-      let aggregate = pool.produceSyncAggregate(bid3, bid3.slot)
+      let aggregate = pool.produceSyncAggregate(bid3, bid3.slot + 1)
       check:
         aggregate.sync_committee_bits.isZeros
         aggregate.sync_committee_signature == ValidatorSig.infinity
 
     block:
       # Checking for a block that got votes from 1 committee
-      let aggregate = pool.produceSyncAggregate(bid2, bid2.slot)
+      let aggregate = pool.produceSyncAggregate(bid2, bid2.slot + 1)
       check:
         aggregate.sync_committee_bits.countOnes == 1
         aggregate.sync_committee_signature == sig4.toValidatorSig
 
     block:
       # Checking for a block that got votes from 2 committees
-      let aggregate = pool.produceSyncAggregate(bid1, bid1.slot)
+      let aggregate = pool.produceSyncAggregate(bid1, bid1.slot + 1)
       let sig = aggregate [sig1, sig2, sig3]
       check:
         aggregate.sync_committee_bits.countOnes == 3
@@ -362,7 +362,7 @@ suite "Sync committee pool":
       check:
         not success
 
-      let aggregate = pool.produceSyncAggregate(bid2, bid2.slot)
+      let aggregate = pool.produceSyncAggregate(bid2, bid2.slot + 1)
       check:
         aggregate.sync_committee_bits.isZeros
         aggregate.sync_committee_signature == ValidatorSig.infinity
