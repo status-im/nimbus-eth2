@@ -171,7 +171,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [Defect, CatchableError].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -2441,7 +2441,7 @@ proc addValidator*[MsgType](node: Eth2Node,
         let decoded = SSZ.decode(decompressed, MsgType)
         decompressed = newSeq[byte](0) # release memory before validating
         msgValidator(decoded) # doesn't raise!
-      except SszError as e:
+      except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
           topic, len = message.data.len, decompressed = decompressed.len,
@@ -2472,7 +2472,7 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
         let decoded = SSZ.decode(decompressed, MsgType)
         decompressed = newSeq[byte](0) # release memory before validating
         msgValidator(decoded) # doesn't raise!
-      except SszError as e:
+      except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
           topic, len = message.data.len, decompressed = decompressed.len,

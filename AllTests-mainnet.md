@@ -350,6 +350,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
++ Blob sidecar signatures                                                                    OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -357,7 +358,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Network metadata
 ```diff
 + goerli                                                                                     OK
@@ -690,4 +691,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 391/396 Fail: 0/396 Skip: 5/396
+OK: 392/397 Fail: 0/397 Skip: 5/397

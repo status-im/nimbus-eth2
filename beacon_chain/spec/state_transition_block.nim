@@ -456,7 +456,7 @@ func get_participant_reward*(total_active_balance: Gwei): Gwei =
         WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
   max_participant_rewards div SYNC_COMMITTEE_SIZE
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#sync-aggregate-processing
 func get_proposer_reward*(participant_reward: Gwei): Gwei =
   participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
 

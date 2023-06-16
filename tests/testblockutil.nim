@@ -514,7 +514,7 @@ proc makeSyncAggregate(
         signedContributionAndProof,
         latest_block_id, contribution.signature.load.get)
 
-  syncCommitteePool[].produceSyncAggregate(latest_block_id, slot)
+  syncCommitteePool[].produceSyncAggregate(latest_block_id, slot + 1)
 
 iterator makeTestBlocks*(
   state: ForkedHashedBeaconState,

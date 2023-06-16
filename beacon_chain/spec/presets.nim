@@ -129,7 +129,6 @@ when const_preset == "mainnet":
     # By default, don't use these params
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
       "0x0000000000000000000000000000000000000000000000000000000000000000"),
-    # TODO TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: Epoch(uint64.high),
 
     # Genesis
     # ---------------------------------------------------------------
@@ -233,7 +232,6 @@ elif const_preset == "gnosis":
     # By default, don't use these params
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
       "0x0000000000000000000000000000000000000000000000000000000000000000"),
-    # TODO TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: Epoch(uint64.high),
 
     # Genesis
     # ---------------------------------------------------------------
@@ -332,8 +330,6 @@ elif const_preset == "minimal":
     # By default, don't use these params
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
       "0x0000000000000000000000000000000000000000000000000000000000000000"),
-    # TODO TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: Epoch(uint64.high),
-
 
 
     # Genesis

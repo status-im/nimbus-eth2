@@ -45,7 +45,7 @@ type
 
   PayloadID* = array[8, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/bellatrix/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -73,7 +73,7 @@ type
     executionPayload*: ExecutionPayload
     blockValue*: Wei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/bellatrix/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
