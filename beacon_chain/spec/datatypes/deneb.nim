@@ -50,7 +50,7 @@ type
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
   VersionedHash* = array[32, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
@@ -626,7 +626,7 @@ func is_valid_light_client_header*(
     get_subtree_index(EXECUTION_PAYLOAD_INDEX),
     header.beacon.body_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_deneb*(
     pre: capella.LightClientHeader): LightClientHeader =
   LightClientHeader(
@@ -646,7 +646,9 @@ func upgrade_lc_header_to_deneb*(
         base_fee_per_gas: pre.execution.base_fee_per_gas,
         block_hash: pre.execution.block_hash,
         transactions_root: pre.execution.transactions_root,
-        withdrawals_root: pre.execution.withdrawals_root),
+        withdrawals_root: pre.execution.withdrawals_root,
+        data_gas_used: 0,     # [New in Deneb:EIP4844]
+        excess_data_gas: 0),  # [New in Deneb:EIP4844]
     execution_branch: pre.execution_branch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/light-client/fork.md#upgrading-light-client-data
