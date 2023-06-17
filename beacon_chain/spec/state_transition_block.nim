@@ -465,8 +465,17 @@ proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
+    flags: UpdateFlags,
     cache: var StateCache):
     Result[void, cstring]  =
+  if strictVerification in flags and state.slot > 1.Slot:
+    template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
+    let num_active_participants = countOnes(sync_committee_bits).uint64
+    if num_active_participants * 3 < static(sync_committee_bits.len * 2):
+      fatal "Low sync committee participation",
+        slot = state.slot, num_active_participants
+      quit 1
+
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
   when sync_aggregate.sync_committee_signature isnot TrustedSig:
@@ -822,7 +831,8 @@ proc process_block*(
   ? process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)  # [New in Altair]
+    state, blck.body.sync_aggregate, total_active_balance,
+    flags, cache)  # [New in Altair]
 
   ok()
 
@@ -853,7 +863,7 @@ proc process_block*(
   ? process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)
+    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok()
 
@@ -890,7 +900,7 @@ proc process_block*(
     cfg, state, blck.body, base_reward_per_increment,
     flags, cache)  # [Modified in Capella]
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)
+    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok()
 
@@ -925,6 +935,6 @@ proc process_block*(
   ? process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)
+    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok()
