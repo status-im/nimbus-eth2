@@ -2,12 +2,11 @@
 
 import
   unittest2,
-  eth/keys,
   ../beacon_chain/validators/action_tracker
 
 suite "subnet tracker":
   setup:
-    let rng = keys.newRng()
+    let rng = HmacDrbgContext.new()
 
   test "should register stability subnets on attester duties":
     var tracker = ActionTracker.init(rng, false)

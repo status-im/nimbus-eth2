@@ -36,7 +36,7 @@ const noSyncnetsPreference = SyncnetBits()
 
 procSuite "Eth2 specific discovery tests":
   let
-    rng = keys.newRng()
+    rng = HmacDrbgContext.new()
     enrForkId = ENRForkID(
       fork_digest: ForkDigest([byte 0, 1, 2, 3]),
       next_fork_version: Version([byte 0, 0, 0, 0]),

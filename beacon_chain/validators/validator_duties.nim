@@ -21,7 +21,7 @@ import
   chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net],
   eth/db/kvstore,
-  eth/keys, eth/p2p/discoveryv5/[protocol, enr],
+  eth/p2p/discoveryv5/[protocol, enr],
   web3/ethtypes,
 
   # Local modules

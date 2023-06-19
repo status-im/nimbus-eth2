@@ -10,7 +10,7 @@
 import
   std/[json, typetraits],
   unittest2,
-  stew/byteutils, blscurve, eth/keys, json_serialization,
+  stew/byteutils, blscurve, json_serialization,
   libp2p/crypto/crypto as lcrypto,
   ../beacon_chain/spec/[crypto, keystore],
   ./testutil
@@ -268,7 +268,7 @@ const
   iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
 
 let
-  rng = keys.newRng()
+  rng = HmacDrbgContext.new()
 
 suite "KeyStorage testing suite":
   setup:
@@ -472,4 +472,3 @@ suite "eth2.0-deposits-cli compatibility":
 
       v3SK.toHex == "1445cec3861d7cbf80e409d79aeee131622dcb0c815ff97ceab2515e14c41a1a"
       v3WK.toHex == "1ccd5dce4c842bd3f65bbd59a382662e689fcf01ddc39aaaf2dcc7d073f11a93"
-

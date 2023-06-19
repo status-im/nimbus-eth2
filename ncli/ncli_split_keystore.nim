@@ -1,6 +1,6 @@
 import
   std/os,
-  confutils, eth/keys,
+  confutils, 
   ../beacon_chain/validators/keystore_management,
   ../beacon_chain/spec/[keystore, crypto],
   ../beacon_chain/conf
@@ -58,9 +58,8 @@ proc main =
     error "The specified treshold must be lower or equal to the number of signers"
     quit 1
 
-  var
-    rng = keys.newRng()
-    rngCtx = rng[]
+  let rng = HmacDrbgContext.new()
+  template rngCtx: untyped = rng[]
 
   let
     validatorsDir = conf.validatorsDir
