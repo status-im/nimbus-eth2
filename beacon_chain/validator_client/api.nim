@@ -434,9 +434,9 @@ template bestSuccess*(
     inc(iterations)
 
   if retRes.isOk():
-    notice "Best score result selected",
-          request = RequestName, scores = scores, best_score = bestScore,
-          best_node = bestNode.get()
+    debug "Best score result selected",
+          request = RequestName, available_scores = scores,
+          best_score = bestScore.get(), best_node = bestNode.get()
 
   retRes
 
