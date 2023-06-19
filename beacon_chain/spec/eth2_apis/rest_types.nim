@@ -32,16 +32,10 @@ const
   # will return HTTP error 400.
   ServerMaximumValidatorIds* = 16384
 
+  # https://github.com/ethereum/beacon-APIs/blob/2.3.x/apis/beacon/states/validators.yaml#L23
   # Maximum number of validators that can be sent in single request by
   # validator client (VC).
-  # NOTE: This value depend on beacon node's `rest-max-headers-size`
-  # configuration option.
-  #
-  # Size of public key in HTTP request could be calculated by formula -
-  # bytes48 * 2 + len("0x") + len(",") = 99 bytes.
-  # So 1024 keys will occupy 101,376 bytes. Default value for HTTP headers size
-  # is 128Kb = 131,072 bytes.
-  ClientMaximumValidatorIds* = 1024
+  ClientMaximumValidatorIds* = 30
 
   # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/duties/attester.yaml#L32
   # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/duties/sync.yaml#L16
