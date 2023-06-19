@@ -5,17 +5,9 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/tables
-import metrics
-import ssz_serialization/types as sszTypes
-import ./common
-import ../spec/datatypes/[phase0, altair, bellatrix]
-import ../spec/forks
+import "."/common
 
 {.push raises: [].}
-
-type
-  BitsTable = Table[uint64, BitArray[int(MAX_VALIDATORS_PER_COMMITTEE)]]
 
 proc getAttestationDataScore*(vc: ValidatorClientRef,
                               adata: ProduceAttestationDataResponse): float64 =
