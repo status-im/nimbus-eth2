@@ -303,12 +303,27 @@ type
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: Option[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
       ## [New in Capella]
+    data_gas_used*: Option[uint64]   ## [New in Deneb]
+    excess_data_gas*: Option[uint64] ## [New in Deneb]
+
 
   PrepareBeaconProposer* = object
     validator_index*: ValidatorIndex
     fee_recipient*: Eth1Address
 
   RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
+
+  DenebSignedBlockContents* = object
+    signed_block*: deneb.SignedBeaconBlock
+    signed_blob_sidecars*: List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+
+  RestPublishedSignedBlockContents* = object
+    case kind*: ConsensusFork
+    of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
+    of ConsensusFork.Altair:    altairData*:    altair.SignedBeaconBlock
+    of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.SignedBeaconBlock
+    of ConsensusFork.Capella:   capellaData*:   capella.SignedBeaconBlock
+    of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
 
@@ -319,6 +334,18 @@ type
     of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
+
+  DenebBlockContents* = object
+    `block`*: deneb.BeaconBlock
+    blob_sidecars*: List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+
+  ProduceBlockResponseV2* = object
+    case kind*: ConsensusFork
+    of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
+    of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
+    of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
+    of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
+    of ConsensusFork.Deneb:     denebData*:     DenebBlockContents
 
   RestSpec* = object
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/phase0.yaml
@@ -676,7 +703,6 @@ type
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
-  ProduceBlockResponseV2* = ForkedBeaconBlock
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponseBellatrix* = DataEnclosedObject[bellatrix.ExecutionPayload]
@@ -719,6 +745,21 @@ type
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)
+
+func init*(T: type ForkedSignedBeaconBlock,
+           contents: RestPublishedSignedBlockContents): T =
+  return
+    case contents.kind
+    of ConsensusFork.Phase0:
+      ForkedSignedBeaconBlock.init(contents.phase0Data)
+    of ConsensusFork.Altair:
+      ForkedSignedBeaconBlock.init(contents.altairData)
+    of ConsensusFork.Bellatrix:
+      ForkedSignedBeaconBlock.init(contents.bellatrixData)
+    of ConsensusFork.Capella:
+      ForkedSignedBeaconBlock.init(contents.capellaData)
+    of ConsensusFork.Deneb:
+      ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)

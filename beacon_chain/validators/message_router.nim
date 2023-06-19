@@ -93,6 +93,9 @@ proc routeSignedBeaconBlock*(
     let res = validateBeaconBlock(
       router[].dag, router[].quarantine, blck, wallTime, {})
 
+    # TODO blob gossip validation
+    debugRaiseAssert $denebImplementationMissing
+
     if not res.isGoodForSending():
       warn "Block failed validation",
         blockRoot = shortLog(blck.root), blck = shortLog(blck.message),

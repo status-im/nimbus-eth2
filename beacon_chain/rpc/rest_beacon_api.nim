@@ -837,13 +837,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           body = contentBody.get()
           version = request.headers.getString("eth-consensus-version")
         var
-          restBlock = decodeBody(RestPublishedSignedBeaconBlock, body,
+          restBlock = decodeBody(RestPublishedSignedBlockContents, body,
                                  version).valueOr:
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                              $error)
-          forked = ForkedSignedBeaconBlock(restBlock)
+          forked = ForkedSignedBeaconBlock.init(restBlock)
 
-        if forked.kind != node.dag.cfg.consensusForkAtEpoch(
+        if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
              getForkedBlockField(forked, slot).epoch):
           doAssert strictVerification notin node.dag.updateFlags
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
@@ -860,6 +860,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http202, BlockValidationError)
 
     return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+
+  # TODO
+  # Add POST /eth/v2/beacon/blocks
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/beacon/blocks/blinded_blocks.yaml
