@@ -534,7 +534,6 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
 
     if isFile(name):
       debug "Era file already exists", era, name
-      era += 1
       continue
 
     # Check if we reasonably could write the era file given what's in the
