@@ -601,7 +601,7 @@ type
 
       historyMode* {.
         desc: "Retention strategy for historical data (archive/prune)"
-        defaultValue: HistoryMode.Archive
+        defaultValue: HistoryMode.Prune
         name: "history".}: HistoryMode
 
       # https://notes.ethereum.org/@bbusa/dencun-devnet-6
