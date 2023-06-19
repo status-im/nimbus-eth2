@@ -61,8 +61,8 @@ proc `$`*(ss: openArray[ApiScore]): string =
 chronicles.formatIt(seq[ApiScore]):
   $it
 
-chronicles.formatIt(Opt[ApiScore]):
-  if it.isSome(): formatFloat(it.get(), ffDecimal, 4) else: "<n/a>"
+func shortLog(oas: Opt[float64]): string =
+  if oas.isSome(): formatFloat(oas.get(), ffDecimal, 4) else: "<n/a>"
 
 func init*(t: typedesc[ApiScore], index: int, score: float64): ApiScore =
   ApiScore(index: index, score: Opt.some(score))
@@ -436,7 +436,7 @@ template bestSuccess*(
   if retRes.isOk():
     debug "Best score result selected",
           request = RequestName, available_scores = scores,
-          best_score = bestScore.get(), best_node = bestNode.get()
+          best_score = shortLog(bestScore), best_node = bestNode.get()
 
   retRes
 
