@@ -208,6 +208,7 @@ type
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     blocksSeen*: Table[Slot, BlockDataItem]
+    rootsSeen*: Table[Eth2Digest, Slot]
     processingDelay*: Opt[Duration]
     rng*: ref HmacDrbgContext
 
@@ -1211,7 +1212,7 @@ proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject,
                     node: BeaconNodeServerRef) =
   let
     wallTime = vc.beaconClock.now()
-    delay = wallTime - data.slot.start_beacon_time()
+    delay = wallTime - edata.slot.start_beacon_time()
 
   debug "Block received", slot = data.slot,
         block_root = shortLog(data.block_root), optimistic = data.optimistic,
@@ -1219,11 +1220,13 @@ proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject,
 
   proc scheduleCallbacks(data: var BlockDataItem,
                          blck: EventBeaconBlockObject) =
+    vc.rootsSeen[blck.block_root] = blck.slot
     data.blocks.add(blck.block_root)
     for mitem in data.waiters.mitems():
       if mitem.count >= len(data.blocks):
         if not(mitem.future.finished()): mitem.future.complete(data.blocks)
-  vc.blocksSeen.mgetOrPut(data.slot, BlockDataItem()).scheduleCallbacks(data)
+
+  vc.blocksSeen.mgetOrPut(edata.slot, BlockDataItem()).scheduleCallbacks(edata)
 
 proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
   var blocksSeen: Table[Slot, BlockDataItem]
@@ -1231,6 +1234,7 @@ proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
     if (slot.epoch() + HISTORICAL_DUTIES_EPOCHS) >= epoch:
       blocksSeen[slot] = item
     else:
+      for root in item.blocks: vc.rootsSeen.del(root)
       let blockRoot =
         if len(item.blocks) == 0:
           "<missing>"
