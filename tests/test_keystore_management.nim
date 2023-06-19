@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,7 @@
 import
   std/[os, options, json, typetraits, uri, algorithm],
   unittest2, chronos, chronicles, stint, json_serialization,
-  blscurve, eth/keys,
+  blscurve,
   libp2p/crypto/crypto as lcrypto,
   stew/[io2, byteutils],
   ../beacon_chain/filepath,
@@ -44,7 +44,7 @@ proc contentEquals(filePath, expectedContent: string): bool =
   expectedContent == readAll(file)
 
 let
-  rng = keys.newRng()
+  rng = HmacDrbgContext.new()
   mnemonic = generateMnemonic(rng[])
   seed = getSeed(mnemonic, KeystorePass.init "")
   cfg = defaultRuntimeConfig

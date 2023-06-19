@@ -523,7 +523,7 @@ proc main() {.async.} =
   except Exception as exc: # TODO fix confutils
     raiseAssert exc.msg
 
-  let rng = keys.newRng()
+  let rng = HmacDrbgContext.new()
 
   if conf.cmd == StartUpCommand.generateDeposits:
     let
@@ -589,7 +589,7 @@ proc main() {.async.} =
 
   case conf.cmd
   of StartUpCommand.createTestnet:
-    let rng = keys.newRng()
+    let rng = HmacDrbgContext.new()
     doCreateTestnet(conf, rng[])
 
   of StartUpCommand.deployDepositContract:

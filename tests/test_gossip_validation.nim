@@ -13,7 +13,7 @@ import
   # Status lib
   unittest2,
   chronos,
-  eth/keys, taskpools,
+  taskpools,
   # Internal
   ../beacon_chain/[beacon_clock],
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
@@ -36,20 +36,21 @@ proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
 suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
+    let rng = HmacDrbgContext.new()
     var
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(
         ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
         validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
       info = ForkedEpochInfo()
       batchCrypto = BatchCrypto.new(
-        keys.newRng(), eager = proc(): bool = false,
+        rng, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
@@ -187,8 +188,9 @@ suite "Gossip validation - Extra": # Not based on preset config
         cfg
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init())
+      rng = HmacDrbgContext.new()
     var
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       dag = block:
         let
           validatorMonitor = newClone(ValidatorMonitor.init())
@@ -220,7 +222,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         dag
 
     let batchCrypto = BatchCrypto.new(
-      keys.newRng(), eager = proc(): bool = false,
+      rng, eager = proc(): bool = false,
       genesis_validators_root = dag.genesis_validators_root, taskpool)
 
     var
@@ -243,8 +245,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         slot, state[].latest_block_root)
       msg = resMsg.get()
 
-      syncCommitteePool = newClone(
-        SyncCommitteeMsgPool.init(keys.newRng(), cfg))
+      syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
       res = waitFor validateSyncCommitteeMessage(
         dag, quarantine, batchCrypto, syncCommitteePool,
         msg, subcommitteeIdx, slot.start_beacon_time(), true)

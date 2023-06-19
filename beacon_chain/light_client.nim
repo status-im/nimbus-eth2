@@ -9,7 +9,6 @@
 
 import
   chronicles,
-  eth/keys,
   ./gossip_processing/light_client_processor,
   ./networking/[eth2_network, topic_params],
   ./spec/datatypes/altair,

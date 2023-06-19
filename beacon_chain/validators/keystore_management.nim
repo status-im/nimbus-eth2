@@ -11,7 +11,7 @@ import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, json_serialization, zxcvbn,
   bearssl/rand,
-  serialization, blscurve, eth/common/eth_types, eth/keys, confutils,
+  serialization, blscurve, eth/common/eth_types, confutils,
   nimbus_security_resources,
   ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
