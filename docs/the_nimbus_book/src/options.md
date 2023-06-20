@@ -122,7 +122,7 @@ The following options are available:
      --payload-builder-url     Payload builder URL.
      --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
                                [=0].
-     --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Archive].
+     --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Prune].
 
 ...
 ```
