@@ -1231,3 +1231,7 @@ proc waitForBlock*(
     let dur = Moment.now() - startTime
     debug "Waiting for block cutoff was interrupted", duration = dur
     raise exc
+
+iterator chunks*[T](data: openArray[T], maxCount: Positive): seq[T] =
+  for i in countup(0, len(data) - 1, maxCount):
+    yield @(data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
