@@ -32,8 +32,7 @@ To make a deposit, you will need to generate keys then submit a deposit transact
     * [Goerli/Prater EthStaker Launchpad](https://goerli.launchpad.ethstaker.cc/en/) or [Goerli/Prater EF Launchpad](https://prater.launchpad.ethereum.org/)
 
 !!! tip
-    Use Prater to stress test and future-proof your setup against peak mainnet load.
-    See [here](./prater.md) for all you need to know.
+    Before running your validator on Mainnet, you can (and should) verify that your setup works as expected by running it on the [Prater testnet](./prater.md).
 
 
 ### 1. Download the deposit tool
@@ -84,11 +83,15 @@ Follow the instructions [here](https://launchpad.ethereum.org/en/upload-deposit-
 
     You should verify that the address is indeed: [0x00000000219ab540356cBB839Cbe05303d7705Fa](https://etherscan.io/address/0x00000000219ab540356cBB839Cbe05303d7705Fa)
 
-!!! info
-    Once you send off your transaction(s), your validator will be put in a queue based on deposit time.
-    Getting through the queue may take a few hours or days (assuming the chain is finalizing).
-    No validators are accepted into the validator set while the chain isn't finalizing.
-    The `Pending Validators` metric on the [beaconcha.in](https://beaconcha.in/) will give you the size of the queue.
+Once you send off your transaction(s), before your validator starts producing blocks and attestations, there are two waiting periods.
+
+First, you wait for the beacon chain to recognize the block containing the deposit.
+This usually takes around 13 hours.
+Then, you wait in the queue for validator activation.
+
+Getting through the queue may take a few hours or days (assuming the chain is finalizing).
+No validators are accepted into the validator set while the chain isn't finalizing.
+The `Pending Validators` metric on the [beaconcha.in](https://beaconcha.in/) will give you the size of the queue.
 
 
 With the keys created, you're ready for the next step: importing your validator keys.
