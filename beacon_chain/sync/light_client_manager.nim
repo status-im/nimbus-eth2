@@ -27,7 +27,9 @@ type
   Bootstrap =
     Endpoint[Eth2Digest, ForkedLightClientBootstrap]
   UpdatesByRange =
-    Endpoint[Slice[SyncCommitteePeriod], ForkedLightClientUpdate]
+    Endpoint[
+      tuple[startPeriod: SyncCommitteePeriod, count: uint64],
+      ForkedLightClientUpdate]
   FinalityUpdate =
     Endpoint[Nothing, ForkedLightClientFinalityUpdate]
   OptimisticUpdate =
@@ -128,17 +130,15 @@ type LightClientUpdatesByRangeResponse =
 proc doRequest(
     e: typedesc[UpdatesByRange],
     peer: Peer,
-    periods: Slice[SyncCommitteePeriod]
+    key: tuple[startPeriod: SyncCommitteePeriod, count: uint64]
 ): Future[LightClientUpdatesByRangeResponse] {.
     async, raises: [Defect, IOError].} =
-  let
-    startPeriod = periods.a
-    lastPeriod = periods.b
-    reqCount = min(periods.len, MAX_REQUEST_LIGHT_CLIENT_UPDATES).uint64
-  let response = await peer.lightClientUpdatesByRange(startPeriod, reqCount)
+  let (startPeriod, count) = key
+  doAssert count > 0 and count <= MAX_REQUEST_LIGHT_CLIENT_UPDATES
+  let response = await peer.lightClientUpdatesByRange(startPeriod, count)
   if response.isOk:
     let e = distinctBase(response.get)
-      .checkLightClientUpdates(startPeriod, reqCount)
+      .checkLightClientUpdates(startPeriod, count)
     if e.isErr:
       raise newException(ResponseError, e.error)
   return response
@@ -334,13 +334,6 @@ proc query[E](
     progressFut.cancel()
   return progressFut.completed
 
-template query(
-    self: LightClientManager,
-    e: typedesc[UpdatesByRange],
-    key: SyncCommitteePeriod
-): Future[bool] =
-  self.query(e, key .. key)
-
 template query[E](
     self: LightClientManager,
     e: typedesc[E]
@@ -410,11 +403,19 @@ proc loop(self: LightClientManager) {.async.} =
       didProgress =
         if finalized == optimistic and not isNextSyncCommitteeKnown:
           if finalized >= current:
-            await self.query(UpdatesByRange, finalized)
+            await self.query(UpdatesByRange, (
+              startPeriod: finalized,
+              count: 1'u64))
           else:
-            await self.query(UpdatesByRange, finalized ..< current)
+            await self.query(UpdatesByRange, (
+              startPeriod: finalized,
+              count: min(current - finalized,
+                MAX_REQUEST_LIGHT_CLIENT_UPDATES)))
         elif finalized + 1 < current:
-          await self.query(UpdatesByRange, finalized + 1 ..< current)
+          await self.query(UpdatesByRange, (
+            startPeriod: finalized + 1,
+            count: min(current - (finalized + 1),
+              MAX_REQUEST_LIGHT_CLIENT_UPDATES)))
         elif finalized != optimistic:
           await self.query(FinalityUpdate)
         else:
