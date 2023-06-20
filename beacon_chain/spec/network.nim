@@ -107,8 +107,12 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blob_sidecar_index
 func getBlobSidecarTopic*(forkDigest: ForkDigest,
-                          index: BlobIndex): string =
-  eth2Prefix(forkDigest) & "blob_sidecar_" & $index & "/ssz_snappy"
+                          subnet_id: SubnetId): string =
+  eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/validator.md#sidecar
+func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): SubnetId =
+  SubnetId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =

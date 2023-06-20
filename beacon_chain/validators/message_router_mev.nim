@@ -93,7 +93,8 @@ proc unblindAndRouteBlockMEV*(
         blck = shortLog(signedBlock)
 
       let newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
+        (await node.router.routeSignedBeaconBlock(
+          signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
           # submitBlindedBlock has run, so don't allow fallback to run
           return err("routeSignedBeaconBlock error") # Errors logged in router
 
@@ -168,7 +169,8 @@ proc unblindAndRouteBlockMEV*(
         blck = shortLog(signedBlock)
 
       let newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
+        (await node.router.routeSignedBeaconBlock(
+          signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
           # submitBlindedBlock has run, so don't allow fallback to run
           return err("routeSignedBeaconBlock error") # Errors logged in router
 
