@@ -8,7 +8,7 @@ Syncing starts automatically when you start your node, and may take **several ho
     This requires access to a synced node or a third-party service.
 
 
-If you are planning to become a validator, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit; otherwise, you might miss attestations and proposal duties until it has finished syncing.
+If you are planning to become a validator, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit; otherwise, you might miss attestations, proposal duties and sync committee duties until it has finished syncing.
 
 !!! note
     You need need to run an execution client (**web3 provider**) together with the beacon node.
