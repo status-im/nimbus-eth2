@@ -341,6 +341,7 @@ template query[E](
   self.query(e, Nothing())
 
 type SchedulingMode = enum
+  Now,
   Soon,
   CurrentPeriod,
   NextPeriod
@@ -353,6 +354,8 @@ func fetchTime(
   let
     remainingTime =
       case schedulingMode:
+      of Now:
+        return wallTime
       of Soon:
         chronos.seconds(0)
       of CurrentPeriod:
@@ -413,9 +416,12 @@ proc loop(self: LightClientManager) {.async.} =
           await self.query(OptimisticUpdate)
 
       schedulingMode =
-        if not didProgress or not self.isGossipSupported(current):
-          Soon
-        elif syncTask.kind != LcSyncKind.OptimisticUpdate:
+        if not self.isGossipSupported(current):
+          if didProgress:
+            Now
+          else:
+            Soon
+        elif self.getFinalizedPeriod() != self.getOptimisticPeriod():
           CurrentPeriod
         else:
           NextPeriod
