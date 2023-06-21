@@ -48,3 +48,43 @@ func checkLightClientUpdates*(
       else:
         return err("Invalid context bytes")
   ok()
+
+type
+  LcSyncKind* {.pure.} = enum
+    UpdatesByRange
+    FinalityUpdate
+    OptimisticUpdate
+
+  LcSyncTask* = object
+    case kind*: LcSyncKind
+    of LcSyncKind.UpdatesByRange:
+      startPeriod*: SyncCommitteePeriod
+      count*: uint64
+    of LcSyncKind.FinalityUpdate, LcSyncKind.OptimisticUpdate:
+      discard
+
+func nextLightClientSyncTask*(
+    finalized: SyncCommitteePeriod,
+    optimistic: SyncCommitteePeriod,
+    current: SyncCommitteePeriod,
+    isNextSyncCommitteeKnown: bool): LcSyncTask =
+  if finalized == optimistic and not isNextSyncCommitteeKnown:
+    if finalized >= current:
+      LcSyncTask(
+        kind: LcSyncKind.UpdatesByRange,
+        startPeriod: finalized,
+        count: 1)
+    else:
+      LcSyncTask(
+        kind: LcSyncKind.UpdatesByRange,
+        startPeriod: finalized,
+        count: min(current - finalized, MAX_REQUEST_LIGHT_CLIENT_UPDATES))
+  elif finalized + 1 < current:
+    LcSyncTask(
+      kind: LcSyncKind.UpdatesByRange,
+      startPeriod: finalized + 1,
+      count: min(current - (finalized + 1), MAX_REQUEST_LIGHT_CLIENT_UPDATES))
+  elif finalized != optimistic:
+    LcSyncTask(kind: LcSyncKind.FinalityUpdate)
+  else:
+    LcSyncTask(kind: LcSyncKind.OptimisticUpdate)

@@ -393,39 +393,29 @@ proc loop(self: LightClientManager) {.async.} =
       continue
 
     # Fetch updates
-    var allowWaitNextPeriod = false
     let
-      finalized = self.getFinalizedPeriod()
-      optimistic = self.getOptimisticPeriod()
       current = wallTime.slotOrZero().sync_committee_period
-      isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
+
+      syncTask = nextLightClientSyncTask(
+        finalized = self.getFinalizedPeriod(),
+        optimistic = self.getOptimisticPeriod(),
+        current = current,
+        isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown())
 
       didProgress =
-        if finalized == optimistic and not isNextSyncCommitteeKnown:
-          if finalized >= current:
-            await self.query(UpdatesByRange, (
-              startPeriod: finalized,
-              count: 1'u64))
-          else:
-            await self.query(UpdatesByRange, (
-              startPeriod: finalized,
-              count: min(current - finalized,
-                MAX_REQUEST_LIGHT_CLIENT_UPDATES)))
-        elif finalized + 1 < current:
-          await self.query(UpdatesByRange, (
-            startPeriod: finalized + 1,
-            count: min(current - (finalized + 1),
-              MAX_REQUEST_LIGHT_CLIENT_UPDATES)))
-        elif finalized != optimistic:
+        case syncTask.kind
+        of LcSyncKind.UpdatesByRange:
+          await self.query(UpdatesByRange,
+            (startPeriod: syncTask.startPeriod, count: syncTask.count))
+        of LcSyncKind.FinalityUpdate:
           await self.query(FinalityUpdate)
-        else:
-          allowWaitNextPeriod = true
+        of LcSyncKind.OptimisticUpdate:
           await self.query(OptimisticUpdate)
 
       schedulingMode =
         if not didProgress or not self.isGossipSupported(current):
           Soon
-        elif not allowWaitNextPeriod:
+        elif syncTask.kind != LcSyncKind.OptimisticUpdate:
           CurrentPeriod
         else:
           NextPeriod
