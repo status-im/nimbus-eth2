@@ -232,7 +232,6 @@ when const_preset == "gnosis":
 
   static:
     checkForkConsistency(gnosisMetadata.cfg)
-    doAssert gnosisMetadata.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
     doAssert gnosisMetadata.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
