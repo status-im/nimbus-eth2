@@ -885,11 +885,11 @@ proc delBlock*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest): bool =
 proc delState*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest) =
   discard db.statesNoVal[fork].del(key.data).expectDb()
 
-proc clearBlocks*(db: BeaconChainDB, fork: ConsensusFork) =
-  discard db.blocks[fork].clear().expectDb()
+proc clearBlocks*(db: BeaconChainDB, fork: ConsensusFork): bool =
+  db.blocks[fork].clear().expectDb()
 
-proc clearStates*(db: BeaconChainDB, fork: ConsensusFork) =
-  discard db.statesNoVal[fork].clear().expectDb()
+proc clearStates*(db: BeaconChainDB, fork: ConsensusFork): bool =
+  db.statesNoVal[fork].clear().expectDb()
 
 proc delKeyValue*(db: BeaconChainDB, key: array[1, byte]) =
   discard db.keyValues.del(key).expectDb()

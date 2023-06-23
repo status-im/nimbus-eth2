@@ -2255,17 +2255,21 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
       # Once during start, we'll clear all "old fork" data - this ensures we get
       # rid of any leftover junk in the tables - we do so after linear pruning
       # so as to "mostly" clean up the phase0 tables as well (which cannot be
-      # pruned easily by fork)
+      # pruned easily by fork) - one fork at a time, so as not to take too long
 
       let stateFork = dag.cfg.consensusForkAtEpoch(dag.tail.slot.epoch)
+      var clearedStates = false
       if stateFork > ConsensusFork.Phase0:
         for fork in ConsensusFork.Phase0..<stateFork:
-          dag.db.clearStates(fork)
+          if dag.db.clearStates(fork):
+            clearedStates = true
+            break
 
       let blockFork = dag.cfg.consensusForkAtEpoch(blockHorizon.epoch)
-      if blockFork > ConsensusFork.Phase0:
+      if not clearedStates and blockFork > ConsensusFork.Phase0:
         for fork in ConsensusFork.Phase0..<blockFork:
-          dag.db.clearBlocks(fork)
+          if dag.db.clearBlocks(fork):
+            break
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
   if dag.cfg.consensusForkAtEpoch(bid.slot.epoch) < ConsensusFork.Bellatrix:
