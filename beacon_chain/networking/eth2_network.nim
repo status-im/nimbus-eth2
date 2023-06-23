@@ -341,7 +341,7 @@ func shortProtocolId(protocolId: string): string =
 proc openStream(node: Eth2Node,
                 peer: Peer,
                 protocolId: string): Future[Connection] {.async.} =
-  # When dialling here, we do not provide addresses - all new connection
+  # When dialing here, we do not provide addresses - all new connection
   # attempts are handled via `connect` which also takes into account
   # reconnection timeouts
   let
@@ -353,6 +353,10 @@ proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
 func peerId*(node: Eth2Node): PeerId =
   node.switch.peerInfo.peerId
+
+func nodeId*(node: Eth2Node): NodeId =
+  # `secp256k1` keys are always stored inside PeerId.
+  toNodeId(keys.PublicKey(node.switch.peerInfo.publicKey.skkey))
 
 func enrRecord*(node: Eth2Node): Record =
   node.discovery.localNode.record

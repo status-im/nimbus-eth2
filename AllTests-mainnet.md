@@ -258,10 +258,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + General pubsub topics                                                                      OK
 + Liveness failsafe conditions                                                               OK
 + Mainnet attestation topics                                                                 OK
++ Stability subnets                                                                          OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## ImportKeystores requests [Beacon Node] [Preset: mainnet]
 ```diff
 + ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
@@ -691,4 +692,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 392/397 Fail: 0/397 Skip: 5/397
+OK: 393/398 Fail: 0/398 Skip: 5/398
