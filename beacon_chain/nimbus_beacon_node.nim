@@ -13,7 +13,6 @@ import
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
-  eth/keys,
   ./consensus_object_pools/blob_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/topic_params,
@@ -2008,7 +2007,7 @@ proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [Defect, CatchableErr
 proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableError].} =
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
-  let rng = keys.newRng()
+  let rng = HmacDrbgContext.new()
 
   case config.cmd
   of BNStartUpCmd.noCommand: doRunBeaconNode(config, rng)

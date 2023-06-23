@@ -7,7 +7,6 @@
 
 import
   chronicles,
-  eth/keys,
   stew/endians2,
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ../beacon_chain/spec/datatypes/bellatrix,
@@ -423,7 +422,8 @@ proc makeSyncAggregate(
       getStateField(state, slot)
     latest_block_id =
       withState(state): forkyState.latest_block_id
-    syncCommitteePool = newClone(SyncCommitteeMsgPool.init(keys.newRng(), cfg))
+    rng = HmacDrbgContext.new()
+    syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
 
   type
     Aggregator = object

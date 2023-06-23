@@ -11,7 +11,7 @@ import
   chronos,
   std/sequtils,
   unittest2,
-  eth/keys, taskpools,
+  taskpools,
   ../beacon_chain/[conf, beacon_clock],
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/deneb,
@@ -34,12 +34,13 @@ proc pruneAtFinalization(dag: ChainDAGRef) =
 
 suite "Block processor" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
       blobQuarantine = newClone(BlobQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
@@ -56,7 +57,7 @@ suite "Block processor" & preset():
       b2 = addTestBlock(state[], cache).phase0Data
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
-        false, "", "", keys.newRng(), taskpool, consensusManager,
+        false, "", "", rng, taskpool, consensusManager,
         validatorMonitor, blobQuarantine, getTimeFn)
 
   asyncTest "Reverse order block add & get" & preset():

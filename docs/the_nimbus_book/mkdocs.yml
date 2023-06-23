@@ -61,9 +61,6 @@ nav:
       - 'migration.md'
 
     - Validator:
-      - 'deposit.md'
-      - 'keys.md'
-      - 'connect-eth2.md'
       - 'graffiti.md'
       - 'suggested-fee-recipient.md'
       - 'external-block-builder.md'

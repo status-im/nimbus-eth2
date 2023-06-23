@@ -2275,8 +2275,14 @@ func gossipId(
 proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
                      seckey: PrivateKey, address: MultiAddress,
                      rng: ref HmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
-  SwitchBuilder
-    .new()
+  var sb =
+    if config.enableYamux:
+      SwitchBuilder.new().withYamux()
+    else:
+      SwitchBuilder.new()
+  # Order of multiplexers matters, the first will be default
+
+  sb
     .withPrivateKey(seckey)
     .withAddress(address)
     .withRng(rng)

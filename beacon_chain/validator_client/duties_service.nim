@@ -49,21 +49,11 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
           res.add(ValidatorIdent.init(validator.pubkey))
       res
 
+  let start = Moment.now()
+
   var validators: seq[RestValidator]
-  var offset = 0
 
-  while offset < len(validatorIdents):
-    let arraySize = min(ClientMaximumValidatorIds, len(validatorIdents))
-
-    let idents =
-      block:
-        var res = newSeq[ValidatorIdent](arraySize)
-        var k = 0
-        for i in offset ..< arraySize:
-          res[k] = validatorIdents[i]
-          inc(k)
-        res
-
+  for idents in chunks(validatorIdents, ClientMaximumValidatorIds):
     let res =
       try:
         await vc.getValidators(idents, ApiStrategyKind.First)
@@ -78,11 +68,8 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
         error "Unexpected error occurred while getting validator information",
               err_name = exc.name, err_msg = exc.msg
         return
-
     for item in res:
       validators.add(item)
-
-    offset += arraySize
 
   var
     missing: seq[string]
@@ -104,7 +91,8 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
     info "Validator indices updated",
       pending = len(validatorIdents) - len(updated),
       missing = len(missing),
-      updated = len(updated)
+      updated = len(updated),
+      elapsed_time = (Moment.now() - start)
     trace "Validator indices update dump", missing_validators = missing,
           updated_validators = updated
     vc.indicesAvailable.fire()

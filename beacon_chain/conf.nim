@@ -305,6 +305,12 @@ type
         defaultValue: false
         name: "enr-auto-update" .}: bool
 
+      enableYamux* {.
+        hidden
+        desc: "Enable the Yamux multiplexer"
+        defaultValue: false
+        name: "enable-yamux" .}: bool
+
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
@@ -601,7 +607,7 @@ type
 
       historyMode* {.
         desc: "Retention strategy for historical data (archive/prune)"
-        defaultValue: HistoryMode.Archive
+        defaultValue: HistoryMode.Prune
         name: "history".}: HistoryMode
 
       # https://notes.ethereum.org/@bbusa/dencun-devnet-6
