@@ -110,7 +110,8 @@ type
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
     capella.SignedBeaconBlock |
-    phase0.SignedBeaconBlock
+    phase0.SignedBeaconBlock |
+    DenebSignedBlockContents
 
   EncodeArrays* =
     seq[Attestation] |
