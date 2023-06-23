@@ -891,13 +891,6 @@ proc clearBlocks*(db: BeaconChainDB, fork: ConsensusFork): bool =
 proc clearStates*(db: BeaconChainDB, fork: ConsensusFork): bool =
   db.statesNoVal[fork].clear().expectDb()
 
-proc delKeyValue*(db: BeaconChainDB, key: array[1, byte]) =
-  discard db.keyValues.del(key).expectDb()
-  discard db.v0.backend.del(key).expectDb()
-
-proc delKeyValue*(db: BeaconChainDB, key: DbKeyKind) =
-  db.delKeyValue(subkey(key))
-
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   discard db.stateRoots.del(stateRootKey(root, slot)).expectDb()
 
