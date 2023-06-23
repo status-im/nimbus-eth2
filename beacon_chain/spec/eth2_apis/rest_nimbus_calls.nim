@@ -66,7 +66,7 @@ proc getTimeOffset*(client: RestClientRef,
                   int64(stamps.timestamp3) - int64(timestamp4) +
                   delay14 - delay23) div 2
       offset
-    of 400:
+    else:
       let error = decodeBytes(RestErrorMessage, resp.data,
                               resp.contentType).valueOr:
         let msg = "Incorrect response error format (" & $resp.status &
@@ -75,5 +75,3 @@ proc getTimeOffset*(client: RestClientRef,
       let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
       raise (ref RestResponseError)(
         msg: msg, status: error.code, message: error.message)
-    else:
-      raiseRestResponseError(resp)

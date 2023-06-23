@@ -256,19 +256,6 @@ const
     RestBeaconNodeStatus.Synced,
     RestBeaconNodeStatus.UnexpectedCode,
     RestBeaconNodeStatus.UnexpectedResponse,
-    RestBeaconNodeStatus.InternalError
-  }
-
-  AllBeaconNodeStatuses* = {
-    RestBeaconNodeStatus.Offline,
-    RestBeaconNodeStatus.Online,
-    RestBeaconNodeStatus.Incompatible,
-    RestBeaconNodeStatus.Compatible,
-    RestBeaconNodeStatus.NotSynced,
-    RestBeaconNodeStatus.OptSynced,
-    RestBeaconNodeStatus.Synced,
-    RestBeaconNodeStatus.UnexpectedCode,
-    RestBeaconNodeStatus.UnexpectedResponse,
     RestBeaconNodeStatus.BrokenClock,
     RestBeaconNodeStatus.InternalError
   }
