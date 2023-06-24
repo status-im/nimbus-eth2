@@ -135,7 +135,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | $(TOOLS) libnfuzz.so libnfuzz.a $(PLATFORM_SPECIFIC_TARGETS)
+all: | $(TOOLS) libnfuzz.so libnfuzz.a libnimbus_lc.a $(PLATFORM_SPECIFIC_TARGETS)
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -280,7 +280,8 @@ XML_TEST_BINARIES := \
 # test suite
 TEST_BINARIES := \
 	state_sim \
-	block_sim
+	block_sim \
+	test_libnimbus_lc
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
 
 # Preset-dependent tests
@@ -727,6 +728,26 @@ gnosis-chain-dev-deposit: | gnosis-build deposit_contract
 
 clean-gnosis-chain:
 	$(call CLEAN_NETWORK,gnosis-chain)
+
+###
+### libnimbus_lc
+###
+
+libnimbus_lc.a: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		rm -f build/$@ && \
+		$(ENV_SCRIPT) $(NIMC) c -d:disable_libbacktrace -d:release --app:staticlib --noMain --nimcache:nimcache/libnimbus_lc_static -o:build/$@ $(NIM_PARAMS) beacon_chain/libnimbus_lc/libnimbus_lc.nim $(SILENCE_WARNINGS) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+test_libnimbus_lc: libnimbus_lc.a
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -Lbuild -lnimbus_lc -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -framework Security --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c && \
+		echo -e $(BUILD_END_MSG) "build/$@" && \
+		if (( !$(V) )) && "build/$@" >/dev/null || "build/$@"; then \
+			echo "libnimbus_lc OK"; \
+		else \
+			echo "libnimbus_lc FAILED"; \
+		fi
 
 ###
 ### Other
