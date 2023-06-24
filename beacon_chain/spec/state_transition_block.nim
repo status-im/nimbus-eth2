@@ -419,7 +419,7 @@ proc process_bls_to_execution_change*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#operations
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/capella/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#modified-process_operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
                         body: SomeForkyBeaconBlockBody,
@@ -845,7 +845,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock

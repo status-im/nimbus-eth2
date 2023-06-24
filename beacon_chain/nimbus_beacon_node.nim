@@ -1520,7 +1520,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Altair:
         # sync_committee_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/p2p-interface.md#sync_committee_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
         for subcommitteeIdx in SyncSubcommitteeIndex:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = subcommitteeIdx
