@@ -741,13 +741,13 @@ libnimbus_lc.a: | build deps
 
 test_libnimbus_lc: libnimbus_lc.a
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -Lbuild -lnimbus_lc -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -framework Security --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c && \
-		echo -e $(BUILD_END_MSG) "build/$@" && \
-		if (( !$(V) )) && "build/$@" >/dev/null || "build/$@"; then \
-			echo "libnimbus_lc OK"; \
+		set -x && \
+		if [[ "$$(uname)" == "Darwin" ]]; then \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -Lbuild -lnimbus_lc -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -framework Security --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c; \
 		else \
-			echo "libnimbus_lc FAILED"; \
-		fi
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -Lbuild -lnimbus_lc --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c; \
+		fi && \
+		echo -e $(BUILD_END_MSG) "build/$@"
 
 ###
 ### Other
