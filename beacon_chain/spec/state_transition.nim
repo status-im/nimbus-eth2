@@ -574,7 +574,7 @@ proc makeBeaconBlock*(
              hash_tree_root(validator_changes.bls_to_execution_changes)])
         elif consensusFork == ConsensusFork.Deneb:
           when executionPayload is deneb.ExecutionPayloadForSigning:
-            # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/beacon-chain.md#beaconblockbody
+            # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
               [hash_tree_root(randao_reveal),
                hash_tree_root(eth1_data),
@@ -591,6 +591,8 @@ proc makeBeaconBlock*(
             ])
           else:
             raiseAssert "Attempt to use non-Deneb payload with post-Deneb state"
+        else:
+          static: raiseAssert "Unreachable"
 
 
     state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)
