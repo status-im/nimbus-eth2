@@ -107,7 +107,8 @@ type
     AttestationData, AttestationPublish,
     AggregatedData, AggregatedPublish,
     BlockProposalData, BlockProposalPublish,
-    SyncCommitteeData, SyncCommitteePublish
+    SyncCommitteeData, SyncCommitteePublish,
+    NoTimeCheck
 
   RestBeaconNodeFeature* {.pure.} = enum
     NoNimbusExtensions  ## BN do not supports Nimbus Extensions
@@ -244,8 +245,11 @@ const
     BeaconNodeRole.BlockProposalData,
     BeaconNodeRole.BlockProposalPublish,
     BeaconNodeRole.SyncCommitteeData,
-    BeaconNodeRole.SyncCommitteePublish,
+    BeaconNodeRole.SyncCommitteePublish
   }
+    ## AllBeaconNodeRoles missing BeaconNodeRole.NoTimeCheck, because timecheks
+    ## are enabled by default.
+
   AllBeaconNodeStatuses* = {
     RestBeaconNodeStatus.Offline,
     RestBeaconNodeStatus.Online,
@@ -294,6 +298,8 @@ proc `$`*(roles: set[BeaconNodeRole]): string =
         res.add("sync-data")
       if BeaconNodeRole.SyncCommitteePublish in roles:
         res.add("sync-publish")
+      if BeaconNodeRole.NoTimeCheck in roles:
+        res.add("no-timecheck")
       res.join(",")
     else:
       "{all}"
@@ -381,7 +387,7 @@ proc getFailureReason*(exc: ref ValidatorApiError): string =
     exc.msg
 
 proc shortLog*(roles: set[BeaconNodeRole]): string =
-  var r = "AGBSD"
+  var r = "AGBSDT"
   if BeaconNodeRole.AttestationData in roles:
     if BeaconNodeRole.AttestationPublish in roles: r[0] = 'A' else: r[0] = 'a'
   else:
@@ -401,6 +407,7 @@ proc shortLog*(roles: set[BeaconNodeRole]): string =
     if BeaconNodeRole.SyncCommitteePublish in roles:
       r[3] = '+' else: r[3] = '-'
   if BeaconNodeRole.Duties in roles: r[4] = 'D' else: r[4] = '-'
+  if BeaconNodeRole.NoTimeCheck notin roles: r[5] = 'T' else: r[5] = '-'
   r
 
 proc `$`*(bn: BeaconNodeServerRef): string =
@@ -602,8 +609,12 @@ proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
       res.incl(BeaconNodeRole.SyncCommitteePublish)
     of "duties":
       res.incl(BeaconNodeRole.Duties)
+    of "no-timecheck":
+      res.incl(BeaconNodeRole.NoTimeCheck)
     else:
       return err("Invalid beacon node role string found")
+  if res == {BeaconNodeRole.NoTimeCheck}:
+    res.incl(AllBeaconNodeRoles)
   ok(res)
 
 proc normalizeUri*(r: Uri): Result[Uri, cstring] =

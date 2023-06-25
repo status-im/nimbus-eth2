@@ -349,6 +349,10 @@ proc runTimeMonitor(service: FallbackServiceRef,
   logScope:
     node = node
 
+  if BeaconNodeRole.NoTimeCheck in node.roles:
+    debug "Beacon node time offset checks disabled"
+    return
+
   while true:
     while node.status notin statuses:
       await vc.waitNodes(nil, statuses, roles, true)
