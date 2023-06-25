@@ -1,4 +1,4 @@
-# beacon_chain
+,opt# beacon_chain
 # Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -972,7 +972,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       let res = withBlck(forked):
         blck.root = hash_tree_root(blck.message)
-        await node.router.routeSignedBeaconBlock(blck,Opt.none(SignedBlobSidecars))
+        await node.router.routeSignedBeaconBlock(blck,
+                                                 Opt.none(SignedBlobSidecars))
 
       if res.isErr():
         return RestApiResponse.jsonError(

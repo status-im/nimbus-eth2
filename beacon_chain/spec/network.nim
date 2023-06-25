@@ -110,7 +110,7 @@ func getBlobSidecarTopic*(forkDigest: ForkDigest,
                           subnet_id: SubnetId): string =
   eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/validator.md#sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/validator.md#sidecar
 func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): SubnetId =
   SubnetId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
 
