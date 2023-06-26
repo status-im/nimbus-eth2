@@ -302,6 +302,8 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
   else:
     static: raiseAssert "Unreachable"
 
+# still a comment
+
 template withConsensusFork*(
     x: ConsensusFork, body: untyped): untyped =
   case x
