@@ -745,6 +745,7 @@ test_libnimbus_lc: libnimbus_lc.a
 		if [[ "$$(uname)" == "Darwin" ]]; then \
 			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -Lbuild -lnimbus_lc -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -framework Security --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c; \
 		else \
+			ls -al build && \
 			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -Lbuild -lnimbus_lc --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c; \
 		fi && \
 		echo -e $(BUILD_END_MSG) "build/$@"
