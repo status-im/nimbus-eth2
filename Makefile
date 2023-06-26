@@ -744,11 +744,12 @@ test_libnimbus_lc: libnimbus_lc.a
 		set -x && \
 		case "$$(uname)" in \
 		Darwin) \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c -Lbuild -lnimbus_lc -framework Security; \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c -Lbuild -lnimbus_lc -framework Security; \
+			;; \
+		MINGW64_*) \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -D_CRT_SECURE_NO_WARNINGS -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c -Lbuild -lnimbus_lc; \
 			;; \
 		*) \
-			echo "$$(uname)" && \
-			ls -al build && \
 			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c -Lbuild -lnimbus_lc; \
 			;; \
 		esac && \
