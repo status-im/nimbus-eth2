@@ -178,7 +178,7 @@
   
     <li class="md-tabs__item">
       <a href="index.html" class="md-tabs__link">
-        About
+        Home
       </a>
     </li>
   
@@ -334,14 +334,14 @@
       
       
         <label class="md-nav__link" for="__nav_1">
-          About
+          Home
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" aria-label="About" data-md-level="1">
+      <nav class="md-nav" aria-label="Home" data-md-level="1">
         <label class="md-nav__title" for="__nav_1">
           <span class="md-nav__icon md-icon"></span>
-          About
+          Home
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -353,20 +353,6 @@
     <li class="md-nav__item">
       <a href="index.html" class="md-nav__link">
         The Nimbus Guide
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="philosophy.html" class="md-nav__link">
-        Design goals
       </a>
     </li>
   
@@ -414,7 +400,7 @@
   
     <li class="md-nav__item">
       <a href="quick-start.html" class="md-nav__link">
-        Run the beacon node
+        Beacon node
       </a>
     </li>
   
@@ -428,7 +414,7 @@
   
     <li class="md-nav__item">
       <a href="run-a-validator.html" class="md-nav__link">
-        Run a validator
+        Validating
       </a>
     </li>
   
@@ -441,22 +427,8 @@
   
   
     <li class="md-nav__item">
-      <a href="migration.html" class="md-nav__link">
-        Migrate from another client
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="metrics-pretty-pictures.html" class="md-nav__link">
-        Grafana and Prometheus
+      <a href="el-light-client.html" class="md-nav__link">
+        Light client
       </a>
     </li>
   
@@ -471,20 +443,6 @@
     <li class="md-nav__item">
       <a href="pi-guide.html" class="md-nav__link">
         Running on a Raspberry Pi
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="el-light-client.html" class="md-nav__link">
-        Run the light client
       </a>
     </li>
   
@@ -609,6 +567,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        Migrate from another client
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -641,48 +613,6 @@
           Validator
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="deposit.html" class="md-nav__link">
-        Make a deposit for your validator
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="keys.html" class="md-nav__link">
-        Import your validator keys
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="connect-eth2.html" class="md-nav__link">
-        Start validating
-      </a>
-    </li>
-  
-
-            
           
             
               
@@ -983,6 +913,20 @@
     <li class="md-nav__item">
       <a href="log-rotate.html" class="md-nav__link">
         Set up log rotation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="metrics-pretty-pictures.html" class="md-nav__link">
+        Grafana and Prometheus
       </a>
     </li>
   
@@ -1778,17 +1722,14 @@
 
 
 <h1 id="run-an-execution-client">Run an execution client</h1>
-<p>In order to perform validation duties, you need to also be running an execution client — at least one for each beacon node.</p>
-<p>Nimbus has been tested all major execution clients, see the <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients">execution client comparison</a> for more information.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>You need to run your own execution client.
+<p>In order to perform validation duties, you <strong>must have</strong> an execution client running — at least one for each beacon node.
 Relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
 Sharing the same execution client between multiple beacon nodes is not supported.</p>
-</div>
+<p>Nimbus has been tested with all major execution clients.
+See the <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients">execution client comparison</a> for more information.</p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
-<p>Syncing an execution client may take hours or even days, depending on your hardware!</p>
+<p>Syncing an execution client <strong>may take hours or even days</strong>, depending on your hardware!</p>
 </div>
 <h2 id="steps">Steps</h2>
 <h3 id="1-install-execution-client">1. Install execution client</h3>

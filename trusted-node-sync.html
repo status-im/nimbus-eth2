@@ -178,7 +178,7 @@
   
     <li class="md-tabs__item">
       <a href="index.html" class="md-tabs__link">
-        About
+        Home
       </a>
     </li>
   
@@ -334,14 +334,14 @@
       
       
         <label class="md-nav__link" for="__nav_1">
-          About
+          Home
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" aria-label="About" data-md-level="1">
+      <nav class="md-nav" aria-label="Home" data-md-level="1">
         <label class="md-nav__title" for="__nav_1">
           <span class="md-nav__icon md-icon"></span>
-          About
+          Home
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -353,20 +353,6 @@
     <li class="md-nav__item">
       <a href="index.html" class="md-nav__link">
         The Nimbus Guide
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="philosophy.html" class="md-nav__link">
-        Design goals
       </a>
     </li>
   
@@ -414,7 +400,7 @@
   
     <li class="md-nav__item">
       <a href="quick-start.html" class="md-nav__link">
-        Run the beacon node
+        Beacon node
       </a>
     </li>
   
@@ -428,7 +414,7 @@
   
     <li class="md-nav__item">
       <a href="run-a-validator.html" class="md-nav__link">
-        Run a validator
+        Validating
       </a>
     </li>
   
@@ -441,22 +427,8 @@
   
   
     <li class="md-nav__item">
-      <a href="migration.html" class="md-nav__link">
-        Migrate from another client
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="metrics-pretty-pictures.html" class="md-nav__link">
-        Grafana and Prometheus
+      <a href="el-light-client.html" class="md-nav__link">
+        Light client
       </a>
     </li>
   
@@ -471,20 +443,6 @@
     <li class="md-nav__item">
       <a href="pi-guide.html" class="md-nav__link">
         Running on a Raspberry Pi
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="el-light-client.html" class="md-nav__link">
-        Run the light client
       </a>
     </li>
   
@@ -714,6 +672,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        Migrate from another client
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -746,48 +718,6 @@
           Validator
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="deposit.html" class="md-nav__link">
-        Make a deposit for your validator
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="keys.html" class="md-nav__link">
-        Import your validator keys
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="connect-eth2.html" class="md-nav__link">
-        Start validating
-      </a>
-    </li>
-  
-
-            
           
             
               
@@ -998,6 +928,20 @@
     <li class="md-nav__item">
       <a href="log-rotate.html" class="md-nav__link">
         Set up log rotation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="metrics-pretty-pictures.html" class="md-nav__link">
+        Grafana and Prometheus
       </a>
     </li>
   
@@ -1808,8 +1752,8 @@
 
 
 <h1 id="sync-from-a-trusted-node">Sync from a trusted node</h1>
-<p>When you <a href="quick-start.html">start the beacon node</a> for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take several days.</p>
-<p>Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in minutes instead of days.</p>
+<p>When you <a href="quick-start.html">start the beacon node</a> for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take <strong>several hours</strong> or even days.</p>
+<p>Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in <strong>minutes</strong> instead of hours or days.</p>
 <p>To use trusted node sync, you must have access to a node that you trust and that exposes the <a href="rest-api.html">Beacon API</a> (for example, a locally running backup node).
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.</p>
 <p>It is possible to use trusted node sync with a third-party API provider — see <a href="trusted-node-sync.html#verify-you-synced-the-correct-chain">here</a> for how to verify that the chain you are given corresponds to the canonical chain at the time.</p>
@@ -1969,13 +1913,13 @@ To recreate the indices and caches necessary for historical state access, run tr
       
       
         
-        <a href="deposit.html" class="md-footer__link md-footer__link--next" aria-label="Next: Make a deposit for your validator" rel="next">
+        <a href="migration.html" class="md-footer__link md-footer__link--next" aria-label="Next: Migrate from another client" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              Make a deposit for your validator
+              Migrate from another client
             </div>
           </div>
           <div class="md-footer__button md-icon">

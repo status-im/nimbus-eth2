@@ -178,7 +178,7 @@
   
     <li class="md-tabs__item">
       <a href="index.html" class="md-tabs__link">
-        About
+        Home
       </a>
     </li>
   
@@ -334,14 +334,14 @@
       
       
         <label class="md-nav__link" for="__nav_1">
-          About
+          Home
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" aria-label="About" data-md-level="1">
+      <nav class="md-nav" aria-label="Home" data-md-level="1">
         <label class="md-nav__title" for="__nav_1">
           <span class="md-nav__icon md-icon"></span>
-          About
+          Home
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -353,20 +353,6 @@
     <li class="md-nav__item">
       <a href="index.html" class="md-nav__link">
         The Nimbus Guide
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="philosophy.html" class="md-nav__link">
-        Design goals
       </a>
     </li>
   
@@ -416,7 +402,7 @@
   
     <li class="md-nav__item">
       <a href="quick-start.html" class="md-nav__link">
-        Run the beacon node
+        Beacon node
       </a>
     </li>
   
@@ -430,7 +416,7 @@
   
     <li class="md-nav__item">
       <a href="run-a-validator.html" class="md-nav__link">
-        Run a validator
+        Validating
       </a>
     </li>
   
@@ -443,22 +429,8 @@
   
   
     <li class="md-nav__item">
-      <a href="migration.html" class="md-nav__link">
-        Migrate from another client
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="metrics-pretty-pictures.html" class="md-nav__link">
-        Grafana and Prometheus
+      <a href="el-light-client.html" class="md-nav__link">
+        Light client
       </a>
     </li>
   
@@ -534,8 +506,8 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-download-raspian-64-bit-os" class="md-nav__link">
-    2. Download Raspian 64-bit OS
+  <a href="#2-download-64-bit-raspberry-pi-os" class="md-nav__link">
+    2. Download 64-bit Raspberry Pi OS
   </a>
   
 </li>
@@ -686,20 +658,6 @@
 
             
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="el-light-client.html" class="md-nav__link">
-        Run the light client
-      </a>
-    </li>
-  
-
-            
-          
         </ul>
       </nav>
     </li>
@@ -816,6 +774,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        Migrate from another client
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -848,48 +820,6 @@
           Validator
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="deposit.html" class="md-nav__link">
-        Make a deposit for your validator
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="keys.html" class="md-nav__link">
-        Import your validator keys
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="connect-eth2.html" class="md-nav__link">
-        Start validating
-      </a>
-    </li>
-  
-
-            
           
             
               
@@ -1100,6 +1030,20 @@
     <li class="md-nav__item">
       <a href="log-rotate.html" class="md-nav__link">
         Set up log rotation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="metrics-pretty-pictures.html" class="md-nav__link">
+        Grafana and Prometheus
       </a>
     </li>
   
@@ -1852,8 +1796,8 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-download-raspian-64-bit-os" class="md-nav__link">
-    2. Download Raspian 64-bit OS
+  <a href="#2-download-64-bit-raspberry-pi-os" class="md-nav__link">
+    2. Download 64-bit Raspberry Pi OS
   </a>
   
 </li>
@@ -2017,9 +1961,7 @@
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I expect the new Raspberry Pi 4 (4GB RAM option, external SSD) to handle an Eth2 validator node without breaking a sweat. That&#39;s $100 of hardware running at 10 Watts to support a 32 ETH node (currently ~$10K stake).</p>&mdash; Justin Ðrake (@drakefjustin) <a href="https://twitter.com/drakefjustin/status/1143091047058366465?ref_src=twsrc%5Etfw">June 24, 2019</a></blockquote>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-<blockquote>
 <p>In addition to this guide, we highly recommend this <a href="https://docs.rocketpool.net/guides/node/local/prepare-pi.html#preliminary-setup">wonderful and complementary resource</a> by community member Joe Clapis.</p>
-</blockquote>
 <h2 id="introduction">Introduction</h2>
 <p>This page will take you through how to use your laptop to program your Raspberry Pi.</p>
 <p>One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started.
@@ -2054,18 +1996,19 @@ Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).<
 </div>
 <h2 id="steps">Steps</h2>
 <h3 id="1-download-raspberry-pi-imager">1. Download Raspberry Pi Imager</h3>
-<p><a href="https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/">Raspberry Pi Imager</a> is an imaging utility that makes it simple to manage your microSD card with Raspbian (the free Pi operating system based on Debian).</p>
+<p><a href="https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/">Raspberry Pi Imager</a> is an imaging utility that makes it simple to manage your microSD card with Raspberry Pi OS (the free Pi operating system based on Debian, previously called Raspbian).</p>
 <p>You can find the <a href="https://www.learnenough.com/command-line-tutorial/basics">download</a> link for your operating system here: <a href="https://downloads.raspberrypi.org/imager/imager_1.4.exe">Windows</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4.dmg">macOS</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb">Ubuntu</a>.</p>
-<h3 id="2-download-raspian-64-bit-os">2. Download Raspian 64-bit OS</h3>
-<p>You can find the latest version, <a href="https://downloads.raspberrypi.org/raspios_arm64/images/">here</a>.</p>
+<h3 id="2-download-64-bit-raspberry-pi-os">2. Download 64-bit Raspberry Pi OS</h3>
+<p>You need to install the 64-bit version of Raspberry Pi OS.
+You can find the latest version, <a href="https://downloads.raspberrypi.org/raspios_arm64/images/">here</a>.</p>
 <h3 id="3-plug-in-sd-card">3. Plug in SD card</h3>
 <p>Use your microSD to USB adapter to plug the SD card into your computer.</p>
 <h3 id="4-download-raspberry-pi-os">4. Download Raspberry Pi OS</h3>
-<p>Open Raspberry Pi Imager and click on <strong>CHOOSE OS</strong></p>
+<p>Open Raspberry Pi Imager and click on <strong>CHOOSE OS</strong>:</p>
 <p><img alt="" src="https://storage.googleapis.com/ethereum-hackmd/upload_7b8cfa54f877218b6d971f09fa8d62ff.png" /></p>
-<p>Scroll down and click on <strong>Use custom</strong></p>
+<p>Scroll down and click on <strong>Use custom</strong>:</p>
 <p><img alt="" src="https://i.imgur.com/ar88MTt.png" /></p>
-<p>Find the OS you downloaded in step 2</p>
+<p>Find the OS you downloaded in step 2:</p>
 <p><img alt="" src="https://i.imgur.com/NeOT8pf.png" /></p>
 <h3 id="4b-write-to-sd-card">4b. Write to SD card</h3>
 <p>Click on <strong>CHOOSE SD CARD</strong>.
@@ -2177,7 +2120,7 @@ So you'll need to <code>ssh</code> into your Pi again:</p>
 <p>Remember to replace <code>195.177.101.93</code> with the IP address of your Pi.</p>
 </div>
 <h3 id="10b-boot-from-external-ssd">10b. Boot from external SSD</h3>
-<p>Follow <a href="https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb">this guide</a> to copy the contents of your SD card over to your SSD, and boot your Pi from your SSD.</p>
+<p>Follow <a href="https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb">this RPi4 guide</a> to copy the contents of your SD card over to your SSD, and boot your Pi from your SSD.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Make sure you connect your SSD the Pi's USB 3 port (the blue port).</p>
@@ -2199,7 +2142,7 @@ So you'll need to <code>ssh</code> into your Pi again:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Manual installation</label><label for="__tabbed_1_2">Using package manager</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<p>Open the <a href="https://github.com/status-im/nimbus-eth2/releases/latest">Nimbus eth2 releases page</a> and copy the link for the file that starts with <code>nimbus-eth2_Linux_arm64v8</code>.</p>
+<p>Open the <a href="https://github.com/status-im/nimbus-eth2/releases/latest">Nimbus eth2 releases page</a>, go to the Assets on the bottom of the page, and copy the link for the file that starts with <code>nimbus-eth2_Linux_arm64v8</code>.</p>
 <p>Run this in your home directory to download nimbus-eth2:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>mkdir nimbus-eth2
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>wget &lt;insert download link here&gt;
@@ -2212,7 +2155,7 @@ So you'll need to <code>ssh</code> into your Pi again:</p>
 <ol>
 <li>
 <p>Add Status APT repository to your system.
-   Follow <a href="https://apt.status.im">this guide</a>.</p>
+   Follow our <a href="https://apt.status.im">APT guide</a>.</p>
 </li>
 <li>
 <p>Install Nimbus using APT:</p>
@@ -2226,11 +2169,11 @@ So you'll need to <code>ssh</code> into your Pi again:</p>
 <h3 id="12-copy-signing-key-over-to-pi">12. Copy signing key over to Pi</h3>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on <a href="deposit.html">this page</a> before carrying on.</p>
+<p>If you haven't generated your validator key(s) and/or made your deposit yet, follow the <a href="run-a-validator.html#1-make-a-deposit-for-your-validator">deposit instructions</a> of our validator guide before carrying on.</p>
 </div>
 <p>We'll use the <code>scp</code> command to send files over SSH.
 It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.</p>
-<p>Copy the folder containing your validator key(s) from your computer to your <code>pi</code>'s homefolder by opening up a new terminal window and running the following command:</p>
+<p>Copy the folder containing your validator key(s) from your computer to your <code>pi</code>'s home folder by opening up a new terminal window and running the following command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>scp -r &lt;VALIDATOR_KEYS_DIRECTORY&gt; pi@195.177.101.93:
 </code></pre></div>
 <div class="admonition note">
@@ -2254,7 +2197,7 @@ It allows you to copy files between computers, say from your Raspberry Pi to you
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>If you haven't already, we recommend registering for, and running, your own eth1 node in parallel.
-For instructions on how to do so, see <a href="eth1.html">this page</a>.</p>
+For instructions on how to do so, see the <a href="eth1.html">eth1 page</a>.</p>
 </div>
 <p>To connect to Prater, run:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>./run-prater-beacon-node.sh
@@ -2297,9 +2240,9 @@ As such, it's best to verify performance  on a testnet first.</p>
 <h3 id="systemd">Systemd</h3>
 <p>Now that you have Nimbus up and running, we recommend <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">setting up a systemd service</a> with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly).</p>
 <p>Systemd will also ensure your validator keeps running when you exit your ssh session (<code>Ctrl-C</code>) and/or switch off your laptop.</p>
-<p>For the details on how to do this, see <a href="beacon-node-systemd.html">this page</a>.</p>
+<p>For the details on how to do this, see our <a href="beacon-node-systemd.html">systemd guide</a>.</p>
 <h3 id="overclocking">Overclocking</h3>
-<p>While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see <a href="https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi">this guide</a> by Joe Clapis.</p>
+<p>While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see the <a href="https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi">overclocking guide</a> by Joe Clapis.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>We have since improved performance in several ways which should make a vanilla Pi perform well.
@@ -2327,7 +2270,7 @@ However, overclocking may still give some benefits, in particular you have more 
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="metrics-pretty-pictures.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Grafana and Prometheus" rel="prev">
+        <a href="el-light-client.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Light client" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -2336,20 +2279,20 @@ However, overclocking may still give some benefits, in particular you have more 
               <span class="md-footer__direction">
                 Previous
               </span>
-              Grafana and Prometheus
+              Light client
             </div>
           </div>
         </a>
       
       
         
-        <a href="el-light-client.html" class="md-footer__link md-footer__link--next" aria-label="Next: Run the light client" rel="next">
+        <a href="install.html" class="md-footer__link md-footer__link--next" aria-label="Next: Prepare your machine" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              Run the light client
+              Prepare your machine
             </div>
           </div>
           <div class="md-footer__button md-icon">

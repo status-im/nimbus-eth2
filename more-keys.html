@@ -178,7 +178,7 @@
   
     <li class="md-tabs__item">
       <a href="index.html" class="md-tabs__link">
-        About
+        Home
       </a>
     </li>
   
@@ -334,14 +334,14 @@
       
       
         <label class="md-nav__link" for="__nav_1">
-          About
+          Home
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" aria-label="About" data-md-level="1">
+      <nav class="md-nav" aria-label="Home" data-md-level="1">
         <label class="md-nav__title" for="__nav_1">
           <span class="md-nav__icon md-icon"></span>
-          About
+          Home
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -353,20 +353,6 @@
     <li class="md-nav__item">
       <a href="index.html" class="md-nav__link">
         The Nimbus Guide
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="philosophy.html" class="md-nav__link">
-        Design goals
       </a>
     </li>
   
@@ -414,7 +400,7 @@
   
     <li class="md-nav__item">
       <a href="quick-start.html" class="md-nav__link">
-        Run the beacon node
+        Beacon node
       </a>
     </li>
   
@@ -428,7 +414,7 @@
   
     <li class="md-nav__item">
       <a href="run-a-validator.html" class="md-nav__link">
-        Run a validator
+        Validating
       </a>
     </li>
   
@@ -441,22 +427,8 @@
   
   
     <li class="md-nav__item">
-      <a href="migration.html" class="md-nav__link">
-        Migrate from another client
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="metrics-pretty-pictures.html" class="md-nav__link">
-        Grafana and Prometheus
+      <a href="el-light-client.html" class="md-nav__link">
+        Light client
       </a>
     </li>
   
@@ -471,20 +443,6 @@
     <li class="md-nav__item">
       <a href="pi-guide.html" class="md-nav__link">
         Running on a Raspberry Pi
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="el-light-client.html" class="md-nav__link">
-        Run the light client
       </a>
     </li>
   
@@ -609,6 +567,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        Migrate from another client
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -643,48 +615,6 @@
           Validator
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="deposit.html" class="md-nav__link">
-        Make a deposit for your validator
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="keys.html" class="md-nav__link">
-        Import your validator keys
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="connect-eth2.html" class="md-nav__link">
-        Start validating
-      </a>
-    </li>
-  
-
-            
           
             
               
@@ -943,6 +873,20 @@
     <li class="md-nav__item">
       <a href="log-rotate.html" class="md-nav__link">
         Set up log rotation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="metrics-pretty-pictures.html" class="md-nav__link">
+        Grafana and Prometheus
       </a>
     </li>
   
@@ -1698,7 +1642,7 @@
 
 
 <h1 id="recover-lost-keys-and-generate-new-ones">Recover lost keys and generate new ones</h1>
-<p>When generating your <a href="deposit.html">first deposit</a>, you will be asked to save a mnemonic in a safe location.</p>
+<p>When generating your <a href="run-a-validator.html#1-make-a-deposit-for-your-validator">first deposit</a>, you will be asked to save a mnemonic in a safe location.</p>
 <p>This mnemonic can be used to recover lost keys and generate new ones.</p>
 <p>Every time you generate a keystore from your mnemonic, that keystore is assigned an index.
 The first keystore you generate has index 0, the second index 1, etc.
@@ -1743,7 +1687,7 @@ Your mnemonic is not encrypted and if leaked, can be used to steal your funds.</
 </div>
 <p>You'll be prompted to enter your mnemonic, and a new password for your keystore.</p>
 <p>Check that the <code>validator_keys</code> directory contains your keystore.</p>
-<p>Copy the <code>validator_keys</code> directory to <code>nimbus-eth2</code> and then follow the instructions <a href="keys.html">here</a>.
+<p>Copy the <code>validator_keys</code> directory to <code>nimbus-eth2</code> and then follow the <a href="run-a-validator.html#2-import-your-validator-keys">key import instructions</a> of our validator guide.
 Your key will be added to your node on next restart.</p>
 <h2 id="generate-another-key">Generate another key</h2>
 <div class="admonition warning">
@@ -1776,7 +1720,7 @@ Your key will be added to your node on next restart.</p>
 <p>You'll be prompted to enter your mnemonic and a new password for your keystore.</p>
 <p>Check that the <code>validator_keys</code> directory contains an extra keystore.</p>
 <p>Copy the <code>validator_keys</code> directory to <code>nimbus-eth2</code>.</p>
-<p>Make sure you've made a <a href="deposit.html">deposit</a> for your new keystore, and then follow the instructions <a href="keys.html">here</a>.
+<p>Make sure you've <a href="run-a-validator.html#1-make-a-deposit-for-your-validator">made a deposit</a> for your new keystore, and then follow the <a href="run-a-validator.html#2-import-your-validator-keys">key import instructions</a> of our validator guide.
 Your key will be added to your node on the next restart.</p>
 
               

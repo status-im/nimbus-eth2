@@ -178,7 +178,7 @@
   
     <li class="md-tabs__item">
       <a href="index.html" class="md-tabs__link">
-        About
+        Home
       </a>
     </li>
   
@@ -332,14 +332,14 @@
       
       
         <label class="md-nav__link" for="__nav_1">
-          About
+          Home
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" aria-label="About" data-md-level="1">
+      <nav class="md-nav" aria-label="Home" data-md-level="1">
         <label class="md-nav__title" for="__nav_1">
           <span class="md-nav__icon md-icon"></span>
-          About
+          Home
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -351,20 +351,6 @@
     <li class="md-nav__item">
       <a href="index.html" class="md-nav__link">
         The Nimbus Guide
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="philosophy.html" class="md-nav__link">
-        Design goals
       </a>
     </li>
   
@@ -412,7 +398,7 @@
   
     <li class="md-nav__item">
       <a href="quick-start.html" class="md-nav__link">
-        Run the beacon node
+        Beacon node
       </a>
     </li>
   
@@ -426,7 +412,7 @@
   
     <li class="md-nav__item">
       <a href="run-a-validator.html" class="md-nav__link">
-        Run a validator
+        Validating
       </a>
     </li>
   
@@ -439,22 +425,8 @@
   
   
     <li class="md-nav__item">
-      <a href="migration.html" class="md-nav__link">
-        Migrate from another client
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="metrics-pretty-pictures.html" class="md-nav__link">
-        Grafana and Prometheus
+      <a href="el-light-client.html" class="md-nav__link">
+        Light client
       </a>
     </li>
   
@@ -469,20 +441,6 @@
     <li class="md-nav__item">
       <a href="pi-guide.html" class="md-nav__link">
         Running on a Raspberry Pi
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="el-light-client.html" class="md-nav__link">
-        Run the light client
       </a>
     </li>
   
@@ -605,6 +563,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        Migrate from another client
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -637,48 +609,6 @@
           Validator
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="deposit.html" class="md-nav__link">
-        Make a deposit for your validator
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="keys.html" class="md-nav__link">
-        Import your validator keys
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="connect-eth2.html" class="md-nav__link">
-        Start validating
-      </a>
-    </li>
-  
-
-            
           
             
               
@@ -889,6 +819,20 @@
     <li class="md-nav__item">
       <a href="log-rotate.html" class="md-nav__link">
         Set up log rotation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="metrics-pretty-pictures.html" class="md-nav__link">
+        Grafana and Prometheus
       </a>
     </li>
   
@@ -1945,8 +1889,8 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#get_v1_debug_beacon_heads" class="md-nav__link">
-    get_v1_debug_beacon_heads
+  <a href="#get_v2_debug_beacon_heads" class="md-nav__link">
+    get_v2_debug_beacon_heads
   </a>
   
 </li>
@@ -2094,237 +2038,237 @@ You are encouraged to migrate your applications to the <a href="rest-api.html">R
 <p>The JSON-RPC API pre-dated the REST API and was based on early designs of the beacon chain.</p>
 <p>This guide is kept for historical reference, as well as to aid migration.</p>
 <h2 id="beacon-chain-api">Beacon chain API</h2>
-<h3 id="get_v1_beacon_genesis"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis"><code>get_v1_beacon_genesis</code></a></h3>
+<h3 id="get_v1_beacon_genesis"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis"><code>get_v1_beacon_genesis</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_genesis&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>curl http://localhost:5052/eth/v1/beacon/genesis -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_states_root"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateRoot"><code>get_v1_beacon_states_root</code></a></h3>
+<h3 id="get_v1_beacon_states_root"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getStateRoot"><code>get_v1_beacon_states_root</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_root&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl http://localhost:5052/eth/v1/beacon/states/finalized/root -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_states_fork"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFork"><code>get_v1_beacon_states_fork</code></a></h3>
+<h3 id="get_v1_beacon_states_fork"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFork"><code>get_v1_beacon_states_fork</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_fork&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl http://localhost:5052/eth/v1/beacon/states/finalized/fork -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_states_finality_checkpoints"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFinalityCheckpoints"><code>get_v1_beacon_states_finality_checkpoints</code></a></h3>
+<h3 id="get_v1_beacon_states_finality_checkpoints"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFinalityCheckpoints"><code>get_v1_beacon_states_finality_checkpoints</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_finality_checkpoints&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl http://localhost:5052/eth/v1/beacon/states/finalized/finality_checkpoints -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_states_stateid_validators"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidators"><code>get_v1_beacon_states_stateId_validators</code></a></h3>
+<h3 id="get_v1_beacon_states_stateid_validators"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"><code>get_v1_beacon_states_stateId_validators</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_stateId_validators&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>curl http://localhost:5052/eth/v1/beacon/states/finalized/validators -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_states_stateid_validators_validatorid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidator"><code>get_v1_beacon_states_stateId_validators_validatorId</code></a></h3>
+<h3 id="get_v1_beacon_states_stateid_validators_validatorid"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator"><code>get_v1_beacon_states_stateId_validators_validatorId</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_stateId_validators_validatorId&quot;,&quot;params&quot;:[&quot;finalized&quot;, &quot;100167&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>curl http://localhost:5052/eth/v1/beacon/states/finalized/validators/100167 -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_states_stateid_validator_balances"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidatorBalances"><code>get_v1_beacon_states_stateId_validator_balances</code></a></h3>
+<h3 id="get_v1_beacon_states_stateid_validator_balances"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidatorBalances"><code>get_v1_beacon_states_stateId_validator_balances</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_stateId_validator_balances&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>curl http://localhost:5052/eth/v1/beacon/states/finalized/validator_balances -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_states_stateid_committees_epoch"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getEpochCommittees"><code>get_v1_beacon_states_stateId_committees_epoch</code></a></h3>
+<h3 id="get_v1_beacon_states_stateid_committees_epoch"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"><code>get_v1_beacon_states_stateId_committees_epoch</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_stateId_committees_epoch&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>curl http://localhost:5052/eth/v1/beacon/states/finalized/committees -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_headers"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeaders"><code>get_v1_beacon_headers</code></a></h3>
-<h3 id="get_v1_beacon_headers_blockid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeader"><code>get_v1_beacon_headers_blockId</code></a></h3>
+<h3 id="get_v1_beacon_headers"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeaders"><code>get_v1_beacon_headers</code></a></h3>
+<h3 id="get_v1_beacon_headers_blockid"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader"><code>get_v1_beacon_headers_blockId</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_headers_blockId&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>curl http://localhost:5052/eth/v1/beacon/headers/finalized -s | jq
 </code></pre></div>
-<h3 id="post_v1_beacon_blocks"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/publishBlock"><code>post_v1_beacon_blocks</code></a></h3>
+<h3 id="post_v1_beacon_blocks"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock"><code>post_v1_beacon_blocks</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_beacon_blocks&quot;,&quot;params&quot;:[{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body&quot;:{&quot;randao_reveal&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;eth1_data&quot;:{&quot;deposit_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;deposit_count&quot;:&quot;1&quot;,&quot;block_hash&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;graffiti&quot;:&quot;string&quot;,&quot;proposer_slashings&quot;:[{&quot;signed_header_1&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signed_header_2&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;attester_slashings&quot;:[{&quot;attestation_1&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;attestation_2&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}}],&quot;attestations&quot;:[{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}],&quot;deposits&quot;:[{&quot;proof&quot;:[&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;],&quot;data&quot;:{&quot;pubkey&quot;:&quot;0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a&quot;,&quot;withdrawal_credentials&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;amount&quot;:&quot;1&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;voluntary_exits&quot;:[{&quot;message&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;validator_index&quot;:&quot;1&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}]}},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>curl -X POST -d &#39;{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body&quot;:{&quot;randao_reveal&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;eth1_data&quot;:{&quot;deposit_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;deposit_count&quot;:&quot;1&quot;,&quot;block_hash&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;graffiti&quot;:&quot;string&quot;,&quot;proposer_slashings&quot;:[{&quot;signed_header_1&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signed_header_2&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;attester_slashings&quot;:[{&quot;attestation_1&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;attestation_2&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}}],&quot;attestations&quot;:[{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}],&quot;deposits&quot;:[{&quot;proof&quot;:[&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;],&quot;data&quot;:{&quot;pubkey&quot;:&quot;0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a&quot;,&quot;withdrawal_credentials&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;amount&quot;:&quot;1&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;voluntary_exits&quot;:[{&quot;message&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;validator_index&quot;:&quot;1&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}]}},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}&#39; -H &#39;Content-Type: application/json&#39; http://localhost:5052/eth/v1/beacon/blocks -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_blocks_blockid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlock"><code>get_v1_beacon_blocks_blockId</code></a></h3>
+<h3 id="get_v1_beacon_blocks_blockid"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock"><code>get_v1_beacon_blocks_blockId</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_blocks_blockId&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>curl http://localhost:5052/eth/v2/beacon/blocks/finalized -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_blocks_blockid_root"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockRoot"><code>get_v1_beacon_blocks_blockId_root</code></a></h3>
+<h3 id="get_v1_beacon_blocks_blockid_root"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot"><code>get_v1_beacon_blocks_blockId_root</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_blocks_blockId_root&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>curl http://localhost:5052/eth/v1/beacon/blocks/finalized/root -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_blocks_blockid_attestations"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockAttestations"><code>get_v1_beacon_blocks_blockId_attestations</code></a></h3>
+<h3 id="get_v1_beacon_blocks_blockid_attestations"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations"><code>get_v1_beacon_blocks_blockId_attestations</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_blocks_blockId_attestations&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>curl http://localhost:5052/eth/v1/beacon/blocks/finalized/attestations -s | jq
 </code></pre></div>
-<h3 id="post_v1_beacon_pool_attestations"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttestations"><code>post_v1_beacon_pool_attestations</code></a></h3>
+<h3 id="post_v1_beacon_pool_attestations"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations"><code>post_v1_beacon_pool_attestations</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_blocks_blockId_attestations&quot;,&quot;params&quot;:[{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>curl -X POST -d &#39;[{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}]&#39;  -H &#39;Content-Type: application/json&#39; http://localhost:5052/eth/v1/beacon/pool/attestations -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_pool_attester_slashings"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolAttesterSlashings"><code>get_v1_beacon_pool_attester_slashings</code></a></h3>
+<h3 id="get_v1_beacon_pool_attester_slashings"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttesterSlashings"><code>get_v1_beacon_pool_attester_slashings</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_pool_attester_slashings&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>curl http://localhost:5052/eth/v1/beacon/pool/attester_slashings -s | jq
 </code></pre></div>
-<h3 id="post_v1_beacon_pool_attester_slashings"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttesterSlashings"><code>post_v1_beacon_pool_attester_slashings</code></a></h3>
+<h3 id="post_v1_beacon_pool_attester_slashings"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings"><code>post_v1_beacon_pool_attester_slashings</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_beacon_pool_attester_slashings&quot;,&quot;params&quot;:[{&quot;attestation_1&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;attestation_2&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}}],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>curl -X POST -d &#39;{&quot;attestation_1&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;attestation_2&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}}&#39; -H &#39;Content-Type: application/json&#39; http://localhost:5052/eth/v1/beacon/pool/attester_slashings -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_pool_proposer_slashings"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolProposerSlashings"><code>get_v1_beacon_pool_proposer_slashings</code></a></h3>
+<h3 id="get_v1_beacon_pool_proposer_slashings"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings"><code>get_v1_beacon_pool_proposer_slashings</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_pool_proposer_slashings&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>curl http://localhost:5052/eth/v1/beacon/pool/proposer_slashings -s | jq
 </code></pre></div>
-<h3 id="post_v1_beacon_pool_proposer_slashings"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolProposerSlashings"><code>post_v1_beacon_pool_proposer_slashings</code></a></h3>
+<h3 id="post_v1_beacon_pool_proposer_slashings"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolProposerSlashings"><code>post_v1_beacon_pool_proposer_slashings</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_beacon_pool_proposer_slashings&quot;,&quot;params&quot;:[{&quot;signed_header_1&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signed_header_2&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>curl -X POST -d &#39;{&quot;signed_header_1&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signed_header_2&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}&#39; -H &#39;Content-Type: application/json&#39; http://localhost:5052/eth/v1/beacon/pool/proposer_slashings -s | jq
 </code></pre></div>
-<h3 id="get_v1_beacon_pool_voluntary_exits"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolVoluntaryExits"><code>get_v1_beacon_pool_voluntary_exits</code></a></h3>
+<h3 id="get_v1_beacon_pool_voluntary_exits"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolVoluntaryExits"><code>get_v1_beacon_pool_voluntary_exits</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_pool_voluntary_exits&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>curl http://localhost:5052/eth/v1/beacon/pool/voluntary_exits -s | jq
 </code></pre></div>
-<h3 id="post_v1_beacon_pool_voluntary_exits"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolVoluntaryExit"><code>post_v1_beacon_pool_voluntary_exits</code></a></h3>
+<h3 id="post_v1_beacon_pool_voluntary_exits"><a href="https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit"><code>post_v1_beacon_pool_voluntary_exits</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_beacon_pool_voluntary_exits&quot;,&quot;params&quot;:[{&quot;message&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;validator_index&quot;:&quot;1&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>curl -X POST -d &#39;{&quot;message&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;validator_index&quot;:&quot;1&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}&#39; -H &#39;Content-Type: application/json&#39; http://localhost:5052/eth/v1/beacon/pool/voluntary_exits -s | jq
 </code></pre></div>
 <h2 id="beacon-node-api">Beacon Node API</h2>
-<h3 id="get_v1_node_identity"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getNetworkIdentity"><code>get_v1_node_identity</code></a></h3>
+<h3 id="get_v1_node_identity"><a href="https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity"><code>get_v1_node_identity</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_identity&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>curl http://localhost:5052/eth/v1/node/identity -s | jq
 </code></pre></div>
-<h3 id="get_v1_node_peers"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getPeers"><code>get_v1_node_peers</code></a></h3>
+<h3 id="get_v1_node_peers"><a href="https://ethereum.github.io/beacon-APIs/#/Node/getPeers"><code>get_v1_node_peers</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_peers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>curl http://localhost:5052/eth/v1/node/peers -s | jq
 </code></pre></div>
-<h3 id="get_v1_node_peers_peerid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getPeer"><code>get_v1_node_peers_peerId</code></a></h3>
+<h3 id="get_v1_node_peers_peerid"><a href="https://ethereum.github.io/beacon-APIs/#/Node/getPeer"><code>get_v1_node_peers_peerId</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_peers_peerId&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>curl http://localhost:5052/eth/v1/node/peer/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N -s | jq
 </code></pre></div>
-<h3 id="get_v1_node_peer_count"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getPeerCount"><code>get_v1_node_peer_count</code></a></h3>
+<h3 id="get_v1_node_peer_count"><a href="https://ethereum.github.io/beacon-APIs/#/Node/getPeerCount"><code>get_v1_node_peer_count</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_peer_count&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>curl http://localhost:5052/eth/v1/node/peer_count -s | jq
 </code></pre></div>
-<h3 id="get_v1_node_version"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getNodeVersion"><code>get_v1_node_version</code></a></h3>
+<h3 id="get_v1_node_version"><a href="https://ethereum.github.io/beacon-APIs/#/Node/getNodeVersion"><code>get_v1_node_version</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_version&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>curl http://localhost:5052/eth/v1/node/version -s | jq
 </code></pre></div>
-<h3 id="get_v1_node_syncing"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getSyncingStatus"><code>get_v1_node_syncing</code></a></h3>
+<h3 id="get_v1_node_syncing"><a href="https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus"><code>get_v1_node_syncing</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_syncing&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a>curl http://localhost:5052/eth/v1/node/syncing -s | jq
 </code></pre></div>
-<h3 id="get_v1_node_health"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getHealth"><code>get_v1_node_health</code></a></h3>
+<h3 id="get_v1_node_health"><a href="https://ethereum.github.io/beacon-APIs/#/Node/getHealth"><code>get_v1_node_health</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_health&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>curl http://localhost:5052/eth/v1/node/health -s -w &quot;%{http_code}&quot;
 </code></pre></div>
 <h2 id="validator-api">Validator API</h2>
-<h3 id="get_v1_validator_duties_attester"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getAttesterDuties"><code>get_v1_validator_duties_attester</code></a></h3>
+<h3 id="get_v1_validator_duties_attester"><a href="https://ethereum.github.io/beacon-APIs/#/ValidatorRequiredApi/getAttesterDuties"><code>get_v1_validator_duties_attester</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_duties_attester&quot;,&quot;params&quot;:[1,[&quot;a7a0502eae26043d1ac39a39457a6cdf68fae2055d89c7dc59092c25911e4ee55c4e7a31ade61c39480110a393be28e8&quot;,&quot;a1826dd94cd96c48a81102d316a2af4960d19ca0b574ae5695f2d39a88685a43997cef9a5c26ad911847674d20c46b75&quot;]],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>curl -X POST http://localhost:5052/eth/v1/validator/duties/attester/1 -H &#39;Content-Type: application/json&#39; -d &#39;[&quot;a7a0502eae26043d1ac39a39457a6cdf68fae2055d89c7dc59092c25911e4ee55c4e7a31ade61c39480110a393be28e8&quot;]&#39; -s | jq
 </code></pre></div>
-<h3 id="get_v1_validator_duties_proposer"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getProposerDuties"><code>get_v1_validator_duties_proposer</code></a></h3>
+<h3 id="get_v1_validator_duties_proposer"><a href="https://ethereum.github.io/beacon-APIs/#/ValidatorRequiredApi/getProposerDuties"><code>get_v1_validator_duties_proposer</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;get_v1_validator_duties_proposer&quot;,&quot;params&quot;:[1] }&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a>curl http://localhost:5052/eth/v1/validator/duties/proposer/1 -s | jq
 </code></pre></div>
-<h3 id="get_v1_validator_block"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/produceBlock"><code>get_v1_validator_block</code></a></h3>
+<h3 id="get_v1_validator_block"><a href="https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2"><code>get_v1_validator_block</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_block&quot;,&quot;params&quot;:[1,&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a>curl http://localhost:5052/eth/v1/validator/blocks/1?randao_reveal=0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&amp;graffiti=0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573 -s | jq
+<div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a>curl http://localhost:5052/eth/v2/validator/blocks/1?randao_reveal=0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&amp;graffiti=0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573 -s | jq
 </code></pre></div>
-<h3 id="get_v1_validator_attestation_data"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData"><code>get_v1_validator_attestation_data</code></a></h3>
+<h3 id="get_v1_validator_attestation_data"><a href="https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData"><code>get_v1_validator_attestation_data</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_attestation_data&quot;,&quot;params&quot;:[1, 1],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a>curl http://localhost:5052/eth/v1/validator/attestation_data?slot=1&amp;committee_index=1 -s | jq
 </code></pre></div>
-<h3 id="get_v1_validator_aggregate_attestation"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/getAggregatedAttestation"><code>get_v1_validator_aggregate_attestation</code></a></h3>
+<h3 id="get_v1_validator_aggregate_attestation"><a href="https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation"><code>get_v1_validator_aggregate_attestation</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_aggregate_attestation&quot;,&quot;params&quot;:[1, &quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a>curl http://localhost:5052/eth/v1/validator/aggregate_attestation?slot=1&amp;attestation_data_root=0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2 -s | jq
 </code></pre></div>
-<h3 id="post_v1_validator_aggregate_and_proofs"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/publishAggregateAndProofs"><code>post_v1_validator_aggregate_and_proofs</code></a></h3>
+<h3 id="post_v1_validator_aggregate_and_proofs"><a href="https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs"><code>post_v1_validator_aggregate_and_proofs</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_validator_aggregate_and_proofs&quot;,&quot;params&quot;:[{&quot;message&quot;:{&quot;aggregator_index&quot;:&quot;1&quot;,&quot;aggregate&quot;:{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;selection_proof&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a>curl -X POST http://localhost:5052/eth/v1/validator/aggregate_and_proofs -H &#39;Content-Type: application/json&#39; -d &#39;[{&quot;message&quot;:{&quot;aggregator_index&quot;:&quot;1&quot;,&quot;aggregate&quot;:{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;selection_proof&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}]&#39; -s | jq
 </code></pre></div>
-<h3 id="post_v1_validator_beacon_committee_subscriptions"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/prepareBeaconCommitteeSubnet"><code>post_v1_validator_beacon_committee_subscriptions</code></a></h3>
+<h3 id="post_v1_validator_beacon_committee_subscriptions"><a href="https://ethereum.github.io/beacon-APIs/#/Validator/prepareBeaconCommitteeSubnet"><code>post_v1_validator_beacon_committee_subscriptions</code></a></h3>
 <h2 id="config-api">Config API</h2>
-<h3 id="get_v1_config_fork_schedule"><a href="https://ethereum.github.io/eth2.0-APIs/#/Config/getForkSchedule"><code>get_v1_config_fork_schedule</code></a></h3>
+<h3 id="get_v1_config_fork_schedule"><a href="https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule"><code>get_v1_config_fork_schedule</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-66-1" name="__codelineno-66-1" href="#__codelineno-66-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_config_fork_schedule&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a>curl http://localhost:5052/eth/v1/config/fork_schedule -s | jq
 </code></pre></div>
-<h3 id="get_v1_config_spec"><a href="https://ethereum.github.io/eth2.0-APIs/#/Config/getSpec"><code>get_v1_config_spec</code></a></h3>
+<h3 id="get_v1_config_spec"><a href="https://ethereum.github.io/beacon-APIs/#/Config/getSpec"><code>get_v1_config_spec</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-68-1" name="__codelineno-68-1" href="#__codelineno-68-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_config_spec&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-69-1" name="__codelineno-69-1" href="#__codelineno-69-1"></a>curl http://localhost:5052/eth/v1/config/spec -s | jq
 </code></pre></div>
-<h3 id="get_v1_config_deposit_contract"><a href="https://ethereum.github.io/eth2.0-APIs/#/Config/getDepositContract"><code>get_v1_config_deposit_contract</code></a></h3>
+<h3 id="get_v1_config_deposit_contract"><a href="https://ethereum.github.io/beacon-APIs/#/Config/getDepositContract"><code>get_v1_config_deposit_contract</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-70-1" name="__codelineno-70-1" href="#__codelineno-70-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_config_deposit_contract&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-71-1" name="__codelineno-71-1" href="#__codelineno-71-1"></a>curl http://localhost:5052/eth/v1/config/deposit_contract -s | jq
 </code></pre></div>
 <h2 id="administrative-debug-api">Administrative / Debug API</h2>
-<h3 id="get_v1_debug_beacon_states_stateid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Debug/getState"><code>get_v1_debug_beacon_states_stateId</code></a></h3>
+<h3 id="get_v1_debug_beacon_states_stateid"><a href="https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2"><code>get_v1_debug_beacon_states_stateId</code></a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-72-1" name="__codelineno-72-1" href="#__codelineno-72-1"></a>curl -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_debug_beacon_states_stateId&quot;,&quot;params&quot;:[&quot;head&quot;],&quot;id&quot;:1}&#39; -H &#39;Content-Type: application/json&#39; localhost:9190 -s | jq
 </code></pre></div>
 <p>Equivalent call in the official REST API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-73-1" name="__codelineno-73-1" href="#__codelineno-73-1"></a>curl http://localhost:5052/eth/v2/debug/beacon/states/head -s | jq
 </code></pre></div>
-<h3 id="get_v1_debug_beacon_heads"><a href="https://ethereum.github.io/eth2.0-APIs/#/Debug/getDebugChainHeads"><code>get_v1_debug_beacon_heads</code></a></h3>
+<h3 id="get_v2_debug_beacon_heads"><a href="https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeadsV2"><code>get_v2_debug_beacon_heads</code></a></h3>
 <p>Equivalent call in the official REST API:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-74-1" name="__codelineno-74-1" href="#__codelineno-74-1"></a>curl http://localhost:5052/eth/v1/debug/beacon/heads -s | jq
+<div class="highlight"><pre><span></span><code><a id="__codelineno-74-1" name="__codelineno-74-1" href="#__codelineno-74-1"></a>curl http://localhost:5052/eth/v2/debug/beacon/heads -s | jq
 </code></pre></div>
 <h2 id="nimbus-extensions">Nimbus extensions</h2>
 <h3 id="getbeaconhead">getBeaconHead</h3>

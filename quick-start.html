@@ -15,7 +15,7 @@
     
     
       
-        <title>Run the beacon node - The Nimbus Guide</title>
+        <title>Beacon node - The Nimbus Guide</title>
       
     
     
@@ -66,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#run-the-beacon-node" class="md-skip">
+        <a href="#beacon-node" class="md-skip">
           Skip to content
         </a>
       
@@ -99,7 +99,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Run the beacon node
+              Beacon node
             
           </span>
         </div>
@@ -178,7 +178,7 @@
   
     <li class="md-tabs__item">
       <a href="index.html" class="md-tabs__link">
-        About
+        Home
       </a>
     </li>
   
@@ -334,14 +334,14 @@
       
       
         <label class="md-nav__link" for="__nav_1">
-          About
+          Home
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" aria-label="About" data-md-level="1">
+      <nav class="md-nav" aria-label="Home" data-md-level="1">
         <label class="md-nav__title" for="__nav_1">
           <span class="md-nav__icon md-icon"></span>
-          About
+          Home
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -353,20 +353,6 @@
     <li class="md-nav__item">
       <a href="index.html" class="md-nav__link">
         The Nimbus Guide
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="philosophy.html" class="md-nav__link">
-        Design goals
       </a>
     </li>
   
@@ -425,12 +411,12 @@
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          Run the beacon node
+          Beacon node
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="quick-start.html" class="md-nav__link md-nav__link--active">
-        Run the beacon node
+        Beacon node
       </a>
       
         
@@ -505,7 +491,7 @@
   
     <li class="md-nav__item">
       <a href="run-a-validator.html" class="md-nav__link">
-        Run a validator
+        Validating
       </a>
     </li>
   
@@ -518,22 +504,8 @@
   
   
     <li class="md-nav__item">
-      <a href="migration.html" class="md-nav__link">
-        Migrate from another client
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="metrics-pretty-pictures.html" class="md-nav__link">
-        Grafana and Prometheus
+      <a href="el-light-client.html" class="md-nav__link">
+        Light client
       </a>
     </li>
   
@@ -548,20 +520,6 @@
     <li class="md-nav__item">
       <a href="pi-guide.html" class="md-nav__link">
         Running on a Raspberry Pi
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="el-light-client.html" class="md-nav__link">
-        Run the light client
       </a>
     </li>
   
@@ -684,6 +642,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        Migrate from another client
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -716,48 +688,6 @@
           Validator
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="deposit.html" class="md-nav__link">
-        Make a deposit for your validator
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="keys.html" class="md-nav__link">
-        Import your validator keys
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="connect-eth2.html" class="md-nav__link">
-        Start validating
-      </a>
-    </li>
-  
-
-            
           
             
               
@@ -968,6 +898,20 @@
     <li class="md-nav__item">
       <a href="log-rotate.html" class="md-nav__link">
         Set up log rotation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="metrics-pretty-pictures.html" class="md-nav__link">
+        Grafana and Prometheus
       </a>
     </li>
   
@@ -1749,19 +1693,18 @@
 
 
 
-<h1 id="run-the-beacon-node">Run the beacon node</h1>
+<h1 id="beacon-node">Beacon node</h1>
 <p>This page takes you through the steps of getting a standard installation of the Nimbus beacon node running.</p>
-<p>The quickstart setup involves running two nodes: an <a href="eth1.html">execution client</a> and a beacon node — both are needed to run a full Ethereum setup.</p>
-<p>The beacon node connects to the beacon chain network, syncs historical data, and provides <a href="rest-api.html">API's</a> to monitor and interact with the beacon chain.</p>
-<p>Running a beacon node is a <a href="https://vitalik.ca/general/2021/05/23/scaling.html#its-crucial-for-blockchain-decentralization-for-regular-users-to-be-able-to-run-a-node">worthwhile endeavor</a> even if you are not planning on validating yourself!</p>
+<p>The quickstart setup involves running two nodes: an <a href="eth1.html">execution client</a> and a beacon node.
+Both are needed to run a full Ethereum setup.</p>
+<p>To become a validator, you first need to set up a beacon node.
+The beacon node connects to the beacon chain network, syncs historical data, and provides <a href="rest-api.html">API's</a> to monitor and interact with the beacon chain.
+Running a beacon node is a <a href="https://vitalik.ca/general/2021/05/23/scaling.html#its-crucial-for-blockchain-decentralization-for-regular-users-to-be-able-to-run-a-node">worthwhile endeavor</a> even if you are not planning on validating yourself!</p>
 <p>The guide assumes <a href="https://ubuntu.com/download/server">Ubuntu Linux</a> is being used, and therefore some familiarity with <a href="https://ubuntu.com/tutorials/command-line-for-beginners">the Linux command line</a> is needed.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>To become a validator, you first need to set up a beacon node.</p>
-</div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>You can practice running the node safely on the <a href="prater.html">Prater testnet</a> - throughout, we'll provide instructions for both Prater and Mainnet.</p>
+<p>You can practice running the node safely on the <a href="prater.html">Prater testnet</a>.
+Throughout, we'll provide instructions for both Prater and Mainnet.</p>
 </div>
 <h2 id="steps">Steps</h2>
 <h3 id="1-prepare">1. Prepare</h3>
@@ -1769,44 +1712,41 @@
 <h3 id="2-set-up-an-execution-client">2. Set up an execution client</h3>
 <p>To run a beacon node, you need to have access to an execution client exposing the web3 API.
 Throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.</p>
-<p>See the <a href="eth1.html">execution client guide</a> for instructions on how to pick and install an execution client!</p>
+<p>See the <a href="eth1.html">execution client guide</a> for instructions on how to pick and install an execution client.</p>
 <h3 id="3-install-nimbus">3. Install Nimbus</h3>
-<p>Next, download the <a href="binaries.html">latest release</a> and install it by unpacking the archive.
-Using a command line terminal:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Create a directory that can hold the beacon chain data and applications - this should be a fast SSD</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mkdir -p nimbus-eth2
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Download the latest release - replace the link with the latest release on the download page!</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>wget https://github.com/status-im/nimbus-eth2/releases/download/v22.10.1/nimbus-eth2_Linux_amd64_22.10.1_97a1cdc4.tar.gz
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Unpack the archive into the `nimbus-eth2` directory you just created</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>tar xvf nimbus-eth2_Linux_amd64_22.10.1_97a1cdc4.tar.gz --strip-components <span class="m">1</span> -C nimbus-eth2
-</code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Other installation methods</p>
-<p>Debian / Ubuntu users may wish to use our <a href="binaries.html">APT repository</a>.</p>
-<p>Advanced users looking to take advantage of hardware-specific features and optimization may wish to <a href="build.html">build from source</a> instead!</p>
-</div>
-<h3 id="4-start-the-node">4. Start the node</h3>
-<p>Once you've installed the binaries, you can <a href="start-syncing.html">start the node</a> which will initiate the sync process.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span> nimbus-eth2
-</code></pre></div>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Download binaries</label><label for="__tabbed_1_2">Build from source</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Start a mainnet node</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./run-mainnet-beacon-node.sh --web3-url<span class="o">=</span>http://127.0.0.1:8551 --jwt-secret<span class="o">=</span>/tmp/jwtsecret
+<p>Binary releases are available from <a href="https://github.com/status-im/nimbus-eth2/releases/latest">GitHub</a> and our <a href="https://apt.status.im/">APT repository</a> (Debian/Ubuntu).</p>
+<p>We currently have binaries available for Linux <code>AMD64</code>, <code>ARM</code> and <code>ARM64</code>, Windows <code>AMD64</code> and macOS (<code>AMD64</code> and <code>ARM64</code>).</p>
+<p>See the <a href="binaries.html">binaries guide</a> on how to install them.</p>
+</div>
+<div class="tabbed-block">
+<p>Building Nimbus from source is simple and fully automated.
+Follow the <a href="build.html">build guide</a>.</p>
+</div>
+</div>
+</div>
+<h3 id="4-start-the-node">4. Start the node</h3>
+<p>Once you've installed Nimbus, you can <a href="start-syncing.html">start the node</a> which will initiate the sync process.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span> nimbus-eth2
+</code></pre></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Prater</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Start a mainnet node</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>./run-mainnet-beacon-node.sh --web3-url<span class="o">=</span>http://127.0.0.1:8551 --jwt-secret<span class="o">=</span>/tmp/jwtsecret
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Start a prater testnet node</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>./run-prater-beacon-node.sh --web3-url<span class="o">=</span>http://127.0.0.1:8551 --jwt-secret<span class="o">=</span>/tmp/jwtsecret
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Start a prater testnet node</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./run-prater-beacon-node.sh --web3-url<span class="o">=</span>http://127.0.0.1:8551 --jwt-secret<span class="o">=</span>/tmp/jwtsecret
 </code></pre></div>
 </div>
 </div>
 </div>
 <p>Once the beacon node starts, you'll see it logging information to the console, like so:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>INF <span class="m">2022</span>-07-19 <span class="m">15</span>:42:58.145+02:00 Launching beacon node                      <span class="nv">topics</span><span class="o">=</span><span class="s2">&quot;beacnde&quot;</span> <span class="nv">version</span><span class="o">=</span>v22.10.1-97a1cdc4-stateofus ...
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>INF <span class="m">2022</span>-07-19 <span class="m">15</span>:42:58.145+02:00 Launching beacon node                      <span class="nv">topics</span><span class="o">=</span><span class="s2">&quot;beacnde&quot;</span> <span class="nv">version</span><span class="o">=</span>v22.10.1-97a1cdc4-stateofus ...
 </code></pre></div>
 <p>Congratulations!
 Your beacon node is up and running, and syncing the network!</p>
@@ -1840,7 +1780,7 @@ Your beacon node is up and running, and syncing the network!</p>
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="philosophy.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Design goals" rel="prev">
+        <a href="index.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: The Nimbus Guide" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -1849,20 +1789,20 @@ Your beacon node is up and running, and syncing the network!</p>
               <span class="md-footer__direction">
                 Previous
               </span>
-              Design goals
+              The Nimbus Guide
             </div>
           </div>
         </a>
       
       
         
-        <a href="run-a-validator.html" class="md-footer__link md-footer__link--next" aria-label="Next: Run a validator" rel="next">
+        <a href="run-a-validator.html" class="md-footer__link md-footer__link--next" aria-label="Next: Validating" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              Run a validator
+              Validating
             </div>
           </div>
           <div class="md-footer__button md-icon">
