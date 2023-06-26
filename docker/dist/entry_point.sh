@@ -94,7 +94,6 @@ elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
     QUICK_AND_DIRTY_COMPILER=1 \
     deps-common build/generate_makefile
   make \
-    -j$(nproc) \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
