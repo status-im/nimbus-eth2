@@ -742,12 +742,16 @@ libnimbus_lc.a: | build deps
 test_libnimbus_lc: libnimbus_lc.a
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		set -x && \
-		if [[ "$$(uname)" == "Darwin" ]]; then \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -Lbuild -lnimbus_lc -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -framework Security --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c; \
-		else \
+		case "$$(uname)" in \
+		Darwin) \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c -Lbuild -lnimbus_lc -framework Security; \
+			;; \
+		*) \
+			echo "$$(uname)" && \
 			ls -al build && \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" -Lbuild -lnimbus_lc --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c; \
-		fi && \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c -Lbuild -lnimbus_lc; \
+			;; \
+		esac && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 ###
