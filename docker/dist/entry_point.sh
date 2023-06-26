@@ -75,7 +75,6 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # nim-blscurve's Windows SSSE3 detection doesn't work when cross-compiling,
   # so we enable it here.
   make \
-    -j$(nproc) \
     CC="${CC}" \
     CXX="${CXX}" \
     CXXFLAGS="${CXXFLAGS} -D__STDC_FORMAT_MACROS -D_WIN32_WINNT=0x0600" \
@@ -94,7 +93,6 @@ elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
     QUICK_AND_DIRTY_COMPILER=1 \
     deps-common build/generate_makefile
   make \
-    -j$(nproc) \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
@@ -111,7 +109,6 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
     QUICK_AND_DIRTY_COMPILER=1 \
     deps-common build/generate_makefile
   make \
-    -j$(nproc) \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
@@ -139,7 +136,6 @@ elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
     NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --clang.exe=${CC}" \
     nat-libs
   make \
-    -j$(nproc) \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     AR="x86_64-apple-darwin${DARWIN_VER}-ar" \
@@ -172,7 +168,6 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --clang.exe=${CC}" \
     nat-libs
   make \
-    -j$(nproc) \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     AR="arm64-apple-darwin${DARWIN_VER}-ar" \
@@ -188,7 +183,6 @@ elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then
   echo
 
   make \
-    -j$(nproc) \
     LOG_LEVEL="TRACE" \
     NIMFLAGS="${NIMFLAGS_COMMON} -d:marchOptimized" \
     PARTIAL_STATIC_LINKING=1 \
@@ -200,7 +194,6 @@ else
   echo
 
   make \
-    -j$(nproc) \
     LOG_LEVEL="TRACE" \
     NIMFLAGS="${NIMFLAGS_COMMON}" \
     PARTIAL_STATIC_LINKING=1 \
