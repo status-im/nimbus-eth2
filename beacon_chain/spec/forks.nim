@@ -40,9 +40,6 @@ export
 # A clever programmer would use templates, macros and dark magic to create all
 # these types and converters :)
 
-
-# this is a comment
-
 type
   ConsensusFork* {.pure.} = enum
     Phase0,
