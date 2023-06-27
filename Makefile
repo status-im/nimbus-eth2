@@ -750,6 +750,7 @@ test_libnimbus_lc: libnimbus_lc.a
 			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -D_CRT_SECURE_NO_WARNINGS -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c -Lbuild -lnimbus_lc; \
 			;; \
 		*) \
+			nm build/libnimbus_lc.a && \
 			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c -Lbuild -lnimbus_lc; \
 			;; \
 		esac && \
