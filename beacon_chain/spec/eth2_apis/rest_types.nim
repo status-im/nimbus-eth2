@@ -14,7 +14,7 @@
 {.push raises: [].}
 
 import
-  std/json,
+  std/[json, tables],
   stew/base10, web3/ethtypes,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
@@ -22,7 +22,8 @@ import
 
 from ".."/datatypes/capella import BeaconBlockBody
 
-export forks, phase0, altair, bellatrix, capella, bellatrix_mev, capella_mev
+export forks, phase0, altair, bellatrix, capella, bellatrix_mev, capella_mev,
+       tables
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -511,6 +512,8 @@ type
     DOMAIN_SELECTION_PROOF*: DomainType
     DOMAIN_AGGREGATE_AND_PROOF*: DomainType
 
+  VCRuntimeConfig* = Table[string, string]
+
   RestDepositContract* = object
     chain_id*: string
     address*: string
@@ -683,7 +686,7 @@ type
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]
   GetSpecResponse* = DataEnclosedObject[RestSpec]
-  GetSpecVCResponse* = DataEnclosedObject[RestSpecVC]
+  GetSpecVCResponse* = DataEnclosedObject[VCRuntimeConfig]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]
   GetStateRootResponse* = DataOptimisticObject[RestRoot]
