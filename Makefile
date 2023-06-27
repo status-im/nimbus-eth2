@@ -753,7 +753,7 @@ test_libnimbus_lc: libnimbus_lc.a
 			;; \
 		*) \
 			nm build/libnimbus_lc.a && \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -flto -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -flto -v -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
 			;; \
 		esac && \
 		echo -e $(BUILD_END_MSG) "build/$@"
