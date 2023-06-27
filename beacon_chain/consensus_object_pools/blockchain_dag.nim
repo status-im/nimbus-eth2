@@ -683,13 +683,13 @@ proc getState(
 
 proc containsState*(
     db: BeaconChainDB, cfg: RuntimeConfig, block_root: Eth2Digest,
-    slots: Slice[Slot]): bool =
+    slots: Slice[Slot], legacy = true): bool =
   var slot = slots.b
   while slot >= slots.a:
     let state_root = db.getStateRoot(block_root, slot)
     if state_root.isSome() and
         db.containsState(
-          cfg.consensusForkAtEpoch(slot.epoch), state_root.get()):
+          cfg.consensusForkAtEpoch(slot.epoch), state_root.get(), legacy):
       return true
 
     if slot == slots.a: # avoid underflow at genesis
@@ -2192,7 +2192,10 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
       var first = true
       while cur.isSome():
         let bs = cur.get()
-        if dag.db.containsState(dag.cfg, bs.bid.root, bs.slot..bs.slot):
+        # We don't delete legacy states because the legacy database is openend
+        # in read-only and slow to delete from due to its sub-optimal structure
+        if dag.db.containsState(
+            dag.cfg, bs.bid.root, bs.slot..bs.slot, legacy = first):
           if first:
             # We leave the state on the prune horizon intact and update the tail
             # to point to this state, indicating the new point in time from
@@ -2252,17 +2255,21 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
       # Once during start, we'll clear all "old fork" data - this ensures we get
       # rid of any leftover junk in the tables - we do so after linear pruning
       # so as to "mostly" clean up the phase0 tables as well (which cannot be
-      # pruned easily by fork)
+      # pruned easily by fork) - one fork at a time, so as not to take too long
 
       let stateFork = dag.cfg.consensusForkAtEpoch(dag.tail.slot.epoch)
+      var clearedStates = false
       if stateFork > ConsensusFork.Phase0:
         for fork in ConsensusFork.Phase0..<stateFork:
-          dag.db.clearStates(fork)
+          if dag.db.clearStates(fork):
+            clearedStates = true
+            break
 
       let blockFork = dag.cfg.consensusForkAtEpoch(blockHorizon.epoch)
-      if blockFork > ConsensusFork.Phase0:
+      if not clearedStates and blockFork > ConsensusFork.Phase0:
         for fork in ConsensusFork.Phase0..<blockFork:
-          dag.db.clearBlocks(fork)
+          if dag.db.clearBlocks(fork):
+            break
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
   if dag.cfg.consensusForkAtEpoch(bid.slot.epoch) < ConsensusFork.Bellatrix:
