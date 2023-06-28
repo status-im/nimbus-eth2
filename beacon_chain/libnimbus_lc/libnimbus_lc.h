@@ -174,7 +174,9 @@ void ECLBeaconStateDestroy(ECLBeaconState *state);
 /**
  * Merkle root.
  */
-typedef uint8_t ECLRoot[32];
+typedef struct {
+    uint8_t bytes[32];
+} ECLRoot;
 
 /**
  * Copies the `genesis_validators_root` field from a beacon state.
@@ -796,7 +798,9 @@ const ECLRoot *ECLExecutionPayloadHeaderGetParentHash(
 /**
  * Execution address.
  */
-typedef uint8_t ECLExecutionAddress[20];
+typedef struct {
+    uint8_t bytes[20];
+} ECLExecutionAddress;
 
 /**
  * Obtains the fee recipient address of a given execution payload header.
@@ -846,7 +850,9 @@ const ECLRoot *ECLExecutionPayloadHeaderGetReceiptsRoot(
 /**
  * Execution logs bloom.
  */
-typedef uint8_t ECLLogsBloom[256];
+typedef struct {
+    uint8_t bytes[256];
+} ECLLogsBloom;
 
 /**
  * Obtains the logs bloom of a given execution payload header.
@@ -954,7 +960,9 @@ int ECLExecutionPayloadHeaderGetNumExtraDataBytes(
 /**
  * UInt256 (little-endian)
  */
-typedef uint8_t ECLUInt256[32];
+typedef struct {
+    uint8_t bytes[32];
+} ECLUInt256;
 
 /**
  * Obtains the base fee per gas of a given execution payload header.

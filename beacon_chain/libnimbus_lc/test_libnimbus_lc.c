@@ -106,7 +106,7 @@ static void printGweiString(const ECLUInt256 *wei)
     for (;;) {
         bool isZero = true;
         for (size_t i = 0; i < sizeof value; i++) {
-            if (value[i]) {
+            if (value.bytes[i]) {
                 isZero = false;
                 break;
             }
@@ -117,8 +117,8 @@ static void printGweiString(const ECLUInt256 *wei)
 
         uint8_t remainder = 0;
         for (int i = sizeof value - 1; i >= 0; i--) {
-            uint16_t temp = (uint16_t) ((uint16_t) remainder << 8) | value[i];
-            value[i] = (uint8_t) (temp / 10);
+            uint16_t temp = (uint16_t) ((uint16_t) remainder << 8) | value.bytes[i];
+            value.bytes[i] = (uint8_t) (temp / 10);
             remainder = temp % 10;
         }
         weiString[o++] = '0' + (char) remainder;
