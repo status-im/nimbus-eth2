@@ -33,7 +33,20 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-1-6]
+        branch: [~, upstream/version-1-6, upstream/version-2-0]
+        exclude:
+          - target:
+              os: macos
+            branch: upstream/version-1-6
+          - target:
+              os: macos
+            branch: upstream/version-2-0
+          - target:
+              os: windows
+            branch: upstream/version-1-6
+          - target:
+              os: windows
+            branch: upstream/version-2-0
         include:
           - target:
               os: linux
