@@ -48,6 +48,10 @@ jobs:
               os: windows
             branch: upstream/version-2-0
         include:
+          - branch: upstream/version-1-6
+            branch-short: version-1-6
+          - branch: upstream/version-2-0
+            branch-short: version-2-0
           - target:
               os: linux
             builder: ubuntu-22.04
@@ -65,7 +69,7 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
 
-    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ replace(matrix.branch, 'upstream/', '' }}${{ matrix.branch != '' && ')' || '' }}
+    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ matrix.branch-short }}${{ matrix.branch != '' && ')' || '' }}
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Checkout
