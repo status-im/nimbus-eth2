@@ -119,7 +119,7 @@ type
   BeaconNodeServer* = object
     client*: RestClientRef
     endpoint*: string
-    config*: Opt[RestSpecVC]
+    config*: VCRuntimeConfig
     ident*: Opt[string]
     genesis*: Opt[RestGenesis]
     syncInfo*: Opt[RestSyncInfo]
@@ -451,29 +451,62 @@ chronicles.expandIt(SyncCommitteeDuty):
   validator_index = it.validator_index
   validator_sync_committee_index = it.validator_sync_committee_index
 
-proc checkConfig*(info: RestSpecVC): bool =
-  # /!\ Keep in sync with `spec/eth2_apis/rest_types.nim` > `RestSpecVC`.
-  info.MAX_VALIDATORS_PER_COMMITTEE == MAX_VALIDATORS_PER_COMMITTEE and
-  info.SLOTS_PER_EPOCH == SLOTS_PER_EPOCH and
-  info.SECONDS_PER_SLOT == SECONDS_PER_SLOT and
-  info.EPOCHS_PER_ETH1_VOTING_PERIOD == EPOCHS_PER_ETH1_VOTING_PERIOD and
-  info.SLOTS_PER_HISTORICAL_ROOT == SLOTS_PER_HISTORICAL_ROOT and
-  info.EPOCHS_PER_HISTORICAL_VECTOR == EPOCHS_PER_HISTORICAL_VECTOR and
-  info.EPOCHS_PER_SLASHINGS_VECTOR == EPOCHS_PER_SLASHINGS_VECTOR and
-  info.HISTORICAL_ROOTS_LIMIT == HISTORICAL_ROOTS_LIMIT and
-  info.VALIDATOR_REGISTRY_LIMIT == VALIDATOR_REGISTRY_LIMIT and
-  info.MAX_PROPOSER_SLASHINGS == MAX_PROPOSER_SLASHINGS and
-  info.MAX_ATTESTER_SLASHINGS == MAX_ATTESTER_SLASHINGS and
-  info.MAX_ATTESTATIONS == MAX_ATTESTATIONS and
-  info.MAX_DEPOSITS == MAX_DEPOSITS and
-  info.MAX_VOLUNTARY_EXITS == MAX_VOLUNTARY_EXITS and
-  info.DOMAIN_BEACON_PROPOSER == DOMAIN_BEACON_PROPOSER and
-  info.DOMAIN_BEACON_ATTESTER == DOMAIN_BEACON_ATTESTER and
-  info.DOMAIN_RANDAO == DOMAIN_RANDAO and
-  info.DOMAIN_DEPOSIT == DOMAIN_DEPOSIT and
-  info.DOMAIN_VOLUNTARY_EXIT == DOMAIN_VOLUNTARY_EXIT and
-  info.DOMAIN_SELECTION_PROOF == DOMAIN_SELECTION_PROOF and
-  info.DOMAIN_AGGREGATE_AND_PROOF == DOMAIN_AGGREGATE_AND_PROOF
+proc equals*(info: VCRuntimeConfig, name: string, check: uint64): bool =
+  let numstr = info.getOrDefault(name, "missing")
+  if numstr == "missing": return false
+  let value = Base10.decode(uint64, numstr).valueOr:
+    return false
+  value == check
+
+proc equals*(info: VCRuntimeConfig, name: string, check: DomainType): bool =
+  let domstr = info.getOrDefault(name, "missing")
+  if domstr == "missing": return false
+  let value =
+    try:
+      var dres: DomainType
+      hexToByteArray(domstr, distinctBase(dres))
+      dres
+    except ValueError:
+      return false
+  value == check
+
+proc equals*(info: VCRuntimeConfig, name: string, check: Epoch): bool =
+  info.equals(name, uint64(check))
+
+proc getOrDefault*(info: VCRuntimeConfig, name: string,
+                   default: uint64): uint64 =
+  let numstr = info.getOrDefault(name, "missing")
+  if numstr == "missing": return default
+  Base10.decode(uint64, numstr).valueOr:
+    return default
+
+proc getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
+  Epoch(info.getOrDefault(name, uint64(default)))
+
+proc checkConfig*(c: VCRuntimeConfig): bool =
+  c.equals("MAX_VALIDATORS_PER_COMMITTEE", MAX_VALIDATORS_PER_COMMITTEE) and
+  c.equals("SLOTS_PER_EPOCH", SLOTS_PER_EPOCH) and
+  c.equals("SECONDS_PER_SLOT", SECONDS_PER_SLOT) and
+  c.equals("EPOCHS_PER_ETH1_VOTING_PERIOD", EPOCHS_PER_ETH1_VOTING_PERIOD) and
+  c.equals("SLOTS_PER_HISTORICAL_ROOT", SLOTS_PER_HISTORICAL_ROOT) and
+  c.equals("EPOCHS_PER_HISTORICAL_VECTOR", EPOCHS_PER_HISTORICAL_VECTOR) and
+  c.equals("EPOCHS_PER_SLASHINGS_VECTOR", EPOCHS_PER_SLASHINGS_VECTOR) and
+  c.equals("HISTORICAL_ROOTS_LIMIT", HISTORICAL_ROOTS_LIMIT) and
+  c.equals("VALIDATOR_REGISTRY_LIMIT", VALIDATOR_REGISTRY_LIMIT) and
+  c.equals("MAX_PROPOSER_SLASHINGS", MAX_PROPOSER_SLASHINGS) and
+  c.equals("MAX_ATTESTER_SLASHINGS", MAX_ATTESTER_SLASHINGS) and
+  c.equals("MAX_ATTESTATIONS", MAX_ATTESTATIONS) and
+  c.equals("MAX_DEPOSITS", MAX_DEPOSITS) and
+  c.equals("MAX_VOLUNTARY_EXITS", MAX_VOLUNTARY_EXITS) and
+  c.equals("DOMAIN_BEACON_PROPOSER", DOMAIN_BEACON_PROPOSER) and
+  c.equals("DOMAIN_BEACON_ATTESTER", DOMAIN_BEACON_ATTESTER) and
+  c.equals("DOMAIN_RANDAO", DOMAIN_RANDAO) and
+  c.equals("DOMAIN_DEPOSIT", DOMAIN_DEPOSIT) and
+  c.equals("DOMAIN_VOLUNTARY_EXIT", DOMAIN_VOLUNTARY_EXIT) and
+  c.equals("DOMAIN_SELECTION_PROOF", DOMAIN_SELECTION_PROOF) and
+  c.equals("DOMAIN_AGGREGATE_AND_PROOF", DOMAIN_AGGREGATE_AND_PROOF) and
+  c.hasKey("ALTAIR_FORK_VERSION") and c.hasKey("ALTAIR_FORK_EPOCH") and
+  not(c.equals("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH))
 
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,

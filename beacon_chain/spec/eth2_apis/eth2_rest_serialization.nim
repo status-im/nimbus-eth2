@@ -2996,6 +2996,16 @@ proc readValue*(reader: var JsonReader[RestJson],
     stacktraces: stacktraces
   )
 
+## VCRuntimeConfig
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var VCRuntimeConfig) {.
+     raises: [SerializationError, IOError, Defect].} =
+  for fieldName in readObjectFields(reader):
+    let fieldValue = reader.readValue(string)
+    if value.hasKeyOrPut(toUpperAscii(fieldName), fieldValue):
+      let msg = "Multiple `" & fieldName & "` fields found"
+      reader.raiseUnexpectedField(msg, "VCRuntimeConfig")
+
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
     ok(Eth2Digest(data: hexToByteArray[32](value)))
