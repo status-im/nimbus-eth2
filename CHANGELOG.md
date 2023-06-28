@@ -1,3 +1,14 @@
+2023-06-26 v23.6.1
+==================
+
+Nimbus `v23.6.1` is a `low-urgency` point release significantly improving the performance of database pruning on Nimbus instances that have accumulated history prior to April 2021 (Nimbus 1.1.0). Affected users are advised to upgrade as soon as possible in order to reduce the risk of missed attestations and blocks.
+
+Fixes:
+
+* The legacy Nimbus database is not subjected to pruning due to the high I/O cost of the operations:
+  https://github.com/status-im/nimbus-eth2/pull/5116
+
+
 2023-06-20 v23.6.0
 ==================
 

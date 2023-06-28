@@ -405,7 +405,7 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/validator.md#sync-committee
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#sync-committee
     dutySlot = currentSlot + 1
     dutyEpoch = dutySlot.epoch()
 

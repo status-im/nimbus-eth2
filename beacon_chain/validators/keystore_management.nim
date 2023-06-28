@@ -8,8 +8,8 @@
 {.push raises: [].}
 
 import
-  std/[os, strutils, terminal, wordwrap, unicode],
-  chronicles, chronos, json_serialization, zxcvbn,
+  std/[os, unicode],
+  chronicles, chronos, json_serialization,
   bearssl/rand,
   serialization, blscurve, eth/common/eth_types, confutils,
   nimbus_security_resources,
@@ -20,6 +20,12 @@ import
   ".."/[conf, filepath, beacon_clock],
   ".."/networking/network_metadata,
   ./validator_pool
+
+from std/terminal import
+  ForegroundColor, Style, readPasswordFromStdin, getch, resetAttributes,
+  setForegroundColor, setStyle
+from std/wordwrap import wrapWords
+from zxcvbn import passwordEntropy
 
 export
   keystore, validator_pool, crypto, rand
@@ -32,11 +38,11 @@ when defined(windows):
 const
   KeystoreFileName* = "keystore.json"
   RemoteKeystoreFileName* = "remote_keystore.json"
-  NetKeystoreFileName* = "network_keystore.json"
-  FeeRecipientFilename* = "suggested_fee_recipient.hex"
-  GasLimitFilename* = "suggested_gas_limit.json"
-  KeyNameSize* = 98 # 0x + hexadecimal key representation 96 characters.
-  MaxKeystoreFileSize* = 65536
+  FeeRecipientFilename = "suggested_fee_recipient.hex"
+  GasLimitFilename = "suggested_gas_limit.json"
+  BuilderConfigPath = "payload_builder.json"
+  KeyNameSize = 98 # 0x + hexadecimal key representation 96 characters.
+  MaxKeystoreFileSize = 65536
 
 type
   WalletPathPair* = object
@@ -47,9 +53,7 @@ type
     walletPath*: WalletPathPair
     seed*: KeySeed
 
-  KmResult*[T] = Result[T, cstring]
-
-  AnyKeystore* = RemoteKeystore | Keystore
+  KmResult[T] = Result[T, cstring]
 
   RemoveValidatorStatus* {.pure.} = enum
     deleted = "Deleted"
@@ -59,11 +63,11 @@ type
     existingArtifacts = "Keystore artifacts already exists"
     failed = "Validator not added"
 
-  AddValidatorFailure* = object
+  AddValidatorFailure = object
     status*: AddValidatorStatus
     message*: string
 
-  ImportResult*[T] = Result[T, AddValidatorFailure]
+  ImportResult[T] = Result[T, AddValidatorFailure]
 
   ValidatorPubKeyToDataFn* =
     proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
@@ -82,6 +86,7 @@ type
     secretsDir*: string
     defaultFeeRecipient*: Opt[Eth1Address]
     defaultGasLimit*: uint64
+    defaultBuilderAddress*: Opt[string]
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
     getForkFn*: GetForkFn
@@ -110,6 +115,7 @@ func init*(T: type KeymanagerHost,
            secretsDir: string,
            defaultFeeRecipient: Opt[Eth1Address],
            defaultGasLimit: uint64,
+           defaultBuilderAddress: Opt[string],
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
            getBeaconTimeFn: GetBeaconTimeFn,
            getForkFn: GetForkFn,
@@ -121,6 +127,7 @@ func init*(T: type KeymanagerHost,
     secretsDir: secretsDir,
     defaultFeeRecipient: defaultFeeRecipient,
     defaultGasLimit: defaultGasLimit,
+    defaultBuilderAddress: defaultBuilderAddress,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
     getBeaconTimeFn: getBeaconTimeFn,
     getForkFn: getForkFn,
@@ -754,14 +761,17 @@ func gasLimitPath(validatorsDir: string,
                   pubkey: ValidatorPubKey): string =
   validatorsDir.validatorKeystoreDir(pubkey) / GasLimitFilename
 
+func builderConfigPath(validatorsDir: string,
+                        pubkey: ValidatorPubKey): string =
+  validatorsDir.validatorKeystoreDir(pubkey) / BuilderConfigPath
+
 proc getSuggestedFeeRecipient*(
     validatorsDir: string, pubkey: ValidatorPubKey,
     defaultFeeRecipient: Eth1Address):
     Result[Eth1Address, ValidatorConfigFileStatus] =
   # In this particular case, an error might be by design. If the file exists,
-  # but doesn't load or parse that's a more urgent matter to fix. Many people
-  # people might prefer, however, not to override their default suggested fee
-  # recipients per validator, so don't warn very loudly, if at all.
+  # but doesn't load or parse that is more urgent. People might prefer not to
+  # override default suggested fee recipients per validator, so don't warn.
   if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
     return err noSuchValidator
 
@@ -788,9 +798,8 @@ proc getSuggestedGasLimit*(
     pubkey: ValidatorPubKey,
     defaultGasLimit: uint64): Result[uint64, ValidatorConfigFileStatus] =
   # In this particular case, an error might be by design. If the file exists,
-  # but doesn't load or parse that's a more urgent matter to fix. Many people
-  # people might prefer, however, not to override their default suggested gas
-  # limit per validator, so don't warn very loudly, if at all.
+  # but doesn't load or parse that is more urgent. People might prefer not to
+  # override their default suggested gas limit per validator, so don't warn.
   if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
     return err noSuchValidator
 
@@ -802,13 +811,53 @@ proc getSuggestedGasLimit*(
       readFile(gasLimitPath), leading = false, trailing = true))
   except SerializationError as e:
     warn "Invalid local gas limit file", gasLimitPath,
-      err= e.formatMsg(gasLimitPath)
+      err = e.formatMsg(gasLimitPath)
     err malformedConfigFile
   except CatchableError as exc:
     warn "Failed to load gas limit file; falling back to default gas limit",
       gasLimitPath, defaultGasLimit,
       err = exc.msg
     err malformedConfigFile
+
+type
+  BuilderConfig = object
+    payloadBuilderEnable: bool
+    payloadBuilderUrl: string
+
+proc getBuilderConfig*(
+    validatorsDir: string, pubkey: ValidatorPubKey,
+    defaultBuilderAddress: Opt[string]):
+    Result[Opt[string], ValidatorConfigFileStatus] =
+  # In this particular case, an error might be by design. If the file exists,
+  # but doesn't load or parse that is more urgent. People might prefer not to
+  # override default builder configs per validator, so don't warn.
+  if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
+    return err noSuchValidator
+
+  let builderConfigPath = validatorsDir.builderConfigPath(pubkey)
+  if not fileExists(builderConfigPath):
+    return ok defaultBuilderAddress
+
+  let builderConfig =
+    try:
+      Json.loadFile(builderConfigPath, BuilderConfig,
+                    requireAllFields = true)
+    except IOError as err:
+      # Any exception must be in the presence of such a file, and therefore
+      # an actual error worth logging
+      error "Failed to read payload builder configuration", err = err.msg,
+            path = builderConfigPath
+      return err malformedConfigFile
+    except SerializationError as err:
+      error "Invalid payload builder configuration",
+        err = err.formatMsg(builderConfigPath)
+      return err malformedConfigFile
+
+  ok(
+    if builderConfig.payloadBuilderEnable:
+      Opt.some builderConfig.payloadBuilderUrl
+    else:
+      Opt.none string)
 
 type
   KeystoreGenerationErrorKind* = enum
@@ -1444,6 +1493,11 @@ proc getSuggestedGasLimit*(
     host: KeymanagerHost,
     pubkey: ValidatorPubKey): Result[uint64, ValidatorConfigFileStatus] =
   host.validatorsDir.getSuggestedGasLimit(pubkey, host.defaultGasLimit)
+
+proc getBuilderConfig*(
+    host: KeymanagerHost, pubkey: ValidatorPubKey):
+    Result[Opt[string], ValidatorConfigFileStatus] =
+  host.validatorsDir.getBuilderConfig(pubkey, host.defaultBuilderAddress)
 
 proc addValidator*(
     host: KeymanagerHost, keystore: KeystoreData,

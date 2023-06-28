@@ -155,6 +155,85 @@ jobs:
             ./dist/*.deb
             ./dist/*.rpm
           retention-days: 2
+  build-arm:
+    name: Linux ARM release asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install packages
+        env:
+          DEBIAN_FRONTEND: "noninteractive"
+          TZ: "Etc/UTC"
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq -y install binfmt-support qemu-user-static
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build project
+        id: make_dist
+        run: |
+          make dist-arm
+          cd dist
+          ARCHIVE=$(echo nimbus-eth2_Linux_arm32v7_*.tar.gz)
+          echo "::set-output name=archive::"${ARCHIVE}
+          echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
+      - name: Upload archive artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Linux_arm_archive
+          path: ./dist/${{ steps.make_dist.outputs.archive }}
+          retention-days: 2
+      - name: Upload BN checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Linux_arm_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Linux_arm_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
+          retention-days: 2
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push a Docker images for end users
+        run: |
+          cd dist
+          tar -xzf ${{ steps.make_dist.outputs.archive }}
+          mv ${{ steps.make_dist.outputs.archive_dir }} ../docker/dist/binaries/nimbus-eth2
+          cd ../docker/dist/binaries
+          REFNAME="${{ github.ref }}"
+          TAG="${REFNAME#refs/tags/}"
+          cp -a /usr/bin/qemu-arm-static .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.arm -t statusim/nimbus-eth2:arm-${TAG} -t statusim/nimbus-eth2:arm-latest .
+          docker push statusim/nimbus-eth2:arm-${TAG}
+          docker push statusim/nimbus-eth2:arm-latest
+
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.arm -t statusim/nimbus-validator-client:arm-${TAG} -t statusim/nimbus-validator-client:arm-latest .
+          docker push statusim/nimbus-validator-client:arm-${TAG}
+          docker push statusim/nimbus-validator-client:arm-latest
+
+      - name: Setup ruby # Needed for fpm
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1' # Not needed with a .ruby-version file
+      - name: Create RPM/DEB
+        run: |
+          scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
+          scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
+      - name: Upload DEB
+        uses: actions/upload-artifact@v3
+        with:
+          name: Linux_arm_packages
+          path: |
+            ./dist/*.deb
+            ./dist/*.rpm
+          retention-days: 2
   build-win64:
     name: Windows AMD64 release asset
     runs-on: ubuntu-latest
@@ -259,7 +338,7 @@ jobs:
           retention-days: 2
   prepare-release:
     name: Prepare release draft
-    needs: [build-amd64, build-arm64, build-win64, build-macos-amd64, build-macos-arm64]
+    needs: [build-amd64, build-arm64, build-arm, build-win64, build-macos-amd64, build-macos-arm64]
     runs-on: ubuntu-latest
     steps:
       - name: Download artefacts
@@ -285,6 +364,8 @@ jobs:
           cat Linux_amd64_checksum/* >> release_notes.md
           echo '# Linux ARM64' >> release_notes.md
           cat Linux_arm64_checksum/* >> release_notes.md
+          echo '# Linux ARM' >> release_notes.md
+          cat Linux_arm_checksum/* >> release_notes.md
           echo '# Windows AMD64' >> release_notes.md
           cat Windows_amd64_checksum/* >> release_notes.md
           echo '# macOS AMD64' >> release_notes.md
@@ -306,6 +387,8 @@ jobs:
             Linux_amd64_packages/*
             Linux_arm64_archive/*
             Linux_arm64_packages/*
+            Linux_arm_archive/*
+            Linux_arm_packages/*
             Windows_amd64_archive/*
             macOS_amd64_archive/*
             macOS_arm64_archive/*
@@ -320,6 +403,9 @@ jobs:
             Linux_arm64_archive
             Linux_arm64_checksum
             Linux_arm64_packages
+            Linux_arm_archive
+            Linux_arm_checksum
+            Linux_arm_packages
             Windows_amd64_archive
             Windows_amd64_checksum
             macOS_amd64_archive
@@ -341,19 +427,23 @@ jobs:
             statusim/nimbus-eth2:multiarch-${TAG} \
             --amend statusim/nimbus-eth2:amd64-${TAG} \
             --amend statusim/nimbus-eth2:arm64-${TAG} \
+            --amend statusim/nimbus-eth2:arm-${TAG}
           docker manifest push statusim/nimbus-eth2:multiarch-${TAG}
           docker manifest create \
             statusim/nimbus-eth2:multiarch-latest \
             --amend statusim/nimbus-eth2:amd64-latest \
             --amend statusim/nimbus-eth2:arm64-latest \
+            --amend statusim/nimbus-eth2:arm-latest
           docker manifest push statusim/nimbus-eth2:multiarch-latest
           docker manifest create \
             statusim/nimbus-validator-client:multiarch-${TAG} \
             --amend statusim/nimbus-validator-client:amd64-${TAG} \
             --amend statusim/nimbus-validator-client:arm64-${TAG} \
+            --amend statusim/nimbus-validator-client:arm-${TAG}
           docker manifest push statusim/nimbus-validator-client:multiarch-${TAG}
           docker manifest create \
             statusim/nimbus-validator-client:multiarch-latest \
             --amend statusim/nimbus-validator-client:amd64-latest \
             --amend statusim/nimbus-validator-client:arm64-latest \
+            --amend statusim/nimbus-validator-client:arm-latest
           docker manifest push statusim/nimbus-validator-client:multiarch-latest
