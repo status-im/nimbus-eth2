@@ -65,7 +65,7 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
 
-    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && '-Nim:' || '' }}${{ matrix.branch }}
+    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ replace(matrix.branch, 'upstream/', '' }}${{ matrix.branch != '' && ')' || '' }}
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Checkout
