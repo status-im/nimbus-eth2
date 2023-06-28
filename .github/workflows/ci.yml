@@ -33,7 +33,7 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [version-1-6]
+        branch: [~, upstream/version-1-6]
         include:
           - target:
               os: linux
