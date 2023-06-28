@@ -22,18 +22,23 @@ proc getAttestationDataScore*(vc: ValidatorClientRef,
     slot = vc.rootsSeen.getOrDefault(
       adata.data.beacon_block_root, FAR_FUTURE_SLOT)
 
-  if (slot == adata.data.slot) and
-     (adata.data.source.epoch + 1 == adata.data.target.epoch):
-    # Perfect score
-    Inf
-  else:
-    let score = float64(adata.data.source.epoch) +
-                float64(adata.data.target.epoch)
-    if slot == FAR_FUTURE_SLOT:
-      score
+  let res =
+    if (slot == adata.data.slot) and
+       (adata.data.source.epoch + 1 == adata.data.target.epoch):
+      # Perfect score
+      Inf
     else:
-      if adata.data.slot + 1 == slot:
-        # To avoid `DivizionByZero` defect.
+      let score = float64(adata.data.source.epoch) +
+                  float64(adata.data.target.epoch)
+      if slot == FAR_FUTURE_SLOT:
         score
       else:
-        score + float64(1) / float64(adata.data.slot + 1 - slot)
+        if adata.data.slot + 1 == slot:
+          # To avoid `DivizionByZero` defect.
+          score
+        else:
+          score + float64(1) / float64(adata.data.slot + 1 - slot)
+
+  debug "Attestation score", attestation_data = shortLog(adata.data),
+        slot_result = slot, score = shortScore(res)
+  res
