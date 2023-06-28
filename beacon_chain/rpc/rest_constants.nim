@@ -241,3 +241,6 @@ const
     "The given merkle proof index is invalid"
   FailedToObtainForkError* =
     "Failed to obtain fork information"
+  InvalidTimestampValue* =
+    "Invalid or missing timestamp value"
+
