@@ -1174,14 +1174,15 @@ proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
   if not(retFuture.finished()): retFuture.cancelCallback = cancellation
   retFuture
 
-proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject) =
+proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject,
+                    node: BeaconNodeServerRef) =
   let
     wallTime = vc.beaconClock.now()
     delay = wallTime - data.slot.start_beacon_time()
 
   debug "Block received", slot = data.slot,
         block_root = shortLog(data.block_root), optimistic = data.optimistic,
-        delay = delay
+        node = node, delay = delay
 
   proc scheduleCallbacks(data: var BlockDataItem,
                          blck: EventBeaconBlockObject) =
