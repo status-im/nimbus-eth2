@@ -260,7 +260,14 @@ For more on `raspi-config`, see [here](https://www.raspberrypi.org/documentation
 
 Once you're done, `ssh` back into your Pi.
 
-### 11. Install the beacon node
+
+### 11. Overclocking
+
+Nimbus requires Raspberry Pi to be overclocked.
+To overclock your Raspberry Pi, follow the [RPi overclocking guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
+
+
+### 12. Install the beacon node
 
 === "Manual installation"
 
@@ -290,7 +297,7 @@ Once you're done, `ssh` back into your Pi.
 
 
 
-### 12. Copy signing key over to Pi
+### 13. Copy signing key over to Pi
 
 !!! note
     If you haven't generated your validator key(s) and/or made your deposit yet, follow the [deposit instructions](./run-a-validator.md#1-make-a-deposit-for-your-validator) of our validator guide before carrying on.
@@ -314,7 +321,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
     Run `pwd` in your `validator_keys` directory to print the full pathname to the console.
 
 
-### 13. Import signing key into Nimbus
+### 14. Import signing key into Nimbus
 
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
@@ -327,7 +334,7 @@ build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_prater_0 
  Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
 
-### 14. Connect to Prater
+### 15. Connect to Prater
 
 We're finally ready to connect to the Prater testnet!
 
@@ -340,7 +347,7 @@ To connect to Prater, run:
 ./run-prater-beacon-node.sh
 ```
 
-### 15. Check for successful connection
+### 16. Check for successful connection
 
 If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:
 
@@ -378,9 +385,10 @@ Keep an eye on the number of peers you're currently connected to (in the above c
 ## Mainnet advice
 
 Whether or not your Pi is up to the task will depend on a number of factors such as SSD speed, network connectivity, etc.
-As such, it's best to verify performance  on a testnet first.
+As such, it's best to verify performance on a testnet first.
 
-The best thing you can do is to set your Pi to run Prater. **If you have no trouble syncing and attesting on Prater, your setup should be more than good enough for mainnet** as well (Mainnet is expected to use fewer resources).
+The best thing you can do is to set your Pi to run Prater.
+If you have no trouble syncing and attesting on Prater, your setup should good enough for mainnet as well.
 
 <blockquote class="twitter-tweet" data-conversation="none"><p lang="en" dir="ltr">We&#39;ve been running lots of PIs and NanoPCs 24/7 for 3 years and never got a hardware fail. It is easy (and cheap) to get redundancy of components (even spare PIs in different locations, more of this to come).</p>&mdash; Ethereum on ARM (@EthereumOnARM) <a href="https://twitter.com/EthereumOnARM/status/1332772217420177408?ref_src=twsrc%5Etfw">November 28, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
@@ -395,13 +403,3 @@ Systemd will also ensure your validator keeps running when you exit your ssh ses
 
 
 For the details on how to do this, see our [systemd guide](./beacon-node-systemd.md).
-
-
-### Overclocking
-
-While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see the [overclocking guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
-
-!!! note
-    We have since improved performance in several ways which should make a vanilla Pi perform well.
-    However, overclocking may still give some benefits, in particular you have more performance to deal with anomalies (like spamming etc).
-
