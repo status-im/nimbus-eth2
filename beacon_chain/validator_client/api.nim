@@ -55,7 +55,7 @@ proc `$`*(s: ApiScore): string =
   var res = Base10.toString(uint64(s.index))
   res.add(": ")
   if s.score.isSome():
-    res.add(formatFloat(s.score.get(), ffDecimal, 4))
+    res.add(shortScore(s.score.get()))
   else:
     res.add("<n/a>")
   res
@@ -321,7 +321,7 @@ template bestSuccess*(
         retRes = ApiResponse[handlerType].err("No online beacon node(s)")
         break mainLoop
       else:
-        let
+        var
           (pendingRequests, pendingNodes) =
             block:
               var requests: seq[FutureBase]
@@ -332,105 +332,130 @@ template bestSuccess*(
                 requests.add(fut)
                 nodes.add(node)
               (requests, nodes)
+          perfectScoreFound = false
 
-        var allFut: Future[void]
-        try:
-          allFut = allFutures(pendingRequests)
+        block innerLoop:
+          while len(pendingRequests) > 0:
+            var
+              finishedRequests: seq[FutureBase]
+              finishedNodes: seq[BeaconNodeServerRef]
+              raceFut: Future[FutureBase]
+            try:
+              raceFut = race(pendingRequests)
 
-          if not(isNil(timerFut)):
-            await allFut or timerFut
-          else:
-            await allFut
+              if isNil(timerFut):
+                await raceFut or timerFut
+              else:
+                await allFutures(raceFut)
 
-          for index, future in pendingRequests.pairs():
-            let
-              node {.inject.} = pendingNodes[index]
-              apiResponse {.inject.} =
-                if future.finished():
-                  doAssert(not(future.cancelled()))
-                  if future.failed():
-                    ApiResponse[responseType].err($future.error.msg)
+              for index, future in pendingRequests.pairs():
+                if (future != timerFut) and
+                   (future.finished() or
+                     (not(isNil(timerFut)) and timerFut.finished())):
+                  finishedRequests.add(future)
+                  finishedNodes.add(pendingNodes[index])
+                  let
+                    node {.inject.} = pendingNodes[index]
+                    apiResponse {.inject.} =
+                      if future.finished():
+                        doAssert(not(future.cancelled()))
+                        if future.failed():
+                          ApiResponse[responseType].err($future.error.msg)
+                        else:
+                          ApiResponse[responseType].ok(
+                            Future[responseType](future).read())
+                      else:
+                        doAssert(timerFut.finished())
+                        ApiResponse[responseType].err(
+                          "Timeout exceeded while awaiting for the response")
+                    handlerResponse =
+                      try:
+                        bodyHandler
+                      except CancelledError as exc:
+                        raise exc
+                      except CatchableError:
+                        raiseAssert(
+                          "Response handler must not raise exceptions")
+
+                  if apiResponse.isOk() and handlerResponse.isOk():
+                    let
+                      itresponse {.inject.} = handlerResponse.get()
+                      score =
+                        try:
+                          bodyScore
+                        except CancelledError as exc:
+                          raise exc
+                        except CatchableError:
+                          raiseAssert("Score handler must not raise exceptions")
+                    scores.add(ApiScore.init(node, score))
+                    if bestResponse.isNone() or
+                      (score > bestResponse.get().score):
+                      bestResponse = Opt.some(
+                        BestNodeResponse.init(node, handlerResponse, score))
+                      if perfectScore(score):
+                        perfectScoreFound = true
+                        break
                   else:
-                    ApiResponse[responseType].ok(
-                      Future[responseType](future).read())
+                    scores.add(ApiScore.init(node))
+
+              if not(isNil(timerFut)) and timerFut.finished():
+                # If timeout is exceeded we need to cancel all the tasks which
+                # are still running.
+                var pendingCancel: seq[Future[void]]
+                for future in pendingRequests.items():
+                  if not(future.finished()):
+                    pendingCancel.add(future.cancelAndWait())
+                await allFutures(pendingCancel)
+                break innerLoop
+              else:
+                if perfectScoreFound:
+                  asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
+                                      RequestName, strategy)
+                  break innerLoop
                 else:
-                  doAssert(timerFut.finished())
-                  ApiResponse[responseType].err(
-                    "Timeout exceeded while awaiting for the response")
-              handlerResponse =
-                try:
-                  bodyHandler
-                except CancelledError as exc:
-                  raise exc
-                except CatchableError:
-                  raiseAssert("Response handler must not raise exceptions")
+                  pendingRequests.keepItIf(it notin finishedRequests)
+                  pendingNodes.keepItIf(it notin finishedNodes)
 
-            if apiResponse.isOk() and handlerResponse.isOk():
-              let
-                itresponse {.inject.} = handlerResponse.get()
-                score =
-                  try:
-                    bodyScore
-                  except CancelledError as exc:
-                    raise exc
-                  except CatchableError:
-                    raiseAssert("Score handler must not raise exceptions")
-
-              scores.add(ApiScore.init(node, score))
-
-              if bestResponse.isNone() or (score > bestResponse.get().score):
-                bestResponse = Opt.some(
-                  BestNodeResponse.init(node, handlerResponse, score))
-            else:
-              scores.add(ApiScore.init(node))
-
-          if timerFut.finished():
-            # If timeout is exceeded we need to cancel all the tasks which
-            # are still running.
-            var pendingCancel: seq[Future[void]]
-            for future in pendingRequests.items():
-              if not(future.finished()):
-                pendingCancel.add(future.cancelAndWait())
-            await allFutures(pendingCancel)
-
-          # When all requests failed, bestResponse will not be set.
-          if bestResponse.isSome():
-             retRes = bestResponse.get().data
-             break mainLoop
-          else:
-            if timerFut.finished():
-              retRes = ApiResponse[handlerType].err(
-                         "Timeout exceeded while awaiting for responses")
+            except CancelledError as exc:
+              var pendingCancel: seq[Future[void]]
+              # `or` operation does not cancelling Futures passed as arguments.
+              if not(isNil(raceFut)) and not(raceFut.finished()):
+                pendingCancel.add(raceFut.cancelAndWait())
+              if not(isNil(timerFut)) and not(timerFut.finished()):
+                pendingCancel.add(timerFut.cancelAndWait())
+              # We should cancel all the requests which are still pending.
+              for future in pendingRequests.items():
+                if not(future.finished()):
+                  pendingCancel.add(future.cancelAndWait())
+              # Awaiting cancellations.
+              await allFutures(pendingCancel)
+              raise exc
+            except CatchableError as exc:
+              # This should not be happened, because allFutures() and race()
+              # did not raise any exceptions.
+              error "Unexpected exception while processing request",
+                    err_name = $exc.name, err_msg = $exc.msg
+              retRes = ApiResponse[handlerType].err("Unexpected error")
               break mainLoop
 
-        except CancelledError as exc:
-          var pendingCancel: seq[Future[void]]
-          # `or` operation does not cancelling Futures passed as arguments.
-          if not(isNil(allFut)) and not(allFut.finished()):
-            pendingCancel.add(allFut.cancelAndWait())
-          if not(isNil(timerFut)) and not(timerFut.finished()):
-              pendingCancel.add(timerFut.cancelAndWait())
-          # We should cancel all the requests which are still pending.
-          for future in pendingRequests.items():
-            if not(future.finished()):
-              pendingCancel.add(future.cancelAndWait())
-          # Awaiting cancellations.
-          await allFutures(pendingCancel)
-          raise exc
-        except CatchableError as exc:
-          # This should not be happened, because allFutures() and race() did not
-          # raise any exceptions.
-          error "Unexpected exception while processing request",
-                err_name = $exc.name, err_msg = $exc.msg
-          retRes = ApiResponse[handlerType].err("Unexpected error")
+        if bestResponse.isSome():
+          retRes = bestResponse.get().data
           break mainLoop
+        else:
+          if timerFut.finished():
+            retRes = ApiResponse[handlerType].err(
+                       "Timeout exceeded while awaiting for responses")
+            break mainLoop
+          else:
+            # When all requests failed
+            discard
 
       inc(iterations)
 
   if retRes.isOk():
     debug "Best score result selected",
           request = RequestName, available_scores = scores,
-          best_score = formatFloat(bestResponse.get().score, ffDecimal, 4),
+          best_score = shortScore(bestResponse.get().score),
           best_node = bestResponse.get().node
 
   retRes
