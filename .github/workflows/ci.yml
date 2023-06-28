@@ -52,6 +52,7 @@ jobs:
             branch-short: version-1-6
           - branch: upstream/version-2-0
             branch-short: version-2-0
+            nimflags-extra: --mm:refc
           - target:
               os: linux
             builder: ubuntu-22.04
@@ -151,8 +152,10 @@ jobs:
             else
               export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
             fi
-            echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
           fi
+
+          export NIMFLAGS="${NIMFLAGS} ${{ matrix.nimflags-extra }}"
+          echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
 
           ncpu=""
           make_cmd="make"
@@ -210,7 +213,7 @@ jobs:
 
       - name: Build binaries (with trace logging enabled)
         run: |
-          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none"
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${{ matrix.nimflags-extra }}"
           # The Windows image runs out of disk space, so make some room
           rm -rf build nimcache
 
