@@ -979,7 +979,7 @@ proc proposeBlockAux(
        else:
           static: doAssert "Unknown SignedBeaconBlock type"
       newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
+        (await node.router.routeSignedBeaconBlock(signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
           return head # Errors logged in router
 
     if newBlockRef.isNone():
@@ -1674,7 +1674,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

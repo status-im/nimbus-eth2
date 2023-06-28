@@ -104,13 +104,15 @@ type
     capella_mev.SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
-    Web3SignerRequest
+    Web3SignerRequest |
+    RestNimbusTimestamp1
 
   EncodeOctetTypes* =
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
     capella.SignedBeaconBlock |
-    phase0.SignedBeaconBlock
+    phase0.SignedBeaconBlock |
+    DenebSignedBlockContents
 
   EncodeArrays* =
     seq[Attestation] |
@@ -150,7 +152,9 @@ type
     GetStateRootResponse |
     GetBlockRootResponse |
     SomeForkedLightClientObject |
-    seq[SomeForkedLightClientObject]
+    seq[SomeForkedLightClientObject] |
+    RestNimbusTimestamp1 |
+    RestNimbusTimestamp2
 
   DecodeConsensysTypes* =
     ProduceBlockResponseV2 | ProduceBlindedBlockResponse
@@ -2991,6 +2995,16 @@ proc readValue*(reader: var JsonReader[RestJson],
     code: code.get(), message: message.get(),
     stacktraces: stacktraces
   )
+
+## VCRuntimeConfig
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var VCRuntimeConfig) {.
+     raises: [SerializationError, IOError, Defect].} =
+  for fieldName in readObjectFields(reader):
+    let fieldValue = reader.readValue(string)
+    if value.hasKeyOrPut(toUpperAscii(fieldName), fieldValue):
+      let msg = "Multiple `" & fieldName & "` fields found"
+      reader.raiseUnexpectedField(msg, "VCRuntimeConfig")
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

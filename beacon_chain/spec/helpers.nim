@@ -27,7 +27,7 @@ export
   eth2_merkleization, forks, rlp, ssz_codec
 
 func toEther*(gwei: Gwei): Ether =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/weak-subjectivity.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/weak-subjectivity.md#constants
   const ETH_TO_GWEI = 1_000_000_000
   (gwei div ETH_TO_GWEI).Ether
 
@@ -209,7 +209,7 @@ func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
     update.next_sync_committee_branch !=
@@ -217,25 +217,25 @@ template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_finality_update
 template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithFinality:
     update.finality_branch != default(typeof(update.finality_branch))
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
   store.next_sync_committee != default(typeof(store.next_sync_committee))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/sync-protocol.md#get_safety_threshold
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
 func get_safety_threshold*(store: ForkyLightClientStore): uint64 =
   max(
     store.previous_max_active_participants,
     store.current_max_active_participants
   ) div 2
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_better_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_better_update
 type LightClientUpdateMetadata* = object
   attested_slot*, finalized_slot*, signature_slot*: Slot
   has_sync_committee*, has_finality*: bool
@@ -326,17 +326,17 @@ template is_better_update*[
     new_update: A, old_update: B): bool =
   is_better_data(toMeta(new_update), toMeta(old_update))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
   bootstrap.header.beacon.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
   update.attested_header.beacon.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState): bool =
   const defaultExecutionPayloadHeader =
@@ -352,7 +352,7 @@ func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/bellatrix/beacon-chain.md#is_merge_transition_block
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |

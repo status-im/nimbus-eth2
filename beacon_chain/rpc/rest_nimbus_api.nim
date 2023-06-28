@@ -428,3 +428,27 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         all_peers: allPeers
       )
     )
+
+  router.api(MethodPost, "/nimbus/v1/timesync") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      timestamp2 = getTimestamp()
+      timestamp1 =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let dres = decodeBody(RestNimbusTimestamp1, contentBody.get())
+          if dres.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidTimestampValue,
+                                             $dres.error())
+          dres.get().timestamp1
+    let
+      delay = node.processingDelay.valueOr: ZeroDuration
+      response = RestNimbusTimestamp2(
+        timestamp1: timestamp1,
+        timestamp2: timestamp2,
+        timestamp3: getTimestamp(),
+        delay: uint64(delay.nanoseconds)
+      )
+    return RestApiResponse.jsonResponsePlain(response)
