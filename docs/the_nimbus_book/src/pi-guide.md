@@ -2,7 +2,7 @@
 
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I expect the new Raspberry Pi 4 (4GB RAM option, external SSD) to handle an Eth2 validator node without breaking a sweat. That&#39;s $100 of hardware running at 10 Watts to support a 32 ETH node (currently ~$10K stake).</p>&mdash; Justin Ðrake (@drakefjustin) <a href="https://twitter.com/drakefjustin/status/1143091047058366465?ref_src=twsrc%5Etfw">June 24, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-> In addition to this guide, we highly recommend this [wonderful and complementary resource](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#preliminary-setup) by community member Joe Clapis.
+In addition to this guide, we highly recommend this [wonderful and complementary resource](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#preliminary-setup) by community member Joe Clapis.
 
 ## Introduction
 
@@ -41,12 +41,13 @@ As such, we try our best to explain things from first-principles.
 
 ### 1. Download Raspberry Pi Imager
 
-[Raspberry Pi Imager](https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/) is an imaging utility that makes it simple to manage your microSD card with Raspbian (the free Pi operating system based on Debian).
+[Raspberry Pi Imager](https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/) is an imaging utility that makes it simple to manage your microSD card with Raspberry Pi OS (the free Pi operating system based on Debian, previously called Raspbian).
 
 You can find the [download](https://www.learnenough.com/command-line-tutorial/basics) link for your operating system here: [Windows](https://downloads.raspberrypi.org/imager/imager_1.4.exe), [macOS](https://downloads.raspberrypi.org/imager/imager_1.4.dmg), [Ubuntu](https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb).
 
-### 2. Download Raspian 64-bit OS
+### 2. Download 64-bit Raspberry Pi OS
 
+You need to install the 64-bit version of Raspberry Pi OS.
 You can find the latest version, [here](https://downloads.raspberrypi.org/raspios_arm64/images/).
 
 ### 3. Plug in SD card
@@ -55,15 +56,15 @@ Use your microSD to USB adapter to plug the SD card into your computer.
 
 ### 4. Download Raspberry Pi OS
 
-Open Raspberry Pi Imager and click on **CHOOSE OS**
+Open Raspberry Pi Imager and click on **CHOOSE OS**:
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_7b8cfa54f877218b6d971f09fa8d62ff.png)
 
-Scroll down and click on **Use custom**
+Scroll down and click on **Use custom**:
 
 ![](https://i.imgur.com/ar88MTt.png)
 
-Find the OS you downloaded in step 2
+Find the OS you downloaded in step 2:
 
 ![](https://i.imgur.com/NeOT8pf.png)
 
@@ -237,7 +238,7 @@ ssh pi@195.177.101.93
 
 ### 10b. Boot from external SSD
 
-Follow [this guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb) to copy the contents of your SD card over to your SSD, and boot your Pi from your SSD.
+Follow [this RPi4 guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb) to copy the contents of your SD card over to your SSD, and boot your Pi from your SSD.
 
 !!! tip
     Make sure you connect your SSD the Pi's USB 3 port (the blue port).
@@ -263,7 +264,7 @@ Once you're done, `ssh` back into your Pi.
 
 === "Manual installation"
 
-    Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
+    Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest), go to the Assets on the bottom of the page, and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
 
     Run this in your home directory to download nimbus-eth2:
 
@@ -279,7 +280,7 @@ Once you're done, `ssh` back into your Pi.
 === "Using package manager"
 
     1. Add Status APT repository to your system.
-       Follow [this guide](https://apt.status.im).
+       Follow our [APT guide](https://apt.status.im).
 
     2. Install Nimbus using APT:
 
@@ -292,12 +293,12 @@ Once you're done, `ssh` back into your Pi.
 ### 12. Copy signing key over to Pi
 
 !!! note
-    If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page](./deposit.md) before carrying on.
+    If you haven't generated your validator key(s) and/or made your deposit yet, follow the [deposit instructions](./run-a-validator.md#1-make-a-deposit-for-your-validator) of our validator guide before carrying on.
 
 We'll use the `scp` command to send files over SSH.
 It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.
 
-Copy the folder containing your validator key(s) from your computer to your `pi`'s homefolder by opening up a new terminal window and running the following command:
+Copy the folder containing your validator key(s) from your computer to your `pi`'s home folder by opening up a new terminal window and running the following command:
 
 ```sh
 scp -r <VALIDATOR_KEYS_DIRECTORY> pi@195.177.101.93:
@@ -332,7 +333,7 @@ We're finally ready to connect to the Prater testnet!
 
 !!! note
     If you haven't already, we recommend registering for, and running, your own eth1 node in parallel.
-    For instructions on how to do so, see [this page](./eth1.md).
+    For instructions on how to do so, see the [eth1 page](./eth1.md).
 
 To connect to Prater, run:
 ```
@@ -393,12 +394,12 @@ Now that you have Nimbus up and running, we recommend [setting up a systemd serv
 Systemd will also ensure your validator keeps running when you exit your ssh session (`Ctrl-C`) and/or switch off your laptop.
 
 
-For the details on how to do this, see [this page](./beacon-node-systemd.md).
+For the details on how to do this, see our [systemd guide](./beacon-node-systemd.md).
 
 
 ### Overclocking
 
-While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see [this guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
+While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see the [overclocking guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
 
 !!! note
     We have since improved performance in several ways which should make a vanilla Pi perform well.

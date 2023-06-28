@@ -6,11 +6,11 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Minimal preset - Deneb
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/minimal/deneb.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/minimal/deneb.yaml
 const
   # [customized]
   FIELD_ELEMENTS_PER_BLOB*: uint64 = 4
   # [customized]
   MAX_BLOB_COMMITMENTS_PER_BLOCK*: uint64 = 16
-  # `uint64(2**2)` (= 4)
-  MAX_BLOBS_PER_BLOCK*: uint64 = 4
+  # `uint64(6)`
+  MAX_BLOBS_PER_BLOCK*: uint64 = 6

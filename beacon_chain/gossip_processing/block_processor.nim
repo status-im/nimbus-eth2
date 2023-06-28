@@ -245,8 +245,8 @@ from web3/engine_api_types import
   PayloadAttributesV1, PayloadAttributesV2, PayloadExecutionStatus,
   PayloadStatusV1
 from ../el/el_manager import
-  ELManager, asEngineExecutionPayload, forkchoiceUpdated, hasConnection,
-  hasProperlyConfiguredConnection, sendNewPayload
+  ELManager, forkchoiceUpdated, hasConnection, hasProperlyConfiguredConnection,
+  sendNewPayload
 
 proc expectValidForkchoiceUpdated(
     elManager: ELManager, headBlockPayloadAttributesType: typedesc,
@@ -304,8 +304,10 @@ from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
 
 proc newExecutionPayload*(
     elManager: ELManager,
-    executionPayload: ForkyExecutionPayload):
+    blockBody: SomeForkyBeaconBlockBody):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
+
+  template executionPayload: untyped = blockBody.execution_payload
 
   if not elManager.hasProperlyConfiguredConnection:
     if elManager.hasConnection:
@@ -320,8 +322,7 @@ proc newExecutionPayload*(
     executionPayload = shortLog(executionPayload)
 
   try:
-    let payloadStatus = await elManager.sendNewPayload(
-      executionPayload.asEngineExecutionPayload)
+    let payloadStatus = await elManager.sendNewPayload(blockBody)
 
     debug "newPayload: succeeded",
       parentHash = executionPayload.parent_hash,
@@ -348,7 +349,7 @@ proc getExecutionValidity(
 
   try:
     let executionPayloadStatus = await elManager.newExecutionPayload(
-      blck.message.body.execution_payload)
+      blck.message.body)
     if executionPayloadStatus.isNone:
       return NewPayloadStatus.noResponse
 
@@ -442,6 +443,10 @@ proc storeBlock*(
     # When the execution layer is not available to verify the payload, we do the
     # required check on the CL side instead and proceed as if the EL was syncing
 
+    # TODO run https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob-kzg-commitments
+    # https://github.com/ethereum/execution-apis/blob/main/src/engine/experimental/blob-extension.md#specification
+    # "This validation MUST be instantly run in all cases even during active sync process."
+    #
     # Client software MUST validate `blockHash` value as being equivalent to
     # `Keccak256(RLP(ExecutionBlockHeader))`
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification
@@ -462,6 +467,7 @@ proc storeBlock*(
   # be re-added later
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
 
+  # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
   when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
@@ -775,7 +781,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].addBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,

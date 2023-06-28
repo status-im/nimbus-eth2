@@ -2824,9 +2824,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"root": "", "slot": ""}]}]
+      "status": {"operator": "equals", "value": "410"}
     }
   },
   {

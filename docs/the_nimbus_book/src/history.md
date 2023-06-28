@@ -5,10 +5,7 @@
 
 Ethereum consensus nodes are required to keep a minimum of 5 months of historical block data ensuring the health of the network.
 
-Nimbus can be configured to either retain or remove historical data past that point using the `--history` option.
-
-!!! note "Default mode"
-    Nimbus currently retains history by default - with the `Capella` hard fork completed successfully, this will soon be changed to `prune`.
+Nimbus can be configured to either retain or remove historical data past that point using the `--history` option. By default, Nimbus prunes historical data.
 
 ## History modes
 

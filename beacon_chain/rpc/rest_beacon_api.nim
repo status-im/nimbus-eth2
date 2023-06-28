@@ -837,21 +837,43 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           body = contentBody.get()
           version = request.headers.getString("eth-consensus-version")
         var
-          restBlock = decodeBody(RestPublishedSignedBeaconBlock, body,
+          restBlock = decodeBody(RestPublishedSignedBlockContents, body,
                                  version).valueOr:
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                              $error)
-          forked = ForkedSignedBeaconBlock(restBlock)
+          forked = ForkedSignedBeaconBlock.init(restBlock)
 
-        if forked.kind != node.dag.cfg.consensusForkAtEpoch(
+        if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
              getForkedBlockField(forked, slot).epoch):
           doAssert strictVerification notin node.dag.updateFlags
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-        withBlck(forked):
+        case restBlock.kind
+        of ConsensusFork.Phase0:
+          var blck = restBlock.phase0Data
           blck.root = hash_tree_root(blck.message)
-          # TODO: Fetch blobs from EE when blck is deneb.SignedBeaconBlock
-          await node.router.routeSignedBeaconBlock(blck)
+          await node.router.routeSignedBeaconBlock(blck,
+                                                   Opt.none(SignedBlobSidecars))
+        of ConsensusFork.Altair:
+          var blck = restBlock.altairData
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(blck,
+                                                   Opt.none(SignedBlobSidecars))
+        of ConsensusFork.Bellatrix:
+          var blck = restBlock.bellatrixData
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(blck,
+                                                   Opt.none(SignedBlobSidecars))
+        of ConsensusFork.Capella:
+          var blck = restBlock.capellaData
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(blck,
+                                                   Opt.none(SignedBlobSidecars))
+        of ConsensusFork.Deneb:
+          var blck = restBlock.denebData.signed_block
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(
+            blck, Opt.some(asSeq restBlock.denebData.signed_blob_sidecars))
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -860,6 +882,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http202, BlockValidationError)
 
     return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+
+  # TODO
+  # Add POST /eth/v2/beacon/blocks
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/beacon/blocks/blinded_blocks.yaml
@@ -947,7 +972,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       let res = withBlck(forked):
         blck.root = hash_tree_root(blck.message)
-        await node.router.routeSignedBeaconBlock(blck)
+        await node.router.routeSignedBeaconBlock(blck,
+                                                 Opt.none(SignedBlobSidecars))
 
       if res.isErr():
         return RestApiResponse.jsonError(

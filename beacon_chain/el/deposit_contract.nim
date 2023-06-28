@@ -202,7 +202,7 @@ proc main() {.async.} =
   except Exception as exc: # TODO fix confutils
     raiseAssert exc.msg
 
-  let rng = keys.newRng()
+  let rng = HmacDrbgContext.new()
 
   if conf.cmd == StartUpCommand.generateSimulationDeposits:
     let

@@ -25,6 +25,7 @@ import
 
 from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
+from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
   el_conf, engine_api, deques, base, DepositTreeSnapshot
@@ -87,9 +88,6 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#request-2
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
-
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/experimental/blob-extension.md#request-2
-  GETBLOBS_TIMEOUT = 1.seconds
 
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see
@@ -427,11 +425,11 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
@@ -439,7 +437,7 @@ func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   compute_time_at_slot(
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -905,12 +903,7 @@ proc getPayload*(m: ELManager,
     randomData, suggestedFeeRecipient, engineApiWithdrawals)
 
   let
-    timeout = when PayloadType is deneb.ExecutionPayloadForSigning:
-      # TODO We should follow the spec and track the timeouts of
-      #      the individual engine API calls inside `getPayloadFromSingleEL`.
-      GETPAYLOAD_TIMEOUT + GETBLOBS_TIMEOUT
-    else:
-      GETPAYLOAD_TIMEOUT
+    timeout = GETPAYLOAD_TIMEOUT
     deadline = sleepAsync(timeout)
     requests = m.elConnections.mapIt(it.getPayloadFromSingleEL(
       EngineApiResponseType(PayloadType),
@@ -1061,10 +1054,11 @@ proc sendNewPayloadToSingleEL(connection: ELConnection,
   return await rpcClient.engine_newPayloadV2(payload)
 
 proc sendNewPayloadToSingleEL(connection: ELConnection,
-                              payload: engine_api.ExecutionPayloadV3):
+                              payload: engine_api.ExecutionPayloadV3,
+                              versioned_hashes: seq[engine_api.VersionedHash]):
                               Future[PayloadStatusV1] {.async.} =
   let rpcClient = await connection.connectedRpcClient()
-  return await rpcClient.engine_newPayloadV3(payload)
+  return await rpcClient.engine_newPayloadV3(payload, versioned_hashes)
 
 type
   StatusRelation = enum
@@ -1156,15 +1150,28 @@ proc processResponse[ELResponseType](
             url2 = connections[idx].engineUrl.url,
             status2 = status
 
-proc sendNewPayload*(m: ELManager,
-                     payload: engine_api.ExecutionPayloadV1 | engine_api.ExecutionPayloadV2 | engine_api.ExecutionPayloadV3):
+proc sendNewPayload*(m: ELManager, blockBody: SomeForkyBeaconBlockBody):
                      Future[PayloadExecutionStatus] {.async.} =
   let
     earlyDeadline = sleepAsync(chronos.seconds 1)
     startTime = Moment.now
     deadline = sleepAsync(NEWPAYLOAD_TIMEOUT)
+    payload = blockBody.execution_payload.asEngineExecutionPayload
     requests = m.elConnections.mapIt:
-      let req = sendNewPayloadToSingleEL(it, payload)
+      let req =
+        when payload is engine_api.ExecutionPayloadV3:
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
+          # Verify the execution payload is valid
+          # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
+          let versioned_hashes = mapIt(
+            blockBody.blob_kzg_commitments,
+            engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+          sendNewPayloadToSingleEL(it, payload, versioned_hashes)
+        elif payload is engine_api.ExecutionPayloadV1 or
+             payload is engine_api.ExecutionPayloadV2:
+          sendNewPayloadToSingleEL(it, payload)
+        else:
+          static: doAssert false
       trackEngineApiRequest(it, req, "newPayload", startTime, deadline)
       req
 
@@ -1641,7 +1648,7 @@ proc trackFinalizedState(chain: var Eth1Chain,
     else:
       error "Corrupted deposits history detected",
             ourDepositsCount = matchingBlock.depositCount,
-            taretDepositsCount = finalizedEth1Data.deposit_count,
+            targetDepositsCount = finalizedEth1Data.deposit_count,
             ourDepositsRoot = matchingBlock.depositRoot,
             targetDepositsRoot = finalizedEth1Data.deposit_root
       chain.hasConsensusViolation = true
@@ -1663,7 +1670,7 @@ template trackFinalizedState*(m: ELManager,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,

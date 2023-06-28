@@ -10,10 +10,10 @@
 import
   std/[os, strutils],
   chronicles, stew/shims/net, stew/results,
-  eth/keys, eth/p2p/discoveryv5/[enr, protocol, node],
+  eth/p2p/discoveryv5/[enr, protocol, node],
   ".."/[conf, conf_light_client]
 
-export protocol, keys
+export protocol
 
 type
   Eth2DiscoveryProtocol* = protocol.Protocol

@@ -6,11 +6,11 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Mainnet preset - Deneb
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/deneb.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/deneb.yaml
 const
   # `uint64(4096)`
   FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096
   # `uint64(2**12)` (= 4096)
   MAX_BLOB_COMMITMENTS_PER_BLOCK*: uint64 = 4096
   # `uint64(2**2)` (= 4)
-  MAX_BLOBS_PER_BLOCK*: uint64 = 4
+  MAX_BLOBS_PER_BLOCK*: uint64 = 6

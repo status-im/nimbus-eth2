@@ -49,21 +49,11 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
           res.add(ValidatorIdent.init(validator.pubkey))
       res
 
+  let start = Moment.now()
+
   var validators: seq[RestValidator]
-  var offset = 0
 
-  while offset < len(validatorIdents):
-    let arraySize = min(ClientMaximumValidatorIds, len(validatorIdents))
-
-    let idents =
-      block:
-        var res = newSeq[ValidatorIdent](arraySize)
-        var k = 0
-        for i in offset ..< arraySize:
-          res[k] = validatorIdents[i]
-          inc(k)
-        res
-
+  for idents in chunks(validatorIdents, ClientMaximumValidatorIds):
     let res =
       try:
         await vc.getValidators(idents, ApiStrategyKind.First)
@@ -78,11 +68,8 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
         error "Unexpected error occurred while getting validator information",
               err_name = exc.name, err_msg = exc.msg
         return
-
     for item in res:
       validators.add(item)
-
-    offset += arraySize
 
   var
     missing: seq[string]
@@ -104,7 +91,8 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
     info "Validator indices updated",
       pending = len(validatorIdents) - len(updated),
       missing = len(missing),
-      updated = len(updated)
+      updated = len(updated),
+      elapsed_time = (Moment.now() - start)
     trace "Validator indices update dump", missing_validators = missing,
           updated_validators = updated
     vc.indicesAvailable.fire()
@@ -305,7 +293,9 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
               validator_sync_committee_index: validatorSyncCommitteeIndex))
         res
 
-    fork = vc.forkAtEpoch(epoch)
+    nextEpoch = epoch + 1
+    nextEpochHasSameDuties = 
+      epoch.sync_committee_period == nextEpoch.sync_committee_period
 
   let addOrReplaceItems =
     block:
@@ -318,6 +308,10 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
           map.duties.withValue(epoch, epochDuty):
             if epochDuty[] != duty:
               dutyFound = true
+          if nextEpochHasSameDuties:
+            map.duties.withValue(nextEpoch, epochDuty):
+              if epochDuty[] != duty:
+                dutyFound = true
 
         if dutyFound and not alreadyWarned:
           info "Sync committee duties re-organization", duty, epoch
@@ -331,6 +325,8 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef,
       var validatorDuties =
         vc.syncCommitteeDuties.getOrDefault(duty.pubkey)
       validatorDuties.duties[epoch] = duty
+      if nextEpochHasSameDuties:
+        validatorDuties.duties[nextEpoch] = duty
       vc.syncCommitteeDuties[duty.pubkey] = validatorDuties
 
   return len(addOrReplaceItems)
@@ -409,7 +405,9 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
-    currentEpoch = currentSlot.epoch()
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#sync-committee
+    dutySlot = currentSlot + 1
+    dutyEpoch = dutySlot.epoch()
 
   if vc.attachedValidators[].count() != 0:
     let
@@ -417,15 +415,14 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
         block:
           var res: seq[tuple[epoch: Epoch, period: SyncCommitteePeriod]]
           let
-            currentPeriod = currentSlot.sync_committee_period()
-            lookaheadSlot = currentSlot +
-                            SUBSCRIPTION_LOOKAHEAD_EPOCHS * SLOTS_PER_EPOCH
-            lookaheadPeriod = lookaheadSlot.sync_committee_period()
+            dutyPeriod = dutySlot.sync_committee_period()
+            lookaheadEpoch = dutyEpoch + SUBSCRIPTION_LOOKAHEAD_EPOCHS
+            lookaheadPeriod = lookaheadEpoch.sync_committee_period()
           res.add(
-            (epoch: currentSlot.epoch(),
-             period: currentPeriod)
+            (epoch: dutyEpoch,
+             period: dutyPeriod)
           )
-          if lookaheadPeriod > currentPeriod:
+          if lookaheadPeriod > dutyPeriod:
             res.add(
               (epoch: lookaheadPeriod.start_epoch(),
                period: lookaheadPeriod)
@@ -446,7 +443,7 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
 
     if total == 0:
       debug "No new sync committee member's duties received",
-            slot = currentSlot
+            slot = dutySlot
 
     let subscriptions =
       block:
@@ -470,10 +467,10 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
       let res = await vc.prepareSyncCommitteeSubnets(subscriptions)
       if res == 0:
         warn "Failed to subscribe validators to sync committee subnets",
-             slot = currentSlot, epoch = currentEpoch,
+             slot = dutySlot, epoch = dutyEpoch,
              subscriptions_count = len(subscriptions)
 
-  service.pruneSyncCommitteeDuties(currentSlot)
+  service.pruneSyncCommitteeDuties(dutySlot)
 
 proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client

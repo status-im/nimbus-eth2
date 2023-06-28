@@ -16,7 +16,7 @@
 
 import
   confutils, chronicles, eth/db/kvstore_sqlite3,
-  chronos/timer, eth/keys, taskpools,
+  chronos/timer, taskpools,
   ../tests/testblockutil,
   ../beacon_chain/spec/[forks, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, deneb],
@@ -313,19 +313,20 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   ChainDAGRef.preInit(db, genesisState[])
   db.putDepositTreeSnapshot(depositTreeSnapshot)
 
+  let rng = HmacDrbgContext.new()
   var
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     eth1Chain = Eth1Chain.init(cfg, db, 0, default Eth2Digest)
     merkleizer = DepositsMerkleizer.init(depositTreeSnapshot.depositContractState)
     taskpool = Taskpool.new()
-    verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+    verifier = BatchVerifier(rng: rng, taskpool: taskpool)
     quarantine = newClone(Quarantine.init())
     attPool = AttestationPool.init(dag, quarantine)
     batchCrypto = BatchCrypto.new(
-      keys.newRng(), eager = func(): bool = true,
+      rng, eager = func(): bool = true,
       genesis_validators_root = dag.genesis_validators_root, taskpool)
-    syncCommitteePool = newClone SyncCommitteeMsgPool.init(keys.newRng(), cfg)
+    syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)

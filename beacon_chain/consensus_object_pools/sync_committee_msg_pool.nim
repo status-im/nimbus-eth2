@@ -333,8 +333,9 @@ proc produceSyncAggregateAux(
 proc produceSyncAggregate*(
     pool: SyncCommitteeMsgPool,
     bid: BlockId,
-    slot: Slot): SyncAggregate =
-  let target = pool.cfg.toSyncMsgTarget(bid, slot)
+    signatureSlot: Slot): SyncAggregate =
+  # Sync committee signs previous slot, relative to when new block is produced
+  let target = pool.cfg.toSyncMsgTarget(bid, max(signatureSlot, 1.Slot) - 1)
   if target in pool.bestContributions:
     try:
       produceSyncAggregateAux(pool.bestContributions[target])
@@ -345,7 +346,7 @@ proc produceSyncAggregate*(
 
 proc isEpochLeadTime*(
     pool: SyncCommitteeMsgPool, epochsToSyncPeriod: uint64): bool =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#sync-committee-subnet-stability
   # This ensures a uniform distribution without requiring additional state:
   # (1/4)                         = 1/4, 4 slots out
   # (3/4) * (1/3)                 = 1/4, 3 slots out

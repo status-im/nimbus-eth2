@@ -7,7 +7,6 @@
 
 import
   chronicles,
-  eth/keys,
   stew/endians2,
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ../beacon_chain/spec/datatypes/bellatrix,
@@ -26,7 +25,7 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/tests/core/pyspec/eth2spec/test/helpers/keys.py
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/tests/core/pyspec/eth2spec/test/helpers/keys.py
 func `[]`*(_: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
   var bytes = (index.uint64 + 1'u64).toBytesLE()  # Consistent with EF tests
   static: doAssert sizeof(bytes) <= sizeof(result)
@@ -267,7 +266,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,
@@ -423,7 +422,8 @@ proc makeSyncAggregate(
       getStateField(state, slot)
     latest_block_id =
       withState(state): forkyState.latest_block_id
-    syncCommitteePool = newClone(SyncCommitteeMsgPool.init(keys.newRng(), cfg))
+    rng = HmacDrbgContext.new()
+    syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
 
   type
     Aggregator = object
@@ -514,7 +514,7 @@ proc makeSyncAggregate(
         signedContributionAndProof,
         latest_block_id, contribution.signature.load.get)
 
-  syncCommitteePool[].produceSyncAggregate(latest_block_id, slot)
+  syncCommitteePool[].produceSyncAggregate(latest_block_id, slot + 1)
 
 iterator makeTestBlocks*(
   state: ForkedHashedBeaconState,

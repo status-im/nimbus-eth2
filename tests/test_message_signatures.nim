@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -57,6 +57,36 @@ suite "Message signatures":
         fork0, genesis_validators_root0, slot, root, pubkey0,
         get_block_signature(
           fork0, genesis_validators_root1, slot, root, privkey0).toValidatorSig)
+
+  test "Blob sidecar signatures":
+    let
+      slot = default(Slot)
+      blob = default(BlobSidecar)
+
+    check:
+      # Matching public/private keys and genesis validator roots
+      verify_blob_signature(
+        fork0, genesis_validators_root0, slot, blob, pubkey0,
+        get_blob_sidecar_signature(
+          fork0, genesis_validators_root0, slot, blob, privkey0).toValidatorSig)
+
+      # Mismatched public/private keys
+      not verify_blob_signature(
+        fork0, genesis_validators_root0, slot, blob, pubkey0,
+        get_blob_sidecar_signature(
+          fork0, genesis_validators_root0, slot, blob, privkey1).toValidatorSig)
+
+      # Mismatched forks
+      not verify_blob_signature(
+        fork0, genesis_validators_root0, slot, blob, pubkey0,
+        get_blob_sidecar_signature(
+          fork1, genesis_validators_root0, slot, blob, privkey0).toValidatorSig)
+
+      # Mismatched genesis validator roots
+      not verify_blob_signature(
+        fork0, genesis_validators_root0, slot, blob, pubkey0,
+        get_blob_sidecar_signature(
+          fork0, genesis_validators_root1, slot, blob, privkey0).toValidatorSig)
 
   test "Aggregate and proof signatures":
     let aggregate_and_proof = AggregateAndProof(

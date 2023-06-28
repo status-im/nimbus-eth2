@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  stew/objects,
   chronos, metrics,
   ../spec/light_client_sync,
   ../consensus_object_pools/block_pools_types,
@@ -529,7 +528,7 @@ func toValidationError(
       # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -544,7 +543,7 @@ proc processLightClientFinalityUpdate*(
   self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

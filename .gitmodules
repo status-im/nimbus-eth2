@@ -24,7 +24,7 @@
 	path = vendor/nim-libp2p
 	url = https://github.com/status-im/nim-libp2p.git
 	ignore = untracked
-	branch = master
+	branch = unstable
 [submodule "vendor/nimbus-build-system"]
 	path = vendor/nimbus-build-system
 	url = https://github.com/status-im/nimbus-build-system.git
@@ -203,9 +203,15 @@
 [submodule "vendor/gnosis-chain-configs"]
 	path = vendor/gnosis-chain-configs
 	url = https://github.com/gnosischain/configs.git
+	ignore = untracked
+	branch = main
 [submodule "vendor/sepolia"]
 	path = vendor/sepolia
 	url = https://github.com/eth-clients/sepolia.git
+	ignore = untracked
+	branch = main
 [submodule "vendor/nim-kzg4844"]
 	path = vendor/nim-kzg4844
-	url = https://github.com/status-im/nim-kzg4844/
+	url = https://github.com/status-im/nim-kzg4844.git
+	ignore = untracked
+	branch = master

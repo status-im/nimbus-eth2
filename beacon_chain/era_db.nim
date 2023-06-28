@@ -8,7 +8,7 @@ import
   std/os,
   chronicles,
   stew/results, snappy, taskpools,
-  ../ncli/e2store, eth/keys,
+  ../ncli/e2store,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[beaconstate, forks, signatures_batch],
   ./consensus_object_pools/block_dag # TODO move to somewhere else to avoid circular deps
@@ -167,9 +167,9 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
     startSlot = f.stateIdx.startSlot
     era = startSlot.era
 
-  var
+    rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
-    verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+  var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
 
   var tmp: seq[byte]
   ? f.getStateSSZ(startSlot, tmp)
