@@ -10,7 +10,7 @@
 import
   # Status libraries
   stew/results, chronicles,
-  eth/keys, taskpools,
+  taskpools,
   # Internals
   ../../beacon_chain/spec/[helpers, forks, state_transition_block],
   ../../beacon_chain/spec/datatypes/[
@@ -348,9 +348,10 @@ proc doRunTest(path: string, fork: ConsensusFork) =
     of ConsensusFork.Phase0:
       initialLoad(path, db, phase0.BeaconState, phase0.BeaconBlock)
 
-  var
+  let
+    rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
-    verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+  var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
 
   let steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time

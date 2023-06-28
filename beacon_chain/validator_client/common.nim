@@ -11,11 +11,13 @@ import
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
   metrics, metrics/chronos_httpserver,
-  ".."/spec/datatypes/[phase0, altair],
+  ".."/spec/datatypes/[base, phase0, altair],
   ".."/spec/[eth2_merkleization, helpers, signatures, validator],
   ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
                        dynamic_fee_recipients],
-  ".."/validators/[keystore_management, validator_pool, slashing_protection],
+  ".."/consensus_object_pools/block_pools_types,
+  ".."/validators/[keystore_management, validator_pool, slashing_protection,
+                   validator_duties],
   ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
 from std/times import Time, toUnix, fromUnix, getTime
@@ -26,7 +28,8 @@ export
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
   beacon_clock, keystore_management, slashing_protection, validator_pool,
-  dynamic_fee_recipients, Time, toUnix, fromUnix, getTime
+  dynamic_fee_recipients, Time, toUnix, fromUnix, getTime, block_pools_types,
+  base, metrics
 
 const
   SYNC_TOLERANCE* = 4'u64
@@ -104,19 +107,28 @@ type
     AttestationData, AttestationPublish,
     AggregatedData, AggregatedPublish,
     BlockProposalData, BlockProposalPublish,
-    SyncCommitteeData, SyncCommitteePublish
+    SyncCommitteeData, SyncCommitteePublish,
+    NoTimeCheck
+
+  RestBeaconNodeFeature* {.pure.} = enum
+    NoNimbusExtensions  ## BN do not supports Nimbus Extensions
+
+  TimeOffset* = object
+    value: int64
 
   BeaconNodeServer* = object
     client*: RestClientRef
     endpoint*: string
-    config*: Opt[RestSpecVC]
+    config*: VCRuntimeConfig
     ident*: Opt[string]
     genesis*: Opt[RestGenesis]
     syncInfo*: Opt[RestSyncInfo]
     status*: RestBeaconNodeStatus
+    features*: set[RestBeaconNodeFeature]
     roles*: set[BeaconNodeRole]
     logIdent*: string
     index*: int
+    timeOffset*: Opt[TimeOffset]
 
   EpochDuties* = object
     duties*: Table[Epoch, DutyAndProof]
@@ -134,6 +146,7 @@ type
     Synced,             ## BN and EL are synced.
     UnexpectedCode,     ## BN sends unexpected/incorrect HTTP status code .
     UnexpectedResponse, ## BN sends unexpected/incorrect response.
+    BrokenClock,        ## BN wall clock is broken or has significan offset.
     InternalError       ## BN reports internal error.
 
   BeaconNodesCounters* = object
@@ -150,6 +163,14 @@ type
 
   DoppelgangerAttempt* {.pure.} = enum
     None, Failure, SuccessTrue, SuccessFalse
+
+  BlockWaiter* = object
+    future*: Future[seq[Eth2Digest]]
+    count*: int
+
+  BlockDataItem* = object
+    blocks: seq[Eth2Digest]
+    waiters*: seq[BlockWaiter]
 
   ValidatorClient* = object
     config*: ValidatorClientConf
@@ -186,6 +207,8 @@ type
     proposerTasks*: Table[Slot, seq[ProposerTask]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
+    blocksSeen*: Table[Slot, BlockDataItem]
+    processingDelay*: Opt[Duration]
     rng*: ref HmacDrbgContext
 
   ApiStrategyKind* {.pure.} = enum
@@ -222,8 +245,36 @@ const
     BeaconNodeRole.BlockProposalData,
     BeaconNodeRole.BlockProposalPublish,
     BeaconNodeRole.SyncCommitteeData,
-    BeaconNodeRole.SyncCommitteePublish,
+    BeaconNodeRole.SyncCommitteePublish
   }
+    ## AllBeaconNodeRoles missing BeaconNodeRole.NoTimeCheck, because timecheks
+    ## are enabled by default.
+
+  AllBeaconNodeStatuses* = {
+    RestBeaconNodeStatus.Offline,
+    RestBeaconNodeStatus.Online,
+    RestBeaconNodeStatus.Incompatible,
+    RestBeaconNodeStatus.Compatible,
+    RestBeaconNodeStatus.NotSynced,
+    RestBeaconNodeStatus.OptSynced,
+    RestBeaconNodeStatus.Synced,
+    RestBeaconNodeStatus.UnexpectedCode,
+    RestBeaconNodeStatus.UnexpectedResponse,
+    RestBeaconNodeStatus.BrokenClock,
+    RestBeaconNodeStatus.InternalError
+  }
+
+proc `$`*(to: TimeOffset): string =
+  if to.value < 0:
+    "-" & $chronos.nanoseconds(-to.value)
+  else:
+    $chronos.nanoseconds(to.value)
+
+chronicles.formatIt(TimeOffset):
+  $it
+
+chronicles.formatIt(Opt[TimeOffset]):
+  if it.isSome(): $(it.get()) else: "<unknown>"
 
 proc `$`*(roles: set[BeaconNodeRole]): string =
   if card(roles) > 0:
@@ -247,6 +298,8 @@ proc `$`*(roles: set[BeaconNodeRole]): string =
         res.add("sync-data")
       if BeaconNodeRole.SyncCommitteePublish in roles:
         res.add("sync-publish")
+      if BeaconNodeRole.NoTimeCheck in roles:
+        res.add("no-timecheck")
       res.join(",")
     else:
       "{all}"
@@ -265,6 +318,7 @@ proc `$`*(status: RestBeaconNodeStatus): string =
   of RestBeaconNodeStatus.UnexpectedCode: "unexpected code"
   of RestBeaconNodeStatus.UnexpectedResponse: "unexpected data"
   of RestBeaconNodeStatus.InternalError: "internal error"
+  of RestBeaconNodeStatus.BrokenClock: "broken clock"
 
 proc `$`*(failure: ApiFailure): string =
   case failure
@@ -333,7 +387,7 @@ proc getFailureReason*(exc: ref ValidatorApiError): string =
     exc.msg
 
 proc shortLog*(roles: set[BeaconNodeRole]): string =
-  var r = "AGBSD"
+  var r = "AGBSDT"
   if BeaconNodeRole.AttestationData in roles:
     if BeaconNodeRole.AttestationPublish in roles: r[0] = 'A' else: r[0] = 'a'
   else:
@@ -353,6 +407,7 @@ proc shortLog*(roles: set[BeaconNodeRole]): string =
     if BeaconNodeRole.SyncCommitteePublish in roles:
       r[3] = '+' else: r[3] = '-'
   if BeaconNodeRole.Duties in roles: r[4] = 'D' else: r[4] = '-'
+  if BeaconNodeRole.NoTimeCheck notin roles: r[5] = 'T' else: r[5] = '-'
   r
 
 proc `$`*(bn: BeaconNodeServerRef): string =
@@ -396,29 +451,62 @@ chronicles.expandIt(SyncCommitteeDuty):
   validator_index = it.validator_index
   validator_sync_committee_index = it.validator_sync_committee_index
 
-proc checkConfig*(info: RestSpecVC): bool =
-  # /!\ Keep in sync with `spec/eth2_apis/rest_types.nim` > `RestSpecVC`.
-  info.MAX_VALIDATORS_PER_COMMITTEE == MAX_VALIDATORS_PER_COMMITTEE and
-  info.SLOTS_PER_EPOCH == SLOTS_PER_EPOCH and
-  info.SECONDS_PER_SLOT == SECONDS_PER_SLOT and
-  info.EPOCHS_PER_ETH1_VOTING_PERIOD == EPOCHS_PER_ETH1_VOTING_PERIOD and
-  info.SLOTS_PER_HISTORICAL_ROOT == SLOTS_PER_HISTORICAL_ROOT and
-  info.EPOCHS_PER_HISTORICAL_VECTOR == EPOCHS_PER_HISTORICAL_VECTOR and
-  info.EPOCHS_PER_SLASHINGS_VECTOR == EPOCHS_PER_SLASHINGS_VECTOR and
-  info.HISTORICAL_ROOTS_LIMIT == HISTORICAL_ROOTS_LIMIT and
-  info.VALIDATOR_REGISTRY_LIMIT == VALIDATOR_REGISTRY_LIMIT and
-  info.MAX_PROPOSER_SLASHINGS == MAX_PROPOSER_SLASHINGS and
-  info.MAX_ATTESTER_SLASHINGS == MAX_ATTESTER_SLASHINGS and
-  info.MAX_ATTESTATIONS == MAX_ATTESTATIONS and
-  info.MAX_DEPOSITS == MAX_DEPOSITS and
-  info.MAX_VOLUNTARY_EXITS == MAX_VOLUNTARY_EXITS and
-  info.DOMAIN_BEACON_PROPOSER == DOMAIN_BEACON_PROPOSER and
-  info.DOMAIN_BEACON_ATTESTER == DOMAIN_BEACON_ATTESTER and
-  info.DOMAIN_RANDAO == DOMAIN_RANDAO and
-  info.DOMAIN_DEPOSIT == DOMAIN_DEPOSIT and
-  info.DOMAIN_VOLUNTARY_EXIT == DOMAIN_VOLUNTARY_EXIT and
-  info.DOMAIN_SELECTION_PROOF == DOMAIN_SELECTION_PROOF and
-  info.DOMAIN_AGGREGATE_AND_PROOF == DOMAIN_AGGREGATE_AND_PROOF
+proc equals*(info: VCRuntimeConfig, name: string, check: uint64): bool =
+  let numstr = info.getOrDefault(name, "missing")
+  if numstr == "missing": return false
+  let value = Base10.decode(uint64, numstr).valueOr:
+    return false
+  value == check
+
+proc equals*(info: VCRuntimeConfig, name: string, check: DomainType): bool =
+  let domstr = info.getOrDefault(name, "missing")
+  if domstr == "missing": return false
+  let value =
+    try:
+      var dres: DomainType
+      hexToByteArray(domstr, distinctBase(dres))
+      dres
+    except ValueError:
+      return false
+  value == check
+
+proc equals*(info: VCRuntimeConfig, name: string, check: Epoch): bool =
+  info.equals(name, uint64(check))
+
+proc getOrDefault*(info: VCRuntimeConfig, name: string,
+                   default: uint64): uint64 =
+  let numstr = info.getOrDefault(name, "missing")
+  if numstr == "missing": return default
+  Base10.decode(uint64, numstr).valueOr:
+    return default
+
+proc getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
+  Epoch(info.getOrDefault(name, uint64(default)))
+
+proc checkConfig*(c: VCRuntimeConfig): bool =
+  c.equals("MAX_VALIDATORS_PER_COMMITTEE", MAX_VALIDATORS_PER_COMMITTEE) and
+  c.equals("SLOTS_PER_EPOCH", SLOTS_PER_EPOCH) and
+  c.equals("SECONDS_PER_SLOT", SECONDS_PER_SLOT) and
+  c.equals("EPOCHS_PER_ETH1_VOTING_PERIOD", EPOCHS_PER_ETH1_VOTING_PERIOD) and
+  c.equals("SLOTS_PER_HISTORICAL_ROOT", SLOTS_PER_HISTORICAL_ROOT) and
+  c.equals("EPOCHS_PER_HISTORICAL_VECTOR", EPOCHS_PER_HISTORICAL_VECTOR) and
+  c.equals("EPOCHS_PER_SLASHINGS_VECTOR", EPOCHS_PER_SLASHINGS_VECTOR) and
+  c.equals("HISTORICAL_ROOTS_LIMIT", HISTORICAL_ROOTS_LIMIT) and
+  c.equals("VALIDATOR_REGISTRY_LIMIT", VALIDATOR_REGISTRY_LIMIT) and
+  c.equals("MAX_PROPOSER_SLASHINGS", MAX_PROPOSER_SLASHINGS) and
+  c.equals("MAX_ATTESTER_SLASHINGS", MAX_ATTESTER_SLASHINGS) and
+  c.equals("MAX_ATTESTATIONS", MAX_ATTESTATIONS) and
+  c.equals("MAX_DEPOSITS", MAX_DEPOSITS) and
+  c.equals("MAX_VOLUNTARY_EXITS", MAX_VOLUNTARY_EXITS) and
+  c.equals("DOMAIN_BEACON_PROPOSER", DOMAIN_BEACON_PROPOSER) and
+  c.equals("DOMAIN_BEACON_ATTESTER", DOMAIN_BEACON_ATTESTER) and
+  c.equals("DOMAIN_RANDAO", DOMAIN_RANDAO) and
+  c.equals("DOMAIN_DEPOSIT", DOMAIN_DEPOSIT) and
+  c.equals("DOMAIN_VOLUNTARY_EXIT", DOMAIN_VOLUNTARY_EXIT) and
+  c.equals("DOMAIN_SELECTION_PROOF", DOMAIN_SELECTION_PROOF) and
+  c.equals("DOMAIN_AGGREGATE_AND_PROOF", DOMAIN_AGGREGATE_AND_PROOF) and
+  c.hasKey("ALTAIR_FORK_VERSION") and c.hasKey("ALTAIR_FORK_EPOCH") and
+  not(c.equals("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH))
 
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,
@@ -490,6 +578,10 @@ proc updateStatus*(node: BeaconNodeServerRef,
       warn "Beacon node reports internal error",
            reason = failure.getFailureReason()
       node.status = status
+  of RestBeaconNodeStatus.BrokenClock:
+    if node.status != status:
+      warn "Beacon node's clock is out of order, (beacon node is unusable)"
+      node.status = status
 
 proc stop*(csr: ClientServiceRef) {.async.} =
   debug "Stopping service", service = csr.name
@@ -550,8 +642,12 @@ proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
       res.incl(BeaconNodeRole.SyncCommitteePublish)
     of "duties":
       res.incl(BeaconNodeRole.Duties)
+    of "no-timecheck":
+      res.incl(BeaconNodeRole.NoTimeCheck)
     else:
       return err("Invalid beacon node role string found")
+  if res == {BeaconNodeRole.NoTimeCheck}:
+    res.incl(AllBeaconNodeRoles)
   ok(res)
 
 proc normalizeUri*(r: Uri): Result[Uri, cstring] =
@@ -590,18 +686,14 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
   doAssert(index >= 0)
   let
     flags = {RestClientFlag.CommaSeparatedArray}
+    socketFlags = {SocketFlags.TcpNoDelay}
     remoteUri = normalizeUri(remote).valueOr:
-      return err("Invalid URL: " & $error)
-    client =
-      block:
-        let res = RestClientRef.new($remoteUri, flags = flags)
-        if res.isErr(): return err($res.error())
-        res.get()
-    roles =
-      block:
-        let res = parseRoles(remoteUri.anchor)
-        if res.isErr(): return err($res.error())
-        res.get()
+      return err($error)
+    client = RestClientRef.new($remoteUri, flags = flags,
+                               socketFlags = socketFlags).valueOr:
+      return err($error)
+    roles = parseRoles(remoteUri.anchor).valueOr:
+      return err($error)
 
   let server = BeaconNodeServerRef(
     client: client, endpoint: $remoteUri, index: index, roles: roles,
@@ -894,7 +986,7 @@ proc getValidatorRegistration(
     let sigfut = validator.getBuilderSignature(fork, registration.message)
     if sigfut.finished():
       # This is short-path if we able to create signature locally.
-      if not(sigfut.done()):
+      if not(sigfut.completed()):
         let exc = sigfut.readError()
         debug "Got unexpected exception while signing validator registration",
               validator = shortLog(validator), error_name = $exc.name,
@@ -962,7 +1054,7 @@ proc prepareRegistrationList*(
     await allFutures(futures)
 
   for index, future in futures.pairs():
-    if future.done():
+    if future.completed():
       let sres = future.read()
       if sres.isOk():
         var reg = messages[index]
@@ -1084,3 +1176,170 @@ proc checkedWaitForNextSlot*(vc: ValidatorClientRef, curSlot: Opt[Slot],
     nextSlot = currentSlot + 1
 
   vc.checkedWaitForSlot(nextSlot, offset, showLogs)
+
+proc checkedWaitForNextSlot*(vc: ValidatorClientRef, offset: TimeDiff,
+                             showLogs: bool): Future[Opt[Slot]] =
+  let
+    currentTime = vc.beaconClock.now()
+    currentSlot = currentTime.slotOrZero()
+    nextSlot = currentSlot + 1
+
+  vc.checkedWaitForSlot(nextSlot, offset, showLogs)
+
+proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
+                  confirmations: int = 1): Future[seq[Eth2Digest]] =
+  var
+    retFuture = newFuture[seq[Eth2Digest]]("expectBlock")
+    waiter = BlockWaiter(future: retFuture, count: confirmations)
+
+  proc cancellation(udata: pointer) =
+    vc.blocksSeen.withValue(slot, adata):
+      adata[].waiters.keepItIf(it.future != retFuture)
+
+  proc scheduleCallbacks(data: var BlockDataItem,
+                         waiter: BlockWaiter) =
+    data.waiters.add(waiter)
+    for mitem in data.waiters.mitems():
+      if mitem.count <= len(data.blocks):
+        if not(mitem.future.finished()): mitem.future.complete(data.blocks)
+
+  vc.blocksSeen.mgetOrPut(slot, BlockDataItem()).scheduleCallbacks(waiter)
+  if not(retFuture.finished()): retFuture.cancelCallback = cancellation
+  retFuture
+
+proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject,
+                    node: BeaconNodeServerRef) =
+  let
+    wallTime = vc.beaconClock.now()
+    delay = wallTime - data.slot.start_beacon_time()
+
+  debug "Block received", slot = data.slot,
+        block_root = shortLog(data.block_root), optimistic = data.optimistic,
+        node = node, delay = delay
+
+  proc scheduleCallbacks(data: var BlockDataItem,
+                         blck: EventBeaconBlockObject) =
+    data.blocks.add(blck.block_root)
+    for mitem in data.waiters.mitems():
+      if mitem.count >= len(data.blocks):
+        if not(mitem.future.finished()): mitem.future.complete(data.blocks)
+  vc.blocksSeen.mgetOrPut(data.slot, BlockDataItem()).scheduleCallbacks(data)
+
+proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
+  var blocksSeen: Table[Slot, BlockDataItem]
+  for slot, item in vc.blocksSeen.pairs():
+    if (slot.epoch() + HISTORICAL_DUTIES_EPOCHS) >= epoch:
+      blocksSeen[slot] = item
+    else:
+      let blockRoot =
+        if len(item.blocks) == 0:
+          "<missing>"
+        elif len(item.blocks) == 1:
+          shortLog(item.blocks[0])
+        else:
+          "[" & item.blocks.mapIt(shortLog(it)).join(", ") & "]"
+      debug "Block data has been pruned", slot = slot, blocks = blockRoot
+  vc.blocksSeen = blocksSeen
+
+proc waitForBlock*(
+       vc: ValidatorClientRef,
+       slot: Slot,
+       timediff: TimeDiff,
+       confirmations: int = 1
+     ) {.async.} =
+  ## This procedure will wait for a block proposal for a ``slot`` received
+  ## by the beacon node.
+  let
+    startTime = Moment.now()
+    waitTime = (start_beacon_time(slot) + timediff) - vc.beaconClock.now()
+
+  logScope:
+    slot = slot
+    timediff = timediff
+    wait_time = waitTime
+
+  debug "Waiting for block proposal"
+
+  if waitTime.nanoseconds <= 0'i64:
+    # We do not have time to wait for block.
+    return
+
+  let blocks =
+    try:
+      let timeout = nanoseconds(waitTime.nanoseconds)
+      await vc.expectBlock(slot, confirmations).wait(timeout)
+    except AsyncTimeoutError:
+      let dur = Moment.now() - startTime
+      debug "Block has not been received in time", duration = dur
+      return
+    except CancelledError as exc:
+      let dur = Moment.now() - startTime
+      debug "Block awaiting was interrupted", duration = dur
+      raise exc
+    except CatchableError as exc:
+      let dur = Moment.now() - startTime
+      error "Unexpected error occured while waiting for block publication",
+            err_name = exc.name, err_msg = exc.msg, duration = dur
+      return
+
+  let
+    dur = Moment.now() - startTime
+    blockRoot =
+      if len(blocks) == 0:
+        "<missing>"
+      elif len(blocks) == 1:
+        shortLog(blocks[0])
+      else:
+        "[" & blocks.mapIt(shortLog(it)).join(", ") & "]"
+
+  debug "Block proposal awaited", duration = dur,
+        block_root = blockRoot
+
+  try:
+    await waitAfterBlockCutoff(vc.beaconClock, slot)
+  except CancelledError as exc:
+    let dur = Moment.now() - startTime
+    debug "Waiting for block cutoff was interrupted", duration = dur
+    raise exc
+
+iterator chunks*[T](data: openArray[T], maxCount: Positive): seq[T] =
+  for i in countup(0, len(data) - 1, maxCount):
+    yield @(data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
+    
+func init*(t: typedesc[TimeOffset], duration: Duration): TimeOffset =
+  TimeOffset(value: duration.nanoseconds)
+
+func init*(t: typedesc[TimeOffset], offset: int64): TimeOffset =
+  TimeOffset(value: offset)
+
+func abs*(to: TimeOffset): TimeOffset =
+  TimeOffset(value: abs(to.value))
+
+func milliseconds*(to: TimeOffset): int64 =
+  if to.value < 0:
+    -nanoseconds(-to.value).milliseconds
+  else:
+    nanoseconds(-to.value).milliseconds
+
+func `<`*(a, b: TimeOffset): bool = a.value < b.value
+func `<=`*(a, b: TimeOffset): bool = a.value <= b.value
+func `==`*(a, b: TimeOffset): bool = a.value == b.value
+
+func nanoseconds*(to: TimeOffset): int64 = to.value
+
+proc waitForNextEpoch*(service: ClientServiceRef,
+                       delay: Duration) {.async.} =
+  let
+    vc = service.client
+    sleepTime = vc.beaconClock.durationToNextEpoch() + delay
+  debug "Sleeping until next epoch", service = service.name,
+                                     sleep_time = sleepTime, delay = delay
+  await sleepAsync(sleepTime)
+
+proc waitForNextEpoch*(service: ClientServiceRef): Future[void] =
+  waitForNextEpoch(service, ZeroDuration)
+
+proc waitForNextSlot*(service: ClientServiceRef) {.async.} =
+  let vc = service.client
+  let sleepTime = vc.beaconClock.durationToNextSlot()
+  await sleepAsync(sleepTime)

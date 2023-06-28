@@ -13,7 +13,6 @@ import
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
-  eth/keys,
   ./consensus_object_pools/blob_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/topic_params,
@@ -636,7 +635,7 @@ proc init*(T: type BeaconNode,
 
   let restServer = if config.restEnabled:
     RestServerRef.init(config.restAddress, config.restPort,
-                       config.keymanagerAllowedOrigin,
+                       config.restAllowedOrigin,
                        validateBeaconApiQueries,
                        config)
   else:
@@ -666,6 +665,12 @@ proc init*(T: type BeaconNode,
     withState(dag.headState):
       getValidator(forkyState().data.validators.asSeq(), pubkey)
 
+  proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
+    Opt.some(dag.forkAtEpoch(epoch))
+
+  proc getGenesisRoot(): Eth2Digest =
+    getStateField(dag.headState, genesis_validators_root)
+
   let
     slashingProtectionDB =
       SlashingProtectionDB.init(
@@ -684,8 +689,11 @@ proc init*(T: type BeaconNode,
         config.secretsDir,
         config.defaultFeeRecipient,
         config.suggestedGasLimit,
+        config.getPayloadBuilderAddress,
         getValidatorAndIdx,
-        getBeaconTime)
+        getBeaconTime,
+        getForkForEpoch,
+        getGenesisRoot)
     else: nil
 
     stateTtlCache =
@@ -1302,6 +1310,8 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
     finalizedEpoch = node.dag.finalizedHead.blck.slot.epoch()
     delay = wallTime - expectedSlot.start_beacon_time()
 
+  node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
+
   info "Slot start",
     slot = shortLog(wallSlot),
     epoch = shortLog(wallSlot.epoch),
@@ -1362,7 +1372,11 @@ proc handleMissingBlobs(node: BeaconNode) =
 
     if not node.blobQuarantine[].hasBlobs(blobless):
       let missing = node.blobQuarantine[].blobFetchRecord(blobless)
-      doAssert not len(missing.indices) == 0
+      if len(missing.indices) == 0:
+        warn "quarantine missing blobs, but missing indices is empty",
+         blk=blobless.root,
+         indices=node.blobQuarantine[].blobIndices(blobless.root),
+         kzgs=len(blobless.message.body.blob_kzg_commitments)
       fetches.add(missing)
     else:
       # this is a programming error should it occur.
@@ -1418,6 +1432,7 @@ func connectedPeersCount(node: BeaconNode): int =
 
 proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installBeaconApiHandlers(node)
+  restServer.router.installBuilderApiHandlers(node)
   restServer.router.installConfigApiHandlers(node)
   restServer.router.installDebugApiHandlers(node)
   restServer.router.installEventApiHandlers(node)
@@ -1508,7 +1523,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Altair:
         # sync_committee_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
         for subcommitteeIdx in SyncSubcommitteeIndex:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = subcommitteeIdx
@@ -1543,12 +1558,12 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{index}
-        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blob_sidecar_index
-        for i in 0 ..< MAX_BLOBS_PER_BLOCK:
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+        for i in 0 ..< BLOB_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = i
             node.network.addValidator(
-              getBlobSidecarTopic(digest, idx), proc (
+              getBlobSidecarTopic(digest, SubnetId(idx)), proc (
                 signedBlobSidecar: SignedBlobSidecar
               ): ValidationResult =
                 toValidationResult(
@@ -1880,7 +1895,11 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   let node = BeaconNode.init(rng, config, metadata)
 
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    let res = conf.loadKzgTrustedSetup()
+    let res =
+      if config.trustedSetupFile.isNone:
+        conf.loadKzgTrustedSetup()
+      else:
+        conf.loadKzgTrustedSetup(config.trustedSetupFile.get)
     if res.isErr():
       raiseAssert res.error()
 
@@ -1991,7 +2010,7 @@ proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [Defect, CatchableErr
 proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableError].} =
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
-  let rng = keys.newRng()
+  let rng = HmacDrbgContext.new()
 
   case config.cmd
   of BNStartUpCmd.noCommand: doRunBeaconNode(config, rng)

@@ -109,7 +109,7 @@ sudo journalctl -u nimbus_beacon_node.service --since yesterday
 
 ## Import validator keys
 
-Before you start, familiarize yourself with the [standard way of importing validators](./keys.md).
+Before you start, familiarize yourself with the [standard way of importing validators](./run-a-validator.md#2-import-your-validator-keys).
 
 Make sure you use the correct [data directory](./data-dir.md).
 Look for the `--data-dir` option in the `.service` file.

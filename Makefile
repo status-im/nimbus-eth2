@@ -58,6 +58,7 @@ TOOLS_CORE := \
 	deposit_contract \
 	resttest \
 	logtrace \
+        mev_mock \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \
@@ -173,6 +174,7 @@ libbacktrace:
 #
 # Unit tests:
 # - NIMBUS_TEST_KEYMANAGER_BASE_PORT + [0, 4)
+# - NIMBUS_TEST_SIGNING_NODE_BASE_PORT + [0, 2)
 #
 # REST tests:
 # - --base-port
@@ -380,7 +382,8 @@ endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 )) \
+		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 + 0 )) \
+		NIMBUS_TEST_SIGNING_NODE_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 + 4 )) \
 			build/$${TEST_BINARY} $${PARAMS} || { \
 				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
 				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
@@ -765,9 +768,9 @@ book:
 	"$(MAKE)" -C docs book
 
 auditors-book:
-	[[ "$$(mdbook --version)" = "mdbook v0.4.18" ]] || { echo "'mdbook v0.4.18' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook --version)" = "mdbook v0.4.28" ]] || { echo "'mdbook v0.4.28' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.1.0" ]] || { echo "'mdbook-open-on-gh 2.1.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.3.3" ]] || { echo "'mdbook-open-on-gh 2.3.3' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.7.0" ]] || { echo "'mdbook-open-on-gh 1.7.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_auditors_handbook && \
 	mdbook build

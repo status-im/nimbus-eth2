@@ -9,17 +9,24 @@ import
   chronicles,
   ".."/validators/activity_metrics,
   ".."/spec/forks,
-  common, api
+  common, api, fallback_service
 
 const
   ServiceName = "block_service"
+  BlockPollInterval = attestationSlotOffset.nanoseconds div 4
+  BlockPollOffset1 = TimeDiff(nanoseconds: BlockPollInterval)
+  BlockPollOffset2 = TimeDiff(nanoseconds: BlockPollInterval * 2)
+  BlockPollOffset3 = TimeDiff(nanoseconds: BlockPollInterval * 3)
 
 logScope: service = ServiceName
 
 type
+  BlobList = List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+
   PreparedBeaconBlock = object
     blockRoot*: Eth2Digest
     data*: ForkedBeaconBlock
+    blobsOpt*: Opt[BlobList]
 
   PreparedBlindedBeaconBlock = object
     blockRoot*: Eth2Digest
@@ -37,7 +44,7 @@ proc produceBlock(
     wall_slot = currentSlot
     validator = shortLog(validator)
   let
-    beaconBlock =
+    produceBlockResponse =
       try:
         await vc.produceBlockV2(slot, randao_reveal, graffiti,
                                 ApiStrategyKind.Best)
@@ -51,9 +58,34 @@ proc produceBlock(
         error "An unexpected error occurred while getting block data",
               error_name = exc.name, error_msg = exc.msg
         return Opt.none(PreparedBeaconBlock)
-    blockRoot = withBlck(beaconBlock): hash_tree_root(blck)
+  case produceBlockResponse.kind
+  of ConsensusFork.Phase0:
+    let blck = produceBlockResponse.phase0Data
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck),
+                                        blobsOpt: Opt.none(BlobList)))
+  of ConsensusFork.Altair:
+    let blck = produceBlockResponse.altairData
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck),
+                                        blobsOpt: Opt.none(BlobList)))
+  of ConsensusFork.Bellatrix:
+    let blck = produceBlockResponse.bellatrixData
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck),
+                                        blobsOpt: Opt.none(BlobList)))
+  of ConsensusFork.Capella:
+    let blck = produceBlockResponse.capellaData
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck),
+                                        blobsOpt: Opt.none(BlobList)))
+  of ConsensusFork.Deneb:
+    let blck = produceBlockResponse.denebData.`block`
+    let blobs = produceBlockResponse.denebData.blob_sidecars
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck),
+                                        blobsOpt: Opt.some(blobs)))
 
-  return Opt.some(PreparedBeaconBlock(blockRoot: blockRoot, data: beaconBlock))
 
 proc produceBlindedBlock(
        vc: ValidatorClientRef,
@@ -273,13 +305,63 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             error "An unexpected error occurred while signing block",
                 error_name = exc.name, error_msg = exc.msg
             return
-        signedBlock = ForkedSignedBeaconBlock.init(preparedBlock.data,
-                                                   preparedBlock.blockRoot,
-                                                   signature)
+
+        signedBlockContents =
+          case preparedBlock.data.kind
+          of ConsensusFork.Phase0:
+            RestPublishedSignedBlockContents(kind: ConsensusFork.Phase0,
+              phase0Data: phase0.SignedBeaconBlock(
+                message: preparedBlock.data.phase0Data,
+                root: preparedBlock.blockRoot,
+                signature: signature))
+          of ConsensusFork.Altair:
+            RestPublishedSignedBlockContents(kind: ConsensusFork.Altair,
+              altairData: altair.SignedBeaconBlock(
+                message: preparedBlock.data.altairData,
+                root: preparedBlock.blockRoot,
+                signature: signature))
+          of ConsensusFork.Bellatrix:
+            RestPublishedSignedBlockContents(kind: ConsensusFork.Bellatrix,
+              bellatrixData: bellatrix.SignedBeaconBlock(
+                message: preparedBlock.data.bellatrixData,
+                root: preparedBlock.blockRoot,
+                signature: signature))
+          of ConsensusFork.Capella:
+            RestPublishedSignedBlockContents(kind: ConsensusFork.Capella,
+              capellaData: capella.SignedBeaconBlock(
+                message: preparedBlock.data.capellaData,
+                root: preparedBlock.blockRoot,
+                signature: signature))
+          of ConsensusFork.Deneb:
+            let blobs = preparedBlock.blobsOpt.get()
+            var signed: seq[SignedBlobSidecar] = @[]
+            for i in 0..<blobs.len:
+              let res = validator.getBlobSignature(fork, genesisRoot,
+                                                   slot, blobs[i])
+              if res.isErr():
+                warn "Unable to sign blob",
+                 reason = res.error()
+                return
+              let signature = res.get()
+              signed.add(deneb.SignedBlobSidecar(
+                message: blobs[i],
+                signature: signature))
+
+            let signedList =
+              List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK].init(signed)
+            RestPublishedSignedBlockContents(kind: ConsensusFork.Deneb,
+              denebData: DenebSignedBlockContents(
+                signed_block: deneb.SignedBeaconBlock(
+                  message: preparedBlock.data.denebData,
+                  root: preparedBlock.blockRoot,
+                  signature: signature),
+                signed_blob_sidecars: signedList
+              ))
+
         res =
           try:
             debug "Sending block"
-            await vc.publishBlock(signedBlock, ApiStrategyKind.First)
+            await vc.publishBlock(signedBlockContents, ApiStrategyKind.First)
           except ValidatorApiError as exc:
             warn "Unable to publish block", reason = exc.getFailureReason()
             return
@@ -428,90 +510,266 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
         res
     vc.proposers[epoch] = ProposedData.init(epoch, dependentRoot, tasks)
 
-proc waitForBlockPublished*(vc: ValidatorClientRef,
-                            slot: Slot, timediff: TimeDiff) {.async.} =
-  ## This procedure will wait for all the block proposal tasks to be finished at
-  ## slot ``slot``.
-  let
-    startTime = Moment.now()
-    pendingTasks =
-      block:
-        var res: seq[Future[void]]
-        let epochDuties = vc.proposers.getOrDefault(slot.epoch())
-        for task in epochDuties.duties:
-          if task.duty.slot == slot:
-            if not(task.future.finished()):
-              res.add(task.future)
-        res
-    waitTime = (start_beacon_time(slot) + timediff) - vc.beaconClock.now()
+proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
+                   response: RestHttpResponseRef) {.async.} =
+  let vc = service.client
 
   logScope:
-    start_time = startTime
-    pending_tasks = len(pendingTasks)
-    slot = slot
-    timediff = timediff
+    node = node
 
-  # TODO (cheatfate): This algorithm should be tuned, when we will have ability
-  # to monitor block proposals which are not created by validators bundled with
-  # VC.
-  logScope: wait_time = waitTime
-  if waitTime.nanoseconds > 0'i64:
-    if len(pendingTasks) > 0:
-      # Block proposal pending
-        try:
-          await allFutures(pendingTasks).wait(nanoseconds(waitTime.nanoseconds))
-          trace "Block proposal awaited"
-          # The expected block arrived - in our async loop however, we might
-          # have been doing other processing that caused delays here so we'll
-          # cap the waiting to the time when we would have sent out attestations
-          # had the block not arrived. An opposite case is that we received
-          # (or produced) a block that has not yet reached our neighbours. To
-          # protect against our attestations being dropped (because the others
-          # have not yet seen the block), we'll impose a minimum delay of
-          # 2000ms. The delay is enforced only when we're not hitting the
-          # "normal" cutoff time for sending out attestations. An earlier delay
-          # of 250ms has proven to be not enough, increasing the risk of losing
-          # attestations, and with growing block sizes, 1000ms started to be
-          # risky as well. Regardless, because we "just" received the block,
-          # we'll impose the delay.
-
-          # Take into consideration chains with a different slot time
-          const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
-          let
-            afterBlockTime = vc.beaconClock.now() + afterBlockDelay
-            afterBlockCutoff = vc.beaconClock.fromNow(
-              min(afterBlockTime,
-                  slot.attestation_deadline() + afterBlockDelay))
-          if afterBlockCutoff.inFuture:
-            debug "Got block, waiting to send attestations",
-                  after_block_cutoff = shortLog(afterBlockCutoff.offset)
-            await sleepAsync(afterBlockCutoff.offset)
-        except CancelledError as exc:
-          let dur = Moment.now() - startTime
-          debug "Waiting for block publication interrupted", duration = dur
-          raise exc
-        except AsyncTimeoutError:
-          let dur = Moment.now() - startTime
-          debug "Block was not published in time", duration = dur
-    else:
-      # No pending block proposals.
+  while true:
+    let events =
       try:
-        await sleepAsync(nanoseconds(waitTime.nanoseconds))
+        await response.getServerSentEvents()
+      except RestError as exc:
+        debug "Unable to receive server-sent event", reason = $exc.msg
+        return
       except CancelledError as exc:
-        let dur = Moment.now() - startTime
-        debug "Waiting for block publication interrupted", duration = dur
         raise exc
       except CatchableError as exc:
-        let dur = Moment.now() - startTime
-        error "Unexpected error occured while waiting for block publication",
-              err_name = exc.name, err_msg = exc.msg, duration = dur
+        warn "Got an unexpected error, " &
+             "while reading server-sent event stream", reason = $exc.msg
         return
+
+    for event in events:
+      case event.name
+      of "data":
+        let blck = EventBeaconBlockObject.decodeString(event.data).valueOr:
+          debug "Got invalid block event format", reason = error
+          return
+        vc.registerBlock(blck, node)
+      of "event":
+        if event.data != "block":
+          debug "Got unexpected event name field", event_name = event.name,
+                event_data = event.data
+      else:
+        debug "Got some unexpected event field", event_name = event.name
+
+    if len(events) == 0:
+      break
+
+proc runBlockEventMonitor(service: BlockServiceRef,
+                          node: BeaconNodeServerRef) {.async.} =
+  let
+    vc = service.client
+    roles = {BeaconNodeRole.BlockProposalData}
+    statuses = {RestBeaconNodeStatus.Synced}
+
+  logScope:
+    node = node
+
+  while true:
+    while node.status notin statuses:
+      await vc.waitNodes(nil, statuses, roles, true)
+
+    let response =
+      block:
+        var resp: HttpClientResponseRef
+        try:
+          resp = await node.client.subscribeEventStream({EventTopic.Block})
+          if resp.status == 200:
+            Opt.some(resp)
+          else:
+            let body = await resp.getBodyBytes()
+            await resp.closeWait()
+            let
+              plain = RestPlainResponse(status: resp.status,
+                        contentType: resp.contentType, data: body)
+              reason = plain.getErrorMessage()
+            debug "Unable to to obtain events stream", code = resp.status,
+                  reason = reason
+            Opt.none(HttpClientResponseRef)
+        except RestError as exc:
+          if not(isNil(resp)): await resp.closeWait()
+          debug "Unable to obtain events stream", reason = $exc.msg
+          Opt.none(HttpClientResponseRef)
+        except CancelledError as exc:
+          if not(isNil(resp)): await resp.closeWait()
+          debug "Block monitoring loop has been interrupted"
+          raise exc
+        except CatchableError as exc:
+          if not(isNil(resp)): await resp.closeWait()
+          warn "Got an unexpected error while trying to establish event stream",
+               reason = $exc.msg
+          Opt.none(HttpClientResponseRef)
+
+    if response.isSome():
+      debug "Block monitoring connection has been established"
+      try:
+        await service.pollForEvents(node, response.get())
+      except CancelledError as exc:
+        raise exc
+      except CatchableError as exc:
+        warn "Got an unexpected error while receiving block events",
+             reason = $exc.msg
+      finally:
+        debug "Block monitoring connection has been lost"
+        await response.get().closeWait()
+
+proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
+                         slot: Slot, waitTime: Duration,
+                         index: int): Future[bool] {.async.} =
+  let vc = service.client
+
+  logScope:
+    node = node
+    slot = slot
+    wait_time = waitTime
+    schedule_index = index
+
+  trace "Polling for block header"
+
+  let bres =
+    try:
+      await sleepAsync(waitTime)
+      await node.client.getBlockHeader(BlockIdent.init(slot))
+    except RestError as exc:
+      debug "Unable to obtain block header",
+            reason = $exc.msg, error = $exc.name
+      return false
+    except RestResponseError as exc:
+      debug "Got an error while trying to obtain block header",
+            reason = exc.message, status = exc.status
+      return false
+    except CancelledError as exc:
+      raise exc
+    except CatchableError as exc:
+      warn "Unexpected error encountered while receiving block header",
+           reason = $exc.msg, error = $exc.name
+      return false
+
+  if bres.isNone():
+    trace "Beacon node does not yet have block"
+    return false
+
+  let blockHeader = bres.get()
+
+  let eventBlock = EventBeaconBlockObject(
+    slot: blockHeader.data.header.message.slot,
+    block_root: blockHeader.data.root,
+    optimistic: blockHeader.execution_optimistic
+  )
+  vc.registerBlock(eventBlock, node)
+  return true
+
+proc runBlockPollMonitor(service: BlockServiceRef,
+                         node: BeaconNodeServerRef) {.async.} =
+  let
+    vc = service.client
+    roles = {BeaconNodeRole.BlockProposalData}
+    statuses = {RestBeaconNodeStatus.Synced}
+
+  logScope:
+    node = node
+
+  while true:
+    let currentSlot =
+      block:
+        let res = await vc.checkedWaitForNextSlot(ZeroTimeDiff, false)
+        if res.isNone(): continue
+        res.geT()
+
+    while node.status notin statuses:
+      await vc.waitNodes(nil, statuses, roles, true)
+
+    let
+      currentTime = vc.beaconClock.now()
+      afterSlot = currentTime.slotOrZero()
+
+    if currentTime > afterSlot.attestation_deadline():
+      # Attestation time already, lets wait for next slot.
+      continue
+
+    let
+      pollTime1 = afterSlot.start_beacon_time() + BlockPollOffset1
+      pollTime2 = afterSlot.start_beacon_time() + BlockPollOffset2
+      pollTime3 = afterSlot.start_beacon_time() + BlockPollOffset3
+
+    var pendingTasks =
+      block:
+        var res: seq[FutureBase]
+        if currentTime <= pollTime1:
+          let stime = nanoseconds((pollTime1 - currentTime).nanoseconds)
+          res.add(FutureBase(
+            service.pollForBlockHeaders(node, afterSlot, stime, 0)))
+        if currentTime <= pollTime2:
+          let stime = nanoseconds((pollTime2 - currentTime).nanoseconds)
+          res.add(FutureBase(
+            service.pollForBlockHeaders(node, afterSlot, stime, 1)))
+        if currentTime <= pollTime3:
+          let stime = nanoseconds((pollTime3 - currentTime).nanoseconds)
+          res.add(FutureBase(
+            service.pollForBlockHeaders(node, afterSlot, stime, 2)))
+        res
+    try:
+      while true:
+        let completedFuture = await race(pendingTasks)
+        let blockReceived =
+          block:
+            var res = false
+            for future in pendingTasks:
+              if not(future.completed()): continue
+              if not(cast[Future[bool]](future).read()): continue
+              res = true
+              break
+            res
+        if blockReceived:
+          var pending: seq[Future[void]]
+          for future in pendingTasks:
+            if not(future.finished()): pending.add(future.cancelAndWait())
+          await allFutures(pending)
+          break
+        pendingTasks.keepItIf(it != completedFuture)
+        if len(pendingTasks) == 0: break
+    except CancelledError as exc:
+      var pending: seq[Future[void]]
+      for future in pendingTasks:
+        if not(future.finished()): pending.add(future.cancelAndWait())
+      await allFutures(pending)
+      raise exc
+    except CatchableError as exc:
+      warn "An unexpected error occurred while running block monitoring",
+           reason = $exc.msg, error = $exc.name
+
+proc runBlockMonitor(service: BlockServiceRef) {.async.} =
+  let
+    vc = service.client
+    blockNodes = vc.filterNodes(AllBeaconNodeStatuses,
+                                {BeaconNodeRole.BlockProposalData})
+  let pendingTasks =
+    case vc.config.monitoringType
+    of BlockMonitoringType.Disabled:
+      debug "Block monitoring disabled"
+      @[newFuture[void]("block.monitor.disabled")]
+    of BlockMonitoringType.Poll:
+      var res: seq[Future[void]]
+      for node in blockNodes:
+        res.add(service.runBlockPollMonitor(node))
+      res
+    of BlockMonitoringType.Event:
+      var res: seq[Future[void]]
+      for node in blockNodes:
+        res.add(service.runBlockEventMonitor(node))
+      res
+
+  try:
+    await allFutures(pendingTasks)
+  except CancelledError as exc:
+    var pending: seq[Future[void]]
+    for future in pendingTasks:
+      if not(future.finished()): pending.add(future.cancelAndWait())
+    await allFutures(pending)
+    raise exc
+  except CatchableError as exc:
+    warn "An unexpected error occurred while running block monitoring",
+         reason = $exc.msg, error = $exc.name
+    return
 
 proc mainLoop(service: BlockServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
-  var future = newFuture[void]()
+  let future = service.runBlockMonitor()
   try:
     # Future is not going to be completed, so the only way to exit, is to
     # cancel it.

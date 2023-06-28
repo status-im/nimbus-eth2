@@ -1422,7 +1422,7 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
         let status = selectBlkStmt.exec(validator.pubkey.PubKeyBytes) do (res: tuple[slot: int64, root: Hash32]):
           validator.signed_blocks.add SPDIR_SignedBlock(
             slot: SlotString res.slot,
-            signing_root: Eth2Digest0x(Eth2Digest(data: res.root))
+            signing_root: some Eth2Digest0x(Eth2Digest(data: res.root))
           )
         doAssert status.isOk()
       block: # Attestations
@@ -1430,7 +1430,7 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
           validator.signed_attestations.add SPDIR_SignedAttestation(
             source_epoch: EpochString res.source,
             target_epoch: EpochString res.target,
-            signing_root: Eth2Digest0x(Eth2Digest(data: res.root))
+            signing_root: some Eth2Digest0x(Eth2Digest(data: res.root))
           )
         doAssert status.isOk()
 

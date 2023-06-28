@@ -10,7 +10,7 @@
 import
   std/[random, sequtils],
   unittest2,
-  eth/keys, taskpools,
+  taskpools,
   ../beacon_chain/el/merkle_minimal,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
@@ -39,11 +39,12 @@ type
 
 suite "Block pool processing" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -282,6 +283,8 @@ when declared(GC_fullCollect): # i386 test machines seem to run low..
 
 suite "Block pool altair processing" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
+
     var
       cfg = defaultRuntimeConfig
     cfg.ALTAIR_FORK_EPOCH = Epoch(1)
@@ -290,7 +293,7 @@ suite "Block pool altair processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -361,11 +364,12 @@ suite "Block pool altair processing" & preset():
 
 suite "chain DAG finalization tests" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -628,13 +632,14 @@ suite "chain DAG finalization tests" & preset():
 suite "Old database versions" & preset():
   setup:
     let
+      rng = HmacDrbgContext.new()
       genState = newClone(initialize_hashed_beacon_state_from_eth1(
         defaultRuntimeConfig, ZERO_HASH, 0,
         makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
         {skipBlsValidation}))
       genBlock = get_initial_beacon_block(genState[])
     var
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
 
   test "pre-1.1.0":
@@ -669,6 +674,8 @@ suite "Old database versions" & preset():
 
 suite "Diverging hardforks":
   setup:
+    let rng = HmacDrbgContext.new()
+
     var
       phase0RuntimeConfig = defaultRuntimeConfig
       altairRuntimeConfig = defaultRuntimeConfig
@@ -680,7 +687,7 @@ suite "Diverging hardforks":
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -917,9 +924,12 @@ suite "Backfill":
       dag.addBackfillBlock(
         genBlock.phase0Data.asSigned) == AddBackRes.err VerifierError.Duplicate
 
+    let
+      rng = HmacDrbgContext.new()
+      taskpool = Taskpool.new()
     var
       cache: StateCache
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
 
     let
@@ -1050,6 +1060,8 @@ suite "Starting states":
 
 suite "Latest valid hash" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
+
     var runtimeConfig = defaultRuntimeConfig
     runtimeConfig.ALTAIR_FORK_EPOCH = 1.Epoch
     runtimeConfig.BELLATRIX_FORK_EPOCH = 2.Epoch
@@ -1058,7 +1070,7 @@ suite "Latest valid hash" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, runtimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -1114,6 +1126,7 @@ suite "Latest valid hash" & preset():
 suite "Pruning":
   setup:
     let
+      rng = HmacDrbgContext.new()
       cfg = block:
         var res = defaultRuntimeConfig
         res.MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 4
@@ -1126,7 +1139,7 @@ suite "Pruning":
       tmpState = assignClone(dag.headState)
 
     var
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       cache = StateCache()
       blocks = @[dag.head]
@@ -1186,10 +1199,11 @@ suite "Shufflings":
         flags = {}, cfg = cfg),
       validatorMonitor, {})
     quarantine = newClone(Quarantine.init())
+    rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
 
   var
-    verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+    verifier = BatchVerifier(rng: rng, taskpool: taskpool)
     graffiti: GraffitiBytes
   proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
     inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches

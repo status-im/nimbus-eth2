@@ -23,8 +23,8 @@ func validateKeymanagerApiQueries*(key: string, value: string): int =
   # There are no queries to validate
   return 0
 
-proc listLocalValidators*(validatorPool: ValidatorPool): seq[KeystoreInfo]
-                         {.raises: [Defect].} =
+proc listLocalValidators*(validatorPool: ValidatorPool): seq[KeystoreInfo] {.
+     raises: [Defect].} =
   var validators: seq[KeystoreInfo]
   for item in validatorPool:
     if item.kind == ValidatorKind.Local:
@@ -35,8 +35,9 @@ proc listLocalValidators*(validatorPool: ValidatorPool): seq[KeystoreInfo]
       )
   validators
 
-proc listRemoteValidators*(validatorPool: ValidatorPool): seq[RemoteKeystoreInfo]
-                          {.raises: [Defect].} =
+proc listRemoteValidators*(
+       validatorPool: ValidatorPool): seq[RemoteKeystoreInfo] {.
+     raises: [Defect].} =
   var validators: seq[RemoteKeystoreInfo]
   for item in validatorPool:
     if item.kind == ValidatorKind.Remote and item.data.remotes.len == 1:
@@ -46,8 +47,9 @@ proc listRemoteValidators*(validatorPool: ValidatorPool): seq[RemoteKeystoreInfo
       )
   validators
 
-proc listRemoteDistributedValidators*(validatorPool: ValidatorPool): seq[DistributedKeystoreInfo]
-                                     {.raises: [Defect].} =
+proc listRemoteDistributedValidators*(
+       validatorPool: ValidatorPool): seq[DistributedKeystoreInfo] {.
+     raises: [Defect].} =
   var validators: seq[DistributedKeystoreInfo]
   for item in validatorPool:
     if item.kind == ValidatorKind.Remote and item.data.remotes.len > 1:
@@ -75,8 +77,9 @@ proc keymanagerApiError(status: HttpCode, msg: string): RestApiResponse =
         default
   RestApiResponse.error(status, data, "application/json")
 
-proc checkAuthorization*(request: HttpRequestRef,
-                         host: KeymanagerHost): Result[void, AuthorizationError] =
+proc checkAuthorization*(
+       request: HttpRequestRef,
+       host: KeymanagerHost): Result[void, AuthorizationError] =
   let authorizations = request.headers.getList("authorization")
   if authorizations.len > 0:
     for authHeader in authorizations:
@@ -522,3 +525,54 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       response.data.add handleRemoveValidatorReq(host, key)
 
     return RestApiResponse.jsonResponsePlain(response)
+
+  # https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Voluntary%20Exit/signVoluntaryExit
+  router.api(MethodPost, "/eth/v1/validator/{pubkey}/voluntary_exit") do (
+    pubkey: ValidatorPubKey, epoch: Option[Epoch],
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse(authStatus.error)
+
+    let
+      qpubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      qepoch =
+        if epoch.isSome():
+          let res = epoch.get()
+          if res.isErr():
+            return keymanagerApiError(Http400, InvalidEpochValueError)
+          res.get()
+        else:
+          host.getBeaconTimeFn().slotOrZero().epoch()
+      validator =
+        block:
+          let res = host.validatorPool[].getValidator(qpubkey).valueOr:
+            return keymanagerApiError(Http404, ValidatorNotFoundError)
+          if res.index.isNone():
+            return keymanagerApiError(Http404, ValidatorIndexMissingError)
+          res
+      voluntaryExit =
+        VoluntaryExit(epoch: qepoch,
+                      validator_index: uint64(validator.index.get()))
+      fork = host.getForkFn(qepoch).valueOr:
+        return keymanagerApiError(Http500, FailedToObtainForkError)
+      signature =
+        try:
+          let res = await validator.getValidatorExitSignature(
+            fork, host.getGenesisFn(), voluntaryExit)
+          if res.isErr():
+            return keymanagerApiError(Http500, res.error())
+          res.get()
+        except CancelledError as exc:
+          raise exc
+        except CatchableError as exc:
+          error "An unexpected error occurred while signing validator exit",
+                err_name = exc.name, err_msg = exc.msg
+          return keymanagerApiError(Http500, $exc.msg)
+      response = SignedVoluntaryExit(
+        message: voluntaryExit,
+        signature: signature
+      )
+    return RestApiResponse.jsonResponse(response)

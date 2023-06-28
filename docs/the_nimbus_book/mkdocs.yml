@@ -43,17 +43,14 @@ markdown_extensions:
       toc_depth: 3
 
 nav:
-  - About:
+  - Home:
     - 'index.md'
-    - 'philosophy.md'
 
   - Getting started:
     - 'quick-start.md'
     - 'run-a-validator.md'
-    - 'migration.md'
-    - 'metrics-pretty-pictures.md'
-    - 'pi-guide.md'
     - 'el-light-client.md'
+    - 'pi-guide.md'
 
   - How-to:
     - Beacon node:
@@ -61,11 +58,9 @@ nav:
       - 'build.md'
       - 'start-syncing.md'
       - 'trusted-node-sync.md'
+      - 'migration.md'
 
     - Validator:
-      - 'deposit.md'
-      - 'keys.md'
-      - 'connect-eth2.md'
       - 'graffiti.md'
       - 'suggested-fee-recipient.md'
       - 'external-block-builder.md'
@@ -81,6 +76,7 @@ nav:
       - 'goerli-eth.md'
       - 'beacon-node-systemd.md'
       - 'log-rotate.md'
+      - 'metrics-pretty-pictures.md'
       - 'database-backup.md'
       - 'email-notifications.md'
       - 'profits.md'

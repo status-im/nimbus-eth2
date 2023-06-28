@@ -349,7 +349,7 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
 
 proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
                        peerType: PeerType) =
-  proc onPeerClosed(udata: pointer) {.gcsafe, raises: [Defect].} =
+  proc onPeerClosed(udata: pointer) {.gcsafe, raises: [].} =
     discard pool.deletePeer(peer)
 
   let item = PeerItem[A](data: peer, peerType: peerType,

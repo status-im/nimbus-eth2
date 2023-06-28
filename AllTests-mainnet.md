@@ -258,10 +258,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + General pubsub topics                                                                      OK
 + Liveness failsafe conditions                                                               OK
 + Mainnet attestation topics                                                                 OK
++ Stability subnets                                                                          OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## ImportKeystores requests [Beacon Node] [Preset: mainnet]
 ```diff
 + ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
@@ -350,6 +351,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
++ Blob sidecar signatures                                                                    OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -357,7 +359,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Network metadata
 ```diff
 + goerli                                                                                     OK
@@ -394,13 +396,12 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
 + Signing deposit message (getDepositMessageSignature())                                     OK
-+ Signing phase0 block                                                                       OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 22/22 Fail: 0/22 Skip: 0/22
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -691,4 +692,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 392/397 Fail: 0/397 Skip: 5/397
+OK: 393/398 Fail: 0/398 Skip: 5/398

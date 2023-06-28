@@ -556,8 +556,94 @@ proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T) {.
   if len(seq[byte](value)) == 0:
     r.raiseUnexpectedValue("Valid hex string expected")
 
-proc readValue*(r: var JsonReader, value: var Kdf)
-               {.raises: [SerializationError, IOError, Defect].} =
+template readValueImpl(r: var JsonReader, value: var Checksum) =
+  var
+    functionSpecified = false
+    paramsSpecified = false
+    messageSpecified = false
+
+  for fieldName in readObjectFields(r):
+    case fieldName
+    of "function":
+      value = Checksum(function: r.readValue(ChecksumFunctionKind))
+      functionSpecified = true
+
+    of "params":
+      if functionSpecified:
+        case value.function
+        of sha256Checksum:
+          r.readValue(value.params)
+      else:
+        r.raiseUnexpectedValue(
+          "The 'params' field must be specified after the 'function' field")
+      paramsSpecified = true
+
+    of "message":
+      if functionSpecified:
+        case value.function
+        of sha256Checksum:
+          r.readValue(value.message)
+      else:
+        r.raiseUnexpectedValue(
+          "The 'message' field must be specified after the 'function' field")
+      messageSpecified = true
+
+    else:
+      r.raiseUnexpectedField(fieldName, "Checksum")
+
+  if not (functionSpecified and paramsSpecified and messageSpecified):
+    r.raiseUnexpectedValue(
+      "The Checksum value should have sub-fields named " &
+      "'function', 'params', and 'message'")
+
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
+proc readValue*(r: var JsonReader[DefaultFlavor], value: var Checksum)
+    {.raises: [SerializationError, IOError].} =
+  readValueImpl(r, value)
+{.pop.}
+
+template readValueImpl(r: var JsonReader, value: var Cipher) =
+  var
+    functionSpecified = false
+    paramsSpecified = false
+    messageSpecified = false
+
+  for fieldName in readObjectFields(r):
+    case fieldName
+    of "function":
+      value = Cipher(
+        function: r.readValue(CipherFunctionKind), message: value.message)
+      functionSpecified = true
+
+    of "params":
+      if functionSpecified:
+        case value.function
+        of aes128CtrCipher:
+          r.readValue(value.params)
+      else:
+        r.raiseUnexpectedValue(
+          "The 'params' field must be specified after the 'function' field")
+      paramsSpecified = true
+
+    of "message":
+      r.readValue(value.message)
+      messageSpecified = true
+
+    else:
+      r.raiseUnexpectedField(fieldName, "Cipher")
+
+  if not (functionSpecified and paramsSpecified and messageSpecified):
+    r.raiseUnexpectedValue(
+      "The Cipher value should have sub-fields named " &
+      "'function', 'params', and 'message'")
+
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
+proc readValue*(r: var JsonReader[DefaultFlavor], value: var Cipher)
+    {.raises: [SerializationError, IOError].} =
+  readValueImpl(r, value)
+{.pop.}
+
+template readValueImpl(r: var JsonReader, value: var Kdf) =
   var
     functionSpecified = false
     paramsSpecified = false
@@ -565,7 +651,7 @@ proc readValue*(r: var JsonReader, value: var Kdf)
   for fieldName in readObjectFields(r):
     case fieldName
     of "function":
-      value.function = r.readValue(KdfKind)
+      value = Kdf(function: r.readValue(KdfKind), message: value.message)
       functionSpecified = true
 
     of "params":
@@ -589,6 +675,16 @@ proc readValue*(r: var JsonReader, value: var Kdf)
   if not (functionSpecified and paramsSpecified):
     r.raiseUnexpectedValue(
       "The Kdf value should have sub-fields named 'function' and 'params'")
+
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
+proc readValue*(r: var JsonReader[DefaultFlavor], value: var Kdf)
+    {.raises: [SerializationError, IOError].} =
+  readValueImpl(r, value)
+{.pop.}
+
+proc readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
+  static: raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
+    "]` for `readValue` of `" & $typeof(value) & "`"
 
 # HttpHostUri
 proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
@@ -732,7 +828,7 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
         if prop.path == ".execution_payload.fee_recipient":
           prop.bellatrixIndex = some GeneralizedIndex(401)
           prop.capellaIndex = some GeneralizedIndex(401)
-          prop.denebIndex = some GeneralizedIndex(401)
+          prop.denebIndex = some GeneralizedIndex(801)
         elif prop.path == ".graffiti":
           prop.bellatrixIndex = some GeneralizedIndex(18)
           prop.capellaIndex = some GeneralizedIndex(18)
@@ -855,16 +951,24 @@ proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
     return DecryptionStatus.InvalidKeystore
   if len(decKey) < keyLen:
     return DecryptionStatus.InvalidKeystore
-  let derivedChecksum = shaChecksum(decKey.toOpenArray(16, 31),
-                                    crypto.cipher.message.bytes)
-  if derivedChecksum != crypto.checksum.message:
+  let valid =
+    case crypto.checksum.function
+    of sha256Checksum:
+      template params: auto {.used.} = crypto.checksum.params
+      template message: auto = crypto.checksum.message
+      message == shaChecksum(decKey.toOpenArray(16, 31),
+                             crypto.cipher.message.bytes)
+  if not valid:
     return DecryptionStatus.InvalidPassword
 
-  var aesCipher: CTR[aes128]
-  outSecret.setLen(crypto.cipher.message.bytes.len)
-  aesCipher.init(decKey.toOpenArray(0, 15), crypto.cipher.params.iv.bytes)
-  aesCipher.decrypt(crypto.cipher.message.bytes, outSecret)
-  aesCipher.clear()
+  case crypto.cipher.function
+  of aes128CtrCipher:
+    template params: auto = crypto.cipher.params
+    var aesCipher: CTR[aes128]
+    outSecret.setLen(crypto.cipher.message.bytes.len)
+    aesCipher.init(decKey.toOpenArray(0, 15), params.iv.bytes)
+    aesCipher.decrypt(crypto.cipher.message.bytes, outSecret)
+    aesCipher.clear()
   DecryptionStatus.Success
 
 proc getDecryptionKey*(crypto: Crypto, password: KeystorePass,
@@ -943,6 +1047,7 @@ proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
 proc `==`*(a, b: KdfSaltKey): bool {.borrow.}
 proc hash*(salt: KdfSaltKey): Hash {.borrow.}
 
+{.push warning[ProveField]:off.}
 func `==`*(a, b: Kdf): bool =
   # We do not care about `message` field.
   if a.function != b.function:
@@ -961,6 +1066,7 @@ func `==`*(a, b: Kdf): bool =
     (aparams.p == bparams.p) and (aparams.r == bparams.r) and
     (len(seq[byte](aparams.salt)) > 0) and
     (seq[byte](aparams.salt) == seq[byte](bparams.salt))
+{.pop.}
 
 func `==`*(a, b: Cipher): bool =
   # We do not care about `params` and `message` fields.
@@ -1267,13 +1373,13 @@ proc createWallet*(kdfKind: KdfKind,
     crypto: crypto,
     nextAccount: nextAccount.get(0))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#bls_withdrawal_prefix
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#bls_withdrawal_prefix
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 
