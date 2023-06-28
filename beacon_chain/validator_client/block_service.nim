@@ -537,7 +537,7 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
         let blck = EventBeaconBlockObject.decodeString(event.data).valueOr:
           debug "Got invalid block event format", reason = error
           return
-        vc.registerBlock(blck)
+        vc.registerBlock(blck, node)
       of "event":
         if event.data != "block":
           debug "Got unexpected event name field", event_name = event.name,
@@ -560,7 +560,7 @@ proc runBlockEventMonitor(service: BlockServiceRef,
 
   while true:
     while node.status notin statuses:
-      await vc.waitNodes(nil, statuses, roles, false)
+      await vc.waitNodes(nil, statuses, roles, true)
 
     let response =
       block:
@@ -568,7 +568,7 @@ proc runBlockEventMonitor(service: BlockServiceRef,
         try:
           resp = await node.client.subscribeEventStream({EventTopic.Block})
           if resp.status == 200:
-            resp
+            Opt.some(resp)
           else:
             let body = await resp.getBodyBytes()
             await resp.closeWait()
@@ -578,11 +578,11 @@ proc runBlockEventMonitor(service: BlockServiceRef,
               reason = plain.getErrorMessage()
             debug "Unable to to obtain events stream", code = resp.status,
                   reason = reason
-            return
+            Opt.none(HttpClientResponseRef)
         except RestError as exc:
           if not(isNil(resp)): await resp.closeWait()
           debug "Unable to obtain events stream", reason = $exc.msg
-          return
+          Opt.none(HttpClientResponseRef)
         except CancelledError as exc:
           if not(isNil(resp)): await resp.closeWait()
           debug "Block monitoring loop has been interrupted"
@@ -591,17 +591,20 @@ proc runBlockEventMonitor(service: BlockServiceRef,
           if not(isNil(resp)): await resp.closeWait()
           warn "Got an unexpected error while trying to establish event stream",
                reason = $exc.msg
-          return
+          Opt.none(HttpClientResponseRef)
 
-    try:
-      await service.pollForEvents(node, response)
-    except CancelledError as exc:
-      raise exc
-    except CatchableError as exc:
-      warn "Got an unexpected error while receiving block events",
-           reason = $exc.msg
-    finally:
-      await response.closeWait()
+    if response.isSome():
+      debug "Block monitoring connection has been established"
+      try:
+        await service.pollForEvents(node, response.get())
+      except CancelledError as exc:
+        raise exc
+      except CatchableError as exc:
+        warn "Got an unexpected error while receiving block events",
+             reason = $exc.msg
+      finally:
+        debug "Block monitoring connection has been lost"
+        await response.get().closeWait()
 
 proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
                          slot: Slot, waitTime: Duration,
@@ -646,7 +649,7 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
     block_root: blockHeader.data.root,
     optimistic: blockHeader.execution_optimistic
   )
-  vc.registerBlock(eventBlock)
+  vc.registerBlock(eventBlock, node)
   return true
 
 proc runBlockPollMonitor(service: BlockServiceRef,
@@ -667,7 +670,7 @@ proc runBlockPollMonitor(service: BlockServiceRef,
         res.geT()
 
     while node.status notin statuses:
-      await vc.waitNodes(nil, statuses, roles, false)
+      await vc.waitNodes(nil, statuses, roles, true)
 
     let
       currentTime = vc.beaconClock.now()

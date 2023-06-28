@@ -1310,6 +1310,8 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
     finalizedEpoch = node.dag.finalizedHead.blck.slot.epoch()
     delay = wallTime - expectedSlot.start_beacon_time()
 
+  node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
+
   info "Slot start",
     slot = shortLog(wallSlot),
     epoch = shortLog(wallSlot.epoch),
@@ -1556,12 +1558,12 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{index}
-        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blob_sidecar_index
-        for i in 0 ..< MAX_BLOBS_PER_BLOCK:
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+        for i in 0 ..< BLOB_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = i
             node.network.addValidator(
-              getBlobSidecarTopic(digest, idx), proc (
+              getBlobSidecarTopic(digest, SubnetId(idx)), proc (
                 signedBlobSidecar: SignedBlobSidecar
               ): ValidationResult =
                 toValidationResult(
