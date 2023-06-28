@@ -848,10 +848,32 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           doAssert strictVerification notin node.dag.updateFlags
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-        withBlck(forked):
+        case restBlock.kind
+        of ConsensusFork.Phase0:
+          var blck = restBlock.phase0Data
           blck.root = hash_tree_root(blck.message)
-          # TODO: Fetch blobs from EE when blck is deneb.SignedBeaconBlock
-          await node.router.routeSignedBeaconBlock(blck)
+          await node.router.routeSignedBeaconBlock(blck,
+                                                   Opt.none(SignedBlobSidecars))
+        of ConsensusFork.Altair:
+          var blck = restBlock.altairData
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(blck,
+                                                   Opt.none(SignedBlobSidecars))
+        of ConsensusFork.Bellatrix:
+          var blck = restBlock.bellatrixData
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(blck,
+                                                   Opt.none(SignedBlobSidecars))
+        of ConsensusFork.Capella:
+          var blck = restBlock.capellaData
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(blck,
+                                                   Opt.none(SignedBlobSidecars))
+        of ConsensusFork.Deneb:
+          var blck = restBlock.denebData.signed_block
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(
+            blck, Opt.some(asSeq restBlock.denebData.signed_blob_sidecars))
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -950,7 +972,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       let res = withBlck(forked):
         blck.root = hash_tree_root(blck.message)
-        await node.router.routeSignedBeaconBlock(blck)
+        await node.router.routeSignedBeaconBlock(blck,
+                                                 Opt.none(SignedBlobSidecars))
 
       if res.isErr():
         return RestApiResponse.jsonError(
