@@ -17,12 +17,12 @@ import
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb],
-  ./mev/bellatrix_mev, ./mev/capella_mev
+  ./mev/bellatrix_mev, ./mev/capella_mev, ./mev/deneb_mev
 
 export
   extras, block_id, phase0, altair, bellatrix, capella, deneb,
   eth2_merkleization, eth2_ssz_serialization, forks_light_client,
-  presets, bellatrix_mev, capella_mev
+  presets, bellatrix_mev, capella_mev, deneb_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -851,7 +851,8 @@ template withStateAndBlck*(
 
 func toBeaconBlockHeader*(
     blck: SomeForkyBeaconBlock | bellatrix_mev.BlindedBeaconBlock |
-          capella_mev.BlindedBeaconBlock): BeaconBlockHeader =
+          capella_mev.BlindedBeaconBlock | deneb_mev.BlindedBeaconBlock):
+            BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(
     slot: blck.slot,
