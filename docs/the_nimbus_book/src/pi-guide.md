@@ -58,30 +58,30 @@ Use your microSD to USB adapter to plug the SD card into your computer.
 
 Open Raspberry Pi Imager and click on **CHOOSE OS**:
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_7b8cfa54f877218b6d971f09fa8d62ff.png)
+![](./img/RPi_imager1.png)
 
 Scroll down and click on **Use custom**:
 
-![](https://i.imgur.com/ar88MTt.png)
+![](./img/RPi_imager2.png)
 
 Find the OS you downloaded in step 2:
 
-![](https://i.imgur.com/NeOT8pf.png)
+![](./img/RPi_imager3.png)
 
 ### 4b. Write to SD card
 
 Click on **CHOOSE SD CARD**.
 You should see a menu pop-up with your SD card listed -- Select it
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_f90713c1ef782a94b5fce9eb8249c206.png)
+![](./img/RPi_imager4.png)
 
 Click on **WRITE**
 
-![](https://i.imgur.com/NeOT8pf.png)
+![](./img/RPi_imager3.png)
 
 Click **YES**
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_160208a5bc983165c2a1eb9bffed01c2.png)
+![](./img/RPi_imager5.png)
 
 Make a cup of coffee :)
 
@@ -269,6 +269,25 @@ To overclock your Raspberry Pi, follow the [RPi overclocking guide](https://docs
 
 ### 12. Install the beacon node
 
+=== "Using package manager"
+
+    1. Add Status APT repository to your system.
+
+        ```sh
+        echo 'deb https://apt.status.im/nimbus all main' | sudo tee /etc/apt/sources.list.d/nimbus.list
+
+        # Import the GPG key used to sign the releases:
+        sudo curl https://apt.status.im/pubkey.asc -o /etc/apt/trusted.gpg.d/apt-status-im.asc
+        ```
+
+
+    2. Install Nimbus using APT:
+
+        ```sh
+        sudo apt-get update
+        sudo apt-get install nimbus-beacon-node nimbus-validator-client
+        ```
+
 === "Manual installation"
 
     Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest), go to the Assets on the bottom of the page, and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
@@ -283,18 +302,6 @@ To overclock your Raspberry Pi, follow the [RPi overclocking guide](https://docs
     ```
 
     Now you can find the software in the nimbus-eth2 directory.
-
-=== "Using package manager"
-
-    1. Add Status APT repository to your system.
-       Follow our [APT guide](https://apt.status.im).
-
-    2. Install Nimbus using APT:
-
-        ```sh
-        sudo apt-get install nimbus-beacon-node
-        ```
-
 
 
 ### 13. Copy signing key over to Pi
@@ -323,11 +330,22 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
 
 ### 14. Import signing key into Nimbus
 
-To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
+Depending on your installation method, run these commands to import your signing key into Nimbus:
 
-```sh
-build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_prater_0 ../validator_keys
-```
+=== "Using package manager"
+
+    ```sh
+    # Run import command as the `nimbus` user
+    sudo -u nimbus /usr/bin/nimbus_beacon_node deposits import --data-dir=/var/lib/nimbus/shared_prater_0 /path/to/keys
+    ```
+
+=== "Manual installation"
+
+    To import your signing key into Nimbus, from the `nimbus-eth2` directory run.
+
+    ```sh
+    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_prater_0 ../validator_keys
+    ```
 
  You'll be asked to enter the password you created to encrypt your keystore(s).
  Don't worry, this is entirely normal.
@@ -343,9 +361,15 @@ We're finally ready to connect to the Prater testnet!
     For instructions on how to do so, see the [eth1 page](./eth1.md).
 
 To connect to Prater, run:
+```sh
+sudo -u nimbus /usr/bin/nimbus_beacon_node --network=prater --data-dir=/var/lib/nimbus/shared_prater_0
 ```
+
+Alternatively, if you have installed Nimbus manually, run:
+```sh
 ./run-prater-beacon-node.sh
 ```
+
 
 ### 16. Check for successful connection
 
