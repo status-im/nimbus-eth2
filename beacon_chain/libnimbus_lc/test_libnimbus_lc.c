@@ -262,12 +262,12 @@ int main(void)
     printf("Current slot: %d\n", ECLBeaconClockGetSlot(beaconClock));
     printf("\n");
 
-    const ECLRoot trustedBlockRoot = {
+    const ECLRoot trustedBlockRoot = {{
         0x15, 0xcf, 0x56, 0xeb, 0xf8, 0x87, 0xed, 0xe9,
         0xcf, 0x3f, 0xc1, 0x0a, 0x26, 0xec, 0x83, 0x82,
         0x86, 0x28, 0x93, 0x2c, 0x10, 0x0e, 0x42, 0xc9,
         0x8c, 0x84, 0xf8, 0x3d, 0xa7, 0x10, 0xc8, 0x63
-    };
+    }};
     int numBootstrapBytes;
     void *bootstrapBytes = readEntireFile(__DIR__ "/test_files/bootstrap.ssz", &numBootstrapBytes);
     ECLLightClientStore *store = ECLLightClientStoreCreateFromBootstrap(
