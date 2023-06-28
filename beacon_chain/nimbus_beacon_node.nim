@@ -1310,6 +1310,8 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
     finalizedEpoch = node.dag.finalizedHead.blck.slot.epoch()
     delay = wallTime - expectedSlot.start_beacon_time()
 
+  node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
+
   info "Slot start",
     slot = shortLog(wallSlot),
     epoch = shortLog(wallSlot.epoch),
