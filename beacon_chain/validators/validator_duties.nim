@@ -976,11 +976,11 @@ proc proposeBlockAux(
         elif blck is deneb.BeaconBlock:
           # TODO: also route blobs
           deneb.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot)
-       else:
+        else:
           static: doAssert "Unknown SignedBeaconBlock type"
-      newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
-          return head # Errors logged in router
+      newBlockRef = (await node.router.routeSignedBeaconBlock(
+          signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
+        return head # Errors logged in router
 
     if newBlockRef.isNone():
       return head # Validation errors logged in router
