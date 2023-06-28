@@ -150,7 +150,8 @@ proc doTrustedNodeSync*(
                 client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
                 largeRequestsTimeout):
               info "Attempt to download genesis state timed out"
-              nil
+              # https://github.com/nim-lang/Nim/issues/22180
+              (ref ForkedHashedBeaconState)(nil)
           except CatchableError as exc:
             info "Unable to download genesis state",
               error = exc.msg, restUrl

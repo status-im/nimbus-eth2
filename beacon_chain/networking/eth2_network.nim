@@ -2673,6 +2673,14 @@ proc broadcastBeaconBlock*(
   let topic = getBeaconBlocksTopic(node.forkDigests.deneb)
   node.broadcast(topic, blck)
 
+proc broadcastBlobSidecar*(
+    node: Eth2Node, subnet_id: SubnetId, blob: deneb.SignedBlobSidecar):
+      Future[SendResult] =
+  let
+    forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
+    topic = getBlobSidecarTopic(forkPrefix, subnet_id)
+  node.broadcast(topic, blob)
+
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex): Future[SendResult] =
