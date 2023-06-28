@@ -263,7 +263,7 @@ Once you're done, `ssh` back into your Pi.
 
 ### 11. Overclocking
 
-Nimbus requires Raspberry Pi to be overclocked.
+Nimbus requires the Raspberry Pi to be overclocked.
 To overclock your Raspberry Pi, follow the [RPi overclocking guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
 
 
