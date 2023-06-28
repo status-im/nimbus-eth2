@@ -979,7 +979,7 @@ proc proposeBlockAux(
        else:
           static: doAssert "Unknown SignedBeaconBlock type"
       newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
+        (await node.router.routeSignedBeaconBlock(signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
           return head # Errors logged in router
 
     if newBlockRef.isNone():
