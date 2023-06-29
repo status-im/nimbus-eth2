@@ -395,14 +395,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res =
           case node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
           of ConsensusFork.Deneb:
-            # TODO
-            # We should return a block with sidecars here
-            # https://github.com/ethereum/beacon-APIs/pull/302/files
-            # The code paths leading to makeBeaconBlockForHeadAndSlot are already
-            # partially refactored to make it possible to return the blobs from
-            # the call, but the signature of the call needs to be changed furhter
-            # to access the blobs here.
-            discard $denebImplementationMissing
             await makeBeaconBlockForHeadAndSlot(
               deneb.ExecutionPayloadForSigning,
               node, qrandao, proposer, qgraffiti, qhead, qslot)
@@ -418,17 +410,38 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400, InvalidSlotValueError)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
-        res.get.blck
+        res.get
     return
-      if contentType == sszMediaType:
-        let headers = [("eth-consensus-version", message.kind.toString())]
-        withBlck(message):
+      withBlck(message.blck):
+        let data =
+          when blck is deneb.BeaconBlock:
+            var sidecars : seq[BlobSidecar] = @[]
+            let bundle = message.blobsBundleOpt.get()
+            let blockRoot = hash_tree_root(blck)
+            let (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
+            for i in 0..<blobs.len:
+              var sidecar = deneb.BlobSidecar(
+                block_root: blockRoot,
+                index: BlobIndex(i),
+                slot: blck.slot,
+                block_parent_root: blck.parent_root,
+                proposer_index: blck.proposer_index,
+                blob: blobs[i],
+                kzg_commitment: kzgs[i],
+                kzg_proof: proofs[i]
+              )
+              sidecars.add(sidecar)
+
+            DenebBlockContents(`block`: blck, blob_sidecars: List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK].init(sidecars))
+          else:
+            blck
+        if contentType == sszMediaType:
+          let headers = [("eth-consensus-version", message.blck.kind.toString())]
           RestApiResponse.sszResponse(blck, headers)
-      elif contentType == jsonMediaType:
-        withBlck(message):
-          RestApiResponse.jsonResponseWVersion(blck, message.kind)
-      else:
-        raiseAssert "preferredContentType() returns invalid content type"
+        elif contentType == jsonMediaType:
+          RestApiResponse.jsonResponseWVersion(blck, message.blck.kind)
+        else:
+          raiseAssert "preferredContentType() returns invalid content type"
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/blinded_block.yaml
