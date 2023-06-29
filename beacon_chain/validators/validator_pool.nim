@@ -545,13 +545,13 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           of RemoteSignerType.Web3Signer:
             Web3SignerRequest.init(fork, genesis_validators_root,
               Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
-                denebData: blck.toBeaconBlockHeader))
+                data: blck.toBeaconBlockHeader))
           of RemoteSignerType.VerifyingWeb3Signer:
             let proofs = blockPropertiesProofs(
               blck.body, denebIndex)
             Web3SignerRequest.init(fork, genesis_validators_root,
               Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
-                denebData: blck.toBeaconBlockHeader),
+                data: blck.toBeaconBlockHeader),
               proofs)
         else:
           case blck.kind
