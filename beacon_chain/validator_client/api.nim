@@ -154,8 +154,7 @@ template firstSuccessParallel*(
         # This case could not be happened.
         error "Unexpected exception while waiting for beacon nodes",
               err_name = $exc.name, err_msg = $exc.msg
-        var default: seq[BeaconNodeServerRef]
-        default
+        default(seq[BeaconNodeServerRef])
 
     if len(onlineNodes) == 0:
       retRes = ApiResponse[handlerType].err("No online beacon node(s)")
@@ -236,7 +235,7 @@ template firstSuccessParallel*(
                 except CatchableError:
                   raiseAssert("Response handler must not raise exceptions")
 
-            if apiResponse.isOk() and handlerResponse.isOk():
+            if handlerResponse.isOk():
               retRes = handlerResponse
               resultReady = true
               asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
@@ -314,8 +313,7 @@ template bestSuccess*(
           # This case could not be happened.
           error "Unexpected exception while waiting for beacon nodes",
                 err_name = $exc.name, err_msg = $exc.msg
-          var default: seq[BeaconNodeServerRef]
-          default
+          default(seq[BeaconNodeServerRef])
 
       if len(onlineNodes) == 0:
         retRes = ApiResponse[handlerType].err("No online beacon node(s)")
@@ -377,7 +375,7 @@ template bestSuccess*(
                         raiseAssert(
                           "Response handler must not raise exceptions")
 
-                  if apiResponse.isOk() and handlerResponse.isOk():
+                  if handlerResponse.isOk():
                     let
                       itresponse {.inject.} = handlerResponse.get()
                       score =
