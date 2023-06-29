@@ -241,7 +241,7 @@ type
     useOldStabilitySubnets* {.
       hidden
       defaultValue: true
-      name: "temporary-debug-use-old-attestation-stability-subnets" .}: bool
+      name: "debug-use-old-attestation-stability-subnets" .}: bool
 
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#key-distribution
     jwtSecret* {.
