@@ -25,7 +25,7 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
-  # https://github.com/ethereum/builder-specs/blob/main/specs/deneb/builder.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/0b913daaa491cd889083827375977a6285e684bd/specs/deneb/builder.md#blindedbeaconblockbody
   BlindedBeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -45,7 +45,7 @@ type
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#blindedbeaconblock
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
-  # https://github.com/ethereum/builder-specs/blob/main/specs/deneb/builder.md#blindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/0b913daaa491cd889083827375977a6285e684bd/specs/deneb/builder.md#blindedbeaconblockbody
   BlindedBeaconBlock* = object
     slot*: Slot
     proposer_index*: uint64

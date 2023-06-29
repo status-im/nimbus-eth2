@@ -23,7 +23,7 @@ import
   eth/db/kvstore,
   eth/p2p/discoveryv5/[protocol, enr],
   web3/ethtypes,
-  ../../vendor/nim-kzg4844/kzg4844,
+  kzg4844,
 
   # Local modules
   ../spec/datatypes/[phase0, altair, bellatrix],
@@ -947,7 +947,7 @@ proc proposeBlockAux(
 
     let blobSidecarsOpt =
       when blck is deneb.BeaconBlock:
-        var sidecars : seq[BlobSidecar] = @[]
+        var sidecars: seq[BlobSidecar]
         let bundle = engineBlockFut.read.get().blobsBundleOpt.get()
         let (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
         for i in 0..<blobs.len:
@@ -958,7 +958,7 @@ proc proposeBlockAux(
             block_parent_root: blck.parent_root,
             proposer_index: blck.proposer_index,
             blob: blobs[i],
-          kzg_commitment: kzgs[i],
+            kzg_commitment: kzgs[i],
             kzg_proof: proofs[i]
           )
           sidecars.add(sidecar)
@@ -1011,21 +1011,21 @@ proc proposeBlockAux(
              blck is bellatrix.BeaconBlock or blck is capella.BeaconBlock:
           Opt.none(SignedBlobSidecars)
         elif blck is deneb.BeaconBlock:
-          var signed: seq[SignedBlobSidecar] = @[]
+          var signed: seq[SignedBlobSidecar]
           let blobSidecars = blobSidecarsOpt.get()
           for i in 0..<blobs.len:
-              let res = validator.getBlobSignature(fork, genesis_validators_root,
-                                                   slot, blobSidecars[i])
-              if res.isErr():
-                warn "Unable to sign blob",
-                 reason = res.error()
-                return
-              let signature = res.get()
-              signed.add(deneb.SignedBlobSidecar(
-                message: blobSidecars[i],
-                signature: signature))
+            let res = validator.getBlobSignature(fork, genesis_validators_root,
+                                                 slot, blobSidecars[i])
+            if res.isErr():
+              warn "Unable to sign blob",
+                   reason = res.error()
+              return
+            let signature = res.get()
+            signed.add(deneb.SignedBlobSidecar(
+                       message: blobSidecars[i],
+                       signature: signature))
           Opt.some(signed)
-       else:
+        else:
           static: doAssert "Unknown SignedBeaconBlock type"
 
       newBlockRef =
