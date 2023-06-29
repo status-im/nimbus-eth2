@@ -111,7 +111,7 @@ proc routeSignedBeaconBlock*(
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
         if blobs.len > 0 or kzgCommits.len > 0:
           let res = validate_blobs(kzgCommits, blobs.mapIt(it.message.blob),
-                                 blobs.mapIt(it.message.kzg_proof))
+                                   blobs.mapIt(it.message.kzg_proof))
           if res.isErr():
             warn "blobs failed validation",
               blockRoot = shortLog(blck.root),
@@ -160,7 +160,6 @@ proc routeSignedBeaconBlock*(
       else:
         notice "Blob sent", blob = shortLog(signedBlobs[i]), error = res.error[]
     blobs = Opt.some(blobsOpt.get().mapIt(newClone(it.message)))
-
 
   let newBlockRef = await router[].blockProcessor.storeBlock(
     MsgSource.api, sendTime, blck, blobs)
