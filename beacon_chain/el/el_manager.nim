@@ -1058,10 +1058,12 @@ proc sendNewPayloadToSingleEL(connection: ELConnection,
 
 proc sendNewPayloadToSingleEL(connection: ELConnection,
                               payload: engine_api.ExecutionPayloadV3,
-                              versioned_hashes: seq[engine_api.VersionedHash]):
+                              versioned_hashes: seq[engine_api.VersionedHash],
+                              parent_beacon_block_root: FixedBytes[32]):
                               Future[PayloadStatusV1] {.async.} =
   let rpcClient = await connection.connectedRpcClient()
-  return await rpcClient.engine_newPayloadV3(payload, versioned_hashes)
+  return await rpcClient.engine_newPayloadV3(
+    payload, versioned_hashes, parent_beacon_block_root)
 
 type
   StatusRelation = enum
@@ -1153,13 +1155,13 @@ proc processResponse[ELResponseType](
             url2 = connections[idx].engineUrl.url,
             status2 = status
 
-proc sendNewPayload*(m: ELManager, blockBody: SomeForkyBeaconBlockBody):
+proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
                      Future[PayloadExecutionStatus] {.async.} =
   let
     earlyDeadline = sleepAsync(chronos.seconds 1)
     startTime = Moment.now
     deadline = sleepAsync(NEWPAYLOAD_TIMEOUT)
-    payload = blockBody.execution_payload.asEngineExecutionPayload
+    payload = blck.body.execution_payload.asEngineExecutionPayload
     requests = m.elConnections.mapIt:
       let req =
         when payload is engine_api.ExecutionPayloadV3:
@@ -1167,9 +1169,11 @@ proc sendNewPayload*(m: ELManager, blockBody: SomeForkyBeaconBlockBody):
           # Verify the execution payload is valid
           # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
           let versioned_hashes = mapIt(
-            blockBody.blob_kzg_commitments,
+            blck.body.blob_kzg_commitments,
             engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
-          sendNewPayloadToSingleEL(it, payload, versioned_hashes)
+          sendNewPayloadToSingleEL(
+            it, payload, versioned_hashes,
+            FixedBytes[32] blck.parent_root.data)
         elif payload is engine_api.ExecutionPayloadV1 or
              payload is engine_api.ExecutionPayloadV2:
           sendNewPayloadToSingleEL(it, payload)
