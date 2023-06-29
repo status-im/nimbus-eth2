@@ -1200,103 +1200,30 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
   prepareForkedBlockReading(reader, version, data,
                             "Web3SignerForkedBeaconBlock")
 
-  case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             phase0.BeaconBlock,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[phase0.BeaconBlock]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Phase0,
-      phase0Data: res.get())
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             altair.BeaconBlock,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[altair.BeaconBlock]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect altair block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Altair,
-      altairData: res.get())
-  of ConsensusFork.Bellatrix:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             BeaconBlockHeader,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[BeaconBlockHeader]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect bellatrix block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Bellatrix,
-      bellatrixData: res.get())
-  of ConsensusFork.Capella:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             BeaconBlockHeader,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[BeaconBlockHeader]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect capella block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Capella,
-      capellaData: res.get())
-  of ConsensusFork.Deneb:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             BeaconBlockHeader,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[BeaconBlockHeader]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect deneb block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Deneb,
-      denebData: res.get())
+  let res =
+    try:
+      some(RestJson.decode(string(data.get()),
+                           BeaconBlockHeader,
+                           requireAllFields = true,
+                           allowUnknownFields = true))
+    except SerializationError:
+      none[BeaconBlockHeader]()
+  if res.isNone():
+    reader.raiseUnexpectedValue("Incorrect block header format")
+  if version.get() <= ConsensusFork.Altair:
+    reader.raiseUnexpectedValue(
+      "Web3Signer implementation supports Bellatrix and newer")
+  value = Web3SignerForkedBeaconBlock(kind: version.get(), data: res.get())
 
 proc writeValue*[
     BlockType: Web3SignerForkedBeaconBlock](
     writer: var JsonWriter[RestJson],
     value: BlockType) {.raises: [IOError, Defect].} =
-  template forkIdentifier(id: string): auto = (static toUpperAscii id)
-
   # https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
   # https://github.com/ConsenSys/web3signer/blob/d51337e96ba5ce410222943556bed7c4856b8e57/core/src/main/java/tech/pegasys/web3signer/core/service/http/handlers/signing/eth2/json/BlockRequestDeserializer.java#L42-L58
   writer.beginRecord()
-  case value.kind
-  of ConsensusFork.Phase0:
-    writer.writeField("version", forkIdentifier "phase0")
-    writer.writeField("block", value.phase0Data)
-  of ConsensusFork.Altair:
-    writer.writeField("version", forkIdentifier "altair")
-    writer.writeField("block", value.altairData)
-  of ConsensusFork.Bellatrix:
-    writer.writeField("version", forkIdentifier "bellatrix")
-    writer.writeField("block_header", value.bellatrixData)
-  of ConsensusFork.Capella:
-    writer.writeField("version", forkIdentifier "capella")
-    writer.writeField("block_header", value.capellaData)
-  of ConsensusFork.Deneb:
-    writer.writeField("version", forkIdentifier "deneb")
-    writer.writeField("block_header", value.denebData)
+  writer.writeField("version", value.kind.toString.toUpperAscii)
+  writer.writeField("block", value.data)
   writer.endRecord()
 
 proc writeValue*[

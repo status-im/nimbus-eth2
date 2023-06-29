@@ -369,14 +369,12 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
-+ Signing BeaconBlock (getBlockSignature(altair))                                            OK
 + Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
 + Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
-+ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Nimbus remote signer/signing test (web3signer)
 ```diff
 + Connection timeout test                                                                    OK
@@ -384,11 +382,9 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Idle connection test                                                                       OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
-+ Signing BeaconBlock (getBlockSignature(altair))                                            OK
 + Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
 + Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
-+ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
@@ -401,7 +397,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -692,4 +688,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 393/398 Fail: 0/398 Skip: 5/398
+OK: 389/394 Fail: 0/394 Skip: 5/394
