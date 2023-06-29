@@ -391,6 +391,12 @@ template bestSuccess*(
                   else:
                     scores.add(ApiScore.init(node))
 
+              if perfectScoreFound:
+                # lazyWait will cancel `pendingRequests` on timeout.
+                asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
+                                    RequestName, strategy)
+                break innerLoop
+
               if not(isNil(timerFut)) and timerFut.finished():
                 # If timeout is exceeded we need to cancel all the tasks which
                 # are still running.
@@ -401,13 +407,8 @@ template bestSuccess*(
                 await allFutures(pendingCancel)
                 break innerLoop
 
-              if perfectScoreFound:
-                asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
-                                    RequestName, strategy)
-                break innerLoop
-              else:
-                pendingRequests.keepItIf(it notin finishedRequests)
-                pendingNodes.keepItIf(it notin finishedNodes)
+              pendingRequests.keepItIf(it notin finishedRequests)
+              pendingNodes.keepItIf(it notin finishedNodes)
 
             except CancelledError as exc:
               var pendingCancel: seq[Future[void]]
