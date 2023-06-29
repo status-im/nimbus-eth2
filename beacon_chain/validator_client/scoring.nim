@@ -11,7 +11,7 @@ import "."/common
 {.push raises: [].}
 
 func perfectScore*(score: float64): bool =
-  if score == Inf: true else: false
+  score == Inf
 
 proc shortScore*(score: float64): string =
   if score == Inf: "<perfect>" else: formatFloat(score, ffDecimal, 4)

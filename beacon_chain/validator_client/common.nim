@@ -1208,14 +1208,14 @@ proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
   if not(retFuture.finished()): retFuture.cancelCallback = cancellation
   retFuture
 
-proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject,
+proc registerBlock*(vc: ValidatorClientRef, eblck: EventBeaconBlockObject,
                     node: BeaconNodeServerRef) =
   let
     wallTime = vc.beaconClock.now()
-    delay = wallTime - edata.slot.start_beacon_time()
+    delay = wallTime - eblck.slot.start_beacon_time()
 
-  debug "Block received", slot = data.slot,
-        block_root = shortLog(data.block_root), optimistic = data.optimistic,
+  debug "Block received", slot = eblck.slot,
+        block_root = shortLog(eblck.block_root), optimistic = eblck.optimistic,
         node = node, delay = delay
 
   proc scheduleCallbacks(data: var BlockDataItem,
@@ -1226,7 +1226,7 @@ proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject,
       if mitem.count >= len(data.blocks):
         if not(mitem.future.finished()): mitem.future.complete(data.blocks)
 
-  vc.blocksSeen.mgetOrPut(edata.slot, BlockDataItem()).scheduleCallbacks(edata)
+  vc.blocksSeen.mgetOrPut(eblck.slot, BlockDataItem()).scheduleCallbacks(eblck)
 
 proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
   var blocksSeen: Table[Slot, BlockDataItem]

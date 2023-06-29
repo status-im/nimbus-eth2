@@ -114,6 +114,18 @@ proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
   else:
     await allFutures(futures)
 
+proc apiResponseOr[T](future: FutureBase, timerFut: Future[void],
+                      message: string): ApiResponse[T] =
+  if future.finished():
+    doAssert(not(future.cancelled()))
+    if future.failed():
+      ApiResponse[T].err($future.error.msg)
+    else:
+      ApiResponse[T].ok(Future[T](future).read())
+  else:
+    doAssert(timerFut.finished())
+    ApiResponse[T].err(message)
+
 template firstSuccessParallel*(
            vc: ValidatorClientRef,
            responseType: typedesc,
@@ -218,15 +230,8 @@ template firstSuccessParallel*(
             let
               node {.inject.} = beaconNode
               apiResponse {.inject.} =
-                if timerFut.finished():
-                  ApiResponse[responseType].err(
-                    "Timeout exceeded while awaiting for the response")
-                else:
-                  if requestFut.failed():
-                    ApiResponse[responseType].err($requestFut.error.msg)
-                  else:
-                    ApiResponse[responseType].ok(
-                      Future[responseType](requestFut).read())
+                apiResponseOr[responseType](requestFut, timerFut,
+                  "Timeout exceeded while awaiting for the response")
               handlerResponse =
                 try:
                   body2
@@ -347,25 +352,15 @@ template bestSuccess*(
                 await allFutures(raceFut)
 
               for index, future in pendingRequests.pairs():
-                if (future != timerFut) and
-                   (future.finished() or
-                     (not(isNil(timerFut)) and timerFut.finished())):
+                if future.finished() or
+                   (not(isNil(timerFut)) and timerFut.finished()):
                   finishedRequests.add(future)
                   finishedNodes.add(pendingNodes[index])
                   let
                     node {.inject.} = pendingNodes[index]
                     apiResponse {.inject.} =
-                      if future.finished():
-                        doAssert(not(future.cancelled()))
-                        if future.failed():
-                          ApiResponse[responseType].err($future.error.msg)
-                        else:
-                          ApiResponse[responseType].ok(
-                            Future[responseType](future).read())
-                      else:
-                        doAssert(timerFut.finished())
-                        ApiResponse[responseType].err(
-                          "Timeout exceeded while awaiting for the response")
+                      apiResponseOr[responseType](future, timerFut,
+                        "Timeout exceeded while awaiting for the response")
                     handlerResponse =
                       try:
                         bodyHandler
@@ -405,14 +400,14 @@ template bestSuccess*(
                     pendingCancel.add(future.cancelAndWait())
                 await allFutures(pendingCancel)
                 break innerLoop
+
+              if perfectScoreFound:
+                asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
+                                    RequestName, strategy)
+                break innerLoop
               else:
-                if perfectScoreFound:
-                  asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
-                                      RequestName, strategy)
-                  break innerLoop
-                else:
-                  pendingRequests.keepItIf(it notin finishedRequests)
-                  pendingNodes.keepItIf(it notin finishedNodes)
+                pendingRequests.keepItIf(it notin finishedRequests)
+                pendingNodes.keepItIf(it notin finishedNodes)
 
             except CancelledError as exc:
               var pendingCancel: seq[Future[void]]
