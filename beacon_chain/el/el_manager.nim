@@ -564,6 +564,7 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
     # Both are defined as `array[N, byte]` under the hood.
     kzgs: KzgCommitments payload.blobsBundle.commitments.mapIt(it.bytes),
+    proofs: payload.blobsBundle.proofs.mapIt(it.bytes),
     blobs: Blobs payload.blobsBundle.blobs.mapIt(it.bytes)
   )
 

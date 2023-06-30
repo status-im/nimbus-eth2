@@ -435,14 +435,16 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         block_root: Eth2Digest,
                         blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock |
                               bellatrix_mev.BlindedBeaconBlock |
-                              capella_mev.BlindedBeaconBlock
+                              capella_mev.BlindedBeaconBlock |
+                              deneb_mev.BlindedBeaconBlock
                        ): Future[SignatureResult] {.async.} =
   type SomeBlockBody =
     bellatrix.BeaconBlockBody |
     capella.BeaconBlockBody |
     deneb.BeaconBlockBody |
     bellatrix_mev.BlindedBeaconBlockBody |
-    capella_mev.BlindedBeaconBlockBody
+    capella_mev.BlindedBeaconBlockBody |
+    deneb_mev.BlindedBeaconBlockBody
 
   template blockPropertiesProofs(blockBody: SomeBlockBody,
                                  forkIndexField: untyped): seq[Web3SignerMerkleProof] =
@@ -538,9 +540,20 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
               Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
                 data: blck.toBeaconBlockHeader),
               proofs)
+        elif blck is deneb_mev.BlindedBeaconBlock:
+          case v.data.remoteType
+          of RemoteSignerType.Web3Signer:
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
+                data: blck.toBeaconBlockHeader))
+          of RemoteSignerType.VerifyingWeb3Signer:
+            let proofs = blockPropertiesProofs(
+              blck.body, denebIndex)
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
+                data: blck.toBeaconBlockHeader),
+              proofs)
         else:
-          # There should be a deneb_mev module just like the ones above
-          discard denebImplementationMissing
           case blck.kind
           of ConsensusFork.Phase0, ConsensusFork.Altair:
             return SignatureResult.err("Invalid beacon block fork version")

@@ -109,6 +109,7 @@ type
     executionPayload*: ExecutionPayload
     blockValue*: Wei
     kzgs*: KzgCommitments
+    proofs*:seq[KZGProof]
     blobs*: Blobs
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#executionpayloadheader
