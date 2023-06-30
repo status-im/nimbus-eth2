@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# Copyright (c) 2023 Status Research & Development GmbH.
+# Licensed under either of:
+# - Apache License, version 2.0
+# - MIT license
+# at your option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
 set -euo pipefail
 
 SCRIPTS_DIR="$(dirname "${BASH_SOURCE[0]}")"
@@ -29,8 +36,6 @@ if [ -d /opt/homebrew/lib ]; then
   # See https://github.com/Homebrew/brew/issues/13481 for more details
 fi
 
-PROCS_TO_KILL+="(${NIMBUS_ETH1_BINARY})"
-
 for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
   NIMBUS_ETH1_DATA_DIR=$(mktemp -d "${DATA_DIR}/nimbus-eth1-data-XXXXXX")
   NIMBUS_ETH1_DATA_DIRS+=("${NIMBUS_ETH1_DATA_DIR}")
@@ -43,7 +48,9 @@ for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
     --jwt-secret="${JWT_FILE}" \
     --engine-api --engine-api-port="${NIMBUS_ETH1_AUTH_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]}" \
     --rpc --rpc-port="${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]}" \
-      &> "${DATA_DIR}/nimbus_eth1_log${NIMBUS_ETH1_NODE_IDX}.txt" &
+      &> "${DATA_DIR}/logs/nimbus_eth1.${NIMBUS_ETH1_NODE_IDX}.txt" &
+  PID=$!
+  echo $PID > "${DATA_DIR}/pids/nimbus_eth1.${NIMBUS_ETH1_NODE_IDX}"
 done
 
 echo "Waiting for the Nimbus ETH1 nodes to come online..."

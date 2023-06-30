@@ -159,7 +159,7 @@ proc getLatestFinalizedHeader*(
       warn "Unsupported LC store kind", store = "headers",
         key, kind = header[0]
       return default(ForkedLightClientHeader)
-    except SszError as exc:
+    except SerializationError as exc:
       error "LC store corrupted", store = "headers",
         key, kind = header[0], exc = exc.msg
       return default(ForkedLightClientHeader)
@@ -248,7 +248,7 @@ proc getSyncCommittee*(
     res.expect("SQL query OK")
     try:
       return ok SSZ.decode(syncCommittee, altair.SyncCommittee)
-    except SszError as exc:
+    except SerializationError as exc:
       error "LC store corrupted", store = "syncCommittees",
         period, exc = exc.msg
       return Opt.none(altair.SyncCommittee)

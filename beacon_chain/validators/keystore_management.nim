@@ -11,7 +11,7 @@ import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, json_serialization, zxcvbn,
   bearssl/rand,
-  serialization, blscurve, eth/common/eth_types, eth/keys, confutils,
+  serialization, blscurve, eth/common/eth_types, confutils,
   nimbus_security_resources,
   ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
@@ -69,6 +69,11 @@ type
     proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
          {.raises: [Defect], gcsafe.}
 
+  GetForkFn* =
+    proc (epoch: Epoch): Opt[Fork] {.raises: [Defect], gcsafe.}
+  GetGenesisFn* =
+    proc (): Eth2Digest {.raises: [Defect], gcsafe.}
+
   KeymanagerHost* = object
     validatorPool*: ref ValidatorPool
     rng*: ref HmacDrbgContext
@@ -79,6 +84,8 @@ type
     defaultGasLimit*: uint64
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
+    getForkFn*: GetForkFn
+    getGenesisFn*: GetGenesisFn
 
   MultipleKeystoresDecryptor* = object
     previouslyUsedPassword*: string
@@ -92,7 +99,7 @@ const
       "passwords" / "10-million-password-list-top-100000.txt",
     minWordLen = minPasswordLen)
 
-proc dispose*(decryptor: var MultipleKeystoresDecryptor) =
+func dispose*(decryptor: var MultipleKeystoresDecryptor) =
   burnMem(decryptor.previouslyUsedPassword)
 
 func init*(T: type KeymanagerHost,
@@ -104,7 +111,9 @@ func init*(T: type KeymanagerHost,
            defaultFeeRecipient: Opt[Eth1Address],
            defaultGasLimit: uint64,
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
-           getBeaconTimeFn: GetBeaconTimeFn): T =
+           getBeaconTimeFn: GetBeaconTimeFn,
+           getForkFn: GetForkFn,
+           getGenesisFn: GetGenesisFn): T =
   T(validatorPool: validatorPool,
     rng: rng,
     keymanagerToken: keymanagerToken,
@@ -113,7 +122,9 @@ func init*(T: type KeymanagerHost,
     defaultFeeRecipient: defaultFeeRecipient,
     defaultGasLimit: defaultGasLimit,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
-    getBeaconTimeFn: getBeaconTimeFn)
+    getBeaconTimeFn: getBeaconTimeFn,
+    getForkFn: getForkFn,
+    getGenesisFn: getGenesisFn)
 
 proc echoP*(msg: string) =
   ## Prints a paragraph aligned to 80 columns
@@ -134,8 +145,8 @@ func init*(T: type KeystoreData,
     pubkey: privateKey.toPubKey().toPubKey()
   )
 
-func init*(T: type KeystoreData, keystore: RemoteKeystore,
-           handle: FileLockHandle): Result[T, cstring] {.raises: [Defect].} =
+func init(T: type KeystoreData, keystore: RemoteKeystore,
+          handle: FileLockHandle): Result[T, cstring] {.raises: [Defect].} =
   let cookedKey = keystore.pubkey.load().valueOr:
         return err("Invalid validator's public key")
 
@@ -162,9 +173,9 @@ func init*(T: type KeystoreData, keystore: RemoteKeystore,
       remoteType: RemoteSignerType.VerifyingWeb3Signer,
       provenBlockProperties: keystore.provenBlockProperties)
 
-func init*(T: type KeystoreData, cookedKey: CookedPubKey,
-           remotes: seq[RemoteSignerInfo], threshold: uint32,
-           handle: FileLockHandle): T =
+func init(T: type KeystoreData, cookedKey: CookedPubKey,
+          remotes: seq[RemoteSignerInfo], threshold: uint32,
+          handle: FileLockHandle): T =
   KeystoreData(
     kind: KeystoreKind.Remote,
     handle: handle,
@@ -178,7 +189,7 @@ func init(T: type AddValidatorFailure, status: AddValidatorStatus,
           msg = ""): AddValidatorFailure {.raises: [Defect].} =
   AddValidatorFailure(status: status, message: msg)
 
-func toKeystoreKind*(kind: ValidatorKind): KeystoreKind {.raises: [Defect].} =
+func toKeystoreKind(kind: ValidatorKind): KeystoreKind {.raises: [Defect].} =
   case kind
   of ValidatorKind.Local:
     KeystoreKind.Local
@@ -240,7 +251,7 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
 
   return true
 
-proc checkSensitivePathPermissions*(dirFilePath: string): bool =
+proc checkSensitivePathPermissions(dirFilePath: string): bool =
   ## If ``dirFilePath`` is file, then check if file has only
   ##
   ##   - "(600) rwx------" permissions on Posix (Linux, MacOS, BSD)
@@ -392,7 +403,7 @@ proc keyboardGetPassword[T](prompt: string, attempts: int,
       dec(remainingAttempts)
   err("Failed to decrypt keystore")
 
-proc loadSecretFile*(path: string): KsResult[KeystorePass] {.
+proc loadSecretFile(path: string): KsResult[KeystorePass] {.
      raises: [Defect].} =
   let res = readAllChars(path)
   if res.isErr():
@@ -618,7 +629,7 @@ proc removeValidator*(pool: var ValidatorPool,
   pool.removeValidator(publicKey)
   ok(res.value())
 
-proc checkKeyName*(keyName: string): bool =
+func checkKeyName(keyName: string): bool =
   const keyAlphabet = {'a'..'f', 'A'..'F', '0'..'9'}
   if len(keyName) != KeyNameSize:
     return false
@@ -629,7 +640,7 @@ proc checkKeyName*(keyName: string): bool =
       return false
   true
 
-proc existsKeystore*(keystoreDir: string, keyKind: KeystoreKind): bool {.
+proc existsKeystore(keystoreDir: string, keyKind: KeystoreKind): bool {.
      raises: [Defect].} =
   case keyKind
   of KeystoreKind.Local:
@@ -637,8 +648,8 @@ proc existsKeystore*(keystoreDir: string, keyKind: KeystoreKind): bool {.
   of KeystoreKind.Remote:
     fileExists(keystoreDir / RemoteKeystoreFileName)
 
-proc existsKeystore*(keystoreDir: string,
-                     keysMask: set[KeystoreKind]): bool {.raises: [Defect].} =
+proc existsKeystore(keystoreDir: string,
+                    keysMask: set[KeystoreKind]): bool {.raises: [Defect].} =
   if KeystoreKind.Local in keysMask:
     if existsKeystore(keystoreDir, KeystoreKind.Local):
       return true
@@ -820,7 +831,7 @@ type
        DuplicateKeystoreFile:
       error*: string
 
-proc mapErrTo*[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
+func mapErrTo*[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
     Result[T, KeystoreGenerationError] =
   r.mapErr(proc (e: E): KeystoreGenerationError =
     KeystoreGenerationError(kind: v, error: $e))
@@ -948,7 +959,7 @@ proc createLocalValidatorFiles*(
   success = true
   ok()
 
-proc createLockedLocalValidatorFiles*(
+proc createLockedLocalValidatorFiles(
        secretsDir, validatorsDir, keystoreDir,
        secretFile, passwordAsString, keystoreFile,
        encodedStorage: string
@@ -1022,7 +1033,7 @@ proc createRemoteValidatorFiles*(
   success = true
   ok()
 
-proc createLockedRemoteValidatorFiles*(
+proc createLockedRemoteValidatorFiles(
        validatorsDir, keystoreDir, keystoreFile, encodedStorage: string
      ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
   var
@@ -1089,7 +1100,7 @@ proc saveKeystore*(
                               keystoreFile, encodedStorage)
   ok()
 
-proc saveLockedKeystore*(
+proc saveLockedKeystore(
        rng: var HmacDrbgContext,
        validatorsDir, secretsDir: string,
        signingKey: ValidatorPrivKey,
@@ -1130,7 +1141,7 @@ proc saveLockedKeystore*(
                                                keystoreFile, encodedStorage)
   ok(lock)
 
-proc saveKeystore*(
+proc saveKeystore(
        validatorsDir: string,
        publicKey: ValidatorPubKey,
        urls: seq[RemoteSignerInfo],
@@ -1172,7 +1183,7 @@ proc saveKeystore*(
                                encodedStorage)
   ok()
 
-proc saveLockedKeystore*(
+proc saveLockedKeystore(
        validatorsDir: string,
        publicKey: ValidatorPubKey,
        urls: seq[RemoteSignerInfo],
@@ -1222,7 +1233,7 @@ proc saveKeystore*(
   let remoteInfo = RemoteSignerInfo(url: url, id: 0)
   saveKeystore(validatorsDir, publicKey, @[remoteInfo], 1)
 
-proc saveLockedKeystore*(
+proc saveLockedKeystore(
        validatorsDir: string,
        publicKey: ValidatorPubKey,
        url:  HttpHostUri
@@ -1338,12 +1349,12 @@ func validatorKeystoreDir(host: KeymanagerHost,
                           pubkey: ValidatorPubKey): string =
   host.validatorsDir.validatorKeystoreDir(pubkey)
 
-func feeRecipientPath*(host: KeymanagerHost,
-                       pubkey: ValidatorPubKey): string =
+func feeRecipientPath(host: KeymanagerHost,
+                      pubkey: ValidatorPubKey): string =
   host.validatorsDir.feeRecipientPath(pubkey)
 
-func gasLimitPath*(host: KeymanagerHost,
-                   pubkey: ValidatorPubKey): string =
+func gasLimitPath(host: KeymanagerHost,
+                  pubkey: ValidatorPubKey): string =
   host.validatorsDir.gasLimitPath(pubkey)
 
 proc removeFeeRecipientFile*(host: KeymanagerHost,
@@ -1416,7 +1427,7 @@ func getPerValidatorDefaultFeeRecipient*(
 proc getSuggestedFeeRecipient*(
     host: KeymanagerHost, pubkey: ValidatorPubKey,
     defaultFeeRecipient: Eth1Address):
-    Result[Eth1Address, ValidatorConfigFileStatus] {.deprecated.} =
+    Result[Eth1Address, ValidatorConfigFileStatus] =
   host.validatorsDir.getSuggestedFeeRecipient(pubkey, defaultFeeRecipient)
 
 proc getSuggestedFeeRecipient(
@@ -1535,7 +1546,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
 
   ok deposits
 
-proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
+proc saveWallet(wallet: Wallet, outWalletPath: string): Result[void, string] =
   let walletDir = splitFile(outWalletPath).dir
   var encodedWallet: string
   try:

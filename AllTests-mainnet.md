@@ -100,10 +100,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers
 ```diff
++ commonAncestor sanity                                                                      OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## BlockSlot and helpers
 ```diff
 + atSlot sanity                                                                              OK
@@ -349,6 +350,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
++ Blob sidecar signatures                                                                    OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -356,7 +358,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Network metadata
 ```diff
 + goerli                                                                                     OK
@@ -393,13 +395,12 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
 + Signing deposit message (getDepositMessageSignature())                                     OK
-+ Signing phase0 block                                                                       OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 22/22 Fail: 0/22 Skip: 0/22
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -446,6 +447,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + RestErrorMessage writer tests                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Shufflings
+```diff
++ Accelerated shuffling computation                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -685,4 +691,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 390/395 Fail: 0/395 Skip: 5/395
+OK: 392/397 Fail: 0/397 Skip: 5/397

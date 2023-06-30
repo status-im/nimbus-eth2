@@ -2670,6 +2670,118 @@
     }
   },
   {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {
+      "url": "/eth/v1/builder/states/head/expected_withdrawals",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {
+      "url": "/eth/v1/builder/states/genesis/expected_withdrawals",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {
+      "url": "/eth/v1/builder/states/finalized/expected_withdrawals",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {
+      "url": "/eth/v1/builder/states/justified/expected_withdrawals",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {"url": "/eth/v1/builder/states/heat/expected_withdrawals"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {"url": "/eth/v1/builder/states/genezis/expected_withdrawals"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {"url": "/eth/v1/builder/states/finalised/expected_withdrawals"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {"url": "/eth/v1/builder/states/justilied/expected_withdrawals"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {
+      "url": "/eth/v1/builder/states/0/expected_withdrawals",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {
+      "url": "/eth/v1/builder/states/18446744073709551615/expected_withdrawals",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Maximum value for uint64",
+    "response": {"status": {"operator": "equals", "value": "404"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {
+      "url": "/eth/v1/builder/states/18446744073709551616/expected_withdrawals",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Overflow uint64 value test",
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {"url": "/eth/v1/builder/states/0x/expected_withdrawals"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {"url": "/eth/v1/builder/states/0x0/expected_withdrawals"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {"url": "/eth/v1/builder/states/0x00/expected_withdrawals"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {"url": "/eth/v1/builder/states/0x1/expected_withdrawals"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["builder", "states_expected_withdrawals"],
+    "request": {"url": "/eth/v1/builder/states/0x11/expected_withdrawals"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
     "topics": ["config"],
     "request": {
       "url": "/eth/v1/config/fork_schedule",
@@ -2712,9 +2824,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"root": "", "slot": ""}]}]
+      "status": {"operator": "equals", "value": "410"}
     }
   },
   {

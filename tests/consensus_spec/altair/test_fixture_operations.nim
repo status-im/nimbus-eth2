@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -140,7 +140,8 @@ suite baseDescription & "Sync Aggregate " & preset():
       Result[void, cstring] =
     var cache = StateCache()
     process_sync_aggregate(
-      preState, syncAggregate, get_total_active_balance(preState, cache), cache)
+      preState, syncAggregate, get_total_active_balance(preState, cache),
+      {}, cache)
 
   for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](

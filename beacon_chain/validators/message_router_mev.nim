@@ -45,17 +45,15 @@ macro copyFields*(
 # https://github.com/nim-lang/Nim/issues/21347 fixed, combine and make generic
 # these two very similar versions of unblindAndRouteBlockMEV
 proc unblindAndRouteBlockMEV*(
-    node: BeaconNode, blindedBlock: bellatrix_mev.SignedBlindedBeaconBlock):
+    node: BeaconNode, payloadBuilderRestClient: RestClientRef,
+    blindedBlock: bellatrix_mev.SignedBlindedBeaconBlock):
     Future[Result[Opt[BlockRef], string]] {.async.} =
   # By time submitBlindedBlock is called, must already have done slashing
   # protection check
-  if node.payloadBuilderRestClient.isNil:
-    return err "unblindAndRouteBlockMEV: nil REST client"
-
   let unblindedPayload =
     try:
       awaitWithTimeout(
-          node.payloadBuilderRestClient.submitBlindedBlock(blindedBlock),
+          payloadBuilderRestClient.submitBlindedBlock(blindedBlock),
           BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE):
         return err("Submitting blinded block timed out")
       # From here on, including error paths, disallow local EL production by
@@ -122,17 +120,15 @@ proc unblindAndRouteBlockMEV*(
 # Only difference is `var signedBlock = capella.SignedBeaconBlock` instead of
 # `var signedBlock = bellatrix.SignedBeaconBlock`
 proc unblindAndRouteBlockMEV*(
-    node: BeaconNode, blindedBlock: capella_mev.SignedBlindedBeaconBlock):
+    node: BeaconNode, payloadBuilderRestClient: RestClientRef,
+    blindedBlock: capella_mev.SignedBlindedBeaconBlock):
     Future[Result[Opt[BlockRef], string]] {.async.} =
   # By time submitBlindedBlock is called, must already have done slashing
   # protection check
-  if node.payloadBuilderRestClient.isNil:
-    return err "unblindAndRouteBlockMEV: nil REST client"
-
   let unblindedPayload =
     try:
       awaitWithTimeout(
-          node.payloadBuilderRestClient.submitBlindedBlock(blindedBlock),
+          payloadBuilderRestClient.submitBlindedBlock(blindedBlock),
           BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE):
         return err("Submitting blinded block timed out")
       # From here on, including error paths, disallow local EL production by

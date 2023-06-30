@@ -537,26 +537,21 @@ func score(
 
 proc check_attestation_compatible*(
     dag: ChainDAGRef,
-    state: ForkyBeaconState,
+    state: ForkyHashedBeaconState,
     attestation: SomeAttestation): Result[void, cstring] =
-  let targetEpoch = attestation.data.target.epoch
-  if targetEpoch <= MIN_SEED_LOOKAHEAD:
-    return ok()
-
   let
-    attestedBlck =
-      dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
-        return err("Unknown `beacon_block_root`")
+    targetEpoch = attestation.data.target.epoch
+    compatibleRoot = state.dependent_root(targetEpoch.get_previous_epoch)
 
-    dependentSlot = (targetEpoch - MIN_SEED_LOOKAHEAD).start_slot - 1
+    attestedBlck = dag.getBlockRef(attestation.data.target.root).valueOr:
+      return err("Unknown `target.root`")
+    dependentSlot = targetEpoch.attester_dependent_slot
     dependentBid = dag.atSlot(attestedBlck.bid, dependentSlot).valueOr:
       return err("Dependent root not found")
-
     dependentRoot = dependentBid.bid.root
-    compatibleRoot = state.get_block_root_at_slot(dependentSlot)
+
   if dependentRoot != compatibleRoot:
     return err("Incompatible shuffling")
-
   ok()
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
@@ -610,8 +605,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
 
         # Filter out attestations that were created with a different shuffling.
         # As we don't re-check signatures, this needs to be done separately
-        if not check_attestation_compatible(
-              pool.dag, state.data, attestation).isOk():
+        if not pool.dag.check_attestation_compatible(state, attestation).isOk():
           continue
 
         # Attestations are checked based on the state that we're adding the
@@ -778,7 +772,7 @@ proc getBeaconHead*(
     finalizedExecutionPayloadHash =
       pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/fork_choice/safe-block.md#get_safe_execution_payload_hash
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/fork_choice/safe-block.md#get_safe_execution_payload_hash
     safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionPayloadHash =

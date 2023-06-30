@@ -1,20 +1,20 @@
-# Run the beacon node
+# Beacon node
 
 This page takes you through the steps of getting a standard installation of the Nimbus beacon node running.
 
-The quickstart setup involves running two nodes: an [execution client](./eth1.md) and a beacon node — both are needed to run a full Ethereum setup.
+The quickstart setup involves running two nodes: an [execution client](./eth1.md) and a beacon node.
+Both are needed to run a full Ethereum setup.
 
+To become a validator, you first need to set up a beacon node.
 The beacon node connects to the beacon chain network, syncs historical data, and provides [API's](./rest-api.md) to monitor and interact with the beacon chain.
-
 Running a beacon node is a [worthwhile endeavor](https://vitalik.ca/general/2021/05/23/scaling.html#its-crucial-for-blockchain-decentralization-for-regular-users-to-be-able-to-run-a-node) even if you are not planning on validating yourself!
 
 The guide assumes [Ubuntu Linux](https://ubuntu.com/download/server) is being used, and therefore some familiarity with [the Linux command line](https://ubuntu.com/tutorials/command-line-for-beginners) is needed.
 
-!!! note
-    To become a validator, you first need to set up a beacon node.
-
 !!! tip
-    You can practice running the node safely on the [Prater testnet](./prater.md) - throughout, we'll provide instructions for both Prater and Mainnet.
+    You can practice running the node safely on the [Prater testnet](./prater.md).
+    Throughout, we'll provide instructions for both Prater and Mainnet.
+
 
 ## Steps
 
@@ -27,32 +27,28 @@ Prepare your machine by installing [Nimbus' dependencies](./install.md).
 To run a beacon node, you need to have access to an execution client exposing the web3 API.
 Throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.
 
-See the [execution client guide](./eth1.md) for instructions on how to pick and install an execution client!
+See the [execution client guide](./eth1.md) for instructions on how to pick and install an execution client.
 
 ### 3. Install Nimbus
 
-Next, download the [latest release](./binaries.md) and install it by unpacking the archive.
-Using a command line terminal:
+=== "Download binaries"
 
-```sh
-# Create a directory that can hold the beacon chain data and applications - this should be a fast SSD
-mkdir -p nimbus-eth2
+    Binary releases are available from [GitHub](https://github.com/status-im/nimbus-eth2/releases/latest) and our [APT repository](https://apt.status.im/) (Debian/Ubuntu).
 
-# Download the latest release - replace the link with the latest release on the download page!
-wget https://github.com/status-im/nimbus-eth2/releases/download/v22.10.1/nimbus-eth2_Linux_amd64_22.10.1_97a1cdc4.tar.gz
+    We currently have binaries available for Linux `AMD64`, `ARM` and `ARM64`, Windows `AMD64` and macOS (`AMD64` and `ARM64`).
 
-# Unpack the archive into the `nimbus-eth2` directory you just created
-tar xvf nimbus-eth2_Linux_amd64_22.10.1_97a1cdc4.tar.gz --strip-components 1 -C nimbus-eth2
-```
+    See the [binaries guide](./binaries.md) on how to install them.
 
-!!! tip "Other installation methods"
-    Debian / Ubuntu users may wish to use our [APT repository](./binaries.md).
 
-    Advanced users looking to take advantage of hardware-specific features and optimization may wish to [build from source](./build.md) instead!
+=== "Build from source"
+
+    Building Nimbus from source is simple and fully automated.
+    Follow the [build guide](./build.md).
+
 
 ### 4. Start the node
 
-Once you've installed the binaries, you can [start the node](./start-syncing.md) which will initiate the sync process.
+Once you've installed Nimbus, you can [start the node](./start-syncing.md) which will initiate the sync process.
 
 ```sh
 cd nimbus-eth2

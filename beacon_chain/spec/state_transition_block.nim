@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition - block processing, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#block-processing
@@ -38,7 +38,7 @@ from ./datatypes/capella import
 
 export extras, phase0, altair
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var ForkyBeaconState, blck: SomeForkyBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
@@ -80,7 +80,7 @@ func `xor`[T: array](a, b: T): T =
   for i in 0..<result.len:
     result[i] = a[i] xor b[i]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#randao
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
@@ -113,7 +113,7 @@ proc process_randao(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(
     state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody): Result[void, cstring] =
@@ -126,14 +126,14 @@ func process_eth1_data(
     state.eth1_data = body.eth1_data
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
@@ -182,7 +182,7 @@ proc check_proposer_slashing*(
   withState(state):
     check_proposer_slashing(forkyState.data, proposer_slashing, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
@@ -192,7 +192,7 @@ proc process_proposer_slashing*(
   ? slash_validator(cfg, state, proposer_index, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -204,7 +204,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
        state: ForkyBeaconState,
        attester_slashing: SomeAttesterSlashing,
@@ -246,7 +246,7 @@ proc check_attester_slashing*(
   withState(state):
     check_attester_slashing(forkyState.data, attester_slashing, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -330,7 +330,7 @@ proc process_deposit*(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#voluntary-exits
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
     state: ForkyBeaconState,
@@ -379,7 +379,7 @@ proc check_voluntary_exit*(
   withState(state):
     check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -409,8 +409,8 @@ proc process_bls_to_execution_change*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#operations
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/capella/beacon-chain.md#modified-process_operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
                         body: SomeForkyBeaconBlockBody,
@@ -443,7 +443,7 @@ proc process_operations(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#sync-aggregate-processing
 func get_participant_reward*(total_active_balance: Gwei): Gwei =
   let
     total_active_increments =
@@ -456,7 +456,7 @@ func get_participant_reward*(total_active_balance: Gwei): Gwei =
         WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
   max_participant_rewards div SYNC_COMMITTEE_SIZE
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#sync-aggregate-processing
 func get_proposer_reward*(participant_reward: Gwei): Gwei =
   participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
 
@@ -465,8 +465,17 @@ proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
+    flags: UpdateFlags,
     cache: var StateCache):
     Result[void, cstring]  =
+  if strictVerification in flags and state.slot > 1.Slot:
+    template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
+    let num_active_participants = countOnes(sync_committee_bits).uint64
+    if num_active_participants * 3 < static(sync_committee_bits.len * 2):
+      fatal "Low sync committee participation",
+        slot = state.slot, num_active_participants
+      quit 1
+
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
   when sync_aggregate.sync_committee_signature isnot TrustedSig:
@@ -519,8 +528,8 @@ proc process_sync_aggregate*(
 proc process_execution_payload*(
     state: var bellatrix.BeaconState, payload: bellatrix.ExecutionPayload,
     notify_new_payload: bellatrix.ExecutePayload): Result[void, cstring] =
-  ## Verify consistency of the parent hash with respect to the previous
-  ## execution payload header
+  # Verify consistency of the parent hash with respect to the previous
+  # execution payload header
   if is_merge_transition_complete(state):
     if not (payload.parent_hash ==
         state.latest_execution_payload_header.block_hash):
@@ -563,10 +572,9 @@ proc process_execution_payload*(
     notify_new_payload: capella.ExecutePayload): Result[void, cstring] =
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
-  if is_merge_transition_complete(state):
-    if not (payload.parent_hash ==
-        state.latest_execution_payload_header.block_hash):
-      return err("process_execution_payload: payload and state parent hash mismatch")
+  if not (payload.parent_hash ==
+      state.latest_execution_payload_header.block_hash):
+    return err("process_execution_payload: payload and state parent hash mismatch")
 
   # Verify prev_randao
   if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
@@ -600,16 +608,23 @@ proc process_execution_payload*(
 
   ok()
 
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+# copy of datatypes/deneb.nim
+type SomeDenebBeaconBlockBody =
+  deneb.BeaconBlockBody | deneb.SigVerifiedBeaconBlockBody |
+  deneb.TrustedBeaconBlockBody
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var deneb.BeaconState, payload: deneb.ExecutionPayload,
+    state: var deneb.BeaconState, body: SomeDenebBeaconBlockBody,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
+  template payload: auto = body.execution_payload
+
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
-  if is_merge_transition_complete(state):
-    if not (payload.parent_hash ==
-        state.latest_execution_payload_header.block_hash):
-      return err("process_execution_payload: payload and state parent hash mismatch")
+  if not (payload.parent_hash ==
+      state.latest_execution_payload_header.block_hash):
+    return err("process_execution_payload: payload and state parent hash mismatch")
 
   # Verify prev_randao
   if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
@@ -618,6 +633,10 @@ proc process_execution_payload*(
   # Verify timestamp
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
+
+  # [New in Deneb] Verify commitments are under limit
+  if not (lenu64(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK):
+    return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
   if not notify_new_payload(payload):
@@ -640,7 +659,8 @@ proc process_execution_payload*(
     extra_data: payload.extra_data,
     transactions_root: hash_tree_root(payload.transactions),
     withdrawals_root: hash_tree_root(payload.withdrawals),
-    excess_data_gas: payload.excess_data_gas)  # [New in Deneb]
+    data_gas_used: payload.data_gas_used,     # [New in Deneb]
+    excess_data_gas: payload.excess_data_gas) # [New in Deneb]
 
   ok()
 
@@ -715,10 +735,10 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     res.add versionedHash
   ok res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
-func kzg_commitment_to_versioned_hash(
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
+func kzg_commitment_to_versioned_hash*(
     kzg_commitment: KzgCommitment): VersionedHash =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#blob
   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
   var res: VersionedHash
@@ -741,20 +761,15 @@ func verify_kzg_commitments_against_transactions*(
       #all_versioned_hashes.add tx_peek_blob_versioned_hashes(tx).valueOr:
       #  return false
 
-  all_versioned_hashes == mapIt(kzg_commitments, it.kzg_commitment_to_versioned_hash)
+  all_versioned_hashes == mapIt(
+    kzg_commitments, it.kzg_commitment_to_versioned_hash)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob-kzg-commitments
 func process_blob_kzg_commitments(
-    state: var deneb.BeaconState,
     body: deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
-          deneb.SigVerifiedBeaconBlockBody):
-    Result[void, cstring] =
-  if verify_kzg_commitments_against_transactions(
-      body.execution_payload.transactions.asSeq,
-      body.blob_kzg_commitments.asSeq):
-    return ok()
-  else:
-    return err("process_blob_kzg_commitments: verify_kzg_commitments_against_transactions failed")
+          deneb.SigVerifiedBeaconBlockBody): bool =
+  verify_kzg_commitments_against_transactions(
+    body.execution_payload.transactions.asSeq,
+    body.blob_kzg_commitments.asSeq)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#validate_blobs
 proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
@@ -791,7 +806,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =
@@ -816,11 +831,12 @@ proc process_block*(
   ? process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)  # [New in Altair]
+    state, blck.body.sync_aggregate, total_active_balance,
+    flags, cache)  # [New in Altair]
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
@@ -847,7 +863,7 @@ proc process_block*(
   ? process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)
+    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok()
 
@@ -864,6 +880,9 @@ proc process_block*(
   ## block application fails (!)
 
   ? process_block_header(state, blck, flags, cache)
+
+  # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
+  # true, but intentionally keep such a check.
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(
         state, blck.body.execution_payload)  # [New in Capella]
@@ -881,7 +900,7 @@ proc process_block*(
     cfg, state, blck.body, base_reward_per_increment,
     flags, cache)  # [Modified in Capella]
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)
+    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok()
 
@@ -898,10 +917,13 @@ proc process_block*(
   ## block application fails (!)
 
   ? process_block_header(state, blck, flags, cache)
+
+  # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
+  # true, but intentionally keep such a check.
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(state, blck.body.execution_payload)
     ? process_execution_payload(
-        state, blck.body.execution_payload,
+        state, blck.body,
         func(_: deneb.ExecutionPayload): bool = true)  # [Modified in Deneb]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
@@ -913,8 +935,6 @@ proc process_block*(
   ? process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)
-
-  ? process_blob_kzg_commitments(state, blck.body)  # [New in Deneb]
+    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok()

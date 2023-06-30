@@ -65,7 +65,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                         "Cannot request duties past next epoch")
         res
-    let (qhead, _) =
+    let qhead =
       block:
         let res = node.getSyncedHead(qepoch)
         if res.isErr():
@@ -126,7 +126,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                         "Cannot request duties past next epoch")
         res
-    let (qhead, _) =
+    let qhead =
       block:
         let res = node.getSyncedHead(qepoch)
         if res.isErr():
@@ -278,7 +278,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonResponseWOpt(res, optimistic)
     elif qSyncPeriod > headSyncPeriod:
       # The requested epoch may still be too far in the future.
-      if node.isSynced(node.dag.head) != SyncStatus.synced:
+      if not node.isSynced(node.dag.head) or not node.dag.head.executionValid:
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
       else:
         return RestApiResponse.jsonError(Http400, EpochFromFutureError)
@@ -325,6 +325,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       slot: Slot, randao_reveal: Option[ValidatorSig],
       graffiti: Option[GraffitiBytes],
       skip_randao_verification: Option[string]) -> RestApiResponse:
+    let
+      contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
     let message =
       block:
         let qslot = block:
@@ -348,8 +351,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             let res = skip_randao_verification.get()
             if res.isErr() or res.get() != "":
-              return RestApiResponse.jsonError(Http400,
-                                               InvalidSkipRandaoVerificationValue)
+              return RestApiResponse.jsonError(
+                Http400, InvalidSkipRandaoVerificationValue)
             true
         let qrandao =
           if randao_reveal.isNone():
@@ -378,9 +381,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                                $res.error())
             let tres = res.get()
-            if tres.optimistic:
+            if not tres.executionValid:
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-            tres.head
+            tres
         let
           proposer = node.dag.getProposer(qhead, qslot).valueOr:
             return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
@@ -416,7 +419,16 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
         res.get.blck
-    return RestApiResponse.jsonResponsePlain(message)
+    return
+      if contentType == sszMediaType:
+        let headers = [("eth-consensus-version", message.kind.toString())]
+        withBlck(message):
+          RestApiResponse.sszResponse(blck, headers)
+      elif contentType == jsonMediaType:
+        withBlck(message):
+          RestApiResponse.jsonResponseWVersion(blck, message.kind)
+      else:
+        raiseAssert "preferredContentType() returns invalid content type"
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/blinded_block.yaml
@@ -488,9 +500,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                            $res.error())
         let tres = res.get()
-        if tres.optimistic:
+        if not tres.executionValid:
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-        tres.head
+        tres
     let proposer = node.dag.getProposer(qhead, qslot).valueOr:
       return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
 
@@ -508,7 +520,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-    let contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
+    let
+      payloadBuilderClient = node.getPayloadBuilderClient(
+          proposer.distinctBase).valueOr:
+        return RestApiResponse.jsonError(
+          Http500, "Unable to initialize payload builder client: " & $error)
+      contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
+
     case contextFork
     of ConsensusFork.Deneb:
       # TODO
@@ -518,14 +536,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     of ConsensusFork.Capella:
       let res = await makeBlindedBeaconBlockForHeadAndSlot[
           capella_mev.BlindedBeaconBlock](
-        node, qrandao, proposer, qgraffiti, qhead, qslot)
+        node, payloadBuilderClient, qrandao, proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
       return responseVersioned(res.get().blindedBlckPart, contextFork)
     of ConsensusFork.Bellatrix:
       let res = await makeBlindedBeaconBlockForHeadAndSlot[
           bellatrix_mev.BlindedBeaconBlock](
-        node, qrandao, proposer, qgraffiti, qhead, qslot)
+        node, payloadBuilderClient, qrandao, proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
       return responseVersioned(res.get().blindedBlckPart, contextFork)
@@ -586,9 +604,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                                $res.error())
             let tres = res.get()
-            if tres.optimistic:
+            if not tres.executionValid:
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-            tres.head
+            tres
         let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
           return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
@@ -650,7 +668,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     await allFutures(pending)
     for future in pending:
-      if future.done():
+      if future.completed():
         let res = future.read()
         if res.isErr():
           return RestApiResponse.jsonError(Http400,
@@ -677,7 +695,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    if node.isSynced(node.dag.head) == SyncStatus.unsynced:
+    if not node.isSynced(node.dag.head):
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     let
@@ -833,7 +851,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                          $res.error())
       let tres = res.get()
-      if tres.optimistic:
+      if not tres.executionValid:
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     var contribution = SyncCommitteeContribution()
@@ -873,7 +891,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         var res: seq[RestIndexedErrorMessageItem]
         await allFutures(pending)
         for index, future in pending:
-          if future.done():
+          if future.completed():
             let fres = future.read()
             if fres.isErr():
               let failure = RestIndexedErrorMessageItem(index: index,

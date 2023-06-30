@@ -642,6 +642,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: min OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
@@ -656,10 +657,12 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: min OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [ OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pres OK
++ [Invalid] EF - Deneb - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: minim OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]     OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expecte OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]    OK
++ [Invalid] EF - Deneb - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minim OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mini OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]   OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
@@ -853,7 +856,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Sanity - Blocks - historical_batch [Preset: minimal]              OK
 + [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
 + [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - is_execution_enabled_false [Preset: minimal]    OK
 + [Valid]   EF - Capella - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
 + [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
 + [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
@@ -925,9 +927,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - historical_batch [Preset: minimal]                OK
 + [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
 + [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - is_execution_enabled_false [Preset: minimal]      OK
 + [Valid]   EF - Deneb - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - max_blobs [Preset: minimal]                       OK
++ [Valid]   EF - Deneb - Sanity - Blocks - max_blobs_per_block [Preset: minimal]             OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: m OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pres OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
@@ -949,6 +950,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mini OK
 + [Valid]   EF - Deneb - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
 + [Valid]   EF - Deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
++ [Valid]   EF - Deneb - Sanity - Blocks - zero_blob [Preset: minimal]                       OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_1 [Preset: minimal]                      OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_2 [Preset: minimal]                      OK
@@ -1000,7 +1002,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 ```
-OK: 989/997 Fail: 0/997 Skip: 8/997
+OK: 991/999 Fail: 0/999 Skip: 8/999
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -1554,13 +1556,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
 + Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
 + Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Altair - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -1740,13 +1744,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
 + Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
 + Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Bellatrix - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -1921,13 +1927,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
 + Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
 + Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Capella - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -2114,13 +2122,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
 + Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
 + Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Deneb - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -2424,6 +2434,7 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_everything_regular_p OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_execution_first_payl OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_execution_regular_pa OK
++ [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_parent_hash_first_pa OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_parent_hash_regular_ OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_pre_randao_regular_p OK
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_prev_randao_first_pa OK
@@ -2437,9 +2448,12 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_everything_regular_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_execution_first_payloa OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_execution_regular_payl OK
++ [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_parent_hash_first_payl OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_parent_hash_regular_pa OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
++ [Invalid] EF - Deneb - Operations - Execution Payload - invalid_correct_input__execution_i OK
++ [Invalid] EF - Deneb - Operations - Execution Payload - invalid_exceed_max_blobs_per_block OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
@@ -2459,7 +2473,6 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_regular_payload_with_g OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_first_ OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_regula OK
-+ [Valid]   EF - Capella - Operations - Execution Payload - bad_parent_hash_first_payload    OK
 + [Valid]   EF - Capella - Operations - Execution Payload - non_empty_extra_data_first_paylo OK
 + [Valid]   EF - Capella - Operations - Execution Payload - non_empty_extra_data_regular_pay OK
 + [Valid]   EF - Capella - Operations - Execution Payload - non_empty_transactions_first_pay OK
@@ -2472,7 +2485,12 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Capella - Operations - Execution Payload - success_regular_payload_with_gap OK
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_first_pa OK
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_regular_ OK
-+ [Valid]   EF - Deneb - Operations - Execution Payload - bad_parent_hash_first_payload      OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_blob_tx_type             OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_block_hash               OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_commitment               OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_commitments_order        OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_1_byt OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_32_by OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_first_payload OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_regular_paylo OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_transactions_first_paylo OK
@@ -2485,8 +2503,9 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Deneb - Operations - Execution Payload - success_regular_payload_with_gap_s OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - zero_length_transaction_first_payl OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - zero_length_transaction_regular_pa OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - zeroed_commitment                  OK
 ```
-OK: 78/78 Fail: 0/78 Skip: 0/78
+OK: 87/87 Fail: 0/87 Skip: 0/87
 ## Proposer Slashing
 ```diff
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_different_proposer_indice OK
@@ -2846,4 +2865,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 102/102 Fail: 0/102 Skip: 0/102
 
 ---TOTAL---
-OK: 2528/2536 Fail: 0/2536 Skip: 8/2536
+OK: 2547/2555 Fail: 0/2555 Skip: 8/2555

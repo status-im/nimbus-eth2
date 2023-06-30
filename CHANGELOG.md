@@ -1,3 +1,69 @@
+2023-06-26 v23.6.1
+==================
+
+Nimbus `v23.6.1` is a `low-urgency` point release significantly improving the performance of database pruning on Nimbus instances that have accumulated history prior to April 2021 (Nimbus 1.1.0). Affected users are advised to upgrade as soon as possible in order to reduce the risk of missed attestations and blocks.
+
+Fixes:
+
+* The legacy Nimbus database is not subjected to pruning due to the high I/O cost of the operations:
+  https://github.com/status-im/nimbus-eth2/pull/5116
+
+
+2023-06-20 v23.6.0
+==================
+
+Nimbus `v23.6.0` is a `medium-priority` upgrade, further improving the efficiency and the standards-compliance of Nimbus while laying out the foundations for the upcoming Deneb hard-fork.
+
+### Improvements
+
+* The `--history:prune` option is now enabled by default.
+
+* Nimbus can now process untimely attestations without triggering expensive state replays, resulting in increased resilience
+  https://github.com/status-im/nimbus-eth2/pull/4911
+
+* The Keymanager API can now be used to perform voluntary exits:
+  https://github.com/status-im/nimbus-eth2/pull/5020
+  https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Voluntary%20Exit
+
+* The Nimbus validator client now leverages the more efficient support for SSZ responses of the Beacon API:
+  https://github.com/status-im/nimbus-eth2/pull/4999
+
+### Fixes
+
+* The support for interacting with the Beacon API from CORS-enabled clients has been restored:
+  https://github.com/status-im/nimbus-eth2/pull/5028
+
+* The Nimbus beacon node will no longer inappropriately report `el_offline=true` when fully synced:
+  https://github.com/status-im/nimbus-eth2/pull/4991
+
+* The Nimbus validator client will no longer occasionally fail to perform sync committee duties in the first slot of every epoch:
+  https://github.com/status-im/nimbus-eth2/pull/5083
+  https://github.com/status-im/nimbus-eth2/pull/5084
+
+* Nimbus will no longer refuse to import certain valid SPDIR files (slashing protection interchange format):
+  https://github.com/status-im/nimbus-eth2/pull/4997
+
+* The Nimbus behavior differed in minor ways from the Ethereum's fork-choice and honest validator specifications:
+  https://github.com/status-im/nimbus-eth2/pull/4992
+  https://github.com/status-im/nimbus-eth2/pull/5002
+
+* The Nimbus beacon node was leaking a small amount of memory during a build-up of peer-to-peer block syncing requests:
+  https://github.com/status-im/nimbus-eth2/pull/4697
+
+* The Nimbus validator client is now compatible with Lighthouse beacon nodes as it no longer exceeds the maximum allowed number of validator indices per request to the `/eth/v1/beacon/states/{state_id}/validators` endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/5082
+
+  We are deeply grateful to @jshufro for contributing important fixes in two consecutive Nimbus releases!
+
+### Removed functionality
+
+* The implementation of the phase0-specific Beacon API endpoint `/eth/v1/debug/beacon/heads` has been removed:
+  https://github.com/status-im/nimbus-eth2/pull/5058
+
+* The Web3Signer support for performing the phase0-specific V1 block signing requests has been removed:
+  https://github.com/status-im/nimbus-eth2/pull/5014
+
+
 2023-05-18 v23.5.1
 ==================
 

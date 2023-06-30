@@ -14,6 +14,8 @@ import
   ../beacon_chain/filepath,
   ../beacon_chain/validators/validator_pool
 
+from os import getEnv
+
 {.used.}
 
 const
@@ -62,19 +64,34 @@ const
   AltairBlock = "{\"version\":\"altair\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"}}}}"
   BellatrixBlock = "{\"version\":\"bellatrix\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"$1\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[]}}}}"
   CapellaBlock = "{\"version\":\"capella\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"$1\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[]},\"bls_to_execution_changes\":[]}}}"
-  DenebBlock = "{\"version\":\"deneb\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"$1\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[],\"excess_data_gas\":\"231613172261\"},\"bls_to_execution_changes\":[],\"blob_kzg_commitments\":[]}}}"
+  DenebBlockContents = "{\"version\":\"deneb\",\"data\":{\"block\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"$1\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[],\"data_gas_used\":\"2316131761\",\"excess_data_gas\":\"231613172261\"},\"bls_to_execution_changes\":[],\"blob_kzg_commitments\":[]}},\"blob_sidecars\":[]}}"
 
   SigningNodeAddress = "127.0.0.1"
-  SigningNodePort = 35333
+  defaultSigningNodePort = 35333
 
   SigningRequestTimeoutSeconds = 1
 
-proc getNodePort(rt: RemoteSignerType): int =
+proc getNodePort(basePort: int, rt: RemoteSignerType): int =
+  # Individual port numbers derived by adding to configurable base port
   case rt
   of RemoteSignerType.Web3Signer:
-    SigningNodePort
+    basePort
   of RemoteSignerType.VerifyingWeb3Signer:
-    SigningNodePort + 1
+    basePort + 1
+
+
+func init(T: type ForkedBeaconBlock, contents: ProduceBlockResponseV2): T =
+  case contents.kind
+  of ConsensusFork.Phase0:
+    return ForkedBeaconBlock.init(contents.phase0Data)
+  of ConsensusFork.Altair:
+    return ForkedBeaconBlock.init(contents.altairData)
+  of ConsensusFork.Bellatrix:
+    return ForkedBeaconBlock.init(contents.bellatrixData)
+  of ConsensusFork.Capella:
+    return ForkedBeaconBlock.init(contents.capellaData)
+  of ConsensusFork.Deneb:
+    return ForkedBeaconBlock.init(contents.denebData.block)
 
 proc getBlock(fork: ConsensusFork,
               feeRecipient = SigningExpectedFeeRecipient): ForkedBeaconBlock =
@@ -85,13 +102,16 @@ proc getBlock(fork: ConsensusFork,
       of ConsensusFork.Altair:    AltairBlock
       of ConsensusFork.Bellatrix: BellatrixBlock % [feeRecipient]
       of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
-      of ConsensusFork.Deneb:     DenebBlock % [feeRecipient]
+      of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
     contentType = ContentTypeData(
       mediaType: MediaType.init("application/json"))
 
-  decodeBytes(ProduceBlockResponseV2,
-              blckData.toOpenArrayByte(0, len(blckData) - 1),
-              Opt.some(contentType)).tryGet()
+
+  let b = decodeBytes(ProduceBlockResponseV2,
+                      blckData.toOpenArrayByte(0, len(blckData) - 1),
+                      Opt.some(contentType),
+                      $fork).tryGet()
+  ForkedBeaconBlock.init(b)
 
 proc init(t: typedesc[Web3SignerForkedBeaconBlock],
           forked: ForkedBeaconBlock): Web3SignerForkedBeaconBlock =
@@ -227,7 +247,7 @@ proc getLocalKeystoreData(data: string): Result[KeystoreData, string] =
     version: uint64(4),
     pubkey: privateKey.toPubKey().toPubKey())
 
-proc getRemoteKeystoreData(data: string,
+proc getRemoteKeystoreData(data: string, basePort: int,
                            rt: RemoteSignerType): Result[KeystoreData, string] =
   let
     publicKey = ValidatorPubKey.fromHex(data).valueOr:
@@ -235,7 +255,7 @@ proc getRemoteKeystoreData(data: string,
 
     info = RemoteSignerInfo(
       url: HttpHostUri(parseUri("http://" & SigningNodeAddress & ":" &
-                                $getNodePort(rt))),
+                                $getNodePort(basePort, rt))),
       pubkey: publicKey
     )
 
@@ -254,7 +274,7 @@ proc getRemoteKeystoreData(data: string,
         provenBlockProperties: @[
           ProvenProperty(
             path: ".execution_payload.fee_recipient",
-            denebIndex: some GeneralizedIndex(401),
+            denebIndex: some GeneralizedIndex(801),
             capellaIndex: some GeneralizedIndex(401),
             bellatrixIndex: some GeneralizedIndex(401)
           )
@@ -263,7 +283,8 @@ proc getRemoteKeystoreData(data: string,
         pubkey: publicKey,
         remotes: @[info])
 
-proc spawnSigningNodeProcess(rt: RemoteSignerType): Result[Process, string] =
+proc spawnSigningNodeProcess(
+    basePort: int, rt: RemoteSignerType): Result[Process, string] =
   let process =
     try:
       let arguments =
@@ -273,7 +294,7 @@ proc spawnSigningNodeProcess(rt: RemoteSignerType): Result[Process, string] =
             "--non-interactive=true",
             "--data-dir=" & getTestDir(rt) & DirSep & "signing-node",
             "--bind-address=" & SigningNodeAddress,
-            "--bind-port=" & $getNodePort(rt),
+            "--bind-port=" & $getNodePort(basePort, rt),
             "--request-timeout=" & $SigningRequestTimeoutSeconds
               # we make so low `timeout` to test connection pool.
           ]
@@ -282,7 +303,7 @@ proc spawnSigningNodeProcess(rt: RemoteSignerType): Result[Process, string] =
             "--non-interactive=true",
             "--data-dir=" & getTestDir(rt) & DirSep & "signing-node",
             "--bind-address=" & SigningNodeAddress,
-            "--bind-port=" & $getNodePort(rt),
+            "--bind-port=" & $getNodePort(basePort, rt),
             "--expected-fee-recipient=" & $SigningExpectedFeeRecipient,
             "--request-timeout=" & $SigningRequestTimeoutSeconds
               # we make so low `timeout` to test connection pool.
@@ -299,11 +320,26 @@ proc shutdownSigningNodeProcess(process: Process) =
     process.kill()
   discard process.waitForExit()
 
+let
+  basePortStr =
+    os.getEnv("NIMBUS_TEST_SIGNING_NODE_BASE_PORT", $defaultSigningNodePort)
+  basePort =
+    try:
+      let val = parseInt(basePortStr)
+      if val < 0 or val > (uint16.high.int - RemoteSignerType.high.ord):
+        fatal "Invalid base port arg", basePort = basePortStr
+        quit 1
+      val
+    except ValueError as exc:
+      fatal "Invalid base port arg", basePort = basePortStr, exc = exc.msg
+      quit 1
+
 suite "Nimbus remote signer/signing test (web3signer)":
   let res = createTestDir(RemoteSignerType.Web3Signer)
   doAssert(res.isOk())
 
-  let pres = spawnSigningNodeProcess(RemoteSignerType.Web3Signer)
+  let pres = spawnSigningNodeProcess(
+    basePort, RemoteSignerType.Web3Signer)
   doAssert(pres.isOk())
   let process = pres.get()
 
@@ -329,17 +365,17 @@ suite "Nimbus remote signer/signing test (web3signer)":
 
     let pool2 = newClone(default(ValidatorPool))
     let validator4 = pool2[].addValidator(
-      getRemoteKeystoreData(ValidatorPubKey1,
+      getRemoteKeystoreData(ValidatorPubKey1, basePort,
                             RemoteSignerType.Web3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
     let validator5 = pool2[].addValidator(
-      getRemoteKeystoreData(ValidatorPubKey2,
+      getRemoteKeystoreData(ValidatorPubKey2, basePort,
                             RemoteSignerType.Web3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
     let validator6 = pool2[].addValidator(
-      getRemoteKeystoreData(ValidatorPubKey3,
+      getRemoteKeystoreData(ValidatorPubKey3, basePort,
                             RemoteSignerType.Web3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
@@ -351,7 +387,7 @@ suite "Nimbus remote signer/signing test (web3signer)":
   asyncTest "Waiting for signing node (/upcheck) test":
     let
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3Signer)
+                  $getNodePort(basePort, RemoteSignerType.Web3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
 
@@ -379,7 +415,7 @@ suite "Nimbus remote signer/signing test (web3signer)":
   asyncTest "Public keys enumeration (/api/v1/eth2/publicKeys) test":
     let
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3Signer)
+                  $getNodePort(basePort, RemoteSignerType.Web3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
 
@@ -403,55 +439,6 @@ suite "Nimbus remote signer/signing test (web3signer)":
           ValidatorPubKey3
         ])
       check received == expected
-    finally:
-      await client.closeWait()
-
-  asyncTest "Signing phase0 block":
-    let
-      forked = getBlock(ConsensusFork.Phase0)
-      blockRoot = withBlck(forked): hash_tree_root(blck)
-      request = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
-                                       forked.phase0Data)
-      remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3Signer)
-      prestoFlags = {RestClientFlag.CommaSeparatedArray}
-      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
-
-    check rclient.isOk()
-    let client = rclient.get()
-    let
-      sres1 =
-        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      sres2 =
-        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      sres3 =
-        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-
-    check:
-      sres1.isOk()
-      sres2.isOk()
-      sres3.isOk()
-
-    try:
-      let
-        publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
-        publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
-        publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
-        response1 = await client.signData(publicKey1, request)
-        response2 = await client.signData(publicKey2, request)
-        response3 = await client.signData(publicKey3, request)
-
-      check:
-        response1.isOk()
-        response2.isOk()
-        response3.isOk()
-        response1.get().toValidatorSig() == sres1.get()
-        response2.get().toValidatorSig() == sres2.get()
-        response3.get().toValidatorSig() == sres3.get()
-
     finally:
       await client.closeWait()
 
@@ -963,7 +950,7 @@ suite "Nimbus remote signer/signing test (web3signer)":
         GenesisValidatorsRoot, Epoch(i)))
     await allFutures(futures1)
     for fut in futures1:
-      check fut.done()
+      check fut.completed()
 
     await sleepAsync(seconds(SigningRequestTimeoutSeconds) + 100.milliseconds)
 
@@ -974,7 +961,7 @@ suite "Nimbus remote signer/signing test (web3signer)":
     await allFutures(futures2)
 
     for fut in futures2:
-      check fut.done()
+      check fut.completed()
 
     for i in 0 ..< TestsCount:
       let
@@ -988,7 +975,7 @@ suite "Nimbus remote signer/signing test (web3signer)":
   asyncTest "Idle connection test":
     let
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3Signer)
+                  $getNodePort(basePort, RemoteSignerType.Web3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient =
         RestClientRef.new(remoteUrl, prestoFlags, {},
@@ -1057,7 +1044,7 @@ suite "Nimbus remote signer/signing test (web3signer)":
     let
       res = createAdditionalKeystore(RemoteSignerType.Web3Signer)
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.Web3Signer)
+                  $getNodePort(basePort, RemoteSignerType.Web3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
 
@@ -1100,7 +1087,8 @@ suite "Nimbus remote signer/signing test (verifying-web3signer)":
   let res = createTestDir(RemoteSignerType.VerifyingWeb3Signer)
   doAssert(res.isOk())
 
-  let pres = spawnSigningNodeProcess(RemoteSignerType.VerifyingWeb3Signer)
+  let pres = spawnSigningNodeProcess(
+    basePort, RemoteSignerType.VerifyingWeb3Signer)
   doAssert(pres.isOk())
   let process = pres.get()
 
@@ -1126,17 +1114,17 @@ suite "Nimbus remote signer/signing test (verifying-web3signer)":
 
     let pool2 = newClone(default(ValidatorPool))
     let validator4 = pool2[].addValidator(
-      getRemoteKeystoreData(ValidatorPubKey1,
+      getRemoteKeystoreData(ValidatorPubKey1, basePort,
                             RemoteSignerType.VerifyingWeb3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
     let validator5 = pool2[].addValidator(
-      getRemoteKeystoreData(ValidatorPubKey2,
+      getRemoteKeystoreData(ValidatorPubKey2, basePort,
                             RemoteSignerType.VerifyingWeb3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
     let validator6 = pool2[].addValidator(
-      getRemoteKeystoreData(ValidatorPubKey3,
+      getRemoteKeystoreData(ValidatorPubKey3, basePort,
                             RemoteSignerType.VerifyingWeb3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
@@ -1148,7 +1136,7 @@ suite "Nimbus remote signer/signing test (verifying-web3signer)":
   asyncTest "Waiting for signing node (/upcheck) test":
     let
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
+                  $getNodePort(basePort, RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
 
@@ -1185,7 +1173,7 @@ suite "Nimbus remote signer/signing test (verifying-web3signer)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
+                  $getNodePort(basePort, RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
@@ -1272,7 +1260,7 @@ suite "Nimbus remote signer/signing test (verifying-web3signer)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
+                  $getNodePort(basePort, RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
@@ -1359,7 +1347,7 @@ suite "Nimbus remote signer/signing test (verifying-web3signer)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
+                  $getNodePort(basePort, RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
@@ -1448,7 +1436,7 @@ suite "Nimbus remote signer/signing test (verifying-web3signer)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
+                  $getNodePort(basePort, RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
@@ -1537,7 +1525,7 @@ suite "Nimbus remote signer/signing test (verifying-web3signer)":
       request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
         Web3SignerForkedBeaconBlock.init(forked1), @[])
       remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(RemoteSignerType.VerifyingWeb3Signer)
+                  $getNodePort(basePort, RemoteSignerType.VerifyingWeb3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
       publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()

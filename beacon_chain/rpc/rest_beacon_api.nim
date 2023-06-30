@@ -837,13 +837,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           body = contentBody.get()
           version = request.headers.getString("eth-consensus-version")
         var
-          restBlock = decodeBody(RestPublishedSignedBeaconBlock, body,
+          restBlock = decodeBody(RestPublishedSignedBlockContents, body,
                                  version).valueOr:
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                              $error)
-          forked = ForkedSignedBeaconBlock(restBlock)
+          forked = ForkedSignedBeaconBlock.init(restBlock)
 
-        if forked.kind != node.dag.cfg.consensusForkAtEpoch(
+        if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
              getForkedBlockField(forked, slot).epoch):
           doAssert strictVerification notin node.dag.updateFlags
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
@@ -860,6 +860,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http202, BlockValidationError)
 
     return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+
+  # TODO
+  # Add POST /eth/v2/beacon/blocks
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/beacon/blocks/blinded_blocks.yaml
@@ -890,13 +893,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     of ConsensusFork.Deneb:
       return RestApiResponse.jsonError(Http500, $denebImplementationMissing)
     of ConsensusFork.Capella:
-      let res =
-        block:
-          let restBlock = decodeBodyJsonOrSsz(
-              capella_mev.SignedBlindedBeaconBlock, body).valueOr:
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                             $error)
-          await node.unblindAndRouteBlockMEV(restBlock)
+      let
+        restBlock = decodeBodyJsonOrSsz(
+            capella_mev.SignedBlindedBeaconBlock, body).valueOr:
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                           $error)
+        payloadBuilderClient = node.getPayloadBuilderClient(
+            restBlock.message.proposer_index).valueOr:
+          return RestApiResponse.jsonError(
+            Http400, "Unable to initialize payload builder client: " & $error)
+        res = await node.unblindAndRouteBlockMEV(
+          payloadBuilderClient, restBlock)
 
       if res.isErr():
         return RestApiResponse.jsonError(
@@ -906,13 +913,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
     of ConsensusFork.Bellatrix:
-      let res =
-        block:
-          let restBlock = decodeBodyJsonOrSsz(
-              bellatrix_mev.SignedBlindedBeaconBlock, body).valueOr:
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                             $error)
-          await node.unblindAndRouteBlockMEV(restBlock)
+      let
+        restBlock = decodeBodyJsonOrSsz(
+            bellatrix_mev.SignedBlindedBeaconBlock, body).valueOr:
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                           $error)
+        payloadBuilderClient = node.getPayloadBuilderClient(
+            restBlock.message.proposer_index).valueOr:
+          return RestApiResponse.jsonError(
+            Http400, "Unable to initialize payload builder client: " & $error)
+        res = await node.unblindAndRouteBlockMEV(
+          payloadBuilderClient, restBlock)
 
       if res.isErr():
         return RestApiResponse.jsonError(
@@ -1087,7 +1098,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         var res: seq[RestIndexedErrorMessageItem]
         await allFutures(pending)
         for index, future in pending:
-          if future.done():
+          if future.completed():
             let fres = future.read()
             if fres.isErr():
               let failure = RestIndexedErrorMessageItem(index: index,

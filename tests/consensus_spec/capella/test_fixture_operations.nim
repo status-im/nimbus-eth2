@@ -8,19 +8,22 @@
 {.used.}
 
 import
-  # Standard library
-  std/[sequtils, sets, strutils],
   # Utilities
   chronicles,
   unittest2,
   stew/results,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[beaconstate, state_transition_block],
+  ../../../beacon_chain/spec/state_transition_block,
   ../../../beacon_chain/spec/datatypes/capella,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
+
+from std/sequtils import mapIt, toSeq
+from std/strutils import contains
+from ../../../beacon_chain/spec/beaconstate import
+  get_base_reward_per_increment, get_total_active_balance, process_attestation
 
 const
   OpDir                     = SszTestsDir/const_preset/"capella"/"operations"
@@ -143,18 +146,17 @@ suite baseDescription & "Deposit " & preset():
 suite baseDescription & "Execution Payload " & preset():
   for path in walkTests(OpExecutionPayloadDir):
     proc applyExecutionPayload(
-        preState: var capella.BeaconState,
-        executionPayload: capella.ExecutionPayload):
+        preState: var capella.BeaconState, body: capella.BeaconBlockBody):
         Result[void, cstring] =
       let payloadValid =
         os_ops.readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
           contains("execution_valid: true")
       func executePayload(_: capella.ExecutionPayload): bool = payloadValid
       process_execution_payload(
-            preState, executionPayload, executePayload)
+        preState, body.execution_payload, executePayload)
 
-    runTest[capella.ExecutionPayload, typeof applyExecutionPayload](
-      OpExecutionPayloadDir, "Execution Payload", "execution_payload",
+    runTest[capella.BeaconBlockBody, typeof applyExecutionPayload](
+      OpExecutionPayloadDir, "Execution Payload", "body",
       applyExecutionPayload, path)
 
 suite baseDescription & "Proposer Slashing " & preset():
@@ -176,7 +178,8 @@ suite baseDescription & "Sync Aggregate " & preset():
       Result[void, cstring] =
     var cache = StateCache()
     process_sync_aggregate(
-      preState, syncAggregate, get_total_active_balance(preState, cache), cache)
+      preState, syncAggregate, get_total_active_balance(preState, cache),
+      {}, cache)
 
   for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](

@@ -10,7 +10,7 @@
 import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
   testutils/unittests, chronicles, stint, json_serialization, confutils,
-  chronos, eth/keys, blscurve, libp2p/crypto/crypto as lcrypto,
+  chronos, blscurve, libp2p/crypto/crypto as lcrypto,
   stew/[byteutils, io2], stew/shims/net,
 
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
@@ -121,7 +121,7 @@ func contains*(keylist: openArray[KeystoreInfo], key: string): bool =
 
 proc prepareNetwork =
   let
-    rng = keys.newRng()
+    rng = HmacDrbgContext.new()
     mnemonic = generateMnemonic(rng[])
     seed = getSeed(mnemonic, KeystorePass.init "")
     cfg = defaultRuntimeConfig
@@ -271,7 +271,7 @@ proc addPreTestRemoteKeystores(validatorsDir: string) =
       quit 1
 
 proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
-  let rng = keys.newRng()
+  let rng = HmacDrbgContext.new()
 
   copyHalfValidators(nodeDataDir, true)
   addPreTestRemoteKeystores(nodeValidatorsDir)
@@ -309,7 +309,7 @@ proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
   # os.removeDir dataDir
 
 proc startValidatorClient(basePort: int) {.async, thread.} =
-  let rng = keys.newRng()
+  let rng = HmacDrbgContext.new()
 
   copyHalfValidators(vcDataDir, false)
   addPreTestRemoteKeystores(vcValidatorsDir)
@@ -390,7 +390,7 @@ func `==`(a: seq[ValidatorPubKey],
 proc runTests(keymanager: KeymanagerToTest) {.async.} =
   let
     client = RestClientRef.new(initTAddress("127.0.0.1", keymanager.port))
-    rng = keys.newRng()
+    rng = HmacDrbgContext.new()
     privateKey = ValidatorPrivKey.fromRaw(secretBytes).get
 
     allValidators = listLocalValidators(

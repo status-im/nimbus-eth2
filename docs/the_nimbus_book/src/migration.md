@@ -168,7 +168,7 @@ As part of the migration process, you need to stop your existing client and expo
 
 ### 3. Import your validator key(s) into Nimbus
 
-To import your validator key(s), follow the instructions [outlined here](./keys.md).
+To import your validator key(s), follow the instructions [in our validator guide](./run-a-validator.md#2-import-your-validator-keys).
 
 !!! tip
     To check that your key(s) has been successfully imported, look for a file named after your public key in `build/data/shared_mainet_0/secrets/`.
@@ -187,13 +187,16 @@ build/nimbus_beacon_node slashingdb import path/to/export_dir/slashing-protectio
 
 Replacing `/path/to/export_dir` with the file/directory you specified when you exported your slashing protection history.
 
+!!! tip
+    Additional slashing protection information can be safely added to slashing protection databases.
+
 ### 5. Start the Nimbus validator
 
-Follow the instructions [here](./connect-eth2.md) to start your validator using our pre-built [binaries](./binaries.md).
+Follow the instructions [in our validator guide](./run-a-validator.md#3-start-validating) to start your validator using our pre-built [binaries](./binaries.md).
 
-If you prefer to use Docker, see [here](./docker.md)
+If you prefer to use Docker, see [our Docker guide](./docker.md).
 
-For a quick guide on how to set up a systemd service, see [here](./beacon-node-systemd.md)
+For a quick guide on how to set up a systemd service, see [our systemd guide](./beacon-node-systemd.md).
 
 ## Final thoughts
 

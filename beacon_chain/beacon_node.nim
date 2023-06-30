@@ -70,7 +70,6 @@ type
     lightClientPool*: ref LightClientPool
     validatorChangePool*: ref ValidatorChangePool
     elManager*: ELManager
-    payloadBuilderRestClient*: RestClientRef
     restServer*: RestServerRef
     keymanagerHost*: ref KeymanagerHost
     keymanagerServer*: RestServerRef
@@ -115,3 +114,15 @@ template rng*(node: BeaconNode): ref HmacDrbgContext =
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
+
+proc getPayloadBuilderClient*(
+    node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
+  if node.config.payloadBuilderEnable:
+    # Logging done in caller
+    let res = RestClientRef.new(node.config.payloadBuilderUrl)
+    if res.isOk and res.get.isNil:
+      err "Got nil payload builder REST client reference"
+    else:
+      res
+  else:
+    err "Payload builder globally disabled"

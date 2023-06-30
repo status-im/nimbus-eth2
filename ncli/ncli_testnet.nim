@@ -303,7 +303,8 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
     withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
-    excess_data_gas: blk.excessDataGas.getOrDefault())
+    data_gas_used: uint64 blk.dataGasUsed.getOrDefault(),
+    excess_data_gas: uint64 blk.excessDataGas.getOrDefault())
 
 proc createDepositTreeSnapshot(deposits: seq[DepositData],
                                blockHash: Eth2Digest,
@@ -522,7 +523,7 @@ proc main() {.async.} =
   except Exception as exc: # TODO fix confutils
     raiseAssert exc.msg
 
-  let rng = keys.newRng()
+  let rng = HmacDrbgContext.new()
 
   if conf.cmd == StartUpCommand.generateDeposits:
     let
@@ -588,7 +589,7 @@ proc main() {.async.} =
 
   case conf.cmd
   of StartUpCommand.createTestnet:
-    let rng = keys.newRng()
+    let rng = HmacDrbgContext.new()
     doCreateTestnet(conf, rng[])
 
   of StartUpCommand.deployDepositContract:

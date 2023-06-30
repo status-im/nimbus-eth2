@@ -9,7 +9,7 @@
 
 import
   # Status libraries
-  eth/keys, taskpools,
+  taskpools,
   # Beacon chain internals
   ../beacon_chain/consensus_object_pools/
     [block_clearance, block_quarantine, blockchain_dag],
@@ -60,8 +60,9 @@ suite "Light client" & preset():
 
       # Create blocks for final few epochs
       let blocks = min(targetSlot - slot, maxAttestedSlotsPerPeriod)
-      for blck in makeTestBlocks(dag.headState, cache, blocks.int,
-                                 attested, syncCommitteeRatio, cfg):
+      for blck in makeTestBlocks(
+          dag.headState, cache, blocks.int, attested = attested,
+          syncCommitteeRatio = syncCommitteeRatio, cfg = cfg):
         let added =
           case blck.kind
           of ConsensusFork.Phase0:
@@ -93,8 +94,9 @@ suite "Light client" & preset():
           serve: true,
           importMode: LightClientDataImportMode.OnlyNew))
       quarantine = newClone(Quarantine.init())
+      rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
-    var verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+    var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
 
   test "Pre-Altair":
     # Genesis

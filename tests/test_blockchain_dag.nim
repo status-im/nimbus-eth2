@@ -8,8 +8,10 @@
 {.used.}
 
 import
+  std/[random, sequtils],
   unittest2,
-  eth/keys, taskpools,
+  taskpools,
+  ../beacon_chain/el/merkle_minimal,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
   ../beacon_chain/[beacon_chain_db],
@@ -37,11 +39,12 @@ type
 
 suite "Block pool processing" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -280,6 +283,8 @@ when declared(GC_fullCollect): # i386 test machines seem to run low..
 
 suite "Block pool altair processing" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
+
     var
       cfg = defaultRuntimeConfig
     cfg.ALTAIR_FORK_EPOCH = Epoch(1)
@@ -288,7 +293,7 @@ suite "Block pool altair processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -359,11 +364,12 @@ suite "Block pool altair processing" & preset():
 
 suite "chain DAG finalization tests" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -573,8 +579,7 @@ suite "chain DAG finalization tests" & preset():
 
   test "init with gaps" & preset():
     for blck in makeTestBlocks(
-        dag.headState, cache, int(SLOTS_PER_EPOCH * 6 - 2),
-        true):
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 6 - 2), attested = true):
       let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine, [])
@@ -627,13 +632,14 @@ suite "chain DAG finalization tests" & preset():
 suite "Old database versions" & preset():
   setup:
     let
+      rng = HmacDrbgContext.new()
       genState = newClone(initialize_hashed_beacon_state_from_eth1(
         defaultRuntimeConfig, ZERO_HASH, 0,
         makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
         {skipBlsValidation}))
       genBlock = get_initial_beacon_block(genState[])
     var
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
 
   test "pre-1.1.0":
@@ -668,6 +674,8 @@ suite "Old database versions" & preset():
 
 suite "Diverging hardforks":
   setup:
+    let rng = HmacDrbgContext.new()
+
     var
       phase0RuntimeConfig = defaultRuntimeConfig
       altairRuntimeConfig = defaultRuntimeConfig
@@ -679,7 +687,7 @@ suite "Diverging hardforks":
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -916,9 +924,12 @@ suite "Backfill":
       dag.addBackfillBlock(
         genBlock.phase0Data.asSigned) == AddBackRes.err VerifierError.Duplicate
 
+    let
+      rng = HmacDrbgContext.new()
+      taskpool = Taskpool.new()
     var
       cache: StateCache
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
 
     let
@@ -1049,6 +1060,8 @@ suite "Starting states":
 
 suite "Latest valid hash" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
+
     var runtimeConfig = defaultRuntimeConfig
     runtimeConfig.ALTAIR_FORK_EPOCH = 1.Epoch
     runtimeConfig.BELLATRIX_FORK_EPOCH = 2.Epoch
@@ -1057,7 +1070,7 @@ suite "Latest valid hash" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, runtimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -1113,6 +1126,7 @@ suite "Latest valid hash" & preset():
 suite "Pruning":
   setup:
     let
+      rng = HmacDrbgContext.new()
       cfg = block:
         var res = defaultRuntimeConfig
         res.MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 4
@@ -1125,7 +1139,7 @@ suite "Pruning":
       tmpState = assignClone(dag.headState)
 
     var
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       cache = StateCache()
       blocks = @[dag.head]
@@ -1165,3 +1179,136 @@ suite "Pruning":
     check:
       dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
       not db.containsBlock(blocks[1].root)
+
+suite "Shufflings":
+  const
+    numValidators = SLOTS_PER_EPOCH
+    targetNumValidators = 20 * SLOTS_PER_EPOCH * MAX_DEPOSITS
+  let cfg = defaultRuntimeConfig
+  var deposits = newSeqOfCap[Deposit](targetNumValidators)
+  for depositIndex in 0 ..< targetNumValidators:
+    deposits.add Deposit(data: makeDeposit(depositIndex.int, cfg = cfg))
+  let
+    eth1Data = Eth1Data(
+      deposit_root: deposits.attachMerkleProofs(),
+      deposit_count: deposits.lenu64)
+    validatorMonitor = newClone(ValidatorMonitor.init())
+    dag = ChainDAGRef.init(
+      cfg, makeTestDB(
+        numValidators, eth1Data = Opt.some(eth1Data),
+        flags = {}, cfg = cfg),
+      validatorMonitor, {})
+    quarantine = newClone(Quarantine.init())
+    rng = HmacDrbgContext.new()
+    taskpool = Taskpool.new()
+
+  var
+    verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    graffiti: GraffitiBytes
+  proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
+    inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
+    for blck in makeTestBlocks(
+        dag.headState, cache, blocks.int, eth1_data = eth1Data,
+        attested = attested, allDeposits = deposits,
+        graffiti = graffiti, cfg = cfg):
+      let added =
+        case blck.kind
+        of ConsensusFork.Phase0:
+          const nilCallback = OnPhase0BlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
+        of ConsensusFork.Altair:
+          const nilCallback = OnAltairBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.altairData, nilCallback)
+        of ConsensusFork.Bellatrix:
+          const nilCallback = OnBellatrixBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
+        of ConsensusFork.Capella:
+          const nilCallback = OnCapellaBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
+        of ConsensusFork.Deneb:
+          const nilCallback = OnDenebBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.denebData, nilCallback)
+      check added.isOk()
+      dag.updateHead(added[], quarantine[], [])
+
+  var states: seq[ref ForkedHashedBeaconState]
+
+  # Genesis state
+  states.add newClone(dag.headState)
+
+  # Create a segment and cache the post state (0.75 epochs + empty slots)
+  proc createSegment(attested: bool, delaySlots = 0.uint64) =
+    var cache: StateCache
+
+    # Add some empty slots to have different deposit history
+    if delaySlots > 0:
+      var info: ForkedEpochInfo
+      check cfg.process_slots(
+        dag.headState,
+        getStateField(dag.headState, slot) + delaySlots,
+        cache, info, flags = {}).isOk
+
+    # Add 0.75 epochs
+    addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = attested, cache)
+    states.add newClone(dag.headState)
+
+  # Linear part of history (3.75 epochs)
+  for _ in 0 ..< 5:
+    createSegment(attested = true)
+
+  # Start branching (6 epochs + up to 0.5 epoch)
+  func numDelaySlots(branchId: int): uint64 =
+    branchId.uint64 * SLOTS_PER_EPOCH div 8
+  for a in 0 ..< 2:
+    let oldHead = dag.head
+    createSegment(attested = false, delaySlots = a.numDelaySlots)
+    for b in 0 ..< 2:
+      let oldHead = dag.head
+      createSegment(attested = false, delaySlots = b.numDelaySlots)
+      for _ in 0 ..< 3:
+        createSegment(attested = false, delaySlots = a.numDelaySlots)
+        createSegment(attested = false, delaySlots = b.numDelaySlots)
+      dag.updateHead(oldHead, quarantine[], [])
+    dag.updateHead(oldHead, quarantine[], [])
+
+  # Cover entire range of epochs plus some extra
+  const maxEpochOfInterest = compute_activation_exit_epoch(11.Epoch) + 2
+
+  test "Accelerated shuffling computation":
+    randomize()
+    let forkBlocks = dag.forkBlocks.toSeq()
+    for _ in 0 ..< 150:  # Number of random tests (against _all_ cached states)
+      let
+        blck = sample(forkBlocks).data
+        epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)
+      checkpoint "blck: " & $shortLog(blck) & " / epoch: " & $shortLog(epoch)
+
+      let epochRef = dag.getEpochRef(blck, epoch, true)
+      check epochRef.isOk
+
+      proc checkShuffling(computedShufflingRef: Opt[ShufflingRef]) =
+        ## Check that computed shuffling matches the one from `EpochRef`.
+        if computedShufflingRef.isOk:
+          check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
+
+      # If shuffling is computable from DAG, check its correctness
+      checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
+
+      # If shuffling is computable from DB, check its correctness
+      checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
+
+      # Shuffling should be correct when starting from any cached state
+      for state in states:
+        withState(state[]):
+          let
+            shufflingRef =
+              dag.computeShufflingRefFromState(forkyState, blck, epoch)
+            stateEpoch = forkyState.data.get_current_epoch
+            blckEpoch = blck.bid.slot.epoch
+            minEpoch = min(stateEpoch, blckEpoch)
+          if compute_activation_exit_epoch(minEpoch) <= epoch or
+              dag.ancestorSlotForShuffling(forkyState, blck, epoch).isNone:
+            check shufflingRef.isErr
+          else:
+            check shufflingRef.isOk
+            checkShuffling shufflingRef

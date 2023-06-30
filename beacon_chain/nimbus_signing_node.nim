@@ -214,14 +214,6 @@ proc installApiHandlers*(node: SigningNodeRef) =
             forkInfo.genesis_validators_root, request.attestation,
             validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
-      of Web3SignerRequestKind.Block:
-        let
-          forkInfo = request.forkInfo.get()
-          blck = request.blck
-          signature = get_block_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root, blck.slot, hash_tree_root(blck),
-            validator.data.privateKey).toValidatorSig().toHex()
-        signatureResponse(Http200, signature)
       of Web3SignerRequestKind.BlockV2:
         if node.config.expectedFeeRecipient.isNone():
           let
@@ -244,7 +236,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
           of ConsensusFork.Capella:
             (GeneralizedIndex(401), request.beaconBlock.capellaData)
           of ConsensusFork.Deneb:
-            (GeneralizedIndex(401), request.beaconBlock.denebData)
+            (GeneralizedIndex(801), request.beaconBlock.denebData)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
           return errorResponse(Http400, MissingMerkleProofError)

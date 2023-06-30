@@ -93,6 +93,9 @@ proc routeSignedBeaconBlock*(
     let res = validateBeaconBlock(
       router[].dag, router[].quarantine, blck, wallTime, {})
 
+    # TODO blob gossip validation
+    debugRaiseAssert $denebImplementationMissing
+
     if not res.isGoodForSending():
       warn "Block failed validation",
         blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
@@ -121,7 +124,7 @@ proc routeSignedBeaconBlock*(
       signature = shortLog(blck.signature), error = res.error()
 
   let newBlockRef = await router[].blockProcessor.storeBlock(
-    MsgSource.api, sendTime, blck, BlobSidecars @[])
+    MsgSource.api, sendTime, blck, Opt.none(BlobSidecars))
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
@@ -336,7 +339,7 @@ proc routeSyncCommitteeMessages*(
       await allFutures(pending)
 
       for index, future in pending:
-        if future.done():
+        if future.completed():
           let fres = future.read()
           if fres.isErr():
             statuses[indices[index]] = Opt.some(SendResult.err(fres.error()))

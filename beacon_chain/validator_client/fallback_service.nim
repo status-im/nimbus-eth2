@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -78,6 +78,7 @@ proc checkCompatible(
        vc: ValidatorClientRef,
        node: BeaconNodeServerRef
      ): Future[RestBeaconNodeStatus] {.async.} =
+  ## Could return only {Offline, Incompatible, Compatible}
   logScope: endpoint = node
   let info =
     try:
@@ -121,8 +122,8 @@ proc checkCompatible(
     genesisFlag = (genesis != vc.beaconGenesis)
     configFlag = not(checkConfig(info))
 
-  node.config = some(info)
-  node.genesis = some(genesis)
+  node.config = Opt.some(info)
+  node.genesis = Opt.some(genesis)
   let res =
     if configFlag or genesisFlag:
       if node.status != RestBeaconNodeStatus.Incompatible:
@@ -137,6 +138,7 @@ proc checkSync(
        vc: ValidatorClientRef,
        node: BeaconNodeServerRef
      ): Future[RestBeaconNodeStatus] {.async.} =
+  ## Could return only {Offline, NotSynced, Synced, OptSynced}
   logScope: endpoint = node
   let syncInfo =
     try:
@@ -156,7 +158,7 @@ proc checkSync(
         error "Unexpected exception", error_name = exc.name,
               error_message = exc.msg
       return RestBeaconNodeStatus.Offline
-  node.syncInfo = some(syncInfo)
+  node.syncInfo = Opt.some(syncInfo)
   let res =
     block:
       let optimistic =
@@ -177,6 +179,7 @@ proc checkSync(
 proc checkOnline(
        node: BeaconNodeServerRef
      ): Future[RestBeaconNodeStatus] {.async.} =
+  ## Could return only {Offline, Online}.
   logScope: endpoint = node
   debug "Checking beacon node status"
   let agent =
@@ -194,8 +197,17 @@ proc checkOnline(
       error "Unexpected exception", error_name = exc.name,
             error_message = exc.msg
       return RestBeaconNodeStatus.Offline
-  node.ident = some(agent.version)
+  node.ident = Opt.some(agent.version)
   return RestBeaconNodeStatus.Online
+
+func getReason(status: RestBeaconNodeStatus): string =
+  case status
+  of RestBeaconNodeStatus.Offline:
+    "Connection with node has been lost"
+  of RestBeaconNodeStatus.Online:
+    "Connection with node has been established"
+  else:
+    "Beacon node reports"
 
 proc checkNode(vc: ValidatorClientRef,
                node: BeaconNodeServerRef): Future[bool] {.async.} =
@@ -203,33 +215,45 @@ proc checkNode(vc: ValidatorClientRef,
   debug "Checking beacon node", endpoint = node, status = node.status
 
   if nstatus in {RestBeaconNodeStatus.Offline,
-                 RestBeaconNodeStatus.Unexpected,
+                 RestBeaconNodeStatus.UnexpectedCode,
+                 RestBeaconNodeStatus.UnexpectedResponse,
                  RestBeaconNodeStatus.InternalError}:
-    let status = await node.checkOnline()
-    node.updateStatus(status)
+    let
+      status = await node.checkOnline()
+      failure = ApiNodeFailure.init(ApiFailure.NoError, "checkOnline",
+                                    node, status.getReason())
+    node.updateStatus(status, failure)
     if status != RestBeaconNodeStatus.Online:
       return nstatus != status
 
   if nstatus in {RestBeaconNodeStatus.Offline,
-                 RestBeaconNodeStatus.Unexpected,
+                 RestBeaconNodeStatus.UnexpectedCode,
+                 RestBeaconNodeStatus.UnexpectedResponse,
                  RestBeaconNodeStatus.InternalError,
                  RestBeaconNodeStatus.Online,
                  RestBeaconNodeStatus.Incompatible}:
-    let status = await vc.checkCompatible(node)
-    node.updateStatus(status)
+    let
+      status = await vc.checkCompatible(node)
+      failure = ApiNodeFailure.init(ApiFailure.NoError, "checkCompatible",
+                                    node, status.getReason())
+    node.updateStatus(status, failure)
     if status != RestBeaconNodeStatus.Compatible:
       return nstatus != status
 
   if nstatus in {RestBeaconNodeStatus.Offline,
-                 RestBeaconNodeStatus.Unexpected,
+                 RestBeaconNodeStatus.UnexpectedCode,
+                 RestBeaconNodeStatus.UnexpectedResponse,
                  RestBeaconNodeStatus.InternalError,
                  RestBeaconNodeStatus.Online,
                  RestBeaconNodeStatus.Incompatible,
                  RestBeaconNodeStatus.Compatible,
                  RestBeaconNodeStatus.OptSynced,
                  RestBeaconNodeStatus.NotSynced}:
-    let status = await vc.checkSync(node)
-    node.updateStatus(status)
+    let
+      status = await vc.checkSync(node)
+      failure = ApiNodeFailure.init(ApiFailure.NoError, "checkSync",
+                                    node, status.getReason())
+    node.updateStatus(status, failure)
     return nstatus != status
 
 proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
