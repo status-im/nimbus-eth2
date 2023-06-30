@@ -968,22 +968,22 @@ proc validateBlsToExecutionChange*(
       if res.isErr:
         return pool.checkedReject(res.error)
 
-    # BLS to execution change signatures are batch-verified
-    let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
-      pool.dag.cfg.genesisFork, signed_address_change)
-    if deferredCrypto.isErr():
-      return pool.checkedReject(deferredCrypto.error)
+      # BLS to execution change signatures are batch-verified
+      let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
+        pool.dag.cfg.genesisFork, signed_address_change)
+      if deferredCrypto.isErr():
+        return pool.checkedReject(deferredCrypto.error)
 
-    let (cryptoFut, sig) = deferredCrypto.get()
-    case await cryptoFut
-    of BatchResult.Invalid:
-      return pool.checkedReject(
-        "SignedBLSToExecutionChange: invalid signature")
-    of BatchResult.Timeout:
-      return errIgnore(
-        "SignedBLSToExecutionChange: timeout checking signature")
-    of BatchResult.Valid:
-      discard  # keep going only in this case
+      let (cryptoFut, sig) = deferredCrypto.get()
+      case await cryptoFut
+      of BatchResult.Invalid:
+        return pool.checkedReject(
+          "SignedBLSToExecutionChange: invalid signature")
+      of BatchResult.Timeout:
+        return errIgnore(
+          "SignedBLSToExecutionChange: timeout checking signature")
+      of BatchResult.Valid:
+        discard  # keep going only in this case
 
   return ok()
 
