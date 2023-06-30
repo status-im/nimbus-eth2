@@ -650,7 +650,8 @@ proc readValue*(
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 func `$`*(x: JustificationBits): string =
-  "0x" & toHex(uint8(x))
+  # TODO, works around https://github.com/nim-lang/Nim/issues/22191
+  "0x" & toHex(uint64(uint8(x)))
 
 proc readValue*(reader: var JsonReader, value: var JustificationBits)
     {.raises: [IOError, SerializationError, Defect].} =
