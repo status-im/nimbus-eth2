@@ -82,7 +82,7 @@ const
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE* = 32
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   SLOTS_PER_ETH1_VOTING_PERIOD* =
@@ -203,7 +203,7 @@ type
     signed_header_1*: TrustedSignedBeaconBlockHeader
     signed_header_2*: TrustedSignedBeaconBlockHeader
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
@@ -231,7 +231,7 @@ type
 
   CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -321,7 +321,7 @@ type
     pubkey*: CookedPubKey
     withdrawal_credentials*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey
 
@@ -388,7 +388,7 @@ type
     state_root*: Eth2Digest
     body_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#signingdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#signingdata
   SigningData* = object
     object_root*: Eth2Digest
     domain*: Eth2Domain
@@ -459,7 +459,7 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatusCapella* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading

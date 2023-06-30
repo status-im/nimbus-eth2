@@ -9,7 +9,7 @@
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
@@ -182,7 +182,7 @@ proc check_proposer_slashing*(
   withState(state):
     check_proposer_slashing(forkyState.data, proposer_slashing, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
@@ -330,7 +330,7 @@ proc process_deposit*(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,

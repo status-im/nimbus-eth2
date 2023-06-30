@@ -22,7 +22,7 @@ from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 
 export extras, forks, validator, chronicles
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#increase_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(balance: var Gwei, delta: Gwei) =
   balance += delta
 
@@ -134,7 +134,7 @@ func initiate_validator_exit*(
 from ./datatypes/deneb import BeaconState
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_slashing_penalty*(state: ForkyBeaconState,
                            validator_effective_balance: Gwei): Gwei =
@@ -150,7 +150,7 @@ func get_slashing_penalty*(state: ForkyBeaconState,
   else:
     {.fatal: "invalid BeaconState type".}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
@@ -168,8 +168,8 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
   else:
     {.fatal: "invalid BeaconState type".}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
@@ -380,7 +380,7 @@ proc is_valid_indexed_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: ForkyBeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
