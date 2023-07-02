@@ -447,8 +447,9 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Shufflings
 ```diff
 + Accelerated shuffling computation                                                          OK
++ Accelerated shuffling computation with epochRefState jump                                  OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -688,4 +689,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 389/394 Fail: 0/394 Skip: 5/394
+OK: 390/395 Fail: 0/395 Skip: 5/395

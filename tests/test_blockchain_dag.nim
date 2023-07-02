@@ -1277,7 +1277,7 @@ suite "Shufflings":
   test "Accelerated shuffling computation":
     randomize()
     let forkBlocks = dag.forkBlocks.toSeq()
-    for _ in 0 ..< 150:  # Number of random tests (against _all_ cached states)
+    for _ in 0 ..< 250:  # Number of random tests (against _all_ cached states)
       let
         blck = sample(forkBlocks).data
         epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)
@@ -1312,3 +1312,129 @@ suite "Shufflings":
           else:
             check shufflingRef.isOk
             checkShuffling shufflingRef
+
+  test "Accelerated shuffling computation with epochRefState jump":
+    # Create simpler DAG than main accelerated shuffling computation test
+    # though that also triggers it by looking for blocks at slot 64, then
+    # 255 through and into epoch 8. This clarifies it is not dependent on
+    # the multilayer branching of the "Accelerated shuffling computation"
+    # test, but a function of getEpochRef extending epochRefState towards
+    # a slot which it is essentially hallucinating a state, because it is
+    # not accounting for the blocks with deposits.
+    #
+    # Then, the accelerated shuffling computation saw epochRefState has a
+    # state with a slot notionally within usable range, but isn't usable,
+    # because it's effectively hallucinated, a function of the epoch that
+    # previous getEpochRef call specifies. The accelerated shuffling gets
+    # a shuffling, therefore, which misses the deposits which, since that
+    # last actual block in getEpochRef(blck, ...) call, becomes active as
+    # validators:
+    #   computedShufflingRef.get[] was (epoch: 8, attester_dependent_root: 50c10872b4a97ca3579ba010b71deecc2653b9fb5c7ad9a39189fe9765c72642, shuffled_active_validator_indices: @[1, 2, 31, 9, 26, 5, 8, 3, 7, 23, 4, 11, 10, 21, 24, 16, 25, 28, 22, 14, 19, 0, 27, 15, 12, 6, 29, 17, 13, 20, 30, 18])
+    #   epochRef.get.shufflingRef[] was (epoch: 8, attester_dependent_root: 50c10872b4a97ca3579ba010b71deecc2653b9fb5c7ad9a39189fe9765c72642, shuffled_active_validator_indices: @[0, 21, 12, 24, 6, 29, 16, 19, 5, 17, 8, 30, 14, 2, 22, 32, 27, 1, 33, 26, 4, 31, 3, 10, 35, 20, 7, 34, 11, 15, 28, 18, 25, 13, 9, 23])
+    #
+    # This is avoided by checking not the state's slot, but the state's
+    # latest block header's slot.
+    #
+    # The purely random fuzzing/tests have difficulty triggering this, because
+    # this needs to happen across a wide portion of the sampled range so that:
+    # (1) it checks a maximally early slot, both to create the gaps needed for
+    #     (2) and (3), and to keep both blocks on the same forks, with maximal
+    #     likelihood;
+    # (2) calls getEpochRef with a late enough epoch to trigger the
+    #     hallucination of relevance (>= epoch 4 typically works); and
+    # (3) there then have to be enough slots between the last added block and
+    #     the next state which will be sampled so that the validators can get
+    #     active, after some spec 5 epoch delay. This pushes the lowest epoch
+    #     possible to not much less than 8 which is already near the high end
+    #     of the epoch sampling. Too early an epoch and it is within range of
+    #     the headState check which gets it first, so the epochStateRef isn't
+    #     exercised.
+    let
+      eth1Data = Eth1Data(
+        deposit_root: deposits.attachMerkleProofs(),
+        deposit_count: deposits.lenu64)
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = ChainDAGRef.init(
+        cfg, makeTestDB(
+          numValidators, eth1Data = Opt.some(eth1Data),
+          flags = {}, cfg = cfg),
+        validatorMonitor, {})
+      quarantine = newClone(Quarantine.init())
+      rng = HmacDrbgContext.new()
+      taskpool = Taskpool.new()
+
+    var
+      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+      graffiti: GraffitiBytes
+    proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
+      inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
+      for blck in makeTestBlocks(
+          dag.headState, cache, blocks.int, eth1_data = eth1Data,
+          attested = attested, allDeposits = deposits,
+          graffiti = graffiti, cfg = cfg):
+        let added =
+          case blck.kind
+          of ConsensusFork.Phase0:
+            const nilCallback = OnPhase0BlockAdded(nil)
+            dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
+          of ConsensusFork.Altair:
+            const nilCallback = OnAltairBlockAdded(nil)
+            dag.addHeadBlock(verifier, blck.altairData, nilCallback)
+          of ConsensusFork.Bellatrix:
+            const nilCallback = OnBellatrixBlockAdded(nil)
+            dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
+          of ConsensusFork.Capella:
+            const nilCallback = OnCapellaBlockAdded(nil)
+            dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
+          of ConsensusFork.Deneb:
+            const nilCallback = OnDenebBlockAdded(nil)
+            dag.addHeadBlock(verifier, blck.denebData, nilCallback)
+        check added.isOk()
+        dag.updateHead(added[], quarantine[], [])
+
+    proc createSegment(attested: bool, n: uint64) =
+      var cache: StateCache
+      addBlocks(n, attested = attested, cache)
+
+    # Linear part of history
+    const n = (SLOTS_PER_EPOCH * 3) div 4 * 5
+    createSegment(attested = true, n = n)
+
+    # Branch
+    let oldHead = dag.head
+    createSegment(attested = false, n = n*2)
+    dag.updateHead(oldHead, quarantine[], [])
+    createSegment(attested = false, n = n*2)
+    dag.updateHead(oldHead, quarantine[], [])
+
+    # Avoid depending on implementation details of how `forkBlocks` is ordered
+    proc findKeyedBlck(m: Slot): int =
+      let forkBlocks = dag.forkBlocks.toSeq()
+      for idx, fb in forkBlocks:
+        if fb.data.slot == m:
+          return idx
+
+      doAssert false
+
+    let forkBlocks = dag.forkBlocks.toSeq()
+
+    # The epoch for the first block can range from at least 4 to 10, and still
+    # trigger this issue.
+    for (blockIdx, epoch) in [
+        (findKeyedBlck(64.Slot), 10.Epoch),
+        (findKeyedBlck(255.Slot), 8.Epoch)]:
+      let
+        blck = forkBlocks[blockIdx].data
+        epochRef = dag.getEpochRef(blck, epoch, true)
+      doAssert epochRef.isOk
+
+      proc checkShuffling(computedShufflingRef: Opt[ShufflingRef]) =
+        ## Check that computed shuffling matches the one from `EpochRef`.
+        if computedShufflingRef.isOk:
+          check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
+
+      # If shuffling is computable from DAG, check its correctness
+      checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
+
+      # If shuffling is computable from DB, check its correctness
+      checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)

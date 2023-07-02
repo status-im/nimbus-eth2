@@ -1343,7 +1343,7 @@ func ancestorSlotForShuffling*(
   let
     lowEpoch = max(epoch, (numDelayEpochs - 1).Epoch) - (numDelayEpochs - 1)
     lowSlot = lowEpoch.start_slot
-  if state.data.slot < lowSlot or blck.slot < lowSlot:
+  if state.data.latest_block_header.slot < lowSlot or blck.slot < lowSlot:
     return err()
 
   # Check that state is related to the information stored in the DAG,
@@ -1398,7 +1398,7 @@ proc mixRandao(
     mix.data.mxor eth2digest(blck.message.body.randao_reveal.toRaw()).data
   ok()
 
-proc computeRandaoMix*(
+proc computeRandaoMix(
     dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch
 ): Opt[tuple[dependentBid: BlockId, mix: Eth2Digest]] =
@@ -2119,7 +2119,7 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     statePruneDur = statePruneTick - startTick,
     epochRefPruneDur = epochRefPruneTick - statePruneTick
 
-proc pruneStep(horizon, lastHorizon, lastBlockHorizon: Slot):
+func pruneStep(horizon, lastHorizon, lastBlockHorizon: Slot):
     tuple[stateHorizon, blockHorizon: Slot] =
   ## Compute a reasonable incremental pruning step considering the current
   ## horizon, how far the database has been pruned already and where we want the
@@ -2644,7 +2644,7 @@ proc getProposalState*(
 
   ok state
 
-proc aggregateAll*(
+func aggregateAll*(
   dag: ChainDAGRef,
   validator_indices: openArray[ValidatorIndex]): Result[CookedPubKey, cstring] =
   if validator_indices.len == 0:
@@ -2669,7 +2669,7 @@ proc aggregateAll*(
 
   ok(finish(aggregateKey))
 
-proc aggregateAll*(
+func aggregateAll*(
   dag: ChainDAGRef,
   validator_indices: openArray[ValidatorIndex|uint64],
   bits: BitSeq | BitArray): Result[CookedPubKey, cstring] =
