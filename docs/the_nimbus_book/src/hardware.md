@@ -6,12 +6,12 @@ The recommended system requirements for running the Nimbus beacon node are:
 | ---------- | ------ |
 | Operating system | Linux [64-bit](https://en.wikipedia.org/wiki/64-bit_computing), Windows 64-bit, macOS 11+ |
 | Memory     | 4GB (running) or 8GB (building) |
-| Disk space | 200GB SSD |
+| Disk space | 200GB |
 | Network    | Reliable broadband |
 
 !!! note
-    Make sure you use a SSD, either SATA or NVMe.
-    Classic, spinning, hard disks are too slow and you might not be able to finish syncing.
+    While the consensus client will work with a classic, spinning, hard disks, if you plan to run an execution client make sure you use an SSD, either SATA or NVMe.
+
 
 ### Execution client
 
