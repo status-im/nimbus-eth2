@@ -1398,6 +1398,11 @@ proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
   if m.elConnections.len == 0:
     return
 
+  # https://github.com/ethereum/execution-apis/blob/ee3df5bc38f28ef35385cefc9d9ca18d5e502778/src/engine/cancun.md#deprecate-engine_exchangetransitionconfigurationv1
+  # Consensus layer clients MUST NOT call this method.
+  if m.eth1Chain.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    return
+
   let
     deadline = sleepAsync(3.seconds)
     requests = m.elConnections.mapIt(m.exchangeConfigWithSingleEL(it))
@@ -1412,7 +1417,7 @@ proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
       inc cancelled
 
   if cancelled == requests.len:
-    warn "Failed to exchange configuration with the configured EL end-points"
+    warn "Failed to exchange configuration with the configured EL endpoints"
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
@@ -2159,12 +2164,15 @@ proc start*(m: ELManager) {.gcsafe.} =
   if m.elConnections.len == 0:
     return
 
-  ## Calling `ELManager.start()` on an already started ELManager is a noop
+  # Calling `ELManager.start()` on an already started ELManager is a no-op
   if m.chainSyncingLoopFut.isNil:
     m.chainSyncingLoopFut =
       m.startChainSyncingLoop()
 
-  if m.hasJwtSecret and m.exchangeTransitionConfigurationLoopFut.isNil:
+  # https://github.com/ethereum/execution-apis/blob/ee3df5bc38f28ef35385cefc9d9ca18d5e502778/src/engine/cancun.md#deprecate-engine_exchangetransitionconfigurationv1
+  # Consensus layer clients MUST NOT call this method.
+  if  m.hasJwtSecret and m.exchangeTransitionConfigurationLoopFut.isNil and
+      m.eth1Chain.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH:
     m.exchangeTransitionConfigurationLoopFut =
       m.startExchangeTransitionConfigurationLoop()
 
