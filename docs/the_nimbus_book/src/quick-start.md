@@ -46,9 +46,14 @@ See the [execution client guide](./eth1.md) for instructions on how to pick and 
     Follow the [build guide](./build.md).
 
 
-### 4. Start the node
+### 4. Sync your node
 
-Once you've installed Nimbus, you can [start the node](./start-syncing.md) which will initiate the sync process.
+Once you've installed Nimbus, you should [sync it with the network](./start-syncing.md).
+
+
+### 5. Start the node
+
+Once the node is synced, you can start the node.
 
 ```sh
 cd nimbus-eth2
@@ -68,6 +73,9 @@ cd nimbus-eth2
     ./run-prater-beacon-node.sh --web3-url=http://127.0.0.1:8551 --jwt-secret=/tmp/jwtsecret
     ```
 
+!!! tip
+    To see a list of the command line options available to you, with descriptions, see the [options](./options.md) page.
+
 Once the beacon node starts, you'll see it logging information to the console, like so:
 
 ```sh
@@ -75,7 +83,7 @@ INF 2022-07-19 15:42:58.145+02:00 Launching beacon node                      top
 ```
 
 Congratulations!
-Your beacon node is up and running, and syncing the network!
+Your beacon node is up and running!
 
 !!! success "What next?"
 

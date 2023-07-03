@@ -57,7 +57,6 @@ nav:
       - 'install.md'
       - 'build.md'
       - 'start-syncing.md'
-      - 'trusted-node-sync.md'
       - 'migration.md'
 
     - Validator:

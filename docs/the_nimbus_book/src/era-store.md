@@ -31,7 +31,7 @@ mkdir -p era
 wget --no-parent  -A '*.era' -q --show-progress -nd -r -c https://provider/era
 ```
 
-With the era files present, perform a [trusted node sync](./trusted-node-sync.md) to complete the import, possibly with `--reindex` in order to create an [archive node](./history.md).
+With the era files present, perform a [trusted node sync](./start-syncing.md#trusted-node-sync) to complete the import, possibly with `--reindex` in order to create an [archive node](./history.md).
 
 ## Generating era files
 

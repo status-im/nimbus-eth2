@@ -1,83 +1,165 @@
 # Sync your node
 
 Before you can use your node, it needs to sync with the network.
-Syncing starts automatically when you start your node, and may take several days depending on the performance of your hardware.
-
 If you are planning to become a validator, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit, or you might miss attestations and proposal duties until it has finished syncing.
 
-!!! tip
-    To get started more quickly, you can perform a [trusted node sync](./trusted-node-sync.md) instead - this requires access to a synced node or a third-party service.
+When you [start the beacon node](./quick-start.md) for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take **several hours** or even days.
+
+Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in **minutes** instead of hours or days.
 
 !!! note
     You need need to run an execution client (**web3 provider**) together with the beacon node.
     See [here](./eth1.md) for instructions on how to do so.
 
-## Networks
 
-Using Nimbus, you can connect either to a testnet or mainnet.
-Mainnet is the main Ethereum network where real assets are at stake, while testnets are used by users and developers alike to test their node and setup before committing real assets.
+
+## Trusted node sync
+
+To use trusted node sync, you must have access to a node that you trust and that exposes the [Beacon API](./rest-api.md) (for example, a locally running backup node).
+Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
+
+It is possible to use trusted node sync with a third-party API provider — see [here](start-syncing.md#verify-you-synced-the-correct-chain) for how to verify that the chain you are given corresponds to the canonical chain at the time.
 
 !!! tip
-    If this is the first time you're setting up your node, it is recommended you run it on a testnet first.
-    Later, when everything is working, you can easily switch to mainnet.
+    A list of community-operated checkpoint sync nodes can be found [here](https://eth-clients.github.io/checkpoint-sync-endpoints/).
+    Always verify after after a checkpoint sync that the right chain was provided by the node.
 
-=== "Testnet"
 
-    To start syncing the `prater` testnet from the `nimbus-eth2` repository, run:
+### Perform a trusted node sync
 
-    ```
-     ./run-prater-beacon-node.sh
-    ```
+!!! tip
+    Make sure to replace `http://localhost:5052` in the commands below with the appropriate endpoint of the trusted beacon node. `http://localhost:5052` is the default endpoint exposed by Nimbus, but this is not consistent across all clients.
+
+    For example, if your trusted node is a [Prysm node](https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node), it exposes `127.0.0.1:3500` by default.
+    Which means you would run the commands below with `--trusted-node-url=http://127.0.0.1:3500`
+
+!!! note
+    The path specified for `--data-dir` must be an empty directory as trusted node sync needs to be started from a fresh database.
+
+To start trusted node sync, run:
 
 === "Mainnet"
-
-    To start syncing the Ethereum beacon chain mainnet, run:
-
+    ```sh
+    build/nimbus_beacon_node trustedNodeSync \
+      --network:mainnet \
+      --data-dir=build/data/shared_mainnet_0 \
+      --trusted-node-url=http://localhost:5052
     ```
-     ./run-mainnet-beacon-node.sh
+
+=== "Prater"
+    ```sh
+    build/nimbus_beacon_node trustedNodeSync --network:prater \
+    --data-dir=build/data/shared_prater_0  \
+    --trusted-node-url=http://localhost:5052
     ```
 
-## Log output
-
-You should see the following output:
+If the command was executed successfully, following log lines will be visible:
 
 ```
-INF 2020-12-01 11:25:33.487+01:00 Launching beacon node
-...
-INF 2020-12-01 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 path=build/data/shared_prater_0/db
-INF 2020-12-01 11:25:35.921+01:00 Block dag initialized
-INF 2020-12-01 11:25:37.073+01:00 Generating new networking key
-...
-NOT 2020-12-01 11:25:59.512+00:00 Eth1 sync progress                         topics="eth1" tid=21914 blockNumber=3836397 depositsProcessed=106147
-NOT 2020-12-01 11:26:02.574+00:00 Eth1 sync progress                         topics="eth1" tid=21914 blockNumber=3841412 depositsProcessed=106391
-...
-INF 2020-12-01 11:26:31.000+00:00 Slot start                                 topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:505 lastSlot=96566 scheduledSlot=96567 beaconTime=1w6d9h53m24s944us774ns peers=7 head=b54486c4:96563 headEpoch=3017 finalized=2f5d12e4:96479 finalizedEpoch=3014
-INF 2020-12-01 11:26:36.285+00:00 Slot end                                   topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
-...
+Writing checkpoint state
+Writing checkpoint block
+```
+And eventually:
+```
+Done, your beacon node is ready to serve you! Don't forget to check that you're on the canonical chain by comparing the checkpoint root with other online sources.
+See https://nimbus.guide/trusted-node-sync.html for more information.
 ```
 
-## Data directory
+After this the application will terminate and you can now [start the beacon node](./quick-start.md) as usual.
 
-While running, the beacon node will store chain data and other information its data directory, which by default is found in `build/data`.
-For more information, see the [data directory](./data-dir.md) guide.
+!!! note
+    Because trusted node sync by default copies blocks via REST, you may hit API limits if you are using a third-party provider.
+    If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./start-syncing.md#delay-block-history-backfill).
 
-## Command line options
 
-You can add command line options to the startup command.
-For example, to change the port to 9100, use:
+
+### Verify you synced the correct chain
+
+When performing a trusted node sync, you can manually verify that the correct chain was synced by comparing the head hash with other sources (e.g. your friends, forums, chats and web sites). If you're syncing using your own backup node you can retrieve the current head from the node using:
 
 ```sh
-./run-prater-beacon-node.sh --tcp-port=9100 --udp-port=9100
+# Make sure to enable the `--rest` option when running your node:
+
+curl http://localhost:5052/eth/v1/beacon/blocks/head/root
 ```
 
-To see a list of the command line options availabe to you, with descriptions, run:
+The `head` root is also printed in the log output at regular intervals.
 
+!!! note
+    The same [Beacon API](./rest-api.md) request works with any API provider.
+
+    For example, to compare it out with our mainnet [testing server](rest-api.md#test-your-tooling-against-our-servers), you can run:
+    `curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root`
+
+
+
+## Advanced
+
+### Verify the downloaded state through the Nimbus light client
+
+!!! note ""
+    This feature is available from Nimbus `v23.4.0` onwards.
+
+The `--trusted-block-root` option enables you to leverage the Nimbus light client in order to minimize the required trust in the specified Beacon API endpoint. After downloading a state snapshot, the light client will verify that it conforms to the established consensus on the network. Note that the provided `--trusted-block-root` should be somewhat recent, and that additional security precautions such as comparing the state root against block explorers is still recommended.
+
+
+### Sync deposit history
+
+The `--with-deposit-snapshot` allows syncing deposit history via REST, avoiding the need to search the execution client for this information and thus allowing the client to more quickly start producing blocks.
+
+!!! note
+    The API endpoint for downloading this information is a relatively recent addition to the Beacon API specification.
+    It is available on nodes running Nimbus, but if you're using other checkpoint sources, consult their documentation with regards to the `/eth/v1/beacon/deposit_snapshot` endpoint.
+
+!!! tip
+    It's safe to always specify this option.
+    Nimbus will produce a warning if the specified beacon node doesn't support the required endpoint.
+    Future versions of Nimbus will enable the option by default.
+
+
+### Delay block history backfill
+
+By default, both state and block history will be downloaded from the trusted node.
+
+It is possible to get started more quickly by delaying the backfill of the block history using the `--backfill=false` parameter.
+In this case, the beacon node will first sync to the current head so that it can start performing its duties, then backfill the blocks from the network.
+
+You can also resume the trusted node backfill at any time by simply running the trusted node sync command again.
+
+!!! note
+    While backfilling blocks, your node will not be able to answer historical requests or sync requests.
+    This might lead to you being de-scored, and eventually disconnected, by your peers.
+
+
+### Modify sync point
+
+By default, the node will sync up to the latest finalized checkpoint of the node that you're syncing with.
+While you can choose a different sync point using a state hash or a slot number, this state must fall on an epoch boundary:
+
+```sh
+build/nimbus_beacon_node trustedNodeSync \
+  --network:mainnet \
+  --data-dir=build/data/shared_mainnet_0 \
+  --state-id:1024
 ```
-./build/nimbus_beacon_node --help
+
+
+### Sync from checkpoint files
+
+If you have a state file available, you can start the node using the `--finalized-checkpoint-state`:
+
+```sh
+# Obtain a state and a block from a Beacon API - these must be in SSZ format:
+curl -o state.32000.ssz \
+  -H 'Accept: application/octet-stream' \
+  http://localhost:5052/eth/v2/debug/beacon/states/32000
+
+# Start the beacon node using the downloaded state as starting point
+./run-mainnet-beacon-node.sh \
+  --finalized-checkpoint-state=state.32000.ssz
 ```
 
-More information is available from the [options](./options.md) page.
 
-## Keep track of your sync progress
+### Keep track of your sync progress
 
 See [here](./keep-an-eye.md#keep-track-of-your-syncing-progress) for how to keep track of your sync progress.

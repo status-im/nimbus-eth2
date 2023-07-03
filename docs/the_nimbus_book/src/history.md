@@ -26,11 +26,11 @@ It is possible to switch between `prune` and `archive` modes.
 When switching to `prune` mode, deep history will be removed from the database and the prune point will be updated continuously as usual.
 
 As noted above, the database will not shrink in size.
-To reclaim space, perform a [trusted node sync](./trusted-node-sync.md) using a fresh database.
+To reclaim space, perform a [trusted node sync](./start-syncing.md#trusted-node-sync) using a fresh database.
 
 When switching to `archive` mode, the node will start keeping history from the most recent prune point, but will not recreate deep history.
 
-In order to recreate deep history in a pruned node, download the [era archive of deep history](./era-store.md) and [reindex the database](./trusted-node-sync.md#recreate-historical-state-access-indices) — this operation may take several hours.
+In order to recreate deep history in a pruned node, download the [era archive of deep history](./era-store.md) and [reindex the database](./start-syncing.md#recreate-historical-state-access-indices) — this operation may take several hours.
 
 ## Command line
 

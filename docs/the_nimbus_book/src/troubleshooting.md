@@ -88,7 +88,7 @@ If you’re experiencing sync problems, make sure that your network is healthy a
 
 In rare cases, such as after an unclean shutdown, it may happen that the database has been corrupted and you need to restart the sync.
 To do so, remove the `db` folder from the [data directory](./data-dir.md) and restart the node.
-You can get re-synced faster using [trusted node sync](./trusted-node-sync.md).
+You can get re-synced faster using [trusted node sync](./start-syncing.md#trusted-node-sync).
 
 ### noCommand does not accept arguments
 
