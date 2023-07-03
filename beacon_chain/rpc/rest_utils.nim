@@ -79,6 +79,15 @@ func getBlockSlotId*(node: BeaconNode,
     if stateIdent.root == getStateRoot(node.dag.headState):
       ok(node.dag.head.bid.atSlot())
     else:
+      let headSlot = getStateField(node.dag.headState, slot)
+      for i in 1..<SLOTS_PER_HISTORICAL_ROOT:
+        if i > headSlot:
+          break
+        if getStateField(node.dag.headState, state_roots).item((int headSlot - i) mod int SLOTS_PER_HISTORICAL_ROOT) ==
+            stateIdent.root:
+          return node.dag.getBlockIdAtSlot(headSlot - i).orErr(
+            cstring("State for given root not found"))
+
       # We don't have a state root -> BlockSlot mapping
       err("State for given root not found")
   of StateQueryKind.Named:
