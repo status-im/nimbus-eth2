@@ -840,9 +840,15 @@ proc proposeBlockAux(
   let
     payloadBuilderBidFut =
       if usePayloadBuilder:
-        getBuilderBid[SBBB](
-          node, payloadBuilderClient, head, validator, slot, randao,
-          validator_index)
+        when not (EPS is bellatrix.ExecutionPayloadForSigning):
+          getBuilderBid[SBBB](
+            node, payloadBuilderClient, head, validator, slot, randao,
+            validator_index)
+        else:
+          let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
+          fut.complete(BlindedBlockResult[SBBB].err(
+            "Bellatrix Builder API unsupported"))
+          fut
       else:
         let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
         fut.complete(BlindedBlockResult[SBBB].err(
@@ -1084,7 +1090,7 @@ proc proposeBlock(node: BeaconNode,
         capella_mev.SignedBlindedBeaconBlock, capella.ExecutionPayloadForSigning)
     else:
       proposeBlockContinuation(
-        bellatrix_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning)
+        capella_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
