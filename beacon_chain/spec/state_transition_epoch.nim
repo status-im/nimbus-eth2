@@ -243,7 +243,7 @@ func is_unslashed_participating_index(
     has_flag(epoch_participation[].item(validator_index), flag_index) and
     not state.validators[validator_index].slashed
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#justification-and-finalization
 type FinalityState = object
   slot: Slot
   current_epoch_ancestor_root: Eth2Digest
@@ -424,7 +424,7 @@ proc compute_unrealized_finality*(
     justified: finalityState.current_justified_checkpoint,
     finalized: finalityState.finalized_checkpoint)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState),
@@ -460,7 +460,7 @@ proc compute_unrealized_finality*(
     justified: finalityState.current_justified_checkpoint,
     finalized: finalityState.finalized_checkpoint)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#helpers
 func get_base_reward_sqrt*(state: phase0.BeaconState, index: ValidatorIndex,
     total_balance_sqrt: auto): Gwei =
   # Spec function recalculates total_balance every time, which creates an
@@ -508,7 +508,7 @@ func get_attestation_component_delta(is_unslashed_attester: bool,
   else:
     RewardDelta(penalties: base_reward)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#components-of-attestation-deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#components-of-attestation-deltas
 func get_source_delta*(validator: RewardStatus,
                        base_reward: uint64,
                        balances: TotalBalances,
@@ -666,7 +666,7 @@ func get_active_increments*(
     info: altair.EpochInfo | bellatrix.BeaconState): Gwei =
   info.balances.current_epoch div EFFECTIVE_BALANCE_INCREMENT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#get_flag_index_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 iterator get_flag_index_deltas*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState,
@@ -953,7 +953,7 @@ func process_effective_balance_updates*(state: var ForkyBeaconState) =
       if new_effective_balance != effective_balance:
         state.validators.mitem(vidx).effective_balance = new_effective_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#slashings-balances-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#slashings-balances-updates
 func process_slashings_reset*(state: var ForkyBeaconState) =
   let next_epoch = get_current_epoch(state) + 1
 
@@ -1189,7 +1189,7 @@ proc process_epoch*(
 
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
@@ -1208,7 +1208,7 @@ proc process_epoch*(
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#rewards-and-penalties
   process_rewards_and_penalties(cfg, state, info)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#registry-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#slashings
