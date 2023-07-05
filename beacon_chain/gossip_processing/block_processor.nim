@@ -303,11 +303,10 @@ from ../spec/datatypes/capella import
 from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
 
 proc newExecutionPayload*(
-    elManager: ELManager,
-    blockBody: SomeForkyBeaconBlockBody):
+    elManager: ELManager, blck: SomeForkyBeaconBlock):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
 
-  template executionPayload: untyped = blockBody.execution_payload
+  template executionPayload: untyped = blck.body.execution_payload
 
   if not elManager.hasProperlyConfiguredConnection:
     if elManager.hasConnection:
@@ -322,7 +321,7 @@ proc newExecutionPayload*(
     executionPayload = shortLog(executionPayload)
 
   try:
-    let payloadStatus = await elManager.sendNewPayload(blockBody)
+    let payloadStatus = await elManager.sendNewPayload(blck)
 
     debug "newPayload: succeeded",
       parentHash = executionPayload.parent_hash,
@@ -349,7 +348,7 @@ proc getExecutionValidity(
 
   try:
     let executionPayloadStatus = await elManager.newExecutionPayload(
-      blck.message.body)
+      blck.message)
     if executionPayloadStatus.isNone:
       return NewPayloadStatus.noResponse
 
