@@ -215,3 +215,8 @@
 	url = https://github.com/status-im/nim-kzg4844.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/nim-results"]
+	path = vendor/nim-results
+	url = https://github.com/arnetheduck/nim-results.git
+	ignore = untracked
+	branch = master
