@@ -16,10 +16,10 @@ func perfectScore*(score: float64): bool =
 proc shortScore*(score: float64): string =
   if score == Inf: "<perfect>" else: formatFloat(score, ffDecimal, 4)
 
-proc getAttestationDataScore*(vc: ValidatorClientRef,
+proc getAttestationDataScore*(rootsSeen: Table[Eth2Digest, Slot],
                               adata: ProduceAttestationDataResponse): float64 =
   let
-    slot = vc.rootsSeen.getOrDefault(
+    slot = rootsSeen.getOrDefault(
       adata.data.beacon_block_root, FAR_FUTURE_SLOT)
 
   let res =
@@ -37,8 +37,13 @@ proc getAttestationDataScore*(vc: ValidatorClientRef,
           # To avoid `DivizionByZero` defect.
           score
         else:
-          score + float64(1) / float64(adata.data.slot + 1 - slot)
+          score + float64(1) / (float64(adata.data.slot) + float64(1) -
+                                float64(slot))
 
   debug "Attestation score", attestation_data = shortLog(adata.data),
-        slot_result = slot, score = shortScore(res)
+        block_slot = slot, score = shortScore(res)
   res
+
+proc getAttestationDataScore*(vc: ValidatorClientRef,
+                              adata: ProduceAttestationDataResponse): float64 =
+  getAttestationDataScore(vc.rootsSeen, adata)
