@@ -575,9 +575,10 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ getAttestationDataScore() test vectors                                                     OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -688,4 +689,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 389/394 Fail: 0/394 Skip: 5/394
+OK: 390/395 Fail: 0/395 Skip: 5/395
