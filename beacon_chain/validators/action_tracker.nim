@@ -81,7 +81,6 @@ type
 func hash*(x: AggregatorDuty): Hash =
   hashAllFields(x)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet(
     self: ActionTracker, epoch: Epoch): tuple[subnet_id: SubnetId, expiration: Epoch] =
   (
@@ -130,11 +129,6 @@ proc hasSyncDuty*(
     tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
   epoch < tracker.syncDuties.getOrDefault(pubkey, GENESIS_EPOCH)
 
-const allSubnetBits = block:
-  var res: AttnetBits
-  for i in 0..<res.len: res[i] = true
-  res
-
 func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   var res: AttnetBits
   # Subscribe to subnets for upcoming duties
@@ -145,12 +139,20 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
       res[duty.subnet_id.int] = true
   res
 
+# TODO https://github.com/nim-lang/Nim/issues/22215 keeps from stabilitySubnets
+const allSubnetBits = block:
+  var res: AttnetBits
+  for i in 0..<res.len: res[i] = true
+  res
+
 func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
   if tracker.subscribeAllAttnets:
     allSubnetBits
   else:
     var res: AttnetBits
-    if tracker.useOldStabilitySubnets:
+
+    if  tracker.useOldStabilitySubnets or
+        tracker.stabilitySubnets.len < SUBNETS_PER_NODE.int:
       for v in tracker.stabilitySubnets:
         res[v.subnet_id.int] = true
     else:
@@ -180,7 +182,6 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
     debug "Validator no longer active", index = k
     tracker.knownValidators.del k
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let expectedSubnets =
     min(ATTESTATION_SUBNET_COUNT.int, tracker.knownValidators.len)
 
