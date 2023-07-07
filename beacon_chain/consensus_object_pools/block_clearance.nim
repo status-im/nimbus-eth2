@@ -311,12 +311,12 @@ proc addHeadBlock*(
     dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
     executionValid, onBlockAdded)
 
-proc addHeadBlockWithParent*(
+proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
     onBlockAdded: OnForkyBlockAdded
     ): Result[BlockRef, VerifierError] =
-  addHeadBlock(
+  addHeadBlockWithParent(
     dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
     executionValid = true, onBlockAdded)
 
