@@ -361,14 +361,18 @@ We're finally ready to connect to the Prater testnet!
     For instructions on how to do so, see the [eth1 page](./eth1.md).
 
 To connect to Prater, run:
-```sh
-sudo -u nimbus /usr/bin/nimbus_beacon_node --network=prater --data-dir=/var/lib/nimbus/shared_prater_0
-```
 
-Alternatively, if you have installed Nimbus manually, run:
-```sh
-./run-prater-beacon-node.sh
-```
+=== "Using package manager"
+
+    ```sh
+    sudo -u nimbus /usr/bin/nimbus_beacon_node --network=prater --data-dir=/var/lib/nimbus/shared_prater_0
+    ```
+
+=== "Manual installation"
+
+    ```sh
+    ./run-prater-beacon-node.sh
+    ```
 
 
 ### 16. Check for successful connection
