@@ -208,6 +208,7 @@ type
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     blocksSeen*: Table[Slot, BlockDataItem]
+    rootsSeen*: Table[Eth2Digest, Slot]
     processingDelay*: Opt[Duration]
     rng*: ref HmacDrbgContext
 
@@ -1207,23 +1208,25 @@ proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
   if not(retFuture.finished()): retFuture.cancelCallback = cancellation
   retFuture
 
-proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject,
+proc registerBlock*(vc: ValidatorClientRef, eblck: EventBeaconBlockObject,
                     node: BeaconNodeServerRef) =
   let
     wallTime = vc.beaconClock.now()
-    delay = wallTime - data.slot.start_beacon_time()
+    delay = wallTime - eblck.slot.start_beacon_time()
 
-  debug "Block received", slot = data.slot,
-        block_root = shortLog(data.block_root), optimistic = data.optimistic,
+  debug "Block received", slot = eblck.slot,
+        block_root = shortLog(eblck.block_root), optimistic = eblck.optimistic,
         node = node, delay = delay
 
   proc scheduleCallbacks(data: var BlockDataItem,
                          blck: EventBeaconBlockObject) =
+    vc.rootsSeen[blck.block_root] = blck.slot
     data.blocks.add(blck.block_root)
     for mitem in data.waiters.mitems():
       if mitem.count >= len(data.blocks):
         if not(mitem.future.finished()): mitem.future.complete(data.blocks)
-  vc.blocksSeen.mgetOrPut(data.slot, BlockDataItem()).scheduleCallbacks(data)
+
+  vc.blocksSeen.mgetOrPut(eblck.slot, BlockDataItem()).scheduleCallbacks(eblck)
 
 proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
   var blocksSeen: Table[Slot, BlockDataItem]
@@ -1231,6 +1234,7 @@ proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
     if (slot.epoch() + HISTORICAL_DUTIES_EPOCHS) >= epoch:
       blocksSeen[slot] = item
     else:
+      for root in item.blocks: vc.rootsSeen.del(root)
       let blockRoot =
         if len(item.blocks) == 0:
           "<missing>"

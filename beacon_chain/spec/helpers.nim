@@ -47,7 +47,7 @@ func shortLog*(v: FinalityCheckpoints): auto =
 
 chronicles.formatIt FinalityCheckpoints: it.shortLog
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## Return the largest integer ``x`` such that ``x**2 <= n``.
   doAssert n >= 0'u64
@@ -114,7 +114,7 @@ func get_previous_epoch*(
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   get_previous_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
@@ -136,7 +136,7 @@ func uint_to_bytes*(x: uint32): array[4, byte] = toBytesLE(x)
 func uint_to_bytes*(x: uint16): array[2, byte] = toBytesLE(x)
 func uint_to_bytes*(x: uint8): array[1, byte] = toBytesLE(x)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_domain
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
     fork_version: Version,
@@ -150,7 +150,7 @@ func compute_domain*(
   result[0..3] = domain_type.data
   result[4..31] = fork_data_root.data.toOpenArray(0, 27)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_domain
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(
     fork: Fork,
     domain_type: DomainType,
@@ -343,7 +343,7 @@ func is_merge_transition_complete*(
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   when typeof(blck).toFork >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =

@@ -9,7 +9,7 @@
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
@@ -126,7 +126,7 @@ func process_eth1_data(
     state.eth1_data = body.eth1_data
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
@@ -182,7 +182,7 @@ proc check_proposer_slashing*(
   withState(state):
     check_proposer_slashing(forkyState.data, proposer_slashing, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
@@ -246,7 +246,7 @@ proc check_attester_slashing*(
   withState(state):
     check_attester_slashing(forkyState.data, attester_slashing, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -330,7 +330,7 @@ proc process_deposit*(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
@@ -388,7 +388,7 @@ proc check_voluntary_exit*(
   withState(state):
     check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -465,11 +465,11 @@ func get_participant_reward*(total_active_balance: Gwei): Gwei =
         WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
   max_participant_rewards div SYNC_COMMITTEE_SIZE
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#sync-aggregate-processing
 func get_proposer_reward*(participant_reward: Gwei): Gwei =
   participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#sync-aggregate-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState),
