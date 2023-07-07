@@ -264,7 +264,24 @@ Once you're done, `ssh` back into your Pi.
 ### 11. Overclocking
 
 Nimbus requires the Raspberry Pi to be overclocked.
-To overclock your Raspberry Pi, follow the [RPi overclocking guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
+
+To overclock your Raspberry Pi, you need to add two lines to the `/boot/firmware/usercfg.txt` file:
+
+```sh
+sudo nano /boot/firmware/usercfg.txt
+```
+
+Add the following two lines to the end of the file:
+
+```
+arm_freq=1800
+over_voltage=3
+```
+
+Save the file and reboot.
+This increases the CPU clock from 1500 MHz to 1800 MHz and raises the CPU voltage from 0.88 V to 0.93 V.
+
+To read more about testing the stability of an overclock and benchmarking, follow the [RPi overclocking guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
 
 
 ### 12. Install the beacon node
