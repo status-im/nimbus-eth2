@@ -263,7 +263,7 @@ func addOrphan*(
 
   if parent_root in quarantine.unviable:
     quarantine.unviable[signedBlock.root] = ()
-    return ok()
+    return err("block parent unviable")
 
   # Even if the quarantine is full, we need to schedule its parent for
   # downloading or we'll never get to the bottom of things

@@ -493,7 +493,11 @@ proc validateBeaconBlock*(
        blockRoot = shortLog(signed_beacon_block.root),
        blck = shortLog(signed_beacon_block.message),
        err = r.error()
-
+    else:
+      debug "Block quarantined",
+        blockRoot = shortLog(signed_beacon_block.root),
+        blck = shortLog(signed_beacon_block.message),
+        signature = shortLog(signed_beacon_block.signature)
     return errIgnore("BeaconBlock: Parent not found")
 
   # Continues block parent validity checking in optimistic case, where it does
