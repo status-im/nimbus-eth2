@@ -54,6 +54,9 @@ endif
 
 # unconditionally built by the default Make target
 # TODO re-enable ncli_query if/when it works again
+TOOLS_CORE_CUSTOMCOMPILE := \
+	libnimbus_lc.a
+
 TOOLS_CORE := \
 	deposit_contract \
 	resttest \
@@ -65,12 +68,12 @@ TOOLS_CORE := \
 	fakeee \
 	wss_sim \
 	stack_sizes \
-	libnimbus_lc.a \
 	nimbus_light_client \
 	nimbus_validator_client \
 	nimbus_signing_node \
 	validator_db_aggregator \
-	ncli_testnet
+	ncli_testnet \
+	$(TOOLS_CORE_CUSTOMCOMPILE)
 
 # This TOOLS/TOOLS_CORE decomposition is a workaroud so nimbus_beacon_node can
 # build on its own, and if/when that becomes a non-issue, it can be recombined
@@ -421,7 +424,7 @@ build/generate_makefile: tools/generate_makefile.nim | deps-common
 # It also requires Make to pass open file descriptors to the GCC process,
 # which is not possible if we let Nim handle this, so we generate and use a
 # makefile instead.
-$(TOOLS): | build deps
+$(filter-out $(TOOLS_CORE_CUSTOMCOMPILE),$(TOOLS)): | build deps
 	+ for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "$${TOOL_DIR}/$@.nim" $(NIM_PARAMS) && \
