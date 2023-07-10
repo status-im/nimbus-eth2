@@ -1,3 +1,6 @@
+:warning: This fork is for Vac deep research experiments and PoCs.
+Please find the official Nimbus repository here: https://github.com/status-im/nimbus-eth2
+
 # Nimbus Eth2 (Beacon Chain)
 
 [![Github Actions CI](https://github.com/status-im/nimbus-eth2/actions/workflows/ci.yml/badge.svg?branch=stable)](https://github.com/status-im/nimbus-eth2/actions/workflows/ci.yml?query=branch%3Astable)
