@@ -1319,7 +1319,13 @@ suite "Shufflings":
 
   test "Accelerated shuffling computation (with epochRefState jump)":
     # Test cases where `epochRefState` is set to a very old block
-    # that is advanced by several epochs to a recent slot
+    # that is advanced by several epochs to a recent slot.
+    #
+    # This is not dependent on the multilayer branching of the "Shufflings"
+    # suite, but a function of getEpochRef extending epochRefState towards
+    # a slot which it is essentially hallucinating a state, because it is
+    # not accounting for the blocks with deposits. As it takes non-trivial
+    # time to set up the "Shufflings" suite, we reuse its more complex DAG.
     #
     # The purely random fuzzing/tests have difficulty triggering this, because
     # this needs to happen across a wide portion of the sampled range so that:
