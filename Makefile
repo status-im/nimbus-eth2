@@ -58,13 +58,14 @@ TOOLS_CORE := \
 	deposit_contract \
 	resttest \
 	logtrace \
-        mev_mock \
+	mev_mock \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \
 	fakeee \
 	wss_sim \
 	stack_sizes \
+	libnimbus_lc.a \
 	nimbus_light_client \
 	nimbus_validator_client \
 	nimbus_signing_node \
@@ -135,7 +136,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | $(TOOLS) libnfuzz.so libnfuzz.a libnimbus_lc.a $(PLATFORM_SPECIFIC_TARGETS)
+all: | $(TOOLS) libnfuzz.so libnfuzz.a $(PLATFORM_SPECIFIC_TARGETS)
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
