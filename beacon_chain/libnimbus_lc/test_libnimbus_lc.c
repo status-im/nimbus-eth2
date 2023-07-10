@@ -27,7 +27,7 @@
 #define __DIR__ "."
 #endif
 
-ECL_RESULT_USE_CHECK
+ETH_RESULT_USE_CHECK
 static void *readEntireFile(const char *path, int *numBytes)
 {
     int err;
@@ -61,25 +61,25 @@ static void *readEntireFile(const char *path, int *numBytes)
     return buffer;
 }
 
-ECL_RESULT_USE_CHECK
-static ECLNetworkConfig *loadCfg(const char *path)
+ETH_RESULT_USE_CHECK
+static ETHConsensusConfig *loadCfg(const char *path)
 {
     void *fileContent = readEntireFile(path, /* numBytes: */ NULL);
-    ECLNetworkConfig *cfg = ECLNetworkConfigCreateFromYaml(fileContent);
+    ETHConsensusConfig *cfg = ETHConsensusConfigCreateFromYaml(fileContent);
     check(cfg);
     free(fileContent);
     return cfg;
 }
 
-ECL_RESULT_USE_CHECK
-static ECLBeaconState *loadGenesis(const ECLNetworkConfig *cfg, const char *path)
+ETH_RESULT_USE_CHECK
+static ETHBeaconState *loadGenesis(const ETHConsensusConfig *cfg, const char *path)
 {
-    const char *consensusFork = ECLNetworkConfigGetConsensusVersionAtEpoch(cfg, /* epoch: */ 0);
+    const char *consensusFork = ETHConsensusConfigGetConsensusVersionAtEpoch(cfg, /* epoch: */ 0);
     check(consensusFork);
 
     int numSszBytes;
     void *sszBytes = readEntireFile(path, &numSszBytes);
-    ECLBeaconState *state = ECLBeaconStateCreateFromSsz(
+    ETHBeaconState *state = ETHBeaconStateCreateFromSsz(
         cfg, consensusFork, sszBytes, numSszBytes);
     check(state);
     free(sszBytes);
@@ -96,9 +96,9 @@ static void printHexString(const void *bytes, int numBytes)
     }
 }
 
-static void printGweiString(const ECLUInt256 *wei)
+static void printGweiString(const ETHUInt256 *wei)
 {
-    ECLUInt256 value;
+    ETHUInt256 value;
     memcpy(&value, wei, sizeof value);
 
     char weiString[80];
@@ -146,123 +146,123 @@ static void printGweiString(const ECLUInt256 *wei)
     }
 }
 
-static void visualizeHeader(const ECLLightClientHeader *header, const ECLNetworkConfig *cfg)
+static void visualizeHeader(const ETHLightClientHeader *header, const ETHConsensusConfig *cfg)
 {
-    ECLRoot *beaconRoot = ECLLightClientHeaderCopyBeaconRoot(header, cfg);
+    ETHRoot *beaconRoot = ETHLightClientHeaderCopyBeaconRoot(header, cfg);
     printf("  - beacon: ");
     printHexString(beaconRoot, sizeof *beaconRoot);
     printf("\n");
-    ECLRootDestroy(beaconRoot);
+    ETHRootDestroy(beaconRoot);
 
-    const ECLBeaconBlockHeader *beacon = ECLLightClientHeaderGetBeacon(header);
+    const ETHBeaconBlockHeader *beacon = ETHLightClientHeaderGetBeacon(header);
 
-    int beaconSlot = ECLBeaconBlockHeaderGetSlot(beacon);
+    int beaconSlot = ETHBeaconBlockHeaderGetSlot(beacon);
     printf("    - slot: %d\n", beaconSlot);
 
-    int beaconProposerIndex = ECLBeaconBlockHeaderGetProposerIndex(beacon);
+    int beaconProposerIndex = ETHBeaconBlockHeaderGetProposerIndex(beacon);
     printf("    - proposer_index: %d\n", beaconProposerIndex);
 
-    const ECLRoot *beaconParentRoot = ECLBeaconBlockHeaderGetParentRoot(beacon);
+    const ETHRoot *beaconParentRoot = ETHBeaconBlockHeaderGetParentRoot(beacon);
     printf("    - parent_root: ");
     printHexString(beaconParentRoot, sizeof *beaconParentRoot);
     printf("\n");
 
-    const ECLRoot *beaconStateRoot = ECLBeaconBlockHeaderGetStateRoot(beacon);
+    const ETHRoot *beaconStateRoot = ETHBeaconBlockHeaderGetStateRoot(beacon);
     printf("    - state_root: ");
     printHexString(beaconStateRoot, sizeof *beaconStateRoot);
     printf("\n");
 
-    const ECLRoot *beaconBodyRoot = ECLBeaconBlockHeaderGetBodyRoot(beacon);
+    const ETHRoot *beaconBodyRoot = ETHBeaconBlockHeaderGetBodyRoot(beacon);
     printf("    - body_root: ");
     printHexString(beaconBodyRoot, sizeof *beaconBodyRoot);
     printf("\n");
 
-    ECLRoot *executionHash = ECLLightClientHeaderCopyExecutionHash(header, cfg);
+    ETHRoot *executionHash = ETHLightClientHeaderCopyExecutionHash(header, cfg);
     printf("  - execution: ");
     printHexString(executionHash, sizeof *executionHash);
     printf("\n");
-    ECLRootDestroy(executionHash);
+    ETHRootDestroy(executionHash);
 
-    const ECLExecutionPayloadHeader *execution = ECLLightClientHeaderGetExecution(header);
+    const ETHExecutionPayloadHeader *execution = ETHLightClientHeaderGetExecution(header);
 
-    const ECLRoot *executionParentHash = ECLExecutionPayloadHeaderGetParentHash(execution);
+    const ETHRoot *executionParentHash = ETHExecutionPayloadHeaderGetParentHash(execution);
     printf("    - parent_hash: ");
     printHexString(executionParentHash, sizeof *executionParentHash);
     printf("\n");
 
-    const ECLExecutionAddress *executionFeeRecipient =
-        ECLExecutionPayloadHeaderGetFeeRecipient(execution);
+    const ETHExecutionAddress *executionFeeRecipient =
+        ETHExecutionPayloadHeaderGetFeeRecipient(execution);
     printf("    - fee_recipient: ");
     printHexString(executionFeeRecipient, sizeof *executionFeeRecipient);
     printf("\n");
 
-    const ECLRoot *executionStateRoot = ECLExecutionPayloadHeaderGetStateRoot(execution);
+    const ETHRoot *executionStateRoot = ETHExecutionPayloadHeaderGetStateRoot(execution);
     printf("    - state_root: ");
     printHexString(executionStateRoot, sizeof *executionStateRoot);
     printf("\n");
 
-    const ECLRoot *executionReceiptsRoot = ECLExecutionPayloadHeaderGetReceiptsRoot(execution);
+    const ETHRoot *executionReceiptsRoot = ETHExecutionPayloadHeaderGetReceiptsRoot(execution);
     printf("    - receipts_root: ");
     printHexString(executionReceiptsRoot, sizeof *executionReceiptsRoot);
     printf("\n");
 
-    const ECLLogsBloom *executionLogsBloom = ECLExecutionPayloadHeaderGetLogsBloom(execution);
+    const ETHLogsBloom *executionLogsBloom = ETHExecutionPayloadHeaderGetLogsBloom(execution);
     printf("    - logs_bloom: ");
     printHexString(executionLogsBloom, sizeof *executionLogsBloom);
     printf("\n");
 
-    const ECLRoot *executionPrevRandao = ECLExecutionPayloadHeaderGetPrevRandao(execution);
+    const ETHRoot *executionPrevRandao = ETHExecutionPayloadHeaderGetPrevRandao(execution);
     printf("    - prev_randao: ");
     printHexString(executionPrevRandao, sizeof *executionPrevRandao);
     printf("\n");
 
-    int executionBlockNumber = ECLExecutionPayloadHeaderGetBlockNumber(execution);
+    int executionBlockNumber = ETHExecutionPayloadHeaderGetBlockNumber(execution);
     printf("    - block_number: %d\n", executionBlockNumber);
 
-    int executionGasLimit = ECLExecutionPayloadHeaderGetGasLimit(execution);
+    int executionGasLimit = ETHExecutionPayloadHeaderGetGasLimit(execution);
     printf("    - gas_limit: %d\n", executionGasLimit);
 
-    int executionGasUsed = ECLExecutionPayloadHeaderGetGasUsed(execution);
+    int executionGasUsed = ETHExecutionPayloadHeaderGetGasUsed(execution);
     printf("    - gas_used: %d\n", executionGasUsed);
 
-    int executionTimestamp = ECLExecutionPayloadHeaderGetTimestamp(execution);
+    int executionTimestamp = ETHExecutionPayloadHeaderGetTimestamp(execution);
     printf("    - timestamp: %d\n", executionTimestamp);
 
-    const void *executionExtraDataBytes = ECLExecutionPayloadHeaderGetExtraDataBytes(execution);
-    int numExecutionExtraDataBytes = ECLExecutionPayloadHeaderGetNumExtraDataBytes(execution);
+    const void *executionExtraDataBytes = ETHExecutionPayloadHeaderGetExtraDataBytes(execution);
+    int numExecutionExtraDataBytes = ETHExecutionPayloadHeaderGetNumExtraDataBytes(execution);
     printf("    - extra_data: ");
     printHexString(executionExtraDataBytes, numExecutionExtraDataBytes);
     printf("\n");
 
-    const ECLUInt256 *executionBaseFeePerGas = ECLExecutionPayloadHeaderGetBaseFeePerGas(execution);
+    const ETHUInt256 *executionBaseFeePerGas = ETHExecutionPayloadHeaderGetBaseFeePerGas(execution);
     printf("    - base_fee_per_gas: ");
     printGweiString(executionBaseFeePerGas);
     printf(" Gwei\n");
 
-    int executionDataGasUsed = ECLExecutionPayloadHeaderGetDataGasUsed(execution);
+    int executionDataGasUsed = ETHExecutionPayloadHeaderGetDataGasUsed(execution);
     printf("    - data_gas_used: %d\n", executionDataGasUsed);
 
-    int executionExcessDataGas = ECLExecutionPayloadHeaderGetExcessDataGas(execution);
+    int executionExcessDataGas = ETHExecutionPayloadHeaderGetExcessDataGas(execution);
     printf("    - excess_data_gas: %d\n", executionExcessDataGas);
 }
 
-ECL_RESULT_USE_CHECK
+ETH_RESULT_USE_CHECK
 int main(void)
 {
     NimMain();
 
-    ECLRandomNumber *rng = ECLRandomNumberCreate();
+    ETHRandomNumber *rng = ETHRandomNumberCreate();
     check(rng);
-    ECLNetworkConfig *cfg = loadCfg(__DIR__ "/test_files/config.yaml");
-    ECLBeaconState *genesisState = loadGenesis(cfg, __DIR__ "/test_files/genesis.ssz");
-    ECLRoot *genesisValRoot = ECLBeaconStateCopyGenesisValidatorsRoot(genesisState);
-    ECLForkDigests *forkDigests = ECLForkDigestsCreateFromState(cfg, genesisState);
-    ECLBeaconClock *beaconClock = ECLBeaconClockCreateFromState(genesisState);
-    ECLBeaconStateDestroy(genesisState);
-    printf("Current slot: %d\n", ECLBeaconClockGetSlot(beaconClock));
+    ETHConsensusConfig *cfg = loadCfg(__DIR__ "/test_files/config.yaml");
+    ETHBeaconState *genesisState = loadGenesis(cfg, __DIR__ "/test_files/genesis.ssz");
+    ETHRoot *genesisValRoot = ETHBeaconStateCopyGenesisValidatorsRoot(genesisState);
+    ETHForkDigests *forkDigests = ETHForkDigestsCreateFromState(cfg, genesisState);
+    ETHBeaconClock *beaconClock = ETHBeaconClockCreateFromState(genesisState);
+    ETHBeaconStateDestroy(genesisState);
+    printf("Current slot: %d\n", ETHBeaconClockGetSlot(beaconClock));
     printf("\n");
 
-    const ECLRoot trustedBlockRoot = {{
+    const ETHRoot trustedBlockRoot = {{
         0x15, 0xcf, 0x56, 0xeb, 0xf8, 0x87, 0xed, 0xe9,
         0xcf, 0x3f, 0xc1, 0x0a, 0x26, 0xec, 0x83, 0x82,
         0x86, 0x28, 0x93, 0x2c, 0x10, 0x0e, 0x42, 0xc9,
@@ -270,7 +270,7 @@ int main(void)
     }};
     int numBootstrapBytes;
     void *bootstrapBytes = readEntireFile(__DIR__ "/test_files/bootstrap.ssz", &numBootstrapBytes);
-    ECLLightClientStore *store = ECLLightClientStoreCreateFromBootstrap(
+    ETHLightClientStore *store = ETHLightClientStoreCreateFromBootstrap(
         cfg, &trustedBlockRoot,
         "application/octet-stream", "capella", bootstrapBytes, numBootstrapBytes);
     check(store);
@@ -278,8 +278,8 @@ int main(void)
 
     int startPeriod;
     int count;
-    int syncKind = ECLLightClientStoreGetNextSyncTask(store, beaconClock, &startPeriod, &count);
-    check(syncKind == kECLLcSyncKind_UpdatesByRange);
+    int syncKind = ETHLightClientStoreGetNextSyncTask(store, beaconClock, &startPeriod, &count);
+    check(syncKind == kETHLcSyncKind_UpdatesByRange);
     check(startPeriod == 800);
     check(count > 0 && count <= 128);
     printf("Sync task: UpdatesByRange(%d, %d)\n", startPeriod, count);
@@ -288,13 +288,13 @@ int main(void)
 
     int numUpdatesBytes;
     void *updatesBytes = readEntireFile(__DIR__ "/test_files/updates.ssz", &numUpdatesBytes);
-    latestProcessResult = ECLLightClientStoreProcessUpdatesByRange(
+    latestProcessResult = ETHLightClientStoreProcessUpdatesByRange(
         store, cfg, forkDigests, genesisValRoot, beaconClock,
         startPeriod, count, "application/octet-stream", updatesBytes, numUpdatesBytes);
     check(!latestProcessResult);
     free(updatesBytes);
 
-    int millisecondsToNextSyncTask = ECLLightClientStoreGetMillisecondsToNextSyncTask(
+    int millisecondsToNextSyncTask = ETHLightClientStoreGetMillisecondsToNextSyncTask(
         store, rng, beaconClock, latestProcessResult);
     printf("Next sync task: %d.%03ds\n",
         millisecondsToNextSyncTask / 1000,
@@ -302,7 +302,7 @@ int main(void)
 
     int numFinUpdateBytes;
     void *finUpdateBytes = readEntireFile(__DIR__ "/test_files/finUpdate.ssz", &numFinUpdateBytes);
-    latestProcessResult = ECLLightClientStoreProcessFinalityUpdate(
+    latestProcessResult = ETHLightClientStoreProcessFinalityUpdate(
         store, cfg, forkDigests, genesisValRoot, beaconClock,
         "application/octet-stream", "capella", finUpdateBytes, numFinUpdateBytes);
     check(!latestProcessResult);
@@ -310,21 +310,21 @@ int main(void)
 
     int numOptUpdateBytes;
     void *optUpdateBytes = readEntireFile(__DIR__ "/test_files/optUpdate.ssz", &numOptUpdateBytes);
-    latestProcessResult = ECLLightClientStoreProcessOptimisticUpdate(
+    latestProcessResult = ETHLightClientStoreProcessOptimisticUpdate(
         store, cfg, forkDigests, genesisValRoot, beaconClock,
         "application/octet-stream", "capella", optUpdateBytes, numOptUpdateBytes);
     check(!latestProcessResult);
     free(optUpdateBytes);
 
     finUpdateBytes = readEntireFile(__DIR__ "/test_files/finUpdate.json", &numFinUpdateBytes);
-    latestProcessResult = ECLLightClientStoreProcessFinalityUpdate(
+    latestProcessResult = ETHLightClientStoreProcessFinalityUpdate(
         store, cfg, forkDigests, genesisValRoot, beaconClock,
         "application/json", /* consensusVersion: */ NULL, finUpdateBytes, numFinUpdateBytes);
     check(!latestProcessResult);
     free(finUpdateBytes);
 
     optUpdateBytes = readEntireFile(__DIR__ "/test_files/optUpdate.json", &numOptUpdateBytes);
-    latestProcessResult = ECLLightClientStoreProcessOptimisticUpdate(
+    latestProcessResult = ETHLightClientStoreProcessOptimisticUpdate(
         store, cfg, forkDigests, genesisValRoot, beaconClock,
         "application/json", /* consensusVersion: */ NULL, optUpdateBytes, numOptUpdateBytes);
     check(!latestProcessResult);
@@ -333,22 +333,22 @@ int main(void)
     printf("\n");
 
     printf("- finalized_header\n");
-    visualizeHeader(ECLLightClientStoreGetFinalizedHeader(store), cfg);
+    visualizeHeader(ETHLightClientStoreGetFinalizedHeader(store), cfg);
 
-    bool isNextSyncCommitteeKnown = ECLLightClientStoreIsNextSyncCommitteeKnown(store);
+    bool isNextSyncCommitteeKnown = ETHLightClientStoreIsNextSyncCommitteeKnown(store);
     printf("- next_sync_committee: %s\n", isNextSyncCommitteeKnown ? "known" : "unknown");
 
     printf("- optimistic_header\n");
-    visualizeHeader(ECLLightClientStoreGetOptimisticHeader(store), cfg);
+    visualizeHeader(ETHLightClientStoreGetOptimisticHeader(store), cfg);
 
-    int safetyThreshold = ECLLightClientStoreGetSafetyThreshold(store);
+    int safetyThreshold = ETHLightClientStoreGetSafetyThreshold(store);
     printf("- safety_threshold: %d\n", safetyThreshold);
 
-    ECLLightClientStoreDestroy(store);
-    ECLBeaconClockDestroy(beaconClock);
-    ECLForkDigestsDestroy(forkDigests);
-    ECLRootDestroy(genesisValRoot);
-    ECLNetworkConfigDestroy(cfg);
-    ECLRandomNumberDestroy(rng);
+    ETHLightClientStoreDestroy(store);
+    ETHBeaconClockDestroy(beaconClock);
+    ETHForkDigestsDestroy(forkDigests);
+    ETHRootDestroy(genesisValRoot);
+    ETHConsensusConfigDestroy(cfg);
+    ETHRandomNumberDestroy(rng);
     return 0;
 }

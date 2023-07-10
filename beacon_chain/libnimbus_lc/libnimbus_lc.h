@@ -26,9 +26,9 @@ extern "C" {
 #endif
 
 #if __has_attribute(warn_unused_result)
-#define ECL_RESULT_USE_CHECK __attribute__((warn_unused_result))
+#define ETH_RESULT_USE_CHECK __attribute__((warn_unused_result))
 #else
-#define ECL_RESULT_USE_CHECK
+#define ETH_RESULT_USE_CHECK
 #endif
 
 #if __has_feature(nullability)
@@ -50,20 +50,20 @@ void NimMain(void);
 /**
  * Cryptographically secure random number generator.
  */
-typedef struct ECLRandomNumber ECLRandomNumber;
+typedef struct ETHRandomNumber ETHRandomNumber;
 
 /**
  * Creates a new cryptographically secure random number generator.
  *
  * - The cryptographically secure random number generator must be destroyed
- *   using `ECLRandomNumberDestroy` once no longer needed, to release memory.
+ *   using `ETHRandomNumberDestroy` once no longer needed, to release memory.
  *
  * @return Pointer to an initialized cryptographically secure random number
  *         generator context - If successful.
  * @return `NULL` - If an error occurred.
  */
-ECL_RESULT_USE_CHECK
-ECLRandomNumber *ECLRandomNumberCreate(void);
+ETH_RESULT_USE_CHECK
+ETHRandomNumber *ETHRandomNumberCreate(void);
 
 /**
  * Destroys a cryptographically secure random number generator.
@@ -73,12 +73,12 @@ ECLRandomNumber *ECLRandomNumberCreate(void);
  *
  * @param      rng                  Cryptographically secure random number generator.
  */
-void ECLRandomNumberDestroy(ECLRandomNumber *rng);
+void ETHRandomNumberDestroy(ETHRandomNumber *rng);
 
 /**
  * Ethereum Consensus Layer network configuration.
  */
-typedef struct ECLNetworkConfig ECLNetworkConfig;
+typedef struct ETHConsensusConfig ETHConsensusConfig;
 
 /**
  * Creates a new Ethereum Consensus Layer network configuration
@@ -86,7 +86,7 @@ typedef struct ECLNetworkConfig ECLNetworkConfig;
  * Ethereum network definition.
  *
  * - The Ethereum Consensus Layer network configuration must be destroyed
- *   using `ECLNetworkConfigDestroy` once no longer needed, to release memory.
+ *   using `ETHConsensusConfigDestroy` once no longer needed, to release memory.
  *
  * @param      configFileContent    `config.yaml` file content. NULL-terminated.
  *
@@ -96,8 +96,8 @@ typedef struct ECLNetworkConfig ECLNetworkConfig;
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/configs/README.md
  */
-ECL_RESULT_USE_CHECK
-ECLNetworkConfig *ECLNetworkConfigCreateFromYaml(const char *configFileContent);
+ETH_RESULT_USE_CHECK
+ETHConsensusConfig *ETHConsensusConfigCreateFromYaml(const char *configFileContent);
 
 /**
  * Destroys an Ethereum Consensus Layer network configuration.
@@ -107,7 +107,7 @@ ECLNetworkConfig *ECLNetworkConfigCreateFromYaml(const char *configFileContent);
  *
  * @param      cfg                  Ethereum Consensus Layer network configuration.
  */
-void ECLNetworkConfigDestroy(ECLNetworkConfig *cfg);
+void ETHConsensusConfigDestroy(ETHConsensusConfig *cfg);
 
 /**
  * Returns the expected `Eth-Consensus-Version` for a given `epoch`.
@@ -122,22 +122,22 @@ void ECLNetworkConfigDestroy(ECLNetworkConfig *cfg);
  *
  * @see https://github.com/ethereum/beacon-APIs/blob/v2.4.1/beacon-node-oapi.yaml#L419
  */
-ECL_RESULT_USE_CHECK
-const char *ECLNetworkConfigGetConsensusVersionAtEpoch(const ECLNetworkConfig *cfg, int epoch);
+ETH_RESULT_USE_CHECK
+const char *ETHConsensusConfigGetConsensusVersionAtEpoch(const ETHConsensusConfig *cfg, int epoch);
 
 /**
  * Beacon state.
  */
-typedef struct ECLBeaconState ECLBeaconState;
+typedef struct ETHBeaconState ETHBeaconState;
 
 /**
  * Creates a new beacon state based on its SSZ encoded representation.
  *
- * - The beacon state must be destroyed using `ECLBeaconStateDestroy`
+ * - The beacon state must be destroyed using `ETHBeaconStateDestroy`
  *   once no longer needed, to release memory.
  *
  * - When loading a `genesis.ssz` file from an Ethereum network definition,
- *   use `ECLNetworkConfigGetConsensusVersionAtEpoch` with `epoch = 0`
+ *   use `ETHConsensusConfigGetConsensusVersionAtEpoch` with `epoch = 0`
  *   to determine the correct `consensusVersion`.
  *
  * @param      cfg                  Ethereum Consensus Layer network configuration.
@@ -155,9 +155,9 @@ typedef struct ECLBeaconState ECLBeaconState;
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/configs/README.md
  */
-ECL_RESULT_USE_CHECK
-ECLBeaconState *ECLBeaconStateCreateFromSsz(
-    const ECLNetworkConfig *cfg,
+ETH_RESULT_USE_CHECK
+ETHBeaconState *ETHBeaconStateCreateFromSsz(
+    const ETHConsensusConfig *cfg,
     const char *consensusVersion,
     const void *sszBytes,
     int numSszBytes);
@@ -169,27 +169,27 @@ ECLBeaconState *ECLBeaconStateCreateFromSsz(
  *
  * @param      state                Beacon state.
  */
-void ECLBeaconStateDestroy(ECLBeaconState *state);
+void ETHBeaconStateDestroy(ETHBeaconState *state);
 
 /**
  * Merkle root.
  */
 typedef struct {
     uint8_t bytes[32];
-} ECLRoot;
+} ETHRoot;
 
 /**
  * Copies the `genesis_validators_root` field from a beacon state.
  *
- * - The genesis validators root must be destroyed using `ECLRootDestroy`
+ * - The genesis validators root must be destroyed using `ETHRootDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      state                Beacon state.
  *
  * @return Pointer to a copy of the given beacon state's genesis validators root.
  */
-ECL_RESULT_USE_CHECK
-ECLRoot *ECLBeaconStateCopyGenesisValidatorsRoot(const ECLBeaconState *state);
+ETH_RESULT_USE_CHECK
+ETHRoot *ETHBeaconStateCopyGenesisValidatorsRoot(const ETHBeaconState *state);
 
 /**
  * Destroys a Merkle root.
@@ -200,17 +200,17 @@ ECLRoot *ECLBeaconStateCopyGenesisValidatorsRoot(const ECLBeaconState *state);
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#custom-types
  */
-void ECLRootDestroy(ECLRoot *root);
+void ETHRootDestroy(ETHRoot *root);
 
 /**
  * Fork digests cache.
  */
-typedef struct ECLForkDigests ECLForkDigests;
+typedef struct ETHForkDigests ETHForkDigests;
 
 /**
  * Creates a fork digests cache for a given beacon state.
  *
- * - The fork digests cache must be destroyed using `ECLForkDigestsDestroy`
+ * - The fork digests cache must be destroyed using `ETHForkDigestsDestroy`
  *    once no longer needed, to release memory.
  *
  * @param      cfg                  Ethereum Consensus Layer network configuration.
@@ -220,9 +220,9 @@ typedef struct ECLForkDigests ECLForkDigests;
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_fork_digest
  */
-ECL_RESULT_USE_CHECK
-ECLForkDigests *ECLForkDigestsCreateFromState(
-    const ECLNetworkConfig *cfg, const ECLBeaconState *state);
+ETH_RESULT_USE_CHECK
+ETHForkDigests *ETHForkDigestsCreateFromState(
+    const ETHConsensusConfig *cfg, const ETHBeaconState *state);
 
 /**
  * Destroys a fork digests cache.
@@ -231,25 +231,25 @@ ECLForkDigests *ECLForkDigestsCreateFromState(
  *
  * @param      forkDigests          Fork digests cache.
  */
-void ECLForkDigestsDestroy(ECLForkDigests *forkDigests);
+void ETHForkDigestsDestroy(ETHForkDigests *forkDigests);
 
 /**
  * Beacon clock.
  */
-typedef struct ECLBeaconClock ECLBeaconClock;
+typedef struct ETHBeaconClock ETHBeaconClock;
 
 /**
  * Creates a beacon clock for a given beacon state's `genesis_time` field.
  *
- * - The beacon clock must be destroyed using `ECLBeaconClockDestroy`
+ * - The beacon clock must be destroyed using `ETHBeaconClockDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      state                Beacon state.
  *
  * @return Pointer to an initialized beacon clock based on the beacon state.
  */
-ECL_RESULT_USE_CHECK
-ECLBeaconClock *ECLBeaconClockCreateFromState(const ECLBeaconState *state);
+ETH_RESULT_USE_CHECK
+ETHBeaconClock *ETHBeaconClockCreateFromState(const ETHBeaconState *state);
 
 /**
  * Destroys a beacon clock.
@@ -258,7 +258,7 @@ ECLBeaconClock *ECLBeaconClockCreateFromState(const ECLBeaconState *state);
  *
  * @param      beaconClock          Beacon clock.
  */
-void ECLBeaconClockDestroy(ECLBeaconClock *beaconClock);
+void ETHBeaconClockDestroy(ETHBeaconClock *beaconClock);
 
 /**
  * Indicates the slot number for the current wall clock time.
@@ -270,13 +270,13 @@ void ECLBeaconClockDestroy(ECLBeaconClock *beaconClock);
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#custom-types
  */
-ECL_RESULT_USE_CHECK
-int ECLBeaconClockGetSlot(const ECLBeaconClock *beaconClock);
+ETH_RESULT_USE_CHECK
+int ETHBeaconClockGetSlot(const ETHBeaconClock *beaconClock);
 
 /**
  * Light client store.
  */
-typedef struct ECLLightClientStore ECLLightClientStore;
+typedef struct ETHLightClientStore ETHLightClientStore;
 
 /**
  * Creates a light client store from light client bootstrap data.
@@ -294,18 +294,18 @@ typedef struct ECLLightClientStore ECLLightClientStore;
  *   trusted block root. Setting the `Accept: application/octet-stream`
  *   HTTP header in the request selects the more compact SSZ representation.
  *
- * - After creating a light client store, `ECLLightClientStoreGetNextSyncTask`
+ * - After creating a light client store, `ETHLightClientStoreGetNextSyncTask`
  *   may be used to determine what further REST beacon API requests to perform
  *   for keeping the light client store in sync with the Ethereum network.
  *
  * - Once synced the REST `/eth/v1/events?topics=light_client_finality_update`
  *   `&topics=light_client_optimistic_update` beacon API provides the most
  *   recent light client data. Data from this endpoint is always JSON encoded
- *   and may be processed with `ECLLightClientStoreProcessFinalityUpdate` and
- *   `ECLLightClientStoreProcessOptimisticUpdate`.
+ *   and may be processed with `ETHLightClientStoreProcessFinalityUpdate` and
+ *   `ETHLightClientStoreProcessOptimisticUpdate`.
  *
  * - The light client store must be destroyed using
- *   `ECLLightClientStoreDestroy` once no longer needed, to release memory.
+ *   `ETHLightClientStoreDestroy` once no longer needed, to release memory.
  *
  * @param      cfg                  Ethereum Consensus Layer network configuration.
  * @param      trustedBlockRoot     Trusted block root.
@@ -325,10 +325,10 @@ typedef struct ECLLightClientStore ECLLightClientStore;
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/light-client.md
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
  */
-ECL_RESULT_USE_CHECK
-ECLLightClientStore *ECLLightClientStoreCreateFromBootstrap(
-    const ECLNetworkConfig *cfg,
-    const ECLRoot *trustedBlockRoot,
+ETH_RESULT_USE_CHECK
+ETHLightClientStore *ETHLightClientStoreCreateFromBootstrap(
+    const ETHConsensusConfig *cfg,
+    const ETHRoot *trustedBlockRoot,
     const char *mediaType,
     const char *consensusVersion,
     const void *bootstrapBytes,
@@ -341,14 +341,14 @@ ECLLightClientStore *ECLLightClientStoreCreateFromBootstrap(
  *
  * @param      store                Light client store.
  */
-void ECLLightClientStoreDestroy(ECLLightClientStore *store);
+void ETHLightClientStoreDestroy(ETHLightClientStore *store);
 
 /** Sync task to fulfill using `/eth/v1/beacon/light_client/updates`. */
-extern int kECLLcSyncKind_UpdatesByRange;
+extern int kETHLcSyncKind_UpdatesByRange;
 /** Sync task to fulfill using `/eth/v1/beacon/light_client/finality_update`. */
-extern int kECLLcSyncKind_FinalityUpdate;
+extern int kETHLcSyncKind_FinalityUpdate;
 /** Sync task to fulfill using `/eth/v1/beacon/light_client/optimistic_update`. */
-extern int kECLLcSyncKind_OptimisticUpdate;
+extern int kETHLcSyncKind_OptimisticUpdate;
 
 /**
  * Obtains the next task for keeping a light client store in sync
@@ -359,37 +359,37 @@ extern int kECLLcSyncKind_OptimisticUpdate;
  *   selects the more compact SSZ representation.
  *
  * - After fetching the requested light client data and processing it with the
- *   appropriate handler, `ECLLightClientStoreGetMillisecondsToNextSyncTask`
+ *   appropriate handler, `ETHLightClientStoreGetMillisecondsToNextSyncTask`
  *   may be used to obtain a delay until a new sync task becomes available.
- *   Once the delay is reached, call `ECLLightClientStoreGetNextSyncTask`
+ *   Once the delay is reached, call `ETHLightClientStoreGetNextSyncTask`
  *   again to obtain the next sync task.
  *
  * - Once synced the REST `/eth/v1/events?topics=light_client_finality_update`
  *   `&topics=light_client_optimistic_update` beacon API provides the most
  *   recent light client data. Data from this endpoint is always JSON encoded
- *   and may be processed with `ECLLightClientStoreProcessFinalityUpdate` and
- *   `ECLLightClientStoreProcessOptimisticUpdate`. Events may be processed at
+ *   and may be processed with `ETHLightClientStoreProcessFinalityUpdate` and
+ *   `ETHLightClientStoreProcessOptimisticUpdate`. Events may be processed at
  *   any time and do not require re-computing the delay until next sync task
- *   with `ECLLightClientStoreGetMillisecondsToNextSyncTask`.
+ *   with `ETHLightClientStoreGetMillisecondsToNextSyncTask`.
  *
  * @param      store                Light client store.
  * @param      beaconClock          Beacon clock.
  * @param[out] startPeriod          `start_period` query parameter, if applicable.
  * @param[out] count                `count` query parameter, if applicable.
  *
- * @return `kECLLcSyncKind_UpdatesByRange` - If the next sync task is fulfillable
+ * @return `kETHLcSyncKind_UpdatesByRange` - If the next sync task is fulfillable
  *         using REST `/eth/v1/beacon/light_client/updates` beacon API.
  *         The `startPeriod` and `count` parameters contain additional request info.
  *         `/eth/v1/beacon/light_client/updates?start_period={startPeriod}`
  *         `&count={count}`.
- *         Process the response with `ECLLightClientStoreProcessUpdatesByRange`.
- * @return `kECLLcSyncKind_FinalityUpdate` - If the next sync task is fulfillable
+ *         Process the response with `ETHLightClientStoreProcessUpdatesByRange`.
+ * @return `kETHLcSyncKind_FinalityUpdate` - If the next sync task is fulfillable
  *         using REST `/eth/v1/beacon/light_client/finality_update` beacon API.
- *         Process the response with `ECLLightClientStoreProcessFinalityUpdate`.
+ *         Process the response with `ETHLightClientStoreProcessFinalityUpdate`.
  *         The `startPeriod` and `count` parameters are unused for this sync task.
- * @return `kECLLcSyncKind_OptimisticUpdate` - If the next sync task is fulfillable
+ * @return `kETHLcSyncKind_OptimisticUpdate` - If the next sync task is fulfillable
  *         using REST `/eth/v1/beacon/light_client/optimistic_update` beacon API.
- *         Process the response with `ECLLightClientStoreProcessOptimisticUpdate`.
+ *         Process the response with `ETHLightClientStoreProcessOptimisticUpdate`.
  *         The `startPeriod` and `count` parameters are unused for this sync task.
  *
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientUpdatesByRange
@@ -397,44 +397,44 @@ extern int kECLLcSyncKind_OptimisticUpdate;
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientOptimisticUpdate
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
  */
-ECL_RESULT_USE_CHECK
-int ECLLightClientStoreGetNextSyncTask(
-    const ECLLightClientStore *store,
-    const ECLBeaconClock *beaconClock,
+ETH_RESULT_USE_CHECK
+int ETHLightClientStoreGetNextSyncTask(
+    const ETHLightClientStore *store,
+    const ETHBeaconClock *beaconClock,
     int *startPeriod,
     int *count);
 
 /**
  * Indicates the delay until a new light client sync task becomes available.
- * Once the delay is reached, call `ECLLightClientStoreGetNextSyncTask`
+ * Once the delay is reached, call `ETHLightClientStoreGetNextSyncTask`
  * to obtain the next sync task.
  *
  * @param      store                Light client store.
  * @param      rng                  Cryptographically secure random number generator.
  * @param      beaconClock          Beacon clock.
  * @param      latestProcessResult  Latest sync task processing result, i.e.,
- *                                  the return value of `ECLLightClientStoreProcessUpdatesByRange`,
- *                                  `ECLLightClientStoreProcessFinalityUpdate`, or
- *                                  `ECLLightClientStoreProcessOptimisticUpdate`, for latest task.
+ *                                  the return value of `ETHLightClientStoreProcessUpdatesByRange`,
+ *                                  `ETHLightClientStoreProcessFinalityUpdate`, or
+ *                                  `ETHLightClientStoreProcessOptimisticUpdate`, for latest task.
  *                                  If the data for the sync task could not be fetched, set to `1`.
  *
- * @return Number of milliseconds until `ECLLightClientStoreGetNextSyncTask`
+ * @return Number of milliseconds until `ETHLightClientStoreGetNextSyncTask`
  *         should be called again to obtain the next light client sync task.
  */
-ECL_RESULT_USE_CHECK
-int ECLLightClientStoreGetMillisecondsToNextSyncTask(
-    const ECLLightClientStore *store,
-    ECLRandomNumber *rng,
-    const ECLBeaconClock *beaconClock,
+ETH_RESULT_USE_CHECK
+int ETHLightClientStoreGetMillisecondsToNextSyncTask(
+    const ETHLightClientStore *store,
+    ETHRandomNumber *rng,
+    const ETHBeaconClock *beaconClock,
     int latestProcessResult);
 
 /**
  * Processes light client update data.
  *
  * - This processes the response data for a sync task of kind
- *   `kECLLcSyncKind_UpdatesByRange`, as indicated by
- *   `ECLLightClientStoreGetNextSyncTask`. After processing, call
- *   `ECLLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
+ *   `kETHLcSyncKind_UpdatesByRange`, as indicated by
+ *   `ETHLightClientStoreGetNextSyncTask`. After processing, call
+ *   `ETHLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
  *   until a new sync task becomes available.
  *
  * @param      store                Light client store.
@@ -455,13 +455,13 @@ int ECLLightClientStoreGetMillisecondsToNextSyncTask(
  *
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientUpdatesByRange
  */
-ECL_RESULT_USE_CHECK
-int ECLLightClientStoreProcessUpdatesByRange(
-    const ECLLightClientStore *store,
-    const ECLNetworkConfig *cfg,
-    const ECLForkDigests *forkDigests,
-    const ECLRoot *genesisValRoot,
-    const ECLBeaconClock *beaconClock,
+ETH_RESULT_USE_CHECK
+int ETHLightClientStoreProcessUpdatesByRange(
+    const ETHLightClientStore *store,
+    const ETHConsensusConfig *cfg,
+    const ETHForkDigests *forkDigests,
+    const ETHRoot *genesisValRoot,
+    const ETHBeaconClock *beaconClock,
     int startPeriod,
     int count,
     const char *mediaType,
@@ -472,16 +472,16 @@ int ECLLightClientStoreProcessUpdatesByRange(
  * Processes light client finality update data.
  *
  * - This processes the response data for a sync task of kind
- *   `kECLLcSyncKind_FinalityUpdate`, as indicated by
- *   `ECLLightClientStoreGetNextSyncTask`. After processing, call
- *   `ECLLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
+ *   `kETHLcSyncKind_FinalityUpdate`, as indicated by
+ *   `ETHLightClientStoreGetNextSyncTask`. After processing, call
+ *   `ETHLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
  *   until a new sync task becomes available.
  *
  * - This also processes event data from the REST
  *   `/eth/v1/events?topics=light_client_finality_update` beacon API.
  *   Set `mediaType` to `application/json`, and `consensusVersion` to `NULL`.
  *   Events may be processed at any time, it is not necessary to call
- *   `ECLLightClientStoreGetMillisecondsToNextSyncTask`.
+ *   `ETHLightClientStoreGetMillisecondsToNextSyncTask`.
  *
  * @param      store                Light client store.
  * @param      cfg                  Ethereum Consensus Layer network configuration.
@@ -502,13 +502,13 @@ int ECLLightClientStoreProcessUpdatesByRange(
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientFinalityUpdate
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
  */
-ECL_RESULT_USE_CHECK
-int ECLLightClientStoreProcessFinalityUpdate(
-    const ECLLightClientStore *store,
-    const ECLNetworkConfig *cfg,
-    const ECLForkDigests *forkDigests,
-    const ECLRoot *genesisValRoot,
-    const ECLBeaconClock *beaconClock,
+ETH_RESULT_USE_CHECK
+int ETHLightClientStoreProcessFinalityUpdate(
+    const ETHLightClientStore *store,
+    const ETHConsensusConfig *cfg,
+    const ETHForkDigests *forkDigests,
+    const ETHRoot *genesisValRoot,
+    const ETHBeaconClock *beaconClock,
     const char *mediaType,
     const char *_Nullable consensusVersion,
     const void *finUpdateBytes,
@@ -518,16 +518,16 @@ int ECLLightClientStoreProcessFinalityUpdate(
  * Processes light client optimistic update data.
  *
  * - This processes the response data for a sync task of kind
- *   `kECLLcSyncKind_OptimisticUpdate`, as indicated by
- *   `ECLLightClientStoreGetNextSyncTask`. After processing, call
- *   `ECLLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
+ *   `kETHLcSyncKind_OptimisticUpdate`, as indicated by
+ *   `ETHLightClientStoreGetNextSyncTask`. After processing, call
+ *   `ETHLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
  *   until a new sync task becomes available.
  *
  * - This also processes event data from the REST
  *   `/eth/v1/events?topics=light_client_optimistic_update` beacon API.
  *   Set `mediaType` to `application/json`, and `consensusVersion` to `NULL`.
  *   Events may be processed at any time, it is not necessary to call
- *   `ECLLightClientStoreGetMillisecondsToNextSyncTask`.
+ *   `ETHLightClientStoreGetMillisecondsToNextSyncTask`.
  *
  * @param      store                Light client store.
  * @param      cfg                  Ethereum Consensus Layer network configuration.
@@ -548,13 +548,13 @@ int ECLLightClientStoreProcessFinalityUpdate(
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientOptimisticUpdate
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
  */
-ECL_RESULT_USE_CHECK
-int ECLLightClientStoreProcessOptimisticUpdate(
-    const ECLLightClientStore *store,
-    const ECLNetworkConfig *cfg,
-    const ECLForkDigests *forkDigests,
-    const ECLRoot *genesisValRoot,
-    const ECLBeaconClock *beaconClock,
+ETH_RESULT_USE_CHECK
+int ETHLightClientStoreProcessOptimisticUpdate(
+    const ETHLightClientStore *store,
+    const ETHConsensusConfig *cfg,
+    const ETHForkDigests *forkDigests,
+    const ETHRoot *genesisValRoot,
+    const ETHBeaconClock *beaconClock,
     const char *mediaType,
     const char *_Nullable consensusVersion,
     const void *optUpdateBytes,
@@ -563,7 +563,7 @@ int ECLLightClientStoreProcessOptimisticUpdate(
 /**
  * Light client header.
  */
-typedef struct ECLLightClientHeader ECLLightClientHeader;
+typedef struct ETHLightClientHeader ETHLightClientHeader;
 
 /**
  * Obtains the latest finalized header of a given light client store.
@@ -578,17 +578,17 @@ typedef struct ECLLightClientHeader ECLLightClientHeader;
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
  */
-ECL_RESULT_USE_CHECK
-const ECLLightClientHeader *ECLLightClientStoreGetFinalizedHeader(
-    const ECLLightClientStore *store);
+ETH_RESULT_USE_CHECK
+const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(
+    const ETHLightClientStore *store);
 
 /**
  * Indicates whether or not the next sync committee is currently known.
  *
  * - The light client sync process ensures that the next sync committee
  *   is obtained in time, before it starts signing light client data.
- *   To stay in sync, use `ECLLightClientStoreGetNextSyncTask` and
- *   `ECLLightClientStoreGetMillisecondsToNextSyncTask`.
+ *   To stay in sync, use `ETHLightClientStoreGetNextSyncTask` and
+ *   `ETHLightClientStoreGetMillisecondsToNextSyncTask`.
  *
  * @param      store                Light client store.
  *
@@ -597,8 +597,8 @@ const ECLLightClientHeader *ECLLightClientStoreGetFinalizedHeader(
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/light-client.md
  */
-ECL_RESULT_USE_CHECK
-bool ECLLightClientStoreIsNextSyncCommitteeKnown(const ECLLightClientStore *store);
+ETH_RESULT_USE_CHECK
+bool ETHLightClientStoreIsNextSyncCommitteeKnown(const ETHLightClientStore *store);
 
 /**
  * Obtains the latest optimistic header of a given light client store.
@@ -613,9 +613,9 @@ bool ECLLightClientStoreIsNextSyncCommitteeKnown(const ECLLightClientStore *stor
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
  */
-ECL_RESULT_USE_CHECK
-const ECLLightClientHeader *ECLLightClientStoreGetOptimisticHeader(
-    const ECLLightClientStore *store);
+ETH_RESULT_USE_CHECK
+const ETHLightClientHeader *ETHLightClientStoreGetOptimisticHeader(
+    const ETHLightClientStore *store);
 
 /**
  * Calculates the safety threshold for a given light client store.
@@ -633,13 +633,13 @@ const ECLLightClientHeader *ECLLightClientStoreGetOptimisticHeader(
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
  */
-ECL_RESULT_USE_CHECK
-int ECLLightClientStoreGetSafetyThreshold(const ECLLightClientStore *store);
+ETH_RESULT_USE_CHECK
+int ETHLightClientStoreGetSafetyThreshold(const ETHLightClientStore *store);
 
 /**
  * Computes the beacon block Merkle root for a given light client header.
  *
- * - The Merkle root must be destroyed using `ECLRootDestroy`
+ * - The Merkle root must be destroyed using `ETHRootDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      header               Light client header.
@@ -649,15 +649,15 @@ int ECLLightClientStoreGetSafetyThreshold(const ECLLightClientStore *store);
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#hash_tree_root
  */
-ECL_RESULT_USE_CHECK
-ECLRoot *ECLLightClientHeaderCopyBeaconRoot(
-    const ECLLightClientHeader *header,
-    const ECLNetworkConfig *cfg);
+ETH_RESULT_USE_CHECK
+ETHRoot *ETHLightClientHeaderCopyBeaconRoot(
+    const ETHLightClientHeader *header,
+    const ETHConsensusConfig *cfg);
 
 /**
  * Beacon block header.
  */
-typedef struct ECLBeaconBlockHeader ECLBeaconBlockHeader;
+typedef struct ETHBeaconBlockHeader ETHBeaconBlockHeader;
 
 /**
  * Obtains the beacon block header of a given light client header.
@@ -672,9 +672,9 @@ typedef struct ECLBeaconBlockHeader ECLBeaconBlockHeader;
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconblockheader
  */
-ECL_RESULT_USE_CHECK
-const ECLBeaconBlockHeader *ECLLightClientHeaderGetBeacon(
-    const ECLLightClientHeader *header);
+ETH_RESULT_USE_CHECK
+const ETHBeaconBlockHeader *ETHLightClientHeaderGetBeacon(
+    const ETHLightClientHeader *header);
 
 /**
  * Obtains the slot number of a given beacon block header.
@@ -683,8 +683,8 @@ const ECLBeaconBlockHeader *ECLLightClientHeaderGetBeacon(
  *
  * @return Slot number.
  */
-ECL_RESULT_USE_CHECK
-int ECLBeaconBlockHeaderGetSlot(const ECLBeaconBlockHeader *beacon);
+ETH_RESULT_USE_CHECK
+int ETHBeaconBlockHeaderGetSlot(const ETHBeaconBlockHeader *beacon);
 
 /**
  * Obtains the proposer validator registry index
@@ -694,8 +694,8 @@ int ECLBeaconBlockHeaderGetSlot(const ECLBeaconBlockHeader *beacon);
  *
  * @return Proposer validator registry index.
  */
-ECL_RESULT_USE_CHECK
-int ECLBeaconBlockHeaderGetProposerIndex(const ECLBeaconBlockHeader *beacon);
+ETH_RESULT_USE_CHECK
+int ETHBeaconBlockHeaderGetProposerIndex(const ETHBeaconBlockHeader *beacon);
 
 /**
  * Obtains the parent beacon block Merkle root of a given beacon block header.
@@ -708,8 +708,8 @@ int ECLBeaconBlockHeaderGetProposerIndex(const ECLBeaconBlockHeader *beacon);
  *
  * @return Parent beacon block root.
  */
-ECL_RESULT_USE_CHECK
-const ECLRoot *ECLBeaconBlockHeaderGetParentRoot(const ECLBeaconBlockHeader *beacon);
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHBeaconBlockHeaderGetParentRoot(const ETHBeaconBlockHeader *beacon);
 
 /**
  * Obtains the beacon state Merkle root of a given beacon block header.
@@ -722,8 +722,8 @@ const ECLRoot *ECLBeaconBlockHeaderGetParentRoot(const ECLBeaconBlockHeader *bea
  *
  * @return Beacon state root.
  */
-ECL_RESULT_USE_CHECK
-const ECLRoot *ECLBeaconBlockHeaderGetStateRoot(const ECLBeaconBlockHeader *beacon);
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHBeaconBlockHeaderGetStateRoot(const ETHBeaconBlockHeader *beacon);
 
 /**
  * Obtains the beacon block body Merkle root of a given beacon block header.
@@ -736,13 +736,13 @@ const ECLRoot *ECLBeaconBlockHeaderGetStateRoot(const ECLBeaconBlockHeader *beac
  *
  * @return Beacon block body root.
  */
-ECL_RESULT_USE_CHECK
-const ECLRoot *ECLBeaconBlockHeaderGetBodyRoot(const ECLBeaconBlockHeader *beacon);
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHBeaconBlockHeaderGetBodyRoot(const ETHBeaconBlockHeader *beacon);
 
 /**
  * Computes the execution block hash for a given light client header.
  *
- * - The hash must be destroyed using `ECLRootDestroy`
+ * - The hash must be destroyed using `ETHRootDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      header               Light client header.
@@ -752,15 +752,15 @@ const ECLRoot *ECLBeaconBlockHeaderGetBodyRoot(const ECLBeaconBlockHeader *beaco
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#executionpayloadheader
  */
-ECL_RESULT_USE_CHECK
-ECLRoot *ECLLightClientHeaderCopyExecutionHash(
-    const ECLLightClientHeader *header,
-    const ECLNetworkConfig *cfg);
+ETH_RESULT_USE_CHECK
+ETHRoot *ETHLightClientHeaderCopyExecutionHash(
+    const ETHLightClientHeader *header,
+    const ETHConsensusConfig *cfg);
 
 /**
  * Execution payload header.
  */
-typedef struct ECLExecutionPayloadHeader ECLExecutionPayloadHeader;
+typedef struct ETHExecutionPayloadHeader ETHExecutionPayloadHeader;
 
 /**
  * Obtains the execution payload header of a given light client header.
@@ -775,9 +775,9 @@ typedef struct ECLExecutionPayloadHeader ECLExecutionPayloadHeader;
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#executionpayloadheader
  */
-ECL_RESULT_USE_CHECK
-const ECLExecutionPayloadHeader *ECLLightClientHeaderGetExecution(
-    const ECLLightClientHeader *header);
+ETH_RESULT_USE_CHECK
+const ETHExecutionPayloadHeader *ETHLightClientHeaderGetExecution(
+    const ETHLightClientHeader *header);
 
 /**
  * Obtains the parent execution block hash of a given
@@ -791,16 +791,16 @@ const ECLExecutionPayloadHeader *ECLLightClientHeaderGetExecution(
  *
  * @return Parent execution block hash.
  */
-ECL_RESULT_USE_CHECK
-const ECLRoot *ECLExecutionPayloadHeaderGetParentHash(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionPayloadHeaderGetParentHash(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Execution address.
  */
 typedef struct {
     uint8_t bytes[20];
-} ECLExecutionAddress;
+} ETHExecutionAddress;
 
 /**
  * Obtains the fee recipient address of a given execution payload header.
@@ -813,9 +813,9 @@ typedef struct {
  *
  * @return Fee recipient execution address.
  */
-ECL_RESULT_USE_CHECK
-const ECLExecutionAddress *ECLExecutionPayloadHeaderGetFeeRecipient(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+const ETHExecutionAddress *ETHExecutionPayloadHeaderGetFeeRecipient(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the state MPT root of a given execution payload header.
@@ -828,9 +828,9 @@ const ECLExecutionAddress *ECLExecutionPayloadHeaderGetFeeRecipient(
  *
  * @return Execution state root.
  */
-ECL_RESULT_USE_CHECK
-const ECLRoot *ECLExecutionPayloadHeaderGetStateRoot(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionPayloadHeaderGetStateRoot(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the receipts MPT root of a given execution payload header.
@@ -843,16 +843,16 @@ const ECLRoot *ECLExecutionPayloadHeaderGetStateRoot(
  *
  * @return Execution receipts root.
  */
-ECL_RESULT_USE_CHECK
-const ECLRoot *ECLExecutionPayloadHeaderGetReceiptsRoot(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionPayloadHeaderGetReceiptsRoot(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Execution logs bloom.
  */
 typedef struct {
     uint8_t bytes[256];
-} ECLLogsBloom;
+} ETHLogsBloom;
 
 /**
  * Obtains the logs bloom of a given execution payload header.
@@ -865,9 +865,9 @@ typedef struct {
  *
  * @return Execution logs bloom.
  */
-ECL_RESULT_USE_CHECK
-const ECLLogsBloom *ECLExecutionPayloadHeaderGetLogsBloom(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+const ETHLogsBloom *ETHExecutionPayloadHeaderGetLogsBloom(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the previous randao mix of a given execution payload header.
@@ -880,9 +880,9 @@ const ECLLogsBloom *ECLExecutionPayloadHeaderGetLogsBloom(
  *
  * @return Previous randao mix.
  */
-ECL_RESULT_USE_CHECK
-const ECLRoot *ECLExecutionPayloadHeaderGetPrevRandao(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionPayloadHeaderGetPrevRandao(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the execution block number of a given execution payload header.
@@ -891,9 +891,9 @@ const ECLRoot *ECLExecutionPayloadHeaderGetPrevRandao(
  *
  * @return Execution block number.
  */
-ECL_RESULT_USE_CHECK
-int ECLExecutionPayloadHeaderGetBlockNumber(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+int ETHExecutionPayloadHeaderGetBlockNumber(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the gas limit of a given execution payload header.
@@ -902,9 +902,9 @@ int ECLExecutionPayloadHeaderGetBlockNumber(
  *
  * @return Gas limit.
  */
-ECL_RESULT_USE_CHECK
-int ECLExecutionPayloadHeaderGetGasLimit(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+int ETHExecutionPayloadHeaderGetGasLimit(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the gas used of a given execution payload header.
@@ -913,9 +913,9 @@ int ECLExecutionPayloadHeaderGetGasLimit(
  *
  * @return Gas used.
  */
-ECL_RESULT_USE_CHECK
-int ECLExecutionPayloadHeaderGetGasUsed(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+int ETHExecutionPayloadHeaderGetGasUsed(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the timestamp of a given execution payload header.
@@ -924,9 +924,9 @@ int ECLExecutionPayloadHeaderGetGasUsed(
  *
  * @return Execution block timestamp.
  */
-ECL_RESULT_USE_CHECK
-int ECLExecutionPayloadHeaderGetTimestamp(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+int ETHExecutionPayloadHeaderGetTimestamp(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the extra data buffer of a given execution payload header.
@@ -935,16 +935,16 @@ int ECLExecutionPayloadHeaderGetTimestamp(
  *   It must neither be released nor written to, and the execution payload
  *   header must not be released while the returned value is in use.
  *
- * - Use `ECLExecutionPayloadHeaderGetNumExtraDataBytes`
+ * - Use `ETHExecutionPayloadHeaderGetNumExtraDataBytes`
  *   to obtain the length of the buffer.
  *
  * @param      execution            Execution payload header.
  *
  * @return Buffer with execution block extra data.
  */
-ECL_RESULT_USE_CHECK
-const void *ECLExecutionPayloadHeaderGetExtraDataBytes(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+const void *ETHExecutionPayloadHeaderGetExtraDataBytes(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the extra data buffer's length of a given execution payload header.
@@ -953,16 +953,16 @@ const void *ECLExecutionPayloadHeaderGetExtraDataBytes(
  *
  * @return Length of execution block extra data.
  */
-ECL_RESULT_USE_CHECK
-int ECLExecutionPayloadHeaderGetNumExtraDataBytes(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+int ETHExecutionPayloadHeaderGetNumExtraDataBytes(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * UInt256 (little-endian)
  */
 typedef struct {
     uint8_t bytes[32];
-} ECLUInt256;
+} ETHUInt256;
 
 /**
  * Obtains the base fee per gas of a given execution payload header.
@@ -975,9 +975,9 @@ typedef struct {
  *
  * @return Base fee per gas.
  */
-ECL_RESULT_USE_CHECK
-const ECLUInt256 *ECLExecutionPayloadHeaderGetBaseFeePerGas(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+const ETHUInt256 *ETHExecutionPayloadHeaderGetBaseFeePerGas(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the data gas used of a given execution payload header.
@@ -986,9 +986,9 @@ const ECLUInt256 *ECLExecutionPayloadHeaderGetBaseFeePerGas(
  *
  * @return Data gas used.
  */
-ECL_RESULT_USE_CHECK
-int ECLExecutionPayloadHeaderGetDataGasUsed(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+int ETHExecutionPayloadHeaderGetDataGasUsed(
+    const ETHExecutionPayloadHeader *execution);
 
 /**
  * Obtains the excess data gas of a given execution payload header.
@@ -997,9 +997,9 @@ int ECLExecutionPayloadHeaderGetDataGasUsed(
  *
  * @return Excess data gas.
  */
-ECL_RESULT_USE_CHECK
-int ECLExecutionPayloadHeaderGetExcessDataGas(
-    const ECLExecutionPayloadHeader *execution);
+ETH_RESULT_USE_CHECK
+int ETHExecutionPayloadHeaderGetExcessDataGas(
+    const ETHExecutionPayloadHeader *execution);
 
 #if __has_feature(nullability)
 #pragma clang assume_nonnull end

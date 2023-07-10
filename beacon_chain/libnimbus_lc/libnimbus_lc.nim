@@ -21,11 +21,11 @@ proc destroy(x: auto) =
   x[].reset()
   x.dealloc()
 
-proc ECLRandomNumberCreate(): ptr ref HmacDrbgContext {.exported.} =
+proc ETHRandomNumberCreate(): ptr ref HmacDrbgContext {.exported.} =
   ## Creates a new cryptographically secure random number generator.
   ##
   ## * The cryptographically secure random number generator must be destroyed
-  ##   using `ECLRandomNumberDestroy` once no longer needed, to release memory.
+  ##   using `ETHRandomNumberDestroy` once no longer needed, to release memory.
   ##
   ## Returns:
   ## * Pointer to an initialized cryptographically secure random number
@@ -35,7 +35,7 @@ proc ECLRandomNumberCreate(): ptr ref HmacDrbgContext {.exported.} =
   rng[] = HmacDrbgContext.new()
   rng
 
-proc ECLRandomNumberDestroy(rng: ptr ref HmacDrbgContext) {.exported.} =
+proc ETHRandomNumberDestroy(rng: ptr ref HmacDrbgContext) {.exported.} =
   ## Destroys a cryptographically secure random number generator.
   ##
   ## * The cryptographically secure random number generator
@@ -45,14 +45,14 @@ proc ECLRandomNumberDestroy(rng: ptr ref HmacDrbgContext) {.exported.} =
   ## * `rng` - Cryptographically secure random number generator.
   rng.destroy()
 
-proc ECLNetworkConfigCreateFromYaml(
+proc ETHConsensusConfigCreateFromYaml(
     configFileContent: cstring): ptr RuntimeConfig {.exported.} =
   ## Creates a new Ethereum Consensus Layer network configuration
   ## based on the given `config.yaml` file content from an
   ## Ethereum network definition.
   ##
   ## * The Ethereum Consensus Layer network configuration must be destroyed
-  ##   using `ECLNetworkConfigDestroy` once no longer needed, to release memory.
+  ##   using `ETHConsensusConfigDestroy` once no longer needed, to release memory.
   ##
   ## Parameters:
   ## * `configFileContent` - `config.yaml` file content. NULL-terminated.
@@ -72,7 +72,7 @@ proc ECLNetworkConfigCreateFromYaml(
     cfg.destroy()
     nil
 
-proc ECLNetworkConfigDestroy(cfg: ptr RuntimeConfig) {.exported.} =
+proc ETHConsensusConfigDestroy(cfg: ptr RuntimeConfig) {.exported.} =
   ## Destroys an Ethereum Consensus Layer network configuration.
   ##
   ## * The Ethereum Consensus Layer network configuration
@@ -82,7 +82,7 @@ proc ECLNetworkConfigDestroy(cfg: ptr RuntimeConfig) {.exported.} =
   ## * `cfg` - Ethereum Consensus Layer network configuration.
   cfg.destroy()
 
-func ECLNetworkConfigGetConsensusVersionAtEpoch(
+func ETHConsensusConfigGetConsensusVersionAtEpoch(
     cfg: ptr RuntimeConfig, epoch: cint): cstring {.exported.} =
   ## Returns the expected `Eth-Consensus-Version` for a given `epoch`.
   ##
@@ -102,18 +102,18 @@ func ECLNetworkConfigGetConsensusVersionAtEpoch(
     const consensusVersion: cstring = consensusFork.toString()
     consensusVersion
 
-proc ECLBeaconStateCreateFromSsz(
+proc ETHBeaconStateCreateFromSsz(
     cfg: ptr RuntimeConfig,
     consensusVersion: cstring,
     sszBytes: ptr UncheckedArray[byte],
     numSszBytes: cint): ptr ForkedHashedBeaconState {.exported.} =
   ## Creates a new beacon state based on its SSZ encoded representation.
   ##
-  ## * The beacon state must be destroyed using `ECLBeaconStateDestroy`
+  ## * The beacon state must be destroyed using `ETHBeaconStateDestroy`
   ##   once no longer needed, to release memory.
   ##
   ## * When loading a `genesis.ssz` file from an Ethereum network definition,
-  ##   use `ECLNetworkConfigGetConsensusVersionAtEpoch` with `epoch = 0`
+  ##   use `ETHConsensusConfigGetConsensusVersionAtEpoch` with `epoch = 0`
   ##   to determine the correct `consensusVersion`.
   ##
   ## Parameters:
@@ -150,7 +150,7 @@ proc ECLBeaconStateCreateFromSsz(
     state.destroy()
     nil
 
-proc ECLBeaconStateDestroy(state: ptr ForkedHashedBeaconState) {.exported.} =
+proc ETHBeaconStateDestroy(state: ptr ForkedHashedBeaconState) {.exported.} =
   ## Destroys a beacon state.
   ##
   ## * The beacon state must no longer be used after destruction.
@@ -159,11 +159,11 @@ proc ECLBeaconStateDestroy(state: ptr ForkedHashedBeaconState) {.exported.} =
   ## * `state` - Beacon state.
   state.destroy()
 
-proc ECLBeaconStateCopyGenesisValidatorsRoot(
+proc ETHBeaconStateCopyGenesisValidatorsRoot(
     state: ptr ForkedHashedBeaconState): ptr Eth2Digest {.exported.} =
   ## Copies the `genesis_validators_root` field from a beacon state.
   ##
-  ## * The genesis validators root must be destroyed using `ECLRootDestroy`
+  ## * The genesis validators root must be destroyed using `ETHRootDestroy`
   ##   once no longer needed, to release memory.
   ##
   ## Parameters:
@@ -175,7 +175,7 @@ proc ECLBeaconStateCopyGenesisValidatorsRoot(
   genesisValRoot[] = getStateField(state[], genesis_validators_root)
   genesisValRoot
 
-proc ECLRootDestroy(root: ptr Eth2Digest) {.exported.} =
+proc ETHRootDestroy(root: ptr Eth2Digest) {.exported.} =
   ## Destroys a Merkle root.
   ##
   ## * The Merkle root must no longer be used after destruction.
@@ -187,12 +187,12 @@ proc ECLRootDestroy(root: ptr Eth2Digest) {.exported.} =
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#custom-types
   root.destroy()
 
-proc ECLForkDigestsCreateFromState(
+proc ETHForkDigestsCreateFromState(
     cfg: ptr RuntimeConfig,
     state: ptr ForkedHashedBeaconState): ptr ref ForkDigests {.exported.} =
   ## Creates a fork digests cache for a given beacon state.
   ##
-  ## * The fork digests cache must be destroyed using `ECLForkDigestsDestroy`
+  ## * The fork digests cache must be destroyed using `ETHForkDigestsDestroy`
   ##   once no longer needed, to release memory.
   ##
   ## Parameters:
@@ -209,7 +209,7 @@ proc ECLForkDigestsCreateFromState(
     cfg[], getStateField(state[], genesis_validators_root))
   forkDigests
 
-proc ECLForkDigestsDestroy(forkDigests: ptr ref ForkDigests) {.exported.} =
+proc ETHForkDigestsDestroy(forkDigests: ptr ref ForkDigests) {.exported.} =
   ## Destroys a fork digests cache.
   ##
   ## * The fork digests cache must no longer be used after destruction.
@@ -218,11 +218,11 @@ proc ECLForkDigestsDestroy(forkDigests: ptr ref ForkDigests) {.exported.} =
   ## * `forkDigests` - Fork digests cache.
   forkDigests.destroy()
 
-proc ECLBeaconClockCreateFromState(
+proc ETHBeaconClockCreateFromState(
     state: ptr ForkedHashedBeaconState): ptr BeaconClock {.exported.} =
   ## Creates a beacon clock for a given beacon state's `genesis_time` field.
   ##
-  ## * The beacon clock must be destroyed using `ECLBeaconClockDestroy`
+  ## * The beacon clock must be destroyed using `ETHBeaconClockDestroy`
   ##   once no longer needed, to release memory.
   ##
   ## Parameters:
@@ -234,7 +234,7 @@ proc ECLBeaconClockCreateFromState(
   beaconClock[] = BeaconClock.init(getStateField(state[], genesis_time))
   beaconClock
 
-proc ECLBeaconClockDestroy(beaconClock: ptr BeaconClock) {.exported.} =
+proc ETHBeaconClockDestroy(beaconClock: ptr BeaconClock) {.exported.} =
   ## Destroys a beacon clock.
   ##
   ## * The beacon clock must no longer be used after destruction.
@@ -243,7 +243,7 @@ proc ECLBeaconClockDestroy(beaconClock: ptr BeaconClock) {.exported.} =
   ## * `beaconClock` - Beacon clock.
   beaconClock.destroy()
 
-proc ECLBeaconClockGetSlot(beaconClock: ptr BeaconClock): cint {.exported.} =
+proc ETHBeaconClockGetSlot(beaconClock: ptr BeaconClock): cint {.exported.} =
   ## Indicates the slot number for the current wall clock time.
   ##
   ## Parameters:
@@ -259,7 +259,7 @@ proc ECLBeaconClockGetSlot(beaconClock: ptr BeaconClock): cint {.exported.} =
 
 const lcDataFork = LightClientDataFork.high
 
-proc ECLLightClientStoreCreateFromBootstrap(
+proc ETHLightClientStoreCreateFromBootstrap(
     cfg: ptr RuntimeConfig,
     trustedBlockRoot: ptr Eth2Digest,
     mediaType: cstring,
@@ -282,18 +282,18 @@ proc ECLLightClientStoreCreateFromBootstrap(
   ##   trusted block root. Setting the `Accept: application/octet-stream`
   ##   HTTP header in the request selects the more compact SSZ representation.
   ##
-  ## * After creating a light client store, `ECLLightClientStoreGetNextSyncTask`
+  ## * After creating a light client store, `ETHLightClientStoreGetNextSyncTask`
   ##   may be used to determine what further REST beacon API requests to perform
   ##   for keeping the light client store in sync with the Ethereum network.
   ##
   ## * Once synced the REST `/eth/v1/events?topics=light_client_finality_update`
   ##   `&topics=light_client_optimistic_update` beacon API provides the most
   ##   recent light client data. Data from this endpoint is always JSON encoded
-  ##   and may be processed with `ECLLightClientStoreProcessFinalityUpdate` and
-  ##   `ECLLightClientStoreProcessOptimisticUpdate`.
+  ##   and may be processed with `ETHLightClientStoreProcessFinalityUpdate` and
+  ##   `ETHLightClientStoreProcessOptimisticUpdate`.
   ##
   ## * The light client store must be destroyed using
-  ##   `ECLLightClientStoreDestroy` once no longer needed, to release memory.
+  ##   `ETHLightClientStoreDestroy` once no longer needed, to release memory.
   ##
   ## Parameters:
   ## * `cfg` - Ethereum Consensus Layer network configuration.
@@ -336,7 +336,7 @@ proc ECLLightClientStoreCreateFromBootstrap(
     return nil
   store
 
-proc ECLLightClientStoreDestroy(
+proc ETHLightClientStoreDestroy(
     store: ptr lcDataFork.LightClientStore) {.exported.} =
   ## Destroys a light client store.
   ##
@@ -348,18 +348,18 @@ proc ECLLightClientStoreDestroy(
 
 let
   ## Sync task to fulfill using `/eth/v1/beacon/light_client/updates`.
-  kECLLcSyncKind_UpdatesByRange {.exportedConst.} =
+  kETHLcSyncKind_UpdatesByRange {.exportedConst.} =
     LcSyncKind.UpdatesByRange.cint
 
   ## Sync task to fulfill using `/eth/v1/beacon/light_client/finality_update`.
-  kECLLcSyncKind_FinalityUpdate {.exportedConst.} =
+  kETHLcSyncKind_FinalityUpdate {.exportedConst.} =
     LcSyncKind.FinalityUpdate.cint
 
   ## Sync task to fulfill using `/eth/v1/beacon/light_client/optimistic_update`.
-  kECLLcSyncKind_OptimisticUpdate {.exportedConst.} =
+  kETHLcSyncKind_OptimisticUpdate {.exportedConst.} =
     LcSyncKind.OptimisticUpdate.cint
 
-proc ECLLightClientStoreGetNextSyncTask(
+proc ETHLightClientStoreGetNextSyncTask(
     store: ptr lcDataFork.LightClientStore,
     beaconClock: ptr BeaconClock,
     startPeriod #[out]#: ptr cint,
@@ -372,18 +372,18 @@ proc ECLLightClientStoreGetNextSyncTask(
   ##   selects the more compact SSZ representation.
   ##
   ## * After fetching the requested light client data and processing it with the
-  ##   appropriate handler, `ECLLightClientStoreGetMillisecondsToNextSyncTask`
+  ##   appropriate handler, `ETHLightClientStoreGetMillisecondsToNextSyncTask`
   ##   may be used to obtain a delay until a new sync task becomes available.
-  ##   Once the delay is reached, call `ECLLightClientStoreGetNextSyncTask`
+  ##   Once the delay is reached, call `ETHLightClientStoreGetNextSyncTask`
   ##   again to obtain the next sync task.
   ##
   ## * Once synced the REST `/eth/v1/events?topics=light_client_finality_update`
   ##   `&topics=light_client_optimistic_update` beacon API provides the most
   ##   recent light client data. Data from this endpoint is always JSON encoded
-  ##   and may be processed with `ECLLightClientStoreProcessFinalityUpdate` and
-  ##   `ECLLightClientStoreProcessOptimisticUpdate`. Events may be processed at
+  ##   and may be processed with `ETHLightClientStoreProcessFinalityUpdate` and
+  ##   `ETHLightClientStoreProcessOptimisticUpdate`. Events may be processed at
   ##   any time and do not require re-computing the delay until next sync task
-  ##   with `ECLLightClientStoreGetMillisecondsToNextSyncTask`.
+  ##   with `ETHLightClientStoreGetMillisecondsToNextSyncTask`.
   ##
   ## Parameters:
   ## * `store` - Light client store.
@@ -392,19 +392,19 @@ proc ECLLightClientStoreGetNextSyncTask(
   ## * `count` [out] - `count` query parameter, if applicable.
   ##
   ## Returns:
-  ## * `kECLLcSyncKind_UpdatesByRange` - If the next sync task is fulfillable
+  ## * `kETHLcSyncKind_UpdatesByRange` - If the next sync task is fulfillable
   ##   using REST `/eth/v1/beacon/light_client/updates` beacon API.
   ##   The `startPeriod` and `count` parameters contain additional request info.
   ##   `/eth/v1/beacon/light_client/updates?start_period={startPeriod}`
   ##   `&count={count}`.
-  ##   Process the response with `ECLLightClientStoreProcessUpdatesByRange`.
-  ## * `kECLLcSyncKind_FinalityUpdate` - If the next sync task is fulfillable
+  ##   Process the response with `ETHLightClientStoreProcessUpdatesByRange`.
+  ## * `kETHLcSyncKind_FinalityUpdate` - If the next sync task is fulfillable
   ##   using REST `/eth/v1/beacon/light_client/finality_update` beacon API.
-  ##   Process the response with `ECLLightClientStoreProcessFinalityUpdate`.
+  ##   Process the response with `ETHLightClientStoreProcessFinalityUpdate`.
   ##   The `startPeriod` and `count` parameters are unused for this sync task.
-  ## * `kECLLcSyncKind_OptimisticUpdate` - If the next sync task is fulfillable
+  ## * `kETHLcSyncKind_OptimisticUpdate` - If the next sync task is fulfillable
   ##   using REST `/eth/v1/beacon/light_client/optimistic_update` beacon API.
-  ##   Process the response with `ECLLightClientStoreProcessOptimisticUpdate`.
+  ##   Process the response with `ETHLightClientStoreProcessOptimisticUpdate`.
   ##   The `startPeriod` and `count` parameters are unused for this sync task.
   ##
   ## See:
@@ -429,13 +429,13 @@ proc ECLLightClientStoreGetNextSyncTask(
     count[] = 0
   syncTask.kind.cint
 
-proc ECLLightClientStoreGetMillisecondsToNextSyncTask(
+proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
     store: ptr lcDataFork.LightClientStore,
     rng: ptr ref HmacDrbgContext,
     beaconClock: ptr BeaconClock,
     latestProcessResult: cint): cint {.exported.} =
   ## Indicates the delay until a new light client sync task becomes available.
-  ## Once the delay is reached, call `ECLLightClientStoreGetNextSyncTask`
+  ## Once the delay is reached, call `ETHLightClientStoreGetNextSyncTask`
   ## to obtain the next sync task.
   ##
   ## Parameters:
@@ -443,13 +443,13 @@ proc ECLLightClientStoreGetMillisecondsToNextSyncTask(
   ## * `rng` - Cryptographically secure random number generator.
   ## * `beaconClock` - Beacon clock.
   ## * `latestProcessResult` - Latest sync task processing result, i.e.,
-  ##   the return value of `ECLLightClientStoreProcessUpdatesByRange`,
-  ##   `ECLLightClientStoreProcessFinalityUpdate`, or
-  ##   `ECLLightClientStoreProcessOptimisticUpdate`, for latest task.
+  ##   the return value of `ETHLightClientStoreProcessUpdatesByRange`,
+  ##   `ETHLightClientStoreProcessFinalityUpdate`, or
+  ##   `ETHLightClientStoreProcessOptimisticUpdate`, for latest task.
   ##   If the data for the sync task could not be fetched, set to `1`.
   ##
   ## Returns:
-  ## * Number of milliseconds until `ECLLightClientStoreGetNextSyncTask`
+  ## * Number of milliseconds until `ETHLightClientStoreGetNextSyncTask`
   ##   should be called again to obtain the next light client sync task.
   rng[].nextLcSyncTaskDelay(
     wallTime = beaconClock[].now(),
@@ -458,7 +458,7 @@ proc ECLLightClientStoreGetMillisecondsToNextSyncTask(
     isNextSyncCommitteeKnown = store[].is_next_sync_committee_known,
     didLatestSyncTaskProgress = (latestProcessResult == 0)).milliseconds.cint
 
-proc ECLLightClientStoreProcessUpdatesByRange(
+proc ETHLightClientStoreProcessUpdatesByRange(
     store: ptr lcDataFork.LightClientStore,
     cfg: ptr RuntimeConfig,
     forkDigests: ptr ref ForkDigests,
@@ -472,9 +472,9 @@ proc ECLLightClientStoreProcessUpdatesByRange(
   ## Processes light client update data.
   ##
   ## * This processes the response data for a sync task of kind
-  ##   `kECLLcSyncKind_UpdatesByRange`, as indicated by
-  ##   `ECLLightClientStoreGetNextSyncTask`. After processing, call
-  ##   `ECLLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
+  ##   `kETHLcSyncKind_UpdatesByRange`, as indicated by
+  ##   `ETHLightClientStoreGetNextSyncTask`. After processing, call
+  ##   `ETHLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
   ##   until a new sync task becomes available.
   ##
   ## Parameters:
@@ -535,7 +535,7 @@ proc ECLLightClientStoreProcessUpdatesByRange(
     return 2
   0
 
-proc ECLLightClientStoreProcessFinalityUpdate(
+proc ETHLightClientStoreProcessFinalityUpdate(
     store: ptr lcDataFork.LightClientStore,
     cfg: ptr RuntimeConfig,
     forkDigests: ptr ref ForkDigests,
@@ -548,16 +548,16 @@ proc ECLLightClientStoreProcessFinalityUpdate(
   ## Processes light client finality update data.
   ##
   ## * This processes the response data for a sync task of kind
-  ##   `kECLLcSyncKind_FinalityUpdate`, as indicated by
-  ##   `ECLLightClientStoreGetNextSyncTask`. After processing, call
-  ##   `ECLLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
+  ##   `kETHLcSyncKind_FinalityUpdate`, as indicated by
+  ##   `ETHLightClientStoreGetNextSyncTask`. After processing, call
+  ##   `ETHLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
   ##   until a new sync task becomes available.
   ##
   ## * This also processes event data from the REST
   ##   `/eth/v1/events?topics=light_client_finality_update` beacon API.
   ##   Set `mediaType` to `application/json`, and `consensusVersion` to `NULL`.
   ##   Events may be processed at any time, it is not necessary to call
-  ##   `ECLLightClientStoreGetMillisecondsToNextSyncTask`.
+  ##   `ETHLightClientStoreGetMillisecondsToNextSyncTask`.
   ##
   ## Parameters:
   ## * `store` - Light client store.
@@ -620,7 +620,7 @@ proc ECLLightClientStoreProcessFinalityUpdate(
       of VerifierError.Invalid:
         1
 
-proc ECLLightClientStoreProcessOptimisticUpdate(
+proc ETHLightClientStoreProcessOptimisticUpdate(
     store: ptr lcDataFork.LightClientStore,
     cfg: ptr RuntimeConfig,
     forkDigests: ptr ref ForkDigests,
@@ -633,16 +633,16 @@ proc ECLLightClientStoreProcessOptimisticUpdate(
   ## Processes light client optimistic update data.
   ##
   ## * This processes the response data for a sync task of kind
-  ##   `kECLLcSyncKind_OptimisticUpdate`, as indicated by
-  ##   `ECLLightClientStoreGetNextSyncTask`. After processing, call
-  ##   `ECLLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
+  ##   `kETHLcSyncKind_OptimisticUpdate`, as indicated by
+  ##   `ETHLightClientStoreGetNextSyncTask`. After processing, call
+  ##   `ETHLightClientStoreGetMillisecondsToNextSyncTask` to obtain a delay
   ##   until a new sync task becomes available.
   ##
   ## * This also processes event data from the REST
   ##   `/eth/v1/events?topics=light_client_optimistic_update` beacon API.
   ##   Set `mediaType` to `application/json`, and `consensusVersion` to `NULL`.
   ##   Events may be processed at any time, it is not necessary to call
-  ##   `ECLLightClientStoreGetMillisecondsToNextSyncTask`.
+  ##   `ETHLightClientStoreGetMillisecondsToNextSyncTask`.
   ##
   ## Parameters:
   ## * `store` - Light client store.
@@ -705,7 +705,7 @@ proc ECLLightClientStoreProcessOptimisticUpdate(
       of VerifierError.Invalid:
         1
 
-func ECLLightClientStoreGetFinalizedHeader(
+func ETHLightClientStoreGetFinalizedHeader(
     store: ptr lcDataFork.LightClientStore
 ): ptr lcDataFork.LightClientHeader {.exported.} =
   ## Obtains the latest finalized header of a given light client store.
@@ -724,14 +724,14 @@ func ECLLightClientStoreGetFinalizedHeader(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].finalized_header
 
-func ECLLightClientStoreIsNextSyncCommitteeKnown(
+func ETHLightClientStoreIsNextSyncCommitteeKnown(
     store: ptr lcDataFork.LightClientStore): bool {.exported.} =
   ## Indicates whether or not the next sync committee is currently known.
   ##
   ## * The light client sync process ensures that the next sync committee
   ##   is obtained in time, before it starts signing light client data.
-  ##   To stay in sync, use `ECLLightClientStoreGetNextSyncTask` and
-  ##   `ECLLightClientStoreGetMillisecondsToNextSyncTask`.
+  ##   To stay in sync, use `ETHLightClientStoreGetNextSyncTask` and
+  ##   `ETHLightClientStoreGetMillisecondsToNextSyncTask`.
   ##
   ## Parameters:
   ## * `store` - Light client store.
@@ -744,7 +744,7 @@ func ECLLightClientStoreIsNextSyncCommitteeKnown(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
-func ECLLightClientStoreGetOptimisticHeader(
+func ETHLightClientStoreGetOptimisticHeader(
     store: ptr lcDataFork.LightClientStore
 ): ptr lcDataFork.LightClientHeader {.exported.} =
   ## Obtains the latest optimistic header of a given light client store.
@@ -763,7 +763,7 @@ func ECLLightClientStoreGetOptimisticHeader(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].optimistic_header
 
-func ECLLightClientStoreGetSafetyThreshold(
+func ETHLightClientStoreGetSafetyThreshold(
     store: ptr lcDataFork.LightClientStore): cint {.exported.} =
   ## Calculates the safety threshold for a given light client store.
   ##
@@ -784,12 +784,12 @@ func ECLLightClientStoreGetSafetyThreshold(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
   store[].get_safety_threshold.cint
 
-proc ECLLightClientHeaderCopyBeaconRoot(
+proc ETHLightClientHeaderCopyBeaconRoot(
     header: ptr lcDataFork.LightClientHeader,
     cfg: ptr RuntimeConfig): ptr Eth2Digest {.exported.} =
   ## Computes the beacon block Merkle root for a given light client header.
   ##
-  ## * The Merkle root must be destroyed using `ECLRootDestroy`
+  ## * The Merkle root must be destroyed using `ETHRootDestroy`
   ##   once no longer needed, to release memory.
   ##
   ## Parameters:
@@ -806,7 +806,7 @@ proc ECLLightClientHeaderCopyBeaconRoot(
   root[] = header[].beacon.hash_tree_root()
   root
 
-func ECLLightClientHeaderGetBeacon(
+func ETHLightClientHeaderGetBeacon(
     header: ptr lcDataFork.LightClientHeader
 ): ptr BeaconBlockHeader {.exported.} =
   ## Obtains the beacon block header of a given light client header.
@@ -825,7 +825,7 @@ func ECLLightClientHeaderGetBeacon(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconblockheader
   addr header[].beacon
 
-func ECLBeaconBlockHeaderGetSlot(
+func ETHBeaconBlockHeaderGetSlot(
     beacon: ptr BeaconBlockHeader): cint {.exported.} =
   ## Obtains the slot number of a given beacon block header.
   ##
@@ -836,7 +836,7 @@ func ECLBeaconBlockHeaderGetSlot(
   ## * Slot number.
   beacon[].slot.cint
 
-func ECLBeaconBlockHeaderGetProposerIndex(
+func ETHBeaconBlockHeaderGetProposerIndex(
     beacon: ptr BeaconBlockHeader): cint {.exported.} =
   ## Obtains the proposer validator registry index
   ## of a given beacon block header.
@@ -848,7 +848,7 @@ func ECLBeaconBlockHeaderGetProposerIndex(
   ## * Proposer validator registry index.
   beacon[].proposer_index.cint
 
-func ECLBeaconBlockHeaderGetParentRoot(
+func ETHBeaconBlockHeaderGetParentRoot(
     beacon: ptr BeaconBlockHeader): ptr Eth2Digest {.exported.} =
   ## Obtains the parent beacon block Merkle root of a given beacon block header.
   ##
@@ -863,7 +863,7 @@ func ECLBeaconBlockHeaderGetParentRoot(
   ## * Parent beacon block root.
   addr beacon[].parent_root
 
-func ECLBeaconBlockHeaderGetStateRoot(
+func ETHBeaconBlockHeaderGetStateRoot(
     beacon: ptr BeaconBlockHeader): ptr Eth2Digest {.exported.} =
   ## Obtains the beacon state Merkle root of a given beacon block header.
   ##
@@ -878,7 +878,7 @@ func ECLBeaconBlockHeaderGetStateRoot(
   ## * Beacon state root.
   addr beacon[].state_root
 
-func ECLBeaconBlockHeaderGetBodyRoot(
+func ETHBeaconBlockHeaderGetBodyRoot(
     beacon: ptr BeaconBlockHeader): ptr Eth2Digest {.exported.} =
   ## Obtains the beacon block body Merkle root of a given beacon block header.
   ##
@@ -893,13 +893,13 @@ func ECLBeaconBlockHeaderGetBodyRoot(
   ## * Beacon block body root.
   addr beacon[].body_root
 
-proc ECLLightClientHeaderCopyExecutionHash(
+proc ETHLightClientHeaderCopyExecutionHash(
     header: ptr lcDataFork.LightClientHeader,
     cfg: ptr RuntimeConfig
 ): ptr Eth2Digest {.exported.} =
   ## Computes the execution block hash for a given light client header.
   ##
-  ## * The hash must be destroyed using `ECLRootDestroy`
+  ## * The hash must be destroyed using `ETHRootDestroy`
   ##   once no longer needed, to release memory.
   ##
   ## Parameters:
@@ -919,7 +919,7 @@ proc ECLLightClientHeaderCopyExecutionHash(
 type ExecutionPayloadHeader =
   typeof(default(lcDataFork.LightClientHeader).execution)
 
-func ECLLightClientHeaderGetExecution(
+func ETHLightClientHeaderGetExecution(
     header: ptr lcDataFork.LightClientHeader
 ): ptr ExecutionPayloadHeader {.exported.} =
   ## Obtains the execution payload header of a given light client header.
@@ -938,7 +938,7 @@ func ECLLightClientHeaderGetExecution(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#executionpayloadheader
   addr header[].execution
 
-func ECLExecutionPayloadHeaderGetParentHash(
+func ETHExecutionPayloadHeaderGetParentHash(
     execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
   ## Obtains the parent execution block hash of a given
   ## execution payload header.
@@ -954,7 +954,7 @@ func ECLExecutionPayloadHeaderGetParentHash(
   ## * Parent execution block hash.
   addr execution[].parent_hash
 
-func ECLExecutionPayloadHeaderGetFeeRecipient(
+func ETHExecutionPayloadHeaderGetFeeRecipient(
     execution: ptr ExecutionPayloadHeader): ptr ExecutionAddress {.exported.} =
   ## Obtains the fee recipient address of a given execution payload header.
   ##
@@ -969,7 +969,7 @@ func ECLExecutionPayloadHeaderGetFeeRecipient(
   ## * Fee recipient execution address.
   addr execution[].fee_recipient
 
-func ECLExecutionPayloadHeaderGetStateRoot(
+func ETHExecutionPayloadHeaderGetStateRoot(
     execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
   ## Obtains the state MPT root of a given execution payload header.
   ##
@@ -984,7 +984,7 @@ func ECLExecutionPayloadHeaderGetStateRoot(
   ## * Execution state root.
   addr execution[].state_root
 
-func ECLExecutionPayloadHeaderGetReceiptsRoot(
+func ETHExecutionPayloadHeaderGetReceiptsRoot(
     execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
   ## Obtains the receipts MPT root of a given execution payload header.
   ##
@@ -999,7 +999,7 @@ func ECLExecutionPayloadHeaderGetReceiptsRoot(
   ## * Execution receipts root.
   addr execution[].receipts_root
 
-func ECLExecutionPayloadHeaderGetLogsBloom(
+func ETHExecutionPayloadHeaderGetLogsBloom(
     execution: ptr ExecutionPayloadHeader): ptr BloomLogs {.exported.} =
   ## Obtains the logs bloom of a given execution payload header.
   ##
@@ -1014,7 +1014,7 @@ func ECLExecutionPayloadHeaderGetLogsBloom(
   ## * Execution logs bloom.
   addr execution[].logs_bloom
 
-func ECLExecutionPayloadHeaderGetPrevRandao(
+func ETHExecutionPayloadHeaderGetPrevRandao(
     execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
   ## Obtains the previous randao mix of a given execution payload header.
   ##
@@ -1029,7 +1029,7 @@ func ECLExecutionPayloadHeaderGetPrevRandao(
   ## * Previous randao mix.
   addr execution[].prev_randao
 
-func ECLExecutionPayloadHeaderGetBlockNumber(
+func ETHExecutionPayloadHeaderGetBlockNumber(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
   ## Obtains the execution block number of a given execution payload header.
   ##
@@ -1040,7 +1040,7 @@ func ECLExecutionPayloadHeaderGetBlockNumber(
   ## * Execution block number.
   execution[].block_number.cint
 
-func ECLExecutionPayloadHeaderGetGasLimit(
+func ETHExecutionPayloadHeaderGetGasLimit(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
   ## Obtains the gas limit of a given execution payload header.
   ##
@@ -1051,7 +1051,7 @@ func ECLExecutionPayloadHeaderGetGasLimit(
   ## * Gas limit.
   execution[].gas_limit.cint
 
-func ECLExecutionPayloadHeaderGetGasUsed(
+func ETHExecutionPayloadHeaderGetGasUsed(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
   ## Obtains the gas used of a given execution payload header.
   ##
@@ -1062,7 +1062,7 @@ func ECLExecutionPayloadHeaderGetGasUsed(
   ## * Gas used.
   execution[].gas_used.cint
 
-func ECLExecutionPayloadHeaderGetTimestamp(
+func ETHExecutionPayloadHeaderGetTimestamp(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
   ## Obtains the timestamp of a given execution payload header.
   ##
@@ -1073,7 +1073,7 @@ func ECLExecutionPayloadHeaderGetTimestamp(
   ## * Execution block timestamp.
   execution[].timestamp.cint
 
-func ECLExecutionPayloadHeaderGetExtraDataBytes(
+func ETHExecutionPayloadHeaderGetExtraDataBytes(
     execution: ptr ExecutionPayloadHeader
 ): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the extra data buffer of a given execution payload header.
@@ -1082,7 +1082,7 @@ func ECLExecutionPayloadHeaderGetExtraDataBytes(
   ##   It must neither be released nor written to, and the execution payload
   ##   header must not be released while the returned value is in use.
   ##
-  ## * Use `ECLExecutionPayloadHeaderGetNumExtraDataBytes`
+  ## * Use `ETHExecutionPayloadHeaderGetNumExtraDataBytes`
   ##   to obtain the length of the buffer.
   ##
   ## Parameters:
@@ -1092,7 +1092,7 @@ func ECLExecutionPayloadHeaderGetExtraDataBytes(
   ## * Buffer with execution block extra data.
   cast[ptr UncheckedArray[byte]](addr execution[].extra_data[0])
 
-func ECLExecutionPayloadHeaderGetNumExtraDataBytes(
+func ETHExecutionPayloadHeaderGetNumExtraDataBytes(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
   ## Obtains the extra data buffer's length of a given execution payload header.
   ##
@@ -1103,7 +1103,7 @@ func ECLExecutionPayloadHeaderGetNumExtraDataBytes(
   ## * Length of execution block extra data.
   execution[].extra_data.len.cint
 
-func ECLExecutionPayloadHeaderGetBaseFeePerGas(
+func ETHExecutionPayloadHeaderGetBaseFeePerGas(
     execution: ptr ExecutionPayloadHeader): ptr UInt256 {.exported.} =
   ## Obtains the base fee per gas of a given execution payload header.
   ##
@@ -1118,7 +1118,7 @@ func ECLExecutionPayloadHeaderGetBaseFeePerGas(
   ## * Base fee per gas.
   addr execution[].base_fee_per_gas
 
-func ECLExecutionPayloadHeaderGetDataGasUsed(
+func ETHExecutionPayloadHeaderGetDataGasUsed(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
   ## Obtains the data gas used of a given execution payload header.
   ##
@@ -1129,7 +1129,7 @@ func ECLExecutionPayloadHeaderGetDataGasUsed(
   ## * Data gas used.
   execution[].data_gas_used.cint
 
-func ECLExecutionPayloadHeaderGetExcessDataGas(
+func ETHExecutionPayloadHeaderGetExcessDataGas(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
   ## Obtains the excess data gas of a given execution payload header.
   ##
