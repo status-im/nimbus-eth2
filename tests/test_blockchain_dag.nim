@@ -44,7 +44,8 @@ suite "Block pool processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -293,7 +294,8 @@ suite "Block pool altair processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -369,7 +371,8 @@ suite "chain DAG finalization tests" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -639,7 +642,8 @@ suite "Old database versions" & preset():
         {skipBlsValidation}))
       genBlock = get_initial_beacon_block(genState[])
     var
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
 
   test "pre-1.1.0":
@@ -687,7 +691,8 @@ suite "Diverging hardforks":
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -929,7 +934,7 @@ suite "Backfill":
       taskpool = Taskpool.new()
     var
       cache: StateCache
-      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
 
     let
@@ -1070,7 +1075,8 @@ suite "Latest valid hash" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, runtimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -1139,7 +1145,8 @@ suite "Pruning":
       tmpState = assignClone(dag.headState)
 
     var
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
       cache = StateCache()
       blocks = @[dag.head]
@@ -1491,7 +1498,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     taskpool = Taskpool.new()
 
   var
-    verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    verifier = BatchVerifier.init(rng, taskpool)
     graffiti: GraffitiBytes
   proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
     inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
