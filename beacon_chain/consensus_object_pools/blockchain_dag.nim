@@ -1380,11 +1380,7 @@ func ancestorSlotForShuffling*(
 
   # Compute ancestor slot for starting RANDAO recovery
   let
-    ancestorBlck =
-      if stateBlck == dag.finalizedHead.blck:
-        dag.finalizedHead.blck
-      else:
-        ? commonAncestor(blck, stateBlck, lowSlot)
+    ancestorBlck = ? commonAncestor(blck, stateBlck, lowSlot)
     dependentSlot = epoch.attester_dependent_slot
   doAssert dependentSlot >= lowSlot
   ok min(min(stateBid.slot, ancestorBlck.slot), dependentSlot)

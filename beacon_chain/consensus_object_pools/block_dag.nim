@@ -162,6 +162,10 @@ func commonAncestor*(a, b: BlockRef, lowSlot: Slot): Opt[BlockRef] =
   doAssert b != nil
   if a.slot < lowSlot or b.slot < lowSlot:
     return err()
+  if a.parent == nil:
+    return ok a  # All `BlockRef` lead to `finalizedHead
+  if b.parent == nil:
+    return ok b  # All `BlockRef` lead to `finalizedHead
 
   var
     aa = a
