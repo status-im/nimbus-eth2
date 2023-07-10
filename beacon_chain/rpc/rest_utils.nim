@@ -71,7 +71,7 @@ func getBlockSlotId*(node: BeaconNode,
       return err("Requesting state too far ahead of current head")
 
     let bsi = node.dag.getBlockIdAtSlot(stateIdent.slot).valueOr:
-      return err("State for given slot not found, history not available?")
+      return err("History for given slot not available")
 
     ok(bsi)
 
@@ -79,8 +79,21 @@ func getBlockSlotId*(node: BeaconNode,
     if stateIdent.root == getStateRoot(node.dag.headState):
       ok(node.dag.head.bid.atSlot())
     else:
+      # The `state_roots` field holds 8k historical state roots but not the
+      # one of the current state - this trick allows us to lookup states without
+      # keeping an on-disk index.
+      let headSlot = getStateField(node.dag.headState, slot)
+      for i in 0'u64..<SLOTS_PER_HISTORICAL_ROOT:
+        if i >= headSlot:
+          break
+        if getStateField(node.dag.headState, state_roots).item(
+            (headSlot - i - 1) mod SLOTS_PER_HISTORICAL_ROOT) ==
+            stateIdent.root:
+          return node.dag.getBlockIdAtSlot(headSlot - i - 1).orErr(
+            cstring("History for for given root not available"))
+
       # We don't have a state root -> BlockSlot mapping
-      err("State for given root not found")
+      err("State root not found - use by-slot lookup to query deep state history")
   of StateQueryKind.Named:
     case stateIdent.value
     of StateIdentType.Head:
