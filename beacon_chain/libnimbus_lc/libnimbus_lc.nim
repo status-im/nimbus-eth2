@@ -784,6 +784,33 @@ func ETHLightClientStoreGetSafetyThreshold(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
   store[].get_safety_threshold.cint
 
+proc ETHLightClientHeaderCreateCopy(
+    header: ptr lcDataFork.LightClientHeader
+): ptr lcDataFork.LightClientHeader {.exported.} =
+  ## Creates a shallow copy of a given light client header.
+  ##
+  ## * The copy must be destroyed using `ETHLightClientHeaderDestroy`
+  ##   once no longer needed, to release memory.
+  ##
+  ## Parameters:
+  ## * `header` - Light client header.
+  ##
+  ## Returns:
+  ## * Pointer to a shallow copy of the given header.
+  let copy = lcDataFork.LightClientHeader.create()
+  copy[] = header[]
+  copy
+
+proc ETHLightClientHeaderDestroy(
+    header: ptr lcDataFork.LightClientHeader) {.exported.} =
+  ## Destroys a light client header.
+  ##
+  ## * The light client header must no longer be used after destruction.
+  ##
+  ## Parameters:
+  ## * `header` - Light client header.
+  header.destroy()
+
 proc ETHLightClientHeaderCopyBeaconRoot(
     header: ptr lcDataFork.LightClientHeader,
     cfg: ptr RuntimeConfig): ptr Eth2Digest {.exported.} =

@@ -637,6 +637,28 @@ ETH_RESULT_USE_CHECK
 int ETHLightClientStoreGetSafetyThreshold(const ETHLightClientStore *store);
 
 /**
+ * Creates a shallow copy of a given light client header.
+ *
+ * - The copy must be destroyed using `ETHLightClientHeaderDestroy`
+ *   once no longer needed, to release memory.
+ *
+ * @param      header               Light client header.
+ *
+ * @return Pointer to a shallow copy of the given header.
+ */
+ETH_RESULT_USE_CHECK
+ETHLightClientHeader *ETHLightClientHeaderCreateCopy(ETHLightClientHeader *header);
+
+/**
+ * Destroys a light client header.
+ *
+ * - The light client header must no longer be used after destruction.
+ *
+ * @param      header               Light client header.
+ */
+void ETHLightClientHeaderDestroy(ETHLightClientHeader *header);
+
+/**
  * Computes the beacon block Merkle root for a given light client header.
  *
  * - The Merkle root must be destroyed using `ETHRootDestroy`
