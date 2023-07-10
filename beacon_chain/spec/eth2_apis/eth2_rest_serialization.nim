@@ -1466,7 +1466,32 @@ proc readValue*(reader: var JsonReader[RestJson],
       value.capellaBody.execution_payload.withdrawals,
       ep_src.withdrawals.get())
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    value = RestPublishedBeaconBlockBody(
+      kind: ConsensusFork.Deneb,
+      denebBody: deneb.BeaconBlockBody(
+        randao_reveal: randao_reveal.get(),
+        eth1_data: eth1_data.get(),
+        graffiti: graffiti.get(),
+        proposer_slashings: proposer_slashings.get(),
+        attester_slashings: attester_slashings.get(),
+        attestations: attestations.get(),
+        deposits: deposits.get(),
+        voluntary_exits: voluntary_exits.get(),
+        sync_aggregate: sync_aggregate.get(),
+        bls_to_execution_changes: bls_to_execution_changes.get(),
+        blob_kzg_commitments: blob_kzg_commitments.get()
+      )
+    )
+    copy_ep_bellatrix(value.denebBody.execution_payload)
+    assign(
+      value.denebBody.execution_payload.withdrawals,
+      ep_src.withdrawals.get())
+    assign(
+      value.denebBody.execution_payload.data_gas_used,
+      ep_src.data_gas_used.get())
+    assign(
+      value.denebBody.execution_payload.excess_data_gas,
+      ep_src.excess_data_gas.get())
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
