@@ -740,6 +740,7 @@ libnimbus_lc.a: | build deps
 		$(ENV_SCRIPT) $(NIMC) c -d:disable_libbacktrace -d:release --app:staticlib --noMain --nimcache:nimcache/libnimbus_lc_static -o:build/$@ $(NIM_PARAMS) beacon_chain/libnimbus_lc/libnimbus_lc.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
+# `-Wno-maybe-uninitialized` in Linux: https://github.com/nim-lang/Nim/issues/22246
 test_libnimbus_lc: libnimbus_lc.a
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		set -x && \
@@ -751,7 +752,7 @@ test_libnimbus_lc: libnimbus_lc.a
 			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
 			;; \
 		*) \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -Wno-maybe-uninitialized -flto -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
 			;; \
 		esac && \
 		echo -e $(BUILD_END_MSG) "build/$@"
