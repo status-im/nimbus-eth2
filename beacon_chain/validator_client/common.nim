@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[tables, os, sets, sequtils, strutils, uri],
+  std/[tables, os, sets, sequtils, strutils, uri, algorithm],
   stew/[base10, results, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
@@ -63,6 +63,9 @@ type
     client*: ValidatorClientRef
 
   DutiesServiceRef* = ref object of ClientServiceRef
+    pollingAttesterDutiesTask*: Future[void]
+    pollingSyncDutiesTask*: Future[void]
+    syncSubscriptionEpoch*: Opt[Epoch]
 
   FallbackServiceRef* = ref object of ClientServiceRef
     changesEvent*: AsyncEvent
@@ -84,10 +87,7 @@ type
     data*: RestAttesterDuty
     slotSig*: Opt[ValidatorSig]
 
-  SyncCommitteeDuty* = object
-    pubkey*: ValidatorPubKey
-    validator_index*: ValidatorIndex
-    validator_sync_committee_index*: IndexInSyncCommittee
+  SyncCommitteeDuty* = RestSyncCommitteeDuty
 
   SyncCommitteeSubscriptionInfo* = object
     validator_index*: ValidatorIndex
@@ -130,11 +130,18 @@ type
     index*: int
     timeOffset*: Opt[TimeOffset]
 
+  SyncCommitteeSelectionProof* = object
+    signatures*: seq[Opt[ValidatorSig]]
+    validator_sync_committee_indices*: seq[IndexInSyncCommittee]
+
   EpochDuties* = object
     duties*: Table[Epoch, DutyAndProof]
 
-  EpochSyncDuties* = object
-    duties*: Table[Epoch, SyncCommitteeDuty]
+  SyncPeriodDuties* = object
+    duties*: Table[SyncCommitteePeriod, SyncCommitteeDuty]
+
+  SyncCommitteeProofs* = object
+    proofs*: Table[ValidatorPubKey, SyncCommitteeSelectionProof]
 
   RestBeaconNodeStatus* {.pure.} = enum
     Offline,            ## BN is offline.
@@ -155,8 +162,9 @@ type
   BeaconNodeServerRef* = ref BeaconNodeServer
 
   AttesterMap* = Table[ValidatorPubKey, EpochDuties]
-  SyncCommitteeDutiesMap* = Table[ValidatorPubKey, EpochSyncDuties]
+  SyncCommitteeDutiesMap* = Table[ValidatorPubKey, SyncPeriodDuties]
   ProposerMap* = Table[Epoch, ProposedData]
+  SyncCommitteeProofsMap* = Table[Epoch, SyncCommitteeProofs]
 
   DoppelgangerStatus* {.pure.} = enum
     None, Checking, Passed
@@ -172,8 +180,12 @@ type
     blocks: seq[Eth2Digest]
     waiters*: seq[BlockWaiter]
 
+  ValidatorRuntimeConfig* = object
+    altairEpoch*: Opt[Epoch]
+
   ValidatorClient* = object
     config*: ValidatorClientConf
+    runtimeConfig*: ValidatorRuntimeConfig
     metricsServer*: Opt[MetricsHttpServerRef]
     graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
@@ -203,6 +215,7 @@ type
     attesters*: AttesterMap
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
+    syncCommitteeProofs*: SyncCommitteeProofsMap
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
@@ -233,8 +246,26 @@ type
   ValidatorApiError* = object of ValidatorClientError
     data*: seq[ApiNodeFailure]
 
+  FillSignaturesResult* = object
+    signaturesRequested*: int
+    signaturesReceived*: int
+
+  AttestationSlotRequest* = object
+    validator*: AttachedValidator
+    fork*: Fork
+    slot*: Slot
+
+  SyncCommitteeSlotRequest* = object
+    validator*: AttachedValidator
+    fork*: Fork
+    slot*: Slot
+    sync_committee_index*: IndexInSyncCommittee
+    duty*: SyncCommitteeDuty
+
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
+  DefaultSyncCommitteeDuty* = SyncCommitteeDuty()
+  DefaultSyncCommitteeSelectionProof* = SyncCommitteeSelectionProof()
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
   AllBeaconNodeRoles* = {
@@ -450,7 +481,7 @@ chronicles.expandIt(RestAttesterDuty):
 chronicles.expandIt(SyncCommitteeDuty):
   pubkey = shortLog(it.pubkey)
   validator_index = it.validator_index
-  validator_sync_committee_index = it.validator_sync_committee_index
+  validator_sync_committee_indices = it.validator_sync_committee_indices
 
 proc equals*(info: VCRuntimeConfig, name: string, check: uint64): bool =
   let numstr = info.getOrDefault(name, "missing")
@@ -594,10 +625,16 @@ proc stop*(csr: ClientServiceRef) {.async.} =
     debug "Service stopped", service = csr.name
 
 proc isDefault*(dap: DutyAndProof): bool =
-  dap.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
+  dap.epoch == FAR_FUTURE_EPOCH
 
 proc isDefault*(prd: ProposedData): bool =
-  prd.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
+  prd.epoch == FAR_FUTURE_EPOCH
+
+proc isDefault*(scd: SyncCommitteeDuty): bool =
+  len(scd.validator_sync_committee_indices) == 0
+
+proc isDefault*(sp: SyncCommitteeSelectionProof): bool =
+  len(sp.validator_sync_committee_indices) == 0
 
 proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
   var res: set[BeaconNodeRole]
@@ -731,20 +768,19 @@ proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
   ## Returns all `DutyAndProof` for the given `slot`.
   var res: seq[DutyAndProof]
   let epoch = slot.epoch()
-  for key, item in vc.attesters:
-    let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
-    if not(duty.isDefault()):
-      if duty.data.slot == slot:
-        res.add(duty)
+  for key, item in mpairs(vc.attesters):
+    item.duties.withValue(epoch, duty):
+      if duty[].data.slot == slot:
+        res.add(duty[])
   res
 
 proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
                                     slot: Slot): seq[SyncCommitteeDuty] =
   ## Returns all `SyncCommitteeDuty` for the given `slot`.
   var res: seq[SyncCommitteeDuty]
-  let epoch = slot.epoch()
+  let period = slot.sync_committee_period()
   for key, item in mpairs(vc.syncCommitteeDuties):
-    item.duties.withValue(epoch, duty):
+    item.duties.withValue(period, duty):
       res.add(duty[])
   res
 
@@ -791,24 +827,31 @@ iterator attesterDutiesForEpoch*(vc: ValidatorClientRef,
     if not(isDefault(epochDuties)):
       yield epochDuties
 
-proc syncMembersSubscriptionInfoForEpoch*(
-    vc: ValidatorClientRef,
-    epoch: Epoch): seq[SyncCommitteeSubscriptionInfo] =
+iterator syncDutiesForPeriod*(vc: ValidatorClientRef,
+                              period: SyncCommitteePeriod): SyncCommitteeDuty =
+  for key, item in vc.syncCommitteeDuties:
+    let periodDuties = item.duties.getOrDefault(period)
+    if not(isDefault(periodDuties)):
+      yield periodDuties
+
+proc syncMembersSubscriptionInfoForPeriod*(
+       vc: ValidatorClientRef,
+       period: SyncCommitteePeriod
+     ): seq[SyncCommitteeSubscriptionInfo] =
   var res: seq[SyncCommitteeSubscriptionInfo]
   for key, item in mpairs(vc.syncCommitteeDuties):
     var cur: SyncCommitteeSubscriptionInfo
     var initialized = false
 
-    item.duties.withValue(epoch, epochDuties):
-      if not initialized:
-        cur.validator_index = epochDuties.validator_index
+    item.duties.withValue(period, periodDuties):
+      if not(initialized):
+        cur.validator_index = periodDuties[].validator_index
         initialized = true
       cur.validator_sync_committee_indices.add(
-        epochDuties.validator_sync_committee_index)
+        periodDuties[].validator_sync_committee_indices)
 
     if initialized:
-      res.add cur
-
+      res.add(cur)
   res
 
 proc getDelay*(vc: ValidatorClientRef, deadline: BeaconTime): TimeDiff =
@@ -1347,3 +1390,282 @@ proc waitForNextSlot*(service: ClientServiceRef) {.async.} =
   let vc = service.client
   let sleepTime = vc.beaconClock.durationToNextSlot()
   await sleepAsync(sleepTime)
+
+func compareUnsorted*[T](a, b: openArray[T]): bool =
+  if len(a) != len(b):
+    return false
+
+  return
+    case len(a)
+    of 0:
+      true
+    of 1:
+      a[0] == b[0]
+    of 2:
+      ((a[0] == b[0]) and (a[1] == b[1])) or ((a[0] == b[1]) and (a[1] == b[0]))
+    else:
+      let asorted = sorted(a)
+      let bsorted = sorted(b)
+      for index, item in asorted.pairs():
+        if item != bsorted[index]:
+          return false
+      true
+
+func `==`*(a, b: SyncCommitteeDuty): bool =
+  (a.pubkey == b.pubkey) and
+  (a.validator_index == b.validator_index) and
+  compareUnsorted(a.validator_sync_committee_indices,
+                  b.validator_sync_committee_indices)
+
+proc cmp(x, y: AttestationSlotRequest|SyncCommitteeSlotRequest): int =
+  if x.slot == y.slot: 0 elif x.slot < y.slot: -1 else: 1
+
+func getSyncSelectionOffset*(proof: SyncCommitteeSelectionProof,
+                             inindex: IndexInSyncCommittee,
+                             slot: Slot): int =
+  let index = proof.validator_sync_committee_indices.find(inindex)
+  if index == -1:
+    return -1
+  int(Epoch(uint64(index)).start_slot() + (slot - slot.epoch().start_slot()))
+
+func isSyncSelectionSignature*(proof: SyncCommitteeSelectionProof,
+                               inindex: IndexInSyncCommittee,
+                               slot: Slot): bool =
+  let offset = proof.getSyncSelectionOffset(inindex, slot)
+  offset >= 0 and (offset < len(proof.signatures))
+
+proc setSyncSelectionSignature*(proof: var SyncCommitteeSelectionProof,
+                                inindex: IndexInSyncCommittee, slot: Slot,
+                                signature: Opt[ValidatorSig]) =
+  let offset = proof.getSyncSelectionOffset(inindex, slot)
+  doAssert(offset >= 0 and offset < len(proof.signatures))
+  proof.signatures[offset] = signature
+
+proc setSyncSelectionProof*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
+                            inindex: IndexInSyncCommittee, slot: Slot,
+                            duty: SyncCommitteeDuty,
+                            signature: Opt[ValidatorSig]) =
+  let
+    length =
+      int(Epoch(lenu64(duty.validator_sync_committee_indices)).start_slot())
+    defaultProof = SyncCommitteeSelectionProof(
+      validator_sync_committee_indices: duty.validator_sync_committee_indices,
+      signatures: newSeq[Opt[ValidatorSig]](length)
+    )
+
+  vc.syncCommitteeProofs.
+    mgetOrPut(slot.epoch(), default(SyncCommitteeProofs)).proofs.
+    mgetOrPut(pubkey, defaultProof).
+      setSyncSelectionSignature(inindex, slot, signature)
+
+proc getSyncCommitteeSelectionProof*(
+    vc: ValidatorClientRef,
+    pubkey: ValidatorPubKey,
+    epoch: Epoch
+  ): Opt[SyncCommitteeSelectionProof] =
+  vc.syncCommitteeProofs.withValue(epoch, epochProofs):
+    epochProofs[].proofs.withValue(pubkey, validatorProofs):
+      return Opt.some(validatorProofs[])
+    do:
+      return Opt.none(SyncCommitteeSelectionProof)
+  do:
+    return Opt.none(SyncCommitteeSelectionProof)
+
+proc getSyncCommitteeSelectionProof*(
+       vc: ValidatorClientRef,
+       pubkey: ValidatorPubKey,
+       slot: Slot,
+       inindex: IndexInSyncCommittee
+     ): Opt[ValidatorSig] =
+  vc.syncCommitteeProofs.withValue(slot.epoch(), epochProofs):
+    epochProofs[].proofs.withValue(pubkey, validatorProofs):
+      let offset = getSyncSelectionOffset(validatorProofs[], inindex, slot)
+      return
+        if offset < len(validatorProofs[].signatures):
+          validatorProofs[].signatures[offset]
+        else:
+          Opt.none(ValidatorSig)
+    do:
+      return Opt.none(ValidatorSig)
+  do:
+    return Opt.none(ValidatorSig)
+
+proc fillSyncCommitteeSelectionProofs*(
+       service: DutiesServiceRef,
+       start, finish: Slot
+     ): Future[FillSignaturesResult] {.async.} =
+  let
+    vc = service.client
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+  var
+    requests =
+      block:
+        var res: seq[SyncCommitteeSlotRequest]
+        for epoch in start.epoch() .. finish.epoch():
+          let
+            fork = vc.forkAtEpoch(epoch)
+            period = epoch.sync_committee_period()
+          for duty in vc.syncDutiesForPeriod(period):
+            let validator = vc.attachedValidators[].
+              getValidator(duty.pubkey).valueOr:
+                # Ignore all the validators which are not here anymore
+                continue
+            if validator.index.isNone():
+              # Ignore all the valididators which do not have index yet.
+              continue
+            let proof = vc.getSyncCommitteeSelectionProof(duty.pubkey, epoch).
+                          get(default(SyncCommitteeSelectionProof))
+            for inindex in proof.validator_sync_committee_indices:
+              for slot in epoch.slots():
+                if slot < start: continue
+                if slot > finish: break
+                if not(proof.isSyncSelectionSignature(inindex, slot)):
+                  res.add(
+                    SyncCommitteeSlotRequest(
+                      validator: validator,
+                      fork: fork,
+                      slot: slot,
+                      duty: duty,
+                      sync_committee_index: inindex))
+        # We make requests sorted by slot number.
+        sorted(res, cmp, order = SortOrder.Ascending)
+    sigres = FillSignaturesResult(signaturesRequested: len(requests))
+    pendingRequests = requests.mapIt(
+      FutureBase(getSyncCommitteeSelectionProof(
+        it.validator, it.fork, genesisRoot, it.slot,
+        getSubcommitteeIndex(it.sync_committee_index))))
+
+  while len(pendingRequests) > 0:
+    try:
+      discard await race(pendingRequests)
+    except CancelledError as exc:
+      var pending: seq[Future[void]]
+      for future in pendingRequests:
+        if not(future.finished()): pending.add(future.cancelAndWait())
+      await allFutures(pending)
+      raise exc
+
+    var completed: seq[int]
+
+    for index, fut in pendingRequests.pairs():
+      if fut.finished():
+        completed.add(index)
+        let
+          request = requests[index]
+          signature =
+            if fut.completed():
+              let sres = Future[SignatureResult](fut).read()
+              if sres.isErr():
+                warn "Unable to create slot signature using remote signer",
+                     reason = sres.error(), epoch = request.slot.epoch(),
+                     slot = request.slot
+                Opt.none(ValidatorSig)
+              else:
+                inc(sigres.signaturesReceived)
+                Opt.some(sres.get())
+            else:
+              Opt.none(ValidatorSig)
+        vc.setSyncSelectionProof(request.validator.pubkey,
+                                 request.sync_committee_index,
+                                 request.slot, request.duty,
+                                 signature)
+    for index in (len(completed) - 1) .. 0:
+      pendingRequests.del(completed[index])
+      requests.del(completed[index])
+  sigres
+
+proc fillAttestationSelectionProofs*(
+       service: DutiesServiceRef,
+       start, finish: Slot
+     ): Future[FillSignaturesResult] {.async.} =
+  let
+    vc = service.client
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+  var
+    requests =
+      block:
+        var res: seq[AttestationSlotRequest]
+        for epoch in start.epoch() .. finish.epoch():
+          for duty in vc.attesterDutiesForEpoch(epoch):
+            if (duty.data.slot < start) or (duty.data.slot > finish):
+              # Ignore all the slots which are not in range.
+              continue
+            if duty.slotSig.isSome():
+              # Ignore all the duties which already has selection proof.
+              continue
+            let validator = vc.attachedValidators[].
+              getValidator(duty.data.pubkey).valueOr:
+                # Ignore all the validators which are not here anymore
+                continue
+            if validator.index.isNone():
+              # Ignore all the valididators which do not have index yet.
+              continue
+            res.add(AttestationSlotRequest(
+              validator: validator,
+              slot: duty.data.slot,
+              fork: vc.forkAtEpoch(duty.data.slot.epoch())
+            ))
+        # We make requests sorted by slot number.
+        sorted(res, cmp, order = SortOrder.Ascending)
+    sigres = FillSignaturesResult(signaturesRequested: len(requests))
+    pendingRequests = requests.mapIt(
+      FutureBase(getSlotSignature(it.validator, it.fork, genesisRoot, it.slot)))
+
+  while len(pendingRequests) > 0:
+    try:
+      discard await race(pendingRequests)
+    except CancelledError as exc:
+      var pending: seq[Future[void]]
+      for future in pendingRequests:
+        if not(future.finished()): pending.add(future.cancelAndWait())
+      await allFutures(pending)
+      raise exc
+
+    var completed: seq[int]
+    for index, fut in pendingRequests.pairs():
+      if fut.finished():
+        completed.add(index)
+        let
+          request = requests[index]
+          signature =
+            if fut.completed():
+              let sres = Future[SignatureResult](fut).read()
+              if sres.isErr():
+                warn "Unable to create slot signature using remote signer",
+                     reason = sres.error(), epoch = request.slot.epoch(),
+                     slot = request.slot
+                Opt.none(ValidatorSig)
+              else:
+                inc(sigres.signaturesReceived)
+                Opt.some(sres.get())
+            else:
+              Opt.none(ValidatorSig)
+        vc.attesters.withValue(request.validator.pubkey, map):
+          map[].duties.withValue(request.slot.epoch(), dap):
+            dap[].slotSig = signature
+    for index in (len(completed) - 1).. 0:
+      pendingRequests.del(completed[index])
+      requests.del(completed[index])
+  sigres
+
+proc updateRuntimeConfig*(vc: ValidatorClientRef,
+                          info: VCRuntimeConfig): Result[void, string] =
+  let res = info.getOrDefault("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH)
+  if res == FAR_FUTURE_EPOCH:
+    return err("Missing or invalid ALTAIR_FORK_EPOCH value")
+  if vc.runtimeConfig.altairEpoch.isSome():
+    if vc.runtimeConfig.altairEpoch.get() != res:
+      return err("Different ALTAIR_FORK_EPOCH value")
+  else:
+    vc.runtimeConfig.altairEpoch = Opt.some(res)
+  ok()
+
+proc `+`*(slot: Slot, epochs: Epoch): Slot =
+  let
+    slotEpoch = slot.epoch()
+    slotInEpoch = slot - slotEpoch.start_slot()
+  (slotEpoch + uint64(epochs)).start_slot() + slotInEpoch
+
+func finish_slot*(epoch: Epoch): Slot =
+  ## Return the last slot of ``epoch``.
+  Slot((epoch + 1).start_slot() - 1)
