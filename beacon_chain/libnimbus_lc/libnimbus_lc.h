@@ -647,7 +647,7 @@ int ETHLightClientStoreGetSafetyThreshold(const ETHLightClientStore *store);
  * @return Pointer to a shallow copy of the given header.
  */
 ETH_RESULT_USE_CHECK
-ETHLightClientHeader *ETHLightClientHeaderCreateCopy(ETHLightClientHeader *header);
+ETHLightClientHeader *ETHLightClientHeaderCreateCopy(const ETHLightClientHeader *header);
 
 /**
  * Destroys a light client header.
