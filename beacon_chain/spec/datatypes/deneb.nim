@@ -25,7 +25,7 @@ import
   ../digest,
   "."/[base, phase0, altair, bellatrix, capella]
 
-from  ../../vendor/nim-kzg4844/kzg4844 import KzgCommitment, KzgProof
+from kzg4844 import KzgCommitment, KzgProof
 
 export json_serialization, base, kzg4844
 

@@ -1274,6 +1274,15 @@ suite "Shufflings":
   # Cover entire range of epochs plus some extra
   const maxEpochOfInterest = compute_activation_exit_epoch(11.Epoch) + 2
 
+  template checkShuffling(
+      epochRef: Result[EpochRef, cstring],
+      computedShufflingRefParam: Opt[ShufflingRef]) =
+    ## Check that computed shuffling matches the one from `EpochRef`.
+    block:
+      let computedShufflingRef = computedShufflingRefParam
+      if computedShufflingRef.isOk:
+        check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
+
   test "Accelerated shuffling computation":
     randomize()
     let forkBlocks = dag.forkBlocks.toSeq()
@@ -1286,16 +1295,11 @@ suite "Shufflings":
       let epochRef = dag.getEpochRef(blck, epoch, true)
       check epochRef.isOk
 
-      proc checkShuffling(computedShufflingRef: Opt[ShufflingRef]) =
-        ## Check that computed shuffling matches the one from `EpochRef`.
-        if computedShufflingRef.isOk:
-          check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
-
       # If shuffling is computable from DAG, check its correctness
-      checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
+      epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
 
       # If shuffling is computable from DB, check its correctness
-      checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
+      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
 
       # Shuffling should be correct when starting from any cached state
       for state in states:
@@ -1311,4 +1315,53 @@ suite "Shufflings":
             check shufflingRef.isErr
           else:
             check shufflingRef.isOk
-            checkShuffling shufflingRef
+            epochRef.checkShuffling shufflingRef
+
+  test "Accelerated shuffling computation (with epochRefState jump)":
+    # Test cases where `epochRefState` is set to a very old block
+    # that is advanced by several epochs to a recent slot.
+    #
+    # This is not dependent on the multilayer branching of the "Shufflings"
+    # suite, but a function of getEpochRef extending epochRefState towards
+    # a slot which it is essentially hallucinating a state, because it is
+    # not accounting for the blocks with deposits. As it takes non-trivial
+    # time to set up the "Shufflings" suite, we reuse its more complex DAG.
+    #
+    # The purely random fuzzing/tests have difficulty triggering this, because
+    # this needs to happen across a wide portion of the sampled range so that:
+    # (1) it checks a maximally early slot, both to create the gaps needed for
+    #     (2) and (3), and to keep both blocks on the same forks, with maximal
+    #     likelihood;
+    # (2) calls getEpochRef with a late enough epoch to trigger the
+    #     hallucination of relevance (>= epoch 4 typically works); and
+    # (3) there then have to be enough slots between the last added block and
+    #     the next state which will be sampled so that the validators can get
+    #     active, after some spec 5 epoch delay. This pushes the lowest epoch
+    #     possible to not much less than 8 which is already near the high end
+    #     of the epoch sampling. Too early an epoch and it is within range of
+    #     the headState check which gets it first, so the epochStateRef isn't
+    #     exercised.
+
+    let forkBlocks = dag.forkBlocks.toSeq()
+
+    proc findKeyedBlck(m: Slot): int =
+      # Avoid depending on implementation details of how `forkBlocks` is ordered
+      for idx, fb in forkBlocks:
+        if fb.data.slot == m:
+          return idx
+      raiseAssert "Unreachable"
+
+    # The epoch for the first block can range from at least 4 to 10
+    for (blockIdx, epoch) in [
+        (findKeyedBlck(64.Slot), 10.Epoch),
+        (findKeyedBlck(255.Slot), 8.Epoch)]:
+      let
+        blck = forkBlocks[blockIdx].data
+        epochRef = dag.getEpochRef(blck, epoch, true)
+      doAssert epochRef.isOk
+
+      # If shuffling is computable from DAG, check its correctness
+      epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
+
+      # If shuffling is computable from DB, check its correctness
+      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
