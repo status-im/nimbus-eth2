@@ -419,7 +419,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let blockRoot = hash_tree_root(blck)
             var sidecars = newSeqOfCap[BlobSidecar](bundle.blobs.len)
             for i in 0..<bundle.blobs.len:
-              var sidecar = deneb.BlobSidecar(
+              let sidecar = deneb.BlobSidecar(
                 block_root: blockRoot,
                 index: BlobIndex(i),
                 slot: blck.slot,
@@ -431,7 +431,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               )
               sidecars.add(sidecar)
 
-            DenebBlockContents(`block`: blck, blob_sidecars: List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK].init(sidecars))
+            DenebBlockContents(
+              `block`: blck,
+              blob_sidecars: List[BlobSidecar,
+                                  Limit MAX_BLOBS_PER_BLOCK].init(sidecars))
           else:
             blck
         if contentType == sszMediaType:
