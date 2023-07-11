@@ -44,7 +44,6 @@ type
 
   RequestManager* = object
     network*: Eth2Node
-    inpBlockQueue*: AsyncQueue[FetchRecord]
     inpBlobQueue: AsyncQueue[BlobIdentifier]
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
@@ -267,7 +266,6 @@ proc requestManagerBlockLoop(rman: RequestManager) {.async.} =
       debug "Request manager block tick", blocks = shortLog(blocks),
                                           succeed = succeed,
                                           failed = (len(workers) - succeed),
-                                          queue_size = len(rman.inpBlockQueue),
                                           sync_speed = speed(start, finish)
 
     except CancelledError as exc:
@@ -322,14 +320,6 @@ proc stop*(rman: RequestManager) =
     rman.blockLoopFuture.cancel()
   if not(isNil(rman.blobLoopFuture)):
     rman.blobLoopFuture.cancel()
-
-proc fetchAncestorBlocks*(rman: RequestManager, roots: seq[FetchRecord]) =
-  ## Enqueue list missing blocks roots ``roots`` for download by
-  ## Request Manager ``rman``.
-  for item in roots:
-    try:
-      rman.inpBlockQueue.addLastNoWait(item)
-    except AsyncQueueFullError: raiseAssert "unbounded queue"
 
 proc fetchMissingBlobs*(rman: RequestManager,
                         recs: seq[BlobFetchRecord]) =
