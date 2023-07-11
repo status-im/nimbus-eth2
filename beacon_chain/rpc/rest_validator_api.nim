@@ -415,20 +415,19 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       withBlck(message.blck):
         let data =
           when blck is deneb.BeaconBlock:
-            var sidecars : seq[BlobSidecar] = @[]
             let bundle = message.blobsBundleOpt.get()
             let blockRoot = hash_tree_root(blck)
-            let (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
-            for i in 0..<blobs.len:
+            var sidecars = newSeqOfCap[BlobSidecar](bundle.blobs.len)
+            for i in 0..<bundle.blobs.len:
               var sidecar = deneb.BlobSidecar(
                 block_root: blockRoot,
                 index: BlobIndex(i),
                 slot: blck.slot,
                 block_parent_root: blck.parent_root,
                 proposer_index: blck.proposer_index,
-                blob: blobs[i],
-                kzg_commitment: kzgs[i],
-                kzg_proof: proofs[i]
+                blob: bundle.blobs[i],
+                kzg_commitment: bundle.kzgs[i],
+                kzg_proof: bundle.proofs[i]
               )
               sidecars.add(sidecar)
 
