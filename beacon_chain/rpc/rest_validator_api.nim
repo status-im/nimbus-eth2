@@ -435,8 +435,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               `block`: blck,
               blob_sidecars: List[BlobSidecar,
                                   Limit MAX_BLOBS_PER_BLOCK].init(sidecars))
-          else:
+          elif blck is phase0.BeaconBlock or blck is altair.BeaconBlock or
+               blck is bellatrix.BeaconBlock or blck is capella.BeaconBlock:
             blck
+          else:
+            raiseAssert "produceBlockV2 received unexpected version"
         if contentType == sszMediaType:
           let headers = [("eth-consensus-version", message.blck.kind.toString())]
           RestApiResponse.sszResponse(blck, headers)
