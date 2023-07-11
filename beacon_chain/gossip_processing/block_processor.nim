@@ -51,10 +51,6 @@ const
     ## syncing the finalized part of the chain
   PAYLOAD_PRE_WALL_SLOTS = SLOTS_PER_EPOCH * 2
     ## Number of slots from wall time that we start processing every payload
-  MAX_DEDUP_QUEUE_LEN = 16
-    ## Number of blocks, with FIFO discipline, against which to check queued
-    ## blocks before being processed to avoid spamming ELs. This should stay
-    ## small enough that even O(n) algorithms are reasonable.
 
 type
   BlobSidecars* = seq[ref BlobSidecar]
