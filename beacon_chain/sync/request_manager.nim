@@ -199,7 +199,7 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     if blobs.isOk:
       let ublobs = blobs.get()
       if not checkResponse(idList, ublobs.asSeq()):
-        debug "Mismatching response to blobs by root",
+        debug "Mismatched response to blobs by root",
           peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
         peer.updateScore(PeerScoreBadResponse)
         return
