@@ -1311,7 +1311,8 @@ suite "Shufflings":
             blckEpoch = blck.bid.slot.epoch
             minEpoch = min(stateEpoch, blckEpoch)
           if compute_activation_exit_epoch(minEpoch) <= epoch or
-              dag.ancestorSlotForShuffling(forkyState, blck, epoch).isNone:
+              dag.ancestorSlotForAttesterShuffling(
+                forkyState, blck, epoch).isNone:
             check shufflingRef.isErr
           else:
             check shufflingRef.isOk
