@@ -1515,7 +1515,7 @@ proc fillSyncCommitteeSelectionProofs*(
               continue
             let proof = vc.getSyncCommitteeSelectionProof(duty.pubkey, epoch).
                           get(default(SyncCommitteeSelectionProof))
-            for inindex in proof.validator_sync_committee_indices:
+            for inindex in duty.validator_sync_committee_indices:
               for slot in epoch.slots():
                 if slot < start: continue
                 if slot > finish: break
@@ -1545,33 +1545,36 @@ proc fillSyncCommitteeSelectionProofs*(
       await allFutures(pending)
       raise exc
 
-    var completed: seq[int]
-
-    for index, fut in pendingRequests.pairs():
-      if fut.finished():
-        completed.add(index)
-        let
-          request = requests[index]
-          signature =
-            if fut.completed():
-              let sres = Future[SignatureResult](fut).read()
-              if sres.isErr():
-                warn "Unable to create slot signature using remote signer",
-                     reason = sres.error(), epoch = request.slot.epoch(),
-                     slot = request.slot
-                Opt.none(ValidatorSig)
-              else:
-                inc(sigres.signaturesReceived)
-                Opt.some(sres.get())
-            else:
-              Opt.none(ValidatorSig)
-        vc.setSyncSelectionProof(request.validator.pubkey,
-                                 request.sync_committee_index,
-                                 request.slot, request.duty,
-                                 signature)
-    for index in (len(completed) - 1) .. 0:
-      pendingRequests.del(completed[index])
-      requests.del(completed[index])
+    (requests, pendingRequests) =
+      block:
+        var
+          res1: seq[SyncCommitteeSlotRequest]
+          res2: seq[FutureBase]
+        for index, fut in pendingRequests.pairs():
+          if not(fut.finished()):
+            res1.add(requests[index])
+            res2.add(fut)
+          else:
+            let
+              request = requests[index]
+              signature =
+                if fut.completed():
+                  let sres = Future[SignatureResult](fut).read()
+                  if sres.isErr():
+                    warn "Unable to create slot signature using remote signer",
+                         reason = sres.error(), epoch = request.slot.epoch(),
+                         slot = request.slot
+                    Opt.none(ValidatorSig)
+                  else:
+                    inc(sigres.signaturesReceived)
+                    Opt.some(sres.get())
+                else:
+                  Opt.none(ValidatorSig)
+            vc.setSyncSelectionProof(request.validator.pubkey,
+                                     request.sync_committee_index,
+                                     request.slot, request.duty,
+                                     signature)
+        (res1, res2)
   sigres
 
 proc fillAttestationSelectionProofs*(
@@ -1621,31 +1624,35 @@ proc fillAttestationSelectionProofs*(
       await allFutures(pending)
       raise exc
 
-    var completed: seq[int]
-    for index, fut in pendingRequests.pairs():
-      if fut.finished():
-        completed.add(index)
-        let
-          request = requests[index]
-          signature =
-            if fut.completed():
-              let sres = Future[SignatureResult](fut).read()
-              if sres.isErr():
-                warn "Unable to create slot signature using remote signer",
-                     reason = sres.error(), epoch = request.slot.epoch(),
-                     slot = request.slot
-                Opt.none(ValidatorSig)
-              else:
-                inc(sigres.signaturesReceived)
-                Opt.some(sres.get())
-            else:
-              Opt.none(ValidatorSig)
-        vc.attesters.withValue(request.validator.pubkey, map):
-          map[].duties.withValue(request.slot.epoch(), dap):
-            dap[].slotSig = signature
-    for index in (len(completed) - 1).. 0:
-      pendingRequests.del(completed[index])
-      requests.del(completed[index])
+    (requests, pendingRequests) =
+      block:
+        var
+          res1: seq[AttestationSlotRequest]
+          res2: seq[FutureBase]
+        for index, fut in pendingRequests.pairs():
+          if not(fut.finished()):
+            res1.add(requests[index])
+            res2.add(fut)
+          else:
+            let
+              request = requests[index]
+              signature =
+                if fut.completed():
+                  let sres = Future[SignatureResult](fut).read()
+                  if sres.isErr():
+                    warn "Unable to create slot signature using remote signer",
+                         reason = sres.error(), epoch = request.slot.epoch(),
+                         slot = request.slot
+                    Opt.none(ValidatorSig)
+                  else:
+                    inc(sigres.signaturesReceived)
+                    Opt.some(sres.get())
+                else:
+                  Opt.none(ValidatorSig)
+            vc.attesters.withValue(request.validator.pubkey, map):
+              map[].duties.withValue(request.slot.epoch(), dap):
+                dap[].slotSig = signature
+        (res1, res2)
   sigres
 
 proc updateRuntimeConfig*(vc: ValidatorClientRef,
