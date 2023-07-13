@@ -130,9 +130,11 @@ type
     index*: int
     timeOffset*: Opt[TimeOffset]
 
-  SyncCommitteeSelectionProof* = object
-    signatures*: seq[Opt[ValidatorSig]]
-    validator_sync_committee_indices*: seq[IndexInSyncCommittee]
+  EpochSelectionProof* = object
+    signatures*: array[SLOTS_PER_EPOCH, Opt[ValidatorSig]]
+    sync_committee_index*: IndexInSyncCommittee
+
+  SyncCommitteeSelectionProof* = seq[EpochSelectionProof]
 
   EpochDuties* = object
     duties*: Table[Epoch, DutyAndProof]
@@ -265,7 +267,6 @@ type
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
   DefaultSyncCommitteeDuty* = SyncCommitteeDuty()
-  DefaultSyncCommitteeSelectionProof* = SyncCommitteeSelectionProof()
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
   AllBeaconNodeRoles* = {
@@ -632,9 +633,6 @@ proc isDefault*(prd: ProposedData): bool =
 
 proc isDefault*(scd: SyncCommitteeDuty): bool =
   len(scd.validator_sync_committee_indices) == 0
-
-proc isDefault*(sp: SyncCommitteeSelectionProof): bool =
-  len(sp.validator_sync_committee_indices) == 0
 
 proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
   var res: set[BeaconNodeRole]
@@ -1418,45 +1416,46 @@ func `==`*(a, b: SyncCommitteeDuty): bool =
                   b.validator_sync_committee_indices)
 
 proc cmp(x, y: AttestationSlotRequest|SyncCommitteeSlotRequest): int =
-  if x.slot == y.slot: 0 elif x.slot < y.slot: -1 else: 1
+  cmp(x.slot, y.slot)
 
-func getSyncSelectionOffset*(proof: SyncCommitteeSelectionProof,
-                             inindex: IndexInSyncCommittee,
-                             slot: Slot): int =
-  let index = proof.validator_sync_committee_indices.find(inindex)
-  if index == -1:
-    return -1
-  int(Epoch(uint64(index)).start_slot() + (slot - slot.epoch().start_slot()))
+func getIndex*(proof: SyncCommitteeSelectionProof,
+               inindex: IndexInSyncCommittee): Opt[int] =
+  if len(proof) == 0:
+    return Opt.none(int)
+  for index, value in proof.pairs():
+    if value.sync_committee_index == inindex:
+      return Opt.some(index)
+  Opt.none(int)
 
-func isSyncSelectionSignature*(proof: SyncCommitteeSelectionProof,
-                               inindex: IndexInSyncCommittee,
-                               slot: Slot): bool =
-  let offset = proof.getSyncSelectionOffset(inindex, slot)
-  offset >= 0 and (offset < len(proof.signatures))
+func hasSignature*(proof: SyncCommitteeSelectionProof,
+                   inindex: IndexInSyncCommittee,
+                   slot: Slot): bool =
+  let index = proof.getIndex(inindex).valueOr: return false
+  proof[index].signatures[int(slot.since_epoch_start())].isSome()
 
-proc setSyncSelectionSignature*(proof: var SyncCommitteeSelectionProof,
-                                inindex: IndexInSyncCommittee, slot: Slot,
-                                signature: Opt[ValidatorSig]) =
-  let offset = proof.getSyncSelectionOffset(inindex, slot)
-  doAssert(offset >= 0 and offset < len(proof.signatures))
-  proof.signatures[offset] = signature
+proc setSignature*(proof: var SyncCommitteeSelectionProof,
+                   inindex: IndexInSyncCommittee, slot: Slot,
+                   signature: Opt[ValidatorSig]) =
+  let index = proof.getIndex(inindex).valueOr:
+    raiseAssert "EpochSelectionProof should be present at this moment"
+  proof[index].signatures[int(slot.since_epoch_start())] = signature
 
 proc setSyncSelectionProof*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
                             inindex: IndexInSyncCommittee, slot: Slot,
                             duty: SyncCommitteeDuty,
                             signature: Opt[ValidatorSig]) =
   let
-    length =
-      int(Epoch(lenu64(duty.validator_sync_committee_indices)).start_slot())
-    defaultProof = SyncCommitteeSelectionProof(
-      validator_sync_committee_indices: duty.validator_sync_committee_indices,
-      signatures: newSeq[Opt[ValidatorSig]](length)
-    )
+    proof =
+      block:
+        let length = len(duty.validator_sync_committee_indices)
+        var res = newSeq[EpochSelectionProof](length)
+        for i in 0 ..< length:
+          res[i].sync_committee_index = duty.validator_sync_committee_indices[i]
+        res
 
   vc.syncCommitteeProofs.
     mgetOrPut(slot.epoch(), default(SyncCommitteeProofs)).proofs.
-    mgetOrPut(pubkey, defaultProof).
-      setSyncSelectionSignature(inindex, slot, signature)
+    mgetOrPut(pubkey, proof).setSignature(inindex, slot, signature)
 
 proc getSyncCommitteeSelectionProof*(
     vc: ValidatorClientRef,
@@ -1479,12 +1478,9 @@ proc getSyncCommitteeSelectionProof*(
      ): Opt[ValidatorSig] =
   vc.syncCommitteeProofs.withValue(slot.epoch(), epochProofs):
     epochProofs[].proofs.withValue(pubkey, validatorProofs):
-      let offset = getSyncSelectionOffset(validatorProofs[], inindex, slot)
-      return
-        if offset < len(validatorProofs[].signatures):
-          validatorProofs[].signatures[offset]
-        else:
-          Opt.none(ValidatorSig)
+      let index = getIndex(validatorProofs[], inindex).valueOr:
+        return Opt.none(ValidatorSig)
+      return validatorProofs[][index].signatures[int(slot.since_epoch_start())]
     do:
       return Opt.none(ValidatorSig)
   do:
@@ -1519,7 +1515,7 @@ proc fillSyncCommitteeSelectionProofs*(
               for slot in epoch.slots():
                 if slot < start: continue
                 if slot > finish: break
-                if not(proof.isSyncSelectionSignature(inindex, slot)):
+                if not(proof.hasSignature(inindex, slot)):
                   res.add(
                     SyncCommitteeSlotRequest(
                       validator: validator,
@@ -1659,7 +1655,7 @@ proc updateRuntimeConfig*(vc: ValidatorClientRef,
                           info: VCRuntimeConfig): Result[void, string] =
   let res = info.getOrDefault("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH)
   if res == FAR_FUTURE_EPOCH:
-    return err("Missing or invalid ALTAIR_FORK_EPOCH value")
+    return err("Missing ALTAIR_FORK_EPOCH value")
   if vc.runtimeConfig.altairEpoch.isSome():
     if vc.runtimeConfig.altairEpoch.get() != res:
       return err("Different ALTAIR_FORK_EPOCH value")
@@ -1668,10 +1664,7 @@ proc updateRuntimeConfig*(vc: ValidatorClientRef,
   ok()
 
 proc `+`*(slot: Slot, epochs: Epoch): Slot =
-  let
-    slotEpoch = slot.epoch()
-    slotInEpoch = slot - slotEpoch.start_slot()
-  (slotEpoch + uint64(epochs)).start_slot() + slotInEpoch
+  slot + uint64(epochs) * SLOTS_PER_EPOCH
 
 func finish_slot*(epoch: Epoch): Slot =
   ## Return the last slot of ``epoch``.

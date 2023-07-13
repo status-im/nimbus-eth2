@@ -217,18 +217,19 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
         resMap: array[SYNC_COMMITTEE_SUBNET_COUNT,
                       Future[SyncCommitteeContribution]]
       for duty in duties:
+        let validator = vc.getValidatorForDuties(duty.pubkey, slot).valueOr:
+          continue
+        if validator.index.isNone():
+          continue
         for inindex in duty.validator_sync_committee_indices:
           let
-            validator = vc.getValidatorForDuties(duty.pubkey, slot).valueOr:
-              continue
             subCommitteeIdx = getSubcommitteeIndex(inindex)
             signature =
               vc.getSyncCommitteeSelectionProof(duty.pubkey,
                                                 slot, inindex).valueOr:
                 continue
 
-          if validator.index.isSome() and
-             is_sync_committee_aggregator(signature):
+          if is_sync_committee_aggregator(signature):
             resItems.add(ContributionItem(
               aggregator_index: uint64(validator.index.get()),
               selection_proof: signature,

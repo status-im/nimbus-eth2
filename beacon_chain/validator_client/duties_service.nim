@@ -303,7 +303,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
         moment = Moment.now()
         sigres = await service.fillAttestationSelectionProofs(
           currentSlot, currentSlot + Epoch(1))
-      debug "Slot signatures has been received",
+      debug "Attestation selection proofs have been received",
             signatures_requested = sigres.signaturesRequested,
             signatures_received = sigres.signaturesReceived,
             time = (Moment.now() - moment)
@@ -371,7 +371,7 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
         moment = Moment.now()
         sigres = await service.fillSyncCommitteeSelectionProofs(
           currentSlot, currentSlot + Epoch(AGGREGATION_PRE_COMPUTE_EPOCHS))
-      debug "Sync committee selection proofs has been received",
+      debug "Sync committee selection proofs have been received",
             signatures_requested = sigres.signaturesRequested,
             signatures_received = sigres.signaturesReceived,
             time = (Moment.now() - moment)
