@@ -36,15 +36,15 @@ proc makeTestDB*(
       forkyState.data.eth1_data = eth1Data.get
       forkyState.root = hash_tree_root(forkyState.data)
 
-  # Upgrade genesis state to later fork, if not starting at Phase0
-  withConsensusFork(cfg.consensusForkAtEpoch(GENESIS_EPOCH)):
-    when consensusFork > ConsensusFork.Phase0:
-      let genBlockRoot = hash_tree_root(
-        default(BeaconBlockBodyType(consensusFork)))
-      withState(genState[]):
-        forkyState.data.latest_block_header.body_root = genBlockRoot
-        forkyState.root = hash_tree_root(forkyState.data)
-      cfg.maybeUpgradeState(genState[])
+  # Upgrade genesis state to later fork, if required by fork schedule
+  cfg.maybeUpgradeState(genState[])
+  withState(genState[]):
+    when consensusFork >= ConsensusFork.Phase0:
+      forkyState.data.fork.previous_version =
+        forkyState.data.fork.current_version
+      forkyState.data.latest_block_header.body_root =
+        hash_tree_root(default(BeaconBlockBodyType(consensusFork)))
+      forkyState.root = hash_tree_root(forkyState.data)
 
   result = BeaconChainDB.new("", cfg = cfg, inMemory = true)
   ChainDAGRef.preInit(result, genState[])
