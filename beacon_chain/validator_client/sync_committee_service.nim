@@ -467,7 +467,7 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
           true
         else:
           currentSlot = slot
-          # await service.processSyncCommitteeTasks(currentSlot.get())
+          await service.processSyncCommitteeTasks(currentSlot.get())
           false
       except CancelledError:
         debug "Service interrupted"
