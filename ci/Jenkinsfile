@@ -40,7 +40,7 @@ pipeline {
       throttleOption: 'category',
       categories: ['nimbus-eth2'],
       maxConcurrentPerNode: 1,
-      maxConcurrentTotal: 6
+      maxConcurrentTotal: 9
     )
     /* Abort old builds for non-main branches. */
     disableConcurrentBuilds(

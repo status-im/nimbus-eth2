@@ -369,6 +369,8 @@ proc initFullNode(
                                     resfut,
                                     maybeFinalized = maybeFinalized)
       resfut
+
+
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
@@ -386,6 +388,10 @@ proc initFullNode(
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
+    requestManager = RequestManager.init(
+      node.network, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
+      (proc(): bool = syncManager.inProgress),
+      quarantine, blobQuarantine, rmanBlockVerifier)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -417,12 +423,7 @@ proc initFullNode(
   node.processor = processor
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
-  node.requestManager = RequestManager.init(node.network,
-                                            dag.cfg.DENEB_FORK_EPOCH,
-                                            getBeaconTime,
-                                            quarantine,
-                                            blobQuarantine,
-                                            rmanBlockVerifier)
+  node.requestManager = requestManager
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.router = router
@@ -1393,16 +1394,9 @@ proc handleMissingBlobs(node: BeaconNode) =
     debug "Requesting detected missing blobs", blobs = shortLog(fetches)
     node.requestManager.fetchMissingBlobs(fetches)
 
-proc handleMissingBlocks(node: BeaconNode) =
-  let missingBlocks = node.quarantine[].checkMissing()
-  if missingBlocks.len > 0:
-    debug "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
-    node.requestManager.fetchAncestorBlocks(missingBlocks)
-
 proc onSecond(node: BeaconNode, time: Moment) =
   ## This procedure will be called once per second.
   if not(node.syncManager.inProgress):
-    node.handleMissingBlocks()
     node.handleMissingBlobs()
 
   # Nim GC metrics (for the main thread)
