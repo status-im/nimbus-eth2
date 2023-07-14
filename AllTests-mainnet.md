@@ -1,5 +1,10 @@
 AllTests-mainnet
 ===
+## Ancestry
+```diff
++ ancestorSlot                                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
@@ -100,11 +105,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers
 ```diff
-+ commonAncestor sanity                                                                      OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockSlot and helpers
 ```diff
 + atSlot sanity                                                                              OK
