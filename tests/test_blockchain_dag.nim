@@ -1469,11 +1469,10 @@ suite "Ancestry":
     for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
       check dag.ancestorSlot(s9.state[], b.bid, Slot(20)) == Opt.none(Slot)
 
-suite "Shufflings":
+template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
   const
     numValidators = SLOTS_PER_EPOCH
     targetNumValidators = 20 * SLOTS_PER_EPOCH * MAX_DEPOSITS
-  let cfg = defaultRuntimeConfig
   var deposits = newSeqOfCap[Deposit](targetNumValidators)
   for depositIndex in 0 ..< targetNumValidators:
     deposits.add Deposit(data: makeDeposit(depositIndex.int, cfg = cfg))
@@ -1575,7 +1574,7 @@ suite "Shufflings":
   test "Accelerated shuffling computation":
     randomize()
     let forkBlocks = dag.forkBlocks.toSeq()
-    for _ in 0 ..< 150:  # Number of random tests (against _all_ cached states)
+    for _ in 0 ..< numRandomTests:  # Each test runs against _all_ cached states
       let
         blck = sample(forkBlocks).data
         epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)
@@ -1655,3 +1654,15 @@ suite "Shufflings":
 
       # If shuffling is computable from DB, check its correctness
       epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
+
+suite "Shufflings":
+  let cfg = defaultRuntimeConfig
+  runShufflingTests(cfg, numRandomTests = 150)
+
+suite "Shufflings (merged)":
+  let cfg = block:
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg
+  runShufflingTests(cfg, numRandomTests = 50)

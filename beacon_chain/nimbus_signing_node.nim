@@ -45,7 +45,7 @@ type
 
   SigningNodeError* = object of CatchableError
 
-proc validate(key: string, value: string): int =
+func validate(key: string, value: string): int =
   case key
   of "{validator_key}":
     0

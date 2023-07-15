@@ -1398,17 +1398,6 @@ proc computeAttesterRandaoMix(
   doAssert ancestorSlot <= stateSlot
   doAssert ancestorSlot <= dependentSlot
 
-  var mix: Eth2Digest
-  proc mixToAncestor(highBid: BlockId): Opt[void] =
-    ## Mix in/out RANDAO reveals back to `ancestorSlot`
-    var bid = highBid
-    while bid.slot > ancestorSlot:
-      let bdata = ? dag.getForkedBlock(bid)
-      withBlck(bdata):  # See `process_randao` / `process_randao_mixes_reset`
-        mix.data.mxor eth2digest(blck.message.body.randao_reveal.toRaw()).data
-      bid = ? dag.parent(bid)
-    ok()
-
   # Determine block for obtaining RANDAO mix
   let
     dependentBid =
@@ -1419,10 +1408,35 @@ proc computeAttesterRandaoMix(
       else:
         let bsi = ? dag.getBlockIdAtSlot(dependentSlot)
         bsi.bid
+    dependentBdata = ? dag.getForkedBlock(dependentBid)
+  var mix {.noinit.}: Eth2Digest
+
+  # If `dependentBid` is post merge, RANDAO information is available
+  withBlck(dependentBdata):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      if blck.message.is_execution_block:
+        mix = eth2digest(blck.message.body.randao_reveal.toRaw())
+        mix.data.mxor blck.message.body.execution_payload.prev_randao.data
+        return ok (dependentBid: dependentBid, mix: mix)
+
+  # RANDAO mix has to be recomputed from `blck` and `state`
+  proc mixToAncestor(highBid: BlockId): Opt[void] =
+    ## Mix in/out RANDAO reveals back to `ancestorSlot`
+    var bid = highBid
+    while bid.slot > ancestorSlot:
+      let bdata = ? dag.getForkedBlock(bid)
+      withBlck(bdata):  # See `process_randao` / `process_randao_mixes_reset`
+        mix.data.mxor eth2digest(blck.message.body.randao_reveal.toRaw()).data
+      bid = ? dag.parent(bid)
+    ok()
 
   # Mix in RANDAO from `blck`
   if ancestorSlot < dependentBid.slot:
-    ? mixToAncestor(dependentBid)
+    withBlck(dependentBdata):
+      mix = eth2digest(blck.message.body.randao_reveal.toRaw())
+    ? mixToAncestor(? dag.parent(dependentBid))
+  else:
+    mix.reset()
 
   # Mix in RANDAO from `state`
   let ancestorEpoch = ancestorSlot.epoch

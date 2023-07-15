@@ -258,44 +258,6 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
 
   return true
 
-proc checkSensitivePathPermissions(dirFilePath: string): bool =
-  ## If ``dirFilePath`` is file, then check if file has only
-  ##
-  ##   - "(600) rwx------" permissions on Posix (Linux, MacOS, BSD)
-  ##   - current user only ACL on Windows
-  ##
-  ## If ``dirFilePath`` is directory, then check if directory has only
-  ##
-  ##   - "(700) rwx------" permissions on Posix (Linux, MacOS, BSD)
-  ##   - current user only ACL on Windows
-  ##
-  ## Procedure returns ``true`` if directory/file is present and all required
-  ## permissions are set.
-  let r1 = isDir(dirFilePath)
-  let r2 = isFile(dirFilePath)
-  if r1 or r2:
-    when defined(windows):
-      let res = checkCurrentUserOnlyACL(dirFilePath)
-      if res.isErr():
-        false
-      else:
-        if res.get() == false:
-          false
-        else:
-          true
-    else:
-      let requiredPermissions = if r1: 0o700 else: 0o600
-      let res = getPermissions(dirFilePath)
-      if res.isErr():
-        false
-      else:
-        if res.get() != requiredPermissions:
-          false
-        else:
-          true
-  else:
-    false
-
 proc checkSensitiveFilePermissions*(filePath: string): bool =
   ## Check if ``filePath`` has only "(600) rw-------" permissions.
   ## Procedure returns ``false`` if permissions are different and we can't
@@ -711,7 +673,6 @@ iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
         let
           keyName = splitFile(file).name
           keystoreDir = validatorsDir / keyName
-          keystoreFile = keystoreDir / KeystoreFileName
 
         if not(checkKeyName(keyName)):
           # Skip folders which name do not satisfy "0x[a-fA-F0-9]{96, 96}".
@@ -722,7 +683,6 @@ iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
           continue
 
         let
-          secretFile = secretsDir / keyName
           keystore = loadKeystore(validatorsDir, secretsDir, keyName,
                                   nonInteractive, cache).valueOr:
             fatal "Unable to load keystore", keystore = file
@@ -1282,14 +1242,6 @@ proc saveKeystore*(
   let remoteInfo = RemoteSignerInfo(url: url, id: 0)
   saveKeystore(validatorsDir, publicKey, @[remoteInfo], 1)
 
-proc saveLockedKeystore(
-       validatorsDir: string,
-       publicKey: ValidatorPubKey,
-       url:  HttpHostUri
-     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
-  let remoteInfo = RemoteSignerInfo(url: url, id: 0)
-  saveLockedKeystore(validatorsDir, publicKey, @[remoteInfo], 1)
-
 proc importKeystore*(pool: var ValidatorPool,
                      validatorsDir: string,
                      keystore: RemoteKeystore): ImportResult[KeystoreData]
@@ -1298,7 +1250,6 @@ proc importKeystore*(pool: var ValidatorPool,
     publicKey = keystore.pubkey
     keyName = publicKey.fsName
     keystoreDir = validatorsDir / keyName
-    keystoreFile = keystoreDir / RemoteKeystoreFileName
 
   # We check `publicKey`.
   let cookedKey = publicKey.load().valueOr:
@@ -1340,9 +1291,7 @@ proc importKeystore*(pool: var ValidatorPool,
   let
     publicKey = privateKey.toPubKey()
     keyName = publicKey.fsName
-    secretFile = secretsDir / keyName
     keystoreDir = validatorsDir / keyName
-    keystoreFile = keystoreDir / KeystoreFileName
 
   # We check `publicKey` in memory storage first.
   if publicKey.toPubKey() in pool:

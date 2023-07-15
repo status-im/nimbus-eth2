@@ -1256,7 +1256,7 @@ proc readValue*(r: var TomlReader, value: var GraffitiBytes)
                {.raises: [Defect, SerializationError, IOError].} =
   try:
     value = GraffitiBytes.init(r.readValue(string))
-  except ValueError as err:
+  except ValueError:
     r.raiseUnexpectedValue("A printable string or 0x-prefixed hex-encoded raw bytes expected")
 
 proc readValue*(r: var TomlReader, val: var NatConfig)

@@ -183,8 +183,6 @@ const
     "No Finalized Snapshot Available"
   NoImplementationError* =
     "Not implemented yet"
-  KeystoreAdditionFailure =
-    "Could not add some keystores"
   InvalidKeystoreObjects* =
     "Invalid keystore objects found"
   InvalidValidatorPublicKey* =
