@@ -887,13 +887,6 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       if provenBlockProperties.isNone:
         reader.raiseUnexpectedValue("The required field `proven_block_properties` is missing")
 
-  let keystoreFlags =
-    block:
-      var res: set[RemoteKeystoreFlag]
-      if ignoreSslVerification.isSome():
-        res.incl(RemoteKeystoreFlag.IgnoreSSLVerification)
-      res
-
   value = case remoteType.get(RemoteSignerType.Web3Signer)
     of RemoteSignerType.Web3Signer:
       RemoteKeystore(
