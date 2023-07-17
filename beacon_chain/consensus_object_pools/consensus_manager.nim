@@ -340,11 +340,11 @@ proc getGasLimit*(
 from ../spec/datatypes/bellatrix import PayloadID
 
 proc runProposalForkchoiceUpdated*(
-    self: ref ConsensusManager, wallSlot: Slot): Opt[void] {.async.} =
+    self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async.} =
   let
     nextWallSlot = wallSlot + 1
     (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
-      return false
+      return err()
   debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
     nextWallSlot, validatorIndex, nextProposer
 
@@ -353,7 +353,7 @@ proc runProposalForkchoiceUpdated*(
   if nextWallSlot.is_epoch:
     debug "runProposalForkchoiceUpdated: not running early fcU for epoch-aligned proposal slot",
       nextWallSlot, validatorIndex, nextProposer
-    return false
+    return err()
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
@@ -382,7 +382,7 @@ proc runProposalForkchoiceUpdated*(
     headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck)
 
   if headBlockHash.isZero:
-    return false
+    return err()
 
   try:
     let safeBlockHash = beaconHead.safeExecutionPayloadHash
@@ -410,7 +410,7 @@ proc runProposalForkchoiceUpdated*(
   except CatchableError as err:
     error "Engine API fork-choice update failed", err = err.msg
 
-  true
+  ok()
 
 proc updateHeadWithExecution*(
     self: ref ConsensusManager, initialNewHead: BeaconHead,

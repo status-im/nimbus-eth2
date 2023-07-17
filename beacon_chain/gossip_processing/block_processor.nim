@@ -662,8 +662,8 @@ proc storeBlock*(
           # Some attached validator is next proposer, so prepare payload. As
           # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
           # which needs the state corresponding to that head block, can run.
-          if not await self.consensusManager.runProposalForkchoiceUpdated(
-              wallSlot):
+          if (await self.consensusManager.runProposalForkchoiceUpdated(
+              wallSlot)).isNone:
             callForkChoiceUpdated()
       else:
         await self.consensusManager.updateHeadWithExecution(
