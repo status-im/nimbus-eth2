@@ -457,7 +457,7 @@ proc updateHeadWithExecution*(
     # needs while runProposalForkchoiceUpdated requires RANDAO information
     # from the head state corresponding to the `newHead` block, which only
     # self.dag.updateHead(...) sets up.
-    await self.runProposalForkchoiceUpdated(getBeaconTimeFn().slotOrZero)
+    discard await self.runProposalForkchoiceUpdated(getBeaconTimeFn().slotOrZero)
 
     self[].checkExpectedBlock()
   except CatchableError as exc:
