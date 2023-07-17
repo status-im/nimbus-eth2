@@ -993,9 +993,8 @@ proc workerLoop(address: TransportAddress, uri: Uri, worker: int,
       let testRes = await runTest(conn, uri, test.rule, worker, test.index)
       let caseRes = TestCaseResult(index: test.index, data: testRes)
       await outputQueue.addLast(caseRes)
-      if ResetConnection in testRes.flags:
-        await conn.closeWait()
-        conn = nil
+      await conn.closeWait()
+      conn = nil
       index = 0
     except CancelledError:
       if not(isNil(conn)):
