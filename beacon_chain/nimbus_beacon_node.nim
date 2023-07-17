@@ -1346,6 +1346,33 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
 
+  # This BN may still be used by external validator clients to process duties.
+  # `onSlotEnd` should be delayed until all duties had a chance to complete.
+  # We don't have an efficient tracker that separates VC duties from local ones.
+  # Therefore, wait whenever there are duties from any source for wall slot.
+  let
+    nextAttestationSlot =
+      node.consensusManager[].actionTracker.getNextAttestationSlot(wallSlot)
+    nextProposalSlot =
+      node.consensusManager[].actionTracker.getNextProposalSlot(wallSlot)
+    isInCurrentSyncCommittee =
+      not node.getCurrentSyncCommiteeSubnets(wallSlot.epoch).isZeros
+    hasDutiesForWallSlot =
+      nextAttestationSlot == wallSlot or
+      nextProposalSlot == wallSlot or
+      isInCurrentSyncCommittee
+  if hasDutiesForWallSlot:
+    const endSlotOffset = aggregateSlotOffset + nanos(
+      (NANOSECONDS_PER_SLOT - aggregateSlotOffset.nanoseconds.uint64)
+        .int64 div 2)
+    let endSlotCutoff = node.beaconClock.fromNow(
+      wallSlot.start_beacon_time + endSlotOffset)
+    if endSlotCutoff.inFuture:
+      debug "Waiting for validator duties to complete",
+        endSlotCutoff = shortLog(endSlotCutoff.offset),
+        numAttachedValidators = node.attachedValidators[].count
+      await sleepAsync(endSlotCutoff.offset)
+
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#registration-dissemination
