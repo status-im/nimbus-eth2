@@ -340,7 +340,7 @@ proc getGasLimit*(
 from ../spec/datatypes/bellatrix import PayloadID
 
 proc runProposalForkchoiceUpdated*(
-    self: ref ConsensusManager, wallSlot: Slot): Future[bool] {.async.} =
+    self: ref ConsensusManager, wallSlot: Slot): Opt[void] {.async.} =
   let
     nextWallSlot = wallSlot + 1
     (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
