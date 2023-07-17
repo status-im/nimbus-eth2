@@ -513,6 +513,8 @@ proc getOrDefault*(info: VCRuntimeConfig, name: string,
   Base10.decode(uint64, numstr).valueOr:
     return default
 
+proc hasKey*(info: VCRuntimeConfig, name: string): bool = info.hasKey(name)
+
 proc getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
   Epoch(info.getOrDefault(name, uint64(default)))
 
@@ -1436,8 +1438,8 @@ func hasSignature*(proof: SyncCommitteeSelectionProof,
 proc setSignature*(proof: var SyncCommitteeSelectionProof,
                    inindex: IndexInSyncCommittee, slot: Slot,
                    signature: Opt[ValidatorSig]) =
-  let index = proof.getIndex(inindex).valueOr:
-    raiseAssert "EpochSelectionProof should be present at this moment"
+  let index = proof.getIndex(inindex).expect(
+    "EpochSelectionProof should be present at this moment")
   proof[index].signatures[int(slot.since_epoch_start())] = signature
 
 proc setSyncSelectionProof*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
@@ -1652,16 +1654,35 @@ proc fillAttestationSelectionProofs*(
   sigres
 
 proc updateRuntimeConfig*(vc: ValidatorClientRef,
+                          node: BeaconNodeServerRef,
                           info: VCRuntimeConfig): Result[void, string] =
-  let res = info.getOrDefault("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH)
-  if res == FAR_FUTURE_EPOCH:
-    return err("Missing ALTAIR_FORK_EPOCH value")
-  if vc.runtimeConfig.altairEpoch.isSome():
-    if vc.runtimeConfig.altairEpoch.get() != res:
-      return err("Different ALTAIR_FORK_EPOCH value")
-  else:
-    vc.runtimeConfig.altairEpoch = Opt.some(res)
-  ok()
+  if not(info.hasKey("ALTAIR_FORK_EPOCH")):
+    debug "Beacon node's configuration missing ALTAIR_FORK_EPOCH value",
+          node = node
+
+  let
+    res = info.getOrDefault("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH)
+    wallEpoch = vc.beaconClock.now().slotOrZero().epoch()
+
+  return
+    if vc.runtimeConfig.altairEpoch.get(FAR_FUTURE_EPOCH) == FAR_FUTURE_EPOCH:
+      vc.runtimeConfig.altairEpoch = Opt.some(res)
+      ok()
+    else:
+      if res == vc.runtimeConfig.altairEpoch.get():
+        ok()
+      else:
+        if res == FAR_FUTURE_EPOCH:
+          if wallEpoch < vc.runtimeConfig.altairEpoch.get():
+            debug "Beacon node must be updated before Altair activates",
+                  node = node,
+                  altairForkEpoch = vc.runtimeConfig.altairEpoch.get()
+            ok()
+          else:
+            err("Beacon node must be updated and report correct " &
+                "ALTAIR_FORK_EPOCH value")
+        else:
+          err("Beacon node has conflicting ALTAIR_FORK_EPOCH value")
 
 proc `+`*(slot: Slot, epochs: Epoch): Slot =
   slot + uint64(epochs) * SLOTS_PER_EPOCH

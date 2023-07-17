@@ -149,7 +149,7 @@ proc checkCompatible(
               genesis_flag = genesisFlag, config_flag = configFlag
       RestBeaconNodeStatus.Incompatible
     else:
-      let res = vc.updateRuntimeConfig(node.config)
+      let res = vc.updateRuntimeConfig(node, node.config)
       if res.isErr():
         warn "Beacon nodes report different configuration values",
              reason = res.error

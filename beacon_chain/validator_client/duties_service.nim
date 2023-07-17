@@ -197,7 +197,7 @@ proc pollForSyncCommitteeDuties*(
   let
     vc = service.client
     indices = toSeq(vc.attachedValidators[].indices())
-    epoch = period.start_epoch()
+    epoch = max(period.start_epoch(), vc.runtimeConfig.altairEpoch.get())
     relevantDuties =
       block:
         var duties: seq[RestSyncCommitteeDuty]
@@ -251,7 +251,7 @@ proc pollForSyncCommitteeDuties*(
               res.add((period, duty))
         if not(dutyFound):
           res.add((period, duty))
-          info "Received new sync committee duty", duty, period = period
+          info "Received new sync committee duty", duty, period
       res
 
   for item in addOrReplaceItems:
