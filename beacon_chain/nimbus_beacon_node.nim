@@ -1370,7 +1370,8 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
     if endSlotCutoff.inFuture:
       debug "Waiting for validator duties to complete",
         endSlotCutoff = shortLog(endSlotCutoff.offset),
-        numAttachedValidators = node.attachedValidators[].count
+        numAttachedValidators = node.attachedValidators[].count,
+        nextAttestationSlot, nextProposalSlot, isInCurrentSyncCommittee
       await sleepAsync(endSlotCutoff.offset)
 
   await onSlotEnd(node, wallSlot)
