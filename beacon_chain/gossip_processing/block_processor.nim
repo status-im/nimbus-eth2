@@ -638,30 +638,33 @@ proc storeBlock*(
         # `forkchoiceUpdated` necessary for EL client only.
         self.consensusManager[].updateHead(newHead.get.blck)
 
-        if self.consensusManager.checkNextProposer(wallSlot).isNone:
-          # No attached validator is next proposer, so use non-proposal fcU
+        template callExpectValidFCU(payloadAttributeType: untyped): auto =
+          await elManager.expectValidForkchoiceUpdated(
+            headBlockPayloadAttributesType = payloadAttributeType,
+            headBlockHash = headExecutionPayloadHash,
+            safeBlockHash = newHead.get.safeExecutionPayloadHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+            receivedBlock = signedBlock)
 
-          template callForkchoiceUpdated(payloadAttributeType: untyped): auto =
-            await elManager.expectValidForkchoiceUpdated(
-              headBlockPayloadAttributesType = payloadAttributeType,
-              headBlockHash = headExecutionPayloadHash,
-              safeBlockHash = newHead.get.safeExecutionPayloadHash,
-              finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
-              receivedBlock = signedBlock)
-
+        template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
           of ConsensusFork.Capella, ConsensusFork.Deneb:
-            callForkchoiceUpdated(payloadAttributeType = PayloadAttributesV2)
+            callExpectValidFCU(payloadAttributeType = PayloadAttributesV2)
           of  ConsensusFork.Phase0, ConsensusFork.Altair,
               ConsensusFork.Bellatrix:
-            callForkchoiceUpdated(payloadAttributeType = PayloadAttributesV1)
+            callExpectValidFCU(payloadAttributeType = PayloadAttributesV1)
+
+        if self.consensusManager.checkNextProposer(wallSlot).isNone:
+          # No attached validator is next proposer, so use non-proposal fcU
+          callForkChoiceUpdated()
         else:
           # Some attached validator is next proposer, so prepare payload. As
           # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
           # which needs the state corresponding to that head block, can run.
-          await self.consensusManager.runProposalForkchoiceUpdated(
-            wallSlot)
+          if not await self.consensusManager.runProposalForkchoiceUpdated(
+              wallSlot):
+            callForkChoiceUpdated()
       else:
         await self.consensusManager.updateHeadWithExecution(
           newHead.get, self.getBeaconTime)
