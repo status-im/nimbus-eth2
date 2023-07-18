@@ -1140,17 +1140,18 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   node.updateBlocksGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
-# -1 is a more useful output than 18446744073709551615 as an indicator of
-# no future attestation/proposal known.
-template formatAsGaugeInt64(x: Slot): int64 =
-  if x == high(uint64).Slot:
-    -1'i64
-  else:
-    toGaugeValue(x)
-
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
+
+  # By waiting for close before slot end, ensure that preparation work for next
+  # slot does not interfere with propagation of messages and with VC duties.
+  const endOffset = aggregateSlotOffset + nanos(
+    (NANOSECONDS_PER_SLOT - aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
+  let endCutoff = node.beaconClock.fromNow(slot.start_beacon_time + endOffset)
+  if endCutoff.inFuture:
+    debug "Waiting for slot end", slot, endCutoff = shortLog(endCutoff.offset)
+    await sleepAsync(endCutoff.offset)
 
   if node.dag.needStateCachesAndForkChoicePruning():
     if node.attachedValidators[].validators.len > 0:
@@ -1215,6 +1216,14 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     nextActionWaitTime = saturate(fromNow(
       node.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
 
+  # -1 is a more useful output than 18446744073709551615 as an indicator of
+  # no future attestation/proposal known.
+  template formatInt64(x: Slot): int64 =
+    if x == high(uint64).Slot:
+      -1'i64
+    else:
+      toGaugeValue(x)
+
   template formatSyncCommitteeStatus(): string =
     let slotsToNextSyncCommitteePeriod =
       SLOTS_PER_SYNC_COMMITTEE_PERIOD - since_sync_committee_period_start(slot)
@@ -1237,8 +1246,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         "n/a"
       else:
         shortLog(nextActionWaitTime),
-    nextAttestationSlot = formatAsGaugeInt64(nextAttestationSlot),
-    nextProposalSlot = formatAsGaugeInt64(nextProposalSlot),
+    nextAttestationSlot = formatInt64(nextAttestationSlot),
+    nextProposalSlot = formatInt64(nextProposalSlot),
     syncCommitteeDuties = formatSyncCommitteeStatus(),
     head = shortLog(head)
 
@@ -1345,37 +1354,6 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
-
-  # This BN may still be used by external validator clients to process duties.
-  # `onSlotEnd` should be delayed until all duties had a chance to complete.
-  # We don't have an efficient tracker that separates VC duties from local ones.
-  # Therefore, wait whenever there are duties from any source for wall slot.
-  let
-    previousSlot = max(wallSlot, 1.Slot) - 1
-    nextAttestationSlot =
-      node.consensusManager[].actionTracker.getNextAttestationSlot(previousSlot)
-    nextProposalSlot =
-      node.consensusManager[].actionTracker.getNextProposalSlot(previousSlot)
-    isInCurrentSyncCommittee =
-      not node.getCurrentSyncCommiteeSubnets(previousSlot.epoch).isZeros
-    hasDutiesForWallSlot =
-      nextAttestationSlot == wallSlot or
-      nextProposalSlot == wallSlot or
-      isInCurrentSyncCommittee
-  if hasDutiesForWallSlot:
-    const endSlotOffset = aggregateSlotOffset + nanos(
-      (NANOSECONDS_PER_SLOT - aggregateSlotOffset.nanoseconds.uint64)
-        .int64 div 2)
-    let endSlotCutoff = node.beaconClock.fromNow(
-      wallSlot.start_beacon_time + endSlotOffset)
-    if endSlotCutoff.inFuture:
-      debug "Waiting for validator duties to complete",
-        wallSlot, endSlotCutoff = shortLog(endSlotCutoff.offset),
-        numAttachedValidators = node.attachedValidators[].count,
-        nextAttestationSlot = nextAttestationSlot.formatAsGaugeInt64,
-        nextProposalSlot = nextProposalSlot.formatAsGaugeInt64,
-        isInCurrentSyncCommittee
-      await sleepAsync(endSlotCutoff.offset)
 
   await onSlotEnd(node, wallSlot)
 
