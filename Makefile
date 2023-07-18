@@ -397,14 +397,23 @@ endif
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 	for TEST_BINARY in $(TEST_BINARIES); do \
 		PARAMS=""; \
+		REDIRECT=""; \
 		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
 		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
+		elif [[ "$${TEST_BINARY}" == "test_libnimbus_lc" ]]; then REDIRECT="$${TEST_BINARY}.log"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { \
-			echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
-			tail -n50 "$${TEST_BINARY}.log"; exit 1; \
-		}; \
+		if [[ "$${REDIRECT}" != "" ]]; then \
+			build/$${TEST_BINARY} $${PARAMS} > "$${REDIRECT}" && echo "OK" || { \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+			}; \
+		else \
+			build/$${TEST_BINARY} $${PARAMS} || { \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+			}; \
+		fi; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
