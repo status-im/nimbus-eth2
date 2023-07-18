@@ -379,7 +379,7 @@ extern int kETHLcSyncKind_OptimisticUpdate;
  *
  * @return `kETHLcSyncKind_UpdatesByRange` - If the next sync task is fulfillable
  *         using REST `/eth/v1/beacon/light_client/updates` beacon API.
- *         The `startPeriod` and `count` parameters contain additional request info.
+ *         The `startPeriod` and `count` parameters are filled, and to be passed to
  *         `/eth/v1/beacon/light_client/updates?start_period={startPeriod}`
  *         `&count={count}`.
  *         Process the response with `ETHLightClientStoreProcessUpdatesByRange`.
