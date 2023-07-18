@@ -1357,7 +1357,8 @@ proc ancestorSlot*(
 
   while stateBid != blockBid:
     if stateBid.slot >= blockBid.slot:
-      stateBid = ? dag.getBlockIdAtSlot(state, stateBid.slot - 1)
+      stateBid = ? dag.getBlockIdAtSlot(
+        state, min(blockBid.slot, stateBid.slot - 1))
       if stateBid.slot < lowSlot:
         return Opt.none(Slot)
     else:
