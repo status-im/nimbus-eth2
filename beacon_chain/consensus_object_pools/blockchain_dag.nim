@@ -1330,7 +1330,45 @@ proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
     dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).expect(
       "getEpochRef for finalized head should always succeed")
 
-func ancestorSlotForAttesterShuffling*(
+proc getBlockIdAtSlot(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState, slot: Slot): Opt[BlockId] =
+  if slot >= state.data.slot:
+    Opt.some state.latest_block_id
+  elif state.data.slot <= slot + SLOTS_PER_HISTORICAL_ROOT:
+    dag.getBlockId(state.data.get_block_root_at_slot(slot))
+  else:
+    Opt.none(BlockId)
+
+proc ancestorSlot*(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState, bid: BlockId,
+    lowSlot: Slot): Opt[Slot] =
+  ## Return common ancestor slot of `bid` and `state`, if at least `lowSlot`.
+  ## Return `none` if no common ancestor is found with slot >= `lowSlot`.
+  if state.data.slot < lowSlot or bid.slot < lowSlot:
+    return Opt.none(Slot)
+
+  var stateBid = ? dag.getBlockIdAtSlot(state, bid.slot)
+  if stateBid.slot < lowSlot:
+    return Opt.none(Slot)
+
+  var blockBid = (? dag.atSlot(bid, stateBid.slot)).bid
+  if blockBid.slot < lowSlot:
+    return Opt.none(Slot)
+
+  while stateBid != blockBid:
+    if stateBid.slot >= blockBid.slot:
+      stateBid = ? dag.getBlockIdAtSlot(
+        state, min(blockBid.slot, stateBid.slot - 1))
+      if stateBid.slot < lowSlot:
+        return Opt.none(Slot)
+    else:
+      blockBid = ? dag.parent(blockBid)
+      if blockBid.slot < lowSlot:
+        return Opt.none(Slot)
+
+  Opt.some stateBid.slot
+
+proc ancestorSlotForAttesterShuffling*(
     dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch): Opt[Slot] =
   ## Return slot of `blck` ancestor to which `state` can be rewinded
@@ -1342,48 +1380,8 @@ func ancestorSlotForAttesterShuffling*(
   const numDelayEpochs = compute_activation_exit_epoch(GENESIS_EPOCH).uint64
   let
     lowEpoch = max(epoch, (numDelayEpochs - 1).Epoch) - (numDelayEpochs - 1)
-    lowSlot = lowEpoch.start_slot
-  if state.data.slot < lowSlot or blck.slot < lowSlot:
-    return err()
-
-  # Check that state is related to the information stored in the DAG,
-  # and determine the corresponding `BlockRef`, or `finalizedHead` if finalized
-  let
-    stateBid = state.latest_block_id
-    stateBlck =
-      if dag.finalizedHead.blck == nil:
-        return err()
-      elif stateBid.slot > dag.finalizedHead.blck.slot:
-        ? dag.getBlockRef(stateBid.root)
-      elif stateBid.slot == dag.finalizedHead.blck.slot:
-        if stateBid.root != dag.finalizedHead.blck.root:
-          return err()
-        dag.finalizedHead.blck
-      else:
-        let bsi = ? dag.getBlockIdAtSlot(stateBid.slot)
-        if bsi.bid != stateBid:
-          return err()
-        dag.finalizedHead.blck
-
-  # Check that history up to `lowSlot` is included in `state`,
-  # otherwise `get_active_validator_indices` may still change
-  if lowSlot <= dag.finalizedHead.blck.slot:
-    let
-      bsi = ? dag.getBlockIdAtSlot(lowSlot)
-      stateLowBlockRoot =
-        if state.data.slot == lowSlot:
-          stateBid.root
-        else:
-          state.data.get_block_root_at_slot(lowSlot)
-    if stateLowBlockRoot != bsi.bid.root:
-      return err()
-
-  # Compute ancestor slot for starting RANDAO recovery
-  let
-    ancestorBlck = ? commonAncestor(blck, stateBlck, lowSlot)
-    dependentSlot = epoch.attester_dependent_slot
-  doAssert dependentSlot >= lowSlot
-  ok min(min(stateBid.slot, ancestorBlck.slot), dependentSlot)
+    ancestorSlot = ? dag.ancestorSlot(state, blck.bid, lowEpoch.start_slot)
+  Opt.some min(ancestorSlot, epoch.attester_dependent_slot)
 
 type AttesterRandaoMix = tuple[dependentBid: BlockId, mix: Eth2Digest]
 
