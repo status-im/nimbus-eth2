@@ -1144,6 +1144,15 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
+  # By waiting until close before slot end, ensure that preparation for next
+  # slot does not interfere with propagation of messages and with VC duties.
+  const endOffset = aggregateSlotOffset + nanos(
+    (NANOSECONDS_PER_SLOT - aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
+  let endCutoff = node.beaconClock.fromNow(slot.start_beacon_time + endOffset)
+  if endCutoff.inFuture:
+    debug "Waiting for slot end", slot, endCutoff = shortLog(endCutoff.offset)
+    await sleepAsync(endCutoff.offset)
+
   if node.dag.needStateCachesAndForkChoicePruning():
     if node.attachedValidators[].validators.len > 0:
       node.attachedValidators[]
