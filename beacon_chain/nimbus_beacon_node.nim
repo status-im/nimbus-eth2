@@ -1366,48 +1366,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   return false
 
-proc handleMissingBlobs(node: BeaconNode) =
-  let
-    wallTime = node.beaconClock.now()
-    wallSlot = wallTime.slotOrZero()
-    delay = wallTime - wallSlot.start_beacon_time()
-    waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
-
-  var fetches: seq[BlobFetchRecord]
-  for blobless in node.quarantine[].peekBlobless():
-
-    # give blobs a chance to arrive over gossip
-    if blobless.message.slot == wallSlot and delay < waitDur:
-      debug "Not handling missing blobs as early in slot"
-      continue
-
-    if not node.blobQuarantine[].hasBlobs(blobless):
-      let missing = node.blobQuarantine[].blobFetchRecord(blobless)
-      if len(missing.indices) == 0:
-        warn "quarantine missing blobs, but missing indices is empty",
-         blk=blobless.root,
-         indices=node.blobQuarantine[].blobIndices(blobless.root),
-         kzgs=len(blobless.message.body.blob_kzg_commitments)
-      fetches.add(missing)
-    else:
-      # this is a programming error should it occur.
-      warn "missing blob handler found blobless block with all blobs"
-      node.blockProcessor[].addBlock(
-        MsgSource.gossip,
-        ForkedSignedBeaconBlock.init(blobless),
-        Opt.some(node.blobQuarantine[].popBlobs(
-          blobless.root))
-      )
-      node.quarantine[].removeBlobless(blobless)
-  if fetches.len > 0:
-    debug "Requesting detected missing blobs", blobs = shortLog(fetches)
-    node.requestManager.fetchMissingBlobs(fetches)
-
 proc onSecond(node: BeaconNode, time: Moment) =
-  ## This procedure will be called once per second.
-  if not(node.syncManager.inProgress):
-    node.handleMissingBlobs()
-
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
 
