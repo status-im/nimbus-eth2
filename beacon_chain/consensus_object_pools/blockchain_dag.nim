@@ -2193,7 +2193,10 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
 
         cur = dag.parent(bid)
 
-    if startup and
+    # TODO There have been varied reports of startup pruning causing long
+    #      startup times - an incremental approach would be needed here also
+    if false and
+        startup and
         dag.cfg.consensusForkAtEpoch(blockHorizon.epoch) > ConsensusFork.Phase0:
       # Once during start, we'll clear all "old fork" data - this ensures we get
       # rid of any leftover junk in the tables - we do so after linear pruning
