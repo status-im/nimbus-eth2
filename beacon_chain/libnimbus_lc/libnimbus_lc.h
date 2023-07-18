@@ -56,7 +56,7 @@ typedef struct ETHRandomNumber ETHRandomNumber;
  * Creates a new cryptographically secure random number generator.
  *
  * - The cryptographically secure random number generator must be destroyed
- *   using `ETHRandomNumberDestroy` once no longer needed, to release memory.
+ *   with `ETHRandomNumberDestroy` once no longer needed, to release memory.
  *
  * @return Pointer to an initialized cryptographically secure random number
  *         generator context - If successful.
@@ -85,8 +85,8 @@ typedef struct ETHConsensusConfig ETHConsensusConfig;
  * based on the given `config.yaml` file content from an
  * Ethereum network definition.
  *
- * - The Ethereum Consensus Layer network configuration must be destroyed
- *   using `ETHConsensusConfigDestroy` once no longer needed, to release memory.
+ * - The Ethereum Consensus Layer network configuration must be destroyed with
+ *   `ETHConsensusConfigDestroy` once no longer needed, to release memory.
  *
  * @param      configFileContent    `config.yaml` file content. NULL-terminated.
  *
@@ -133,7 +133,7 @@ typedef struct ETHBeaconState ETHBeaconState;
 /**
  * Creates a new beacon state based on its SSZ encoded representation.
  *
- * - The beacon state must be destroyed using `ETHBeaconStateDestroy`
+ * - The beacon state must be destroyed with `ETHBeaconStateDestroy`
  *   once no longer needed, to release memory.
  *
  * - When loading a `genesis.ssz` file from an Ethereum network definition,
@@ -181,7 +181,7 @@ typedef struct {
 /**
  * Copies the `genesis_validators_root` field from a beacon state.
  *
- * - The genesis validators root must be destroyed using `ETHRootDestroy`
+ * - The genesis validators root must be destroyed with `ETHRootDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      state                Beacon state.
@@ -210,7 +210,7 @@ typedef struct ETHForkDigests ETHForkDigests;
 /**
  * Creates a fork digests cache for a given beacon state.
  *
- * - The fork digests cache must be destroyed using `ETHForkDigestsDestroy`
+ * - The fork digests cache must be destroyed with `ETHForkDigestsDestroy`
  *    once no longer needed, to release memory.
  *
  * @param      cfg                  Ethereum Consensus Layer network configuration.
@@ -241,7 +241,7 @@ typedef struct ETHBeaconClock ETHBeaconClock;
 /**
  * Creates a beacon clock for a given beacon state's `genesis_time` field.
  *
- * - The beacon clock must be destroyed using `ETHBeaconClockDestroy`
+ * - The beacon clock must be destroyed with `ETHBeaconClockDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      state                Beacon state.
@@ -304,7 +304,7 @@ typedef struct ETHLightClientStore ETHLightClientStore;
  *   and may be processed with `ETHLightClientStoreProcessFinalityUpdate` and
  *   `ETHLightClientStoreProcessOptimisticUpdate`.
  *
- * - The light client store must be destroyed using
+ * - The light client store must be destroyed with
  *   `ETHLightClientStoreDestroy` once no longer needed, to release memory.
  *
  * @param      cfg                  Ethereum Consensus Layer network configuration.
@@ -639,7 +639,7 @@ int ETHLightClientStoreGetSafetyThreshold(const ETHLightClientStore *store);
 /**
  * Creates a shallow copy of a given light client header.
  *
- * - The copy must be destroyed using `ETHLightClientHeaderDestroy`
+ * - The copy must be destroyed with `ETHLightClientHeaderDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      header               Light client header.
@@ -661,7 +661,7 @@ void ETHLightClientHeaderDestroy(ETHLightClientHeader *header);
 /**
  * Computes the beacon block Merkle root for a given light client header.
  *
- * - The Merkle root must be destroyed using `ETHRootDestroy`
+ * - The Merkle root must be destroyed with `ETHRootDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      header               Light client header.
@@ -764,7 +764,7 @@ const ETHRoot *ETHBeaconBlockHeaderGetBodyRoot(const ETHBeaconBlockHeader *beaco
 /**
  * Computes the execution block hash for a given light client header.
  *
- * - The hash must be destroyed using `ETHRootDestroy`
+ * - The hash must be destroyed with `ETHRootDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      header               Light client header.
