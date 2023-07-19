@@ -670,7 +670,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   for e in reader.readArray(string):
     let parsed = try:
       parseBiggestUInt(e)
-    except ValueError as err:
+    except ValueError:
       reader.raiseUnexpectedValue(
         "A string-encoded 8-bit usigned integer value expected")
 
@@ -2707,7 +2707,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         let key =
           try:
             parseKeystore(item)
-          except SerializationError as exc:
+          except SerializationError:
             # TODO re-raise the exception by adjusting the column index, so the user
             # will get an accurate syntax error within the larger message
             reader.raiseUnexpectedValue("Invalid keystore format")
@@ -2722,7 +2722,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                           SPDIR,
                           requireAllFields = true,
                           allowUnknownFields = true)
-        except SerializationError as exc:
+        except SerializationError:
           reader.raiseUnexpectedValue("Invalid slashing protection format")
       some(db)
     else:

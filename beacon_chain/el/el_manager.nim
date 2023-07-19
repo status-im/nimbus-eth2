@@ -906,8 +906,10 @@ proc getPayload*(m: ELManager,
     headBlock, safeBlock, finalizedBlock, timestamp,
     randomData, suggestedFeeRecipient, engineApiWithdrawals)
 
+  # `getPayloadFromSingleEL` may introduce additional latency
+  const extraProcessingOverhead = 500.milliseconds
   let
-    timeout = GETPAYLOAD_TIMEOUT
+    timeout = GETPAYLOAD_TIMEOUT + extraProcessingOverhead
     deadline = sleepAsync(timeout)
     requests = m.elConnections.mapIt(it.getPayloadFromSingleEL(
       EngineApiResponseType(PayloadType),

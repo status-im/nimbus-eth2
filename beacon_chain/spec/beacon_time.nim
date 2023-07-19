@@ -48,7 +48,7 @@ const
 
   FAR_FUTURE_BEACON_TIME* = BeaconTime(ns_since_genesis: int64.high())
 
-  NANOSECONDS_PER_SLOT = SECONDS_PER_SLOT * 1_000_000_000'u64
+  NANOSECONDS_PER_SLOT* = SECONDS_PER_SLOT * 1_000_000_000'u64
 
 template ethTimeUnit*(typ: type) {.dirty.} =
   func `+`*(x: typ, y: uint64): typ {.borrow.}

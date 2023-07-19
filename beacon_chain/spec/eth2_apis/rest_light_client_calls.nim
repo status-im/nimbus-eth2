@@ -56,7 +56,7 @@ func decodeSszLightClientObject[T: SomeForkedLightClientObject](
   except SerializationError as exc:
     raiseRestDecodingBytesError(cstring("Malformed data: " & $exc.msg))
 
-proc decodeJsonLightClientObject[T: SomeForkedLightClientObject](
+proc decodeJsonLightClientObject*[T: SomeForkedLightClientObject](
     x: typedesc[T],
     data: openArray[byte],
     consensusFork: Opt[ConsensusFork],
