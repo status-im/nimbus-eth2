@@ -26,11 +26,6 @@ const
   SnappyBeaconBlock* = [byte 0x01, 0x00]
   SnappyBeaconState* = [byte 0x02, 0x00]
 
-  TypeFieldLen = 2
-  LengthFieldLen = 4
-  ReservedFieldLen = 2
-  HeaderFieldLen = TypeFieldLen + LengthFieldLen + ReservedFieldLen
-
   FAR_FUTURE_ERA* = Era(not 0'u64)
 
 type

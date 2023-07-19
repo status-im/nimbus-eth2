@@ -1,5 +1,10 @@
 AllTests-mainnet
 ===
+## Ancestry
+```diff
++ ancestorSlot                                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
@@ -100,11 +105,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers
 ```diff
-+ commonAncestor sanity                                                                      OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockSlot and helpers
 ```diff
 + atSlot sanity                                                                              OK
@@ -447,8 +451,15 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Shufflings
 ```diff
 + Accelerated shuffling computation                                                          OK
++ Accelerated shuffling computation (with epochRefState jump)                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## Shufflings (merged)
+```diff
++ Accelerated shuffling computation                                                          OK
++ Accelerated shuffling computation (with epochRefState jump)                                OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -575,9 +586,10 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ getAttestationDataScore() test vectors                                                     OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -688,4 +700,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 389/394 Fail: 0/394 Skip: 5/394
+OK: 393/398 Fail: 0/398 Skip: 5/398

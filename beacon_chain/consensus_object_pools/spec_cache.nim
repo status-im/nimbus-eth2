@@ -25,7 +25,7 @@ logScope: topics = "spec_cache"
 func count_active_validators*(shufflingRef: ShufflingRef): uint64 =
   shufflingRef.shuffled_active_validator_indices.lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(shufflingRef: ShufflingRef): uint64 =
   get_committee_count_per_slot(count_active_validators(shufflingRef))
 
@@ -51,7 +51,7 @@ iterator get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   ): yield (index_in_committee, idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
     shufflingRef: ShufflingRef, slot: Slot, committee_index: CommitteeIndex):
     seq[ValidatorIndex] =

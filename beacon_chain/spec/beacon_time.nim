@@ -48,7 +48,7 @@ const
 
   FAR_FUTURE_BEACON_TIME* = BeaconTime(ns_since_genesis: int64.high())
 
-  NANOSECONDS_PER_SLOT = SECONDS_PER_SLOT * 1_000_000_000'u64
+  NANOSECONDS_PER_SLOT* = SECONDS_PER_SLOT * 1_000_000_000'u64
 
 template ethTimeUnit*(typ: type) {.dirty.} =
   func `+`*(x: typ, y: uint64): typ {.borrow.}
@@ -134,10 +134,10 @@ template `+`*(a: TimeDiff, b: Duration): TimeDiff =
 const
   # Offsets from the start of the slot to when the corresponding message should
   # be sent
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#attesting
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#attesting
   attestationSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#broadcast-aggregate
   aggregateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#prepare-sync-committee-message

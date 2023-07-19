@@ -1082,7 +1082,6 @@ proc proposeBlock(node: BeaconNode,
 
   return
     if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-      debugRaiseAssert $denebImplementationMissing & ": proposeBlock"
       proposeBlockContinuation(
         deneb_mev.SignedBlindedBeaconBlock, deneb.ExecutionPayloadForSigning)
     elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:

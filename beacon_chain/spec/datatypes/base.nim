@@ -191,7 +191,7 @@ type
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
@@ -215,7 +215,7 @@ type
     attestation_1*: TrustedIndexedAttestation
     attestation_2*: TrustedIndexedAttestation
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
@@ -270,7 +270,7 @@ type
     source*: Checkpoint
     target*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#deposit
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest]
       ## Merkle path to deposit root
@@ -352,7 +352,7 @@ type
 
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
@@ -371,7 +371,7 @@ type
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#signedvoluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: ValidatorSig
@@ -595,7 +595,7 @@ template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
   template asUInt64*(x: T): uint64 = uint64(distinctBase(x))
 
   template toSszType(x: T): uint64 =
-    {.error: "Limited types should not be used with SSZ (abi differences)".}
+    {.error: "Limited types should not be used with SSZ (ABI differences)".}
 
 template makeLimitedU8*(T: untyped, limit: uint8) =
   makeLimitedUInt(T, limit)

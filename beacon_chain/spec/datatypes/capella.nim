@@ -518,8 +518,8 @@ type
     latest_block_header*: BeaconBlockHeader
 
     # Mod-increment/circular
-    block_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
-    state_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
+    block_roots*: array[SLOTS_PER_EPOCH.int, Eth2Digest]
+    state_roots*: array[SLOTS_PER_EPOCH.int, Eth2Digest]
 
     # Replace
     eth1_data*: Eth1Data

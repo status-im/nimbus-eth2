@@ -906,8 +906,10 @@ proc getPayload*(m: ELManager,
     headBlock, safeBlock, finalizedBlock, timestamp,
     randomData, suggestedFeeRecipient, engineApiWithdrawals)
 
+  # `getPayloadFromSingleEL` may introduce additional latency
+  const extraProcessingOverhead = 500.milliseconds
   let
-    timeout = GETPAYLOAD_TIMEOUT
+    timeout = GETPAYLOAD_TIMEOUT + extraProcessingOverhead
     deadline = sleepAsync(timeout)
     requests = m.elConnections.mapIt(it.getPayloadFromSingleEL(
       EngineApiResponseType(PayloadType),
@@ -2130,7 +2132,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
 
 proc startChainSyncingLoop(m: ELManager) {.async.} =
-  info "Starting execution layer deposits syncing",
+  info "Starting execution layer deposit syncing",
         contract = $m.depositContractAddress
 
   var syncedConnectionFut = m.selectConnectionForChainSyncing()
@@ -2140,7 +2142,7 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
     try:
       await syncedConnectionFut or sleepAsync(60.seconds)
       if not syncedConnectionFut.finished:
-        warn "No suitable EL connection for deposit syncing"
+        notice "No synced execution layer available for deposit syncing"
         await sleepAsync(chronos.seconds(30))
         continue
 

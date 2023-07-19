@@ -468,7 +468,7 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError, Defect].} =
   DomainType hexToByteArray(input, 4)
 
-proc readRuntimeConfig(
+proc readRuntimeConfig*(
     fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
     raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
   var
