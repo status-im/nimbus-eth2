@@ -1,6 +1,7 @@
 2023-07-19 v23.7.0
+==================
 
-Nimbus `v23.7.0` is a `low-priority` upgrade, bringing advanced profit optimisation capabilities to the Nimbus validator client and adressing risk factors that can contribute to poorer validator performance.
+Nimbus `v23.7.0` is a `low-urgency` upgrade, bringing advanced profit optimisation capabilities to the Nimbus validator client and addressing risk factors that can contribute to poorer validator performance.
 
 ### Improvements
 

@@ -201,7 +201,7 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
       version = version, # but a short version string makes more sense...
       copyrightBanner = clientId,
       secondarySources = proc (
-          config: ConfType, sources: auto
+          config: ConfType, sources: ref SecondarySources
       ) {.raises: [ConfigurationError].} =
         if config.configFile.isSome:
           sources.addConfigFile(Toml, config.configFile.get)
