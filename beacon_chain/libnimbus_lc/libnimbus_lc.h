@@ -1032,7 +1032,7 @@ typedef struct ETHExecutionBlockHeader ETHExecutionBlockHeader;
  * Verifies that a JSON execution block header is valid and that it matches
  * the given `executionHash`.
  *
- * - The JSON-RPC `eth_getBlockByNumber` with params `[executionHash, false]`
+ * - The JSON-RPC `eth_getBlockByHash` with params `[executionHash, false]`
  *   may be used to obtain execution block header data for a given execution
  *   ##   block hash. Pass the response's `result` property to `blockHeaderJson`.
  *
