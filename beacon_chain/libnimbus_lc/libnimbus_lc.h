@@ -1034,7 +1034,7 @@ typedef struct ETHExecutionBlockHeader ETHExecutionBlockHeader;
  *
  * - The JSON-RPC `eth_getBlockByHash` with params `[executionHash, false]`
  *   may be used to obtain execution block header data for a given execution
- *   ##   block hash. Pass the response's `result` property to `blockHeaderJson`.
+ *   block hash. Pass the response's `result` property to `blockHeaderJson`.
  *
  * - The execution block header must be destroyed with
  *   `ETHExecutionBlockHeaderDestroy` once no longer needed,
