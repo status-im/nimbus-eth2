@@ -190,7 +190,7 @@ jobs:
           submodules: 'recursive'
 
       - name: Check copyright year
-        if: ${{ always() }} && github.event_name == 'pull_request'
+        if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           excluded_files="config.yaml"
           excluded_extensions="ans|json|md|png|ssz|txt"
@@ -212,7 +212,7 @@ jobs:
           fi
 
       - name: Check submodules
-        if: ${{ always() }} && github.event_name == 'pull_request'
+        if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           while read -r file; do
             commit="$(git -C "$file" rev-parse HEAD)"
