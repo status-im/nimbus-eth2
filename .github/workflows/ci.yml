@@ -190,7 +190,7 @@ jobs:
           submodules: 'recursive'
 
       - name: Check copyright year
-        if: github.event_name == 'pull_request'
+        if: ${{ always() }} && github.event_name == 'pull_request'
         run: |
           excluded_files="config.yaml"
           excluded_extensions="ans|json|md|png|ssz|txt"
@@ -210,10 +210,9 @@ jobs:
             done
             exit 2
           fi
-        continue-on-error: true
 
       - name: Check submodules
-        if: github.event_name == 'pull_request'
+        if: ${{ always() }} && github.event_name == 'pull_request'
         run: |
           while read -r file; do
             commit="$(git -C "$file" rev-parse HEAD)"
@@ -230,7 +229,6 @@ jobs:
               exit 2
             fi
           done < <(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep -f <(git config --file .gitmodules --get-regexp path | awk '{ print $2 }') || true)
-        continue-on-error: true
 
   # https://github.com/EnricoMi/publish-unit-test-result-action
   event_file:
