@@ -64,7 +64,8 @@ jobs:
       - name: Check copyright year (Linux)
         if: github.event_name == 'pull_request' && runner.os == 'Linux'
         run: |
-          excluded_extensions="ans|json|md|png|txt"
+          excluded_files="config.yaml"
+          excluded_extensions="ans|json|md|png|ssz|txt"
 
           current_year=$(date +"%Y")
           outdated_files=()
@@ -72,7 +73,7 @@ jobs:
             if ! grep -qE 'Copyright \(c\) .*'$current_year' Status Research & Development GmbH' "$file"; then
               outdated_files+=("$file")
             fi
-          done < <(git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '\.('$excluded_extensions')$' || true)
+          done < <(git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '(\.('$excluded_extensions')|'$excluded_files')$' || true)
 
           if (( ${#outdated_files[@]} )); then
             echo "The following files do not have an up-to-date copyright year:"
