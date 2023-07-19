@@ -1204,7 +1204,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       return nil
   var bdata: BlockObject
   try:
-    fromJson(node, #[ argName: ]# "", bdata)
+    fromJson(node, argName = "", bdata)
   except KeyError, ValueError:
     return nil
   if bdata == nil:
