@@ -8,7 +8,13 @@
 {.push raises: [].}
 
 import
+  std/[json, times],
+  stew/saturation_arith,
+  eth/common/eth_types_rlp,
   eth/p2p/discoveryv5/random2,
+  json_rpc/jsonmarshal,
+  web3/ethtypes,
+  ../el/el_manager,
   ../spec/eth2_apis/[eth2_rest_serialization, rest_light_client_calls],
   ../spec/[helpers, light_client_sync],
   ../sync/light_client_sync_helpers,
@@ -1166,3 +1172,151 @@ func ETHExecutionPayloadHeaderGetExcessDataGas(
   ## Returns:
   ## * Excess data gas.
   execution[].excess_data_gas.cint
+
+proc ETHExecutionBlockHeaderCreateFromJson(
+    executionHash: ptr Eth2Digest,
+    blockHeaderJson: cstring): ptr ExecutionBlockHeader {.exported.} =
+  ## Verifies that a JSON execution block header is valid and that it matches
+  ## the given `executionHash`.
+  ##
+  ## * The JSON-RPC `eth_getBlockByNumber` with params `[executionHash, false]`
+  ##   may be used to obtain execution block header data for a given execution
+  ##   block hash. Pass the response's `result` property to `blockHeaderJson`.
+  ##
+  ## * The execution block header must be destroyed with
+  ##   `ETHExecutionBlockHeaderDestroy` once no longer needed,
+  ##   to release memory.
+  ##
+  ## Parameters:
+  ## * `executionHash` - Execution block hash.
+  ## * `blockHeaderJson` - Buffer with JSON encoded header. NULL-terminated.
+  ##
+  ## Returns:
+  ## * Pointer to an initialized execution block header - If successful.
+  ## * `NULL` - If the given `blockHeaderJson` is malformed or incompatible.
+  ##
+  ## See:
+  ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
+  let node =
+    try:
+      parseJson($blockHeaderJson)
+    except Exception:
+      return nil
+  var bdata: BlockObject
+  try:
+    fromJson(node, #[ argName: ]# "", bdata)
+  except KeyError, ValueError:
+    return nil
+  if bdata == nil:
+    return nil
+
+  # Sanity check
+  if bdata.hash.asEth2Digest != executionHash[]:
+    return nil
+
+  # Check fork consistency
+  static: doAssert totalSerializedFields(BlockObject) == 25,
+    "Only update this number once code is adjusted to check new fields!"
+  if bdata.baseFeePerGas.isNone and (
+      bdata.withdrawals.isSome or bdata.withdrawalsRoot.isSome or
+      bdata.dataGasUsed.isSome or bdata.excessDataGas.isSome):
+    return nil
+  if bdata.withdrawalsRoot.isNone and (
+      bdata.dataGasUsed.isSome or bdata.excessDataGas.isSome):
+    return nil
+  if bdata.withdrawals.isSome != bdata.withdrawalsRoot.isSome:
+    return nil
+  if bdata.dataGasUsed.isSome != bdata.excessDataGas.isSome:
+    return nil
+
+  # Construct block header
+  static:  # `GasInt` is signed. We only use it for hashing.
+    doAssert sizeof(int64) == sizeof(bdata.gasLimit)
+    doAssert sizeof(int64) == sizeof(bdata.gasUsed)
+  if distinctBase(bdata.timestamp) > int64.high.uint64:
+    return nil
+  if bdata.nonce.isNone:
+    return nil
+  let executionBlockHeader = ExecutionBlockHeader.create()
+  executionBlockHeader[] = ExecutionBlockHeader(
+    parentHash: bdata.parentHash.asEth2Digest,
+    ommersHash: bdata.sha3Uncles.asEth2Digest,
+    coinbase: distinctBase(bdata.miner),
+    stateRoot: bdata.stateRoot.asEth2Digest,
+    txRoot: bdata.transactionsRoot.asEth2Digest,
+    receiptRoot: bdata.receiptsRoot.asEth2Digest,
+    bloom: distinctBase(bdata.logsBloom),
+    difficulty: bdata.difficulty,
+    blockNumber: distinctBase(bdata.number).u256,
+    gasLimit: cast[int64](bdata.gasLimit),
+    gasUsed: cast[int64](bdata.gasUsed),
+    timestamp: fromUnix(int64.saturate distinctBase(bdata.timestamp)),
+    extraData: distinctBase(bdata.extraData),
+    mixDigest: bdata.mixHash.asEth2Digest,
+    nonce: distinctBase(bdata.nonce.get),
+    fee: bdata.baseFeePerGas,
+    withdrawalsRoot:
+      if bdata.withdrawalsRoot.isSome:
+        some(bdata.withdrawalsRoot.get.asEth2Digest)
+      else:
+        none(ExecutionHash256),
+    dataGasUsed:
+      if bdata.dataGasUsed.isSome:
+        some distinctBase(bdata.dataGasUsed.get)
+      else:
+        none(uint64),
+    excessDataGas:
+      if bdata.excessDataGas.isSome:
+        some distinctBase(bdata.excessDataGas.get)
+      else:
+        none(uint64))
+  if rlpHash(executionBlockHeader[]) != executionHash[]:
+    executionBlockHeader.destroy()
+    return nil
+
+  executionBlockHeader
+
+proc ETHExecutionBlockHeaderDestroy(
+    executionBlockHeader: ptr ExecutionBlockHeader) {.exported.} =
+  ## Destroys an execution block header.
+  ##
+  ## * The execution block header must no longer be used after destruction.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  executionBlockHeader.destroy()
+
+func ETHExecutionBlockHeaderGetTransactionsRoot(
+    executionBlockHeader: ptr ExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the transactions MPT root of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Execution transactions root.
+  addr executionBlockHeader[].txRoot
+
+func ETHExecutionBlockHeaderGetWithdrawalsRoot(
+    executionBlockHeader: ptr ExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the withdrawals MPT root of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Execution withdrawals root.
+  if executionBlockHeader[].withdrawalsRoot.isNone:
+    return unsafeAddr ZERO_HASH
+
+  unsafeAddr executionBlockHeader[].withdrawalsRoot.unsafeGet
