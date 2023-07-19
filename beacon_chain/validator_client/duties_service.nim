@@ -190,6 +190,16 @@ proc pruneSyncCommitteeDuties*(service: DutiesServiceRef, slot: Slot) =
       newSyncCommitteeDuties[key] = currentPeriodDuties
     vc.syncCommitteeDuties = newSyncCommitteeDuties
 
+proc pruneSyncCommitteeSelectionProofs*(service: DutiesServiceRef, slot: Slot) =
+  let
+    vc = service.client
+    slotEpoch = slot.epoch()
+  var res: seq[Epoch]
+  for epoch in vc.syncCommitteeProofs.keys():
+    if epoch < slotEpoch: res.add(epoch)
+  for epoch in res:
+    vc.syncCommitteeProofs.del(epoch)
+
 proc pollForSyncCommitteeDuties*(
        service: DutiesServiceRef,
        period: SyncCommitteePeriod
@@ -417,6 +427,7 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
         service.syncSubscriptionEpoch = Opt.some(currentEpoch)
 
   service.pruneSyncCommitteeDuties(currentSlot)
+  service.pruneSyncCommitteeSelectionProofs(currentSlot)
 
 proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client
