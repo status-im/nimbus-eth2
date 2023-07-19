@@ -324,7 +324,8 @@ proc initFullNode(
     blobQuarantine = newClone(BlobQuarantine())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
-      ActionTracker.init(rng, config.subscribeAllSubnets),
+      ActionTracker.init(rng, node.network.nodeId, config.subscribeAllSubnets,
+                         config.useOldStabilitySubnets),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
     blockProcessor = BlockProcessor.new(
@@ -368,6 +369,8 @@ proc initFullNode(
                                     resfut,
                                     maybeFinalized = maybeFinalized)
       resfut
+
+
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
@@ -385,6 +388,10 @@ proc initFullNode(
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
+    requestManager = RequestManager.init(
+      node.network, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
+      (proc(): bool = syncManager.inProgress),
+      quarantine, blobQuarantine, rmanBlockVerifier)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -416,12 +423,7 @@ proc initFullNode(
   node.processor = processor
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
-  node.requestManager = RequestManager.init(node.network,
-                                            dag.cfg.DENEB_FORK_EPOCH,
-                                            getBeaconTime,
-                                            quarantine,
-                                            blobQuarantine,
-                                            rmanBlockVerifier)
+  node.requestManager = requestManager
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.router = router
@@ -770,7 +772,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.deneb]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
@@ -1142,6 +1144,15 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
+  # By waiting until close before slot end, ensure that preparation for next
+  # slot does not interfere with propagation of messages and with VC duties.
+  const endOffset = aggregateSlotOffset + nanos(
+    (NANOSECONDS_PER_SLOT - aggregateSlotOffset.nanoseconds.uint64).int64 div 2)
+  let endCutoff = node.beaconClock.fromNow(slot.start_beacon_time + endOffset)
+  if endCutoff.inFuture:
+    debug "Waiting for slot end", slot, endCutoff = shortLog(endCutoff.offset)
+    await sleepAsync(endCutoff.offset)
+
   if node.dag.needStateCachesAndForkChoicePruning():
     if node.attachedValidators[].validators.len > 0:
       node.attachedValidators[]
@@ -1392,16 +1403,9 @@ proc handleMissingBlobs(node: BeaconNode) =
     debug "Requesting detected missing blobs", blobs = shortLog(fetches)
     node.requestManager.fetchMissingBlobs(fetches)
 
-proc handleMissingBlocks(node: BeaconNode) =
-  let missingBlocks = node.quarantine[].checkMissing()
-  if missingBlocks.len > 0:
-    debug "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
-    node.requestManager.fetchAncestorBlocks(missingBlocks)
-
 proc onSecond(node: BeaconNode, time: Moment) =
   ## This procedure will be called once per second.
   if not(node.syncManager.inProgress):
-    node.handleMissingBlocks()
     node.handleMissingBlobs()
 
   # Nim GC metrics (for the main thread)
@@ -1546,8 +1550,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # sync_committee_contribution_and_proof
-        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange

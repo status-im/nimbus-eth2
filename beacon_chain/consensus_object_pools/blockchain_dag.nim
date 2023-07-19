@@ -1330,7 +1330,45 @@ proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
     dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).expect(
       "getEpochRef for finalized head should always succeed")
 
-func ancestorSlotForShuffling*(
+proc getBlockIdAtSlot(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState, slot: Slot): Opt[BlockId] =
+  if slot >= state.data.slot:
+    Opt.some state.latest_block_id
+  elif state.data.slot <= slot + SLOTS_PER_HISTORICAL_ROOT:
+    dag.getBlockId(state.data.get_block_root_at_slot(slot))
+  else:
+    Opt.none(BlockId)
+
+proc ancestorSlot*(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState, bid: BlockId,
+    lowSlot: Slot): Opt[Slot] =
+  ## Return common ancestor slot of `bid` and `state`, if at least `lowSlot`.
+  ## Return `none` if no common ancestor is found with slot >= `lowSlot`.
+  if state.data.slot < lowSlot or bid.slot < lowSlot:
+    return Opt.none(Slot)
+
+  var stateBid = ? dag.getBlockIdAtSlot(state, bid.slot)
+  if stateBid.slot < lowSlot:
+    return Opt.none(Slot)
+
+  var blockBid = (? dag.atSlot(bid, stateBid.slot)).bid
+  if blockBid.slot < lowSlot:
+    return Opt.none(Slot)
+
+  while stateBid != blockBid:
+    if stateBid.slot >= blockBid.slot:
+      stateBid = ? dag.getBlockIdAtSlot(
+        state, min(blockBid.slot, stateBid.slot - 1))
+      if stateBid.slot < lowSlot:
+        return Opt.none(Slot)
+    else:
+      blockBid = ? dag.parent(blockBid)
+      if blockBid.slot < lowSlot:
+        return Opt.none(Slot)
+
+  Opt.some stateBid.slot
+
+proc ancestorSlotForAttesterShuffling*(
     dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch): Opt[Slot] =
   ## Return slot of `blck` ancestor to which `state` can be rewinded
@@ -1342,163 +1380,74 @@ func ancestorSlotForShuffling*(
   const numDelayEpochs = compute_activation_exit_epoch(GENESIS_EPOCH).uint64
   let
     lowEpoch = max(epoch, (numDelayEpochs - 1).Epoch) - (numDelayEpochs - 1)
-    lowSlot = lowEpoch.start_slot
-  if state.data.slot < lowSlot or blck.slot < lowSlot:
-    return err()
+    ancestorSlot = ? dag.ancestorSlot(state, blck.bid, lowEpoch.start_slot)
+  Opt.some min(ancestorSlot, epoch.attester_dependent_slot)
 
-  # Check that state is related to the information stored in the DAG,
-  # and determine the corresponding `BlockRef`, or `finalizedHead` if finalized
-  let
-    stateBid = state.latest_block_id
-    stateBlck =
-      if dag.finalizedHead.blck == nil:
-        return err()
-      elif stateBid.slot > dag.finalizedHead.blck.slot:
-        ? dag.getBlockRef(stateBid.root)
-      elif stateBid.slot == dag.finalizedHead.blck.slot:
-        if stateBid.root != dag.finalizedHead.blck.root:
-          return err()
-        dag.finalizedHead.blck
-      else:
-        let bsi = ? dag.getBlockIdAtSlot(stateBid.slot)
-        if bsi.bid != stateBid:
-          return err()
-        dag.finalizedHead.blck
+type AttesterRandaoMix = tuple[dependentBid: BlockId, mix: Eth2Digest]
 
-  # Check that history up to `lowSlot` is included in `state`,
-  # otherwise `get_active_validator_indices` may still change
-  if lowSlot <= dag.finalizedHead.blck.slot:
-    let
-      bsi = ? dag.getBlockIdAtSlot(lowSlot)
-      stateLowBlockRoot =
-        if state.data.slot == lowSlot:
-          stateBid.root
-        else:
-          state.data.get_block_root_at_slot(lowSlot)
-    if stateLowBlockRoot != bsi.bid.root:
-      return err()
-
-  # Compute ancestor slot for starting RANDAO recovery
-  let
-    ancestorBlck =
-      if stateBlck == dag.finalizedHead.blck:
-        dag.finalizedHead.blck
-      else:
-        ? commonAncestor(blck, stateBlck, lowSlot)
-    dependentSlot = epoch.attester_dependent_slot
-  doAssert dependentSlot >= lowSlot
-  ok min(min(stateBid.slot, ancestorBlck.slot), dependentSlot)
-
-proc mixRandao(
-    dag: ChainDAGRef, mix: var Eth2Digest,
-    bid: BlockId): Opt[void] =
-  ## Mix in/out the RANDAO reveal from the given block.
-  let bdata = ? dag.getForkedBlock(bid)
-  withBlck(bdata):  # See `process_randao` / `process_randao_mixes_reset`
-    mix.data.mxor eth2digest(blck.message.body.randao_reveal.toRaw()).data
-  ok()
-
-proc computeRandaoMix*(
+proc computeAttesterRandaoMix(
     dag: ChainDAGRef, state: ForkyHashedBeaconState,
-    blck: BlockRef, epoch: Epoch
-): Opt[tuple[dependentBid: BlockId, mix: Eth2Digest]] =
+    blck: BlockRef, epoch: Epoch): Opt[AttesterRandaoMix] =
   ## Compute the requested RANDAO mix for `blck@epoch` based on `state`.
-  ## `state` must have the correct `get_active_validator_indices` for `epoch`.
-  ## RANDAO reveals of blocks from `state.data.slot` back to `ancestorSlot` are
-  ## mixed out from `state.data.randao_mixes`, and RANDAO reveals from blocks
-  ## up through `epoch.attester_dependent_slot` are mixed in.
+  ## If `state` has unviable `get_active_validator_indices`, return `none`.
+
+  # Check `state` has locked-in `get_active_validator_indices` for `epoch`
   let
     stateSlot = state.data.slot
     dependentSlot = epoch.attester_dependent_slot
-    # Check `state` has locked-in `get_active_validator_indices` for `epoch`
-    ancestorSlot = ? dag.ancestorSlotForShuffling(state, blck, epoch)
+    ancestorSlot = ? dag.ancestorSlotForAttesterShuffling(state, blck, epoch)
   doAssert ancestorSlot <= stateSlot
   doAssert ancestorSlot <= dependentSlot
 
-  # Load initial mix
-  var mix {.noinit.}: Eth2Digest
+  # Determine block for obtaining RANDAO mix
   let
-    stateEpoch = stateSlot.epoch
-    ancestorEpoch = ancestorSlot.epoch
-    highRandaoSlot =
-      # `randao_mixes[ancestorEpoch]`
-      if stateEpoch == ancestorEpoch:
-        stateSlot
-      else:
-        (ancestorEpoch + 1).start_slot - 1
-    startSlot =
-      if ancestorEpoch == GENESIS_EPOCH:
-        # Can only move backward
-        mix = state.data.get_randao_mix(ancestorEpoch)
-        highRandaoSlot
-      else:
-        # `randao_mixes[ancestorEpoch - 1]`
-        let lowRandaoSlot = ancestorEpoch.start_slot - 1
-        if highRandaoSlot - ancestorSlot < ancestorSlot - lowRandaoSlot:
-          mix = state.data.get_randao_mix(ancestorEpoch)
-          highRandaoSlot
-        else:
-          mix = state.data.get_randao_mix(ancestorEpoch - 1)
-          lowRandaoSlot
-    slotsToMix =
-      if startSlot > ancestorSlot:
-        (ancestorSlot + 1) .. startSlot
-      else:
-        (startSlot + 1) .. ancestorSlot
-    highRoot =
-      if slotsToMix.b == stateSlot:
-        state.latest_block_root
-      else:
-        doAssert slotsToMix.b < stateSlot
-        state.data.get_block_root_at_slot(slotsToMix.b)
-
-  # Move `mix` from `startSlot` to `ancestorSlot`
-  var bid =
-    if slotsToMix.b >= dag.finalizedHead.slot:
-      var b = ? dag.getBlockRef(highRoot)
-      let lowSlot = max(slotsToMix.a, dag.finalizedHead.slot)
-      while b.bid.slot > lowSlot:
-        ? dag.mixRandao(mix, b.bid)
-        b = b.parent
+    dependentBid =
+      if dependentSlot >= dag.finalizedHead.slot:
+        var b = blck.get_ancestor(dependentSlot)
         doAssert b != nil
-      b.bid
-    else:
-      var highSlot = slotsToMix.b
-      const availableSlots = SLOTS_PER_HISTORICAL_ROOT
-      let lowSlot = max(state.data.slot, availableSlots.Slot) - availableSlots
-      while highSlot > lowSlot and
-          state.data.get_block_root_at_slot(highSlot - 1) == highRoot:
-        dec highSlot
-      if highSlot + SLOTS_PER_HISTORICAL_ROOT > state.data.slot:
-        BlockId(slot: highSlot, root: highRoot)
+        b.bid
       else:
-        let bsi = ? dag.getBlockIdAtSlot(highSlot)
-        doAssert bsi.bid.root == highRoot
+        let bsi = ? dag.getBlockIdAtSlot(dependentSlot)
         bsi.bid
-  while bid.slot >= slotsToMix.a:
-    ? dag.mixRandao(mix, bid)
-    bid = ? dag.parent(bid)
+    dependentBdata = ? dag.getForkedBlock(dependentBid)
+  var mix {.noinit.}: Eth2Digest
 
-  # Move `mix` from `ancestorSlot` to `dependentSlot`
-  var dependentBid {.noinit.}: BlockId
-  bid =
-    if dependentSlot >= dag.finalizedHead.slot:
-      var b = blck.get_ancestor(dependentSlot)
-      doAssert b != nil
-      dependentBid = b.bid
-      let lowSlot = max(ancestorSlot, dag.finalizedHead.slot)
-      while b.bid.slot > lowSlot:
-        ? dag.mixRandao(mix, b.bid)
-        b = b.parent
-        doAssert b != nil
-      b.bid
-    else:
-      let bsi = ? dag.getBlockIdAtSlot(dependentSlot)
-      dependentBid = bsi.bid
-      bsi.bid
-  while bid.slot > ancestorSlot:
-    ? dag.mixRandao(mix, bid)
-    bid = ? dag.parent(bid)
+  # If `dependentBid` is post merge, RANDAO information is available
+  withBlck(dependentBdata):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      if blck.message.is_execution_block:
+        mix = eth2digest(blck.message.body.randao_reveal.toRaw())
+        mix.data.mxor blck.message.body.execution_payload.prev_randao.data
+        return ok (dependentBid: dependentBid, mix: mix)
+
+  # RANDAO mix has to be recomputed from `blck` and `state`
+  proc mixToAncestor(highBid: BlockId): Opt[void] =
+    ## Mix in/out RANDAO reveals back to `ancestorSlot`
+    var bid = highBid
+    while bid.slot > ancestorSlot:
+      let bdata = ? dag.getForkedBlock(bid)
+      withBlck(bdata):  # See `process_randao` / `process_randao_mixes_reset`
+        mix.data.mxor eth2digest(blck.message.body.randao_reveal.toRaw()).data
+      bid = ? dag.parent(bid)
+    ok()
+
+  # Mix in RANDAO from `blck`
+  if ancestorSlot < dependentBid.slot:
+    withBlck(dependentBdata):
+      mix = eth2digest(blck.message.body.randao_reveal.toRaw())
+    ? mixToAncestor(? dag.parent(dependentBid))
+  else:
+    mix.reset()
+
+  # Mix in RANDAO from `state`
+  let ancestorEpoch = ancestorSlot.epoch
+  if ancestorEpoch + EPOCHS_PER_HISTORICAL_VECTOR <= stateSlot.epoch:
+    return Opt.none(AttesterRandaoMix)
+  let mixRoot = state.dependent_root(ancestorEpoch + 1)
+  if mixRoot.isZero:
+    return Opt.none(AttesterRandaoMix)
+  ? mixToAncestor(? dag.getBlockId(mixRoot))
+  mix.data.mxor state.data.get_randao_mix(ancestorEpoch).data
 
   ok (dependentBid: dependentBid, mix: mix)
 
@@ -1506,7 +1455,7 @@ proc computeShufflingRefFromState*(
     dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
   let (dependentBid, mix) =
-    ? dag.computeRandaoMix(state, blck, epoch)
+    ? dag.computeAttesterRandaoMix(state, blck, epoch)
 
   return ok ShufflingRef(
     epoch: epoch,
@@ -1559,15 +1508,9 @@ proc computeShufflingRefFromDatabase*(
 proc computeShufflingRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
   # Try to compute `ShufflingRef` from states available in memory
-  template tryWithState(state: ForkedHashedBeaconState) =
-    withState(state):
-      let shufflingRef =
-        dag.computeShufflingRefFromState(forkyState, blck, epoch)
-      if shufflingRef.isOk:
-        return shufflingRef
-  tryWithState dag.headState
-  tryWithState dag.epochRefState
-  tryWithState dag.clearanceState
+  let shufflingRef = dag.computeShufflingRefFromMemory(blck, epoch)
+  if shufflingRef.isOk:
+    return shufflingRef
 
   # Fall back to database
   dag.computeShufflingRefFromDatabase(blck, epoch)
@@ -1960,7 +1903,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/sync/optimistic.md#helpers
 template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
@@ -2119,7 +2062,7 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     statePruneDur = statePruneTick - startTick,
     epochRefPruneDur = epochRefPruneTick - statePruneTick
 
-proc pruneStep(horizon, lastHorizon, lastBlockHorizon: Slot):
+func pruneStep(horizon, lastHorizon, lastBlockHorizon: Slot):
     tuple[stateHorizon, blockHorizon: Slot] =
   ## Compute a reasonable incremental pruning step considering the current
   ## horizon, how far the database has been pruned already and where we want the
@@ -2250,7 +2193,10 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
 
         cur = dag.parent(bid)
 
-    if startup and
+    # TODO There have been varied reports of startup pruning causing long
+    #      startup times - an incremental approach would be needed here also
+    if false and
+        startup and
         dag.cfg.consensusForkAtEpoch(blockHorizon.epoch) > ConsensusFork.Phase0:
       # Once during start, we'll clear all "old fork" data - this ensures we get
       # rid of any leftover junk in the tables - we do so after linear pruning
@@ -2644,7 +2590,7 @@ proc getProposalState*(
 
   ok state
 
-proc aggregateAll*(
+func aggregateAll*(
   dag: ChainDAGRef,
   validator_indices: openArray[ValidatorIndex]): Result[CookedPubKey, cstring] =
   if validator_indices.len == 0:
@@ -2669,7 +2615,7 @@ proc aggregateAll*(
 
   ok(finish(aggregateKey))
 
-proc aggregateAll*(
+func aggregateAll*(
   dag: ChainDAGRef,
   validator_indices: openArray[ValidatorIndex|uint64],
   bits: BitSeq | BitArray): Result[CookedPubKey, cstring] =

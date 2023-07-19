@@ -238,6 +238,11 @@ type
       desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
       name: "num-threads" .}: int
 
+    useOldStabilitySubnets* {.
+      hidden
+      defaultValue: true
+      name: "debug-use-old-attestation-stability-subnets" .}: bool
+
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#key-distribution
     jwtSecret* {.
       desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
@@ -1251,7 +1256,7 @@ proc readValue*(r: var TomlReader, value: var GraffitiBytes)
                {.raises: [Defect, SerializationError, IOError].} =
   try:
     value = GraffitiBytes.init(r.readValue(string))
-  except ValueError as err:
+  except ValueError:
     r.raiseUnexpectedValue("A printable string or 0x-prefixed hex-encoded raw bytes expected")
 
 proc readValue*(r: var TomlReader, val: var NatConfig)

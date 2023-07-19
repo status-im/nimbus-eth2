@@ -1180,11 +1180,299 @@ suite "Pruning":
       dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
       not db.containsBlock(blocks[1].root)
 
-suite "Shufflings":
+suite "Ancestry":
+  test "ancestorSlot":
+    const numValidators = SLOTS_PER_EPOCH
+    let
+      cfg = defaultRuntimeConfig
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = ChainDAGRef.init(
+        cfg, makeTestDB(numValidators, cfg = cfg),
+        validatorMonitor, {})
+      quarantine = newClone(Quarantine.init())
+      rng = HmacDrbgContext.new()
+      taskpool = Taskpool.new()
+
+    type Node = tuple[blck: BlockRef, state: ref phase0.HashedBeaconState]
+    template bid(n: Node): BlockId = n.blck.bid
+
+    var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    proc addBlock(parent: Node, slot: Slot): Node =
+      dag.updateHead(parent.blck, quarantine[], [])
+
+      var
+        cache: StateCache
+        info: ForkedEpochInfo
+      let res = process_slots(cfg, dag.headState, slot, cache, info, flags = {})
+      check res.isOk
+
+      let
+        blck = dag.headState.addTestBlock(cache, nextSlot = false, cfg = cfg)
+        added = block:
+          const nilCallback = OnPhase0BlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
+      check added.isOk()
+      dag.updateHead(added[], quarantine[], [])
+      (blck: dag.head, state: newClone(dag.headState.phase0Data))
+
+    #             s0
+    #            /  \
+    #           s1  s3
+    #          /      \
+    #         s2      s6
+    #        /  \       \
+    #       s4  s5      s7
+    #        \
+    #         s8
+    #          \
+    #           s9
+    let
+      sg = (blck: dag.head, state: newClone(dag.headState.phase0Data))
+      s0 = sg.addBlock(Slot(10))
+      s1 = s0.addBlock(Slot(11))
+      s2 = s1.addBlock(Slot(12))
+      s3 = s0.addBlock(Slot(13))
+      s4 = s2.addBlock(Slot(14))
+      s5 = s2.addBlock(Slot(15))
+      s6 = s3.addBlock(Slot(16))
+      s7 = s6.addBlock(Slot(17))
+      s8 = s4.addBlock(Slot(18))
+      s9 = s8.addBlock(Slot(19))
+
+    check:
+      dag.ancestorSlot(s0.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s1.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s2.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s4.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s5.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s8.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s9.bid, Slot(10)) == Opt.some(s0.bid.slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s0.state[], b.bid, Slot(11)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s1.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s1.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s2.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s1.state[], s4.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s5.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s1.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s1.state[], s8.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s9.bid, Slot(10)) == Opt.some(s1.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s1.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s1.state[], b.bid, Slot(12)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s2.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s2.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s2.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s2.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s2.state[], s4.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s2.state[], s5.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s2.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s2.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s2.state[], s8.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s2.state[], s9.bid, Slot(10)) == Opt.some(s2.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s2.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s2.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s2.state[], b.bid, Slot(13)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s3.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s1.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s2.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s3.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s3.state[], s4.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s5.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s6.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s3.state[], s7.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s3.state[], s8.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s9.bid, Slot(10)) == Opt.some(s0.bid.slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s3.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s3.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s3.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s3.state[], b.bid, Slot(14)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s4.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s4.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s4.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s4.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s4.state[], s4.bid, Slot(10)) == Opt.some(s4.bid.slot)
+      dag.ancestorSlot(s4.state[], s5.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s4.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s4.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s4.state[], s8.bid, Slot(10)) == Opt.some(s4.bid.slot)
+      dag.ancestorSlot(s4.state[], s9.bid, Slot(10)) == Opt.some(s4.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(15)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s5.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s5.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s5.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s5.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s5.state[], s4.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s5.state[], s5.bid, Slot(10)) == Opt.some(s5.bid.slot)
+      dag.ancestorSlot(s5.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s5.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s5.state[], s8.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s5.state[], s9.bid, Slot(10)) == Opt.some(s2.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(16)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s6.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s1.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s2.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s3.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s6.state[], s4.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s5.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s6.bid, Slot(10)) == Opt.some(s6.bid.slot)
+      dag.ancestorSlot(s6.state[], s7.bid, Slot(10)) == Opt.some(s6.bid.slot)
+      dag.ancestorSlot(s6.state[], s8.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s9.bid, Slot(10)) == Opt.some(s0.bid.slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(16)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(17)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s7.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s1.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s2.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s3.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s7.state[], s4.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s5.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s6.bid, Slot(10)) == Opt.some(s6.bid.slot)
+      dag.ancestorSlot(s7.state[], s7.bid, Slot(10)) == Opt.some(s7.bid.slot)
+      dag.ancestorSlot(s7.state[], s8.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s9.bid, Slot(10)) == Opt.some(s0.bid.slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(16)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(17)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(18)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s8.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s8.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s8.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s8.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s8.state[], s4.bid, Slot(10)) == Opt.some(s4.bid.slot)
+      dag.ancestorSlot(s8.state[], s5.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s8.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s8.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s8.state[], s8.bid, Slot(10)) == Opt.some(s8.bid.slot)
+      dag.ancestorSlot(s8.state[], s9.bid, Slot(10)) == Opt.some(s8.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(16)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(17)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(18)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(19)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s9.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s9.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s9.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s9.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s9.state[], s4.bid, Slot(10)) == Opt.some(s4.bid.slot)
+      dag.ancestorSlot(s9.state[], s5.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s9.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s9.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s9.state[], s8.bid, Slot(10)) == Opt.some(s8.bid.slot)
+      dag.ancestorSlot(s9.state[], s9.bid, Slot(10)) == Opt.some(s9.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(16)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(17)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(18)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(19)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(20)) == Opt.none(Slot)
+
+template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
   const
     numValidators = SLOTS_PER_EPOCH
     targetNumValidators = 20 * SLOTS_PER_EPOCH * MAX_DEPOSITS
-  let cfg = defaultRuntimeConfig
   var deposits = newSeqOfCap[Deposit](targetNumValidators)
   for depositIndex in 0 ..< targetNumValidators:
     deposits.add Deposit(data: makeDeposit(depositIndex.int, cfg = cfg))
@@ -1274,10 +1562,19 @@ suite "Shufflings":
   # Cover entire range of epochs plus some extra
   const maxEpochOfInterest = compute_activation_exit_epoch(11.Epoch) + 2
 
+  template checkShuffling(
+      epochRef: Result[EpochRef, cstring],
+      computedShufflingRefParam: Opt[ShufflingRef]) =
+    ## Check that computed shuffling matches the one from `EpochRef`.
+    block:
+      let computedShufflingRef = computedShufflingRefParam
+      if computedShufflingRef.isOk:
+        check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
+
   test "Accelerated shuffling computation":
     randomize()
     let forkBlocks = dag.forkBlocks.toSeq()
-    for _ in 0 ..< 150:  # Number of random tests (against _all_ cached states)
+    for _ in 0 ..< numRandomTests:  # Each test runs against _all_ cached states
       let
         blck = sample(forkBlocks).data
         epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)
@@ -1286,16 +1583,11 @@ suite "Shufflings":
       let epochRef = dag.getEpochRef(blck, epoch, true)
       check epochRef.isOk
 
-      proc checkShuffling(computedShufflingRef: Opt[ShufflingRef]) =
-        ## Check that computed shuffling matches the one from `EpochRef`.
-        if computedShufflingRef.isOk:
-          check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
-
       # If shuffling is computable from DAG, check its correctness
-      checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
+      epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
 
       # If shuffling is computable from DB, check its correctness
-      checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
+      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
 
       # Shuffling should be correct when starting from any cached state
       for state in states:
@@ -1307,8 +1599,70 @@ suite "Shufflings":
             blckEpoch = blck.bid.slot.epoch
             minEpoch = min(stateEpoch, blckEpoch)
           if compute_activation_exit_epoch(minEpoch) <= epoch or
-              dag.ancestorSlotForShuffling(forkyState, blck, epoch).isNone:
+              dag.ancestorSlotForAttesterShuffling(
+                forkyState, blck, epoch).isNone:
             check shufflingRef.isErr
           else:
             check shufflingRef.isOk
-            checkShuffling shufflingRef
+            epochRef.checkShuffling shufflingRef
+
+  test "Accelerated shuffling computation (with epochRefState jump)":
+    # Test cases where `epochRefState` is set to a very old block
+    # that is advanced by several epochs to a recent slot.
+    #
+    # This is not dependent on the multilayer branching of the "Shufflings"
+    # suite, but a function of getEpochRef extending epochRefState towards
+    # a slot which it is essentially hallucinating a state, because it is
+    # not accounting for the blocks with deposits. As it takes non-trivial
+    # time to set up the "Shufflings" suite, we reuse its more complex DAG.
+    #
+    # The purely random fuzzing/tests have difficulty triggering this, because
+    # this needs to happen across a wide portion of the sampled range so that:
+    # (1) it checks a maximally early slot, both to create the gaps needed for
+    #     (2) and (3), and to keep both blocks on the same forks, with maximal
+    #     likelihood;
+    # (2) calls getEpochRef with a late enough epoch to trigger the
+    #     hallucination of relevance (>= epoch 4 typically works); and
+    # (3) there then have to be enough slots between the last added block and
+    #     the next state which will be sampled so that the validators can get
+    #     active, after some spec 5 epoch delay. This pushes the lowest epoch
+    #     possible to not much less than 8 which is already near the high end
+    #     of the epoch sampling. Too early an epoch and it is within range of
+    #     the headState check which gets it first, so the epochStateRef isn't
+    #     exercised.
+
+    let forkBlocks = dag.forkBlocks.toSeq()
+
+    proc findKeyedBlck(m: Slot): int =
+      # Avoid depending on implementation details of how `forkBlocks` is ordered
+      for idx, fb in forkBlocks:
+        if fb.data.slot == m:
+          return idx
+      raiseAssert "Unreachable"
+
+    # The epoch for the first block can range from at least 4 to 10
+    for (blockIdx, epoch) in [
+        (findKeyedBlck(64.Slot), 10.Epoch),
+        (findKeyedBlck(255.Slot), 8.Epoch)]:
+      let
+        blck = forkBlocks[blockIdx].data
+        epochRef = dag.getEpochRef(blck, epoch, true)
+      doAssert epochRef.isOk
+
+      # If shuffling is computable from DAG, check its correctness
+      epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
+
+      # If shuffling is computable from DB, check its correctness
+      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
+
+suite "Shufflings":
+  let cfg = defaultRuntimeConfig
+  runShufflingTests(cfg, numRandomTests = 150)
+
+suite "Shufflings (merged)":
+  let cfg = block:
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg
+  runShufflingTests(cfg, numRandomTests = 50)

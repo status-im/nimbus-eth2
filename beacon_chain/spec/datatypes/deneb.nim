@@ -25,7 +25,7 @@ import
   ../digest,
   "."/[base, phase0, altair, bellatrix, capella]
 
-from  ../../vendor/nim-kzg4844/kzg4844 import KzgCommitment, KzgProof
+from kzg4844 import KzgCommitment, KzgProof
 
 export json_serialization, base, kzg4844
 
@@ -109,6 +109,7 @@ type
     executionPayload*: ExecutionPayload
     blockValue*: Wei
     kzgs*: KzgCommitments
+    proofs*:seq[KZGProof]
     blobs*: Blobs
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#executionpayloadheader
@@ -314,7 +315,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to

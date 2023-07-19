@@ -18,12 +18,12 @@ import
   stew/base10, web3/ethtypes,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
-  ".."/mev/[bellatrix_mev, capella_mev]
+  ".."/mev/[bellatrix_mev, capella_mev, deneb_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
 
 export forks, phase0, altair, bellatrix, capella, bellatrix_mev, capella_mev,
-       tables
+       deneb_mev, tables
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -652,6 +652,7 @@ type
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
   GetHeaderResponseBellatrix* = DataVersionEnclosedObject[bellatrix_mev.SignedBuilderBid]
   GetHeaderResponseCapella* = DataVersionEnclosedObject[capella_mev.SignedBuilderBid]
+  GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
@@ -680,6 +681,7 @@ type
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponseBellatrix* = DataEnclosedObject[bellatrix.ExecutionPayload]
   SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
+  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb.ExecutionPayload]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
 

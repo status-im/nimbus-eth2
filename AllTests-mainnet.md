@@ -1,5 +1,10 @@
 AllTests-mainnet
 ===
+## Ancestry
+```diff
++ ancestorSlot                                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
@@ -100,11 +105,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers
 ```diff
-+ commonAncestor sanity                                                                      OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockSlot and helpers
 ```diff
 + atSlot sanity                                                                              OK
@@ -369,14 +373,12 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
-+ Signing BeaconBlock (getBlockSignature(altair))                                            OK
 + Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
 + Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
-+ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Nimbus remote signer/signing test (web3signer)
 ```diff
 + Connection timeout test                                                                    OK
@@ -384,11 +386,9 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Idle connection test                                                                       OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
-+ Signing BeaconBlock (getBlockSignature(altair))                                            OK
 + Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
 + Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
-+ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
@@ -401,7 +401,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -451,8 +451,15 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Shufflings
 ```diff
 + Accelerated shuffling computation                                                          OK
++ Accelerated shuffling computation (with epochRefState jump)                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## Shufflings (merged)
+```diff
++ Accelerated shuffling computation                                                          OK
++ Accelerated shuffling computation (with epochRefState jump)                                OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -579,9 +586,10 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ getAttestationDataScore() test vectors                                                     OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK

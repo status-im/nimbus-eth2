@@ -155,30 +155,6 @@ func get_ancestor*(blck: BlockRef, slot: Slot,
 
     blck = blck.parent
 
-func commonAncestor*(a, b: BlockRef, lowSlot: Slot): Opt[BlockRef] =
-  ## Return the common ancestor with highest slot of two non-nil `BlockRef`,
-  ## limited by `lowSlot` (`err` if exceeded).
-  doAssert a != nil
-  doAssert b != nil
-  if a.slot < lowSlot or b.slot < lowSlot:
-    return err()
-
-  var
-    aa = a
-    bb = b
-  while aa != bb:
-    if aa.slot >= bb.slot:
-      aa = aa.parent
-      doAssert aa != nil, "All `BlockRef` lead to `finalizedHead`"
-      if aa.slot < lowSlot:
-        return err()
-    else:
-      bb = bb.parent
-      doAssert bb != nil, "All `BlockRef` lead to `finalizedHead`"
-      if bb.slot < lowSlot:
-        return err()
-  ok aa
-
 func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Return a BlockSlot at a given slot, with the block set to the closest block
   ## available. If slot comes from before the block, a suitable block ancestor

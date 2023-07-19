@@ -34,7 +34,7 @@ proc addResolvedHeadBlock(
        dag: ChainDAGRef,
        state: var ForkedHashedBeaconState,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
-       blockVerified: bool,
+       executionValid: bool,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnForkyBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
@@ -46,7 +46,7 @@ proc addResolvedHeadBlock(
   let
     blockRoot = trustedBlock.root
     blockRef = BlockRef.init(
-      blockRoot, executionValid = blockVerified, trustedBlock.message)
+      blockRoot, executionValid = executionValid, trustedBlock.message)
     startTick = Moment.now()
 
   link(parent, blockRef)
@@ -80,8 +80,7 @@ proc addResolvedHeadBlock(
   debug "Block resolved",
     blockRoot = shortLog(blockRoot),
     blck = shortLog(trustedBlock.message),
-    blockVerified,
-    heads = dag.heads.len(),
+    executionValid, heads = dag.heads.len(),
     stateDataDur, sigVerifyDur, stateVerifyDur,
     putBlockDur = putBlockTick - startTick,
     epochRefDur = epochRefTick - putBlockTick
@@ -153,17 +152,13 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
     debug "Prepared clearance state for next block",
       next, updateStateDur = Moment.now() - startTick
 
-proc addHeadBlock*(
-    dag: ChainDAGRef, verifier: var BatchVerifier,
-    signedBlock: ForkySignedBeaconBlock,
-    blockVerified: bool,
-    onBlockAdded: OnForkyBlockAdded
-    ): Result[BlockRef, VerifierError] =
-  ## Try adding a block to the chain, verifying first that it passes the state
-  ## transition function and contains correct cryptographic signature.
+proc checkHeadBlock*(
+    dag: ChainDAGRef, signedBlock: ForkySignedBeaconBlock):
+    Result[BlockRef, VerifierError] =
+  ## Perform pre-addHeadBlock sanity checks returning the parent to use when
+  ## calling `addHeadBlock`.
   ##
-  ## Cryptographic checks can be skipped by adding skipBlsValidation to
-  ## dag.updateFlags
+  ## This function must be called before `addHeadBlockWithParent`.
   logScope:
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
@@ -186,14 +181,14 @@ proc addHeadBlock*(
         debug "Duplicate block"
         return err(VerifierError.Duplicate)
 
-      # Block is older than finalized, but different from the block in our
-      # canonical history: it must be from an unviable branch
-      debug "Block from unviable fork",
-        existing = shortLog(existing.get()),
-        finalizedHead = shortLog(dag.finalizedHead),
-        tail = shortLog(dag.tail)
+    # Block is older than finalized, but different from the block in our
+    # canonical history: it must be from an unviable branch
+    debug "Block from unviable fork",
+      existing = shortLog(existing.get()),
+      finalizedHead = shortLog(dag.finalizedHead),
+      tail = shortLog(dag.tail)
 
-      return err(VerifierError.UnviableFork)
+    return err(VerifierError.UnviableFork)
 
   # Check non-finalized blocks as well
   if dag.containsForkBlock(blockRoot):
@@ -221,6 +216,29 @@ proc addHeadBlock*(
       parent = shortLog(parent)
 
     return err(VerifierError.Invalid)
+
+  ok(parent)
+
+proc addHeadBlockWithParent*(
+    dag: ChainDAGRef, verifier: var BatchVerifier,
+    signedBlock: ForkySignedBeaconBlock, parent: BlockRef,
+    executionValid: bool, onBlockAdded: OnForkyBlockAdded
+    ): Result[BlockRef, VerifierError] =
+  ## Try adding a block to the chain, verifying first that it passes the state
+  ## transition function and contains correct cryptographic signature.
+  ##
+  ## Cryptographic checks can be skipped by adding skipBlsValidation to
+  ## dag.updateFlags.
+  ##
+  ## The parent must be obtained using `checkHeadBlock` to ensure complete
+  ## verification.
+  logScope:
+    blockRoot = shortLog(signedBlock.root)
+    blck = shortLog(signedBlock.message)
+    signature = shortLog(signedBlock.signature)
+
+  template blck(): untyped = signedBlock.message # shortcuts without copy
+  template blockRoot(): untyped = signedBlock.root
 
   # The block is resolved, now it's time to validate it to ensure that the
   # blocks we add to the database are clean for the given state
@@ -276,7 +294,7 @@ proc addHeadBlock*(
   ok addResolvedHeadBlock(
     dag, dag.clearanceState,
     signedBlock.asTrusted(),
-    blockVerified = blockVerified,
+    executionValid,
     parent, cache,
     onBlockAdded,
     stateDataDur = stateDataTick - startTick,
@@ -286,10 +304,21 @@ proc addHeadBlock*(
 proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
+    executionValid: bool,
     onBlockAdded: OnForkyBlockAdded
     ): Result[BlockRef, VerifierError] =
-  addHeadBlock(
-    dag, verifier, signedBlock, blockVerified = true, onBlockAdded)
+  addHeadBlockWithParent(
+    dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
+    executionValid, onBlockAdded)
+
+proc addHeadBlock*(
+    dag: ChainDAGRef, verifier: var BatchVerifier,
+    signedBlock: ForkySignedBeaconBlock,
+    onBlockAdded: OnForkyBlockAdded
+    ): Result[BlockRef, VerifierError] =
+  addHeadBlockWithParent(
+    dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
+    executionValid = true, onBlockAdded)
 
 proc addBackfillBlock*(
     dag: ChainDAGRef,

@@ -42,11 +42,11 @@ suite "Block quarantine":
 
     quarantine.addMissing(b1.root)
     check:
-      FetchRecord(root: b1.root) in quarantine.checkMissing()
+      FetchRecord(root: b1.root) in quarantine.checkMissing(32)
 
       quarantine.addOrphan(Slot 0, b1).isOk
 
-      FetchRecord(root: b1.root) notin quarantine.checkMissing()
+      FetchRecord(root: b1.root) notin quarantine.checkMissing(32)
 
       quarantine.addOrphan(Slot 0, b2).isOk
       quarantine.addOrphan(Slot 0, b3).isOk
