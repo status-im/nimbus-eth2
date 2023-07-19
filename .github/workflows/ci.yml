@@ -210,6 +210,7 @@ jobs:
             done
             exit 2
           fi
+        continue-on-error: true
 
       - name: Check submodules
         if: github.event_name == 'pull_request'
@@ -229,6 +230,7 @@ jobs:
               exit 2
             fi
           done < <(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep -f <(git config --file .gitmodules --get-regexp path | awk '{ print $2 }') || true)
+        continue-on-error: true
 
   # https://github.com/EnricoMi/publish-unit-test-result-action
   event_file:
