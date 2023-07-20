@@ -6,11 +6,13 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[sequtils, tables],
   stew/shims/[sets, hashes], chronicles,
   eth/p2p/discoveryv5/random2,
-  ../spec/forks,
-  ../consensus_object_pools/spec_cache
+  ../spec/forks
+
+from ../spec/validator import compute_subscribed_subnets
+from ../consensus_object_pools/spec_cache import
+  EpochRef, epoch, get_committee_assignments
 
 export forks, tables, sets
 
@@ -36,7 +38,9 @@ type
     slot*: Slot
 
   ActionTracker* = object
+    useOldStabilitySubnets: bool
     rng: ref HmacDrbgContext
+    nodeId: UInt256
 
     subscribeAllAttnets: bool
 
@@ -77,7 +81,6 @@ type
 func hash*(x: AggregatorDuty): Hash =
   hashAllFields(x)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet(
     self: ActionTracker, epoch: Epoch): tuple[subnet_id: SubnetId, expiration: Epoch] =
   (
@@ -126,11 +129,6 @@ proc hasSyncDuty*(
     tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
   epoch < tracker.syncDuties.getOrDefault(pubkey, GENESIS_EPOCH)
 
-const allSubnetBits = block:
-  var res: AttnetBits
-  for i in 0..<res.len: res[i] = true
-  res
-
 func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   var res: AttnetBits
   # Subscribe to subnets for upcoming duties
@@ -141,13 +139,25 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
       res[duty.subnet_id.int] = true
   res
 
+# TODO https://github.com/nim-lang/Nim/issues/22215 keeps from stabilitySubnets
+const allSubnetBits = block:
+  var res: AttnetBits
+  for i in 0..<res.len: res[i] = true
+  res
+
 func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
   if tracker.subscribeAllAttnets:
     allSubnetBits
   else:
     var res: AttnetBits
-    for v in tracker.stabilitySubnets:
-      res[v.subnet_id.int] = true
+
+    if  tracker.useOldStabilitySubnets or
+        tracker.stabilitySubnets.len < SUBNETS_PER_NODE.int:
+      for v in tracker.stabilitySubnets:
+        res[v.subnet_id.int] = true
+    else:
+      for subnetId in compute_subscribed_subnets(tracker.nodeId, slot.epoch):
+        res[subnetId.int] = true
     res
 
 proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
@@ -172,10 +182,6 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
     debug "Validator no longer active", index = k
     tracker.knownValidators.del k
 
-  # One stability subnet per known validator
-  static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let expectedSubnets =
     min(ATTESTATION_SUBNET_COUNT.int, tracker.knownValidators.len)
 
@@ -247,6 +253,8 @@ func needsUpdate*(
   tracker.attesterDepRoot !=
     state.dependent_root(if epoch > Epoch(0): epoch - 1 else: epoch)
 
+from std/sequtils import toSeq
+
 func updateActions*(
     tracker: var ActionTracker, epochRef: EpochRef) =
   # Updates the schedule for upcoming attestation and proposal work
@@ -293,9 +301,11 @@ func updateActions*(
         (1'u32 shl (slot mod SLOTS_PER_EPOCH))
 
 func init*(
-    T: type ActionTracker, rng: ref HmacDrbgContext,
-    subscribeAllAttnets: bool): T =
+    T: type ActionTracker, rng: ref HmacDrbgContext, nodeId: UInt256,
+    subscribeAllAttnets: bool, useOldStabilitySubnets: bool): T =
   T(
     rng: rng,
-    subscribeAllAttnets: subscribeAllAttnets
+    nodeId: nodeId,
+    subscribeAllAttnets: subscribeAllAttnets,
+    useOldStabilitySubnets: useOldStabilitySubnets
   )

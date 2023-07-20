@@ -1,6 +1,6 @@
 # Grafana and Prometheus
 
-In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.
+In this page we'll cover how to use Grafana and Prometheus to help you visualize important real-time metrics concerning your validator and/or beacon node.
 
 Prometheus is an open-source systems monitoring and alerting toolkit.
 It runs as a service on your computer and its job is to capture metrics.

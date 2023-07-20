@@ -46,9 +46,18 @@ See the [execution client guide](./eth1.md) for instructions on how to pick and 
     Follow the [build guide](./build.md).
 
 
-### 4. Start the node
+### 4. Sync from a trusted node
 
-Once you've installed Nimbus, you can [start the node](./start-syncing.md) which will initiate the sync process.
+While this step is not mandatory, since Nimbus will automatically start syncing process on the first start, we recommend doing it as it will allow you to get started in **minutes** instead of hours or even days.
+
+Follow our [trusted node sync guide](./trusted-node-sync.md).
+
+
+### 5. Start the node
+
+Once you've completed previous steps, it is time to start the beacon node.
+
+If you have skipped the syncing from a trusted node step, starting the node will initiate the [syncing process](./start-syncing.md).
 
 ```sh
 cd nimbus-eth2
@@ -75,7 +84,7 @@ INF 2022-07-19 15:42:58.145+02:00 Launching beacon node                      top
 ```
 
 Congratulations!
-Your beacon node is up and running, and syncing the network!
+Your beacon node is up and running!
 
 !!! success "What next?"
 

@@ -54,11 +54,14 @@ endif
 
 # unconditionally built by the default Make target
 # TODO re-enable ncli_query if/when it works again
+TOOLS_CORE_CUSTOMCOMPILE := \
+	libnimbus_lc.a
+
 TOOLS_CORE := \
 	deposit_contract \
 	resttest \
 	logtrace \
-        mev_mock \
+	mev_mock \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \
@@ -69,7 +72,8 @@ TOOLS_CORE := \
 	nimbus_validator_client \
 	nimbus_signing_node \
 	validator_db_aggregator \
-	ncli_testnet
+	ncli_testnet \
+	$(TOOLS_CORE_CUSTOMCOMPILE)
 
 # This TOOLS/TOOLS_CORE decomposition is a workaroud so nimbus_beacon_node can
 # build on its own, and if/when that becomes a non-issue, it can be recombined
@@ -280,7 +284,8 @@ XML_TEST_BINARIES := \
 # test suite
 TEST_BINARIES := \
 	state_sim \
-	block_sim
+	block_sim \
+	test_libnimbus_lc
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
 
 # Preset-dependent tests
@@ -392,14 +397,23 @@ endif
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 	for TEST_BINARY in $(TEST_BINARIES); do \
 		PARAMS=""; \
+		REDIRECT=""; \
 		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
 		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
+		elif [[ "$${TEST_BINARY}" == "test_libnimbus_lc" ]]; then REDIRECT="$${TEST_BINARY}.log"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { \
-			echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
-			tail -n50 "$${TEST_BINARY}.log"; exit 1; \
-		}; \
+		if [[ "$${REDIRECT}" != "" ]]; then \
+			build/$${TEST_BINARY} $${PARAMS} > "$${REDIRECT}" && echo "OK" || { \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+			}; \
+		else \
+			build/$${TEST_BINARY} $${PARAMS} || { \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+			}; \
+		fi; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
@@ -419,7 +433,7 @@ build/generate_makefile: tools/generate_makefile.nim | deps-common
 # It also requires Make to pass open file descriptors to the GCC process,
 # which is not possible if we let Nim handle this, so we generate and use a
 # makefile instead.
-$(TOOLS): | build deps
+$(filter-out $(TOOLS_CORE_CUSTOMCOMPILE),$(TOOLS)): | build deps
 	+ for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "$${TOOL_DIR}/$@.nim" $(NIM_PARAMS) && \
@@ -729,6 +743,34 @@ clean-gnosis-chain:
 	$(call CLEAN_NETWORK,gnosis-chain)
 
 ###
+### libnimbus_lc
+###
+
+libnimbus_lc.a: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		set -x && \
+		rm -f build/$@ && \
+		$(ENV_SCRIPT) $(NIMC) c -d:disable_libbacktrace -d:release --app:staticlib --noMain --nimcache:nimcache/libnimbus_lc_static -o:build/$@ $(NIM_PARAMS) beacon_chain/libnimbus_lc/libnimbus_lc.nim $(SILENCE_WARNINGS) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# `-Wno-maybe-uninitialized` in Linux: https://github.com/nim-lang/Nim/issues/22246
+test_libnimbus_lc: libnimbus_lc.a
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		set -x && \
+		case "$$(uname)" in \
+		Darwin) \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a -framework Security; \
+			;; \
+		MINGW64_*) \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
+			;; \
+		*) \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -Wno-maybe-uninitialized -flto -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
+			;; \
+		esac && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+###
 ### Other
 ###
 
@@ -768,9 +810,9 @@ book:
 	"$(MAKE)" -C docs book
 
 auditors-book:
-	[[ "$$(mdbook --version)" = "mdbook v0.4.18" ]] || { echo "'mdbook v0.4.18' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook --version)" = "mdbook v0.4.28" ]] || { echo "'mdbook v0.4.28' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.1.0" ]] || { echo "'mdbook-open-on-gh 2.1.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.3.3" ]] || { echo "'mdbook-open-on-gh 2.3.3' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.7.0" ]] || { echo "'mdbook-open-on-gh 1.7.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_auditors_handbook && \
 	mdbook build
