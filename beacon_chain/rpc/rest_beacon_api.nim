@@ -749,6 +749,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         # the state will be obtained.
         bslot.slot.epoch()
 
+    # Try to obtain RANDAO in an accelerated way
+    let bsi = node.dag.atSlot(bslot.bid, (qepoch + 1).start_slot - 1)
+    if bsi.isSome:
+      let mix = node.dag.computeRandaoMix(bsi.get.bid)
+      if mix.isSome:
+        return RestApiResponse.jsonResponseWOpt(
+          RestEpochRandao(randao: mix.get),
+          node.getBidOptimistic(bsi.get.bid)
+        )
+
+    # Fall back to full state computation
     node.withStateForBlockSlotId(bslot):
       withState(state):
         return RestApiResponse.jsonResponseWOpt(
