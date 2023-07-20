@@ -513,8 +513,6 @@ proc getOrDefault*(info: VCRuntimeConfig, name: string,
   Base10.decode(uint64, numstr).valueOr:
     return default
 
-proc hasKey*(info: VCRuntimeConfig, name: string): bool = info.hasKey(name)
-
 proc getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
   Epoch(info.getOrDefault(name, uint64(default)))
 
