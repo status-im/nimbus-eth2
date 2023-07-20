@@ -850,7 +850,7 @@ template withStateAndBlck*(
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock | bellatrix_mev.BlindedBeaconBlock |
+    blck: SomeForkyBeaconBlock |
           capella_mev.BlindedBeaconBlock | deneb_mev.BlindedBeaconBlock):
             BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
