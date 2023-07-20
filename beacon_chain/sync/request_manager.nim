@@ -266,7 +266,7 @@ proc requestManagerBlockLoop(rman: RequestManager) {.async.} =
                                           failed = (len(workers) - succeed),
                                           sync_speed = speed(start, finish)
 
-    except CancelledError as exc:
+    except CancelledError:
       break
     except CatchableError as exc:
       warn "Unexpected error in request manager block loop", exc = exc.msg
@@ -284,7 +284,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
 
     # give blobs a chance to arrive over gossip
     if blobless.message.slot == wallSlot and delay < waitDur:
-      debug "Not handling missing blobs as early in slot"
+      debug "Not handling missing blobs early in slot"
       continue
 
     if not rman.blobQuarantine[].hasBlobs(blobless):
@@ -332,7 +332,8 @@ proc requestManagerBlobLoop(rman: RequestManager) {.async.} =
           if worker.finished() and not(worker.failed()):
             inc(succeed)
 
-        debug "Request manager blob tick", blobs_count = len(fetches),
+        debug "Request manager blob tick",
+             blobs_count = len(fetches),
              succeed = succeed,
              failed = (len(workers) - succeed),
              sync_speed = speed(start, finish)
