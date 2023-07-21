@@ -34,7 +34,7 @@ const
   BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
     ## How long to wait for blobs to arrive over gossip before fetching.
 
-  POLL_FREQUENCY = 1.seconds
+  POLL_INTERVAL = 1.seconds
 
 type
   BlockVerifierFn* =
@@ -67,7 +67,6 @@ proc init*(T: type RequestManager, network: Eth2Node,
               blockVerifier: BlockVerifierFn): RequestManager =
   RequestManager(
     network: network,
-    # TODO remove this queue and poll the quarantine directly
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     quarantine: quarantine,
@@ -233,7 +232,7 @@ proc requestManagerBlockLoop(rman: RequestManager) {.async.} =
   while true:
     # TODO This polling could be replaced with an AsyncEvent that is fired
     #      from the quarantine when there's work to do
-    await sleepAsync(POLL_FREQUENCY)
+    await sleepAsync(POLL_INTERVAL)
 
     if rman.inhibit():
       continue
@@ -300,7 +299,10 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
           fetches.add(id)
     else:
       # this is a programming error should it occur.
-      warn "missing blob handler found blobless block with all blobs"
+      warn "missing blob handler found blobless block with all blobs",
+         blk=blobless.root,
+         indices=rman.blobQuarantine[].blobIndices(blobless.root),
+         kzgs=len(blobless.message.body.blob_kzg_commitments)
       discard rman.blockVerifier(ForkedSignedBeaconBlock.init(blobless),
                                  false)
       rman.quarantine[].removeBlobless(blobless)
@@ -311,7 +313,7 @@ proc requestManagerBlobLoop(rman: RequestManager) {.async.} =
   while true:
   # TODO This polling could be replaced with an AsyncEvent that is fired
   #      from the quarantine when there's work to do
-    await sleepAsync(POLL_FREQUENCY)
+    await sleepAsync(POLL_INTERVAL)
     if rman.inhibit():
       continue
 
