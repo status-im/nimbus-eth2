@@ -1203,7 +1203,7 @@ suite "Ancestry":
     type Node = tuple[blck: BlockRef, state: ref phase0.HashedBeaconState]
     template bid(n: Node): BlockId = n.blck.bid
 
-    var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    var verifier = BatchVerifier.init(rng, taskpool)
     proc addBlock(parent: Node, slot: Slot): Node =
       dag.updateHead(parent.blck, quarantine[], [])
 
