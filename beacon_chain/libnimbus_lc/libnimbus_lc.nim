@@ -1173,9 +1173,13 @@ func ETHExecutionPayloadHeaderGetExcessDataGas(
   ## * Excess data gas.
   execution[].excess_data_gas.cint
 
+type ETHExecutionBlockHeader = object
+  txRoot: Eth2Digest
+  withdrawalsRoot: Eth2Digest
+
 proc ETHExecutionBlockHeaderCreateFromJson(
     executionHash: ptr Eth2Digest,
-    blockHeaderJson: cstring): ptr ExecutionBlockHeader {.exported.} =
+    blockHeaderJson: cstring): ptr ETHExecutionBlockHeader {.exported.} =
   ## Verifies that a JSON execution block header is valid and that it matches
   ## the given `executionHash`.
   ##
@@ -1237,8 +1241,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     return nil
   if bdata.nonce.isNone:
     return nil
-  let executionBlockHeader = ExecutionBlockHeader.create()
-  executionBlockHeader[] = ExecutionBlockHeader(
+  let blockHeader = ExecutionBlockHeader(
     parentHash: bdata.parentHash.asEth2Digest,
     ommersHash: bdata.sha3Uncles.asEth2Digest,
     coinbase: distinctBase(bdata.miner),
@@ -1270,14 +1273,17 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         some distinctBase(bdata.excessDataGas.get)
       else:
         none(uint64))
-  if rlpHash(executionBlockHeader[]) != executionHash[]:
-    executionBlockHeader.destroy()
+  if rlpHash(blockHeader) != executionHash[]:
     return nil
 
+  let executionBlockHeader = ETHExecutionBlockHeader.create()
+  executionBlockHeader[] = ETHExecutionBlockHeader(
+    txRoot: blockHeader.txRoot,
+    withdrawalsRoot: blockHeader.withdrawalsRoot.get(ZERO_HASH))
   executionBlockHeader
 
 proc ETHExecutionBlockHeaderDestroy(
-    executionBlockHeader: ptr ExecutionBlockHeader) {.exported.} =
+    executionBlockHeader: ptr ETHExecutionBlockHeader) {.exported.} =
   ## Destroys an execution block header.
   ##
   ## * The execution block header must no longer be used after destruction.
@@ -1287,7 +1293,7 @@ proc ETHExecutionBlockHeaderDestroy(
   executionBlockHeader.destroy()
 
 func ETHExecutionBlockHeaderGetTransactionsRoot(
-    executionBlockHeader: ptr ExecutionBlockHeader
+    executionBlockHeader: ptr ETHExecutionBlockHeader
 ): ptr Eth2Digest {.exported.} =
   ## Obtains the transactions MPT root of a given execution block header.
   ##
@@ -1303,7 +1309,7 @@ func ETHExecutionBlockHeaderGetTransactionsRoot(
   addr executionBlockHeader[].txRoot
 
 func ETHExecutionBlockHeaderGetWithdrawalsRoot(
-    executionBlockHeader: ptr ExecutionBlockHeader
+    executionBlockHeader: ptr ETHExecutionBlockHeader
 ): ptr Eth2Digest {.exported.} =
   ## Obtains the withdrawals MPT root of a given execution block header.
   ##
@@ -1316,7 +1322,4 @@ func ETHExecutionBlockHeaderGetWithdrawalsRoot(
   ##
   ## Returns:
   ## * Execution withdrawals root.
-  if executionBlockHeader[].withdrawalsRoot.isNone:
-    return unsafeAddr ZERO_HASH
-
-  unsafeAddr executionBlockHeader[].withdrawalsRoot.unsafeGet
+  addr executionBlockHeader[].withdrawalsRoot
