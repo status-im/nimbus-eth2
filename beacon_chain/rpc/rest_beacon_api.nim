@@ -19,6 +19,12 @@ import
 
 export rest_utils
 
+const
+  MINIMAL_VALIDATORS_BF_COUNT = 1_000_000
+    ## Minimal size of validators bloom filter. Current mainnet number of
+    ## validators is near 700k, so you could update this number if it exceeds.
+    ## This number only affects first-run nodes.
+
 logScope: topics = "rest_beaconapi"
 
 proc validateBeaconApiQueries*(key: string, value: string): int =
@@ -123,7 +129,58 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
+proc getFinalizedBlockSlotId(node: BeaconNode): BlockSlotId =
+  node.dag.finalizedHead.toBlockSlotId().expect("not nil")
+
+proc getValidatorsCount(node: BeaconNode): int =
+  node.withStateForBlockSlotId(node.getFinalizedBlockSlotId()):
+    return len(getStateField(state, validators))
+  0
+
+proc updateBloomFilter(bf: var BloomFilter, node: BeaconNode) =
+  var count = 0
+  let startTime = Moment.now()
+  node.withStateForBlockSlotId(node.getFinalizedBlockSlotId()):
+    let validatorsCount = lenu64(getStateField(state, validators))
+    if validatorsCount > lenu64(bf):
+      let validatorsInFilter = lenu64(bf)
+      for index in validatorsInFilter ..< validatorsCount:
+        bf.registerKey(
+          distinctBase(getStateField(state, validators).data)[index].pubkey)
+        inc(count)
+  if count > 0:
+    debug "Validators bloom filter updated", count = count,
+          in_filter_count = len(bf), elapsed_time = (Moment.now() - startTime)
+
+proc getRecentValidators(
+       startIndex: ValidatorIndex,
+       forkedState: ForkedHashedBeaconState
+     ): Table[ValidatorPubKey, ValidatorIndex] =
+  var res: Table[ValidatorPubKey, ValidatorIndex]
+  withState(forkedState):
+    let validatorsCount = lenu64(forkyState.data.validators)
+    for index in uint64(startIndex) ..< validatorsCount:
+      let pubkey =
+        distinctBase(forkyState.data.validators).data[index].pubkey
+      res[pubkey] = ValidatorIndex(index)
+  res
+
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
+  let
+    validatorsCount = max(node.getValidatorsCount(),
+                          MINIMAL_VALIDATORS_BF_COUNT)
+    # We expect 133% of validators to be registered while node is
+    # running. If number of validators will exceed this value we going
+    # to lose bloom filter's efficiency only.
+    itemsCount = validatorsCount + (validatorsCount div 3)
+    bitsCount = getBitsCount(int(itemsCount))
+
+  var validatorsBloomFilter = BloomFilter.init(bitsCount)
+  debug "Validators bloom filter initialized", bits_count = bitsCount,
+        actual_bits_count = validatorsBloomFilter.bitsCount(),
+        memory_size = formatSize(validatorsBloomFilter.bytesCount())
+  validatorsBloomFilter.updateBloomFilter(node)
+
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api(MethodGet, "/eth/v1/beacon/deposit_snapshot") do () -> RestApiResponse:
     let snapshot = node.db.getDepositTreeSnapshot().valueOr:
@@ -271,10 +328,16 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $res.error())
         res.get()
 
+    # Update bloom filter to latest finalized head validators.
+    validatorsBloomFilter.updateBloomFilter(node)
+
     node.withStateForBlockSlotId(bslot):
       let
         current_epoch = getStateField(state, slot).epoch()
         validatorsCount = lenu64(getStateField(state, validators))
+      var recentValidators =
+        getRecentValidators(ValidatorIndex(len(validatorsBloomFilter)),
+                            state)
 
       let indices =
         block:
@@ -305,6 +368,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
           if len(keyset) > 0:
             let optIndices = keysToIndices(node.restKeysCache, state,
+                                           validatorsBloomFilter,
+                                           recentValidators,
                                            keyset.toSeq())
             # Remove all the duplicates.
             for item in optIndices:
@@ -378,16 +443,23 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                           $error)
 
+    # Update bloom filter to latest finalized head validators.
+    validatorsBloomFilter.updateBloomFilter(node)
+
     node.withStateForBlockSlotId(bslot):
       let
         current_epoch = getStateField(state, slot).epoch()
         validatorsCount = lenu64(getStateField(state, validators))
-
+      var recentValidators =
+        getRecentValidators(ValidatorIndex(len(validatorsBloomFilter)),
+                            state)
       let vindex =
         block:
           case vid.kind
           of ValidatorQueryKind.Key:
-            let optIndices = keysToIndices(node.restKeysCache, state, [vid.key])
+            let optIndices = keysToIndices(node.restKeysCache, state,
+                                           validatorsBloomFilter,
+                                           recentValidators, [vid.key])
             if optIndices[0].isNone():
               return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
             optIndices[0].get()
@@ -450,8 +522,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            MaximumNumberOfValidatorIdsError)
         ires
 
+    # Update bloom filter to latest finalized head validators.
+    validatorsBloomFilter.updateBloomFilter(node)
+
     node.withStateForBlockSlotId(bslot):
-      let validatorsCount = lenu64(getStateField(state, validators))
+      let
+        validatorsCount = lenu64(getStateField(state, validators))
+      var recentValidators =
+        getRecentValidators(ValidatorIndex(len(validatorsBloomFilter)),
+                            state)
 
       let indices =
         block:
@@ -481,6 +560,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
           if len(keyset) > 0:
             let optIndices = keysToIndices(node.restKeysCache, state,
+                                           validatorsBloomFilter,
+                                           recentValidators,
                                            keyset.toSeq())
             # Remove all the duplicates.
             for item in optIndices:
@@ -664,7 +745,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         # the state will be obtained.
         bslot.slot.epoch()
 
+    # Update bloom filter to latest finalized head validators.
+    validatorsBloomFilter.updateBloomFilter(node)
+
     node.withStateForBlockSlotId(bslot):
+      var recentValidators =
+        getRecentValidators(ValidatorIndex(len(validatorsBloomFilter)),
+                            state)
+
       let keys =
         block:
           let res = syncCommitteeParticipants(state, qepoch)
@@ -680,7 +768,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let indices =
         block:
           var res: seq[ValidatorIndex]
-          let optIndices = keysToIndices(node.restKeysCache, state, keys)
+          let optIndices = keysToIndices(node.restKeysCache, state,
+                                         validatorsBloomFilter,
+                                         recentValidators, keys)
           # Remove all the duplicates.
           for item in optIndices:
             if item.isNone():

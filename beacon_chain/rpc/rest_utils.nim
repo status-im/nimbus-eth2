@@ -8,13 +8,15 @@
 {.push raises: [].}
 
 import std/[options, macros],
-       stew/byteutils, presto,
-       ../spec/[forks],
+       stew/[byteutils, endians2], presto,
+       ../spec/[forks, crypto],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization, rest_common],
        ../validators/validator_duties,
        ../consensus_object_pools/blockchain_dag,
        ../beacon_node,
        "."/[rest_constants, state_ttl_cache]
+
+from std/math import isPowerOfTwo, nextPowerOfTwo
 
 export
   options, eth2_rest_serialization, blockchain_dag, presto, rest_types,
@@ -23,6 +25,15 @@ export
 type
   ValidatorIndexError* {.pure.} = enum
     UnsupportedValue, TooHighValue
+
+  BloomFilter* = object
+    words: seq[uint]
+    length: int
+    mask: uint
+    used: int
+
+func checkKey*(bf: BloomFilter, pubkey: ValidatorPubKey): bool {.
+     raises: [].}
 
 func match(data: openArray[char], charset: set[char]): int =
   for ch in data:
@@ -255,6 +266,8 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
 
 func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
                     forkedState: ForkedHashedBeaconState,
+                    bloomFilter: BloomFilter,
+                    recentValidators: var Table[ValidatorPubKey, ValidatorIndex],
                     keys: openArray[ValidatorPubKey]
                    ): seq[Option[ValidatorIndex]] =
   var indices = newSeq[Option[ValidatorIndex]](len(keys))
@@ -262,13 +275,22 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
   var keyset =
     block:
       var res: Table[ValidatorPubKey, int]
-      for inputIndex, pubkey in keys:
-        # Try to search in cache first.
-        cacheTable.withValue(pubkey, vindex):
-          if uint64(vindex[]) < totalValidatorsInState:
-            indices[inputIndex] = some(vindex[])
-        do:
-          res[pubkey] = inputIndex
+      for inputIndex, pubkey in keys.pairs():
+        if bloomFilter.checkKey(pubkey):
+          # The validator's public key is possible in our registry, we will
+          # check in cache first.
+          cacheTable.withValue(pubkey, vindex):
+            if uint64(vindex[]) < totalValidatorsInState:
+              indices[inputIndex] = some(vindex[])
+          do:
+            res[pubkey] = inputIndex
+        else:
+          # The validator's public key is not in bloom filter, but it could
+          # be inside `recentValidators`, so we check it.
+          recentValidators.withValue(pubkey, rindex):
+            indices[inputIndex] = some(rindex[])
+          do:
+            res[pubkey] = inputIndex
       res
   if len(keyset) > 0:
     for validatorIndex, validator in getStateField(forkedState, validators):
@@ -334,3 +356,124 @@ proc verifyRandao*(
 
     verify_epoch_signature(
       fork, genesis_validators_root, slot.epoch, proposer_pubkey, randao)
+
+template len*(bf: BloomFilter): int =
+  bf.used
+
+template divShift(): uint =
+  when sizeof(uint) == 8: 6'u else: 5'u
+
+template modMask(): uint =
+  when sizeof(uint) == 8: 63'u else: 31'u
+
+func raiseBit*(bf: var BloomFilter, pos: Natural) {.inline.} =
+  doAssert(pos < bf.length)
+  let index = uint(pos) shr divShift()
+  bf.words[index] = bf.words[index] or (1'u shl (uint(pos) and modMask()))
+
+func getBit*(bf: BloomFilter, pos: Natural): bool {.inline.} =
+  doAssert(pos < bf.length)
+  let index = uint(pos) shr divShift()
+  (bf.words[index] and (1'u shl (uint(pos) and modMask()))) != 0'u
+
+proc getBitsCount*(itemsCount: int): int =
+  ## We are using 8 hashes and we want to get 0.0001 false positive rate, so we
+  ## should use `m/n == 21` according to Table 3 of
+  ## https://pages.cs.wisc.edu/~cao/papers/summary-cache/node8.html
+  itemsCount * 21
+
+proc init*(T: typedesc[BloomFilter], bitsCount: int): T =
+  when sizeof(int) == 8:
+    doAssert bitsCount <= 0x4000_0000_0000_0000
+  else:
+    doAssert bitsCount <= 0x4000_0000
+
+  let
+    correctedBits = nextPowerOfTwo(bitsCount + 1)
+    correctedSize = (correctedBits + int(modMask())) shr int(divShift())
+
+  BloomFilter(
+    words: newSeq[uint](correctedSize),
+    mask: uint(correctedBits - 1),
+    length: correctedBits
+  )
+
+func itemsCount*(bf: BloomFilter): int =
+  len(bf.words)
+
+func bytesCount*(bf: BloomFilter): int =
+  len(bf.words) * sizeof(uint)
+
+func bitsCount*(bf: BloomFilter): int =
+  bf.length
+
+template toHashes(pubkey: ValidatorPubKey): auto =
+  var pos: array[8, uint32]
+  when sizeof(int) == 8:
+    let
+      pos0 = uint64.fromBytesLE(pubkey.blob.toOpenArray(0, 7)) xor
+             uint64.fromBytesLE(pubkey.blob.toOpenArray(8, 15))
+      pos1 = uint64.fromBytesLE(pubkey.blob.toOpenArray(16, 23)) xor
+             uint64.fromBytesLE(pubkey.blob.toOpenArray(24, 31))
+      pos2 = uint64.fromBytesLE(pubkey.blob.toOpenArray(32, 39)) xor
+             uint64.fromBytesLE(pubkey.blob.toOpenArray(40, 47))
+      pos3 = uint64.fromBytesLE(pubkey.blob.toOpenArray(0, 7)) xor
+             uint64.fromBytesLE(pubkey.blob.toOpenArray(40, 47))
+    pos[0] = uint32(pos0 and uint64(bf.mask))
+    pos[1] = uint32((pos0 shr 32) and uint64(bf.mask))
+    pos[2] = uint32(pos1 and uint64(bf.mask))
+    pos[3] = uint32((pos1 shr 32) and uint64(bf.mask))
+    pos[4] = uint32(pos2 and uint64(bf.mask))
+    pos[5] = uint32((pos2 shr 32) and uint64(bf.mask))
+    pos[6] = uint32(pos3 and uint64(bf.mask))
+    pos[7] = uint32((pos3 shr 32) and uint64(bf.mask))
+  else:
+    pos[0] = (uint32.fromBytesLE(pubkey.blob.toOpenArray(0, 3)) xor
+              uint32.fromBytesLE(pubkey.blob.toOpenArray(4, 7))) and
+             uint32(bf.mask)
+    pos[1] = (uint32.fromBytesLE(pubkey.blob.toOpenArray(8, 11)) xor
+              uint32.fromBytesLE(pubkey.blob.toOpenArray(12, 15))) and
+             uint32(bf.mask)
+    pos[2] = (uint32.fromBytesLE(pubkey.blob.toOpenArray(16, 19)) xor
+              uint32.fromBytesLE(pubkey.blob.toOpenArray(20, 23))) and
+             uint32(bf.mask)
+    pos[3] = (uint32.fromBytesLE(pubkey.blob.toOpenArray(24, 27)) xor
+              uint32.fromBytesLE(pubkey.blob.toOpenArray(28, 31))) and
+             uint32(bf.mask)
+    pos[4] = (uint32.fromBytesLE(pubkey.blob.toOpenArray(32, 35)) xor
+              uint32.fromBytesLE(pubkey.blob.toOpenArray(36, 39))) and
+             uint32(bf.mask)
+    pos[5] = (uint32.fromBytesLE(pubkey.blob.toOpenArray(40, 43)) xor
+              uint32.fromBytesLE(pubkey.blob.toOpenArray(44, 47))) and
+             uint32(bf.mask)
+    pos[6] = (uint32.fromBytesLE(pubkey.blob.toOpenArray(0, 3)) xor
+              uint32.fromBytesLE(pubkey.blob.toOpenArray(44, 47))) and
+             uint32(bf.mask)
+    pos[7] = (uint32.fromBytesLE(pubkey.blob.toOpenArray(4, 7)) xor
+              uint32.fromBytesLE(pubkey.blob.toOpenArray(40, 43))) and
+             uint32(bf.mask)
+  pos
+
+proc registerKey*(bf: var BloomFilter, pubkey: ValidatorPubKey) =
+  let hashes = pubkey.toHashes()
+  bf.raiseBit(hashes[0])
+  bf.raiseBit(hashes[1])
+  bf.raiseBit(hashes[2])
+  bf.raiseBit(hashes[3])
+  bf.raiseBit(hashes[4])
+  bf.raiseBit(hashes[5])
+  bf.raiseBit(hashes[6])
+  bf.raiseBit(hashes[7])
+  inc(bf.used)
+
+func checkKey*(bf: BloomFilter, pubkey: ValidatorPubKey): bool =
+  let hashes = pubkey.toHashes()
+  if not(bf.getBit(hashes[0])): return false
+  if not(bf.getBit(hashes[1])): return false
+  if not(bf.getBit(hashes[2])): return false
+  if not(bf.getBit(hashes[3])): return false
+  if not(bf.getBit(hashes[4])): return false
+  if not(bf.getBit(hashes[5])): return false
+  if not(bf.getBit(hashes[6])): return false
+  if not(bf.getBit(hashes[7])): return false
+  true
