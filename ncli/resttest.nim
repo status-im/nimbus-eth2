@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -993,9 +993,8 @@ proc workerLoop(address: TransportAddress, uri: Uri, worker: int,
       let testRes = await runTest(conn, uri, test.rule, worker, test.index)
       let caseRes = TestCaseResult(index: test.index, data: testRes)
       await outputQueue.addLast(caseRes)
-      if ResetConnection in testRes.flags:
-        await conn.closeWait()
-        conn = nil
+      await conn.closeWait()
+      conn = nil
       index = 0
     except CancelledError:
       if not(isNil(conn)):
