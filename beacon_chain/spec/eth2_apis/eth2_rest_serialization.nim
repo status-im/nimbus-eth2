@@ -3027,7 +3027,7 @@ proc decodeBody*(
        t: typedesc[RestPublishedSignedBlockContents],
        body: ContentBody,
        version: string
-     ): Result[RestPublishedSignedBlockContents, cstring] =
+     ): Result[RestPublishedSignedBlockContents, string] =
   if body.contentType == ApplicationJsonMediaType:
     let data =
       try:
@@ -3043,7 +3043,9 @@ proc decodeBody*(
         return err("Unexpected deserialization error")
     ok(data)
   elif body.contentType == OctetStreamMediaType:
-    let consensusFork = ? ConsensusFork.decodeString(version)
+    let consensusFork =
+      decodeEthConsensusVersion(version).valueOr:
+        return err("Invalid or Unsupported consensus version")
     case consensusFork
     of ConsensusFork.Phase0:
       let blck =
@@ -3120,11 +3122,13 @@ proc decodeBodyJsonOrSsz*(
        t: typedesc[RestPublishedSignedBlockContents],
        body: ContentBody,
        version: string
-     ): Result[RestPublishedSignedBlockContents, cstring] =
+     ): Result[RestPublishedSignedBlockContents, string] =
   if body.contentType == OctetStreamMediaType:
     decodeBody(RestPublishedSignedBlockContents, body, version)
   elif body.contentType == ApplicationJsonMediaType:
-    let consensusFork = ? ConsensusFork.decodeString(version)
+    let consensusFork =
+      decodeEthConsensusVersion(version).valueOr:
+        return err("Invalid or Unsupported consensus version")
     case consensusFork
     of ConsensusFork.Phase0:
       let blck =
@@ -3136,9 +3140,9 @@ proc decodeBodyJsonOrSsz*(
           debug "Failed to deserialize REST JSON data",
                err = exc.formatMsg("<data>"),
                data = string.fromBytes(body.data)
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+          return err("Unable to deserialize JSON for fork " & version & ": " & exc.msg)
+        except CatchableError as exc:
+          return err("Unexpected JSON deserialization error: " & exc.msg)
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Phase0, phase0Data: blck))
     of ConsensusFork.Altair:
