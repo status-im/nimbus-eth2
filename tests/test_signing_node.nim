@@ -320,13 +320,28 @@ proc spawnSigningNodeProcess(
 proc shutdownSigningNodeProcess(sp: SigningProcess) {.async.} =
   if sp.process.running().get(true):
     sp.process.kill()
-  discard await sp.process.waitForExit()
-  await allFutures(sp.reader)
-  let data = sp.reader.read()
 
-  echo ""
-  echo "===== nimbus_signing_node log ====="
-  echo bytesToString(data)
+  let resultCode =
+    try:
+      let res = await sp.process.waitForExit().wait(10.seconds)
+      Opt.some(res)
+    except AsyncTimeoutError:
+      echo "Timeout exceeded while waiting for `nimbus_signing_node` to exit"
+      Opt.none(int)
+    except CatchableError as exc:
+      raise exc
+
+  if resultCode.isSome():
+    await allFutures(sp.reader)
+    let data = sp.reader.read()
+    echo ""
+    echo "===== nimbus_signing_node exited with [", resultCode.get(),
+         "] log ====="
+    echo bytesToString(data)
+  else:
+    echo ""
+    echo "Unable to terminate `nimbus_signing_node` process [",
+         sp.process.pid(), "]"
 
 let
   basePortStr =
