@@ -1009,7 +1009,7 @@ const ETHUInt256 *ETHExecutionPayloadHeaderGetBaseFeePerGas(
  * @return Data gas used.
  */
 ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetDataGasUsed(
+int ETHExecutionPayloadHeaderGetBlobGasUsed(
     const ETHExecutionPayloadHeader *execution);
 
 /**
@@ -1020,7 +1020,7 @@ int ETHExecutionPayloadHeaderGetDataGasUsed(
  * @return Excess data gas.
  */
 ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetExcessDataGas(
+int ETHExecutionPayloadHeaderGetExcessBlobGas(
     const ETHExecutionPayloadHeader *execution);
 
 #if __has_feature(nullability)
