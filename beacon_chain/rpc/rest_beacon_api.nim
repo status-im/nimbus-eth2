@@ -902,7 +902,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         if request.headers.getString("broadcast_validation") != "gossip":
-          # TODO: support 'consensus' and 'consensus_and_equivocation'
+          # TODO (henridf): support 'consensus' and 'consensus_and_equivocation'
           # broadcast_validation
           return RestApiResponse.jsonError(
             Http400, "gossip broadcast_validation only supported")
@@ -916,7 +916,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                              $error)
           forked = ForkedSignedBeaconBlock.init(restBlock)
 
-        # TODO: handle broadcast_validation flag
+        # TODO (henridf): handle broadcast_validation flag
         if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
              getForkedBlockField(forked, slot).epoch):
           doAssert strictVerification notin node.dag.updateFlags

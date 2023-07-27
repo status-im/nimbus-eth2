@@ -3140,7 +3140,8 @@ proc decodeBodyJsonOrSsz*(
           debug "Failed to deserialize REST JSON data",
                err = exc.formatMsg("<data>"),
                data = string.fromBytes(body.data)
-          return err("Unable to deserialize JSON for fork " & version & ": " & exc.msg)
+          return err("Unable to deserialize JSON for fork " &
+                     version & ": " & exc.formatMsg("<data>"))
         except CatchableError as exc:
           return err("Unexpected JSON deserialization error: " & exc.msg)
       ok(RestPublishedSignedBlockContents(
