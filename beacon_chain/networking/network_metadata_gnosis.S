@@ -34,6 +34,13 @@ gnosis_mainnet_genesis_end:
 cdecl(gnosis_mainnet_genesis_size):
     .quad    gnosis_mainnet_genesis_end - gnosis_mainnet_genesis_data
 
+gnosis_chiado_genesis_data:
+    .incbin "gnosis-chain-configs/chiado/genesis.ssz"
+gnosis_chiado_genesis_end:
+    .global cdecl(gnosis_chiado_genesis_size)
+cdecl(gnosis_chiado_genesis_size):
+    .quad    gnosis_chiado_genesis_end - gnosis_chiado_genesis_data
+
 #if defined(__linux__) && defined(__pie__)
     .section	.data.rel.ro,"aw",@progbits
 #elif defined(__APPLE__)
@@ -44,3 +51,8 @@ cdecl(gnosis_mainnet_genesis_size):
     .p2align 3
 cdecl(gnosis_mainnet_genesis):
     .quad gnosis_mainnet_genesis_data
+
+    .global cdecl(gnosis_chiado_genesis)
+    .p2align 3
+cdecl(gnosis_chiado_genesis):
+    .quad gnosis_chiado_genesis_data

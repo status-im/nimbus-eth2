@@ -221,6 +221,9 @@ when const_preset == "gnosis":
       gnosisGenesis {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
       gnosisGenesisSize {.importc: "gnosis_mainnet_genesis_size".}: int
 
+      chiadoGenesis {.importc: "gnosis_chiado_genesis".}: ptr UncheckedArray[byte]
+      chiadoGenesisSize {.importc: "gnosis_chiado_genesis_size".}: int
+
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & vendorDir.}
     {.compile: "network_metadata_gnosis.S".}
@@ -229,10 +232,19 @@ when const_preset == "gnosis":
     gnosisMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/mainnet",
       none(Eth1Network), not incbinEnabled)
+    chiadoMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/gnosis-chain-configs/chiado",
+      none(Eth1Network), not incbinEnabled)
 
   static:
-    checkForkConsistency(gnosisMetadata.cfg)
-    doAssert gnosisMetadata.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
+    for network in [gnosisMetadata, chiadoMetadata]:
+      checkForkConsistency(network.cfg)
+
+    for network in [gnosisMetadata, chiadoMetadata]:
+      doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
   import stew/assign2
@@ -309,6 +321,8 @@ proc getMetadataForNetwork*(
         warn "`--network:gnosis-chain` is deprecated, " &
           "use `--network:gnosis` instead"
         withGenesis(gnosisMetadata, gnosisGenesis)
+      of "chiado":
+        withGenesis(chiadoMetadata, chiadoGenesis)
       else:
         loadRuntimeMetadata()
 
