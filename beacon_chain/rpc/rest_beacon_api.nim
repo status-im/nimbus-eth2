@@ -935,7 +935,25 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
     of ConsensusFork.Bellatrix:
-      return RestApiResponse.jsonError(Http400, "FOO")
+      let
+        restBlock = decodeBodyJsonOrSsz(
+            bellatrix_mev.SignedBlindedBeaconBlock, body).valueOr:
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                           $error)
+        payloadBuilderClient = node.getPayloadBuilderClient(
+            restBlock.message.proposer_index).valueOr:
+          return RestApiResponse.jsonError(
+            Http400, "Unable to initialize payload builder client: " & $error)
+        res = await node.unblindAndRouteBlockMEV(
+          payloadBuilderClient, restBlock)
+
+      if res.isErr():
+        return RestApiResponse.jsonError(
+          Http503, BeaconNodeInSyncError, $res.error())
+      if res.get().isNone():
+        return RestApiResponse.jsonError(Http202, BlockValidationError)
+
+      return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
     of ConsensusFork.Altair, ConsensusFork.Phase0:
       # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
       #
