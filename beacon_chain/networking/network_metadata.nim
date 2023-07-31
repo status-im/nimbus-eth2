@@ -49,11 +49,6 @@ type
   Eth2NetworkMetadata* = object
     case incompatible*: bool
     of false:
-      # TODO work-around a Nim codegen issue where upon constant assignment
-      #      the compiler will copy `incompatibilityDesc` even when the case
-      #      branch is not active and thus it will override the first variable
-      #      in this branch.
-      dummy: string
       # If the eth1Network is specified, the ELManager will perform some
       # additional checks to ensure we are connecting to a web3 provider
       # serving data for the same network. The value can be set to `None`
