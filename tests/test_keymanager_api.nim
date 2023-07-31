@@ -277,7 +277,7 @@ proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
   addPreTestRemoteKeystores(nodeValidatorsDir)
 
   let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
-    "--log-level=TRACE;DEBUG:libp2p,gossipsub"
+    "--log-level=TRACE;DEBUG:libp2p,gossipsub",
     "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
     "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
     "--discv5=off",
