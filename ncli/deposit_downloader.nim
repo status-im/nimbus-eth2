@@ -82,8 +82,6 @@ proc main(flags: CliFlags) {.async.} =
 
 waitFor main(
   load(CliFlags,
-       secondarySources = proc (
-           config: CliFlags, sources: ref SecondarySources
-       ) {.raises: [ConfigurationError].} =
+       secondarySources = proc (config: CliFlags, sources: auto) =
         if config.configFile.isSome:
           sources.addConfigFile(Toml, config.configFile.get)))

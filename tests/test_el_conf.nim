@@ -21,9 +21,7 @@ type
 proc loadExampleConfig(content: string, cmdLine = newSeq[string]()): ExampleConfigFile =
   ExampleConfigFile.load(
     cmdLine = cmdLine,
-    secondarySources = proc (
-        config: ExampleConfigFile, sources: ref SecondarySources
-    ) {.raises: [ConfigurationError].} =
+    secondarySources = proc (config: ExampleConfigFile, sources: auto) =
       sources.addConfigFileContent(Toml, content))
 
 const
