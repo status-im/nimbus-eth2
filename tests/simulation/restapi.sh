@@ -270,7 +270,7 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
     echo "All tests were completed successfully!"
   else
     echo "Some of the tests failed!"
-    tail -n 1000 ${LOG_NODE_FILE}
+    tail -n 100 ${LOG_NODE_FILE}
     exit 1
   fi
 else
