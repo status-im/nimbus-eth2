@@ -1568,7 +1568,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     ## Check that computed shuffling matches the one from `EpochRef`.
     block:
       let computedShufflingRef = computedShufflingRefParam
-      if computedShufflingRef.isSome:
+      if computedShufflingRef.isOk:
         check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
 
   test "Accelerated shuffling computation":
@@ -1583,14 +1583,6 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       let epochRef = dag.getEpochRef(blck, epoch, true)
       check epochRef.isOk
 
-      let dependentBsi = dag.atSlot(blck.bid, epoch.attester_dependent_slot)
-      check dependentBsi.isSome
-      let
-        memoryMix = dag.computeRandaoMixFromMemory(
-          dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
-        databaseMix = dag.computeRandaoMixFromDatabase(
-          dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
-
       # If shuffling is computable from DAG, check its correctness
       epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
 
@@ -1601,32 +1593,18 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       for state in states:
         withState(state[]):
           let
+            shufflingRef =
+              dag.computeShufflingRefFromState(forkyState, blck, epoch)
             stateEpoch = forkyState.data.get_current_epoch
             blckEpoch = blck.bid.slot.epoch
             minEpoch = min(stateEpoch, blckEpoch)
-            lowSlot = epoch.lowSlotForAttesterShuffling
-            shufflingRef = dag.computeShufflingRef(forkyState, blck, epoch)
-            mix = dag.computeRandaoMix(forkyState,
-              dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
           if compute_activation_exit_epoch(minEpoch) <= epoch or
-              dag.ancestorSlot(
-                forkyState, dependentBsi.get.bid,
-                epoch.lowSlotForAttesterShuffling).isNone:
-            check:
-              shufflingRef.isNone
-              mix.isNone
+              dag.ancestorSlotForAttesterShuffling(
+                forkyState, blck, epoch).isNone:
+            check shufflingRef.isErr
           else:
-            check shufflingRef.isSome
+            check shufflingRef.isOk
             epochRef.checkShuffling shufflingRef
-            check:
-              mix.isSome
-              memoryMix.isNone or mix == memoryMix
-              databaseMix.isNone or mix == databaseMix
-            epochRef.checkShuffling Opt.some ShufflingRef(
-              epoch: epoch,
-              attester_dependent_root: dependentBsi.get.bid.root,
-              shuffled_active_validator_indices: forkyState.data
-                .get_shuffled_active_validator_indices(epoch, mix.get))
 
   test "Accelerated shuffling computation (with epochRefState jump)":
     # Test cases where `epochRefState` is set to a very old block

@@ -771,26 +771,6 @@ proc getStateByParent(
   dag.db.getState(
     dag.cfg, summary.parent_root, parentMinSlot..slot, state, rollback)
 
-proc getNearbyState(
-    dag: ChainDAGRef, state: ref ForkedHashedBeaconState, bid: BlockId,
-    lowSlot: Slot): Opt[void] =
-  ## Load state from DB that is close to `bid` and has at least slot `lowSlot`.
-  var
-    e = bid.slot.epoch
-    b = bid
-  while true:
-    let stateSlot = e.start_slot
-    if stateSlot < lowSlot:
-      return err()
-    b = (? dag.atSlot(b, max(stateSlot, 1.Slot) - 1)).bid
-    let bsi = BlockSlotId.init(b, stateSlot)
-    if not dag.getState(bsi, state[]):
-      if e == GENESIS_EPOCH:
-        return err()
-      dec e
-      continue
-    return ok()
-
 proc currentSyncCommitteeForPeriod*(
     dag: ChainDAGRef,
     tmpState: var ForkedHashedBeaconState,
@@ -1388,36 +1368,59 @@ proc ancestorSlot*(
 
   Opt.some stateBid.slot
 
-proc computeRandaoMix(
-    dag: ChainDAGRef, bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
-  ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
-  withBlck(bdata):
+proc ancestorSlotForAttesterShuffling*(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState,
+    blck: BlockRef, epoch: Epoch): Opt[Slot] =
+  ## Return slot of `blck` ancestor to which `state` can be rewinded
+  ## so that RANDAO at `epoch.attester_dependent_slot` can be computed.
+  ## Return `err` if `state` is unviable to compute shuffling for `blck@epoch`.
+
+  # A state must be somewhat recent so that `get_active_validator_indices`
+  # for the queried `epoch` cannot be affected by any such skipped processing.
+  const numDelayEpochs = compute_activation_exit_epoch(GENESIS_EPOCH).uint64
+  let
+    lowEpoch = max(epoch, (numDelayEpochs - 1).Epoch) - (numDelayEpochs - 1)
+    ancestorSlot = ? dag.ancestorSlot(state, blck.bid, lowEpoch.start_slot)
+  Opt.some min(ancestorSlot, epoch.attester_dependent_slot)
+
+type AttesterRandaoMix = tuple[dependentBid: BlockId, mix: Eth2Digest]
+
+proc computeAttesterRandaoMix(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState,
+    blck: BlockRef, epoch: Epoch): Opt[AttesterRandaoMix] =
+  ## Compute the requested RANDAO mix for `blck@epoch` based on `state`.
+  ## If `state` has unviable `get_active_validator_indices`, return `none`.
+
+  # Check `state` has locked-in `get_active_validator_indices` for `epoch`
+  let
+    stateSlot = state.data.slot
+    dependentSlot = epoch.attester_dependent_slot
+    ancestorSlot = ? dag.ancestorSlotForAttesterShuffling(state, blck, epoch)
+  doAssert ancestorSlot <= stateSlot
+  doAssert ancestorSlot <= dependentSlot
+
+  # Determine block for obtaining RANDAO mix
+  let
+    dependentBid =
+      if dependentSlot >= dag.finalizedHead.slot:
+        var b = blck.get_ancestor(dependentSlot)
+        doAssert b != nil
+        b.bid
+      else:
+        let bsi = ? dag.getBlockIdAtSlot(dependentSlot)
+        bsi.bid
+    dependentBdata = ? dag.getForkedBlock(dependentBid)
+  var mix {.noinit.}: Eth2Digest
+
+  # If `dependentBid` is post merge, RANDAO information is available
+  withBlck(dependentBdata):
     when consensusFork >= ConsensusFork.Bellatrix:
       if blck.message.is_execution_block:
-        var mix = eth2digest(blck.message.body.randao_reveal.toRaw())
+        mix = eth2digest(blck.message.body.randao_reveal.toRaw())
         mix.data.mxor blck.message.body.execution_payload.prev_randao.data
-        return ok mix
-  Opt.none(Eth2Digest)
+        return ok (dependentBid: dependentBid, mix: mix)
 
-proc computeRandaoMix*(
-    dag: ChainDAGRef, state: ForkyHashedBeaconState, bid: BlockId,
-    lowSlot: Slot): Opt[Eth2Digest] =
-  ## Compute the requested RANDAO mix for `bid` based on `state`.
-  ## Return `none` if `state` and `bid` do not share a common ancestor
-  ## with slot >= `lowSlot`.
-  let ancestorSlot = ? dag.ancestorSlot(state, bid, lowSlot)
-  doAssert ancestorSlot <= state.data.slot
-  doAssert ancestorSlot <= bid.slot
-
-  # If `blck` is post merge, RANDAO information is immediately available
-  let
-    bdata = ? dag.getForkedBlock(bid)
-    fullMix = dag.computeRandaoMix(bdata)
-  if fullMix.isSome:
-    return fullMix
-
-  # RANDAO mix has to be recomputed from `bid` and `state`
-  var mix {.noinit.}: Eth2Digest
+  # RANDAO mix has to be recomputed from `blck` and `state`
   proc mixToAncestor(highBid: BlockId): Opt[void] =
     ## Mix in/out RANDAO reveals back to `ancestorSlot`
     var bid = highBid
@@ -1428,83 +1431,31 @@ proc computeRandaoMix*(
       bid = ? dag.parent(bid)
     ok()
 
-  # Mix in RANDAO from `bid`
-  if ancestorSlot < bid.slot:
-    withBlck(bdata):
+  # Mix in RANDAO from `blck`
+  if ancestorSlot < dependentBid.slot:
+    withBlck(dependentBdata):
       mix = eth2digest(blck.message.body.randao_reveal.toRaw())
-    ? mixToAncestor(? dag.parent(bid))
+    ? mixToAncestor(? dag.parent(dependentBid))
   else:
     mix.reset()
 
   # Mix in RANDAO from `state`
   let ancestorEpoch = ancestorSlot.epoch
-  if ancestorEpoch + EPOCHS_PER_HISTORICAL_VECTOR <= state.data.slot.epoch:
-    return Opt.none(Eth2Digest)
+  if ancestorEpoch + EPOCHS_PER_HISTORICAL_VECTOR <= stateSlot.epoch:
+    return Opt.none(AttesterRandaoMix)
   let mixRoot = state.dependent_root(ancestorEpoch + 1)
   if mixRoot.isZero:
-    return Opt.none(Eth2Digest)
+    return Opt.none(AttesterRandaoMix)
   ? mixToAncestor(? dag.getBlockId(mixRoot))
   mix.data.mxor state.data.get_randao_mix(ancestorEpoch).data
 
-  ok mix
+  ok (dependentBid: dependentBid, mix: mix)
 
-proc computeRandaoMixFromMemory*(
-    dag: ChainDAGRef, bid: BlockId, lowSlot: Slot): Opt[Eth2Digest] =
-  ## Compute requested RANDAO mix for `bid` from available states (~5 ms).
-  template tryWithState(state: ForkedHashedBeaconState) =
-    block:
-      withState(state):
-        let mix = dag.computeRandaoMix(forkyState, bid, lowSlot)
-        if mix.isSome:
-          return mix
-  tryWithState dag.headState
-  tryWithState dag.epochRefState
-  tryWithState dag.clearanceState
-
-proc computeRandaoMixFromDatabase*(
-    dag: ChainDAGRef, bid: BlockId, lowSlot: Slot): Opt[Eth2Digest] =
-  ## Compute requested RANDAO mix for `bid` using closest DB state (~500 ms).
-  let state = newClone(dag.headState)
-  ? dag.getNearbyState(state, bid, lowSlot)
-  withState(state[]):
-    dag.computeRandaoMix(forkyState, bid, lowSlot)
-
-proc computeRandaoMix(
-    dag: ChainDAGRef, bid: BlockId, lowSlot: Slot): Opt[Eth2Digest] =
-  # Try to compute from states available in memory
-  let mix = dag.computeRandaoMixFromMemory(bid, lowSlot)
-  if mix.isSome:
-    return mix
-
-  # Fall back to database
-  dag.computeRandaoMixFromDatabase(bid, lowSlot)
-
-proc computeRandaoMix*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
-  ## Compute requested RANDAO mix for `bid`.
-  const maxSlotDistance = SLOTS_PER_HISTORICAL_ROOT
-  let lowSlot = max(bid.slot, maxSlotDistance.Slot) - maxSlotDistance
-  dag.computeRandaoMix(bid, lowSlot)
-
-proc lowSlotForAttesterShuffling*(epoch: Epoch): Slot =
-  ## Return minimum slot that a state must share ancestry with a block history
-  ## so that RANDAO at `epoch.attester_dependent_slot` can be computed.
-
-  # A state must be somewhat recent so that `get_active_validator_indices`
-  # for the queried `epoch` cannot be affected by any such skipped processing.
-  const numDelayEpochs = compute_activation_exit_epoch(GENESIS_EPOCH).uint64
-  let lowEpoch = max(epoch, (numDelayEpochs - 1).Epoch) - (numDelayEpochs - 1)
-  lowEpoch.start_slot
-
-proc computeShufflingRef*(
+proc computeShufflingRefFromState*(
     dag: ChainDAGRef, state: ForkyHashedBeaconState,
     blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
-  ## Compute `ShufflingRef` for `blck@epoch` based on `state`.
-  ## If `state` has unviable `get_active_validator_indices`, return `none`.
-
-  let
-    dependentBid = (? dag.atSlot(blck.bid, epoch.attester_dependent_slot)).bid
-    lowSlot = epoch.lowSlotForAttesterShuffling
-    mix = ? dag.computeRandaoMix(state, dependentBid, lowSlot)
+  let (dependentBid, mix) =
+    ? dag.computeAttesterRandaoMix(state, blck, epoch)
 
   return ok ShufflingRef(
     epoch: epoch,
@@ -1514,11 +1465,12 @@ proc computeShufflingRef*(
 
 proc computeShufflingRefFromMemory*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
-  ## Compute `ShufflingRef` from available states (~5 ms).
+  ## Compute `ShufflingRef` from states available in memory (up to ~5 ms)
   template tryWithState(state: ForkedHashedBeaconState) =
     block:
       withState(state):
-        let shufflingRef = dag.computeShufflingRef(forkyState, blck, epoch)
+        let shufflingRef =
+          dag.computeShufflingRefFromState(forkyState, blck, epoch)
         if shufflingRef.isOk:
           return shufflingRef
   tryWithState dag.headState
@@ -1527,15 +1479,35 @@ proc computeShufflingRefFromMemory*(
 
 proc computeShufflingRefFromDatabase*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
-  ## Compute `ShufflingRef` for `blck@epoch` using closest DB state (~500 ms).
-  let state = newClone(dag.headState)
-  ? dag.getNearbyState(state, blck.bid, epoch.lowSlotForAttesterShuffling)
-  withState(state[]):
-    dag.computeShufflingRef(forkyState, blck, epoch)
+  ## Load state from DB, for when DAG states are unviable (up to ~500 ms)
+  let
+    dependentSlot = epoch.attester_dependent_slot
+    state = newClone(dag.headState)
+  var
+    e = dependentSlot.epoch
+    b = blck
+  while e > GENESIS_EPOCH and compute_activation_exit_epoch(e) > epoch:
+    let boundaryBlockSlot = e.start_slot - 1
+    b = b.get_ancestor(boundaryBlockSlot)  # nil if < finalized head
+    let
+      bid =
+        if b != nil:
+          b.bid
+        else:
+          let bsi = ? dag.getBlockIdAtSlot(boundaryBlockSlot)
+          bsi.bid
+      bsi = BlockSlotId.init(bid, boundaryBlockSlot + 1)
+    if not dag.getState(bsi, state[]):
+      dec e
+      continue
 
-proc computeShufflingRef(
+    return withState(state[]):
+      dag.computeShufflingRefFromState(forkyState, blck, epoch)
+  err()
+
+proc computeShufflingRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
-  # Try to compute from states available in memory
+  # Try to compute `ShufflingRef` from states available in memory
   let shufflingRef = dag.computeShufflingRefFromMemory(blck, epoch)
   if shufflingRef.isOk:
     return shufflingRef
