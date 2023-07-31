@@ -51,7 +51,7 @@ build/nimbus_beacon_node --rest ...
 
 ### Why does my validator miss two epochs of attestations after (re)starting?
 
-When a validator is started (or restarted), it prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself.
+When a validator is started (or restarted), it listens for 2 epochs for attestations from a validator with the same public key (a doppelganger), before sending an attestation itself.
 This is a simple way of handling the case where one validator comes online with the same key as another validator that's already online, e.g. one device was started without switching the other off.
 
 While this strategy requires the client to wait two whole epochs on restart before attesting, a couple of missed attestations is a very minor price to pay in exchange for significantly reducing the risk of an accidental slashing.
@@ -199,7 +199,7 @@ The answer to this question very much depends on how much ETH you have at your d
 
 You should certainly top up if your balance is close to 16 ETH: this is to ensure you don't get removed from the validator set (which automatically happens if your balance falls below 16 ETH).
 
-At the other end of the spectrum, if your balance is closer to 31 ETH, it's probably not worth your while adding the extra ETH to get back to the required 32.
+At the other end of the spectrum, if your balance is closer to 31 ETH, it's probably not worth your while adding the extra ETH required to get back to 32.
 
 ### When can I withdraw my funds, and what's the difference between exiting and withdrawing?
 
