@@ -277,7 +277,7 @@ proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
   addPreTestRemoteKeystores(nodeValidatorsDir)
 
   for topicName in ["libp2p", "gossipsub"]:
-    setTopicState(topicName, Disabled)
+    doAssert setTopicState(topicName, Disabled)
 
   let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
     "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
