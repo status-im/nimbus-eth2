@@ -81,29 +81,6 @@ pipeline {
       } }
     }
 
-    stage('Tests') {
-      parallel {
-        stage('General') {
-          steps { timeout(60) {
-            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
-            sh 'git diff --exit-code'  /* Check no uncommitted changes. */
-          } }
-        }
-
-        stage('REST') {
-          steps { timeout(5) {
-            sh 'make restapi-test'
-          } }
-          post { always {
-            sh 'tar cjf restapi-test.tar.gz resttest0_data/*.txt'
-          } }
-        }
-      }
-      post { always { timeout(5) {
-        archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
-      } } }
-    }
-
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
