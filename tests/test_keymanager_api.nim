@@ -10,7 +10,7 @@
 import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
   testutils/unittests, chronicles, stint, json_serialization, confutils,
-  chronos, blscurve, libp2p/crypto/crypto as lcrypto,
+  chronicles, chronos, blscurve, libp2p/crypto/crypto as lcrypto,
   stew/[byteutils, io2], stew/shims/net,
 
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
@@ -276,8 +276,10 @@ proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
   copyHalfValidators(nodeDataDir, true)
   addPreTestRemoteKeystores(nodeValidatorsDir)
 
+  for topicName in ["libp2p", "gossipsub"]:
+    setTopicState(topicName, Disabled)
+
   let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
-    "--log-level=TRACE;DEBUG:libp2p,gossipsub",
     "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
     "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
     "--discv5=off",
