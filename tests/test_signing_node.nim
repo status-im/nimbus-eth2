@@ -15,7 +15,7 @@ import
   ../beacon_chain/filepath,
   ../beacon_chain/validators/validator_pool
 
-from os import getEnv
+from os import getEnv, osErrorMsg
 
 {.used.}
 
@@ -318,15 +318,46 @@ proc spawnSigningNodeProcess(
   )
 
 proc shutdownSigningNodeProcess(sp: SigningProcess) {.async.} =
-  if sp.process.running().get(true):
-    sp.process.kill()
-  discard await sp.process.waitForExit()
-  await allFutures(sp.reader)
-  let data = sp.reader.read()
+  let resultCode =
+    block:
+      var rescode: Opt[int]
+      for i in 1 .. 10:
+        if sp.process.running().get(true):
+          let res = sp.process.kill()
+          if res.isErr():
+            echo "Unable to kill `nimbus_signing_node` process [",
+                 sp.process.pid(), "], reason = ",
+                 "[", int(res.error), "] ", osErrorMsg(res.error)
+        else:
+          let res = sp.process.peekExitCode()
+          if res.isErr():
+            echo "Unable to peek exit code for `nimbus_signing_node` process [",
+                 sp.process.pid(), "], reason =",
+                 "[", int(res.error), "] ", osErrorMsg(res.error)
+          else:
+            rescode = Opt.some(res.get())
+          break
 
-  echo ""
-  echo "===== nimbus_signing_node log ====="
-  echo bytesToString(data)
+        try:
+          let res = await sp.process.waitForExit().wait(1.seconds)
+          rescode = Opt.some(res)
+          break
+        except AsyncTimeoutError:
+          echo "Timeout exceeded while waiting for `nimbus_signing_node` ",
+               "process [", sp.process.pid(), "]"
+      rescode
+
+  if resultCode.isSome():
+    await allFutures(sp.reader)
+    let data = sp.reader.read()
+    echo ""
+    echo "===== `nimbus_signing_node` process [", sp.process.pid(),
+         "] exited with [", resultCode.get(), "] ====="
+    echo bytesToString(data)
+  else:
+    echo ""
+    echo "Unable to terminate `nimbus_signing_node` process [",
+         sp.process.pid(), "]"
 
 let
   basePortStr =
