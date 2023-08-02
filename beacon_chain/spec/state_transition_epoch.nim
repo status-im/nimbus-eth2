@@ -113,7 +113,7 @@ func process_attestation(
         flags.incl RewardFlags.isPreviousEpochHeadAttester
 
   # Update the cache for all participants
-  for validator_index in get_attesting_indices(
+  for validator_index in get_attesting_indices_iter(
       state, a.data, a.aggregation_bits, cache):
     template v(): untyped = info.validators[validator_index]
 
@@ -205,7 +205,7 @@ func get_unslashed_participating_balances*(
         state.previous_epoch_participation[validator_index]
 
     if is_active_previous_epoch:
-      for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
+      for flag_index in TimelyFlag:
         if has_flag(previous_epoch_participation, flag_index):
           res.previous_epoch[flag_index] += validator_effective_balance
 
@@ -216,7 +216,7 @@ func get_unslashed_participating_balances*(
         TIMELY_TARGET_FLAG_INDEX):
       res.current_epoch_TIMELY_TARGET += validator_effective_balance
 
-  for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
+  for flag_index in TimelyFlag:
     res.previous_epoch[flag_index] =
       max(EFFECTIVE_BALANCE_INCREMENT, res.previous_epoch[flag_index])
 
@@ -230,7 +230,7 @@ func get_unslashed_participating_balances*(
 func is_unslashed_participating_index(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState,
-    flag_index: int, epoch: Epoch, validator_index: ValidatorIndex): bool =
+    flag_index: TimelyFlag, epoch: Epoch, validator_index: ValidatorIndex): bool =
   doAssert epoch in [get_previous_epoch(state), get_current_epoch(state)]
   # TODO hoist this conditional
   let epoch_participation =
@@ -658,7 +658,7 @@ func get_flag_index_reward*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_unslashed_participating_increment*(
-    info: altair.EpochInfo | bellatrix.BeaconState, flag_index: int): Gwei =
+    info: altair.EpochInfo | bellatrix.BeaconState, flag_index: TimelyFlag): Gwei =
   info.balances.previous_epoch[flag_index] div EFFECTIVE_BALANCE_INCREMENT
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#get_flag_index_deltas
@@ -670,14 +670,14 @@ func get_active_increments*(
 iterator get_flag_index_deltas*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState,
-    flag_index: int, base_reward_per_increment: Gwei,
+    flag_index: TimelyFlag, base_reward_per_increment: Gwei,
     info: var altair.EpochInfo, finality_delay: uint64):
     (ValidatorIndex, RewardDelta) =
   ## Return the deltas for a given ``flag_index`` by scanning through the
   ## participation flags.
   let
     previous_epoch = get_previous_epoch(state)
-    weight = PARTICIPATION_FLAG_WEIGHTS[flag_index].uint64 # safe
+    weight = PARTICIPATION_FLAG_WEIGHTS[flag_index]
     unslashed_participating_increments = get_unslashed_participating_increment(
       info, flag_index)
     active_increments = get_active_increments(info)
@@ -695,7 +695,6 @@ iterator get_flag_index_deltas*(
           of TIMELY_SOURCE_FLAG_INDEX: ParticipationFlag.timelySourceAttester
           of TIMELY_TARGET_FLAG_INDEX: ParticipationFlag.timelyTargetAttester
           of TIMELY_HEAD_FLAG_INDEX: ParticipationFlag.timelyHeadAttester
-          else: raiseAssert "Unknown flag index " & $flag_index
 
         info.validators[vidx].flags.incl pflag
 
@@ -796,7 +795,7 @@ func process_rewards_and_penalties*(
     finality_delay = get_finality_delay(state)
 
   doAssert state.validators.len() == info.validators.len()
-  for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
+  for flag_index in TimelyFlag:
     for validator_index, delta in get_flag_index_deltas(
         state, flag_index, base_reward_per_increment, info, finality_delay):
       info.validators[validator_index].delta.add(delta)

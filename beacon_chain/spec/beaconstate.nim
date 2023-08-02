@@ -16,7 +16,7 @@ import
   "."/[eth2_merkleization, forks, signatures, validator]
 
 from std/algorithm import fill
-from std/sequtils import anyIt, mapIt
+from std/sequtils import anyIt, mapIt, toSeq
 
 from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 
@@ -381,14 +381,15 @@ proc is_valid_indexed_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_attesting_indices
-func get_attesting_indices*(state: ForkyBeaconState,
-                            data: AttestationData,
-                            bits: CommitteeValidatorsBits,
-                            cache: var StateCache): seq[ValidatorIndex] =
+iterator get_attesting_indices_iter*(state: ForkyBeaconState,
+                                     data: AttestationData,
+                                     bits: CommitteeValidatorsBits,
+                                     cache: var StateCache): ValidatorIndex =
   ## Return the set of attesting indices corresponding to ``data`` and ``bits``
   ## or nothing if `data` is invalid
+  ## This iterator must not be called in functions using a
+  ## ForkedHashedBeaconState due to https://github.com/nim-lang/Nim/issues/18188
 
-  var res: seq[ValidatorIndex]
   # Can't be an iterator due to https://github.com/nim-lang/Nim/issues/18188
   let committee_index = CommitteeIndex.init(data.index)
   if committee_index.isErr() or bits.lenu64 != get_beacon_committee_len(
@@ -398,9 +399,17 @@ func get_attesting_indices*(state: ForkyBeaconState,
     for index_in_committee, validator_index in get_beacon_committee(
         state, data.slot, committee_index.get(), cache):
       if bits[index_in_committee]:
-        res.add validator_index
+        yield validator_index
 
-  res
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_attesting_indices
+func get_attesting_indices*(state: ForkyBeaconState,
+                            data: AttestationData,
+                            bits: CommitteeValidatorsBits,
+                            cache: var StateCache): seq[ValidatorIndex] =
+  ## Return the set of attesting indices corresponding to ``data`` and ``bits``
+  ## or nothing if `data` is invalid
+
+  toSeq(get_attesting_indices_iter(state, data, bits, cache))
 
 func get_attesting_indices*(state: ForkedHashedBeaconState;
                             data: AttestationData;
@@ -432,7 +441,7 @@ proc is_valid_indexed_attestation*(
   if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
     var
       pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
-    for index in get_attesting_indices(
+    for index in get_attesting_indices_iter(
         state, attestation.data, attestation.aggregation_bits, cache):
       pubkeys.add(state.validators[index].pubkey)
 
@@ -496,7 +505,7 @@ func check_attestation_index*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
-    data: AttestationData, inclusion_delay: uint64): seq[int] =
+    data: AttestationData, inclusion_delay: uint64): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint =
     if data.target.epoch == get_current_epoch(state):
@@ -517,20 +526,20 @@ func get_attestation_participation_flag_indices(
   # Checked by check_attestation()
   doAssert is_matching_source
 
-  var participation_flag_indices: seq[int]
+  var participation_flag_indices: set[TimelyFlag]
   if is_matching_source and inclusion_delay <= integer_squareroot(SLOTS_PER_EPOCH):
-    participation_flag_indices.add(TIMELY_SOURCE_FLAG_INDEX)
+    participation_flag_indices.incl(TIMELY_SOURCE_FLAG_INDEX)
   if is_matching_target and inclusion_delay <= SLOTS_PER_EPOCH:
-    participation_flag_indices.add(TIMELY_TARGET_FLAG_INDEX)
+    participation_flag_indices.incl(TIMELY_TARGET_FLAG_INDEX)
   if is_matching_head and inclusion_delay == MIN_ATTESTATION_INCLUSION_DELAY:
-    participation_flag_indices.add(TIMELY_HEAD_FLAG_INDEX)
+    participation_flag_indices.incl(TIMELY_HEAD_FLAG_INDEX)
 
   participation_flag_indices
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: deneb.BeaconState,
-    data: AttestationData, inclusion_delay: uint64): seq[int] =
+    data: AttestationData, inclusion_delay: uint64): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint =
     if data.target.epoch == get_current_epoch(state):
@@ -551,13 +560,13 @@ func get_attestation_participation_flag_indices(
   # Checked by check_attestation
   doAssert is_matching_source
 
-  var participation_flag_indices: seq[int]
+  var participation_flag_indices: set[TimelyFlag]
   if is_matching_source and inclusion_delay <= integer_squareroot(SLOTS_PER_EPOCH):
-    participation_flag_indices.add(TIMELY_SOURCE_FLAG_INDEX)
+    participation_flag_indices.incl(TIMELY_SOURCE_FLAG_INDEX)
   if is_matching_target:  # [Modified in Deneb:EIP7045]
-    participation_flag_indices.add(TIMELY_TARGET_FLAG_INDEX)
+    participation_flag_indices.incl(TIMELY_TARGET_FLAG_INDEX)
   if is_matching_head and inclusion_delay == MIN_ATTESTATION_INCLUSION_DELAY:
-    participation_flag_indices.add(TIMELY_HEAD_FLAG_INDEX)
+    participation_flag_indices.incl(TIMELY_HEAD_FLAG_INDEX)
 
   participation_flag_indices
 
@@ -672,7 +681,7 @@ func get_proposer_reward*(state: ForkyBeaconState,
                           epoch_participation: var EpochParticipationFlags): uint64 =
   let participation_flag_indices = get_attestation_participation_flag_indices(
     state, attestation.data, state.slot - attestation.data.slot)
-  for index in get_attesting_indices(
+  for index in get_attesting_indices_iter(
       state, attestation.data, attestation.aggregation_bits, cache):
     let
       base_reward = get_base_reward(state, index, base_reward_per_increment)
@@ -1115,7 +1124,7 @@ func translate_participation(
         get_attestation_participation_flag_indices(state, data, inclusion_delay)
 
     # Apply flags to all attesting validators
-    for index in get_attesting_indices(
+    for index in get_attesting_indices_iter(
         state, data, attestation.aggregation_bits, cache):
       for flag_index in participation_flag_indices:
         state.previous_epoch_participation[index] =
