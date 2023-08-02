@@ -49,9 +49,8 @@ proc runTest(rewardsDir, identifier: string) =
         total_balance = info.balances.current_epoch
         base_reward_per_increment = get_base_reward_per_increment(total_balance)
 
-      static: doAssert PARTICIPATION_FLAG_WEIGHTS.len == 3
       var
-        flagDeltas2 = [
+        flagDeltas2: array[TimelyFlag, Deltas] = [
           Deltas.init(state[].validators.len),
           Deltas.init(state[].validators.len),
           Deltas.init(state[].validators.len)]
@@ -59,7 +58,7 @@ proc runTest(rewardsDir, identifier: string) =
 
       let finality_delay = get_finality_delay(state[])
 
-      for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
+      for flag_index in TimelyFlag:
         for validator_index, delta in get_flag_index_deltas(
             state[], flag_index, base_reward_per_increment, info, finality_delay):
           if not is_eligible_validator(info.validators[validator_index]):

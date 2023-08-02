@@ -200,13 +200,13 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
   state.get_seed(epoch, domain_type, mix)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#add_flag
-func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
-  let flag = ParticipationFlags(1'u8 shl flag_index)
+func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
+  let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   flags or flag
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#has_flag
-func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
-  let flag = ParticipationFlags(1'u8 shl flag_index)
+func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
+  let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   (flags and flag) == flag
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
