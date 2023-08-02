@@ -41,7 +41,7 @@ gnosis_chiado_genesis_end:
 cdecl(gnosis_chiado_genesis_size):
     .quad    gnosis_chiado_genesis_end - gnosis_chiado_genesis_data
 
-#if defined(__linux__) && defined(__pie__)
+#if defined(__linux__) && (defined(__pie__) || defined(__pic__))
     .section	.data.rel.ro,"aw",@progbits
 #elif defined(__APPLE__)
     .section __DATA,__const
