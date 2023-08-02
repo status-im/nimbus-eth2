@@ -102,8 +102,8 @@ type
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
-    data_gas_used*: uint64   # [New in Deneb]
-    excess_data_gas*: uint64 # [New in Deneb]
+    blob_gas_used*: uint64   # [New in Deneb]
+    excess_blob_gas*: uint64 # [New in Deneb]
 
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
@@ -133,8 +133,8 @@ type
       ## Hash of execution block
     transactions_root*: Eth2Digest
     withdrawals_root*: Eth2Digest
-    data_gas_used*: uint64   # [New in Deneb]
-    excess_data_gas*: uint64 # [New in Deneb]
+    blob_gas_used*: uint64   # [New in Deneb]
+    excess_blob_gas*: uint64 # [New in Deneb]
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
@@ -571,7 +571,7 @@ func shortLog*(v: ExecutionPayload): auto =
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals),
-    excess_data_gas: $(v.excess_data_gas)
+    excess_blob_gas: $(v.excess_blob_gas)
   )
 
 func shortLog*(x: seq[BlobIdentifier]): string =
@@ -612,7 +612,7 @@ func is_valid_light_client_header*(
   let epoch = header.beacon.slot.epoch
 
   if epoch < cfg.DENEB_FORK_EPOCH:
-    if header.execution.excess_data_gas != 0:
+    if header.execution.excess_blob_gas != 0:
       return false
 
   if epoch < cfg.CAPELLA_FORK_EPOCH:
@@ -648,8 +648,8 @@ func upgrade_lc_header_to_deneb*(
         block_hash: pre.execution.block_hash,
         transactions_root: pre.execution.transactions_root,
         withdrawals_root: pre.execution.withdrawals_root,
-        data_gas_used: 0,     # [New in Deneb:EIP4844]
-        excess_data_gas: 0),  # [New in Deneb:EIP4844]
+        blob_gas_used: 0,     # [New in Deneb:EIP4844]
+        excess_blob_gas: 0),  # [New in Deneb:EIP4844]
     execution_branch: pre.execution_branch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/light-client/fork.md#upgrading-light-client-data

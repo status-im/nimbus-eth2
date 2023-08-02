@@ -1367,7 +1367,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 
   let bodyKind =
     if  execution_payload.isSome() and
-        execution_payload.get().data_gas_used.isSome() and
+        execution_payload.get().blob_gas_used.isSome() and
         blob_kzg_commitments.isSome():
       ConsensusFork.Deneb
     elif execution_payload.isSome() and
@@ -1487,11 +1487,11 @@ proc readValue*(reader: var JsonReader[RestJson],
       value.denebBody.execution_payload.withdrawals,
       ep_src.withdrawals.get())
     assign(
-      value.denebBody.execution_payload.data_gas_used,
-      ep_src.data_gas_used.get())
+      value.denebBody.execution_payload.blob_gas_used,
+      ep_src.blob_gas_used.get())
     assign(
-      value.denebBody.execution_payload.excess_data_gas,
-      ep_src.excess_data_gas.get())
+      value.denebBody.execution_payload.excess_blob_gas,
+      ep_src.excess_blob_gas.get())
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
