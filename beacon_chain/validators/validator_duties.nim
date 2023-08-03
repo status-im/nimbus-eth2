@@ -818,10 +818,7 @@ proc proposeBlockAux(
 
   let payloadBuilderClientMaybe = node.getPayloadBuilderClient(
     validator_index.distinctBase)
-  if payloadBuilderClientMaybe.isErr:
-    warn "Unable to initialize payload builder client while proposing block",
-      err = payloadBuilderClientMaybe.error
-  else:
+  if payloadBuilderClientMaybe.isOk:
     payloadBuilderClient = payloadBuilderClientMaybe.get
 
   let usePayloadBuilder =
