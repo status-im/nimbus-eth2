@@ -10,7 +10,7 @@
 import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
   testutils/unittests, chronicles, stint, json_serialization, confutils,
-  chronicles, chronos, blscurve, libp2p/crypto/crypto as lcrypto,
+  chronos, blscurve, libp2p/crypto/crypto as lcrypto,
   stew/[byteutils, io2], stew/shims/net,
 
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
@@ -275,9 +275,6 @@ proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
 
   copyHalfValidators(nodeDataDir, true)
   addPreTestRemoteKeystores(nodeValidatorsDir)
-
-  for topicName in ["libp2p", "gossipsub"]:
-    doAssert setTopicState(topicName, Disabled)
 
   let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
     "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
@@ -1494,5 +1491,8 @@ let
     except ValueError as exc:
       fatal "Invalid base port arg", basePort = basePortStr, exc = exc.msg
       quit 1
+
+for topicName in ["libp2p", "gossipsub"]:
+  doAssert setTopicState(topicName, Disabled)
 
 waitFor main(basePort)
