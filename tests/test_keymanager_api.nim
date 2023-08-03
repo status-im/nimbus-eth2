@@ -1492,4 +1492,7 @@ let
       fatal "Invalid base port arg", basePort = basePortStr, exc = exc.msg
       quit 1
 
+for topicName in ["libp2p", "gossipsub"]:
+  doAssert setTopicState(topicName, Disabled)
+
 waitFor main(basePort)
