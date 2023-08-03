@@ -201,13 +201,13 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
   state.get_seed(epoch, domain_type, mix)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#add_flag
-func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
-  let flag = ParticipationFlags(1'u8 shl flag_index)
+func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
+  let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   flags or flag
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#has_flag
-func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
-  let flag = ParticipationFlags(1'u8 shl flag_index)
+func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
+  let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   (flags and flag) == flag
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
@@ -432,14 +432,14 @@ proc payloadToBlockHeader*(
         some payload.computeWithdrawalsTrieRoot()
       else:
         none(ExecutionHash256)
-    dataGasUsed =
+    blobGasUsed =
       when typeof(payload).toFork >= ConsensusFork.Deneb:
-        some payload.data_gas_used
+        some payload.blob_gas_used
       else:
         none(uint64)
-    excessDataGas =
+    excessBlobGas =
       when typeof(payload).toFork >= ConsensusFork.Deneb:
-        some payload.excess_data_gas
+        some payload.excess_blob_gas
       else:
         none(uint64)
 
@@ -461,8 +461,8 @@ proc payloadToBlockHeader*(
     nonce          : default(BlockNonce),
     fee            : some payload.base_fee_per_gas,
     withdrawalsRoot: withdrawalsRoot,
-    dataGasUsed    : dataGasUsed,         # EIP-4844
-    excessDataGas  : excessDataGas)       # EIP-4844
+    blobGasUsed    : blobGasUsed,         # EIP-4844
+    excessBlobGas  : excessBlobGas)       # EIP-4844
 
 proc compute_execution_block_hash*(
     payload: ForkyExecutionPayload): Eth2Digest =

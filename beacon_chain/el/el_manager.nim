@@ -551,8 +551,8 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
-    data_gas_used: rpcExecutionPayload.dataGasUsed.uint64,
-    excess_data_gas: rpcExecutionPayload.excessDataGas.uint64)
+    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
 
 func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     deneb.ExecutionPayloadForSigning =
@@ -641,8 +641,8 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
-    dataGasUsed: Quantity(executionPayload.data_gas_used),
-    excessDataGas: Quantity(executionPayload.excess_data_gas))
+    blobGasUsed: Quantity(executionPayload.blob_gas_used),
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
 func shortLog*(b: Eth1Block): string =
   try:

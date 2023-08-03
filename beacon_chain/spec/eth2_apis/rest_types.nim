@@ -298,8 +298,8 @@ type
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: Option[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
       ## [New in Capella]
-    data_gas_used*: Option[uint64]   ## [New in Deneb]
-    excess_data_gas*: Option[uint64] ## [New in Deneb]
+    blob_gas_used*: Option[uint64]   ## [New in Deneb]
+    excess_blob_gas*: Option[uint64] ## [New in Deneb]
 
 
   PrepareBeaconProposer* = object

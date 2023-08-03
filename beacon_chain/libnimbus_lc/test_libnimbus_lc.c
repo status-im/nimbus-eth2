@@ -239,11 +239,11 @@ static void visualizeHeader(const ETHLightClientHeader *header, const ETHConsens
     printGweiString(executionBaseFeePerGas);
     printf(" Gwei\n");
 
-    int executionDataGasUsed = ETHExecutionPayloadHeaderGetDataGasUsed(execution);
-    printf("    - data_gas_used: %d\n", executionDataGasUsed);
+    int executionBlobGasUsed = ETHExecutionPayloadHeaderGetBlobGasUsed(execution);
+    printf("    - blob_gas_used: %d\n", executionBlobGasUsed);
 
-    int executionExcessDataGas = ETHExecutionPayloadHeaderGetExcessDataGas(execution);
-    printf("    - excess_data_gas: %d\n", executionExcessDataGas);
+    int executionExcessBlobGas = ETHExecutionPayloadHeaderGetExcessBlobGas(execution);
+    printf("    - excess_blob_gas: %d\n", executionExcessBlobGas);
 }
 
 ETH_RESULT_USE_CHECK

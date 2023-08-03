@@ -26,6 +26,19 @@ export base, sets
 from ssz_serialization/proofs import GeneralizedIndex
 export proofs.GeneralizedIndex
 
+type
+  TimelyFlag* {.pure.} = enum
+    TIMELY_SOURCE_FLAG_INDEX
+    TIMELY_TARGET_FLAG_INDEX
+    TIMELY_HEAD_FLAG_INDEX
+
+static:
+  # Verify that ordinals follow spec values (the spec uses these as shifts for bit flags)
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#participation-flag-indices
+  doAssert ord(TIMELY_SOURCE_FLAG_INDEX) == 0
+  doAssert ord(TIMELY_TARGET_FLAG_INDEX) == 1
+  doAssert ord(TIMELY_HEAD_FLAG_INDEX) == 2
+
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#incentivization-weights
   TIMELY_SOURCE_WEIGHT* = 14
@@ -35,8 +48,8 @@ const
   PROPOSER_WEIGHT* = 8
   WEIGHT_DENOMINATOR* = 64
 
-  PARTICIPATION_FLAG_WEIGHTS* =
-    [TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
+  PARTICIPATION_FLAG_WEIGHTS*: array[TimelyFlag, uint64] =
+    [uint64 TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#misc
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
@@ -51,11 +64,6 @@ const
   FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex # `finalized_checkpoint` > `root`
   CURRENT_SYNC_COMMITTEE_INDEX* = 54.GeneralizedIndex # `current_sync_committee`
   NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex # `next_sync_committee`
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#participation-flag-indices
-  TIMELY_SOURCE_FLAG_INDEX* = 0
-  TIMELY_TARGET_FLAG_INDEX* = 1
-  TIMELY_HEAD_FLAG_INDEX* = 2
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#inactivity-penalties
   INACTIVITY_SCORE_BIAS* = 4
@@ -310,7 +318,7 @@ type
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
   UnslashedParticipatingBalances* = object
-    previous_epoch*: array[PARTICIPATION_FLAG_WEIGHTS.len, Gwei]
+    previous_epoch*: array[TimelyFlag, Gwei]
     current_epoch_TIMELY_TARGET*: Gwei
     current_epoch*: Gwei # aka total_active_balance
 
