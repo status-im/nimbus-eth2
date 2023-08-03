@@ -2,6 +2,16 @@
 
 ## General
 
+### Can I run Nimbus on my machine?
+
+Check our [system requirements](./hardware.md) and [how to prepare your machine](./install.md).
+Note that it is also possible to [run Nimbus on Raspberry Pi](./pi-guide.md).
+
+
+### I'm currently using Prysm / Lighthouse / Teku, how do I migrate to Nimbus?
+
+See our [migration guide](./migration.md).
+
 ### Which version of Nimbus am I running?
 
 You can check the version through a number of methods:
@@ -17,9 +27,13 @@ curl -s http://localhost:8008/metrics | grep version
 curl -s http://localhost:9100/eth/v1/node/version
 ```
 
+### How to upgrade Nimbus to a newer version?
+
+See our [upgrading guide](./keep-updated.md).
+
 ### Why are metrics not working?
 
-The metrics server is disabled by default
+The metrics server is disabled by default.
 Enable it by passing `--metrics` to the run command:
 
 ```sh
@@ -35,20 +49,18 @@ Enable it by passing `--rest` to the run command:
 build/nimbus_beacon_node --rest ...
 ```
 
-### Why does my validator miss two epochs of attestations after restarting?
+### Why does my validator miss two epochs of attestations after (re)starting?
 
-When a validator is started (or restarted) it prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself.
-
-In sum, it's a simple way of handling the case where one validator comes online with the same key as another validator that's already online (i.e. one device was started without switching the other off).
+When a validator is started (or restarted), it listens for 2 epochs for attestations from a validator with the same public key (a doppelganger), before sending an attestation itself.
+This is a simple way of handling the case where one validator comes online with the same key as another validator that's already online, e.g. one device was started without switching the other off.
 
 While this strategy requires the client to wait two whole epochs on restart before attesting, a couple of missed attestations is a very minor price to pay in exchange for significantly reducing the risk of an accidental slashing.
-
 You can think of it as a small penalty that you pay only on first launch and restarts.
 When you take into account the total runtime of your validator, the impact should be minimal.
 
-While we strongly recommend it, you can disable it with an explicit flag (`--doppelganger-detection=false`) if you don't plan on moving your setup.
+While we strongly recommend against it, you can disable doppelganger detection with an explicit flag (`--doppelganger-detection=false`) if you don't plan on moving your setup.
 
-### What's the best way to stress test my execution + consensus setup before committing with real ETH?
+### What is the best way to stress test my execution+consensus setup before committing with real ETH?
 
 We recommend running [a Nimbus beacon node](./quick-start.md) on [Prater](./prater.md) and a mainnet [execution client](./eth1.md) on the same machine.
 This will simulate the load of running a mainnet validator.
@@ -64,6 +76,33 @@ See the information [here](./additional-validator.md).
 
 When `/opt` is present in the "Slot start" message, it means the node is [optimistically synced](./optimistic-sync.md) and is waiting for the execution client to finish its syncing process.
 Until that happens, validator duties are disabled.
+
+### Syncing is very slow, can this be sped up?
+
+A complete sync might take several hours or even days.
+We recommend you to do a [trusted node sync](./trusted-node-sync.md), which takes only few minutes.
+
+### How can I automate running my beacon node?
+
+You can set up a systemd service.
+See [our systemd guide](./beacon-node-systemd.md).
+
+### Folder Permissions
+
+To protect against key loss, Nimbus requires that files and directories be owned by the user running the application.
+Furthermore, they should not be readable by others.
+
+It may happen that the wrong permissions are applied, particularly when creating the directories manually.
+
+The following errors are a sign of this:
+
+- `Data folder has insecure ACL`
+- `Data directory has insecure permissions`
+- `File has insecure permissions`
+
+See the [data directory page](./data-dir.md#permissions) for instructions on how to fix this.
+
+
 
 
 
@@ -86,22 +125,12 @@ The first thing to do it to try relaunching the beacon node with `--enr-auto-upd
 If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection: you can use [https://www.yougetsignal.com/tools/open-ports/](https://www.yougetsignal.com/tools/open-ports/).
 Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default.
 
-See [here](./health.md#set-up-port-forwarding) for how to set up port forwarding.
+See [here](./networking.md#set-up-port-forwarding) for how to set up port forwarding.
 
-## Folder Permissions
 
-To protect against key loss, Nimbus requires that files and directories be owned by the user running the application.
-Furthermore, they should not be readable by others.
 
-It may happen that the wrong permissions are applied, particularly when creating the directories manually.
 
-The following errors are a sign of this:
 
-- `Data folder has insecure ACL`
-- `Data directory has insecure permissions`
-- `File has insecure permissions`
-
-See the [data directory](./data-dir.md#permissions) page for instructions on how to fix this
 
 ## Validating
 
@@ -112,12 +141,18 @@ A validator is an entity that participates in the consensus of the Ethereum prot
 Or, in plain English, a human running a computer process.
 This process proposes and vouches for new blocks to be added to the blockchain.
 
-In other words, **you can think of a validator as a voter for new blocks.** The more votes a block gets, the more likely it is to be added to the chain.
+In other words, you can think of a validator as a voter for new blocks.
+The more votes a block gets, the more likely it is to be added to the chain.
 
 Importantly, a validator's vote is weighted by the amount it has at stake.
 
 
-### What is the deposit contract?
+### Do I need a separate validator client?
+
+No, Nimbus doesn't require setting up a separate validator client process — the beacon node can itself perform validator duties.
+
+
+### What is a deposit contract?
 
 You can think of it as a transfer of funds between Ethereum 1.0 accounts and Ethereum 2.0 validators.
 
@@ -126,8 +161,7 @@ It specifies who is staking, who is validating, how much is being staked, and wh
 ### Why do validators need to have funds at stake?
 
 Validators need to have funds at stake so they can be penalized for behaving dishonestly.
-
-In other words, to keep them honest, their actions need to have financial consequences.
+In other words: to keep them honest, their actions need to have financial consequences.
 
 ### How much ETH does a validator need to stake?
 
@@ -136,8 +170,7 @@ This forms the validator's initial balance.
 
 ### Is there any advantage to having more than 32 ETH at stake?
 
-No.
-There is no advantage to having more than 32 ETH staked.
+No, there is no advantage to having more than 32 ETH staked.
 
 Limiting the maximum stake to 32 ETH encourages decentralization of power as it prevents any single validator from having an excessively large vote on the state of the chain.
 
@@ -146,8 +179,15 @@ Limiting the maximum stake to 32 ETH encourages decentralization of power as it 
 
 ### Can I stop my validator for a few days and then start it back up again?
 
-Yes but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period.
+You can, but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period.
 In other words, if you stood to earn ≈0.01 ETH, you would instead be penalized ≈0.01 ETH.
+
+### How can I keep track of my validator?
+
+One way of keeping track is using an online service such as beaconcha.in: [Mainnet](https://beaconcha.in/) or [Prater](https://prater.beaconcha.in).
+
+Another way is to set up [validator monitoring](./validator-monitor.md) together with a [dashboard](./metrics-pretty-pictures.md) to keep track of its performance.
+
 
 ### I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?
 
@@ -168,8 +208,7 @@ Please see our dedicated [guide for withdrawals](./withdrawals.md) for further i
 
 ### How are validators incentivized to stay active and honest?
 
-In addition to being penalized for being offline, validators are penalized for behaving maliciously.
-For example, attesting to invalid or contradicting blocks.
+In addition to being penalized for being offline, validators are penalized for behaving maliciously (for example, attesting to invalid or contradicting blocks).
 
 On the other hand, they are rewarded for proposing / attesting to blocks that are included in the chain.
 
@@ -207,7 +246,7 @@ Depending on this figure the max annual return rate for a validator can be anywh
 Given a fixed total number of validators, the rewards/penalties predominantly scale with the balance of the validator: attesting with a higher balance results in larger rewards/penalties whereas attesting with a lower balance results in lower rewards/penalties.
 
 Note however that this scaling mechanism works in a non-obvious way.
-To understand the precise details of how it works requires understanding a concept called **effective balance**.
+To understand the precise details of how it works requires understanding a concept called *effective balance*.
 If you're not yet familiar with this concept, we recommend you read through this [excellent post](https://www.attestant.io/posts/understanding-validator-effective-balance/).
 
 
@@ -215,7 +254,7 @@ If you're not yet familiar with this concept, we recommend you read through this
 
 Block rewards are calculated using a sliding scale based on the total amount of ETH staked on the network.
 
-In plain english: if the total amount of ETH staked is low, the reward (interest rate) is high, but as the total stake rises, the reward (interest) paid out to each validator starts to fall.
+In plain English: if the total amount of ETH staked is low, the reward (interest rate) is high, but as the total stake rises, the reward (interest) paid out to each validator starts to fall.
 
 Why a sliding scale?
 While we won't get into the gory details here, the basic intuition is that there needs to be a minimum number of validators (and hence a minimum amount of ETH staked) for the network to function properly.
@@ -240,7 +279,7 @@ This ensures that blocks start finalizing again at some point.
 
 Overall, validators are expected to be net profitable as long as their uptime is [greater than 50%](https://blog.ethereum.org/2020/01/13/validated-staking-on-eth2-1-incentives/).
 
-This means that validators need not go to extreme lengths with backup clients or redundant internet connections as the repercussions of being offline are not so severe.
+This means that validators don't need to go to extreme lengths with backup clients or redundant internet connections as the repercussions of being offline are not so severe.
 
 ### How much will a validator be penalized for acting maliciously?
 

@@ -1145,7 +1145,7 @@ func ETHExecutionPayloadHeaderGetBaseFeePerGas(
   ## * Base fee per gas.
   addr execution[].base_fee_per_gas
 
-func ETHExecutionPayloadHeaderGetDataGasUsed(
+func ETHExecutionPayloadHeaderGetBlobGasUsed(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
   ## Obtains the data gas used of a given execution payload header.
   ##
@@ -1154,9 +1154,9 @@ func ETHExecutionPayloadHeaderGetDataGasUsed(
   ##
   ## Returns:
   ## * Data gas used.
-  execution[].data_gas_used.cint
+  execution[].blob_gas_used.cint
 
-func ETHExecutionPayloadHeaderGetExcessDataGas(
+func ETHExecutionPayloadHeaderGetExcessBlobGas(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
   ## Obtains the excess data gas of a given execution payload header.
   ##
@@ -1165,4 +1165,4 @@ func ETHExecutionPayloadHeaderGetExcessDataGas(
   ##
   ## Returns:
   ## * Excess data gas.
-  execution[].excess_data_gas.cint
+  execution[].excess_blob_gas.cint

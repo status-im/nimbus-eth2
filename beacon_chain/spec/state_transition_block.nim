@@ -668,8 +668,8 @@ proc process_execution_payload*(
     extra_data: payload.extra_data,
     transactions_root: hash_tree_root(payload.transactions),
     withdrawals_root: hash_tree_root(payload.withdrawals),
-    data_gas_used: payload.data_gas_used,     # [New in Deneb]
-    excess_data_gas: payload.excess_data_gas) # [New in Deneb]
+    blob_gas_used: payload.blob_gas_used,     # [New in Deneb]
+    excess_blob_gas: payload.excess_blob_gas) # [New in Deneb]
 
   ok()
 

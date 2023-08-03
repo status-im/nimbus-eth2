@@ -288,7 +288,7 @@ proc collectEpochRewardsAndPenalties*(
       total_active_balance)
     finality_delay = get_finality_delay(state)
 
-  for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
+  for flag_index in TimelyFlag:
     for validator_index, delta in get_flag_index_deltas(
         state, flag_index, base_reward_per_increment, info, finality_delay):
       template rp: untyped = rewardsAndPenalties[validator_index]
@@ -302,7 +302,7 @@ proc collectEpochRewardsAndPenalties*(
         max_flag_index_reward = get_flag_index_reward(
           state, base_reward, active_increments,
           unslashed_participating_increment,
-          PARTICIPATION_FLAG_WEIGHTS[flag_index].uint64,
+          PARTICIPATION_FLAG_WEIGHTS[flag_index],
           finality_delay)
 
       case flag_index
@@ -315,8 +315,6 @@ proc collectEpochRewardsAndPenalties*(
       of TIMELY_HEAD_FLAG_INDEX:
         rp.head_outcome = delta.getOutcome
         rp.max_head_reward = max_flag_index_reward
-      else:
-        raiseAssert(&"Unknown flag index {flag_index}.")
 
   for validator_index, penalty in get_inactivity_penalty_deltas(
       cfg, state, info):
