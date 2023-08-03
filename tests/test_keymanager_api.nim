@@ -10,7 +10,7 @@
 import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
   testutils/unittests, chronicles, stint, json_serialization, confutils,
-  chronos, blscurve, libp2p/crypto/crypto as lcrypto,
+  chronos, chronos/asyncproc, blscurve, libp2p/crypto/crypto as lcrypto,
   stew/[byteutils, io2], stew/shims/net,
 
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
@@ -19,11 +19,7 @@ import
   ../beacon_chain/validators/[keystore_management, slashing_protection_common],
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/rpc/rest_key_management_api,
-  ../beacon_chain/[conf, filepath, beacon_node,
-                   nimbus_beacon_node, beacon_node_status,
-                   nimbus_validator_client],
-  ../beacon_chain/validator_client/common,
-  ../ncli/ncli_testnet,
+  ../beacon_chain/[conf, filepath, beacon_node],
   ./testutil
 
 type
@@ -39,6 +35,10 @@ type
     Metrics,
     KeymanagerBN,
     KeymanagerVC
+
+  TestProcess = object
+    process: AsyncProcessRef
+    reader: Future[seq[byte]]
 
 const
   simulationDepositsCount = 128
@@ -119,7 +119,7 @@ func contains*(keylist: openArray[KeystoreInfo], key: string): bool =
   let pubkey = ValidatorPubKey.fromHex(key).tryGet()
   contains(keylist, pubkey)
 
-proc prepareNetwork =
+proc prepareNetwork() {.async.} =
   let
     rng = HmacDrbgContext.new()
     mnemonic = generateMnemonic(rng[])
@@ -158,10 +158,8 @@ proc prepareNetwork =
   Json.saveFile(depositsFile, launchPadDeposits)
   notice "Deposit data written", filename = depositsFile
 
-  let runtimeConfigWritten = secureWriteFile(runtimeConfigFile, """
-ALTAIR_FORK_EPOCH: 0
-BELLATRIX_FORK_EPOCH: 0
-""")
+  let runtimeConfigWritten = secureWriteFile(runtimeConfigFile,
+    "ALTAIR_FORK_EPOCH: 0\nBELLATRIX_FORK_EPOCH: 0\n")
 
   if runtimeConfigWritten.isOk:
     notice "Run-time config written", filename = runtimeConfigFile
@@ -169,7 +167,7 @@ BELLATRIX_FORK_EPOCH: 0
     fatal "Failed to write run-time config", filename = runtimeConfigFile
     quit 1
 
-  let createTestnetConf = try: ncli_testnet.CliConfig.load(cmdLine = mapIt([
+  let arguments = @[
     "createTestnet",
     "--data-dir=" & dataDir,
     "--total-validators=" & $simulationDepositsCount,
@@ -179,11 +177,25 @@ BELLATRIX_FORK_EPOCH: 0
     "--output-bootstrap-file=" & bootstrapEnrFile,
     "--netkey-file=network_key.json",
     "--insecure-netkey-password=true",
-    "--genesis-offset=0"], it))
-  except Exception as exc: # TODO Fix confutils exceptions
-    raiseAssert exc.msg
+    "--genesis-offset=0"
+  ]
 
-  doCreateTestnet(createTestnetConf, rng[])
+  let process =
+    await startProcess("build/ncli_testnet",
+                       arguments = arguments,
+                       options = {AsyncProcessOption.StdErrToStdOut},
+                       stdoutHandle = AsyncProcess.Pipe)
+
+  try:
+    let rescode = await process.waitForExit(1.minutes)
+    if rescode == 0:
+      notice "Testnet was successfully created"
+    else:
+      notice "Unable to create testnet", rescode = rescode
+      let res = await process.stdoutStream.read()
+      echo bytesToString(res)
+  finally:
+    await process.closeWait()
 
   let tokenFileRes = secureWriteFile(tokenFilePath, correctTokenValue)
   if tokenFileRes.isErr:
@@ -270,13 +282,57 @@ proc addPreTestRemoteKeystores(validatorsDir: string) =
             err = res.error
       quit 1
 
-proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
-  let rng = HmacDrbgContext.new()
+proc waitForPortOpen*(address: TransportAddress, ident: static[string],
+                      duration: Duration = InfiniteDuration,
+                      maxAttempts: int = high(int)): Future[bool] {.async.} =
+  let waitFut =
+    if duration == InfiniteDuration:
+      newFuture[void]("waitForPortOpen")
+    else:
+      sleepAsync(duration)
 
+  var attemptsCount = 0
+
+  while attemptsCount < maxAttempts:
+    let transpFut = connect(address)
+
+    try:
+      discard await race(FutureBase(transpFut), FutureBase(waitFut))
+    except CancelledError as exc:
+      var pending: seq[Future[void]]
+      if not(waitFut.finished()): pending.add(waitFut.cancelAndWait())
+      if not(transpFut.finished()): pending.add(transpFut.cancelAndWait())
+      await allFutures(pending)
+      raise exc
+
+    if transpFut.finished():
+      if transpFut.failed() or transpFut.cancelled():
+        let
+          exc = transpFut.readError()
+          reason = "[" & $exc.name & "] " & $exc.msg
+        debug "Could not connect to remote " & ident, remote_host = address,
+              attempt = attemptsCount + 1, reason = reason
+      else:
+        let transp = transpFut.read()
+        await closeWait(transp)
+        if not(waitFut.finished()):
+          await cancelAndWait(waitFut)
+        return true
+
+    if waitFut.finished():
+      if not(transpFut.finished()):
+        await transpFut.cancelAndWait()
+      return false
+
+    inc(attemptsCount)
+
+  false
+
+proc startBeaconNode(basePort: int): Future[TestProcess] {.async.} =
   copyHalfValidators(nodeDataDir, true)
   addPreTestRemoteKeystores(nodeValidatorsDir)
 
-  let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
+  let arguments = @[
     "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
     "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
     "--discv5=off",
@@ -295,26 +351,43 @@ proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
     "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
     "--keymanager-token-file=" & tokenFilePath,
     "--suggested-fee-recipient=" & $defaultFeeRecipient,
-    "--doppelganger-detection=off"], it))
-  except Exception as exc: # TODO fix confutils exceptions
-    raiseAssert exc.msg
+    "--doppelganger-detection=off"
+  ]
+
+  let res =
+    await startProcess("build/nimbus_beacon_node",
+                       arguments = arguments,
+                       options = {AsyncProcessOption.StdErrToStdOut},
+                       stdoutHandle = AsyncProcess.Pipe)
+  let tp = TestProcess(
+    process: res, reader: res.stdoutStream.read()
+  )
+
+  notice "Beacon node process has been started",
+         process_id = tp.process.pid()
 
   let
-    metadata = loadEth2NetworkMetadata(dataDir)
-    node = BeaconNode.init(rng, runNodeConf, metadata)
+    address = initTAddress("127.0.0.1:" &
+                           $(basePort + PortKind.KeymanagerBN.ord))
+    flag = await waitForPortOpen(address, "beacon_node", 30.seconds)
 
-  node.start() # This will run until the node is terminated by
-               #  setting its `bnStatus` to `Stopping`.
+  if not(flag):
+    notice "Unable to establish connection with `nimbus_beacon_node` process",
+           process_id = tp.process.pid()
+    let exitCode = await killAndWaitForExit(tp.process, 5.seconds)
+    echo "\n===== `nimbus_beacon_node` [", exitCode, "], logs ====="
+    let output = await tp.reader
+    echo bytesToString(output)
+    await tp.process.closeWait()
+    raiseAssert "Unable to continue test"
 
-  # os.removeDir dataDir
+  return tp
 
-proc startValidatorClient(basePort: int) {.async, thread.} =
-  let rng = HmacDrbgContext.new()
-
+proc startValidatorClient(basePort: int): Future[TestProcess] {.async.} =
   copyHalfValidators(vcDataDir, false)
   addPreTestRemoteKeystores(vcValidatorsDir)
 
-  let runValidatorClientConf = try: ValidatorClientConf.load(cmdLine = mapIt([
+  let arguments = @[
     "--beacon-node=http://127.0.0.1:" & $(basePort + PortKind.KeymanagerBN.ord),
     "--data-dir=" & vcDataDir,
     "--validators-dir=" & vcValidatorsDir,
@@ -323,11 +396,37 @@ proc startValidatorClient(basePort: int) {.async, thread.} =
     "--keymanager=true",
     "--keymanager-address=127.0.0.1",
     "--keymanager-port=" & $(basePort + PortKind.KeymanagerVC.ord),
-    "--keymanager-token-file=" & tokenFilePath], it))
-  except:
-    quit 1
+    "--keymanager-token-file=" & tokenFilePath
+  ]
 
-  await runValidatorClient(runValidatorClientConf, rng)
+  let res =
+    await startProcess("build/nimbus_validator_client",
+                       arguments = arguments,
+                       options = {AsyncProcessOption.StdErrToStdOut},
+                       stdoutHandle = AsyncProcess.Pipe)
+  let tp = TestProcess(
+    process: res, reader: res.stdoutStream.read()
+  )
+
+  notice "Validator client process has been started",
+         process_id = tp.process.pid()
+
+  let
+    address = initTAddress("127.0.0.1:" &
+                           $(basePort + PortKind.KeymanagerVC.ord))
+    flag = await waitForPortOpen(address, "validator_client", 30.seconds)
+
+  if not(flag):
+    notice "Unable to establish connection with `nimbus_validator_client` " &
+           "process", process_id = tp.process.pid()
+    discard await killAndWaitForExit(tp.process, 5.seconds)
+    echo "\n===== `nimbus_validator_client` logs ====="
+    let output = await tp.reader
+    echo bytesToString(output)
+    await tp.process.closeWait()
+    raiseAssert "Unable to continue test"
+
+  return tp
 
 const
   password = "7465737470617373776f7264f09f9491"
@@ -1453,31 +1552,32 @@ proc delayedTests(basePort: int) {.async.} =
       validatorsDir: vcValidatorsDir,
       secretsDir: vcSecretsDir)
 
-  while bnStatus != BeaconNodeStatus.Running:
-    await sleepAsync(1.seconds)
-
-  asyncSpawn startValidatorClient(basePort)
-
-  await sleepAsync(2.seconds)
-
   let deadline = sleepAsync(10.minutes)
   await runTests(beaconNodeKeymanager) or deadline
-
-  # TODO
-  # This tests showed flaky behavior on a single Windows CI host
-  # Re-enable it in a follow-up PR
-  # await runTests(validatorClientKeymanager)
-
-  bnStatus = BeaconNodeStatus.Stopping
+  await runTests(validatorClientKeymanager) or deadline
 
 proc main(basePort: int) {.async.} =
   if dirExists(dataDir):
     os.removeDir dataDir
 
-  asyncSpawn delayedTests(basePort)
+  await prepareNetwork()
 
-  prepareNetwork()
-  startBeaconNode(basePort)
+  let
+    bnProcess = await startBeaconNode(basePort)
+    vcProcess = await startValidatorClient(basePort)
+
+  try:
+    await delayedTests(basePort)
+  finally:
+    echo ""
+    await allFutures(
+      killAndWaitForExit(bnProcess.process, 5.seconds),
+      killAndWaitForExit(vcProcess.process, 5.seconds)
+    )
+    await allFutures(
+      bnProcess.process.closeWait(),
+      vcProcess.process.closeWait()
+    )
 
 let
   basePortStr = os.getEnv("NIMBUS_TEST_KEYMANAGER_BASE_PORT", $defaultBasePort)
