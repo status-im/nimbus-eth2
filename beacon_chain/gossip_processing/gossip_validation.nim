@@ -974,7 +974,7 @@ proc validateBlsToExecutionChange*(
 
       # BLS to execution change signatures are batch-verified
       let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
-        pool.dag.cfg.genesisFork, signed_address_change)
+        pool.dag.cfg.genesisFork, signed_address_change, pool.dag)
       if deferredCrypto.isErr():
         return pool.checkedReject(deferredCrypto.error)
 
