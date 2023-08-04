@@ -1223,14 +1223,14 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     "Only update this number once code is adjusted to check new fields!"
   if bdata.baseFeePerGas.isNone and (
       bdata.withdrawals.isSome or bdata.withdrawalsRoot.isSome or
-      bdata.dataGasUsed.isSome or bdata.excessDataGas.isSome):
+      bdata.blobGasUsed.isSome or bdata.excessBlobGas.isSome):
     return nil
   if bdata.withdrawalsRoot.isNone and (
-      bdata.dataGasUsed.isSome or bdata.excessDataGas.isSome):
+      bdata.blobGasUsed.isSome or bdata.excessBlobGas.isSome):
     return nil
   if bdata.withdrawals.isSome != bdata.withdrawalsRoot.isSome:
     return nil
-  if bdata.dataGasUsed.isSome != bdata.excessDataGas.isSome:
+  if bdata.blobGasUsed.isSome != bdata.excessBlobGas.isSome:
     return nil
 
   # Construct block header
@@ -1263,14 +1263,14 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         some(bdata.withdrawalsRoot.get.asEth2Digest)
       else:
         none(ExecutionHash256),
-    dataGasUsed:
-      if bdata.dataGasUsed.isSome:
-        some distinctBase(bdata.dataGasUsed.get)
+    blobGasUsed:
+      if bdata.blobGasUsed.isSome:
+        some distinctBase(bdata.blobGasUsed.get)
       else:
         none(uint64),
-    excessDataGas:
-      if bdata.excessDataGas.isSome:
-        some distinctBase(bdata.excessDataGas.get)
+    excessBlobGas:
+      if bdata.excessBlobGas.isSome:
+        some distinctBase(bdata.excessBlobGas.get)
       else:
         none(uint64))
   if rlpHash(blockHeader) != executionHash[]:
