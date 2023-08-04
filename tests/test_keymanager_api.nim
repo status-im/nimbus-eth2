@@ -179,9 +179,10 @@ proc prepareNetwork() {.async.} =
     "--insecure-netkey-password=true",
     "--genesis-offset=0"
   ]
+  let binaryPath = absolutePath("build/ncli_testnet")
 
   let process =
-    await startProcess("build/ncli_testnet",
+    await startProcess(binaryPath,
                        arguments = arguments,
                        options = {AsyncProcessOption.StdErrToStdOut},
                        stdoutHandle = AsyncProcess.Pipe)
@@ -193,7 +194,9 @@ proc prepareNetwork() {.async.} =
     else:
       notice "Unable to create testnet", rescode = rescode
       let res = await process.stdoutStream.read()
+      echo "===== [", binaryPath, "] exited with [", rescode, "] ====="
       echo bytesToString(res)
+      echo "====="
   finally:
     await process.closeWait()
 
@@ -354,8 +357,10 @@ proc startBeaconNode(basePort: int): Future[TestProcess] {.async.} =
     "--doppelganger-detection=off"
   ]
 
+  let binaryPath = absolutePath("build/nimbus_beacon_node")
+
   let res =
-    await startProcess("build/nimbus_beacon_node",
+    await startProcess(binaryPath,
                        arguments = arguments,
                        options = {AsyncProcessOption.StdErrToStdOut},
                        stdoutHandle = AsyncProcess.Pipe)
@@ -364,7 +369,7 @@ proc startBeaconNode(basePort: int): Future[TestProcess] {.async.} =
   )
 
   notice "Beacon node process has been started",
-         process_id = tp.process.pid()
+         process_id = tp.process.pid(), binary_path = binaryPath
 
   let
     address = initTAddress("127.0.0.1:" &
@@ -373,12 +378,15 @@ proc startBeaconNode(basePort: int): Future[TestProcess] {.async.} =
 
   if not(flag):
     notice "Unable to establish connection with `nimbus_beacon_node` process",
-           process_id = tp.process.pid()
-    let exitCode = await killAndWaitForExit(tp.process, 5.seconds)
-    echo "\n===== `nimbus_beacon_node` [", exitCode, "], logs ====="
-    let output = await tp.reader
-    echo bytesToString(output)
+           process_id = tp.process.pid(), binary_path = binaryPath
+    let
+      exitCode = await killAndWaitForExit(tp.process, 5.seconds)
+      output = await tp.reader
+
     await tp.process.closeWait()
+    echo "===== [", binaryPath, "] exited with [", exitCode, "] ====="
+    echo bytesToString(output)
+    echo "====="
     raiseAssert "Unable to continue test"
 
   return tp
@@ -399,8 +407,10 @@ proc startValidatorClient(basePort: int): Future[TestProcess] {.async.} =
     "--keymanager-token-file=" & tokenFilePath
   ]
 
+  let binaryPath = absolutePath("build/nimbus_validator_client")
+
   let res =
-    await startProcess("build/nimbus_validator_client",
+    await startProcess(binaryPath,
                        arguments = arguments,
                        options = {AsyncProcessOption.StdErrToStdOut},
                        stdoutHandle = AsyncProcess.Pipe)
@@ -409,7 +419,7 @@ proc startValidatorClient(basePort: int): Future[TestProcess] {.async.} =
   )
 
   notice "Validator client process has been started",
-         process_id = tp.process.pid()
+         process_id = tp.process.pid(), binary_path = binaryPath
 
   let
     address = initTAddress("127.0.0.1:" &
@@ -418,12 +428,15 @@ proc startValidatorClient(basePort: int): Future[TestProcess] {.async.} =
 
   if not(flag):
     notice "Unable to establish connection with `nimbus_validator_client` " &
-           "process", process_id = tp.process.pid()
-    discard await killAndWaitForExit(tp.process, 5.seconds)
-    echo "\n===== `nimbus_validator_client` logs ====="
-    let output = await tp.reader
-    echo bytesToString(output)
+           "process", process_id = tp.process.pid(), binary_path = binaryPath
+    let
+      exitCode = await killAndWaitForExit(tp.process, 5.seconds)
+      output = await tp.reader
+
     await tp.process.closeWait()
+    echo "===== [", binaryPath, "] exited with [", exitCode, "] ====="
+    echo bytesToString(output)
+    echo "====="
     raiseAssert "Unable to continue test"
 
   return tp
