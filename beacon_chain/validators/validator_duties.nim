@@ -39,7 +39,7 @@ import
   ../gossip_processing/block_processor,
   ".."/[conf, beacon_clock, beacon_node],
   "."/[slashing_protection, validator_pool, keystore_management],
-  ".."/spec/mev/[rest_bellatrix_mev_calls, rest_capella_mev_calls]
+  ".."/spec/mev/rest_capella_mev_calls
 
 from eth/async_utils import awaitWithTimeout
 
@@ -522,8 +522,7 @@ func constructSignableBlindedBlock[T](
   blindedBlock
 
 func constructPlainBlindedBlock[
-    T: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock,
-    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
+    T: capella_mev.BlindedBeaconBlock, EPH: capella.ExecutionPayloadHeader](
     blck: ForkyBeaconBlock, executionPayloadHeader: EPH): T =
   const
     blckFields = getFieldNames(typeof(blck))
@@ -574,8 +573,7 @@ proc blindedBlockCheckSlashingAndSign[T](
   return ok blindedBlock
 
 proc getUnsignedBlindedBeaconBlock[
-    T: bellatrix_mev.SignedBlindedBeaconBlock |
-       capella_mev.SignedBlindedBeaconBlock |
+    T: capella_mev.SignedBlindedBeaconBlock |
        deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
@@ -588,8 +586,6 @@ proc getUnsignedBlindedBeaconBlock[
       return err("getUnsignedBlindedBeaconBlock: Deneb blinded block creation not implemented")
     elif consensusFork >= ConsensusFork.Bellatrix:
       when not (
-          (T is bellatrix_mev.SignedBlindedBeaconBlock and
-           consensusFork == ConsensusFork.Bellatrix) or
           (T is capella_mev.SignedBlindedBeaconBlock and
            consensusFork == ConsensusFork.Capella)):
         return err("getUnsignedBlindedBeaconBlock: mismatched block/payload types")
