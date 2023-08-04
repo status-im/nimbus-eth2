@@ -2246,9 +2246,6 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
             break
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
-  if dag.cfg.consensusForkAtEpoch(bid.slot.epoch) < ConsensusFork.Bellatrix:
-    return ZERO_HASH
-
   let blockData = dag.getForkedBlock(bid).valueOr:
     return ZERO_HASH
 
