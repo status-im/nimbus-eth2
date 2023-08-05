@@ -38,119 +38,153 @@ func checkForkConsistency(
     consensusFork: ConsensusFork) {.raises: [RestError].} =
   obj.checkForkConsistency(cfg, Opt[ConsensusFork].ok(consensusFork))
 
+func decodeSszLightClientObject[T: SomeForkedLightClientObject](
+    x: typedesc[T],
+    data: openArray[byte],
+    consensusFork: ConsensusFork,
+    cfg: RuntimeConfig): T {.raises: [RestError].} =
+  try:
+    withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
+      when lcDataFork > LightClientDataFork.None:
+        var obj = T(kind: lcDataFork)
+        obj.forky(lcDataFork) = SSZ.decode(data, T.Forky(lcDataFork))
+        obj.checkForkConsistency(cfg, consensusFork)
+        obj
+      else:
+        raiseRestDecodingBytesError(
+          cstring("Unsupported fork: " & $consensusFork))
+  except SerializationError as exc:
+    raiseRestDecodingBytesError(cstring("Malformed data: " & $exc.msg))
+
+proc decodeJsonLightClientObject*[T: SomeForkedLightClientObject](
+    x: typedesc[T],
+    data: openArray[byte],
+    consensusFork: Opt[ConsensusFork],
+    cfg: RuntimeConfig): T {.raises: [RestError].} =
+  let objRes = decodeBytes(T, data, Opt.none(ContentTypeData))
+  if objRes.isErr:
+    raiseRestDecodingBytesError(objRes.error)
+  template obj: auto = objRes.get
+  obj.checkForkConsistency(cfg, consensusFork)
+  obj
+
+proc decodeHttpLightClientObject*[T: SomeForkedLightClientObject](
+    x: typedesc[T],
+    data: openArray[byte],
+    mediaType: MediaType,
+    consensusFork: ConsensusFork,
+    cfg: RuntimeConfig): T {.raises: [RestError].} =
+  if mediaType == OctetStreamMediaType:
+    x.decodeSszLightClientObject(data, consensusFork, cfg)
+  elif mediaType == ApplicationJsonMediaType:
+    x.decodeJsonLightClientObject(data, Opt.some(consensusFork), cfg)
+  else:
+    raise newException(RestError, "Unsupported content-type")
+
 proc decodeHttpLightClientObject[T: SomeForkedLightClientObject](
     x: typedesc[T],
-    data: seq[byte],
+    data: openArray[byte],
     contentType: Opt[ContentTypeData],
     consensusFork: ConsensusFork,
     cfg: RuntimeConfig): T {.raises: [RestError].} =
   let mediaTypeRes = decodeMediaType(contentType)
   if mediaTypeRes.isErr:
     raise newException(RestError, mediaTypeRes.error)
-  template mediaType: auto = mediaTypeRes.get
+  x.decodeHttpLightClientObject(data, mediaTypeRes.get, consensusFork, cfg)
 
-  return
-    if mediaType == OctetStreamMediaType:
-      try:
-        withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
-          when lcDataFork > LightClientDataFork.None:
-            var obj = T(kind: lcDataFork)
-            obj.forky(lcDataFork) = SSZ.decode(data, T.Forky(lcDataFork))
-            obj.checkForkConsistency(cfg, consensusFork)
-            obj
-          else:
-            raiseRestDecodingBytesError(
-              cstring("Unsupported fork: " & $consensusFork))
-      except SszError as exc:
-        raiseRestDecodingBytesError(cstring("Malformed data: " & $exc.msg))
+proc decodeSszLightClientObjects[S: seq[SomeForkedLightClientObject]](
+    x: typedesc[S],
+    data: openArray[byte],
+    cfg: RuntimeConfig,
+    forkDigests: ref ForkDigests): S {.raises: [RestError].} =
+  let l = data.len
+  var
+    res: S
+    o = 0
+  while l - o != 0:
+    # response_chunk_len
+    type chunkLenType = uint64
+    const chunkLenLen = sizeof chunkLenType  # 8
+    if l - o < chunkLenLen:
+      raiseRestDecodingBytesError("Malformed data: Incomplete length")
+    let responseChunkLen = chunkLenType.fromBytesLE(
+      data.toOpenArray(o, o + chunkLenLen - 1))
+    o = o + chunkLenLen
 
-    elif mediaType == ApplicationJsonMediaType:
-      let objRes = decodeBytes(T, data, contentType)
-      if objRes.isErr:
-        raiseRestDecodingBytesError(objRes.error)
-      template obj: auto = objRes.get
-      obj.checkForkConsistency(cfg, consensusFork)
-      obj
+    # response_chunk
+    if responseChunkLen > int.high.chunkLenType:
+      raiseRestDecodingBytesError("Malformed data: Unsupported length")
+    if l - o < responseChunkLen.int:
+      raiseRestDecodingBytesError("Malformed data: Incomplete chunk")
+    let
+      begin = o
+      after = o + responseChunkLen.int
+    o += responseChunkLen.int
 
-    else:
-      raise newException(RestError, "Unsupported content-type")
+    # context
+    const contextLen = sizeof ForkDigest  # 4
+    if responseChunkLen < contextLen.chunkLenType:
+      raiseRestDecodingBytesError("Malformed data: Incomplete context")
+    let
+      context = ForkDigest [
+        data[begin + 0], data[begin + 1], data[begin + 2], data[begin + 3]]
+      consensusFork = forkDigests[].consensusForkForDigest(context).valueOr:
+        raiseRestDecodingBytesError("Malformed data: Invalid context")
+
+    # payload
+    try:
+      withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
+        when lcDataFork > LightClientDataFork.None:
+          type T = typeof(res[0])
+          var obj = T(kind: lcDataFork)
+          obj.forky(lcDataFork) = SSZ.decode(
+            data.toOpenArray(begin + contextLen, after - 1),
+            T.Forky(lcDataFork))
+          obj.checkForkConsistency(cfg, consensusFork)
+          res.add obj
+        else:
+          raiseRestDecodingBytesError(
+            cstring("Unsupported fork: " & $consensusFork))
+    except SerializationError as exc:
+      raiseRestDecodingBytesError(cstring("Malformed data: " & $exc.msg))
+  res
+
+proc decodeJsonLightClientObjects[S: seq[SomeForkedLightClientObject]](
+    x: typedesc[S],
+    data: openArray[byte],
+    cfg: RuntimeConfig,
+    forkDigests: ref ForkDigests): S {.raises: [RestError].} =
+  let objsRes = decodeBytes(S, data, Opt.none(ContentTypeData))
+  if objsRes.isErr:
+    raiseRestDecodingBytesError(objsRes.error)
+  template objs: auto = objsRes.get
+  for obj in objs:
+    obj.checkForkConsistency(cfg)
+  objs
+
+proc decodeHttpLightClientObjects*[S: seq[SomeForkedLightClientObject]](
+    x: typedesc[S],
+    data: openArray[byte],
+    mediaType: MediaType,
+    cfg: RuntimeConfig,
+    forkDigests: ref ForkDigests): S {.raises: [RestError].} =
+  if mediaType == OctetStreamMediaType:
+    x.decodeSszLightClientObjects(data, cfg, forkDigests)
+  elif mediaType == ApplicationJsonMediaType:
+    x.decodeJsonLightClientObjects(data, cfg, forkDigests)
+  else:
+    raise newException(RestError, "Unsupported content-type")
 
 proc decodeHttpLightClientObjects[S: seq[SomeForkedLightClientObject]](
     x: typedesc[S],
-    data: seq[byte],
+    data: openArray[byte],
     contentType: Opt[ContentTypeData],
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests): S {.raises: [RestError].} =
   let mediaTypeRes = decodeMediaType(contentType)
   if mediaTypeRes.isErr:
     raise newException(RestError, mediaTypeRes.error)
-  template mediaType: auto = mediaTypeRes.get
-
-  return
-    if mediaType == OctetStreamMediaType:
-      let l = data.len
-      var
-        res: S
-        o = 0
-      while l - o != 0:
-        # response_chunk_len
-        type chunkLenType = uint64
-        const chunkLenLen = sizeof chunkLenType  # 8
-        if l - o < chunkLenLen:
-          raiseRestDecodingBytesError("Malformed data: Incomplete length")
-        let responseChunkLen = chunkLenType.fromBytesLE(
-          data.toOpenArray(o, o + chunkLenLen - 1))
-        o = o + chunkLenLen
-
-        # response_chunk
-        if responseChunkLen > int.high.chunkLenType:
-          raiseRestDecodingBytesError("Malformed data: Unsupported length")
-        if l - o < responseChunkLen.int:
-          raiseRestDecodingBytesError("Malformed data: Incomplete chunk")
-        let
-          begin = o
-          after = o + responseChunkLen.int
-        o += responseChunkLen.int
-
-        # context
-        const contextLen = sizeof ForkDigest  # 4
-        if responseChunkLen < contextLen.chunkLenType:
-          raiseRestDecodingBytesError("Malformed data: Incomplete context")
-        let
-          context = ForkDigest [
-            data[begin + 0], data[begin + 1], data[begin + 2], data[begin + 3]]
-          consensusFork = forkDigests[].consensusForkForDigest(context).valueOr:
-            raiseRestDecodingBytesError("Malformed data: Invalid context")
-
-        # payload
-        try:
-          withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
-            when lcDataFork > LightClientDataFork.None:
-              type T = typeof(res[0])
-              var obj = T(kind: lcDataFork)
-              obj.forky(lcDataFork) = SSZ.decode(
-                data.toOpenArray(begin + contextLen, after - 1),
-                T.Forky(lcDataFork))
-              obj.checkForkConsistency(cfg, consensusFork)
-              res.add obj
-            else:
-              raiseRestDecodingBytesError(
-                cstring("Unsupported fork: " & $consensusFork))
-        except SszError as exc:
-          raiseRestDecodingBytesError(cstring("Malformed data: " & $exc.msg))
-      res
-
-    elif mediaType == ApplicationJsonMediaType:
-      let objsRes = decodeBytes(S, data, contentType)
-      if objsRes.isErr:
-        raiseRestDecodingBytesError(objsRes.error)
-      template objs: auto = objsRes.get
-      for obj in objs:
-        obj.checkForkConsistency(cfg)
-      objs
-
-    else:
-      raise newException(RestError, "Unsupported content-type")
+  x.decodeHttpLightClientObjects(data, mediaTypeRes.get, cfg, forkDigests)
 
 proc getLightClientBootstrapPlain(
     block_root: Eth2Digest): RestHttpResponseRef {.

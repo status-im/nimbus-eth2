@@ -107,7 +107,7 @@ proc update_justified(
   self.update_justified(dag, blck, justified.epoch)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#update_checkpoints
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var Checkpoints, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints): FcResult[void] =
@@ -124,7 +124,7 @@ proc update_checkpoints(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_tick_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
     self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
   ## Must be called at least once per slot.
@@ -206,7 +206,7 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#on_attestation
 proc on_attestation*(
        self: var ForkChoice,
        dag: ChainDAGRef,
@@ -215,7 +215,7 @@ proc on_attestation*(
        attesting_indices: openArray[ValidatorIndex],
        wallTime: BeaconTime
      ): FcResult[void] =
-  ? self.update_time(dag, wallTime)
+  ? self.update_time(dag, max(wallTime, attestation_slot.start_beacon_time))
 
   if beacon_block_root.isZero:
     return ok()
@@ -235,7 +235,7 @@ proc on_attestation*(
       block_root: beacon_block_root))
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#on_attester_slashing
 func process_equivocation*(
        self: var ForkChoice,
        validator_index: ValidatorIndex
@@ -266,7 +266,7 @@ proc process_block*(self: var ForkChoice,
                     unrealized: FinalityCheckpoints,
                     blck: ForkyTrustedBeaconBlock,
                     wallTime: BeaconTime): FcResult[void] =
-  ? update_time(self, dag, wallTime)
+  ? update_time(self, dag, max(wallTime, blckRef.slot.start_beacon_time))
 
   for attester_slashing in blck.body.attester_slashings:
     for idx in getValidatorIndices(attester_slashing):
@@ -350,7 +350,7 @@ func find_head*(
 
   return ok(new_head)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#get_head
 proc get_head*(self: var ForkChoice,
                dag: ChainDAGRef,
                wallTime: BeaconTime): FcResult[Eth2Digest] =
@@ -364,7 +364,7 @@ proc get_head*(self: var ForkChoice,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/fork_choice/safe-block.md#get_safe_beacon_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   # Use most recent justified block as a stopgap
   self.checkpoints.justified.checkpoint.root

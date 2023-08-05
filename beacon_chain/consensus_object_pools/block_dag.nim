@@ -35,6 +35,7 @@ type
       ## Root that can be used to retrieve block data from database
 
     executionBlockHash*: Opt[Eth2Digest]
+    executionValid*: bool
 
     parent*: BlockRef ##\
       ## Not nil, except for the finalized head
@@ -54,24 +55,29 @@ template slot*(blck: BlockRef): Slot = blck.bid.slot
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
-    executionBlockHash: Opt[Eth2Digest], slot: Slot): BlockRef =
+    executionBlockHash: Opt[Eth2Digest], executionValid: bool, slot: Slot):
+    BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
-    executionBlockHash: executionBlockHash)
+    executionBlockHash: executionBlockHash, executionValid: executionValid)
 
 func init*(
-    T: type BlockRef, root: Eth2Digest,
+    T: type BlockRef, root: Eth2Digest, executionValid: bool,
     blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
-  BlockRef.init(root, Opt.some ZERO_HASH, blck.slot)
+  # Use same formal parameters for simplicity, but it's impossible for these
+  # blocks to be optimistic.
+  BlockRef.init(root, Opt.some ZERO_HASH, executionValid = true, blck.slot)
 
 func init*(
-    T: type BlockRef, root: Eth2Digest,
+    T: type BlockRef, root: Eth2Digest, executionValid: bool,
     blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock |
           capella.SomeBeaconBlock | capella.TrustedBeaconBlock |
           deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root, Opt.some Eth2Digest(blck.body.execution_payload.block_hash),
+    executionValid =
+      executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
     blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =
@@ -128,7 +134,7 @@ func link*(parent, child: BlockRef) =
 func get_ancestor*(blck: BlockRef, slot: Slot,
     maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
     BlockRef =
-  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
   if isNil(blck): return nil

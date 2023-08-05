@@ -64,9 +64,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeads
   router.api(MethodGet,
              "/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(
-      node.dag.heads.mapIt((root: it.root, slot: it.slot))
-    )
+    return RestApiResponse.jsonError(
+      Http410, DeprecatedRemovalGetDebugChainHeadsV1)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeadsV2
   router.api(MethodGet,
@@ -76,7 +75,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (
           root: it.root,
           slot: it.slot,
-          execution_optimistic: node.getBlockRefOptimistic(it)
+          execution_optimistic: not it.executionValid
         )
       )
     )
@@ -114,7 +113,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         validity:
           if item.invalid:
             RestNodeValidity.invalid
-          elif node.dag.is_optimistic(item.bid.root):
+          elif node.dag.is_optimistic(item.bid):
             RestNodeValidity.optimistic
           else:
             RestNodeValidity.valid,

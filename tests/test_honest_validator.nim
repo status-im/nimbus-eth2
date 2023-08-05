@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Copyright (c) 2020-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,6 +12,8 @@ import
   ./testutil,
   ../beacon_chain/spec/[network, validator],
   ../beacon_chain/spec/datatypes/[base, altair]
+
+from std/sequtils import toSeq
 
 suite "Honest validator":
   var forkDigest: ForkDigest
@@ -76,7 +78,7 @@ suite "Honest validator":
         "/eth2/00000000/sync_committee_1/ssz_snappy"
       getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(3)) ==
         "/eth2/00000000/sync_committee_3/ssz_snappy"
-      getBlobSidecarTopic(forkDigest, BlobIndex(1)) ==
+      getBlobSidecarTopic(forkDigest, SubnetId(1)) ==
         "/eth2/00000000/blob_sidecar_1/ssz_snappy"
 
   test "is_aggregator":
@@ -283,3 +285,20 @@ suite "Honest validator":
         SLOTS_PER_HISTORICAL_ROOT ..
         SLOTS_PER_HISTORICAL_ROOT + FAULT_INSPECTION_WINDOW:
       check: livenessFailsafeInEffect(x, i.Slot)
+
+  test "Stability subnets":
+    check:
+      toSeq(compute_subscribed_subnets(default(UInt256), 0.Epoch)) ==
+        @[49.SubnetId, 50.SubnetId]
+      toSeq(compute_subscribed_subnets(default(UInt256), 1.Epoch)) ==
+        @[49.SubnetId, 50.SubnetId]
+      toSeq(compute_subscribed_subnets(default(UInt256), 2.Epoch)) ==
+        @[49.SubnetId, 50.SubnetId]
+      toSeq(compute_subscribed_subnets(default(UInt256), 2.Epoch)) ==
+        @[49.SubnetId, 50.SubnetId]
+      toSeq(compute_subscribed_subnets(default(UInt256), 200.Epoch)) ==
+        @[49.SubnetId, 50.SubnetId]
+      toSeq(compute_subscribed_subnets(default(UInt256), 300.Epoch)) ==
+        @[16.SubnetId, 17.SubnetId]
+      toSeq(compute_subscribed_subnets(default(UInt256), 400.Epoch)) ==
+        @[16.SubnetId, 17.SubnetId]

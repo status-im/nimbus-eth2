@@ -35,7 +35,7 @@ func applyValidatorIdentities(
         withdrawal_credentials: item.withdrawal_credentials):
       raiseAssert "cannot readd"
 
-func setValidatorStatuses(
+func setValidatorStatusesNoWithdrawals(
     validators: var HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT],
     hl: List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]) =
   doAssert validators.len == hl.len
@@ -51,7 +51,8 @@ func setValidatorStatuses(
     validator[].exit_epoch = hl[i].exit_epoch
     validator[].withdrawable_epoch = hl[i].withdrawable_epoch
 
-func replaceOrAddEncodeEth1Votes[T, U](votes0, votes1: HashList[T, U]):
+func replaceOrAddEncodeEth1Votes[T, U](
+    votes0: openArray[T], votes0_len: int, votes1: HashList[T, U]):
     (bool, List[T, U]) =
   let
     num_votes0 = votes0.len
@@ -66,10 +67,11 @@ func replaceOrAddEncodeEth1Votes[T, U](votes0, votes1: HashList[T, U]):
       else:
         num_votes0
 
-  result[0] = lower_bound == 0
+  var res = (lower_bound == 0, default(List[T, U]))
   for i in lower_bound ..< votes1.len:
     if not result[1].add votes1[i]:
       raiseAssert "same limit"
+  res
 
 func replaceOrAddDecodeEth1Votes[T, U](
     votes0: var HashList[T, U], eth1_data_votes_replaced: bool,
@@ -84,7 +86,7 @@ func replaceOrAddDecodeEth1Votes[T, U](
 func getMutableValidatorStatuses(state: capella.BeaconState):
     List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
   if not result.setLen(state.validators.len):
-    raiseAssert "same limt as validators"
+    raiseAssert "same limit as validators"
   for i in 0 ..< state.validators.len:
     let validator = unsafeAddr state.validators.data[i]
     assign(result[i].effective_balance, validator.effective_balance)
@@ -96,24 +98,37 @@ func getMutableValidatorStatuses(state: capella.BeaconState):
     assign(result[i].exit_epoch, validator.exit_epoch)
     assign(result[i].withdrawable_epoch, validator.withdrawable_epoch)
 
-func diffStates*(state0, state1: capella.BeaconState): BeaconStateDiff =
-  doAssert state1.slot > state0.slot
-  doAssert state0.slot.is_epoch
-  doAssert state1.slot == state0.slot + SLOTS_PER_EPOCH
-  # TODO not here, but in dag, an isancestorof check
+from "."/spec/beaconstate import has_eth1_withdrawal_credential
 
-  doAssert state0.genesis_time == state1.genesis_time
-  doAssert state0.genesis_validators_root == state1.genesis_validators_root
-  doAssert state0.fork == state1.fork
-  doAssert state1.historical_roots == state0.historical_roots
-  doAssert state1.historical_summaries.len -
-    state0.historical_summaries.len in [0, 1]
+func getValidatorWithdrawalChanges(
+    presummary: BeaconStateDiffPreSnapshot, state: capella.BeaconState):
+    List[IndexedWithdrawalCredentials, Limit VALIDATOR_REGISTRY_LIMIT] =
+  # The only possible change is a one-time-per-validator change from BLS to
+  # execution withdrawal credentials, within the scope of Capella.
 
+  var res: List[IndexedWithdrawalCredentials, Limit VALIDATOR_REGISTRY_LIMIT]
+
+  for i in 0 ..< state.validators.lenu64:
+    if  state.validators.item(i).has_eth1_withdrawal_credential and
+        not presummary.eth1_withdrawal_credential[i]:
+      if not res.add IndexedWithdrawalCredentials(
+          validator_index: i,
+          withdrawal_credentials:
+            state.validators.item(i).withdrawal_credentials):
+        raiseAssert "same limit as validators"
+
+  res
+
+func diffStates*(
+    state0: BeaconStateDiffPreSnapshot, state1: capella.BeaconState):
+    BeaconStateDiff =
   let
     historical_summary_added =
-      state0.historical_summaries.len != state1.historical_summaries.len
+      state0.historical_summaries_len != state1.historical_summaries.len
     (eth1_data_votes_replaced, eth1_data_votes) =
-      replaceOrAddEncodeEth1Votes(state0.eth1_data_votes, state1.eth1_data_votes)
+      replaceOrAddEncodeEth1Votes(
+        state0.eth1_data_votes_recent, state0.eth1_data_votes_len,
+        state1.eth1_data_votes)
 
   BeaconStateDiff(
     slot: state1.slot,
@@ -126,7 +141,9 @@ func diffStates*(state0, state1: capella.BeaconState): BeaconStateDiff =
     eth1_data_votes: eth1_data_votes,
     eth1_deposit_index: state1.eth1_deposit_index,
 
-    validatorStatuses: getMutableValidatorStatuses(state1),
+    validator_statuses: getMutableValidatorStatuses(state1),
+    withdrawal_credential_changes:
+      getValidatorWithdrawalChanges(state0, state1),
     balances: state1.balances.data,
 
     # RANDAO mixes gets updated every block, in place
@@ -156,10 +173,37 @@ func diffStates*(state0, state1: capella.BeaconState): BeaconStateDiff =
     historical_summary_added: historical_summary_added,
     historical_summary:
       if historical_summary_added:
-        state1.historical_summaries[state0.historical_summaries.len]
+        state1.historical_summaries[state0.historical_summaries_len]
       else:
         (static(default(HistoricalSummary)))
   )
+
+from std/sequtils import mapIt
+
+func getBeaconStateDiffSummary*(state0: capella.BeaconState):
+    BeaconStateDiffPreSnapshot =
+  BeaconStateDiffPreSnapshot(
+    eth1_data_votes_recent:
+      if state0.eth1_data_votes.len > 0:
+        # replaceOrAddEncodeEth1Votes will check whether it needs to replace or add
+        # the votes. Which happens is a function of effectively external data, i.e.
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#eth1-data
+        # notes it depends on things not deterministic, from a pure consensus-layer
+        # perspective. It thus must distinguish between adding and replacing votes,
+        # which it accomplishes by checking lengths and the most recent votes. This
+        # enables it to disambiguate when, for example, the number of Eth1 votes in
+        # both states is identical, but they're distinct because they were replaced
+        # between said states. This should not be feasible for the usual, intended,
+        # use case of exactly one epoch strides, but avoids a design coupling while
+        # not adding much runtime or storage cost.
+        state0.eth1_data_votes[^1 .. ^1]
+      else:
+        @[],
+    eth1_data_votes_len: state0.eth1_data_votes.len,
+    slot: state0.slot,
+    historical_summaries_len: state0.historical_summaries.len,
+    eth1_withdrawal_credential:
+      mapIt(state0.validators, it.has_eth1_withdrawal_credential))
 
 func applyDiff*(
     state: var capella.BeaconState,
@@ -184,7 +228,13 @@ func applyDiff*(
   assign(state.eth1_deposit_index, stateDiff.eth1_deposit_index)
 
   applyValidatorIdentities(state.validators, immutableValidators)
-  setValidatorStatuses(state.validators, stateDiff.validator_statuses)
+  setValidatorStatusesNoWithdrawals(
+    state.validators, stateDiff.validator_statuses)
+  for withdrawalUpdate in stateDiff.withdrawal_credential_changes:
+    assign(
+      state.validators.mitem(
+        withdrawalUpdate.validator_index).withdrawal_credentials,
+      withdrawalUpdate.withdrawal_credentials)
   assign(state.balances, stateDiff.balances)
 
   # RANDAO mixes gets updated every block, in place, so ensure there's always

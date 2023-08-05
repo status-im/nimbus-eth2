@@ -66,6 +66,9 @@ nimbus-eth2/build/nimbus_beacon_node \
     --suggested-fee-recipient=<Enter-eth-address-here>
 ```
 
+!!! tip
+    If you want the syncing process to complete much faster, you can [sync from a trusted node](./trusted-node-sync.md).
+
 One might consider here to [set up a systemd service](./beacon-node-systemd.md) to ensure this runs automatically, including after restarts.
 
 ## Begin validating
@@ -74,9 +77,8 @@ One might consider here to [set up a systemd service](./beacon-node-systemd.md) 
 It might require some time before these enter and are activated on the beacon chain.
 If one does this before the node which will attest and propose using those validators has synced, one might miss attestations and block proposals.
 
-7. [Import the validator keys](./keys.md) you receive into Nimbus.
+7. Follow our validating guide from [step 2 (import the validator keys) onward](./run-a-validator.md#2-import-your-validator-keys).
 
-8. [Start validating](./connect-eth2.md) with the imported keys.
 
 ## Useful resources
 

@@ -8,7 +8,7 @@
 import
   std/os,
   chronicles, chronos, stew/io2,
-  eth/db/kvstore_sqlite3, eth/keys,
+  eth/db/kvstore_sqlite3,
   ./el/el_manager,
   ./gossip_processing/optimistic_processor,
   ./networking/[topic_params, network_metadata],
@@ -79,7 +79,7 @@ programMain:
 
     genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
 
-    rng = keys.newRng()
+    rng = HmacDrbgContext.new()
     netKeys = getRandomNetKeys(rng[])
     network = createEth2Node(
       rng, config, netKeys, cfg,
@@ -113,7 +113,7 @@ programMain:
             template payload(): auto = blck.message.body.execution_payload
 
             if elManager != nil and not payload.block_hash.isZero:
-              discard await elManager.newExecutionPayload(payload)
+              discard await elManager.newExecutionPayload(blck.message)
               discard await elManager.forkchoiceUpdated(
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value
@@ -124,7 +124,7 @@ programMain:
             template payload(): auto = blck.message.body.execution_payload
 
             if elManager != nil and not payload.block_hash.isZero:
-              discard await elManager.newExecutionPayload(payload)
+              discard await elManager.newExecutionPayload(blck.message)
               discard await elManager.forkchoiceUpdated(
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value

@@ -21,8 +21,9 @@ import
   chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net],
   eth/db/kvstore,
-  eth/keys, eth/p2p/discoveryv5/[protocol, enr],
+  eth/p2p/discoveryv5/[protocol, enr],
   web3/ethtypes,
+  kzg4844,
 
   # Local modules
   ../spec/datatypes/[phase0, altair, bellatrix],
@@ -85,15 +86,15 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
+  BlobsBundle = tuple[blobs: deneb.Blobs,
+                      kzgs: KzgCommitments,
+                      proofs: seq[kzg_abi.KZGProof]]
   ForkedBlockResult =
-    Result[tuple[blck: ForkedBeaconBlock, blockValue: Wei], string]
+    Result[tuple[blck: ForkedBeaconBlock,
+                 blockValue: Wei,
+                 blobsBundleOpt: Opt[BlobsBundle]], string]
   BlindedBlockResult[SBBB] =
     Result[tuple[blindedBlckPart: SBBB, blockValue: UInt256], string]
-
-  SyncStatus* {.pure.} = enum
-    synced
-    unsynced
-    optimistic
 
 proc getValidator*(validators: auto,
                    pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
@@ -139,7 +140,7 @@ proc getValidatorForDuties*(
   node.attachedValidators[].getValidatorForDuties(
     key.toPubKey(), slot, slashingSafe)
 
-proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
+proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ## TODO This function is here as a placeholder for some better heurestics to
   ##      determine if we're in sync and should be producing blocks and
   ##      attestations. Generally, the problem is that slot time keeps advancing
@@ -160,14 +161,8 @@ proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
   # TODO if everyone follows this logic, the network will not recover from a
   #      halt: nobody will be producing blocks because everone expects someone
   #      else to do it
-  if  wallSlot.afterGenesis and
-      head.slot + node.config.syncHorizon < wallSlot.slot:
-    SyncStatus.unsynced
-  else:
-    if node.dag.is_optimistic(head.root):
-      SyncStatus.optimistic
-    else:
-      SyncStatus.synced
+  not wallSlot.afterGenesis or
+    head.slot + node.config.syncHorizon >= wallSlot.slot
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
   static: doAssert lightClientFinalityUpdateSlotOffset ==
@@ -443,8 +438,14 @@ proc makeBeaconBlockForHeadAndSlot*(
       slot, head = shortLog(head), error
     $error
 
+  var blobsBundleOpt = Opt.none(BlobsBundle)
+  when payload is deneb.ExecutionPayloadForSigning:
+    let bb: BlobsBundle = (blobs: payload.blobs,
+                           kzgs: payload.kzgs,
+                           proofs: payload.proofs)
+    blobsBundleOpt = Opt.some(bb)
   return if blck.isOk:
-    ok((blck.get, payload.blockValue))
+    ok((blck.get, payload.blockValue, blobsBundleOpt))
   else:
     err(blck.error)
 
@@ -463,24 +464,25 @@ proc makeBeaconBlockForHeadAndSlot*(
     withdrawals_root = Opt.none(Eth2Digest))
 
 proc getBlindedExecutionPayload[
-    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
-    node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
-    pubkey: ValidatorPubKey): Future[BlindedBlockResult[EPH]] {.async.} =
-  if node.payloadBuilderRestClient.isNil:
-    return err "getBlindedExecutionPayload: nil REST client"
-
-  when EPH is capella.ExecutionPayloadHeader:
+    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader |
+    deneb.ExecutionPayloadHeader](
+    node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
+    executionBlockRoot: Eth2Digest, pubkey: ValidatorPubKey):
+    Future[BlindedBlockResult[EPH]] {.async.} =
+  when EPH is deneb.ExecutionPayloadHeader:
+    let blindedHeader = default(RestResponse[GetHeaderResponseDeneb])
+    debugRaiseAssert $denebImplementationMissing &
+      ": makeBlindedBeaconBlockForHeadAndSlot"
+  elif EPH is capella.ExecutionPayloadHeader:
     let blindedHeader = awaitWithTimeout(
-      node.payloadBuilderRestClient.getHeaderCapella(
-        slot, executionBlockRoot, pubkey),
+      payloadBuilderClient.getHeaderCapella(slot, executionBlockRoot, pubkey),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
-        return err "Timeout when obtaining Capella blinded header from builder"
+        return err "Timeout obtaining Capella blinded header from builder"
   elif EPH is bellatrix.ExecutionPayloadHeader:
     let blindedHeader = awaitWithTimeout(
-      node.payloadBuilderRestClient.getHeaderBellatrix(
-        slot, executionBlockRoot, pubkey),
+      payloadBuilderClient.getHeaderBellatrix(slot, executionBlockRoot, pubkey),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
-        return err "Timeout when obtaining Bellatrix blinded header from builder"
+        return err "Timeout obtaining Bellatrix blinded header from builder"
   else:
     static: doAssert false
 
@@ -573,11 +575,13 @@ proc blindedBlockCheckSlashingAndSign[T](
 
 proc getUnsignedBlindedBeaconBlock[
     T: bellatrix_mev.SignedBlindedBeaconBlock |
-       capella_mev.SignedBlindedBeaconBlock](
+       capella_mev.SignedBlindedBeaconBlock |
+       deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: bellatrix.ExecutionPayloadHeader |
-                            capella.ExecutionPayloadHeader): Result[T, string] =
+                            capella.ExecutionPayloadHeader |
+                            deneb.ExecutionPayloadHeader): Result[T, string] =
   withBlck(forkedBlock):
     when consensusFork >= ConsensusFork.Deneb:
       debugRaiseAssert $denebImplementationMissing & ": getUnsignedBlindedBeaconBlock"
@@ -595,17 +599,17 @@ proc getUnsignedBlindedBeaconBlock[
       return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Bellatrix blinded block")
 
 proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
-    node: BeaconNode, head: BlockRef, pubkey: ValidatorPubKey,
-    slot: Slot, randao: ValidatorSig, validator_index: ValidatorIndex,
-    graffiti: GraffitiBytes): Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
-    {.async.} =
+    node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
+    pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
+    validator_index: ValidatorIndex, graffiti: GraffitiBytes):
+    Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]] {.async.} =
   let
     executionBlockRoot = node.dag.loadExecutionBlockHash(head)
     executionPayloadHeader =
       try:
         awaitWithTimeout(
             getBlindedExecutionPayload[EPH](
-              node, slot, executionBlockRoot, pubkey),
+              node, payloadBuilderClient, slot, executionBlockRoot, pubkey),
             BUILDER_PROPOSAL_DELAY_TOLERANCE):
           BlindedBlockResult[EPH].err("getBlindedExecutionPayload timed out")
       except RestDecodingError as exc:
@@ -637,7 +641,8 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
       Opt.some executionPayloadHeader.get.blindedBlckPart.withdrawals_root
   elif EPH is deneb.ExecutionPayloadHeader:
     type PayloadType = deneb.ExecutionPayloadForSigning
-    let withdrawals_root = Opt.some executionPayloadHeader.get.withdrawals_root
+    let withdrawals_root =
+      Opt.some executionPayloadHeader.get.blindedBlckPart.withdrawals_root
   else:
     static: doAssert false
 
@@ -671,9 +676,11 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
 
 proc getBuilderBid[
     SBBB: bellatrix_mev.SignedBlindedBeaconBlock |
-          capella_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
-    randao: ValidatorSig, validator_index: ValidatorIndex):
+          capella_mev.SignedBlindedBeaconBlock |
+          deneb_mev.SignedBlindedBeaconBlock](
+    node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
+    validator: AttachedValidator, slot: Slot, randao: ValidatorSig,
+    validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async.} =
   ## Returns the unsigned blinded block obtained from the Builder API.
   ## Used by the BN's own validators, but not the REST server
@@ -681,12 +688,14 @@ proc getBuilderBid[
     type EPH = bellatrix.ExecutionPayloadHeader
   elif SBBB is capella_mev.SignedBlindedBeaconBlock:
     type EPH = capella.ExecutionPayloadHeader
+  elif SBBB is deneb_mev.SignedBlindedBeaconBlock:
+    type EPH = deneb.ExecutionPayloadHeader
   else:
     static: doAssert false
 
   let blindedBlockParts = await getBlindedBlockParts[EPH](
-    node, head, validator.pubkey, slot, randao, validator_index,
-    node.graffitiBytes)
+    node, payloadBuilderClient, head, validator.pubkey, slot, randao,
+    validator_index, node.graffitiBytes)
   if blindedBlockParts.isErr:
     # Not signed yet, fine to try to fall back on EL
     beacon_block_builder_missed_with_fallback.inc()
@@ -705,9 +714,11 @@ proc getBuilderBid[
 
   return ok (unsignedBlindedBlock.get, bidValue)
 
-proc proposeBlockMEV(node: BeaconNode, blindedBlock: auto):
+proc proposeBlockMEV(
+    node: BeaconNode, payloadBuilderClient: RestClientRef, blindedBlock: auto):
     Future[Result[BlockRef, string]] {.async.} =
-  let unblindedBlockRef = await node.unblindAndRouteBlockMEV(blindedBlock)
+  let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
+    payloadBuilderClient, blindedBlock)
   return if unblindedBlockRef.isOk and unblindedBlockRef.get.isSome:
     beacon_blocks_proposed.inc()
     ok(unblindedBlockRef.get.get)
@@ -738,9 +749,10 @@ func isEFMainnet(cfg: RuntimeConfig): bool =
 
 proc makeBlindedBeaconBlockForHeadAndSlot*[
     BBB: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock](
-    node: BeaconNode, randao_reveal: ValidatorSig,
-    validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot): Future[BlindedBlockResult[BBB]] {.async.} =
+    node: BeaconNode, payloadBuilderClient: RestClientRef,
+    randao_reveal: ValidatorSig, validator_index: ValidatorIndex,
+    graffiti: GraffitiBytes, head: BlockRef, slot: Slot):
+    Future[BlindedBlockResult[BBB]] {.async.} =
   ## Requests a beacon node to produce a valid blinded block, which can then be
   ## signed by a validator. A blinded block is a block with only a transactions
   ## root, rather than a full transactions list.
@@ -773,7 +785,8 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
         forkyState.data.validators.item(validator_index).pubkey
 
     blindedBlockParts = await getBlindedBlockParts[EPH](
-      node, head, pubkey, slot, randao_reveal, validator_index, graffiti)
+      node, payloadBuilderClient, head, pubkey, slot, randao_reveal,
+      validator_index, graffiti)
   if blindedBlockParts.isErr:
     # Don't try EL fallback -- VC specifically requested a blinded block
     return err("Unable to create blinded block")
@@ -801,8 +814,18 @@ proc proposeBlockAux(
     genesis_validators_root: Eth2Digest,
     localBlockValueBoost: uint8): Future[BlockRef] {.async.} =
   # Collect bids
+  var payloadBuilderClient: RestClientRef
+
+  let payloadBuilderClientMaybe = node.getPayloadBuilderClient(
+    validator_index.distinctBase)
+  if payloadBuilderClientMaybe.isErr:
+    warn "Unable to initialize payload builder client while proposing block",
+      err = payloadBuilderClientMaybe.error
+  else:
+    payloadBuilderClient = payloadBuilderClientMaybe.get
+
   let usePayloadBuilder =
-    if node.config.payloadBuilderEnable:
+    if node.config.payloadBuilderEnable and payloadBuilderClientMaybe.isOk:
       withState(node.dag.headState):
         # Head slot, not proposal slot, matters here
         # TODO it might make some sense to allow use of builder API if local
@@ -817,7 +840,9 @@ proc proposeBlockAux(
   let
     payloadBuilderBidFut =
       if usePayloadBuilder:
-        getBuilderBid[SBBB](node, head, validator, slot, randao, validator_index)
+        getBuilderBid[SBBB](
+          node, payloadBuilderClient, head, validator, slot, randao,
+          validator_index)
       else:
         let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
         fut.complete(BlindedBlockResult[SBBB].err(
@@ -896,7 +921,8 @@ proc proposeBlockAux(
           return head
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
-      maybeUnblindedBlock = await proposeBlockMEV(node, blindedBlock)
+      maybeUnblindedBlock = await proposeBlockMEV(
+        node, payloadBuilderClient, blindedBlock)
 
     return maybeUnblindedBlock.valueOr:
       warn "Blinded block proposal incomplete",
@@ -910,17 +936,6 @@ proc proposeBlockAux(
   var forkedBlck = engineBlockFut.read.get().blck
 
   withBlck(forkedBlck):
-    var blobs_sidecar = deneb.BlobsSidecar(
-      beacon_block_slot: slot,
-    )
-    when blck is deneb.BeaconBlock:
-      # TODO: The blobs_sidecar variable is not currently used.
-      #       It could be initialized in makeBeaconBlockForHeadAndSlot
-      #       where the required information is available.
-      # blobs_sidecar.blobs = forkedBlck.blobs
-      # blobs_sidecar.kzg_aggregated_proof = kzg_aggregated_proof
-      discard
-
     let
       blockRoot = hash_tree_root(blck)
       signingRoot = compute_block_signing_root(
@@ -930,7 +945,30 @@ proc proposeBlockAux(
         .slashingProtection
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
-    blobs_sidecar.beacon_block_root = blockRoot
+    let blobSidecarsOpt =
+      when blck is deneb.BeaconBlock:
+        var sidecars: seq[BlobSidecar]
+        let bundle = engineBlockFut.read.get().blobsBundleOpt.get()
+        let (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
+        for i in 0..<blobs.len:
+          var sidecar = BlobSidecar(
+            block_root: blockRoot,
+            index: BlobIndex(i),
+            slot: slot,
+            block_parent_root: blck.parent_root,
+            proposer_index: blck.proposer_index,
+            blob: blobs[i],
+            kzg_commitment: kzgs[i],
+            kzg_proof: proofs[i]
+          )
+          sidecars.add(sidecar)
+        Opt.some(sidecars)
+      elif blck is phase0.BeaconBlock or blck is altair.BeaconBlock or
+           blck is bellatrix.BeaconBlock or  blck is capella.BeaconBlock:
+        Opt.none(seq[BlobSidecar])
+      else:
+        static: doAssert "Unknown BeaconBlock type"
+
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",
         blockRoot = shortLog(blockRoot), blck = shortLog(blck),
@@ -964,12 +1002,34 @@ proc proposeBlockAux(
           capella.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
         elif blck is deneb.BeaconBlock:
-          # TODO: also route blobs
-          deneb.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot)
-       else:
+          deneb.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
+        else:
           static: doAssert "Unknown SignedBeaconBlock type"
+      signedBlobs =
+        when blck is phase0.BeaconBlock or blck is altair.BeaconBlock or
+             blck is bellatrix.BeaconBlock or blck is capella.BeaconBlock:
+          Opt.none(SignedBlobSidecars)
+        elif blck is deneb.BeaconBlock:
+          var signed: seq[SignedBlobSidecar]
+          let blobSidecars = blobSidecarsOpt.get()
+          for i in 0..<blobs.len:
+            let res = validator.getBlobSignature(fork, genesis_validators_root,
+                                                 slot, blobSidecars[i])
+            if res.isErr():
+              warn "Unable to sign blob",
+                   reason = res.error()
+              return
+            let signature = res.get()
+            signed.add(deneb.SignedBlobSidecar(
+                       message: blobSidecars[i],
+                       signature: signature))
+          Opt.some(signed)
+        else:
+          static: doAssert "Unknown SignedBeaconBlock type"
+
       newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
+        (await node.router.routeSignedBeaconBlock(signedBlock, signedBlobs)).valueOr:
           return head # Errors logged in router
 
     if newBlockRef.isNone():
@@ -1016,9 +1076,8 @@ proc proposeBlock(node: BeaconNode,
 
   return
     if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-      debugRaiseAssert $denebImplementationMissing & ": proposeBlock"
       proposeBlockContinuation(
-        capella_mev.SignedBlindedBeaconBlock, deneb.ExecutionPayloadForSigning)
+        deneb_mev.SignedBlindedBeaconBlock, deneb.ExecutionPayloadForSigning)
     elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock, capella.ExecutionPayloadForSigning)
@@ -1394,14 +1453,15 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
     if  (not node.config.payloadBuilderEnable) or
         node.currentSlot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
       return
-    elif  node.config.payloadBuilderEnable and
-          node.payloadBuilderRestClient.isNil:
-      warn "registerValidators: node.config.payloadBuilderEnable and node.payloadBuilderRestClient.isNil"
-      return
 
     const HttpOk = 200
 
-    let restBuilderStatus = awaitWithTimeout(node.payloadBuilderRestClient.checkBuilderStatus(),
+    let payloadBuilderClient = node.getPayloadBuilderClient(0).valueOr:
+      debug "Unable to initialize payload builder client while registering validators",
+        err = error
+      return
+
+    let restBuilderStatus = awaitWithTimeout(payloadBuilderClient.checkBuilderStatus(),
                                              BUILDER_STATUS_DELAY_TOLERANCE):
       debug "Timeout when obtaining builder status"
       return
@@ -1505,7 +1565,7 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
     for chunkIdx in 0 ..< validatorRegistrations.len:
       let registerValidatorResult =
         awaitWithTimeout(
-            node.payloadBuilderRestClient.registerValidator(
+            payloadBuilderClient.registerValidator(
               validatorRegistrations[chunkIdx]),
             BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE):
           error "Timeout when registering validator with builder"
@@ -1541,6 +1601,42 @@ proc updateValidators(
             index: index, validator: validators[int index]
           )))
 
+proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
+                           head: Opt[BlockRef] = Opt.none(BlockRef)) {.async.} =
+  # The expected block arrived (or expectBlock was called again which
+  # shouldn't happen as this is the only place we use it) - in our async
+  # loop however, we might have been doing other processing that caused delays
+  # here so we'll cap the waiting to the time when we would have sent out
+  # attestations had the block not arrived.
+  # An opposite case is that we received (or produced) a block that has
+  # not yet reached our neighbours. To protect against our attestations
+  # being dropped (because the others have not yet seen the block), we'll
+  # impose a minimum delay of 2000ms. The delay is enforced only when we're
+  # not hitting the "normal" cutoff time for sending out attestations.
+  # An earlier delay of 250ms has proven to be not enough, increasing the
+  # risk of losing attestations, and with growing block sizes, 1000ms
+  # started to be risky as well.
+  # Regardless, because we "just" received the block, we'll impose the
+  # delay.
+
+  # Take into consideration chains with a different slot time
+  const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
+  let
+    afterBlockTime = clock.now() + afterBlockDelay
+    afterBlockCutoff = clock.fromNow(
+      min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
+
+  if afterBlockCutoff.inFuture:
+    if head.isSome():
+      debug "Got block, waiting to send attestations",
+            head = shortLog(head.get()), slot = slot,
+            afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+    else:
+      debug "Got block, waiting to send attestations",
+            slot = slot, afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+
+    await sleepAsync(afterBlockCutoff.offset)
+
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators[].count == 0:
@@ -1550,8 +1646,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # The dag head might be updated by sync while we're working due to the
   # await calls, thus we use a local variable to keep the logic straight here
   var head = node.dag.head
-  case node.isSynced(head)
-  of SyncStatus.unsynced:
+  if not node.isSynced(head):
     info "Beacon node not in sync; skipping validator duties for now",
       slot, headSlot = head.slot
 
@@ -1560,7 +1655,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
     return
 
-  of SyncStatus.optimistic:
+  elif not head.executionValid:
     info "Execution client not in sync; skipping validator duties for now",
       slot, headSlot = head.slot
 
@@ -1568,7 +1663,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     updateValidatorMetrics(node)
 
     return
-  of SyncStatus.synced:
+  else:
     discard # keep going
 
   withState(node.dag.headState):
@@ -1614,35 +1709,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     # Wait either for the block or the attestation cutoff time to arrive
     if await node.consensusManager[].expectBlock(slot)
         .withTimeout(attestationCutoff.offset):
-      # The expected block arrived (or expectBlock was called again which
-      # shouldn't happen as this is the only place we use it) - in our async
-      # loop however, we might have been doing other processing that caused delays
-      # here so we'll cap the waiting to the time when we would have sent out
-      # attestations had the block not arrived.
-      # An opposite case is that we received (or produced) a block that has
-      # not yet reached our neighbours. To protect against our attestations
-      # being dropped (because the others have not yet seen the block), we'll
-      # impose a minimum delay of 2000ms. The delay is enforced only when we're
-      # not hitting the "normal" cutoff time for sending out attestations.
-      # An earlier delay of 250ms has proven to be not enough, increasing the
-      # risk of losing attestations, and with growing block sizes, 1000ms
-      # started to be risky as well.
-      # Regardless, because we "just" received the block, we'll impose the
-      # delay.
-
-      # Take into consideration chains with a different slot time
-      const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
-      let
-        afterBlockTime = node.beaconClock.now() + afterBlockDelay
-        afterBlockCutoff = node.beaconClock.fromNow(
-          min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
-
-      if afterBlockCutoff.inFuture:
-        debug "Got block, waiting to send attestations",
-          head = shortLog(head),
-          afterBlockCutoff = shortLog(afterBlockCutoff.offset)
-
-        await sleepAsync(afterBlockCutoff.offset)
+      await waitAfterBlockCutoff(node.beaconClock, slot, Opt.some(head))
 
     # Time passed - we might need to select a new head in that case
     node.consensusManager[].updateHead(slot)
@@ -1656,7 +1723,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:
@@ -1681,7 +1748,7 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
   ## Register upcoming duties of attached validators with the duty tracker
 
   if node.attachedValidators[].count() == 0 or
-      node.isSynced(node.dag.head) != SyncStatus.synced:
+      not node.isSynced(node.dag.head) or not node.dag.head.executionValid:
     # Nothing to do because we have no validator attached
     return
 

@@ -5,10 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import chronicles
-import ../spec/eth2_apis/eth2_rest_serialization,
-       ../spec/datatypes/[phase0, altair]
-import common, fallback_service
+import std/strutils
+import chronicles, stew/base10
+import ".."/spec/eth2_apis/eth2_rest_serialization,
+       ".."/spec/datatypes/[phase0, altair]
+import "."/[common, fallback_service, scoring]
 
 export eth2_rest_serialization, common
 
@@ -27,9 +28,6 @@ type
   ApiOperation = enum
     Success, Timeout, Failure, Interrupt
 
-  ApiStrategyKind* {.pure.} = enum
-    Priority, Best, First
-
   ApiNodeResponse*[T] = object
     node*: BeaconNodeServerRef
     data*: ApiResponse[T]
@@ -38,39 +36,70 @@ type
     status*: ApiOperation
     data*: seq[ApiNodeResponse[T]]
 
+  ApiScore* = object
+    index*: int
+    score*: Opt[float64]
+
+  BestNodeResponse*[T] = object
+    node*: BeaconNodeServerRef
+    data*: ApiResponse[T]
+    score*: float64
+
 const
   ViableNodeStatus = {RestBeaconNodeStatus.Compatible,
                       RestBeaconNodeStatus.NotSynced,
                       RestBeaconNodeStatus.OptSynced,
                       RestBeaconNodeStatus.Synced}
 
-proc `$`*(strategy: ApiStrategyKind): string =
-  case strategy
-  of ApiStrategyKind.First:
-    "first"
-  of ApiStrategyKind.Best:
-    "best"
-  of ApiStrategyKind.Priority:
-    "priority"
+proc `$`*(s: ApiScore): string =
+  var res = Base10.toString(uint64(s.index))
+  res.add(": ")
+  if s.score.isSome():
+    res.add(shortScore(s.score.get()))
+  else:
+    res.add("<n/a>")
+  res
 
-proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase) {.async.} =
+proc `$`*(ss: openArray[ApiScore]): string =
+  "[" & ss.mapIt($it).join(",") & "]"
+
+chronicles.formatIt(seq[ApiScore]):
+  $it
+
+func init*(t: typedesc[ApiScore], node: BeaconNodeServerRef,
+           score: float64): ApiScore =
+  ApiScore(index: node.index, score: Opt.some(score))
+
+func init*(t: typedesc[ApiScore], node: BeaconNodeServerRef): ApiScore =
+  ApiScore(index: node.index, score: Opt.none(float64))
+
+func init*[T](t: typedesc[BestNodeResponse], node: BeaconNodeServerRef,
+              data: ApiResponse[T], score: float64): BestNodeResponse[T] =
+  BestNodeResponse[T](node: node, data: data, score: score)
+
+proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase,
+                requestName: string, strategy: ApiStrategyKind) {.async.} =
   try:
     await allFutures(request)
     if request.failed():
-      node.updateStatus(RestBeaconNodeStatus.Offline)
+      let failure = ApiNodeFailure.init(
+        ApiFailure.Communication, requestName, strategy, node,
+        $request.error.msg)
+      node.updateStatus(RestBeaconNodeStatus.Offline, failure)
   except CancelledError as exc:
-    node.updateStatus(RestBeaconNodeStatus.Offline)
     await cancelAndWait(request)
 
 proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
-              timerFut: Future[void]) {.async.} =
+              timerFut: Future[void], requestName: string,
+              strategy: ApiStrategyKind) {.async.} =
   doAssert(len(nodes) == len(requests))
   if len(nodes) == 0:
     return
 
   var futures: seq[Future[void]]
   for index in 0 ..< len(requests):
-    futures.add(lazyWaiter(nodes[index], requests[index]))
+    futures.add(lazyWaiter(nodes[index], requests[index], requestName,
+                           strategy))
 
   if not(isNil(timerFut)):
     await allFutures(futures) or timerFut
@@ -84,6 +113,18 @@ proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
       await cancelAndWait(timerFut)
   else:
     await allFutures(futures)
+
+proc apiResponseOr[T](future: FutureBase, timerFut: Future[void],
+                      message: string): ApiResponse[T] =
+  if future.finished():
+    doAssert(not(future.cancelled()))
+    if future.failed():
+      ApiResponse[T].err($future.error.msg)
+    else:
+      ApiResponse[T].ok(Future[T](future).read())
+  else:
+    doAssert(timerFut.finished())
+    ApiResponse[T].err(message)
 
 template firstSuccessParallel*(
            vc: ValidatorClientRef,
@@ -125,25 +166,26 @@ template firstSuccessParallel*(
         # This case could not be happened.
         error "Unexpected exception while waiting for beacon nodes",
               err_name = $exc.name, err_msg = $exc.msg
-        var default: seq[BeaconNodeServerRef]
-        default
+        default(seq[BeaconNodeServerRef])
 
     if len(onlineNodes) == 0:
       retRes = ApiResponse[handlerType].err("No online beacon node(s)")
       resultReady = true
     else:
-      var (pendingRequests, pendingNodes) =
-        block:
-          var requests: seq[FutureBase]
-          var nodes: seq[BeaconNodeServerRef]
-          for node {.inject.} in onlineNodes:
-            it = node.client
-            let fut = FutureBase(body1)
-            requests.add(fut)
-            nodes.add(node)
-          (requests, nodes)
+      var
+        (pendingRequests, pendingNodes) =
+          block:
+            var requests: seq[FutureBase]
+            var nodes: seq[BeaconNodeServerRef]
+            for node {.inject.} in onlineNodes:
+              it = node.client
+              let fut = FutureBase(body1)
+              requests.add(fut)
+              nodes.add(node)
+            (requests, nodes)
+        raceFut: Future[FutureBase]
+        requestsCancelled = false
 
-      var raceFut: Future[FutureBase]
       while true:
         try:
           if len(pendingRequests) == 0:
@@ -152,6 +194,7 @@ template firstSuccessParallel*(
             retRes = ApiResponse[handlerType].err(
               "Beacon node(s) unable to satisfy request")
             resultReady = true
+            break
           else:
             raceFut = race(pendingRequests)
 
@@ -160,63 +203,58 @@ template firstSuccessParallel*(
             else:
               await allFutures(raceFut)
 
-            if raceFut.finished():
-              # One of the requests in the race completed.
-              let index = pendingRequests.find(raceFut.read())
-              doAssert(index >= 0)
+            let
+              index =
+                if not(isNil(timerFut)) and timerFut.finished():
+                  # Timeout exceeded first.
+                  if not(requestsCancelled):
+                    var pending: seq[Future[void]]
+                    pending.add(raceFut.cancelAndWait())
+                    for future in pendingRequests.items():
+                      if not(future.finished()):
+                        pending.add(future.cancelAndWait())
+                    await allFutures(pending)
+                    requestsCancelled = true
+                  0
+                else:
+                  let res = pendingRequests.find(raceFut.read())
+                  doAssert(res >= 0)
+                  res
+              requestFut = pendingRequests[index]
+              beaconNode = pendingNodes[index]
 
-              let
-                requestFut = pendingRequests[index]
-                beaconNode = pendingNodes[index]
+            # Remove completed future from pending list.
+            pendingRequests.del(index)
+            pendingNodes.del(index)
 
-              # Remove completed future from pending list.
-              pendingRequests.del(index)
-              pendingNodes.del(index)
+            let
+              node {.inject.} = beaconNode
+              apiResponse {.inject.} =
+                apiResponseOr[responseType](requestFut, timerFut,
+                  "Timeout exceeded while awaiting for the response")
+              handlerResponse =
+                try:
+                  body2
+                except CancelledError as exc:
+                  raise exc
+                except CatchableError:
+                  raiseAssert("Response handler must not raise exceptions")
 
-              let
-                node {.inject.} = beaconNode
-                apiResponse {.inject.} =
-                  if requestFut.failed():
-                    let exc = Future[responseType](requestFut).readError()
-                    ApiResponse[responseType].err("[" & $exc.name & "] " &
-                                                  $exc.msg)
-                  else:
-                    ApiResponse[responseType].ok(
-                      Future[responseType](requestFut).read())
-                handlerResponse =
-                  try:
-                    body2
-                  except CancelledError as exc:
-                    raise exc
-                  except CatchableError:
-                    raiseAssert("Response handler must not raise exceptions")
-
-              if apiResponse.isOk() and handlerResponse.isOk():
-                retRes = handlerResponse
-                resultReady = true
-                asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut)
-                break
-            else:
-              # Timeout exceeded first.
-              var pendingCancel: seq[Future[void]]
-              pendingCancel.add(raceFut.cancelAndWait())
-              for index, future in pendingRequests.pairs():
-                if not(future.finished()):
-                  pendingNodes[index].updateStatus(RestBeaconNodeStatus.Offline)
-                  pendingCancel.add(future.cancelAndWait())
-              await allFutures(pendingCancel)
-              retRes = ApiResponse[handlerType].err(
-                "Beacon nodes unable to satisfy request in time")
+            if handlerResponse.isOk():
+              retRes = handlerResponse
               resultReady = true
+              asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
+                                  RequestName, strategy)
+              break
+
         except CancelledError as exc:
           var pendingCancel: seq[Future[void]]
           if not(isNil(raceFut)) and not(raceFut.finished()):
             pendingCancel.add(raceFut.cancelAndWait())
           if not(isNil(timerFut)) and not(timerFut.finished()):
             pendingCancel.add(timerFut.cancelAndWait())
-          for index, future in pendingRequests.pairs():
+          for future in pendingRequests.items():
             if not(future.finished()):
-              pendingNodes[index].updateStatus(RestBeaconNodeStatus.Offline)
               pendingCancel.add(future.cancelAndWait())
           await allFutures(pendingCancel)
           raise exc
@@ -238,13 +276,16 @@ template firstSuccessParallel*(
 template bestSuccess*(
            vc: ValidatorClientRef,
            responseType: typedesc,
+           handlerType: typedesc,
            timeout: Duration,
            statuses: set[RestBeaconNodeStatus],
            roles: set[BeaconNodeRole],
            bodyRequest,
-           bodyScore: untyped): ApiResponse[responseType] =
-  var it {.inject.}: RestClientRef
-  type BodyType = typeof(bodyRequest)
+           bodyScore,
+           bodyHandler: untyped): ApiResponse[handlerType] =
+  var
+    it {.inject.}: RestClientRef
+    iterations = 0
 
   var timerFut =
     if timeout != InfiniteDuration:
@@ -252,114 +293,166 @@ template bestSuccess*(
     else:
       nil
 
-  let onlineNodes =
-    try:
-      await vc.waitNodes(timerFut, statuses, roles, false)
-      vc.filterNodes(statuses, roles)
-    except CancelledError as exc:
-      if not(isNil(timerFut)) and not(timerFut.finished()):
-        await timerFut.cancelAndWait()
-      raise exc
-    except CatchableError as exc:
-      # This case could not be happened.
-      error "Unexpected exception while waiting for beacon nodes",
-            err_name = $exc.name, err_msg = $exc.msg
-      var default: seq[BeaconNodeServerRef]
-      default
+  var
+    retRes: ApiResponse[handlerType]
+    scores: seq[ApiScore]
+    bestResponse: Opt[BestNodeResponse[handlerType]]
 
-  if len(onlineNodes) == 0:
-    ApiResponse[responseType].err("No online beacon node(s)")
-  else:
-    let
-      (pendingRequests, pendingNodes) =
-        block:
-          var requests: seq[BodyType]
-          var nodes: seq[BeaconNodeServerRef]
-          for node {.inject.} in onlineNodes:
-            it = node.client
-            let fut = bodyRequest
-            requests.add(fut)
-            nodes.add(node)
-          (requests, nodes)
-
-      status =
+  block mainLoop:
+    while true:
+      let onlineNodes =
         try:
-          if isNil(timerFut):
-            await allFutures(pendingRequests)
-            ApiOperation.Success
+          if iterations == 0:
+            # We are not going to wait for BNs if there some available.
+            await vc.waitNodes(timerFut, statuses, roles, false)
           else:
-            let waitFut = allFutures(pendingRequests)
-            discard await race(waitFut, timerFut)
-            if not(waitFut.finished()):
-              await waitFut.cancelAndWait()
-              ApiOperation.Timeout
-            else:
-              if not(timerFut.finished()):
-                await timerFut.cancelAndWait()
-              ApiOperation.Success
+            # We get here only, if all the requests are failed. To avoid requests
+            # spam we going to wait for changes in BNs statuses.
+            await vc.waitNodes(timerFut, statuses, roles, true)
+          vc.filterNodes(statuses, roles)
         except CancelledError as exc:
-          # We should cancel all the pending requests and timer before we return
-          # result.
-          var pendingCancel: seq[Future[void]]
-          for future in pendingRequests:
-            if not(fut.finished()):
-              pendingCancel.add(fut.cancelAndWait())
           if not(isNil(timerFut)) and not(timerFut.finished()):
-            pendingCancel.add(timerFut.cancelAndWait())
-          await allFutures(pendingCancel)
+            await timerFut.cancelAndWait()
           raise exc
-        except CatchableError:
-          # This should not be happened, because allFutures() and race() did not
-          # raise any exceptions.
-          ApiOperation.Failure
+        except CatchableError as exc:
+          # This case could not be happened.
+          error "Unexpected exception while waiting for beacon nodes",
+                err_name = $exc.name, err_msg = $exc.msg
+          default(seq[BeaconNodeServerRef])
 
-      apiResponses {.inject.} =
-        block:
-          var res: seq[ApiNodeResponse[responseType]]
-          for requestFut, pnode in pendingRequests.pairs():
-            let beaconNode = pendingNodes[index]
-            if requestFut.finished():
-              if requestFut.failed():
-                let exc = requestFut.readError()
-                debug "One of operation requests has been failed",
-                      node = beaconNode, err_name = $exc.name,
-                      err_msg = $exc.msg
-                beaconNode.status.updateStatus(RestBeaconNodeStatus.Offline)
-              elif future.cancelled():
-                debug "One of operation requests has been interrupted",
-                      node = beaconNode
-              else:
-                res.add(
-                  ApiNodeResponse(
-                    node: beaconNode,
-                    data: ApiResponse[responseType].ok(future.read())
-                  )
-                )
-            else:
-              case status
-              of ApiOperation.Timeout:
-                debug "One of operation requests has been timed out",
-                      node = beaconNode
-                pendingNodes[index].status = RestBeaconNodeStatus.Offline
-              of ApiOperation.Success, ApiOperation.Failure,
-                 ApiOperation.Interrupt:
-                 # This should not be happened, because all Futures should be
-                 # finished.
-                debug "One of operation requests failed unexpectedly",
-                      node = beaconNode
-                pendingNodes[index].status = RestBeaconNodeStatus.Offline
-          res
-
-    if len(apiResponses) == 0:
-      ApiResponse[responseType].err("No successful responses available")
-    else:
-      let index = bestScore
-      if index >= 0:
-        debug "Operation request result was selected",
-              node = apiResponses[index].node
-        apiResponses[index].data
+      if len(onlineNodes) == 0:
+        retRes = ApiResponse[handlerType].err("No online beacon node(s)")
+        break mainLoop
       else:
-        ApiResponse[responseType].err("Unable to get best response")
+        var
+          (pendingRequests, pendingNodes) =
+            block:
+              var requests: seq[FutureBase]
+              var nodes: seq[BeaconNodeServerRef]
+              for node {.inject.} in onlineNodes:
+                it = node.client
+                let fut = FutureBase(bodyRequest)
+                requests.add(fut)
+                nodes.add(node)
+              (requests, nodes)
+          perfectScoreFound = false
+
+        block innerLoop:
+          while len(pendingRequests) > 0:
+            var
+              finishedRequests: seq[FutureBase]
+              finishedNodes: seq[BeaconNodeServerRef]
+              raceFut: Future[FutureBase]
+            try:
+              raceFut = race(pendingRequests)
+
+              if isNil(timerFut):
+                await raceFut or timerFut
+              else:
+                await allFutures(raceFut)
+
+              for index, future in pendingRequests.pairs():
+                if future.finished() or
+                   (not(isNil(timerFut)) and timerFut.finished()):
+                  finishedRequests.add(future)
+                  finishedNodes.add(pendingNodes[index])
+                  let
+                    node {.inject.} = pendingNodes[index]
+                    apiResponse {.inject.} =
+                      apiResponseOr[responseType](future, timerFut,
+                        "Timeout exceeded while awaiting for the response")
+                    handlerResponse =
+                      try:
+                        bodyHandler
+                      except CancelledError as exc:
+                        raise exc
+                      except CatchableError:
+                        raiseAssert(
+                          "Response handler must not raise exceptions")
+
+                  if handlerResponse.isOk():
+                    let
+                      itresponse {.inject.} = handlerResponse.get()
+                      score =
+                        try:
+                          bodyScore
+                        except CancelledError as exc:
+                          raise exc
+                        except CatchableError:
+                          raiseAssert("Score handler must not raise exceptions")
+                    scores.add(ApiScore.init(node, score))
+                    if bestResponse.isNone() or
+                      (score > bestResponse.get().score):
+                      bestResponse = Opt.some(
+                        BestNodeResponse.init(node, handlerResponse, score))
+                      if perfectScore(score):
+                        perfectScoreFound = true
+                        break
+                  else:
+                    scores.add(ApiScore.init(node))
+
+              if perfectScoreFound:
+                # lazyWait will cancel `pendingRequests` on timeout.
+                asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
+                                    RequestName, strategy)
+                break innerLoop
+
+              if not(isNil(timerFut)) and timerFut.finished():
+                # If timeout is exceeded we need to cancel all the tasks which
+                # are still running.
+                var pendingCancel: seq[Future[void]]
+                for future in pendingRequests.items():
+                  if not(future.finished()):
+                    pendingCancel.add(future.cancelAndWait())
+                await allFutures(pendingCancel)
+                break innerLoop
+
+              pendingRequests.keepItIf(it notin finishedRequests)
+              pendingNodes.keepItIf(it notin finishedNodes)
+
+            except CancelledError as exc:
+              var pendingCancel: seq[Future[void]]
+              # `or` operation does not cancelling Futures passed as arguments.
+              if not(isNil(raceFut)) and not(raceFut.finished()):
+                pendingCancel.add(raceFut.cancelAndWait())
+              if not(isNil(timerFut)) and not(timerFut.finished()):
+                pendingCancel.add(timerFut.cancelAndWait())
+              # We should cancel all the requests which are still pending.
+              for future in pendingRequests.items():
+                if not(future.finished()):
+                  pendingCancel.add(future.cancelAndWait())
+              # Awaiting cancellations.
+              await allFutures(pendingCancel)
+              raise exc
+            except CatchableError as exc:
+              # This should not be happened, because allFutures() and race()
+              # did not raise any exceptions.
+              error "Unexpected exception while processing request",
+                    err_name = $exc.name, err_msg = $exc.msg
+              retRes = ApiResponse[handlerType].err("Unexpected error")
+              break mainLoop
+
+        if bestResponse.isSome():
+          retRes = bestResponse.get().data
+          break mainLoop
+        else:
+          if timerFut.finished():
+            retRes = ApiResponse[handlerType].err(
+                       "Timeout exceeded while awaiting for responses")
+            break mainLoop
+          else:
+            # When all requests failed
+            discard
+
+      inc(iterations)
+
+  if retRes.isOk():
+    debug "Best score result selected",
+          request = RequestName, available_scores = scores,
+          best_score = shortScore(bestResponse.get().score),
+          best_node = bestResponse.get().node
+
+  retRes
 
 template onceToAll*(
            vc: ValidatorClientRef,
@@ -624,7 +717,7 @@ proc getIndexedErrorMessage(response: RestPlainResponse): string =
   else:
     "Unable to decode error response: [" & $res.error & "]"
 
-proc getErrorMessage(response: RestPlainResponse): string =
+proc getErrorMessage*(response: RestPlainResponse): string =
   let res = decodeBytes(RestErrorMessage, response.data,
                         response.contentType)
   if res.isOk():
@@ -636,16 +729,61 @@ proc getErrorMessage(response: RestPlainResponse): string =
   else:
     "Unable to decode error response: [" & $res.error & "]"
 
+template handleCommunicationError(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.Communication, RequestName,
+    strategy, node, apiResponse.error)
+  node.updateStatus(RestBeaconNodeStatus.Offline, failure)
+  failures.add(failure)
+
+template handleUnexpectedCode(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.UnexpectedCode, RequestName,
+    strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.UnexpectedCode, failure)
+  failures.add(failure)
+
+template handleUnexpectedData(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.UnexpectedResponse, RequestName,
+    strategy, node, response.status, $res.error)
+  node.updateStatus(RestBeaconNodeStatus.UnexpectedResponse, failure)
+  failures.add(failure)
+
+template handleOptimistic(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.OptSynced, RequestName,
+    strategy, node, response.status,
+    "Response was sent by optimistically synced node")
+  node.updateStatus(RestBeaconNodeStatus.OptSynced, failure)
+
+template handle400(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
+    strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+  failures.add(failure)
+
+template handle404(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.NotFound, RequestName,
+    strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+  failures.add(failure)
+
+template handle500(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.Internal, RequestName,
+    strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.InternalError, failure)
+  failures.add(failure)
+
+template handle503(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.NotSynced, RequestName,
+    strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.NotSynced, failure)
+  failures.add(failure)
+
 proc getProposerDuties*(
        vc: ValidatorClientRef,
        epoch: Epoch,
        strategy: ApiStrategyKind
      ): Future[GetProposerDutiesResponse] {.async.} =
-  logScope:
-    request = "getProposerDuties"
-    strategy = $strategy
+  const RequestName = "getProposerDuties"
 
-  const ErrorMessage = "Unable to retrieve proposer duties"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -657,9 +795,7 @@ proc getProposerDuties*(
                                       {BeaconNodeRole.Duties},
                                       getProposerDutiesPlain(it, epoch)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[GetProposerDutiesResponse].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -668,36 +804,24 @@ proc getProposerDuties*(
           let res = decodeBytes(GetProposerDutiesResponse, response.data,
                                 response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[GetProposerDutiesResponse].err($res.error)
           else:
             let data = res.get()
             if data.execution_optimistic.get(false):
-              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+              handleOptimistic()
             ApiResponse[GetProposerDutiesResponse].ok(data)
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[GetProposerDutiesResponse].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[GetProposerDutiesResponse].err(ResponseInternalError)
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           ApiResponse[GetProposerDutiesResponse].err(ResponseNoSyncError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[GetProposerDutiesResponse].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -711,9 +835,7 @@ proc getProposerDuties*(
                               {BeaconNodeRole.Duties},
                               getProposerDutiesPlain(it, epoch)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node,  error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -724,40 +846,25 @@ proc getProposerDuties*(
           if res.isOk():
             let data = res.get()
             if data.execution_optimistic.get(false):
-              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+              handleOptimistic()
             return data
-
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get proposer duties", data: failures)
 
 proc getAttesterDuties*(
        vc: ValidatorClientRef,
@@ -765,11 +872,8 @@ proc getAttesterDuties*(
        validators: seq[ValidatorIndex],
        strategy: ApiStrategyKind
      ): Future[GetAttesterDutiesResponse] {.async.} =
-  logScope:
-    request = "getAttesterDuties"
-    strategy = $strategy
+  const RequestName = "getAttesterDuties"
 
-  const ErrorMessage = "Unable to retrieve attester duties"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -782,9 +886,7 @@ proc getAttesterDuties*(
                                       getAttesterDutiesPlain(it, epoch,
                                                              validators)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[GetAttesterDutiesResponse].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -793,36 +895,24 @@ proc getAttesterDuties*(
           let res = decodeBytes(GetAttesterDutiesResponse, response.data,
                                 response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[GetAttesterDutiesResponse].err($res.error)
           else:
             let data = res.get()
             if data.execution_optimistic.get(false):
-              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+              handleOptimistic()
             ApiResponse[GetAttesterDutiesResponse].ok(data)
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[GetAttesterDutiesResponse].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[GetAttesterDutiesResponse].err(ResponseInternalError)
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           ApiResponse[GetAttesterDutiesResponse].err(ResponseNoSyncError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[GetAttesterDutiesResponse].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -836,9 +926,7 @@ proc getAttesterDuties*(
                               {BeaconNodeRole.Duties},
                               getAttesterDutiesPlain(it, epoch, validators)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -846,39 +934,28 @@ proc getAttesterDuties*(
         of 200:
           let res = decodeBytes(GetAttesterDutiesResponse, response.data,
                                 response.contentType)
-          if res.isOk(): return res.get()
-
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          if res.isOk():
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              handleOptimistic()
+            return data
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get attester duties", data: failures)
 
 proc getSyncCommitteeDuties*(
        vc: ValidatorClientRef,
@@ -886,11 +963,8 @@ proc getSyncCommitteeDuties*(
        validators: seq[ValidatorIndex],
        strategy: ApiStrategyKind
      ): Future[GetSyncCommitteeDutiesResponse] {.async.} =
-  logScope:
-    request = "getSyncCommitteeDuties"
-    strategy = $strategy
+  const RequestName = "getSyncCommitteeDuties"
 
-  const ErrorMessage = "Unable to retrieve sync committee duties"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -903,9 +977,7 @@ proc getSyncCommitteeDuties*(
       {BeaconNodeRole.Duties},
       getSyncCommitteeDutiesPlain(it, epoch, validators)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[GetSyncCommitteeDutiesResponse].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -914,36 +986,24 @@ proc getSyncCommitteeDuties*(
           let res = decodeBytes(GetSyncCommitteeDutiesResponse, response.data,
                                 response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[GetSyncCommitteeDutiesResponse].err($res.error)
           else:
             let data = res.get()
             if data.execution_optimistic.get(false):
-              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+              handleOptimistic()
             ApiResponse[GetSyncCommitteeDutiesResponse].ok(data)
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[GetSyncCommitteeDutiesResponse].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[GetSyncCommitteeDutiesResponse].err(ResponseInternalError)
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           ApiResponse[GetSyncCommitteeDutiesResponse].err(ResponseNoSyncError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[GetSyncCommitteeDutiesResponse].err(
             ResponseUnexpectedError)
 
@@ -959,9 +1019,7 @@ proc getSyncCommitteeDuties*(
       {BeaconNodeRole.Duties},
       getSyncCommitteeDutiesPlain(it, epoch, validators)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -972,50 +1030,32 @@ proc getSyncCommitteeDuties*(
           if res.isOk():
             let data = res.get()
             if data.execution_optimistic.get(false):
-              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+              handleOptimistic()
             return data
-
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get sync committee duties", data: failures)
 
 proc getForkSchedule*(
        vc: ValidatorClientRef,
        strategy: ApiStrategyKind
      ): Future[seq[Fork]] {.async.} =
-  logScope:
-    request = "getForkSchedule"
-    strategy = $strategy
+  const RequestName = "getForkSchedule"
 
-  const ErrorMessage = "Unable to retrieve fork schedule"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -1027,9 +1067,7 @@ proc getForkSchedule*(
                                       {BeaconNodeRole.Duties},
                                       getForkSchedulePlain(it)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[GetForkScheduleResponse].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -1038,21 +1076,15 @@ proc getForkSchedule*(
           let res = decodeBytes(GetForkScheduleResponse, response.data,
                                 response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[GetForkScheduleResponse].err($res.error)
           else:
             ApiResponse[GetForkScheduleResponse].ok(res.get())
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[GetForkScheduleResponse].err(ResponseInternalError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[GetForkScheduleResponse].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -1066,9 +1098,7 @@ proc getForkSchedule*(
                               {BeaconNodeRole.Duties},
                               getForkSchedulePlain(it)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -1078,40 +1108,27 @@ proc getForkSchedule*(
                                 response.contentType)
           if res.isOk(): return res.get().data
 
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handleUnexpectedData()
           false
         of 500:
-          debug ResponseInternalError,
-                response_code = response.status, endpoint = node,
-                reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         else:
-          debug ResponseUnexpectedError,
-                response_code = response.status, endpoint = node,
-                reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get fork schedule", data: failures)
 
 proc getHeadBlockRoot*(
        vc: ValidatorClientRef,
        strategy: ApiStrategyKind
      ): Future[DataOptimisticObject[RestRoot]] {.async.} =
-  logScope:
-    request = "getHeadBlockRoot"
-    strategy = $strategy
+  const RequestName = "getHeadBlockRoot"
+
+  var failures: seq[ApiNodeFailure]
 
   let blockIdent = BlockIdent.init(BlockIdentType.Head)
-
-  const ErrorMessage = "Unable to retrieve head block's root"
-  var failures: seq[ApiNodeFailure]
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
@@ -1122,9 +1139,7 @@ proc getHeadBlockRoot*(
                                       {BeaconNodeRole.SyncCommitteeData},
                                       getBlockRootPlain(it, blockIdent)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[GetBlockRootResponse].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -1133,38 +1148,27 @@ proc getHeadBlockRoot*(
           let res = decodeBytes(GetBlockRootResponse, response.data,
                                 response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[GetBlockRootResponse].err($res.error)
           else:
             let data = res.get()
             if data.execution_optimistic.get(false):
-              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+              handleOptimistic()
+              failures.add(failure)
               ApiResponse[GetBlockRootResponse].err(ResponseECNotInSyncError)
             else:
               ApiResponse[GetBlockRootResponse].ok(data)
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[GetBlockRootResponse].err(ResponseInvalidError)
         of 404:
-          debug ResponseNotFoundError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotFound))
+          handle404()
           ApiResponse[GetBlockRootResponse].err(ResponseNotFoundError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[GetBlockRootResponse].err(ResponseInternalError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[GetBlockRootResponse].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -1178,9 +1182,7 @@ proc getHeadBlockRoot*(
                               {BeaconNodeRole.SyncCommitteeData},
                               getBlockRootPlain(it, blockIdent)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -1188,59 +1190,42 @@ proc getHeadBlockRoot*(
         of 200:
           let res = decodeBytes(GetBlockRootResponse, response.data,
                                 response.contentType)
-          if res.isOk():
+          if res.isErr():
+            handleUnexpectedData()
+            false
+          else:
             let data = res.get()
             if data.execution_optimistic.get(false):
-              node.updateStatus(RestBeaconNodeStatus.OptSynced)
-              failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+              handleOptimistic()
+              failures.add(failure)
               false
             else:
               return data
-          else:
-            debug ResponseDecodeError, response_code = response.status,
-                  endpoint = node, reason = res.error
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
-            failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
-            false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 404:
-          debug ResponseNotFoundError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotFound))
+          handle404()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get head block root", data: failures)
 
 proc getValidators*(
        vc: ValidatorClientRef,
        id: seq[ValidatorIdent],
        strategy: ApiStrategyKind
      ): Future[seq[RestValidator]] {.async.} =
-  logScope:
-    request = "getStateValidators"
-    strategy = $strategy
+  const RequestName = "getStateValidators"
 
   let stateIdent = StateIdent.init(StateIdentType.Head)
 
-  const ErrorMessage = "Unable to retrieve head state's validator information"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -1253,9 +1238,7 @@ proc getValidators*(
       {BeaconNodeRole.Duties},
       getStateValidatorsPlain(it, stateIdent, id)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[GetStateValidatorsResponse].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -1264,36 +1247,24 @@ proc getValidators*(
           let res = decodeBytes(GetStateValidatorsResponse, response.data,
                                 response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[GetStateValidatorsResponse].err($res.error)
           else:
             let data = res.get()
             if data.execution_optimistic.get(false):
-              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+              handleOptimistic()
             ApiResponse[GetStateValidatorsResponse].ok(data)
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[GetStateValidatorsResponse].err(ResponseInvalidError)
         of 404:
-          debug ResponseNotFoundError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotFound))
+          handle404()
           ApiResponse[GetStateValidatorsResponse].err(ResponseNotFoundError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[GetStateValidatorsResponse].err(ResponseInternalError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[GetStateValidatorsResponse].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -1307,9 +1278,7 @@ proc getValidators*(
                               {BeaconNodeRole.Duties},
                               getStateValidatorsPlain(it, stateIdent, id)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -1320,40 +1289,25 @@ proc getValidators*(
           if res.isOk():
             let data = res.get()
             if data.execution_optimistic.get(false):
-              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+              handleOptimistic()
             return data.data
-
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 404:
-          debug ResponseNotFoundError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotFound))
+          handle404()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get state's validators", data: failures)
 
 proc produceAttestationData*(
        vc: ValidatorClientRef,
@@ -1361,15 +1315,12 @@ proc produceAttestationData*(
        committee_index: CommitteeIndex,
        strategy: ApiStrategyKind
      ): Future[AttestationData] {.async.} =
-  logScope:
-    request = "produceAttestationData"
-    strategy = $strategy
+  const RequestName = "produceAttestationData"
 
-  const ErrorMessage = "Unable to retrieve attestation data"
   var failures: seq[ApiNodeFailure]
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       ProduceAttestationDataResponse,
@@ -1378,9 +1329,7 @@ proc produceAttestationData*(
       {BeaconNodeRole.AttestationData},
       produceAttestationDataPlain(it, slot, committee_index)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[ProduceAttestationDataResponse].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -1389,37 +1338,66 @@ proc produceAttestationData*(
           let res = decodeBytes(ProduceAttestationDataResponse, response.data,
                                 response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[ProduceAttestationDataResponse].err($res.error)
           else:
             ApiResponse[ProduceAttestationDataResponse].ok(res.get())
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[ProduceAttestationDataResponse].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[ProduceAttestationDataResponse].err(ResponseInternalError)
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           ApiResponse[ProduceAttestationDataResponse].err(
             ResponseNoSyncError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[ProduceAttestationDataResponse].err(
             ResponseUnexpectedError)
 
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get().data
+
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      ProduceAttestationDataResponse,
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AttestationData},
+      produceAttestationDataPlain(it, slot, committee_index),
+      getAttestationDataScore(vc, itresponse)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[ProduceAttestationDataResponse].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(ProduceAttestationDataResponse, response.data,
+                                response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[ProduceAttestationDataResponse].err($res.error)
+          else:
+            ApiResponse[ProduceAttestationDataResponse].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[ProduceAttestationDataResponse].err(ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[ProduceAttestationDataResponse].err(ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[ProduceAttestationDataResponse].err(
+            ResponseNoSyncError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[ProduceAttestationDataResponse].err(
+            ResponseUnexpectedError)
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
     return res.get().data
@@ -1433,9 +1411,7 @@ proc produceAttestationData*(
       produceAttestationDataPlain(it, slot, committee_index)):
 
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -1445,50 +1421,32 @@ proc produceAttestationData*(
                                 response.contentType)
           if res.isOk(): return res.get().data
 
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to produce attestation data", data: failures)
 
 proc submitPoolAttestations*(
        vc: ValidatorClientRef,
        data: seq[Attestation],
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope:
-    request = "submitPoolAttestations"
-    strategy = $strategy
-
   const
-    ErrorMessage = "Unable to submit attestation"
-    NoErrorMessage = "Attestation was sucessfully published"
+    RequestName = "submitPoolAttestations"
+
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -1500,9 +1458,7 @@ proc submitPoolAttestations*(
                                       {BeaconNodeRole.AttestationPublish},
                                       submitPoolAttestations(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -1510,22 +1466,13 @@ proc submitPoolAttestations*(
         of 200:
           ApiResponse[bool].ok(true)
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[bool].err(ResponseInternalError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -1539,9 +1486,7 @@ proc submitPoolAttestations*(
                               {BeaconNodeRole.AttestationPublish},
                               submitPoolAttestations(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -1549,34 +1494,25 @@ proc submitPoolAttestations*(
         of 200:
           return true
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to submit attestations", data: failures)
 
 proc submitPoolSyncCommitteeSignature*(
        vc: ValidatorClientRef,
        data: SyncCommitteeMessage,
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope:
-    request = "submitPoolSyncCommitteeSignatures"
-    strategy = $strategy
+  const
+    RequestName = "submitPoolSyncCommitteeSignatures"
 
   let restData = RestSyncCommitteeMessage.init(
     data.slot,
@@ -1585,9 +1521,6 @@ proc submitPoolSyncCommitteeSignature*(
     data.signature
   )
 
-  const
-    ErrorMessage = "Unable to submit sync committee message"
-    NoErrorMessage = "Sync committee message was successfully published"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -1600,9 +1533,7 @@ proc submitPoolSyncCommitteeSignature*(
       {BeaconNodeRole.SyncCommitteePublish},
       submitPoolSyncCommitteeSignatures(it, @[restData])):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -1610,22 +1541,13 @@ proc submitPoolSyncCommitteeSignature*(
         of 200:
           ApiResponse[bool].ok(true)
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[bool].err(ResponseInternalError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -1640,9 +1562,7 @@ proc submitPoolSyncCommitteeSignature*(
       {BeaconNodeRole.SyncCommitteePublish},
       submitPoolSyncCommitteeSignatures(it, @[restData])):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -1650,25 +1570,17 @@ proc submitPoolSyncCommitteeSignature*(
         of 200:
           return true
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getIndexedErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to submit sync committee message", data: failures)
 
 proc getAggregatedAttestation*(
        vc: ValidatorClientRef,
@@ -1676,11 +1588,9 @@ proc getAggregatedAttestation*(
        root: Eth2Digest,
        strategy: ApiStrategyKind
      ): Future[Attestation] {.async.} =
-  logScope:
-    request = "getAggregatedAttestation"
-    strategy = $strategy
+  const
+    RequestName = "getAggregatedAttestation"
 
-  const ErrorMessage = "Unable to retrieve aggregated attestation data"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -1693,9 +1603,7 @@ proc getAggregatedAttestation*(
       {BeaconNodeRole.AggregatedData},
       getAggregatedAttestationPlain(it, root, slot)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[GetAggregatedAttestationResponse].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -1704,29 +1612,20 @@ proc getAggregatedAttestation*(
           let res = decodeBytes(GetAggregatedAttestationResponse, response.data,
                                 response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[GetAggregatedAttestationResponse].err($res.error)
           else:
             ApiResponse[GetAggregatedAttestationResponse].ok(res.get())
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[GetAggregatedAttestationResponse].err(
             ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[GetAggregatedAttestationResponse].err(
             ResponseInternalError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[GetAggregatedAttestationResponse].err(
             ResponseUnexpectedError)
 
@@ -1742,9 +1641,7 @@ proc getAggregatedAttestation*(
       {BeaconNodeRole.AggregatedData},
       getAggregatedAttestationPlain(it, root, slot)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -1753,32 +1650,20 @@ proc getAggregatedAttestation*(
           let res = decodeBytes(GetAggregatedAttestationResponse, response.data,
                                 response.contentType)
           if res.isOk(): return res.get().data
-
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get aggregated attestation", data: failures)
 
 proc produceSyncCommitteeContribution*(
        vc: ValidatorClientRef,
@@ -1787,11 +1672,9 @@ proc produceSyncCommitteeContribution*(
        root: Eth2Digest,
        strategy: ApiStrategyKind
      ): Future[SyncCommitteeContribution] {.async.} =
-  logScope:
-    request = "produceSyncCommitteeContribution"
-    strategy = $strategy
+  const
+    RequestName = "produceSyncCommitteeContribution"
 
-  const ErrorMessage = "Unable to retrieve sync committee contribution data"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -1804,9 +1687,7 @@ proc produceSyncCommitteeContribution*(
       {BeaconNodeRole.SyncCommitteeData},
       produceSyncCommitteeContributionPlain(it, slot, subcommitteeIndex, root)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[ProduceSyncCommitteeContributionResponse].err(
           apiResponse.error)
       else:
@@ -1816,30 +1697,21 @@ proc produceSyncCommitteeContribution*(
           let res = decodeBytes(ProduceSyncCommitteeContributionResponse,
                                 response.data, response.contentType)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[ProduceSyncCommitteeContributionResponse].err(
               $res.error)
           else:
             ApiResponse[ProduceSyncCommitteeContributionResponse].ok(res.get())
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[ProduceSyncCommitteeContributionResponse].err(
             ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[ProduceSyncCommitteeContributionResponse].err(
             ResponseInternalError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[ProduceSyncCommitteeContributionResponse].err(
             ResponseUnexpectedError)
 
@@ -1855,9 +1727,7 @@ proc produceSyncCommitteeContribution*(
       {BeaconNodeRole.SyncCommitteeData},
       produceSyncCommitteeContributionPlain(it, slot, subcommitteeIndex, root)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -1866,45 +1736,29 @@ proc produceSyncCommitteeContribution*(
           let res = decodeBytes(ProduceSyncCommitteeContributionResponse,
                                 response.data, response.contentType)
           if res.isOk(): return res.get().data
-
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to produce sync committee contribution", data: failures)
 
 proc publishAggregateAndProofs*(
        vc: ValidatorClientRef,
        data: seq[SignedAggregateAndProof],
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope:
-    request = "publishAggregateAndProofs"
-    strategy = $strategy
-
   const
-    ErrorMessage = "Unable to publish aggregate and proofs"
-    NoErrorMessage = "Aggregate and proofs was sucessfully published"
+    RequestName = "publishAggregateAndProofs"
+
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -1916,9 +1770,7 @@ proc publishAggregateAndProofs*(
                                       {BeaconNodeRole.AggregatedPublish},
                                       publishAggregateAndProofs(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -1926,22 +1778,13 @@ proc publishAggregateAndProofs*(
         of 200:
           ApiResponse[bool].ok(true)
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[bool].err(ResponseInternalError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -1955,9 +1798,7 @@ proc publishAggregateAndProofs*(
                               {BeaconNodeRole.AggregatedPublish},
                               publishAggregateAndProofs(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -1965,38 +1806,26 @@ proc publishAggregateAndProofs*(
         of 200:
           return true
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to publish aggregated attestation", data: failures)
 
 proc publishContributionAndProofs*(
        vc: ValidatorClientRef,
        data: seq[RestSignedContributionAndProof],
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope:
-    request = "publishContributionAndProofs"
-    strategy = $strategy
-
   const
-    ErrorMessage = "Unable to publish contribution and proofs"
-    NoErrorMessage = "Contribution and proofs were successfully published"
+    RequestName = "publishContributionAndProofs"
+
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -2008,9 +1837,7 @@ proc publishContributionAndProofs*(
                                       {BeaconNodeRole.SyncCommitteePublish},
                                       publishContributionAndProofs(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
       else:
         let response = apiResponse.get()
@@ -2018,22 +1845,13 @@ proc publishContributionAndProofs*(
         of 200:
           ApiResponse[bool].ok(true)
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[bool].err(ResponseInternalError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -2047,36 +1865,25 @@ proc publishContributionAndProofs*(
                               {BeaconNodeRole.SyncCommitteePublish},
                               publishContributionAndProofs(it, data)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
         case response.status:
         of 200:
-          trace NoErrorMessage, endpoint = node
           return true
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to publish sync committee contribution", data: failures)
 
 proc produceBlockV2*(
        vc: ValidatorClientRef,
@@ -2085,11 +1892,9 @@ proc produceBlockV2*(
        graffiti: GraffitiBytes,
        strategy: ApiStrategyKind
      ): Future[ProduceBlockResponseV2] {.async.} =
-  logScope:
-    request = "produceBlockV2"
-    strategy = $strategy
+  const
+    RequestName = "produceBlockV2"
 
-  const ErrorMessage = "Unable to retrieve block data"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -2102,44 +1907,32 @@ proc produceBlockV2*(
       {BeaconNodeRole.BlockProposalData},
       produceBlockV2Plain(it, slot, randao_reveal, graffiti)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[ProduceBlockResponseV2].err(apiResponse.error)
       else:
         let response = apiResponse.get()
         case response.status:
         of 200:
-          let res = decodeBytes(ProduceBlockResponseV2, response.data,
-                                response.contentType)
+          let
+            version = response.headers.getString("eth-consensus-version")
+            res = decodeBytes(ProduceBlockResponseV2, response.data,
+                              response.contentType, version)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[ProduceBlockResponseV2].err($res.error)
           else:
             ApiResponse[ProduceBlockResponseV2].ok(res.get())
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           ApiResponse[ProduceBlockResponseV2].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[ProduceBlockResponseV2].err(ResponseInternalError)
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           ApiResponse[ProduceBlockResponseV2].err(ResponseNoSyncError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[ProduceBlockResponseV2].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -2154,63 +1947,44 @@ proc produceBlockV2*(
       {BeaconNodeRole.BlockProposalData},
       produceBlockV2Plain(it, slot, randao_reveal, graffiti)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
         case response.status:
         of 200:
-          let res = decodeBytes(ProduceBlockResponseV2, response.data,
-                                response.contentType)
+          let
+            version = response.headers.getString("eth-consensus-version")
+            res = decodeBytes(ProduceBlockResponseV2, response.data,
+                              response.contentType, version)
           if res.isOk(): return res.get()
-
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to produce block", data: failures)
 
 proc publishBlock*(
        vc: ValidatorClientRef,
-       data: ForkedSignedBeaconBlock,
+       data: RestPublishedSignedBlockContents,
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope:
-    request = "publishBlock"
-    strategy = $strategy
-
   const
-    BlockPublished = "Block was successfully published"
+    RequestName = "publishBlock"
     BlockBroadcasted = "Block not passed validation, but still published"
-    ErrorMessage = "Unable to publish block"
+
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -2231,17 +2005,10 @@ proc publishBlock*(
         of ConsensusFork.Capella:
           publishBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
-          debugRaiseAssert $denebImplementationMissing &
-                           ": validator_client/api.nim:publishBlock (1)"
-          let f = newFuture[RestPlainResponse]("")
-          f.fail(new RestError)
-          f
-
+          publishBlock(it, data.denebData)
       do:
         if apiResponse.isErr():
-          debug ErrorMessage, endpoint = node, error = apiResponse.error
-          node.updateStatus(RestBeaconNodeStatus.Offline)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+          handleCommunicationError()
           ApiResponse[bool].err(apiResponse.error)
         else:
           let response = apiResponse.get()
@@ -2249,31 +2016,20 @@ proc publishBlock*(
           of 200:
             ApiResponse[bool].ok(true)
           of 202:
-            debug BlockBroadcasted, endpoint = node
+            debug BlockBroadcasted, node = node,
+             blck = shortLog(ForkedSignedBeaconBlock.init(data))
             ApiResponse[bool].ok(true)
           of 400:
-            debug ResponseInvalidError, response_code = response.status,
-                  endpoint = node, reason = response.getErrorMessage()
-            node.updateStatus(RestBeaconNodeStatus.Incompatible)
-            failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+            handle400()
             ApiResponse[bool].err(ResponseInvalidError)
           of 500:
-            debug ResponseInternalError, response_code = response.status,
-                  endpoint = node, reason = response.getErrorMessage()
-            node.updateStatus(RestBeaconNodeStatus.InternalError)
-            failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+            handle500()
             ApiResponse[bool].err(ResponseInternalError)
           of 503:
-            debug ResponseNoSyncError, response_code = response.status,
-                  endpoint = node, reason = response.getErrorMessage()
-            node.updateStatus(RestBeaconNodeStatus.NotSynced)
-            failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+            handle503()
             ApiResponse[bool].err(ResponseNoSyncError)
           else:
-            debug ResponseUnexpectedError, response_code = response.status,
-                  endpoint = node, reason = response.getErrorMessage()
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
-            failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+            handleUnexpectedCode()
             ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -2295,16 +2051,11 @@ proc publishBlock*(
       of ConsensusFork.Capella:
         publishBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
-        debugRaiseAssert $denebImplementationMissing &
-                         ": validator_client/api.nim:publishBlock (2)"
-        let f = newFuture[RestPlainResponse]("")
-        f.fail(new RestError)
-        f
+        publishBlock(it, data.denebData)
+
     do:
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -2312,34 +2063,24 @@ proc publishBlock*(
         of 200:
           return true
         of 202:
-          debug BlockBroadcasted, endpoint = node
+          debug BlockBroadcasted, node = node,
+           blck = shortLog(ForkedSignedBeaconBlock.init(data))
           return true
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to publish block", data: failures)
 
 proc produceBlindedBlock*(
        vc: ValidatorClientRef,
@@ -2348,11 +2089,9 @@ proc produceBlindedBlock*(
        graffiti: GraffitiBytes,
        strategy: ApiStrategyKind
      ): Future[ProduceBlindedBlockResponse] {.async.} =
-  logScope:
-    request = "produceBlindedBlock"
-    strategy = $strategy
+  const
+    RequestName = "produceBlindedBlock"
 
-  const ErrorMessage = "Unable to retrieve block data"
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -2365,44 +2104,37 @@ proc produceBlindedBlock*(
       {BeaconNodeRole.BlockProposalData},
       produceBlindedBlockPlain(it, slot, randao_reveal, graffiti)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         ApiResponse[ProduceBlindedBlockResponse].err(apiResponse.error)
       else:
         let response = apiResponse.get()
         case response.status:
         of 200:
-          let res = decodeBytes(ProduceBlindedBlockResponse, response.data,
-                                response.contentType)
+          let
+            version = response.headers.getString("eth-consensus-version")
+            res = decodeBytes(ProduceBlindedBlockResponse, response.data,
+                              response.contentType, version)
           if res.isErr():
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            handleUnexpectedData()
             ApiResponse[ProduceBlindedBlockResponse].err($res.error)
           else:
             ApiResponse[ProduceBlindedBlockResponse].ok(res.get())
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          # TODO(cheatfate): We not going to update BN status for this handler,
+          # because BN reports 400 for any type of error that does not mean
+          # that BN is incompatible.
+          let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
+            strategy, node, response.status, response.getErrorMessage())
+          failures.add(failure)
           ApiResponse[ProduceBlindedBlockResponse].err(ResponseInvalidError)
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           ApiResponse[ProduceBlindedBlockResponse].err(ResponseInternalError)
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           ApiResponse[ProduceBlindedBlockResponse].err(ResponseNoSyncError)
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           ApiResponse[ProduceBlindedBlockResponse].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -2417,63 +2149,44 @@ proc produceBlindedBlock*(
       {BeaconNodeRole.BlockProposalData},
       produceBlindedBlockPlain(it, slot, randao_reveal, graffiti)):
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
         case response.status:
         of 200:
-          let res = decodeBytes(ProduceBlindedBlockResponse, response.data,
-                                response.contentType)
+          let
+            version = response.headers.getString("eth-consensus-version")
+            res = decodeBytes(ProduceBlindedBlockResponse, response.data,
+                              response.contentType, version)
           if res.isOk(): return res.get()
-
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handleUnexpectedData()
           false
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to produce blinded block", data: failures)
 
 proc publishBlindedBlock*(
        vc: ValidatorClientRef,
        data: ForkedSignedBlindedBeaconBlock,
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope:
-    request = "publishBlindedBlock"
-    strategy = $strategy
-
   const
-    BlockPublished = "Block was successfully published"
+    RequestName = "publishBlindedBlock"
     BlockBroadcasted = "Block not passed validation, but still published"
-    ErrorMessage = "Unable to publish block"
+
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -2501,9 +2214,7 @@ proc publishBlindedBlock*(
           f
       do:
         if apiResponse.isErr():
-          debug ErrorMessage, endpoint = node, error = apiResponse.error
-          node.updateStatus(RestBeaconNodeStatus.Offline)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+          handleCommunicationError()
           ApiResponse[bool].err(apiResponse.error)
         else:
           let response = apiResponse.get()
@@ -2511,31 +2222,19 @@ proc publishBlindedBlock*(
           of 200:
             ApiResponse[bool].ok(true)
           of 202:
-            debug BlockBroadcasted, endpoint = node
+            debug BlockBroadcasted, node = node, blck = shortLog(data)
             ApiResponse[bool].ok(true)
           of 400:
-            debug ResponseInvalidError, response_code = response.status,
-                  endpoint = node, reason = response.getErrorMessage()
-            node.updateStatus(RestBeaconNodeStatus.Incompatible)
-            failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+            handle400()
             ApiResponse[bool].err(ResponseInvalidError)
           of 500:
-            debug ResponseInternalError, response_code = response.status,
-                  endpoint = node, reason = response.getErrorMessage()
-            node.updateStatus(RestBeaconNodeStatus.InternalError)
-            failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+            handle500()
             ApiResponse[bool].err(ResponseInternalError)
           of 503:
-            debug ResponseNoSyncError, response_code = response.status,
-                  endpoint = node, reason = response.getErrorMessage()
-            node.updateStatus(RestBeaconNodeStatus.NotSynced)
-            failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+            handle503()
             ApiResponse[bool].err(ResponseNoSyncError)
           else:
-            debug ResponseUnexpectedError, response_code = response.status,
-                  endpoint = node, reason = response.getErrorMessage()
-            node.updateStatus(RestBeaconNodeStatus.Unexpected)
-            failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+            handleUnexpectedCode()
             ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -2564,9 +2263,7 @@ proc publishBlindedBlock*(
         f
     do:
       if apiResponse.isErr():
-        debug ErrorMessage, endpoint = node, error = apiResponse.error
-        node.updateStatus(RestBeaconNodeStatus.Offline)
-        failures.add(ApiNodeFailure.init(node, ApiFailure.Communication))
+        handleCommunicationError()
         false
       else:
         let response = apiResponse.get()
@@ -2574,34 +2271,23 @@ proc publishBlindedBlock*(
         of 200:
           return true
         of 202:
-          debug BlockBroadcasted, endpoint = node
+          debug BlockBroadcasted, node = node, blck = shortLog(data)
           return true
         of 400:
-          debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Incompatible)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+          handle400()
           false
         of 500:
-          debug ResponseInternalError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.InternalError)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
+          handle500()
           false
         of 503:
-          debug ResponseNoSyncError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.NotSynced)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
+          handle503()
           false
         else:
-          debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, reason = response.getErrorMessage()
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
+          handleUnexpectedCode()
           false
 
-    raise (ref ValidatorApiError)(msg: ErrorMessage, data: failures)
+    raise (ref ValidatorApiError)(
+      msg: "Failed to publish blinded block", data: failures)
 
 proc prepareBeaconCommitteeSubnet*(
        vc: ValidatorClientRef,
@@ -2690,112 +2376,6 @@ proc prepareSyncCommitteeSubnets*(
                  message = response.getErrorMessage()
     return count
 
-proc getValidatorsActivity*(
-       vc: ValidatorClientRef, epoch: Epoch,
-       validators: seq[ValidatorIndex]
-     ): Future[GetValidatorsActivityResponse] {.async.} =
-  logScope: request = "getValidatorsActivity"
-  let resp = vc.onceToAll(RestPlainResponse,
-                          SlotDuration,
-                          ViableNodeStatus,
-                          {BeaconNodeRole.Duties},
-                          getValidatorsActivity(it, epoch, validators))
-  case resp.status
-  of ApiOperation.Timeout:
-    debug "Unable to perform validator's activity request in time",
-          timeout = SlotDuration
-    return GetValidatorsActivityResponse()
-  of ApiOperation.Interrupt:
-    debug "Validator's activity request was interrupted"
-    return GetValidatorsActivityResponse()
-  of ApiOperation.Failure:
-    debug "Unexpected error happened while receiving validator's activity"
-    return GetValidatorsActivityResponse()
-  of ApiOperation.Success:
-    var activities: seq[RestActivityItem]
-    for apiResponse in resp.data:
-      if apiResponse.data.isErr():
-        debug "Unable to retrieve validators activity data",
-              endpoint = apiResponse.node, error = apiResponse.data.error
-      else:
-        let
-          response = apiResponse.data.get()
-          activity =
-            block:
-              var default: seq[RestActivityItem]
-              case response.status
-              of 200:
-                let res = decodeBytes(GetValidatorsActivityResponse,
-                                      response.data, response.contentType)
-                if res.isOk():
-                  let list = res.get().data
-                  if len(list) != len(validators):
-                    debug "Received incomplete validators activity response",
-                          endpoint = apiResponse.node,
-                          validators_count = len(validators),
-                          activities_count = len(list)
-                    default
-                  else:
-                    let isOrdered =
-                      block:
-                        var res = true
-                        for index in 0 ..< len(validators):
-                          if list[index].index != validators[index]:
-                            res = false
-                            break
-                        res
-                    if not(isOrdered):
-                      debug "Received unordered validators activity response",
-                          endpoint = apiResponse.node,
-                          validators_count = len(validators),
-                          activities_count = len(list)
-                      default
-                    else:
-                      debug "Received validators activity response",
-                            endpoint = apiResponse.node,
-                            validators_count = len(validators),
-                            activities_count = len(list)
-                      list
-                else:
-                  debug "Received invalid/incomplete response",
-                        endpoint = apiResponse.node, error_message = res.error
-                  apiResponse.node.updateStatus(
-                    RestBeaconNodeStatus.Unexpected)
-                  default
-              of 400:
-                debug "Server reports invalid request",
-                      response_code = response.status,
-                      endpoint = apiResponse.node,
-                      reason = response.getErrorMessage()
-                apiResponse.node.updateStatus(RestBeaconNodeStatus.Incompatible)
-                default
-              of 500:
-                debug "Server reports internal error",
-                      response_code = response.status,
-                      endpoint = apiResponse.node,
-                      reason = response.getErrorMessage()
-                apiResponse.node.updateStatus(
-                  RestBeaconNodeStatus.InternalError)
-                default
-              else:
-                debug "Server reports unexpected error code",
-                      response_code = response.status,
-                      endpoint = apiResponse.node,
-                      reason = response.getErrorMessage()
-                apiResponse.node.updateStatus(RestBeaconNodeStatus.Unexpected)
-                default
-
-        if len(activity) > 0:
-          if len(activities) == 0:
-            activities = activity
-          else:
-            # If single node returns `active` it means that validator's
-            # activity was seen by this node, so result would be `active`.
-            for index in 0 ..< len(activities):
-              if activity[index].active:
-                activities[index].active = true
-    return GetValidatorsActivityResponse(data: activities)
-
 proc prepareBeaconProposer*(
        vc: ValidatorClientRef,
        data: seq[PrepareBeaconProposer]
@@ -2861,7 +2441,7 @@ proc registerValidator*(
       return 0
     of ApiOperation.Interrupt:
       debug "Validator registration was interrupted"
-      return 00
+      return 0
     of ApiOperation.Failure:
       debug "Unexpected error happened while registering validators"
       return 0
@@ -2885,7 +2465,8 @@ proc getValidatorsLiveness*(
        vc: ValidatorClientRef, epoch: Epoch,
        validators: seq[ValidatorIndex]
      ): Future[GetValidatorsLivenessResponse] {.async.} =
-  logScope: request = "getValidatorsActivity"
+  const
+    RequestName = "getValidatorsActivity"
   let resp = vc.onceToAll(RestPlainResponse,
                           SlotDuration,
                           ViableNodeStatus,
@@ -2939,33 +2520,39 @@ proc getValidatorsLiveness*(
                     activities_count = len(list),
                     updated_count = updated
           else:
-            debug "Received invalid/incomplete response",
-                  endpoint = apiResponse.node, error_message = res.error
-            apiResponse.node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            let failure = ApiNodeFailure.init(
+              ApiFailure.UnexpectedResponse, RequestName,
+              apiResponse.node, response.status, $res.error)
+            apiResponse.node.updateStatus(
+              RestBeaconNodeStatus.UnexpectedResponse, failure)
             continue
         of 400:
-          debug "Server reports invalid request",
-                response_code = response.status,
-                endpoint = apiResponse.node, reason = response.getErrorMessage()
-          apiResponse.node.updateStatus(RestBeaconNodeStatus.Incompatible)
+          let failure = ApiNodeFailure.init(
+            ApiFailure.Invalid, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          apiResponse.node.updateStatus(
+            RestBeaconNodeStatus.Incompatible, failure)
           continue
         of 500:
-          debug "Server reports internal error",
-                response_code = response.status,
-                endpoint = apiResponse.node, reason = response.getErrorMessage()
-          apiResponse.node.updateStatus(RestBeaconNodeStatus.InternalError)
+          let failure = ApiNodeFailure.init(
+            ApiFailure.Internal, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          apiResponse.node.updateStatus(
+            RestBeaconNodeStatus.InternalError, failure)
           continue
         of 503:
-          debug "Server reports that it not in sync",
-                response_code = response.status,
-                endpoint = apiResponse.node, reason = response.getErrorMessage()
-          apiResponse.node.updateStatus(RestBeaconNodeStatus.NotSynced)
+          let failure = ApiNodeFailure.init(
+            ApiFailure.NotSynced, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          apiResponse.node.updateStatus(
+            RestBeaconNodeStatus.NotSynced, failure)
           continue
         else:
-          debug "Server reports unexpected error code",
-                response_code = response.status,
-                endpoint = apiResponse.node, reason = response.getErrorMessage()
-          apiResponse.node.updateStatus(RestBeaconNodeStatus.Unexpected)
+          let failure = ApiNodeFailure.init(
+            ApiFailure.UnexpectedCode, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          apiResponse.node.updateStatus(
+            RestBeaconNodeStatus.UnexpectedCode, failure)
           continue
 
     var response =

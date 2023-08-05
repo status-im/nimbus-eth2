@@ -250,6 +250,8 @@ func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
   ret[0..<8] = toBytes(index)
   ret[8..<40] = root.data
 
+  ret
+
 template expectDb(x: auto): untyped =
   # There's no meaningful error handling implemented for a corrupt database or
   # full disk - this requires manual intervention, so we'll panic for now
@@ -883,18 +885,11 @@ proc delBlock*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest): bool =
 proc delState*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest) =
   discard db.statesNoVal[fork].del(key.data).expectDb()
 
-proc clearBlocks*(db: BeaconChainDB, fork: ConsensusFork) =
-  discard db.blocks[fork].clear().expectDb()
+proc clearBlocks*(db: BeaconChainDB, fork: ConsensusFork): bool =
+  db.blocks[fork].clear().expectDb()
 
-proc clearStates*(db: BeaconChainDB, fork: ConsensusFork) =
-  discard db.statesNoVal[fork].clear().expectDb()
-
-proc delKeyValue*(db: BeaconChainDB, key: array[1, byte]) =
-  discard db.keyValues.del(key).expectDb()
-  discard db.v0.backend.del(key).expectDb()
-
-proc delKeyValue*(db: BeaconChainDB, key: DbKeyKind) =
-  db.delKeyValue(subkey(key))
+proc clearStates*(db: BeaconChainDB, fork: ConsensusFork): bool =
+  db.statesNoVal[fork].clear().expectDb()
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   discard db.stateRoots.del(stateRootKey(root, slot)).expectDb()
@@ -988,14 +983,6 @@ proc getBlock*[
     result.get().root = key
   else:
     result.err()
-
-proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex):
-                    Opt[BlobSidecar] =
-  var blobs: BlobSidecar
-  result.ok(blobs)
-  if db.blobs.getSZSSZ(blobkey(root, index), result.get) != GetResult.found:
-    result.err()
-
 
 proc getPhase0BlockSSZ(
     db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =

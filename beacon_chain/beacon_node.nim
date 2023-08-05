@@ -70,7 +70,6 @@ type
     lightClientPool*: ref LightClientPool
     validatorChangePool*: ref ValidatorChangePool
     elManager*: ELManager
-    payloadBuilderRestClient*: RestClientRef
     restServer*: RestServerRef
     keymanagerHost*: ref KeymanagerHost
     keymanagerServer*: RestServerRef
@@ -97,6 +96,7 @@ type
       Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     dutyValidatorCount*: int
       ## Number of validators that we've checked for activation
+    processingDelay*: Opt[Duration]
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
@@ -115,3 +115,35 @@ template rng*(node: BeaconNode): ref HmacDrbgContext =
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
+
+func getPayloadBuilderAddress*(config: BeaconNodeConf): Opt[string] =
+  if config.payloadBuilderEnable:
+    Opt.some config.payloadBuilderUrl
+  else:
+    Opt.none(string)
+
+proc getPayloadBuilderClient*(
+    node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
+  if not node.config.payloadBuilderEnable:
+    return err "Payload builder globally disabled"
+
+  let
+    defaultPayloadBuilderAddress = node.config.getPayloadBuilderAddress
+    pubkey = withState(node.dag.headState):
+      if validator_index >= forkyState.data.validators.lenu64:
+        return err "Validator index too high"
+      forkyState.data.validators.item(validator_index).pubkey
+    payloadBuilderAddress =
+      if node.keyManagerHost.isNil:
+        defaultPayloadBuilderAddress
+      else:
+        node.keyManagerHost[].getBuilderConfig(pubkey).valueOr:
+          defaultPayloadBuilderAddress
+
+  if payloadBuilderAddress.isNone:
+    return err "Payload builder disabled"
+  let res = RestClientRef.new(payloadBuilderAddress.get)
+  if res.isOk and res.get.isNil:
+    err "Got nil payload builder REST client reference"
+  else:
+    res

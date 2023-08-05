@@ -159,7 +159,7 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
 
   if headExecutionPayloadHash.isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
     return Opt[void].ok()
 
   template callForkchoiceUpdated(attributes: untyped): auto =
@@ -184,13 +184,23 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
     self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
     return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    self.dag.optimisticRoots.incl newHead.blck.root
+    # Don't do anything. Either newHead.blck.executionValid was already false,
+    # in which case it'd be superfluous to set it to false again, or the block
+    # was marked as `VALID` in the `newPayload` path already, in which case it
+    # is fine to keep it as valid here. Conceptually, were this to be lines of
+    # code, it'd be something like
+    # if newHead.blck.executionValid:
+    #   do nothing because of latter case
+    # else:
+    #   do nothing because it's a no-op
+    # So, either way, do nothing.
+    discard
 
   return Opt[void].ok()
 
@@ -241,7 +251,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   if self.dag.loadExecutionBlockHash(newHead.blck).isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+    self.dag.markBlockVerified(newHead.blck)
 
   self.updateHead(newHead.blck)
 
@@ -259,7 +269,7 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   if dag.head.slot + defaultSyncHorizon < wallSlot:
     false
   else:
-    not dag.is_optimistic(dag.head.root)
+    dag.head.executionValid
 
 proc checkNextProposer(
     dag: ChainDAGRef, actionTracker: ActionTracker,
@@ -330,11 +340,11 @@ proc getGasLimit*(
 from ../spec/datatypes/bellatrix import PayloadID
 
 proc runProposalForkchoiceUpdated*(
-    self: ref ConsensusManager, wallSlot: Slot) {.async.} =
+    self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async.} =
   let
     nextWallSlot = wallSlot + 1
     (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
-      return
+      return err()
   debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
     nextWallSlot, validatorIndex, nextProposer
 
@@ -343,7 +353,7 @@ proc runProposalForkchoiceUpdated*(
   if nextWallSlot.is_epoch:
     debug "runProposalForkchoiceUpdated: not running early fcU for epoch-aligned proposal slot",
       nextWallSlot, validatorIndex, nextProposer
-    return
+    return err()
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
@@ -372,7 +382,7 @@ proc runProposalForkchoiceUpdated*(
     headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck)
 
   if headBlockHash.isZero:
-    return
+    return err()
 
   try:
     let safeBlockHash = beaconHead.safeExecutionPayloadHash
@@ -399,6 +409,8 @@ proc runProposalForkchoiceUpdated*(
           suggestedFeeRecipient: feeRecipient))
   except CatchableError as err:
     error "Engine API fork-choice update failed", err = err.msg
+
+  ok()
 
 proc updateHeadWithExecution*(
     self: ref ConsensusManager, initialNewHead: BeaconHead,
@@ -445,7 +457,7 @@ proc updateHeadWithExecution*(
     # needs while runProposalForkchoiceUpdated requires RANDAO information
     # from the head state corresponding to the `newHead` block, which only
     # self.dag.updateHead(...) sets up.
-    await self.runProposalForkchoiceUpdated(getBeaconTimeFn().slotOrZero)
+    discard await self.runProposalForkchoiceUpdated(getBeaconTimeFn().slotOrZero)
 
     self[].checkExpectedBlock()
   except CatchableError as exc:

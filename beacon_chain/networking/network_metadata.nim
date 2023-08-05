@@ -34,9 +34,7 @@ export
 const
   vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
 
-  # TODO: Currently, this breaks the Linux/ARM packaging due
-  #       to a toolchain incompatibility problem
-  incbinEnabled* = false
+  incbinEnabled* = sizeof(pointer) == 8
 
 type
   Eth1BlockHash* = ethtypes.BlockHash
@@ -174,10 +172,7 @@ proc loadEth2NetworkMetadata*(
         readBootEnr(bootEnrPath))
 
       genesisData = if loadGenesis and fileExists(genesisPath):
-        when incbinEnabled:
-          toBytes readFile(genesisPath)
-        else:
-          readFile(genesisPath)
+        readFile(genesisPath)
       else:
         ""
 
@@ -193,7 +188,9 @@ proc loadEth2NetworkMetadata*(
       bootstrapNodes: bootstrapNodes,
       depositContractBlock: depositContractBlock,
       depositContractBlockHash: depositContractBlockHash,
-      genesisData: genesisData,
+      genesisData:
+        when incbinEnabled: toBytes genesisData
+        else: genesisData,
       genesisDepositsSnapshot: genesisDepositsSnapshot)
 
   except PresetIncompatibleError as err:
@@ -223,6 +220,9 @@ when const_preset == "gnosis":
     let
       gnosisGenesis {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
       gnosisGenesisSize {.importc: "gnosis_mainnet_genesis_size".}: int
+
+    # let `.incbin` in assembly file find the binary file through search path
+    {.passc: "-I" & vendorDir.}
     {.compile: "network_metadata_gnosis.S".}
 
   const
@@ -232,7 +232,6 @@ when const_preset == "gnosis":
 
   static:
     checkForkConsistency(gnosisMetadata.cfg)
-    doAssert gnosisMetadata.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
     doAssert gnosisMetadata.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
@@ -251,12 +250,11 @@ elif const_preset == "mainnet":
       sepoliaGenesis {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
       sepoliaGenesisSize {.importc: "eth2_sepolia_genesis_size".}: int
 
+    # let `.incbin` in assembly file find the binary file through search path
+    {.passc: "-I" & vendorDir.}
     {.compile: "network_metadata_mainnet.S".}
 
   const
-    eth2NetworksDir = vendorDir & "/eth2-networks"
-    sepoliaDir = vendorDir & "/sepolia"
-
     mainnetMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/eth2-networks/shared/mainnet", some mainnet, not incbinEnabled)
     praterMetadata = loadCompileTimeNetworkMetadata(
@@ -293,7 +291,11 @@ proc getMetadataForNetwork*(
   template withGenesis(metadata, genesis: untyped): untyped =
     when incbinEnabled:
       var tmp = metadata
-      assign(tmp.genesisData, genesis.toOpenArray(0, `genesis Size` - 1))
+      case tmp.incompatible
+      of false:
+        assign(tmp.genesisData, genesis.toOpenArray(0, `genesis Size` - 1))
+      of true:
+        raiseAssert "Unreachable"  # `loadCompileTimeNetworkMetadata`
       tmp
     else:
       metadata
@@ -341,15 +343,24 @@ proc getRuntimeConfig*(
   ## quite appropriate in such as low-level function. The "assume mainnet by
   ## default" behavior is something that should be handled closer to the `conf`
   ## layer.
-  if eth2Network.isSome:
-    return getMetadataForNetwork(eth2Network.get).cfg
+  let metadata =
+    if eth2Network.isSome:
+      getMetadataForNetwork(eth2Network.get)
+    else:
+      when const_preset == "mainnet":
+        mainnetMetadata
+      elif const_preset == "gnosis":
+        gnosisMetadata
+      else:
+        # This is a non-standard build (i.e. minimal), and the function was
+        # most likely executed in a test. The best we can do is return a fully
+        # default config:
+        return defaultRuntimeConfig
 
-  when const_preset == "mainnet":
-    mainnetMetadata.cfg
-  elif const_preset == "gnosis":
-    gnosisMetadata.cfg
-  else:
-    # This is a non-standard build (i.e. minimal), and the function was most
-    # likely executed in a test. The best we can do is return a fully default
-    # config:
-    defaultRuntimeConfig
+  return
+    case metadata.incompatible
+    of false:
+      metadata.cfg
+    of true:
+      # `getMetadataForNetwork` / `loadCompileTimeNetworkMetadata`
+      raiseAssert "Unreachable"

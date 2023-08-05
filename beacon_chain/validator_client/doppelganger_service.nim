@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,12 +20,6 @@ proc getCheckingList*(vc: ValidatorClientRef, epoch: Epoch): seq[ValidatorIndex]
         (validator.doppelCheck.isNone or validator.doppelCheck.get() < epoch):
       res.add validator.index.get()
   res
-
-proc waitForNextEpoch(service: DoppelgangerServiceRef) {.async.} =
-  let vc = service.client
-  let sleepTime = vc.beaconClock.durationToNextEpoch() + TIME_DELAY_FROM_SLOT
-  debug "Sleeping until next epoch", sleep_time = sleepTime
-  await sleepAsync(sleepTime)
 
 proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
                        activities: GetValidatorsLivenessResponse) =
@@ -79,12 +73,12 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   # before that, we can safely perform the check for epoch 0 and thus keep
   # validating in epoch 1
   if vc.beaconClock.now().slotOrZero() > GENESIS_SLOT:
-    await service.waitForNextEpoch()
+    await service.waitForNextEpoch(TIME_DELAY_FROM_SLOT)
 
   while try:
     # Wait for the epoch to end - at the end (or really, the beginning of the
     # next one, we ask what happened
-    await service.waitForNextEpoch()
+    await service.waitForNextEpoch(TIME_DELAY_FROM_SLOT)
     let
       currentEpoch = vc.currentSlot().epoch()
       previousEpoch =

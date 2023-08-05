@@ -9,7 +9,7 @@
 import
   stew/[base10, results],
   chronicles, chronos, eth/async_utils,
-  ./sync/sync_manager,
+  ./sync/[light_client_sync_helpers, sync_manager],
   ./consensus_object_pools/[block_clearance, blockchain_dag],
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync,
@@ -124,17 +124,38 @@ proc doTrustedNodeSync*(
       let tmp = if genesisState != nil:
         genesisState
       else:
-        notice "Downloading genesis state", restUrl
-        try:
-          awaitWithTimeout(
-              client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
-              largeRequestsTimeout):
-            info "Attempt to download genesis state timed out"
+        case syncTarget.kind
+        of TrustedNodeSyncKind.TrustedBlockRoot:
+          error "Genesis state is required when using `trustedBlockRoot`",
+            missingNetworkMetadataFile = "genesis.ssz"
+          # `genesis_time` and `genesis_validators_root` are required to check
+          # light client data signatures. They are not part of `config.yaml`.
+          # We could download the initial state based on `LightClientBootstrap`
+          # `state_root`, but that state is unlikely to be readily available and
+          # can be much larger than the genesis state. Furthermore, the major
+          # known networks bundle the `genesis.ssz` file with network metadata,
+          # so adding this complexity doesn't solve a practical usecase. Users
+          # on private networks may obtain a trusted `genesis.ssz` file and mark
+          # it as trusted by moving it into the network metadata folder.
+          #
+          # Note that `historical_roots` / `historical_summaries` may be used to
+          # prove correctness of a particular genesis state. However, there is
+          # currently no endpoint to obtain proofs, and they change for every
+          # slot, making it tricky to actually provide them.
+          quit 1
+        of TrustedNodeSyncKind.StateId:
+          notice "Downloading genesis state", restUrl
+          try:
+            awaitWithTimeout(
+                client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
+                largeRequestsTimeout):
+              info "Attempt to download genesis state timed out"
+              # https://github.com/nim-lang/Nim/issues/22180
+              (ref ForkedHashedBeaconState)(nil)
+          except CatchableError as exc:
+            info "Unable to download genesis state",
+              error = exc.msg, restUrl
             nil
-        except CatchableError as exc:
-          info "Unable to download genesis state",
-            error = exc.msg, restUrl
-          nil
 
       if isNil(tmp):
         notice "Server is missing genesis state, node will not be able to reindex history",
@@ -160,7 +181,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
@@ -169,9 +190,7 @@ proc doTrustedNodeSync*(
               slot: store.finalized_header.beacon.slot,
               state_root: store.finalized_header.beacon.state_root))
 
-        if genesisState == nil:
-          error "Genesis state is required when using `trustedBlockRoot`"
-          quit 1
+        doAssert genesisState != nil, "Already checked for `TrustedBlockRoot`"
         let
           beaconClock = BeaconClock.init(
             getStateField(genesisState[], genesis_time))
@@ -249,34 +268,16 @@ proc doTrustedNodeSync*(
             except CatchableError as exc:
               error "Unable to download LC updates", error = exc.msg
               quit 1
-          if updates.lenu64 > count:
-            error "Malformed LC updates response: Too many values"
+          let e = updates.checkLightClientUpdates(startPeriod, count)
+          if e.isErr:
+            error "Malformed LC updates response", resError = e.error
             quit 1
           if updates.len == 0:
             warn "Server does not appear to be fully synced"
             break
-          var expectedPeriod = startPeriod
           for i in 0 ..< updates.len:
             doAssert updates[i].kind > LightClientDataFork.None
             updates[i].migrateToDataFork(lcDataFork)
-            let
-              attPeriod = updates[i].forky(lcDataFork)
-                .attested_header.beacon.slot.sync_committee_period
-              sigPeriod = updates[i].forky(lcDataFork)
-                .signature_slot.sync_committee_period
-            if attPeriod != sigPeriod:
-              error "Malformed LC updates response: Conflicting periods"
-              quit 1
-            if attPeriod < expectedPeriod:
-              error "Malformed LC updates response: Unexpected period"
-              quit 1
-            if attPeriod > expectedPeriod:
-              if attPeriod > lastPeriod:
-                error "Malformed LC updates response: Period too high"
-                quit 1
-              expectedPeriod = attPeriod
-            inc expectedPeriod
-
             let res = process_light_client_update(
               store, updates[i].forky(lcDataFork),
               getBeaconTime().slotOrZero(), cfg, genesis_validators_root)
@@ -367,6 +368,12 @@ proc doTrustedNodeSync*(
       quit 1
 
     if genesisState != nil:
+      if getStateField(state[], genesis_time) !=
+          getStateField(genesisState[], genesis_time):
+        error "Checkpoint state does not match genesis",
+          timeInCheckpoint = getStateField(state[], genesis_time),
+          timeInGenesis = getStateField(genesisState[], genesis_time)
+        quit 1
       if getStateField(state[], genesis_validators_root) !=
           getStateField(genesisState[], genesis_validators_root):
         error "Checkpoint state does not match genesis",

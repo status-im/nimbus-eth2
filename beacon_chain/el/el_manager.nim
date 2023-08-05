@@ -25,6 +25,7 @@ import
 
 from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
+from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
   el_conf, engine_api, deques, base, DepositTreeSnapshot
@@ -87,9 +88,6 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#request-2
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
-
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/experimental/blob-extension.md#request-2
-  GETBLOBS_TIMEOUT = 1.seconds
 
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see
@@ -327,20 +325,23 @@ proc setDegradedState(connection: ELConnection,
 
 proc setWorkingState(connection: ELConnection) =
   case connection.state
+  of NeverTested:
+    connection.hysteresisCounter = 0
+    connection.state = Working
   of Degraded:
     if connection.increaseCounterTowardsStateChange():
       info "Connection to EL node restored",
         url = url(connection.engineUrl)
 
       connection.state = Working
-  of NeverTested, Working:
+  of Working:
     connection.decreaseCounterTowardsStateChange()
 
 proc trackEngineApiRequest(connection: ELConnection,
                            request: FutureBase, requestName: string,
                            startTime: Moment, deadline: Future[void],
                            failureAllowed = false) =
-  request.addCallback do (udata: pointer) {.gcsafe, raises: [Defect].}:
+  request.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
     # TODO `udata` is nil here. How come?
     # This forces us to create a GC cycle between the Future and the closure
     if request.completed:
@@ -350,7 +351,7 @@ proc trackEngineApiRequest(connection: ELConnection,
 
       connection.setWorkingState()
 
-  deadline.addCallback do (udata: pointer) {.gcsafe, raises: [Defect].}:
+  deadline.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
     if not request.finished:
       request.cancel()
       engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
@@ -424,11 +425,11 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
@@ -436,7 +437,7 @@ func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   compute_time_at_slot(
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -550,7 +551,8 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
-    excess_data_gas: rpcExecutionPayload.excessDataGas)
+    data_gas_used: rpcExecutionPayload.dataGasUsed.uint64,
+    excess_data_gas: rpcExecutionPayload.excessDataGas.uint64)
 
 func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     deneb.ExecutionPayloadForSigning =
@@ -562,6 +564,7 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
     # Both are defined as `array[N, byte]` under the hood.
     kzgs: KzgCommitments payload.blobsBundle.commitments.mapIt(it.bytes),
+    proofs: payload.blobsBundle.proofs.mapIt(it.bytes),
     blobs: Blobs payload.blobsBundle.blobs.mapIt(it.bytes)
   )
 
@@ -638,7 +641,8 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
-    excessDataGas: executionPayload.excess_data_gas)
+    dataGasUsed: Quantity(executionPayload.data_gas_used),
+    excessDataGas: Quantity(executionPayload.excess_data_gas))
 
 func shortLog*(b: Eth1Block): string =
   try:
@@ -902,13 +906,10 @@ proc getPayload*(m: ELManager,
     headBlock, safeBlock, finalizedBlock, timestamp,
     randomData, suggestedFeeRecipient, engineApiWithdrawals)
 
+  # `getPayloadFromSingleEL` may introduce additional latency
+  const extraProcessingOverhead = 500.milliseconds
   let
-    timeout = when PayloadType is deneb.ExecutionPayloadForSigning:
-      # TODO We should follow the spec and track the timeouts of
-      #      the individual engine API calls inside `getPayloadFromSingleEL`.
-      GETPAYLOAD_TIMEOUT + GETBLOBS_TIMEOUT
-    else:
-      GETPAYLOAD_TIMEOUT
+    timeout = GETPAYLOAD_TIMEOUT + extraProcessingOverhead
     deadline = sleepAsync(timeout)
     requests = m.elConnections.mapIt(it.getPayloadFromSingleEL(
       EngineApiResponseType(PayloadType),
@@ -1059,10 +1060,13 @@ proc sendNewPayloadToSingleEL(connection: ELConnection,
   return await rpcClient.engine_newPayloadV2(payload)
 
 proc sendNewPayloadToSingleEL(connection: ELConnection,
-                              payload: engine_api.ExecutionPayloadV3):
+                              payload: engine_api.ExecutionPayloadV3,
+                              versioned_hashes: seq[engine_api.VersionedHash],
+                              parent_beacon_block_root: FixedBytes[32]):
                               Future[PayloadStatusV1] {.async.} =
   let rpcClient = await connection.connectedRpcClient()
-  return await rpcClient.engine_newPayloadV3(payload)
+  return await rpcClient.engine_newPayloadV3(
+    payload, versioned_hashes, parent_beacon_block_root)
 
 type
   StatusRelation = enum
@@ -1154,15 +1158,30 @@ proc processResponse[ELResponseType](
             url2 = connections[idx].engineUrl.url,
             status2 = status
 
-proc sendNewPayload*(m: ELManager,
-                     payload: engine_api.ExecutionPayloadV1 | engine_api.ExecutionPayloadV2 | engine_api.ExecutionPayloadV3):
+proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
                      Future[PayloadExecutionStatus] {.async.} =
   let
     earlyDeadline = sleepAsync(chronos.seconds 1)
     startTime = Moment.now
     deadline = sleepAsync(NEWPAYLOAD_TIMEOUT)
+    payload = blck.body.execution_payload.asEngineExecutionPayload
     requests = m.elConnections.mapIt:
-      let req = sendNewPayloadToSingleEL(it, payload)
+      let req =
+        when payload is engine_api.ExecutionPayloadV3:
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
+          # Verify the execution payload is valid
+          # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
+          let versioned_hashes = mapIt(
+            blck.body.blob_kzg_commitments,
+            engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+          sendNewPayloadToSingleEL(
+            it, payload, versioned_hashes,
+            FixedBytes[32] blck.parent_root.data)
+        elif payload is engine_api.ExecutionPayloadV1 or
+             payload is engine_api.ExecutionPayloadV2:
+          sendNewPayloadToSingleEL(it, payload)
+        else:
+          static: doAssert false
       trackEngineApiRequest(it, req, "newPayload", startTime, deadline)
       req
 
@@ -1639,7 +1658,7 @@ proc trackFinalizedState(chain: var Eth1Chain,
     else:
       error "Corrupted deposits history detected",
             ourDepositsCount = matchingBlock.depositCount,
-            taretDepositsCount = finalizedEth1Data.deposit_count,
+            targetDepositsCount = finalizedEth1Data.deposit_count,
             ourDepositsRoot = matchingBlock.depositRoot,
             targetDepositsRoot = finalizedEth1Data.deposit_root
       chain.hasConsensusViolation = true
@@ -1661,7 +1680,7 @@ template trackFinalizedState*(m: ELManager,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,
@@ -1973,7 +1992,7 @@ func hasConnection*(m: ELManager): bool =
   m.elConnections.len > 0
 
 func hasAnyWorkingConnection*(m: ELManager): bool =
-  m.elConnections.anyIt(it.state == Working)
+  m.elConnections.anyIt(it.state == Working or it.state == NeverTested)
 
 func hasProperlyConfiguredConnection*(m: ELManager): bool =
   for connection in m.elConnections:
@@ -2113,7 +2132,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
 
 proc startChainSyncingLoop(m: ELManager) {.async.} =
-  info "Starting execution layer deposits syncing",
+  info "Starting execution layer deposit syncing",
         contract = $m.depositContractAddress
 
   var syncedConnectionFut = m.selectConnectionForChainSyncing()
@@ -2123,7 +2142,7 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
     try:
       await syncedConnectionFut or sleepAsync(60.seconds)
       if not syncedConnectionFut.finished:
-        warn "No suitable EL connection for deposit syncing"
+        notice "No synced execution layer available for deposit syncing"
         await sleepAsync(chronos.seconds(30))
         continue
 

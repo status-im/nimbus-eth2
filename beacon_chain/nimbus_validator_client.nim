@@ -6,7 +6,6 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import
   stew/io2, presto, metrics, metrics/chronos_httpserver,
-  libp2p/crypto/crypto,
   ./rpc/rest_key_management_api,
   ./validator_client/[
     common, fallback_service, duties_service, fork_service, block_service,
@@ -41,7 +40,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
         var bres: seq[BeaconNodeServerRef]
         for i in 0 ..< len(pendingRequests):
           let fut = pendingRequests[i]
-          if fut.done():
+          if fut.completed():
             let resp = fut.read()
             if resp.status == 200:
               debug "Received genesis information", endpoint = nodes[i],
@@ -129,7 +128,7 @@ proc initMetrics(vc: ValidatorClientRef): Future[bool] {.async.} =
                 error_msg = res.error()
           return false
         res.get()
-    vc.metricsServer = some(server)
+    vc.metricsServer = Opt.some(server)
     try:
       await server.start()
     except MetricsError as exc:
@@ -178,6 +177,8 @@ proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
     if checkIfShouldStopAtEpoch(wallSlot, vc.config.stopAtEpoch):
       return
 
+    vc.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
+
     if len(vc.beaconNodes) > 1:
       let
         counts = vc.getNodeCounts()
@@ -198,7 +199,8 @@ proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
         blockIn = vc.getDurationToNextBlock(wallSlot),
         validators = vc.attachedValidators[].count(),
         good_nodes = goodNodes, viable_nodes = viableNodes,
-        bad_nodes = badNodes, delay = shortLog(delay)
+        bad_nodes = badNodes,
+        delay = shortLog(delay)
     else:
       info "Slot start",
         slot = shortLog(wallSlot),
@@ -310,6 +312,15 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
   let
     keymanagerInitResult = initKeymanagerServer(vc.config, nil)
 
+  proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
+    if len(vc.forks) > 0:
+      Opt.some(vc.forkAtEpoch(epoch))
+    else:
+      Opt.none(Fork)
+
+  proc getGenesisRoot(): Eth2Digest =
+    vc.beaconGenesis.genesis_validators_root
+
   try:
     vc.fallbackService = await FallbackServiceRef.init(vc)
     vc.forkService = await ForkServiceRef.init(vc)
@@ -328,8 +339,12 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         vc.config.secretsDir,
         vc.config.defaultFeeRecipient,
         vc.config.suggestedGasLimit,
+        Opt.none(string),
         nil,
-        vc.beaconClock.getBeaconTimeFn)
+        vc.beaconClock.getBeaconTimeFn,
+        getForkForEpoch,
+        getGenesisRoot
+        )
 
   except CatchableError as exc:
     warn "Unexpected error encountered while initializing",
@@ -500,7 +515,7 @@ programMain:
 
     # Single RNG instance for the application - will be seeded on construction
     # and avoid using system resources (such as urandom) after that
-    rng = crypto.newRng()
+    rng = HmacDrbgContext.new()
 
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   waitFor runValidatorClient(config, rng)

@@ -11,7 +11,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types,
   ../validators/activity_metrics,
-  "."/[common, api, block_service]
+  "."/[common, api]
 
 const
   ServiceName = "sync_committee_service"
@@ -122,7 +122,7 @@ proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
         raise exc
 
       for future in pendingSyncCommitteeMessages:
-        if future.done():
+        if future.completed():
           if future.read():
             inc(succeed)
           else:
@@ -246,7 +246,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
   let validatorContributions = block:
     var res: seq[ContributionItem]
     for idx, fut in slotSignatureReqs:
-      if fut.done:
+      if fut.completed():
         let
           sigRes = fut.read
           validator = validators[idx][0]
@@ -316,7 +316,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
           raise err
 
         for future in pendingAggregates:
-          if future.done():
+          if future.completed():
             if future.read():
               inc(succeed)
             else:
@@ -340,7 +340,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
      async.} =
   let vc = service.client
 
-  await vc.waitForBlockPublished(slot, syncCommitteeMessageSlotOffset)
+  await vc.waitForBlock(slot, syncCommitteeMessageSlotOffset)
 
   block:
     let delay = vc.getDelay(slot.sync_committee_message_deadline())
@@ -457,7 +457,7 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
       try:
         let
           # We use zero offset here, because we do waiting in
-          # waitForBlockPublished(syncCommitteeMessageSlotOffset).
+          # waitForBlock(syncCommitteeMessageSlotOffset).
           slot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff,
                                                  false)
         if slot.isNone():

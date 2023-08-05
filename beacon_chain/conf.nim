@@ -7,7 +7,6 @@
 
 {.push raises: [].}
 
-
 import
   std/[strutils, os, options, unicode, uri],
   metrics,
@@ -119,6 +118,11 @@ type
   ImportMethod* {.pure.} = enum
     Normal = "normal"
     SingleSalt = "single-salt"
+
+  BlockMonitoringType* {.pure.} = enum
+    Disabled = "disabled"
+    Poll = "poll"
+    Event = "event"
 
   BeaconNodeConf* = object
     configFile* {.
@@ -234,6 +238,11 @@ type
       desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
       name: "num-threads" .}: int
 
+    useOldStabilitySubnets* {.
+      hidden
+      defaultValue: true
+      name: "debug-use-old-attestation-stability-subnets" .}: bool
+
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#key-distribution
     jwtSecret* {.
       desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
@@ -300,6 +309,12 @@ type
               "This option allows to enable/disable this functionality"
         defaultValue: false
         name: "enr-auto-update" .}: bool
+
+      enableYamux* {.
+        hidden
+        desc: "Enable the Yamux multiplexer"
+        defaultValue: false
+        name: "enable-yamux" .}: bool
 
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
@@ -597,8 +612,16 @@ type
 
       historyMode* {.
         desc: "Retention strategy for historical data (archive/prune)"
-        defaultValue: HistoryMode.Archive
+        defaultValue: HistoryMode.Prune
         name: "history".}: HistoryMode
+
+      # https://notes.ethereum.org/@bbusa/dencun-devnet-6
+      # "Please ensure that there is a way for us to specify the file through a
+      # runtime flag such as --trusted-setup-file (or similar)."
+      trustedSetupFile* {.
+        hidden
+        desc: "Experimental, debug option; could disappear at any time without warning"
+        name: "temporary-debug-trusted-setup-file" .}: Option[string]
 
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
@@ -944,6 +967,11 @@ type
       defaultValueDesc: $defaultBeaconNodeUri
       name: "beacon-node" .}: seq[Uri]
 
+    monitoringType* {.
+      desc: "Enable block monitoring which are seen by beacon node (BETA)"
+      defaultValue: BlockMonitoringType.Disabled
+      name: "block-monitor-type".}: BlockMonitoringType
+
   SigningNodeConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"
@@ -1147,10 +1175,9 @@ func parseCmdArg*(T: type WalletName, input: string): T
 func completeCmdArg*(T: type WalletName, input: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type enr.Record, p: string): T
-    {.raises: [ConfigurationError, Defect].} =
+proc parseCmdArg*(T: type enr.Record, p: string): T {.raises: [ValueError].} =
   if not fromURI(result, p):
-    raise newException(ConfigurationError, "Invalid ENR")
+    raise newException(ValueError, "Invalid ENR")
 
 func completeCmdArg*(T: type enr.Record, val: string): seq[string] =
   return @[]
@@ -1229,7 +1256,7 @@ proc readValue*(r: var TomlReader, value: var GraffitiBytes)
                {.raises: [Defect, SerializationError, IOError].} =
   try:
     value = GraffitiBytes.init(r.readValue(string))
-  except ValueError as err:
+  except ValueError:
     r.raiseUnexpectedValue("A printable string or 0x-prefixed hex-encoded raw bytes expected")
 
 proc readValue*(r: var TomlReader, val: var NatConfig)
@@ -1350,14 +1377,24 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
   (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)
 
 proc loadKzgTrustedSetup*(): Result[void, string] =
+  const
+    vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../vendor"
+    trustedSetupDir = vendorDir & "/nim-kzg4844/kzg4844/csources/src"
+
   const trustedSetup =
     when const_preset == "mainnet":
-      staticRead"../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt"
+      staticRead trustedSetupDir & "/trusted_setup.txt"
     elif const_preset == "minimal":
-      staticRead"../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup_4.txt"
+      staticRead trustedSetupDir & "/trusted_setup_4.txt"
     else:
       ""
   if const_preset == "mainnet" or const_preset == "minimal":
     Kzg.loadTrustedSetupFromString(trustedSetup)
   else:
     ok()
+
+proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
+  try:
+    Kzg.loadTrustedSetupFromString(readFile(trustedSetupPath))
+  except IOError as err:
+    err(err.msg)

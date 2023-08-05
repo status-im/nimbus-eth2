@@ -77,7 +77,7 @@ type
 func init*(T: type Quarantine): T =
   T()
 
-func checkMissing*(quarantine: var Quarantine): seq[FetchRecord] =
+func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
   var done: seq[Eth2Digest]
@@ -85,16 +85,17 @@ func checkMissing*(quarantine: var Quarantine): seq[FetchRecord] =
   for k, v in quarantine.missing.mpairs():
     if v.tries > 8:
       done.add(k)
-    else:
-      inc v.tries
 
   for k in done:
     quarantine.missing.del(k)
 
   # simple (simplistic?) exponential backoff for retries..
-  for k, v in quarantine.missing:
+  for k, v in quarantine.missing.mpairs:
+    v.tries += 1
     if countOnes(v.tries.uint64) == 1:
       result.add(FetchRecord(root: k))
+      if result.len >= max:
+        break
 
 # TODO stew/sequtils2
 template anyIt(s, pred: untyped): bool =
@@ -251,11 +252,11 @@ func clearAfterReorg*(quarantine: var Quarantine) =
 # likely imminent arrival.
 func addOrphan*(
     quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: ForkedSignedBeaconBlock): bool =
+    signedBlock: ForkedSignedBeaconBlock): Result[void, cstring] =
   ## Adds block to quarantine's `orphans` and `missing` lists.
   if not isViable(finalizedSlot, getForkedBlockField(signedBlock, slot)):
     quarantine.addUnviable(signedBlock.root)
-    return false
+    return err("block unviable")
 
   quarantine.cleanupOrphans(finalizedSlot)
 
@@ -263,19 +264,19 @@ func addOrphan*(
 
   if parent_root in quarantine.unviable:
     quarantine.unviable[signedBlock.root] = ()
-    return true
+    return err("block parent unviable")
 
   # Even if the quarantine is full, we need to schedule its parent for
   # downloading or we'll never get to the bottom of things
   quarantine.addMissing(parent_root)
 
   if quarantine.orphans.lenu64 >= MaxOrphans:
-    return false
+    return err("block quarantine full")
 
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
   quarantine.missing.del(signedBlock.root)
 
-  true
+  ok()
 
 iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
          ForkedSignedBeaconBlock =

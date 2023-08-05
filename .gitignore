@@ -51,7 +51,7 @@ build/
 test_keymanager_api
 test_sim
 
-/libnfuzz_linkerArgs.txt
+/*linkerArgs.txt
 
 # scripts/geth_binaries.sh
 geth-*.tar.gz

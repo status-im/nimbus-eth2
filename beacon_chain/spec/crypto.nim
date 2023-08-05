@@ -95,7 +95,7 @@ export
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
   ## Derive a public key from a private key
@@ -203,7 +203,7 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
   sig.finish(agg)
   CookedSig(sig)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#bls-signatures
 func blsVerify*(
     pubkey: CookedPubKey, message: openArray[byte],
     signature: CookedSig): bool =
@@ -216,7 +216,7 @@ func blsVerify*(
   ## to enforce correct usage.
   PublicKey(pubkey).verify(message, blscurve.Signature(signature))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: CookedSig): bool =
@@ -490,6 +490,7 @@ func infinity*(T: type ValidatorSig): T =
 func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
   var
     pubkey: blscurve.PublicKey
@@ -497,6 +498,7 @@ proc keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
   result.ok default(blscurve.SecretKey)
   if not keyGen(bytes, pubkey, result.value):
     return err "key generation failed"
+{.pop.}
 
 proc secretShareId(x: uint32) : blscurve.ID =
   let bytes: array[8, uint32] = [uint32 x, 0, 0, 0, 0, 0, 0, 0]

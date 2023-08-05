@@ -9,7 +9,7 @@
 
 import
   # Status libraries
-  chronos, eth/keys,
+  chronos,
   # Beacon chain internals
   ../beacon_chain/consensus_object_pools/
     [block_clearance, block_quarantine, blockchain_dag],
@@ -42,13 +42,15 @@ suite "Light client processor" & preset():
         serve: true,
         importMode: LightClientDataImportMode.OnlyNew))
     quarantine = newClone(Quarantine.init())
+    rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
-  var verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+  var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
 
   var cache: StateCache
   proc addBlocks(blocks: uint64, syncCommitteeRatio: float) =
-    for blck in makeTestBlocks(dag.headState, cache, blocks.int,
-                               attested = true, syncCommitteeRatio, cfg):
+    for blck in makeTestBlocks(
+        dag.headState, cache, blocks.int, attested = true,
+        syncCommitteeRatio = syncCommitteeRatio, cfg = cfg):
       let added =
         case blck.kind
         of ConsensusFork.Phase0:

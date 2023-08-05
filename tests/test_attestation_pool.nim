@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,7 +13,7 @@ import
   unittest2,
   chronicles, chronos,
   stew/byteutils,
-  eth/keys, taskpools,
+  taskpools,
   # Internal
   ../beacon_chain/gossip_processing/[gossip_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
@@ -58,13 +58,14 @@ suite "Attestation pool processing" & preset():
 
   setup:
     # Genesis state that results in 6 members per committee
+    let rng = HmacDrbgContext.new()
     var
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(
         ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 6),
         validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
@@ -164,12 +165,12 @@ suite "Attestation pool processing" & preset():
     # An additional compatibility check catches that (used in block production)
     withState(state[]):
       check:
-        check_attestation_compatible(dag, forkyState.data, att1).isOk
-        check_attestation_compatible(dag, forkyState.data, att2).isErr
+        check_attestation_compatible(dag, forkyState, att1).isOk
+        check_attestation_compatible(dag, forkyState, att2).isErr
     withState(state2[]):
       check:
-        check_attestation_compatible(dag, forkyState.data, att1).isErr
-        check_attestation_compatible(dag, forkyState.data, att2).isOk
+        check_attestation_compatible(dag, forkyState, att1).isErr
+        check_attestation_compatible(dag, forkyState, att2).isOk
 
   test "Can add and retrieve simple attestations" & preset():
     let
