@@ -391,8 +391,8 @@ endif
 		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 6 + 0 )) \
 		NIMBUS_TEST_SIGNING_NODE_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 6 + 4 )) \
 			build/$${TEST_BINARY} $${PARAMS} || { \
-				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 1000 lines from the log:"; \
-				tail -n1000 "$${TEST_BINARY}.log"; exit 1; \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 2000 lines from the log:"; \
+				tail -n2000 "$${TEST_BINARY}.log"; exit 1; \
 			}; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
@@ -406,13 +406,13 @@ endif
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
 		if [[ "$${REDIRECT}" != "" ]]; then \
 			build/$${TEST_BINARY} $${PARAMS} > "$${REDIRECT}" && echo "OK" || { \
-				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 1000 lines from the log:"; \
-				tail -n1000 "$${TEST_BINARY}.log"; exit 1; \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 2000 lines from the log:"; \
+				tail -n2000 "$${TEST_BINARY}.log"; exit 1; \
 			}; \
 		else \
 			build/$${TEST_BINARY} $${PARAMS} || { \
-				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 1000 lines from the log:"; \
-				tail -n1000 "$${TEST_BINARY}.log"; exit 1; \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 2000 lines from the log:"; \
+				tail -n2000 "$${TEST_BINARY}.log"; exit 1; \
 			}; \
 		fi; \
 		done; \
