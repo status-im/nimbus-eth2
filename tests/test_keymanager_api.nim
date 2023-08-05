@@ -1494,7 +1494,7 @@ let
 
 for topicName in [
     "libp2p", "gossipsub", "gossip_eth2", "message_router", "batch_validation",
-    "syncpool"]:
+    "syncpool", "syncman", "fork_choice", "attpool"]:
   doAssert setTopicState(topicName, Disabled)
 
 waitFor main(basePort)
