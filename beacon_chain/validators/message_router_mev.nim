@@ -13,7 +13,6 @@ import ../beacon_node
 
 from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
-from ../spec/mev/rest_bellatrix_mev_calls import submitBlindedBlock
 from ../spec/mev/rest_capella_mev_calls import submitBlindedBlock
 
 const
