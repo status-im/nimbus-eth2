@@ -1276,11 +1276,11 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   if rlpHash(blockHeader) != executionHash[]:
     return nil
 
-  let executionBlockHeader = ETHExecutionBlockHeader.create()
+  let executionBlockHeader = ETHExecutionBlockHeader.new()
   executionBlockHeader[] = ETHExecutionBlockHeader(
     txRoot: blockHeader.txRoot,
     withdrawalsRoot: blockHeader.withdrawalsRoot.get(ZERO_HASH))
-  executionBlockHeader
+  executionBlockHeader.toUnmanagedPtr()
 
 proc ETHExecutionBlockHeaderDestroy(
     executionBlockHeader: ptr ETHExecutionBlockHeader) {.exported.} =
