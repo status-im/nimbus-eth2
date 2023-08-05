@@ -285,8 +285,7 @@ XML_TEST_BINARIES := \
 # test suite
 TEST_BINARIES := \
 	state_sim \
-	block_sim \
-	test_libnimbus_lc
+	block_sim
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
 
 # Preset-dependent tests
