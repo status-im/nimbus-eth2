@@ -550,7 +550,9 @@ proc init*(T: type BeaconNode,
       try:
         newClone readSszForkedHashedBeaconState(cfg, metadata.genesisBytes)
       except CatchableError as err:
-        raiseAssert "Invalid baked-in state: " & err.msg
+        raiseAssert "Invalid baked-in state of length " &
+          $metadata.genesisBytes.len & " and eth2digest " &
+          $eth2digest(metadata.genesisBytes) & ": " & err.msg
     else:
       nil
 
