@@ -22,6 +22,9 @@ from  ../spec/state_transition_block import validate_blobs
 
 export eth2_processor, eth2_network
 
+logScope:
+  topics = "message_router"
+
 declareCounter beacon_voluntary_exits_sent,
   "Number of beacon voluntary sent by this node"
 
