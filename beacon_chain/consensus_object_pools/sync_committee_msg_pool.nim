@@ -17,6 +17,9 @@ import
 
 export hashes, sets, tables, altair
 
+logScope:
+  topics = "syncpool"
+
 const
   syncCommitteeMsgsRetentionSlots = 3
     ## How many slots to retain sync committee

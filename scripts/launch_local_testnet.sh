@@ -930,7 +930,7 @@ if [[ "${LIGHTHOUSE_VC_NODES}" != "0" ]]; then
 fi
 
 dump_logs() {
-  LOG_LINES=1000
+  LOG_LINES=100
   for LOG in "${DATA_DIR}"/logs/*; do
     echo "Last ${LOG_LINES} lines of ${LOG}:"
     tail -n ${LOG_LINES} "${LOG}"
