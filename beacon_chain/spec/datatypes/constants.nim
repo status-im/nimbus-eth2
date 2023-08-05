@@ -16,6 +16,21 @@ type
   DomainType* = distinct array[4, byte]
 
 const
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#constants
+  NODE_ID_BITS* = 256
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#configuration
+  EPOCHS_PER_SUBNET_SUBSCRIPTION* = 256
+  SUBNETS_PER_NODE* = 2'u64
+  ATTESTATION_SUBNET_COUNT*: uint64 = 64
+  ATTESTATION_SUBNET_EXTRA_BITS* = 0
+  ATTESTATION_SUBNET_PREFIX_BITS* = 6 ## \
+    ## int(ceillog2(ATTESTATION_SUBNET_COUNT) + ATTESTATION_SUBNET_EXTRA_BITS)
+
+static: doAssert 1 shl (ATTESTATION_SUBNET_PREFIX_BITS - ATTESTATION_SUBNET_EXTRA_BITS) ==
+  ATTESTATION_SUBNET_COUNT
+
+const
   # 2^64 - 1 in spec
   FAR_FUTURE_SLOT* = Slot(not 0'u64)
   FAR_FUTURE_EPOCH* = Epoch(not 0'u64)
@@ -36,17 +51,17 @@ const
   DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF* = DomainType([byte 0x08, 0x00, 0x00, 0x00])
   DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/capella/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#domain-types
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0a, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#domain-types
   DOMAIN_BLOB_SIDECAR* = DomainType([byte 0x0b, 0x00, 0x00, 0x00])
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#transition-settings
   TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH* = FAR_FUTURE_EPOCH
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#configuration
-  ATTESTATION_SUBNET_COUNT*: uint64 = 64
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#configuration
+  BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 6

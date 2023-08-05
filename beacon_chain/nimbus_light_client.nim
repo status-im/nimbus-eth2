@@ -113,7 +113,7 @@ programMain:
             template payload(): auto = blck.message.body.execution_payload
 
             if elManager != nil and not payload.block_hash.isZero:
-              discard await elManager.newExecutionPayload(blck.message.body)
+              discard await elManager.newExecutionPayload(blck.message)
               discard await elManager.forkchoiceUpdated(
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value
@@ -124,7 +124,7 @@ programMain:
             template payload(): auto = blck.message.body.execution_payload
 
             if elManager != nil and not payload.block_hash.isZero:
-              discard await elManager.newExecutionPayload(blck.message.body)
+              discard await elManager.newExecutionPayload(blck.message)
               discard await elManager.forkchoiceUpdated(
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value

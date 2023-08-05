@@ -177,6 +177,8 @@ proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
     if checkIfShouldStopAtEpoch(wallSlot, vc.config.stopAtEpoch):
       return
 
+    vc.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
+
     if len(vc.beaconNodes) > 1:
       let
         counts = vc.getNodeCounts()
@@ -197,7 +199,8 @@ proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
         blockIn = vc.getDurationToNextBlock(wallSlot),
         validators = vc.attachedValidators[].count(),
         good_nodes = goodNodes, viable_nodes = viableNodes,
-        bad_nodes = badNodes, delay = shortLog(delay)
+        bad_nodes = badNodes,
+        delay = shortLog(delay)
     else:
       info "Slot start",
         slot = shortLog(wallSlot),
@@ -336,6 +339,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         vc.config.secretsDir,
         vc.config.defaultFeeRecipient,
         vc.config.suggestedGasLimit,
+        Opt.none(string),
         nil,
         vc.beaconClock.getBeaconTimeFn,
         getForkForEpoch,

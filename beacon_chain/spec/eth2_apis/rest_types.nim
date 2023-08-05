@@ -14,15 +14,16 @@
 {.push raises: [].}
 
 import
-  std/json,
+  std/[json, tables],
   stew/base10, web3/ethtypes,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
-  ".."/mev/[bellatrix_mev, capella_mev]
+  ".."/mev/[bellatrix_mev, capella_mev, deneb_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
 
-export forks, phase0, altair, bellatrix, capella, bellatrix_mev, capella_mev
+export forks, phase0, altair, bellatrix, capella, bellatrix_mev, capella_mev,
+       deneb_mev, tables
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -331,7 +332,7 @@ type
 
   DenebBlockContents* = object
     `block`*: deneb.BeaconBlock
-    blob_sidecars*: List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+    blob_sidecars*: List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
 
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
@@ -376,7 +377,7 @@ type
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/presets/mainnet/altair.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/altair.yaml
     INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
@@ -385,7 +386,7 @@ type
     MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     UPDATE_TIMEOUT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/presets/mainnet/bellatrix.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/bellatrix.yaml
     INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
@@ -394,7 +395,7 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/presets/mainnet/capella.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/capella.yaml
     MAX_BLS_TO_EXECUTION_CHANGES*: uint64
     MAX_WITHDRAWALS_PER_PAYLOAD*: uint64
     MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP*: uint64
@@ -474,42 +475,11 @@ type
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
     ATTESTATION_SUBNET_COUNT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#constants
     TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
     SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 
-  # The `RestSpec` is a dynamic dictionary that includes version-specific spec
-  # constants. New versions may introduce new constants, and remove old ones.
-  # The Nimbus validator client fetches the remote spec to determine whether it
-  # is connected to a compatible beacon node. For this purpose, it only needs to
-  # verify a small set of relevant spec constants. To avoid rejecting a remote
-  # spec that includes all of those relevant spec constants, but that does not
-  # include all of the locally known spec constants, a separate type is defined
-  # that includes just the spec constants relevant for the validator client.
-  # Extra spec constants are silently ignored.
-  RestSpecVC* = object
-    # /!\ Keep in sync with `validator_client/api.nim` > `checkCompatible`.
-    MAX_VALIDATORS_PER_COMMITTEE*: uint64
-    SLOTS_PER_EPOCH*: uint64
-    SECONDS_PER_SLOT*: uint64
-    EPOCHS_PER_ETH1_VOTING_PERIOD*: uint64
-    SLOTS_PER_HISTORICAL_ROOT*: uint64
-    EPOCHS_PER_HISTORICAL_VECTOR*: uint64
-    EPOCHS_PER_SLASHINGS_VECTOR*: uint64
-    HISTORICAL_ROOTS_LIMIT*: uint64
-    VALIDATOR_REGISTRY_LIMIT*: uint64
-    MAX_PROPOSER_SLASHINGS*: uint64
-    MAX_ATTESTER_SLASHINGS*: uint64
-    MAX_ATTESTATIONS*: uint64
-    MAX_DEPOSITS*: uint64
-    MAX_VOLUNTARY_EXITS*: uint64
-    DOMAIN_BEACON_PROPOSER*: DomainType
-    DOMAIN_BEACON_ATTESTER*: DomainType
-    DOMAIN_RANDAO*: DomainType
-    DOMAIN_DEPOSIT*: DomainType
-    DOMAIN_VOLUNTARY_EXIT*: DomainType
-    DOMAIN_SELECTION_PROOF*: DomainType
-    DOMAIN_AGGREGATE_AND_PROOF*: DomainType
+  VCRuntimeConfig* = Table[string, string]
 
   RestDepositContract* = object
     chain_id*: string
@@ -657,6 +627,15 @@ type
   RestRoot* = object
     root*: Eth2Digest
 
+  RestNimbusTimestamp1* = object
+    timestamp1*: uint64
+
+  RestNimbusTimestamp2* = object
+    timestamp1*: uint64
+    timestamp2*: uint64
+    timestamp3*: uint64
+    delay*: uint64
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
@@ -673,6 +652,7 @@ type
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
   GetHeaderResponseBellatrix* = DataVersionEnclosedObject[bellatrix_mev.SignedBuilderBid]
   GetHeaderResponseCapella* = DataVersionEnclosedObject[capella_mev.SignedBuilderBid]
+  GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
@@ -683,7 +663,7 @@ type
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]
   GetSpecResponse* = DataEnclosedObject[RestSpec]
-  GetSpecVCResponse* = DataEnclosedObject[RestSpecVC]
+  GetSpecVCResponse* = DataEnclosedObject[VCRuntimeConfig]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]
   GetStateRootResponse* = DataOptimisticObject[RestRoot]
@@ -701,6 +681,7 @@ type
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponseBellatrix* = DataEnclosedObject[bellatrix.ExecutionPayload]
   SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
+  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb.ExecutionPayload]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
 

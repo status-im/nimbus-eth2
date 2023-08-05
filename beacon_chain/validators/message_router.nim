@@ -18,6 +18,7 @@ import
   ../networking/eth2_network,
   ./activity_metrics,
   ../spec/datatypes/deneb
+from  ../spec/state_transition_block import validate_blobs
 
 export eth2_processor, eth2_network
 
@@ -78,9 +79,14 @@ template blockProcessor(router: MessageRouter): ref BlockProcessor =
 template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
   router.processor[].getCurrentBeaconTime()
 
+type SignedBlobSidecars* = seq[SignedBlobSidecar]
+func shortLog*(v: SignedBlobSidecars): auto =
+  "[" & v.mapIt(shortLog(it)).join(", ") & "]"
+
 type RouteBlockResult = Result[Opt[BlockRef], cstring]
 proc routeSignedBeaconBlock*(
-    router: ref MessageRouter, blck: ForkySignedBeaconBlock):
+    router: ref MessageRouter, blck: ForkySignedBeaconBlock,
+  blobsOpt: Opt[SignedBlobSidecars]):
     Future[RouteBlockResult] {.async.} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
@@ -93,21 +99,35 @@ proc routeSignedBeaconBlock*(
     let res = validateBeaconBlock(
       router[].dag, router[].quarantine, blck, wallTime, {})
 
-    # TODO blob gossip validation
-    debugRaiseAssert $denebImplementationMissing
-
     if not res.isGoodForSending():
       warn "Block failed validation",
         blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
         signature = shortLog(blck.signature), error = res.error()
       return err(res.error()[1])
 
+    when typeof(blck).toFork() >= ConsensusFork.Deneb:
+      if blobsOpt.isSome:
+        let blobs = blobsOpt.get()
+        let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
+        if blobs.len > 0 or kzgCommits.len > 0:
+          let res = validate_blobs(kzgCommits, blobs.mapIt(it.message.blob),
+                                   blobs.mapIt(it.message.kzg_proof))
+          if res.isErr():
+            warn "blobs failed validation",
+              blockRoot = shortLog(blck.root),
+              blobs = shortLog(blobs),
+              blck = shortLog(blck.message),
+              signature = shortLog(blck.signature),
+              msg = res.error()
+            return err(res.error())
+
   let
     sendTime = router[].getCurrentBeaconTime()
     delay = sendTime - blck.message.slot.block_deadline()
-    # The block passed basic gossip validation - we can "safely" broadcast it
-    # now. In fact, per the spec, we should broadcast it even if it later fails
-    # to apply to our state.
+    # The block (and blobs, if present) passed basic gossip validation
+    # - we can "safely" broadcast it now. In fact, per the spec, we
+    # should broadcast it even if it later fails to apply to our
+    # state.
 
   let res = await router[].network.broadcastBeaconBlock(blck)
 
@@ -123,8 +143,26 @@ proc routeSignedBeaconBlock*(
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature), error = res.error()
 
+  var blobs = Opt.none(seq[ref BlobSidecar])
+  if blobsOpt.isSome():
+    let signedBlobs = blobsOpt.get()
+    var workers = newSeq[Future[SendResult]](signedBlobs.len)
+    for i in 0..<signedBlobs.len:
+      let subnet_id = compute_subnet_for_blob_sidecar(BlobIndex(i))
+      workers[i] = router[].network.broadcastBlobsidecar(subnet_id, signedBlobs[i])
+    let allres = await allFinished(workers)
+    for i in 0..<allres.len:
+      let res = allres[i]
+      doAssert res.finished()
+      if res.failed():
+        notice "Blob not sent",
+         blob = shortLog(signedBlobs[i])
+      else:
+        notice "Blob sent", blob = shortLog(signedBlobs[i]), error = res.error[]
+    blobs = Opt.some(blobsOpt.get().mapIt(newClone(it.message)))
+
   let newBlockRef = await router[].blockProcessor.storeBlock(
-    MsgSource.api, sendTime, blck, Opt.none(BlobSidecars))
+    MsgSource.api, sendTime, blck, blobs)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain

@@ -104,13 +104,15 @@ type
     capella_mev.SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
-    Web3SignerRequest
+    Web3SignerRequest |
+    RestNimbusTimestamp1
 
   EncodeOctetTypes* =
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
     capella.SignedBeaconBlock |
-    phase0.SignedBeaconBlock
+    phase0.SignedBeaconBlock |
+    DenebSignedBlockContents
 
   EncodeArrays* =
     seq[Attestation] |
@@ -150,7 +152,9 @@ type
     GetStateRootResponse |
     GetBlockRootResponse |
     SomeForkedLightClientObject |
-    seq[SomeForkedLightClientObject]
+    seq[SomeForkedLightClientObject] |
+    RestNimbusTimestamp1 |
+    RestNimbusTimestamp2
 
   DecodeConsensysTypes* =
     ProduceBlockResponseV2 | ProduceBlindedBlockResponse
@@ -666,7 +670,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   for e in reader.readArray(string):
     let parsed = try:
       parseBiggestUInt(e)
-    except ValueError as err:
+    except ValueError:
       reader.raiseUnexpectedValue(
         "A string-encoded 8-bit usigned integer value expected")
 
@@ -1196,103 +1200,30 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
   prepareForkedBlockReading(reader, version, data,
                             "Web3SignerForkedBeaconBlock")
 
-  case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             phase0.BeaconBlock,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[phase0.BeaconBlock]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Phase0,
-      phase0Data: res.get())
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             altair.BeaconBlock,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[altair.BeaconBlock]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect altair block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Altair,
-      altairData: res.get())
-  of ConsensusFork.Bellatrix:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             BeaconBlockHeader,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[BeaconBlockHeader]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect bellatrix block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Bellatrix,
-      bellatrixData: res.get())
-  of ConsensusFork.Capella:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             BeaconBlockHeader,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[BeaconBlockHeader]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect capella block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Capella,
-      capellaData: res.get())
-  of ConsensusFork.Deneb:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()),
-                             BeaconBlockHeader,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[BeaconBlockHeader]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect deneb block format")
-    value = Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Deneb,
-      denebData: res.get())
+  let res =
+    try:
+      some(RestJson.decode(string(data.get()),
+                           BeaconBlockHeader,
+                           requireAllFields = true,
+                           allowUnknownFields = true))
+    except SerializationError:
+      none[BeaconBlockHeader]()
+  if res.isNone():
+    reader.raiseUnexpectedValue("Incorrect block header format")
+  if version.get() <= ConsensusFork.Altair:
+    reader.raiseUnexpectedValue(
+      "Web3Signer implementation supports Bellatrix and newer")
+  value = Web3SignerForkedBeaconBlock(kind: version.get(), data: res.get())
 
 proc writeValue*[
     BlockType: Web3SignerForkedBeaconBlock](
     writer: var JsonWriter[RestJson],
     value: BlockType) {.raises: [IOError, Defect].} =
-  template forkIdentifier(id: string): auto = (static toUpperAscii id)
-
   # https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
   # https://github.com/ConsenSys/web3signer/blob/d51337e96ba5ce410222943556bed7c4856b8e57/core/src/main/java/tech/pegasys/web3signer/core/service/http/handlers/signing/eth2/json/BlockRequestDeserializer.java#L42-L58
   writer.beginRecord()
-  case value.kind
-  of ConsensusFork.Phase0:
-    writer.writeField("version", forkIdentifier "phase0")
-    writer.writeField("block", value.phase0Data)
-  of ConsensusFork.Altair:
-    writer.writeField("version", forkIdentifier "altair")
-    writer.writeField("block", value.altairData)
-  of ConsensusFork.Bellatrix:
-    writer.writeField("version", forkIdentifier "bellatrix")
-    writer.writeField("block_header", value.bellatrixData)
-  of ConsensusFork.Capella:
-    writer.writeField("version", forkIdentifier "capella")
-    writer.writeField("block_header", value.capellaData)
-  of ConsensusFork.Deneb:
-    writer.writeField("version", forkIdentifier "deneb")
-    writer.writeField("block_header", value.denebData)
+  writer.writeField("version", value.kind.toString.toUpperAscii)
+  writer.writeField("block", value.data)
   writer.endRecord()
 
 proc writeValue*[
@@ -1535,7 +1466,32 @@ proc readValue*(reader: var JsonReader[RestJson],
       value.capellaBody.execution_payload.withdrawals,
       ep_src.withdrawals.get())
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    value = RestPublishedBeaconBlockBody(
+      kind: ConsensusFork.Deneb,
+      denebBody: deneb.BeaconBlockBody(
+        randao_reveal: randao_reveal.get(),
+        eth1_data: eth1_data.get(),
+        graffiti: graffiti.get(),
+        proposer_slashings: proposer_slashings.get(),
+        attester_slashings: attester_slashings.get(),
+        attestations: attestations.get(),
+        deposits: deposits.get(),
+        voluntary_exits: voluntary_exits.get(),
+        sync_aggregate: sync_aggregate.get(),
+        bls_to_execution_changes: bls_to_execution_changes.get(),
+        blob_kzg_commitments: blob_kzg_commitments.get()
+      )
+    )
+    copy_ep_bellatrix(value.denebBody.execution_payload)
+    assign(
+      value.denebBody.execution_payload.withdrawals,
+      ep_src.withdrawals.get())
+    assign(
+      value.denebBody.execution_payload.data_gas_used,
+      ep_src.data_gas_used.get())
+    assign(
+      value.denebBody.execution_payload.excess_data_gas,
+      ep_src.excess_data_gas.get())
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -2751,7 +2707,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         let key =
           try:
             parseKeystore(item)
-          except SerializationError as exc:
+          except SerializationError:
             # TODO re-raise the exception by adjusting the column index, so the user
             # will get an accurate syntax error within the larger message
             reader.raiseUnexpectedValue("Invalid keystore format")
@@ -2766,7 +2722,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                           SPDIR,
                           requireAllFields = true,
                           allowUnknownFields = true)
-        except SerializationError as exc:
+        except SerializationError:
           reader.raiseUnexpectedValue("Invalid slashing protection format")
       some(db)
     else:
@@ -2991,6 +2947,16 @@ proc readValue*(reader: var JsonReader[RestJson],
     code: code.get(), message: message.get(),
     stacktraces: stacktraces
   )
+
+## VCRuntimeConfig
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var VCRuntimeConfig) {.
+     raises: [SerializationError, IOError, Defect].} =
+  for fieldName in readObjectFields(reader):
+    let fieldValue = reader.readValue(string)
+    if value.hasKeyOrPut(toUpperAscii(fieldName), fieldValue):
+      let msg = "Multiple `" & fieldName & "` fields found"
+      reader.raiseUnexpectedField(msg, "VCRuntimeConfig")
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

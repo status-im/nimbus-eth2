@@ -127,6 +127,8 @@ The following options are available:
 ...
 ```
 
+Any `debug`-prefixed flags are considered ephemeral and subject to removal without notice.
+
 ## Configuration files
 
 All command line options can also be provided in a [TOML](https://toml.io/en/)

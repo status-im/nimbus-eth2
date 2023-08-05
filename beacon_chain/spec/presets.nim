@@ -23,7 +23,6 @@ const
 
   # Constants from `validator.md` not covered by config/presets in the spec
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
-  RANDOM_SUBNETS_PER_VALIDATOR*: uint64 = 1
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64 = 256
 
 type
@@ -91,6 +90,7 @@ const
   ignoredValues = [
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
     "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
+    "RANDOM_SUBNETS_PER_VALIDATOR",    # Removed in consensus-specs v1.4.0
   ]
 
 when const_preset == "mainnet":
@@ -468,7 +468,7 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError, Defect].} =
   DomainType hexToByteArray(input, 4)
 
-proc readRuntimeConfig(
+proc readRuntimeConfig*(
     fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
     raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
   var
@@ -562,7 +562,6 @@ proc readRuntimeConfig(
   checkCompatibility MAX_VOLUNTARY_EXITS
 
   checkCompatibility TARGET_AGGREGATORS_PER_COMMITTEE
-  checkCompatibility RANDOM_SUBNETS_PER_VALIDATOR
   checkCompatibility EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION
   checkCompatibility ATTESTATION_SUBNET_COUNT
 

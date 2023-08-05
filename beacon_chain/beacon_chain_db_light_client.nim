@@ -140,7 +140,7 @@ type
 template disposeSafe(s: untyped): untyped =
   if distinctBase(s) != nil:
     s.dispose()
-    s = nil
+    s = typeof(s)(nil)
 
 proc initHeadersStore(
     backend: SqStoreRef,

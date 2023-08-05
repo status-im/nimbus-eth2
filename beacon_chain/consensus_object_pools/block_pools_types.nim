@@ -279,43 +279,14 @@ type
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
-  # TODO when Nim 1.2 support is dropped, make these generic. 1.2 generates
-  # invalid C code, which gcc refuses to compile. Example test case:
-  # type
-  #   OnBlockAdded[T] = proc(x: T)
-  #   OnPhase0BlockAdded = OnBlockAdded[int]
-  # proc f(x: OnPhase0BlockAdded) = discard
-  # const nilCallback = OnPhase0BlockAdded(nil)
-  # f(nilCallback)
-  OnPhase0BlockAdded* = proc(
-    blckRef: BlockRef,
-    blck: phase0.TrustedSignedBeaconBlock,
-    epochRef: EpochRef,
+  OnBlockAdded[T] = proc(
+    blckRef: BlockRef, blck: T, epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
-
-  OnAltairBlockAdded* = proc(
-    blckRef: BlockRef,
-    blck: altair.TrustedSignedBeaconBlock,
-    epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
-
-  OnBellatrixBlockAdded* = proc(
-    blckRef: BlockRef,
-    blck: bellatrix.TrustedSignedBeaconBlock,
-    epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
-
-  OnCapellaBlockAdded* = proc(
-    blckRef: BlockRef,
-    blck: capella.TrustedSignedBeaconBlock,
-    epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
-
-  OnDenebBlockAdded* = proc(
-    blckRef: BlockRef,
-    blck: deneb.TrustedSignedBeaconBlock,
-    epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+  OnPhase0BlockAdded* = OnBlockAdded[phase0.TrustedSignedBeaconBlock]
+  OnAltairBlockAdded* = OnBlockAdded[altair.TrustedSignedBeaconBlock]
+  OnBellatrixBlockAdded* = OnBlockAdded[bellatrix.TrustedSignedBeaconBlock]
+  OnCapellaBlockAdded* = OnBlockAdded[capella.TrustedSignedBeaconBlock]
+  OnDenebBlockAdded* = OnBlockAdded[deneb.TrustedSignedBeaconBlock]
 
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
