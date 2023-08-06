@@ -809,14 +809,11 @@ proc proposeBlockAux(
 
   let payloadBuilderClientMaybe = node.getPayloadBuilderClient(
     validator_index.distinctBase)
-  if payloadBuilderClientMaybe.isErr:
-    warn "Unable to initialize payload builder client while proposing block",
-      err = payloadBuilderClientMaybe.error
-  else:
+  if payloadBuilderClientMaybe.isOk:
     payloadBuilderClient = payloadBuilderClientMaybe.get
 
   let usePayloadBuilder =
-    if node.config.payloadBuilderEnable and payloadBuilderClientMaybe.isOk:
+    if payloadBuilderClientMaybe.isOk:
       withState(node.dag.headState):
         # Head slot, not proposal slot, matters here
         # TODO it might make some sense to allow use of builder API if local
