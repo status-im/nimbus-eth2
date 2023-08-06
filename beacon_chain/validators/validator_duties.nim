@@ -822,7 +822,7 @@ proc proposeBlockAux(
     payloadBuilderClient = payloadBuilderClientMaybe.get
 
   let usePayloadBuilder =
-    if node.config.payloadBuilderEnable and payloadBuilderClientMaybe.isOk:
+    if payloadBuilderClientMaybe.isOk:
       withState(node.dag.headState):
         # Head slot, not proposal slot, matters here
         # TODO it might make some sense to allow use of builder API if local
