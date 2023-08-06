@@ -171,6 +171,7 @@ libbacktrace:
 
 # Make sure ports don't overlap to support concurrent execution of tests
 # Avoid selecting ephemeral ports that may be used by others; safe = 5001-9999
+# - Port 9952 sometimes reports (48) Address already in use.
 #
 # EXECUTOR_NUMBER: [0, 2] (depends on max number of concurrent CI jobs)
 #
@@ -199,7 +200,7 @@ libbacktrace:
 # - --base-el-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
-UNIT_TEST_BASE_PORT := 9950
+UNIT_TEST_BASE_PORT := 9960
 REST_TEST_BASE_PORT := 9990
 
 restapi-test:
