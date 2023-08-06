@@ -5,12 +5,26 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import ".."/datatypes/[altair, capella]
 from stew/byteutils import to0xHex
 
-{.push raises: [].}
+from ../datatypes/bellatrix import ExecutionAddress
 
 type
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#validatorregistrationv1
+  ValidatorRegistrationV1* = object
+    fee_recipient*: ExecutionAddress
+    gas_limit*: uint64
+    timestamp*: uint64
+    pubkey*: ValidatorPubKey
+
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signedvalidatorregistrationv1
+  SignedValidatorRegistrationV1* = object
+    message*: ValidatorRegistrationV1
+    signature*: ValidatorSig
+
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#builderbid
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#executionpayloadheader
   BuilderBid* = object
@@ -55,6 +69,17 @@ type
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
+
+const
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#domain-types
+  DOMAIN_APPLICATION_BUILDER* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
+
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#constants
+  EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION* = 1
+
+  # Spec is 1 second, but mev-boost indirection can induce delay when the relay
+  # itself has already consumed the entire second.
+  BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1500.milliseconds
 
 func shortLog*(v: BlindedBeaconBlock): auto =
   (
