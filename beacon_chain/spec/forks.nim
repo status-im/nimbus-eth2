@@ -183,7 +183,6 @@ type
   ForkySignedBlindedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
-    bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock
 
   ForkedSignedBlindedBeaconBlock* = object
