@@ -141,6 +141,10 @@ pipeline {
         deleteDirs: true
       )
     }
+
+    success { script {
+      build(job: env.JOB_NAME, propagate: false, wait: false)
+    } }
   }
 }
 
