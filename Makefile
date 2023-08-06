@@ -199,7 +199,7 @@ libbacktrace:
 # - --base-el-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
-UNIT_TEST_BASE_PORT := 9960
+UNIT_TEST_BASE_PORT := 9950
 REST_TEST_BASE_PORT := 9990
 
 restapi-test:
