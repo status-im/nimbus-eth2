@@ -51,6 +51,9 @@ import
 
 export results, extras, phase0, altair, bellatrix
 
+logScope:
+  topics = "state_transition"
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
     state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
