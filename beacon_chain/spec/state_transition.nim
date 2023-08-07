@@ -36,7 +36,7 @@
 # * Throughout, we're affected by the overloading rules that prefer a `var`
 #   overload to a non-var overload - look for `asSeq()` - when the `var`
 #   overload is used, the hash tree cache is cleared, which, aside from being
-#   slow itself, causes additional processing to recalculate the merkle tree.
+#   slow itself, causes additional processing to recalculate the Merkle tree.
 
 {.push raises: [].}
 

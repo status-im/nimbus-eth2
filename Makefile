@@ -171,6 +171,7 @@ libbacktrace:
 
 # Make sure ports don't overlap to support concurrent execution of tests
 # Avoid selecting ephemeral ports that may be used by others; safe = 5001-9999
+# - Port 9952 sometimes reports (48) Address already in use.
 #
 # EXECUTOR_NUMBER: [0, 2] (depends on max number of concurrent CI jobs)
 #
@@ -199,7 +200,7 @@ libbacktrace:
 # - --base-el-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
-UNIT_TEST_BASE_PORT := 9950
+UNIT_TEST_BASE_PORT := 9960
 REST_TEST_BASE_PORT := 9990
 
 restapi-test:
@@ -755,18 +756,29 @@ libnimbus_lc.a: | build deps
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # `-Wno-maybe-uninitialized` in Linux: https://github.com/nim-lang/Nim/issues/22246
+# `-fsanitize=undefined` in Windows: https://github.com/msys2/MINGW-packages/issues/3163
 test_libnimbus_lc: libnimbus_lc.a
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		set -x && \
+		EXTRA_FLAGS=() && \
 		case "$$(uname)" in \
 		Darwin) \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a -framework Security; \
+			if (( $${WITH_UBSAN:-0} )); then \
+				EXTRA_FLAGS+=('-fsanitize=undefined'); \
+			fi; \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a -framework Security "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		MINGW64_*) \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
+			if (( $${WITH_UBSAN:-0} )); then \
+				echo "MINGW cannot find -lubsan." && exit 1; \
+			fi; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		*) \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -Wno-maybe-uninitialized -flto -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
+			if (( $${WITH_UBSAN:-0} )); then \
+				EXTRA_FLAGS+=('-fsanitize=undefined'); \
+			fi; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -Wno-maybe-uninitialized -flto -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		esac && \
 		echo -e $(BUILD_END_MSG) "build/$@"

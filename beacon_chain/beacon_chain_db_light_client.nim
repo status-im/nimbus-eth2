@@ -29,7 +29,7 @@ logScope: topics = "lcdata"
 # - Capella: ~222 KB per `SyncCommitteePeriod` (~6.1 MB per month)
 # - Deneb: ~230 KB per `SyncCommitteePeriod` (~6.3 MB per month)
 #
-# `lc_altair_current_branches` holds merkle proofs needed to
+# `lc_altair_current_branches` holds Merkle proofs needed to
 # construct `LightClientBootstrap` objects.
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
