@@ -25,7 +25,7 @@
 
 import
   # Status
-  stew/[endians2, objects, results, byteutils],
+  stew/[bitseqs, endians2, objects, results, byteutils],
   blscurve,
   chronicles,
   bearssl/rand,
@@ -310,6 +310,68 @@ proc blsFastAggregateVerify*(
      ): bool =
   let parsedSig = signature.load()
   parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
+
+proc blsFastAggregateVerify*(
+       fullParticipationAggregatePublicKey: ValidatorPubKey,
+       nonParticipatingPublicKeys: openArray[ValidatorPubKey],
+       message: openArray[byte],
+       signature: CookedSig
+     ): bool =
+  let unwrappedFull = fullParticipationAggregatePublicKey.loadWithCache.valueOr:
+    return false
+
+  var unwrapped = newSeqOfCap[PublicKey](nonParticipatingPublicKeys.len)
+  for pubkey in nonParticipatingPublicKeys:
+    let realkey = pubkey.loadWithCache.valueOr:
+      return false
+    unwrapped.add PublicKey(realkey)
+
+  fastAggregateVerify(
+    PublicKey(unwrappedFull), unwrapped,
+    message, blscurve.Signature(signature))
+
+proc blsFastAggregateVerify*(
+       fullParticipationAggregatePublicKey: ValidatorPubKey,
+       nonParticipatingPublicKeys: openArray[ValidatorPubKey],
+       message: openArray[byte],
+       signature: ValidatorSig
+     ): bool =
+  let parsedSig = signature.load()
+  parsedSig.isSome and blsFastAggregateVerify(
+    fullParticipationAggregatePublicKey, nonParticipatingPublicKeys,
+    message, parsedSig.get())
+
+proc blsFastAggregateVerify*(
+       allPublicKeys: openArray[ValidatorPubKey],
+       fullParticipationAggregatePublicKey: ValidatorPubKey,
+       participantBits: BitArray,
+       message: openArray[byte],
+       signature: ValidatorSig
+     ): bool =
+  const maxParticipants = participantBits.bits
+  var numParticipants = 0
+  for idx in 0 ..< maxParticipants:
+    if participantBits[idx]:
+      inc numParticipants
+
+  return
+    if numParticipants < 1:
+      false
+    elif numParticipants > maxParticipants div 2:
+      var nonParticipatingPublicKeys = newSeqOfCap[ValidatorPubKey](
+        maxParticipants - numParticipants)
+      for idx, pubkey in allPublicKeys:
+        if not participantBits[idx]:
+          nonParticipatingPublicKeys.add pubkey
+      blsFastAggregateVerify(
+        fullParticipationAggregatePublicKey, nonParticipatingPublicKeys,
+        message, signature)
+    else:
+      var publicKeys = newSeqOfCap[ValidatorPubKey](numParticipants)
+      for idx, pubkey in allPublicKeys:
+        if participantBits[idx]:
+          publicKeys.add pubkey
+      blsFastAggregateVerify(publicKeys, message, signature)
 
 # Codecs
 # ----------------------------------------------------------------------
