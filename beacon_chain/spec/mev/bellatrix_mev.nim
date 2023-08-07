@@ -7,14 +7,11 @@
 
 {.push raises: [].}
 
-import ".."/datatypes/phase0
+from ../datatypes/base import Eth1Data
 
 type
   BlindedBeaconBlock* = object
-
   SignedBlindedBeaconBlock* = object
-    message*: BlindedBeaconBlock
-    signature*: ValidatorSig
 
 func shortLog*(v: BlindedBeaconBlock): auto =
   (
@@ -23,7 +20,7 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     parent_root: "",
     state_root: "",
     eth1data: default(Eth1Data),
-    graffiti: $default(GraffitiBytes),
+    graffiti: "",
     proposer_slashings_len: 0,
     attester_slashings_len: 0,
     attestations_len: 0,
@@ -38,6 +35,6 @@ func shortLog*(v: BlindedBeaconBlock): auto =
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =
   (
-    blck: shortLog(v.message),
-    signature: shortLog(v.signature)
+    blck: shortLog(default(BlindedBeaconBlock)),
+    signature: ""
   )

@@ -22,7 +22,7 @@ import
 export
   extras, block_id, phase0, altair, bellatrix, capella, deneb,
   eth2_merkleization, eth2_ssz_serialization, forks_light_client,
-  presets, bellatrix_mev, capella_mev, deneb_mev
+  presets, capella_mev, deneb_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -415,8 +415,7 @@ func init*(T: type ForkedSignedBlindedBeaconBlock,
                                            signature: signature))
   of ConsensusFork.Bellatrix:
     T(kind: ConsensusFork.Bellatrix,
-      bellatrixData: bellatrix_mev.SignedBlindedBeaconBlock(message: forked.bellatrixData,
-                                                            signature: signature))
+      bellatrixData: default(bellatrix_mev.SignedBlindedBeaconBlock))
   of ConsensusFork.Capella:
     T(kind: ConsensusFork.Capella,
       capellaData: capella_mev.SignedBlindedBeaconBlock(message: forked.capellaData,

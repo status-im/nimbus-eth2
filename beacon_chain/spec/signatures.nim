@@ -81,8 +81,7 @@ func compute_block_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader |
           # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signing
-          bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock):
-          Eth2Digest =
+          capella_mev.BlindedBeaconBlock): Eth2Digest =
   let
     epoch = epoch(slot)
     domain = get_domain(
