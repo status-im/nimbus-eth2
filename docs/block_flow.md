@@ -44,7 +44,7 @@ The related base types are:
   - + metadata (slot, blockchain state before/after, proposer)
 - BeaconBlockHeader
   - metadata (slot, blockchain state before/after, proposer)
-  - merkle hash of the BeaconBlockBody
+  - Merkle hash of the BeaconBlockBody
 - SignedBeaconBlock
   - BeaconBlock
   - + BLS signature

@@ -180,7 +180,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
 
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
-  var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+  var verifier = BatchVerifier.init(rng, taskpool)
 
   var tmp: seq[byte]
   ? f.getStateSSZ(startSlot, tmp)

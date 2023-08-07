@@ -22,6 +22,9 @@ from  ../spec/state_transition_block import validate_blobs
 
 export eth2_processor, eth2_network
 
+logScope:
+  topics = "message_router"
+
 declareCounter beacon_voluntary_exits_sent,
   "Number of beacon voluntary sent by this node"
 
@@ -149,7 +152,7 @@ proc routeSignedBeaconBlock*(
     var workers = newSeq[Future[SendResult]](signedBlobs.len)
     for i in 0..<signedBlobs.len:
       let subnet_id = compute_subnet_for_blob_sidecar(BlobIndex(i))
-      workers[i] = router[].network.broadcastBlobsidecar(subnet_id, signedBlobs[i])
+      workers[i] = router[].network.broadcastBlobSidecar(subnet_id, signedBlobs[i])
     let allres = await allFinished(workers)
     for i in 0..<allres.len:
       let res = allres[i]

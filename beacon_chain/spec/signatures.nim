@@ -368,8 +368,8 @@ proc verify_contribution_and_proof_signature*(
 # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signing
 func compute_builder_signing_root(
     fork: Fork,
-    msg: bellatrix_mev.BuilderBid | capella_mev.BuilderBid |
-         deneb_mev.BuilderBid | ValidatorRegistrationV1): Eth2Digest =
+    msg: capella_mev.BuilderBid | deneb_mev.BuilderBid |
+         ValidatorRegistrationV1): Eth2Digest =
   # Uses genesis fork version regardless
   doAssert fork.current_version == fork.previous_version
 
@@ -384,8 +384,7 @@ proc get_builder_signature*(
   blsSign(privkey, signing_root.data)
 
 proc verify_builder_signature*(
-    fork: Fork, msg: bellatrix_mev.BuilderBid | capella_mev.BuilderBid |
-                     deneb_mev.BuilderBid,
+    fork: Fork, msg: capella_mev.BuilderBid | deneb_mev.BuilderBid,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_builder_signing_root(fork, msg)
   blsVerify(pubkey, signing_root.data, signature)

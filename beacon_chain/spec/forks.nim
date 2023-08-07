@@ -183,7 +183,6 @@ type
   ForkySignedBlindedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
-    bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock
 
   ForkedSignedBlindedBeaconBlock* = object
@@ -850,7 +849,7 @@ template withStateAndBlck*(
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock | bellatrix_mev.BlindedBeaconBlock |
+    blck: SomeForkyBeaconBlock |
           capella_mev.BlindedBeaconBlock | deneb_mev.BlindedBeaconBlock):
             BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.

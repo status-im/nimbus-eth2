@@ -144,7 +144,7 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier(rng: rng, taskpool: taskpool),
+    verifier: BatchVerifier.init(rng, taskpool)
   )
 
 # Sync callbacks

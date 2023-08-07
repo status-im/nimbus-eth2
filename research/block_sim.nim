@@ -320,12 +320,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     eth1Chain = Eth1Chain.init(cfg, db, 0, default Eth2Digest)
     merkleizer = DepositsMerkleizer.init(depositTreeSnapshot.depositContractState)
     taskpool = Taskpool.new()
-    verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    verifier = BatchVerifier.init(rng, taskpool)
     quarantine = newClone(Quarantine.init())
     attPool = AttestationPool.init(dag, quarantine)
     batchCrypto = BatchCrypto.new(
       rng, eager = func(): bool = true,
-      genesis_validators_root = dag.genesis_validators_root, taskpool)
+      genesis_validators_root = dag.genesis_validators_root,
+      taskpool).expect("working batcher")
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
