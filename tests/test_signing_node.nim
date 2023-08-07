@@ -1094,7 +1094,7 @@ block:
         sres1.isOk()
         sres2.isOk()
         sres3.isOk()
-        # Remote requests with proper merkle proof of proper FeeRecipent field
+        # Remote requests with proper Merkle proof of proper FeeRecipent field
         rres1.isOk()
         rres2.isOk()
         rres3.isOk()
@@ -1183,7 +1183,7 @@ block:
         sres1.isOk()
         sres2.isOk()
         sres3.isOk()
-        # Remote requests with proper merkle proof of proper FeeRecipent field
+        # Remote requests with proper Merkle proof of proper FeeRecipent field
         rres1.isOk()
         rres2.isOk()
         rres3.isOk()
@@ -1272,7 +1272,7 @@ block:
         sres1.isOk()
         sres2.isOk()
         sres3.isOk()
-        # Remote requests with proper merkle proof of proper FeeRecipent field
+        # Remote requests with proper Merkle proof of proper FeeRecipent field
         rres1.isOk()
         rres2.isOk()
         rres3.isOk()
