@@ -171,6 +171,7 @@ libbacktrace:
 
 # Make sure ports don't overlap to support concurrent execution of tests
 # Avoid selecting ephemeral ports that may be used by others; safe = 5001-9999
+# - Port 8301 is used by Consul
 # - Port 9952 sometimes reports (48) Address already in use.
 #
 # EXECUTOR_NUMBER: [0, 2] (depends on max number of concurrent CI jobs)
@@ -202,6 +203,8 @@ libbacktrace:
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
 UNIT_TEST_BASE_PORT := 9960
 REST_TEST_BASE_PORT := 9990
+MINIMAL_TESTNET_BASE_PORT := 5001
+MAINNET_TESTNET_BASE_PORT := 6501
 
 restapi-test:
 	./tests/simulation/restapi.sh \
@@ -228,17 +231,17 @@ local-testnet-minimal:
 		--disable-htop \
 		--enable-payload-builder \
 		--enable-logtrace \
-		--base-port $$(( 5001 + EXECUTOR_NUMBER * 500 )) \
-		--base-rest-port $$(( 5031 + EXECUTOR_NUMBER * 500 )) \
-		--base-metrics-port $$(( 5061 + EXECUTOR_NUMBER * 500 )) \
-		--base-vc-keymanager-port $$(( 5131 + EXECUTOR_NUMBER * 500 )) \
-		--base-vc-metrics-port $$(( 5161 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 5201 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-metrics-port $$(( 5251 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 5301 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-rpc-port $$(( 5302 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 5303 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 5304 + EXECUTOR_NUMBER * 500 )) \
+		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
+		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
+		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
+		--base-vc-keymanager-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 130)) \
+		--base-vc-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 160)) \
+		--base-remote-signer-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 200)) \
+		--base-remote-signer-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 250)) \
+		--base-el-net-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 300 )) \
+		--base-el-rpc-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 301 )) \
+		--base-el-ws-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 302 )) \
+		--base-el-auth-rpc-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 303 )) \
 		--el-port-offset 5 \
 		--timeout 648 \
 		--kill-old-processes \
@@ -255,17 +258,17 @@ local-testnet-mainnet:
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
-		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
-		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
-		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
-		--base-vc-keymanager-port $$(( 7131 + EXECUTOR_NUMBER * 500 )) \
-		--base-vc-metrics-port $$(( 7161 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-metrics-port $$(( 7251 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 7301 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-rpc-port $$(( 7302 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 7303 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 7304 + EXECUTOR_NUMBER * 500 )) \
+		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
+		--base-rest-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
+		--base-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
+		--base-vc-keymanager-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 130 )) \
+		--base-vc-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 160 )) \
+		--base-remote-signer-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 200 )) \
+		--base-remote-signer-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 250 )) \
+		--base-el-net-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 300 )) \
+		--base-el-rpc-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 301 )) \
+		--base-el-ws-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 302 )) \
+		--base-el-auth-rpc-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 303 )) \
 		--el-port-offset 5 \
 		--timeout 2784 \
 		--kill-old-processes \
