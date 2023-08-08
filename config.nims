@@ -140,6 +140,7 @@ switch("passL", "-fno-omit-frame-pointer")
 
 --threads:on
 --opt:speed
+--mm:refc
 --excessiveStackTrace:on
 # enable metric collection
 --define:metrics
