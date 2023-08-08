@@ -1,4 +1,5 @@
 import
+  std/strutils,
   confutils, json_serialization,
   snappy,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,

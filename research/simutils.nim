@@ -7,11 +7,11 @@
 
 import
   stats, strformat, times,
+  stew/io2,
   ../tests/testblockutil, ../tests/consensus_spec/os_ops,
-  ../beacon_chain/[beacon_chain_db, filepath],
+  ../beacon_chain/[filepath],
   ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/spec/[beaconstate, deposit_snapshots, forks, helpers],
-  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types]
+  ../beacon_chain/spec/[beaconstate, deposit_snapshots, forks, helpers]
 
 template withTimer*(stats: var RunningStat, body: untyped) =
   # TODO unify timing somehow

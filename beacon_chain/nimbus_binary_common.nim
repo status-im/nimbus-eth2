@@ -262,6 +262,10 @@ proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
     if exitLoop: break
     cache.pruneExpiredKeys()
 
+proc sleepAsync*(t: TimeDiff): Future[void] =
+  sleepAsync(nanoseconds(
+    if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
+
 proc runSlotLoop*[T](node: T, startTime: BeaconTime,
                      slotProc: SlotStartProc[T]) {.async.} =
   var
