@@ -123,6 +123,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## DeleteKeys requests [Validator Client] [Preset: mainnet]
+```diff
++ Deleting not existing key [Validator Client] [Preset: mainnet]                             OK
++ Invalid Authorization Header [Validator Client] [Preset: mainnet]                          OK
++ Invalid Authorization Token [Validator Client] [Preset: mainnet]                           OK
++ Missing Authorization header [Validator Client] [Preset: mainnet]                          OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## DeleteRemoteKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Deleting existing local key and remote key [Beacon Node] [Preset: mainnet]                 OK
@@ -130,6 +138,15 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## DeleteRemoteKeys requests [Validator Client] [Preset: mainnet]
+```diff
++ Deleting existing local key and remote key [Validator Client] [Preset: mainnet]            OK
++ Deleting not existing key [Validator Client] [Preset: mainnet]                             OK
++ Invalid Authorization Header [Validator Client] [Preset: mainnet]                          OK
++ Invalid Authorization Token [Validator Client] [Preset: mainnet]                           OK
++ Missing Authorization header [Validator Client] [Preset: mainnet]                          OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## DepositTreeSnapshot
@@ -203,6 +220,17 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Setting the fee recipient on a missing validator creates a record for it [Beacon Node] [Pr OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7
+## Fee recipient management [Validator Client] [Preset: mainnet]
+```diff
++ Configuring the fee recipient [Validator Client] [Preset: mainnet]                         OK
++ Invalid Authorization Header [Validator Client] [Preset: mainnet]                          OK
++ Invalid Authorization Token [Validator Client] [Preset: mainnet]                           OK
++ Missing Authorization header [Validator Client] [Preset: mainnet]                          OK
++ Obtaining the fee recipient of a missing validator returns 404 [Validator Client] [Preset: OK
++ Obtaining the fee recipient of an unconfigured validator returns the suggested default [Va OK
++ Setting the fee recipient on a missing validator creates a record for it [Validator Client OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## FinalizedBlocks [Preset: mainnet]
 ```diff
 + Basic ops [Preset: mainnet]                                                                OK
@@ -241,6 +269,17 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7
+## Gas limit management [Validator Client] [Preset: mainnet]
+```diff
++ Configuring the gas limit [Validator Client] [Preset: mainnet]                             OK
++ Invalid Authorization Header [Validator Client] [Preset: mainnet]                          OK
++ Invalid Authorization Token [Validator Client] [Preset: mainnet]                           OK
++ Missing Authorization header [Validator Client] [Preset: mainnet]                          OK
++ Obtaining the gas limit of a missing validator returns 404 [Validator Client] [Preset: mai OK
++ Obtaining the gas limit of an unconfigured validator returns the suggested default [Valida OK
++ Setting the gas limit on a missing validator creates a record for it [Validator Client] [P OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Gossip fork transition
 ```diff
 + Gossip fork transition                                                                     OK
@@ -275,12 +314,28 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## ImportKeystores requests [Validator Client] [Preset: mainnet]
+```diff
++ ImportKeystores/ListKeystores/DeleteKeystores [Validator Client] [Preset: mainnet]         OK
++ Invalid Authorization Header [Validator Client] [Preset: mainnet]                          OK
++ Invalid Authorization Token [Validator Client] [Preset: mainnet]                           OK
++ Missing Authorization header [Validator Client] [Preset: mainnet]                          OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys [Beacon Node] [Preset: mainnet]
 ```diff
 + Importing list of remote keys [Beacon Node] [Preset: mainnet]                              OK
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys [Validator Client] [Preset: mainnet]
+```diff
++ Importing list of remote keys [Validator Client] [Preset: mainnet]                         OK
++ Invalid Authorization Header [Validator Client] [Preset: mainnet]                          OK
++ Invalid Authorization Token [Validator Client] [Preset: mainnet]                           OK
++ Missing Authorization header [Validator Client] [Preset: mainnet]                          OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Key spliting
@@ -343,12 +398,28 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## ListKeys requests [Validator Client] [Preset: mainnet]
+```diff
++ Correct token provided [Validator Client] [Preset: mainnet]                                OK
++ Invalid Authorization Header [Validator Client] [Preset: mainnet]                          OK
++ Invalid Authorization Token [Validator Client] [Preset: mainnet]                           OK
++ Missing Authorization header [Validator Client] [Preset: mainnet]                          OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ListRemoteKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Correct token provided [Beacon Node] [Preset: mainnet]                                     OK
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## ListRemoteKeys requests [Validator Client] [Preset: mainnet]
+```diff
++ Correct token provided [Validator Client] [Preset: mainnet]                                OK
++ Invalid Authorization Header [Validator Client] [Preset: mainnet]                          OK
++ Invalid Authorization Token [Validator Client] [Preset: mainnet]                           OK
++ Missing Authorization header [Validator Client] [Preset: mainnet]                          OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Message signatures
@@ -436,6 +507,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
+```diff
++ Deserialization test vectors                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Serialization/deserialization [Validator Client] [Preset: mainnet]
 ```diff
 + Deserialization test vectors                                                               OK
 ```
@@ -698,4 +774,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 391/396 Fail: 0/396 Skip: 5/396
+OK: 431/436 Fail: 0/436 Skip: 5/436
