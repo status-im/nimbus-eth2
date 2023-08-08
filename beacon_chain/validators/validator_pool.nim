@@ -434,7 +434,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         block_root: Eth2Digest,
                         blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock |
-                              bellatrix_mev.BlindedBeaconBlock |
                               capella_mev.BlindedBeaconBlock |
                               deneb_mev.BlindedBeaconBlock
                        ): Future[SignatureResult] {.async.} =
@@ -499,20 +498,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                   data: blck.denebData.toBeaconBlockHeader),
                 proofs)
-        elif blck is bellatrix_mev.BlindedBeaconBlock:
-          case v.data.remoteType
-          of RemoteSignerType.Web3Signer:
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
-                data: blck.toBeaconBlockHeader)
-            )
-          of RemoteSignerType.VerifyingWeb3Signer:
-            let proofs = blockPropertiesProofs(
-              blck.body, bellatrixIndex)
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
-                data: blck.toBeaconBlockHeader),
-              proofs)
         elif blck is capella_mev.BlindedBeaconBlock:
           case v.data.remoteType
           of RemoteSignerType.Web3Signer:

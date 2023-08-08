@@ -36,7 +36,7 @@
 # * Throughout, we're affected by the overloading rules that prefer a `var`
 #   overload to a non-var overload - look for `asSeq()` - when the `var`
 #   overload is used, the hash tree cache is cleared, which, aside from being
-#   slow itself, causes additional processing to recalculate the merkle tree.
+#   slow itself, causes additional processing to recalculate the Merkle tree.
 
 {.push raises: [].}
 
@@ -50,6 +50,9 @@ import
     state_transition_block, state_transition_epoch, validator]
 
 export results, extras, phase0, altair, bellatrix
+
+logScope:
+  topics = "state_transition"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(

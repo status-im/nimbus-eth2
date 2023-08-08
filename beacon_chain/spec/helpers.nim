@@ -32,8 +32,9 @@ func toEther*(gwei: Gwei): Ether =
   (gwei div ETH_TO_GWEI).Ether
 
 type
+  ExecutionHash256* = eth_types.Hash256
   ExecutionWithdrawal = eth_types.Withdrawal
-  ExecutionBlockHeader = eth_types.BlockHeader
+  ExecutionBlockHeader* = eth_types.BlockHeader
 
   FinalityCheckpoints* = object
     justified*: Checkpoint
@@ -383,7 +384,7 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
 
 proc computeTransactionsTrieRoot*(
-    payload: ForkyExecutionPayload): Hash256 =
+    payload: ForkyExecutionPayload): ExecutionHash256 =
   if payload.transactions.len == 0:
     return EMPTY_ROOT_HASH
 
@@ -405,7 +406,8 @@ func toExecutionWithdrawal*(
 
 # https://eips.ethereum.org/EIPS/eip-4895
 proc computeWithdrawalsTrieRoot*(
-    payload: capella.ExecutionPayload | deneb.ExecutionPayload): Hash256 =
+    payload: capella.ExecutionPayload | deneb.ExecutionPayload
+): ExecutionHash256 =
   if payload.withdrawals.len == 0:
     return EMPTY_ROOT_HASH
 
@@ -429,7 +431,7 @@ proc payloadToBlockHeader*(
       when typeof(payload).toFork >= ConsensusFork.Capella:
         some payload.computeWithdrawalsTrieRoot()
       else:
-        none(Hash256)
+        none(ExecutionHash256)
     blobGasUsed =
       when typeof(payload).toFork >= ConsensusFork.Deneb:
         some payload.blob_gas_used

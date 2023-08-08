@@ -20,7 +20,7 @@ AMD: Bulldozer, 2011\
 Flag: `-mssse3`
 Configuration: https://github.com/supranational/blst/blob/v0.3.4/build/assembly.S#L3-L6
 
-SSSE3 improves SHA256 computations. SHA256 is used **recursively** to hash all consensus objects and to build a merkle tree.
+SSSE3 improves SHA256 computations. SHA256 is used **recursively** to hash all consensus objects and to build a Merkle tree.
 Thanks to caching, SHA256 computation speed is mostly relevant only when receiving new blocks and attestations from the network, but state transitions do not depend on it (unlike a naive spec implementation).
 
 **SSSE3 must not be confused with SSE3 from Pentium 3 (2004) and Athlon 64 (2005)**
