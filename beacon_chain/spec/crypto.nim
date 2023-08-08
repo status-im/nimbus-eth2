@@ -54,7 +54,10 @@ type
     ## eagerly load keys - deserialization is slow, as are equality checks -
     ## however, it is not guaranteed that the key is valid (except in some
     ## cases, like the database state)
-    blob*: array[RawPubKeySize, byte]
+    ##
+    ## It must be 8-byte aligned because `hash(ValidatorPubKey)` just casts a
+    ## ptr to one to a ptr to the other, so it needs a compatible alignment.
+    blob* {.align: 8.}: array[RawPubKeySize, byte]
 
   UncompressedPubKey* = object
     ## Uncompressed variation of ValidatorPubKey - this type is faster to
