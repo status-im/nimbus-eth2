@@ -57,7 +57,7 @@ type
     ##
     ## It must be 8-byte aligned because `hash(ValidatorPubKey)` just casts a
     ## ptr to one to a ptr to the other, so it needs a compatible alignment.
-    blob* {.align: 8.}: array[RawPubKeySize, byte]
+    blob* {.align: sizeof(Hash).}: array[RawPubKeySize, byte]
 
   UncompressedPubKey* = object
     ## Uncompressed variation of ValidatorPubKey - this type is faster to
