@@ -16,7 +16,7 @@ from ./spec/datatypes/capella import
 from ./spec/datatypes/deneb import ExecutionPayloadHeader
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a phase0 BeaconState for in-place SSZ
   # reading and writing
   Phase0BeaconStateNoImmutableValidators* = object
@@ -69,7 +69,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to an Altair BeaconState for in-place SSZ
   # reading and writing
   AltairBeaconStateNoImmutableValidators* = object
@@ -186,7 +186,7 @@ type
     # Execution
     latest_execution_payload_header*: bellatrix.ExecutionPayloadHeader  # [New in Bellatrix]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#beaconstate
   # with indirect changes via ExecutionPayload
   # Memory-representation-equivalent to a Capella BeaconState for in-place SSZ
   # reading and writing
@@ -258,7 +258,7 @@ type
       HashList[HistoricalSummary,
         Limit HISTORICAL_ROOTS_LIMIT]  # [New in Capella]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#beaconstate
   # with indirect changes via ExecutionPayloadHeader
   # Memory-representation-equivalent to a Deneb BeaconState for in-place SSZ
   # reading and writing
