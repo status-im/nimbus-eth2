@@ -1112,12 +1112,14 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
+  let prevNumValidators = output.validators.len
+
   case store.getSnappySSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in 0 ..< numValidators:
+    for i in prevNumValidators ..< numValidators:
       let
         # Bypass hash cache invalidation
         dstValidator = addr output.validators.data[i]
@@ -1151,12 +1153,14 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
+  let prevNumValidators = output.validators.len
+
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in 0 ..< numValidators:
+    for i in prevNumValidators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
 
@@ -1188,12 +1192,14 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
+  let prevNumValidators = output.validators.len
+
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in 0 ..< numValidators:
+    for i in prevNumValidators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
       assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
