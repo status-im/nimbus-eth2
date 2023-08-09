@@ -66,7 +66,7 @@ pipeline {
     }
 
     stage('Build') {
-      steps { timeout(40) {
+      steps { timeout(50) {
         sh 'make LOG_LEVEL=TRACE'
         /* Check documentation reflects `nimbus_beacon_node --help`. */
         sh '''#!/usr/bin/env bash

@@ -166,8 +166,7 @@ type
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
-                    DenebBlockContents | bellatrix_mev.BlindedBeaconBlock |
-                    capella_mev.BlindedBeaconBlock
+                    DenebBlockContents | capella_mev.BlindedBeaconBlock
 
 {.push raises: [].}
 
@@ -1154,17 +1153,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Altair,
                                      altairData: res)
   of ConsensusFork.Bellatrix:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        bellatrix_mev.BlindedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect bellatrix block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Bellatrix,
-                                     bellatrixData: res)
+    reader.raiseUnexpectedValue("Bellatrix blinded block format unsupported")
   of ConsensusFork.Capella:
     let res =
       try:
@@ -1367,7 +1356,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 
   let bodyKind =
     if  execution_payload.isSome() and
-        execution_payload.get().data_gas_used.isSome() and
+        execution_payload.get().blob_gas_used.isSome() and
         blob_kzg_commitments.isSome():
       ConsensusFork.Deneb
     elif execution_payload.isSome() and
@@ -1487,11 +1476,11 @@ proc readValue*(reader: var JsonReader[RestJson],
       value.denebBody.execution_payload.withdrawals,
       ep_src.withdrawals.get())
     assign(
-      value.denebBody.execution_payload.data_gas_used,
-      ep_src.data_gas_used.get())
+      value.denebBody.execution_payload.blob_gas_used,
+      ep_src.blob_gas_used.get())
     assign(
-      value.denebBody.execution_payload.excess_data_gas,
-      ep_src.excess_data_gas.get())
+      value.denebBody.execution_payload.excess_blob_gas,
+      ep_src.excess_blob_gas.get())
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -3295,14 +3284,8 @@ proc decodeBytes*[T: DecodeConsensysTypes](
           forked = ForkedBlindedBeaconBlock(
             kind: ConsensusFork.Capella, capellaData: blck)
         ok(ProduceBlindedBlockResponse(forked))
-      of ConsensusFork.Bellatrix:
-        let
-          blck = ? readSszResBytes(bellatrix_mev.BlindedBeaconBlock, value)
-          forked = ForkedBlindedBeaconBlock(
-            kind: ConsensusFork.Bellatrix, bellatrixData: blck)
-        ok(ProduceBlindedBlockResponse(forked))
-      of ConsensusFork.Altair, ConsensusFork.Phase0:
-        err("Unable to decode blinded block for Altair and Phase0 fork")
+      of ConsensusFork.Bellatrix, ConsensusFork.Altair, ConsensusFork.Phase0:
+        err("Unable to decode blinded block for Bellatrix, Altair, and Phase0 forks")
   else:
     err("Unsupported Content-Type")
 

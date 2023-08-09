@@ -194,7 +194,8 @@ proc new*(T: type Eth2Processor,
       # Only run eager attestation signature verification if we're not
       # processing blocks in order to give priority to block processing
       eager = proc(): bool = not blockProcessor[].hasBlocks(),
-      genesis_validators_root = dag.genesis_validators_root, taskpool)
+      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+        "working batcher")
   )
 
 # Each validator logs, validates then passes valid data to its destination
@@ -656,7 +657,7 @@ proc processSignedContributionAndProof*(
 
     err(v.error())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -672,7 +673,7 @@ proc processLightClientFinalityUpdate*(
     beacon_light_client_finality_update_dropped.inc(1, [$v.error[0]])
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
     self: var Eth2Processor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

@@ -232,11 +232,11 @@ const
   AggregationSelectionNotImplemented* =
     "Attestation and sync committee aggreggation selection are not implemented"
   MissingMerkleProofError* =
-    "Required merkle proof is missing"
+    "Required Merkle proof is missing"
   InvalidMerkleProofError* =
-    "The given merkle proof is invalid"
+    "The given Merkle proof is invalid"
   InvalidMerkleProofIndexError* =
-    "The given merkle proof index is invalid"
+    "The given Merkle proof index is invalid"
   FailedToObtainForkError* =
     "Failed to obtain fork information"
   InvalidTimestampValue* =

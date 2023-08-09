@@ -17,6 +17,9 @@ import
 
 export hashes, sets, tables, altair
 
+logScope:
+  topics = "syncpool"
+
 const
   syncCommitteeMsgsRetentionSlots = 3
     ## How many slots to retain sync committee
@@ -346,7 +349,7 @@ proc produceSyncAggregate*(
 
 proc isEpochLeadTime*(
     pool: SyncCommitteeMsgPool, epochsToSyncPeriod: uint64): bool =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#sync-committee-subnet-stability
   # This ensures a uniform distribution without requiring additional state:
   # (1/4)                         = 1/4, 4 slots out
   # (3/4) * (1/3)                 = 1/4, 3 slots out

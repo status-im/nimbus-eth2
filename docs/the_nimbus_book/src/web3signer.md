@@ -30,7 +30,7 @@ The fields have the following semantics:
 5. `remote` - An URL of a remote signing server.
 6. `remotes` - A [distributed keystore](#distributed-keystores) configuration including two or more remote signing servers.
 7. `ignore_ssl_verification` - An optional boolean flag allowing the use of self-signed certificates by the signing server.
-8. `proven_block_properties` - When the `verifying-web3signer` type is used, this is a list of locations withing the SSZ block body for which the block signing requests will contain additional merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the `fee_recipient` value).
+8. `proven_block_properties` - When the `verifying-web3signer` type is used, this is a list of locations withing the SSZ block body for which the block signing requests will contain additional Merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the `fee_recipient` value).
 
 !!! info
     The current version of the remote keystore format is `3` which adds support for the experimental [verifying web3signer setups](#verifying-web3signer).
@@ -125,7 +125,7 @@ If you are already using a threshold signing setup (e.g. based on Vouch and Dirk
 
 The verifying Web3Signer is an experimental extension to the [Web3Signer protocol](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN) which allows the remote signer to verify certain details of the signed blocks before creating a signature (for example, the signer may require the signed block to have a particular fee recipient value).
 
-To enable this use case, the `BLOCK_V2` request type of the `/api/v1/eth2/sign/{identifier}` endpoint is extended with an additional array field named `proofs`. The array consists of objects with the properties `index`, `proof` and `value`, where `index` is an arbitrary [generalized index](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/ssz/merkle-proofs.md#generalized-merkle-tree-index) of any property nested under the block body and `proof` is its corresponding merkle proof against the block body root included in the request. The `value` property is optional and it is included only when the SSZ hash of the field included in the merkle proof doesn't match its value.
+To enable this use case, the `BLOCK_V2` request type of the `/api/v1/eth2/sign/{identifier}` endpoint is extended with an additional array field named `proofs`. The array consists of objects with the properties `index`, `proof` and `value`, where `index` is an arbitrary [generalized index](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/ssz/merkle-proofs.md#generalized-merkle-tree-index) of any property nested under the block body and `proof` is its corresponding Merkle proof against the block body root included in the request. The `value` property is optional and it is included only when the SSZ hash of the field included in the Merkle proof doesn't match its value.
 
 Since the generalized index of a particular field may change in a hard-fork, in the remote keystore format the proven fields are usually specified by their name:
 
@@ -145,4 +145,4 @@ Since the generalized index of a particular field may change in a hard-fork, in 
 ```
 
 Nimbus automatically computes the generalized index depending on the currently active fork.
-The remote signer is expected to verify the incoming merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
+The remote signer is expected to verify the incoming Merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
