@@ -151,8 +151,7 @@ func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
   else:
     var res: AttnetBits
 
-    if  tracker.useOldStabilitySubnets or
-        tracker.stabilitySubnets.len < SUBNETS_PER_NODE.int:
+    if tracker.useOldStabilitySubnets or tracker.stabilitySubnets.len == 0:
       for v in tracker.stabilitySubnets:
         res[v.subnet_id.int] = true
     else:
