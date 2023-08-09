@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  stew/[bitops2, objects],
+  stew/[bitops2, bitseqs, objects],
   datatypes/altair,
   helpers
 
@@ -141,20 +141,19 @@ proc validate_light_client_update*(
       unsafeAddr store.current_sync_committee
     else:
       unsafeAddr store.next_sync_committee
-  var participant_pubkeys =
-    newSeqOfCap[ValidatorPubKey](num_active_participants)
-  for idx, bit in sync_aggregate.sync_committee_bits:
-    if bit:
-      participant_pubkeys.add(sync_committee.pubkeys.data[idx])
   let
     fork_version_slot = max(update.signature_slot, 1.Slot) - 1
     fork_version = cfg.forkVersionAtEpoch(fork_version_slot.epoch)
     domain = compute_domain(
       DOMAIN_SYNC_COMMITTEE, fork_version, genesis_validators_root)
     signing_root = compute_signing_root(update.attested_header.beacon, domain)
+  const maxParticipants = typeof(sync_aggregate.sync_committee_bits).bits
   if not blsFastAggregateVerify(
-      participant_pubkeys, signing_root.data,
-      sync_aggregate.sync_committee_signature):
+      allPublicKeys = sync_committee.pubkeys.data,
+      fullParticipationAggregatePublicKey = sync_committee.aggregate_pubkey,
+      bitseqs.BitArray[maxParticipants](
+        bytes: sync_aggregate.sync_committee_bits.bytes),
+      signing_root.data, sync_aggregate.sync_committee_signature):
     return err(VerifierError.UnviableFork)
 
   ok()
