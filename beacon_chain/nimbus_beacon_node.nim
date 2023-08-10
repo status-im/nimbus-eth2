@@ -1174,18 +1174,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let blobPruneEpoch = (slot.epoch -
                         MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
   if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-    var blocks: array[SLOTS_PER_EPOCH, BlockId]
+    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
     var count = 0
     let
-      startSlot = Slot(blobPruneEpoch * SLOTS_PER_EPOCH)
-      startIndex = node.dag.getBlockRange(startSlot, 1,
+      startIndex = node.dag.getBlockRange(blobPruneEpoch.start_slot, 1,
                           blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
-    for i in startIndex..SLOTS_PER_EPOCH - 1:
+    for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
         when typeof(blck).toFork() < ConsensusFork.Deneb: continue
         else:
-          for j in 0..len(blck.message.body.blob_kzg_commitments):
+          for j in 0..len(blck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
               count = count + 1
     debug "pruned blobs", count, blobPruneEpoch
