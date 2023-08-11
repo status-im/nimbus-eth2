@@ -20,7 +20,7 @@ const
   NODE_ID_BITS* = 256
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
-  EPOCHS_PER_SUBNET_SUBSCRIPTION* = 256
+  EPOCHS_PER_SUBNET_SUBSCRIPTION* = 256'u64
   SUBNETS_PER_NODE* = 2'u64
   ATTESTATION_SUBNET_COUNT*: uint64 = 64
   ATTESTATION_SUBNET_EXTRA_BITS* = 0
@@ -65,3 +65,11 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#configuration
   BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 6
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#configuration
+  MAX_REQUEST_BLOCKS* = 1024'u64
+  RESP_TIMEOUT* = 10
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#configuration
+  GOSSIP_MAX_SIZE* = 10'u64 * 1024 * 1024 # bytes
+  MAX_CHUNK_SIZE* = 10'u64 * 1024 * 1024 # bytes
