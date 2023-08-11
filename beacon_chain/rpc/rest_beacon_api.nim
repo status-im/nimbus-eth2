@@ -905,7 +905,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # TODO (henridf): support 'consensus' and 'consensus_and_equivocation'
           # broadcast_validation
           return RestApiResponse.jsonError(
-            Http400, "gossip broadcast_validation only supported")
+            Http500, "gossip broadcast_validation only supported")
         let
           body = contentBody.get()
           version = request.headers.getString("eth-consensus-version")
