@@ -795,6 +795,11 @@ proc putBlobSidecar*(
     value: BlobSidecar) =
   db.blobs.putSZSSZ(blobkey(value.block_root, value.index), value)
 
+proc delBlobSidecar*(
+    db: BeaconChainDB,
+    root: Eth2Digest, index: BlobIndex) : bool =
+  db.blobs.del(blobkey(root, index)).expectDb()
+
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
   # Must be called before storing a state that references the new validators
