@@ -483,7 +483,8 @@ func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
   let
     node_id_prefix = truncate(
       node_id shr (NODE_ID_BITS - ATTESTATION_SUBNET_PREFIX_BITS), uint64)
-    node_offset = truncate(node_id mod EPOCHS_PER_SUBNET_SUBSCRIPTION, uint64)
+    node_offset = truncate(
+      node_id mod static(EPOCHS_PER_SUBNET_SUBSCRIPTION.u256), uint64)
     permutation_seed = eth2digest(uint_to_bytes(
       uint64((epoch + node_offset) div EPOCHS_PER_SUBNET_SUBSCRIPTION)))
     permutated_prefix = compute_shuffled_index(

@@ -23,16 +23,11 @@ const
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#configuration
-  MAX_REQUEST_BLOCKS* = 1024
-  RESP_TIMEOUT* = 10.seconds
+  # The spec now includes this as a bare integer as `RESP_TIMEOUT`
+  RESP_TIMEOUT_DUR* = RESP_TIMEOUT.seconds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#configuration
-  GOSSIP_MAX_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
-  MAX_CHUNK_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS_DENEB* = 128 # TODO Make use of in request code
