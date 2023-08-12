@@ -203,6 +203,12 @@ type
     slot*: Slot
     parent_root*: Eth2Digest
 
+  BeaconStateSummary = object
+    epoch: Epoch
+    num_validators: int
+    latest_block_root: Eth2Digest
+    latest_state_root: Eth2Digest
+
 # Subkeys essentially create "tables" within the key-value store by prefixing
 # each entry with a table id
 
@@ -1103,6 +1109,16 @@ proc getBlockSZ*(
   of ConsensusFork.Deneb:
     getBlockSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
 
+func toBeaconStateSummary(state: ForkyBeaconState): BeaconStateSummary =
+  # Two states with identical BeaconStateSummary fields have the same
+  # hash_tree_root(state.validators).
+  let slot = state.slot
+  BeaconStateSummary(
+    epoch: slot.epoch,
+    num_validators: state.validators.len,
+    latest_block_root: state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT],
+    latest_state_root: state.state_roots[slot mod SLOTS_PER_HISTORICAL_ROOT])
+
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
     store: KvStoreRef, key: openArray[byte],
@@ -1117,14 +1133,14 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
-  let prevNumValidators = output.validators.len
+  let prevStateSummary = output.toBeaconStateSummary
 
   case store.getSnappySSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in prevNumValidators ..< numValidators:
+    for i in prevStateSummary.num_validators ..< numValidators:
       let
         # Bypass hash cache invalidation
         dstValidator = addr output.validators.data[i]
@@ -1136,7 +1152,8 @@ proc getStateOnlyMutableValidators(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
 
-    output.validators.resetCache()
+    if output.toBeaconStateSummary != prevStateSummary:
+      output.validators.resetCache()
 
     true
   of GetResult.notFound:
@@ -1158,14 +1175,14 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
-  let prevNumValidators = output.validators.len
+  let prevStateSummary = output.toBeaconStateSummary
 
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in prevNumValidators ..< numValidators:
+    for i in prevStateSummary.num_validators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
 
@@ -1174,7 +1191,8 @@ proc getStateOnlyMutableValidators(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
 
-    output.validators.resetCache()
+    if output.toBeaconStateSummary != prevStateSummary:
+      output.validators.resetCache()
 
     true
   of GetResult.notFound:
@@ -1197,19 +1215,20 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
-  let prevNumValidators = output.validators.len
+  let prevStateSummary = output.toBeaconStateSummary
 
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in prevNumValidators ..< numValidators:
+    for i in prevStateSummary.num_validators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
       assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
 
-    output.validators.resetCache()
+    if output.toBeaconStateSummary != prevStateSummary:
+      output.validators.resetCache()
 
     true
   of GetResult.notFound:
