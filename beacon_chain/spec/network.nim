@@ -29,7 +29,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS_DENEB* = 128 # TODO Make use of in request code
   MAX_REQUEST_BLOB_SIDECARS* = MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
   # TODO MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
@@ -83,7 +83,7 @@ func compute_subnet_for_attestation*(
     (committees_since_epoch_start + committee_index.asUInt64) mod
     ATTESTATION_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest,
                           subnetId: SubnetId): string =
   ## For subscribing and unsubscribing to/from a subnet.

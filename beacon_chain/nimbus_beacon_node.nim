@@ -1486,7 +1486,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, attesterSlashing)))
 
       # proposer_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#proposer_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#proposer_slashing
       node.network.addValidator(
         getProposerSlashingsTopic(digest), proc (
           proposerSlashing: ProposerSlashing
@@ -1496,7 +1496,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, proposerSlashing)))
 
       # voluntary_exit
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#voluntary_exit
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#voluntary_exit
       node.network.addValidator(
         getVoluntaryExitsTopic(digest), proc (
           signedVoluntaryExit: SignedVoluntaryExit
@@ -1520,7 +1520,7 @@ proc installMessageValidators(node: BeaconNode) =
                     MsgSource.gossip, msg, idx)))
 
         # sync_committee_contribution_and_proof
-        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
         node.network.addAsyncValidator(
           getSyncCommitteeContributionAndProofTopic(digest), proc (
             msg: SignedContributionAndProof
