@@ -169,10 +169,9 @@ func process_attestation(
       new_vote = shortLog(vote)
 
 func process_attestation_queue(self: var ForkChoice, slot: Slot) =
-  if slot <= self.queuedAttestationSlot:
-    return
-
-  self.queuedAttestationSlot = slot
+  # Spec:
+  # Attestations can only affect the fork choice of subsequent slots.
+  # Delay consideration in the fork choice until their slot is in the past.
   self.queuedAttestations.keepItIf:
     if it.slot < slot:
       for validator_index in it.attesting_indices:
@@ -189,10 +188,14 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-proc update_time*(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
+proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
     FcResult[void] =
+  # `time` is the wall time, meaning it changes on every call typically
   const step_size = seconds(SECONDS_PER_SLOT.int)
   if time > self.checkpoints.time:
+    let
+      preSlot = self.checkpoints.time.slotOrZero()
+      postSlot = time.slotOrZero()
     # Call on_tick at least once per slot.
     while time >= self.checkpoints.time + step_size:
       ? self.on_tick(dag, self.checkpoints.time + step_size)
@@ -201,7 +204,8 @@ proc update_time*(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
       # Might create two ticks for the last slot.
       ? self.on_tick(dag, time)
 
-    self.process_attestation_queue(time.slotOrZero())
+    if preSlot != postSlot:
+      self.process_attestation_queue(postSlot)
 
   ok()
 
