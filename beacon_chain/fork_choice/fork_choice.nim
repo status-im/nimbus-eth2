@@ -188,7 +188,7 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
+proc update_time*(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
     FcResult[void] =
   # `time` is the wall time, meaning it changes on every call typically
   const step_size = seconds(SECONDS_PER_SLOT.int)
