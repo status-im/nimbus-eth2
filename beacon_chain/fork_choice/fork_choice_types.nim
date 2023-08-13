@@ -140,6 +140,7 @@ type
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
     queuedAttestations*: seq[QueuedAttestation]
+    queuedAttestationSlot*: Slot
 
 func shortLog*(vote: VoteTracker): auto =
   (
