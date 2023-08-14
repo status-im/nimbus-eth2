@@ -2386,7 +2386,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
               info "Adding priviledged direct peer", peerId, address = maddress
           res
         ,
-      bandwidthEstimatebp: config.bandwidthEstimate.get(100_000_000)
+      bandwidthEstimatebps: config.bandwidthEstimate.get(100_000_000)
     )
     pubsub = GossipSub.init(
       switch = switch,
