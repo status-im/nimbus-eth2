@@ -204,7 +204,7 @@ func start_slot*(epoch: Epoch): Slot = # aka compute_start_slot_at_epoch
   if epoch >= maxEpoch: FAR_FUTURE_SLOT
   else: Slot(epoch * SLOTS_PER_EPOCH)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(current_epoch: Epoch): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   if current_epoch == GENESIS_EPOCH:
