@@ -1112,12 +1112,14 @@ proc getBlockSZ*(
 func toBeaconStateSummary(state: ForkyBeaconState): BeaconStateSummary =
   # Two states with identical BeaconStateSummary fields have the same
   # hash_tree_root(state.validators).
-  let slot = state.slot
+  let
+    epoch = state.slot.epoch
+    root_idx = epoch.start_slot mod SLOTS_PER_HISTORICAL_ROOT
   BeaconStateSummary(
-    epoch: slot.epoch,
+    epoch: epoch,
     num_validators: state.validators.len,
-    latest_block_root: state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT],
-    latest_state_root: state.state_roots[slot mod SLOTS_PER_HISTORICAL_ROOT])
+    latest_block_root: state.block_roots[root_idx],
+    latest_state_root: state.state_roots[root_idx])
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
