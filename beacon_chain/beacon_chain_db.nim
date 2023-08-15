@@ -1121,6 +1121,23 @@ func toBeaconStateSummary(state: ForkyBeaconState): BeaconStateSummary =
     latest_block_root: state.block_roots[root_idx],
     latest_state_root: state.state_roots[root_idx])
 
+func validatorsPotentiallyChanged(
+    state0Summary: BeaconStateSummary, state0EpochAligned: bool,
+    state1: ForkyBeaconState): bool =
+  # state.block_roots and state.state_roots are set in process_slot(), which
+  # runs before process_epoch() in process_slots(). The epoch boundary slot,
+  # therefore, gets {block,state}_roots entries which do not reflect changes
+  # in the validator set done at epoch boundaries.
+  #
+  # state.latest_block_header gets set, instead, in process_block(), after
+  # process_epoch(), immediately updated each epoch boundary slot. This is
+  # only a partial update, excluding state.latest_block_header.state_root,
+  # so isn't generally consistent or comparable with state.block_roots.
+  #
+  # Therefore, exclude cases where either state is on an epoch-aligned slot.
+  state0EpochAligned or state1.slot.is_epoch or
+    state1.toBeaconStateSummary != state0Summary
+
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
     store: KvStoreRef, key: openArray[byte],
@@ -1135,7 +1152,9 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
-  let prevStateSummary = output.toBeaconStateSummary
+  let
+    prevStateSummary = output.toBeaconStateSummary
+    prevStateEpochAligned = output.slot.is_epoch
 
   case store.getSnappySSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
@@ -1154,7 +1173,8 @@ proc getStateOnlyMutableValidators(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
 
-    if output.toBeaconStateSummary != prevStateSummary:
+    if validatorsPotentiallyChanged(
+        prevStateSummary, prevStateEpochAligned, output):
       output.validators.resetCache()
 
     true
@@ -1177,7 +1197,9 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
-  let prevStateSummary = output.toBeaconStateSummary
+  let
+    prevStateSummary = output.toBeaconStateSummary
+    prevStateEpochAligned = output.slot.is_epoch
 
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
@@ -1193,7 +1215,8 @@ proc getStateOnlyMutableValidators(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
 
-    if output.toBeaconStateSummary != prevStateSummary:
+    if validatorsPotentiallyChanged(
+        prevStateSummary, prevStateEpochAligned, output):
       output.validators.resetCache()
 
     true
@@ -1217,7 +1240,9 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
-  let prevStateSummary = output.toBeaconStateSummary
+  let
+    prevStateSummary = output.toBeaconStateSummary
+    prevStateEpochAligned = output.slot.is_epoch
 
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
@@ -1229,7 +1254,8 @@ proc getStateOnlyMutableValidators(
       let dstValidator = addr output.validators.data[i]
       assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
 
-    if output.toBeaconStateSummary != prevStateSummary:
+    if validatorsPotentiallyChanged(
+        prevStateSummary, prevStateEpochAligned, output):
       output.validators.resetCache()
 
     true
