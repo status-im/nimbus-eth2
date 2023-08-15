@@ -3027,7 +3027,7 @@ proc decodeBody*(
        t: typedesc[RestPublishedSignedBlockContents],
        body: ContentBody,
        version: string
-     ): Result[RestPublishedSignedBlockContents, cstring] =
+     ): Result[RestPublishedSignedBlockContents, string] =
   if body.contentType == ApplicationJsonMediaType:
     let data =
       try:
@@ -3043,7 +3043,9 @@ proc decodeBody*(
         return err("Unexpected deserialization error")
     ok(data)
   elif body.contentType == OctetStreamMediaType:
-    let consensusFork = ? ConsensusFork.decodeString(version)
+    let consensusFork =
+      decodeEthConsensusVersion(version).valueOr:
+        return err("Invalid or Unsupported consensus version")
     case consensusFork
     of ConsensusFork.Phase0:
       let blck =
@@ -3115,6 +3117,98 @@ proc decodeBody*[T](t: typedesc[T],
     except CatchableError:
       return err("Unexpected deserialization error")
   ok(data)
+
+proc decodeBodyJsonOrSsz*(
+       t: typedesc[RestPublishedSignedBlockContents],
+       body: ContentBody,
+       version: string
+     ): Result[RestPublishedSignedBlockContents, string] =
+  if body.contentType == OctetStreamMediaType:
+    decodeBody(RestPublishedSignedBlockContents, body, version)
+  elif body.contentType == ApplicationJsonMediaType:
+    let consensusFork =
+      decodeEthConsensusVersion(version).valueOr:
+        return err("Invalid or Unsupported consensus version")
+    case consensusFork
+    of ConsensusFork.Phase0:
+      let blck =
+        try:
+          RestJson.decode(body.data, phase0.SignedBeaconBlock,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          debug "Failed to deserialize REST JSON data",
+               err = exc.formatMsg("<data>"),
+               data = string.fromBytes(body.data)
+          return err("Unable to deserialize JSON for fork " &
+                     version & ": " & exc.formatMsg("<data>"))
+        except CatchableError as exc:
+          return err("Unexpected JSON deserialization error: " & exc.msg)
+      ok(RestPublishedSignedBlockContents(
+        kind: ConsensusFork.Phase0, phase0Data: blck))
+    of ConsensusFork.Altair:
+      let blck =
+        try:
+          RestJson.decode(body.data, altair.SignedBeaconBlock,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          debug "Failed to deserialize REST JSON data",
+               err = exc.formatMsg("<data>"),
+               data = string.fromBytes(body.data)
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBlockContents(
+        kind: ConsensusFork.Altair, altairData: blck))
+    of ConsensusFork.Bellatrix:
+      let blck =
+        try:
+          RestJson.decode(body.data, bellatrix.SignedBeaconBlock,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          debug "Failed to deserialize REST JSON data",
+               err = exc.formatMsg("<data>"),
+               data = string.fromBytes(body.data)
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBlockContents(
+        kind: ConsensusFork.Bellatrix, bellatrixData: blck))
+    of ConsensusFork.Capella:
+      let blck =
+        try:
+          RestJson.decode(body.data, capella.SignedBeaconBlock,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          debug "Failed to deserialize REST JSON data",
+               err = exc.formatMsg("<data>"),
+               data = string.fromBytes(body.data)
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBlockContents(
+        kind: ConsensusFork.Capella, capellaData: blck))
+    of ConsensusFork.Deneb:
+      let blckContents =
+        try:
+          RestJson.decode(body.data, DenebSignedBlockContents,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          debug "Failed to deserialize REST JSON data",
+               err = exc.formatMsg("<data>"),
+               data = string.fromBytes(body.data)
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBlockContents(
+        kind: ConsensusFork.Deneb, denebData: blckContents))
+  else:
+    return err("Unsupported or invalid content media type")
+
 
 proc decodeBodyJsonOrSsz*[T](t: typedesc[T],
                              body: ContentBody): Result[T, cstring] =

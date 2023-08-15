@@ -261,7 +261,7 @@ p2pProtocol BeaconSync(version = 1,
     #      given incoming flag
     let
       ourStatus = peer.networkState.getCurrentStatus()
-      theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT)
+      theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)
 
     if theirStatus.isOk:
       discard await peer.handleStatus(peer.networkState, theirStatus.get())
@@ -298,7 +298,7 @@ p2pProtocol BeaconSync(version = 1,
       reqCount: uint64,
       reqStep: uint64,
       response: MultipleChunksResponse[
-        ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS])
+        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS])
       {.async, libp2pProtocol("beacon_blocks_by_range", 2).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -320,7 +320,7 @@ p2pProtocol BeaconSync(version = 1,
     if reqCount == 0 or reqStep == 0:
       raise newException(InvalidInputsError, "Empty range requested")
 
-    var blocks: array[MAX_REQUEST_BLOCKS, BlockId]
+    var blocks: array[MAX_REQUEST_BLOCKS.int, BlockId]
     let
       dag = peer.networkState.dag
       # Limit number of blocks in response
@@ -367,7 +367,7 @@ p2pProtocol BeaconSync(version = 1,
       # spec constant MAX_REQUEST_BLOCKS is enforced:
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[
-        ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS])
+        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS])
       {.async, libp2pProtocol("beacon_blocks_by_root", 2).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -710,7 +710,7 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
     nstate = peer.networkState(BeaconSync)
     ourStatus = getCurrentStatus(nstate)
 
-  let theirFut = awaitne peer.status(ourStatus, timeout = RESP_TIMEOUT)
+  let theirFut = awaitne peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)
   if theirFut.failed():
     return false
   else:

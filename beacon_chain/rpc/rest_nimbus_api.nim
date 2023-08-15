@@ -71,6 +71,7 @@ type
 
   RestConnectionInfo* = object
     handle*: string
+    query*: string
     connection_type*: string
     connection_state*: string
     remote_address*: string
@@ -341,6 +342,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "not available"
           else:
             $connection.remoteAddress.get()
+        query = connection.query.get("not available")
         handle = Base10.toString(uint64(connection.handle))
         moment = Moment.now()
         sinceAccept = $(moment - connection.acceptMoment)
@@ -353,6 +355,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res.add(
         RestConnectionInfo(
           handle: handle,
+          query: query,
           connection_state: connectionState,
           connection_type: connectionType,
           local_address: localAddress,
