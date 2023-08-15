@@ -1112,14 +1112,14 @@ proc getBlockSZ*(
 func toBeaconStateSummary(state: ForkyBeaconState): BeaconStateSummary =
   # Two states with identical BeaconStateSummary fields have the same
   # hash_tree_root(state.validators).
-
-  doAssert not state.slot.is_epoch
-
   let
     epoch = state.slot.epoch
 
     # state.block_roots and state.state_roots don't register process_epoch()
-    # updates until the first interior slot of an epoch.
+    # updates until the first interior epoch slot. When state.slot.is_epoch,
+    # this function returns nothing particularly useful effectively wrapping
+    # backwards to the oldest still-present slot in the circular buffer, but
+    # validatorsPotentiallyChanged excludes this case separately.
     root_idx = (epoch.start_slot + 1) mod SLOTS_PER_HISTORICAL_ROOT
 
   BeaconStateSummary(
