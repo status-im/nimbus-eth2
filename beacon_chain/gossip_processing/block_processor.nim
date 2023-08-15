@@ -386,7 +386,7 @@ proc checkBloblessSignature(self: BlockProcessor,
     return err("checkBloblessSignature: Invalid proposer signature")
   ok()
 
-proc storeBlock*(
+proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars],
@@ -444,6 +444,10 @@ proc storeBlock*(
     err((error, ProcessingStatus.completed))
 
   let
+    # We have to be careful that there exists only one in-flight entry point
+    # for adding blocks or the checks performed in `checkHeadBlock` might
+    # be invalidated (ie a block could be added while we wait for EL response
+    # here)
     parent = dag.checkHeadBlock(signedBlock)
 
   if parent.isErr():
@@ -735,6 +739,7 @@ proc addBlock*(
   # - Gossip (when synced)
   # - SyncManager (during sync)
   # - RequestManager (missing ancestor blocks)
+  # - API
 
   withBlck(blck):
     if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
