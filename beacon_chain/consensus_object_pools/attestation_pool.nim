@@ -795,7 +795,6 @@ proc getBeaconHead*(
 proc selectOptimisticHead*(
     pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
   ## Trigger fork choice and returns the new head block.
-  # TODO rename this to get_optimistic_head
   let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime)
   if newHeadRoot.isErr:
     error "Couldn't select head", err = newHeadRoot.error

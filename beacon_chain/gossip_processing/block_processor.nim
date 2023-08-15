@@ -605,11 +605,14 @@ proc storeBlock*(
       self.consensusManager[].updateHead(newHead.get.blck)
 
       template callForkchoiceUpdated(attributes: untyped) =
-        discard await elManager.forkchoiceUpdated(
-          headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
-          safeBlockHash = newHead.get.safeExecutionPayloadHash,
-          finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
-          payloadAttributes = none attributes)
+        if  NewPayloadStatus.noResponse != payloadStatus and
+            not self.consensusManager[].optimisticExecutionPayloadHash.isZero:
+          discard await elManager.forkchoiceUpdated(
+            headBlockHash =
+              self.consensusManager[].optimisticExecutionPayloadHash,
+            safeBlockHash = newHead.get.safeExecutionPayloadHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+            payloadAttributes = none attributes)
 
       case self.consensusManager.dag.cfg.consensusForkAtEpoch(
           newHead.get.blck.bid.slot.epoch)
