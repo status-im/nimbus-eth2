@@ -626,7 +626,7 @@ type
       bandwidthEstimate* {.
         hidden
         desc: "Bandwidth estimate for the node (bits per second)"
-        name: "bandwidth-estimate" .}: Option[Natural]
+        name: "debug-bandwidth-estimate" .}: Option[Natural]
 
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
