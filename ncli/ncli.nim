@@ -96,10 +96,10 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
   of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
 
-proc loadFile(filename: string, T: type): T =
+proc loadFile(filename: string, bytes: openArray[byte], T: type): T =
   let
     ext = splitFile(filename).ext
-    bytes = readAllBytes(filename).expect("file exists")
+
   if cmpIgnoreCase(ext, ".ssz") == 0:
     SSZ.decode(bytes, T)
   elif cmpIgnoreCase(ext, ".ssz_snappy") == 0:
@@ -187,11 +187,12 @@ proc doSSZ(conf: NcliConf) =
     of pretty: (conf.prettyKind, conf.prettyFile)
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
+  let bytes = readAllBytes(file).expect("file exists")
 
   template printit(t: untyped) {.dirty.} =
 
     let v = withTimerRet(timers[tLoad]):
-      newClone(loadFile(file, t))
+      newClone(loadFile(file, bytes, t))
 
     case conf.cmd:
     of hashTreeRoot:
