@@ -74,7 +74,9 @@ proc initLightClient*(
                   payloadAttributes = none attributes)
 
               case node.dag.cfg.consensusForkAtEpoch(blck.message.slot.epoch)
-              of ConsensusFork.Capella, ConsensusFork.Deneb:
+              of ConsensusFork.Deneb:
+                callForkchoiceUpdated(PayloadAttributesV3)
+              of ConsensusFork.Capella:
                 # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
                 # Consensus layer client MUST call this method instead of
                 # `engine_forkchoiceUpdatedV1` under any of the following
