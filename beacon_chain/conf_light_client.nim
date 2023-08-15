@@ -147,7 +147,7 @@ type LightClientConf* = object
 
   bandwidthEstimate* {.
     hidden
-    desc: "Bandwidth estimate for the node (bytes per second)"
+    desc: "Bandwidth estimate for the node (bits per second)"
     name: "bandwidth-estimate" .}: Option[Natural]
 
   # Testing
