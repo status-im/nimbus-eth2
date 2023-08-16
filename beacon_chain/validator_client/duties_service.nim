@@ -473,6 +473,7 @@ proc pollForBeaconProposers*(service: DutiesServiceRef) {.async.} =
             err_msg = exc.msg
 
     service.pruneBeaconProposers(currentEpoch)
+    vc.pruneBlocksSeen(currentEpoch)
 
 proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
   let vc = service.client
