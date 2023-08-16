@@ -63,12 +63,9 @@ suite "Block processor" & preset():
 
   asyncTest "Reverse order block add & get" & preset():
     let
-      missingFut = newFuture[Result[void, VerifierError]]("t0")
-    processor[].addBlock(
-      MsgSource.gossip, ForkedSignedBeaconBlock.init(b2), Opt.none(BlobSidecars),
-      missingFut)
-    let
-      missing = await missingFut
+      missing = await processor[].addBlock(
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
+        Opt.none(BlobSidecars))
 
     check: missing.error == VerifierError.MissingParent
 
@@ -78,12 +75,9 @@ suite "Block processor" & preset():
       FetchRecord(root: b1.root) in quarantine[].checkMissing(32)
 
     let
-      statusFut = newFuture[Result[void, VerifierError]]("t0")
-    processor[].addBlock(
-      MsgSource.gossip, ForkedSignedBeaconBlock.init(b1), Opt.none(BlobSidecars),
-      statusFut)
-    let
-      status = await statusFut
+      status = await processor[].addBlock(
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
+        Opt.none(BlobSidecars))
       b1Get = dag.getBlockRef(b1.root)
 
     check:

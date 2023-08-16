@@ -164,10 +164,8 @@ proc routeSignedBeaconBlock*(
         notice "Blob sent", blob = shortLog(signedBlobs[i]), error = res.error[]
     blobs = Opt.some(blobsOpt.get().mapIt(newClone(it.message)))
 
-  let addedFut = newFuture[Result[void, VerifierError]]("routeSignedBeaconBlock")
-  router[].blockProcessor[].addBlock(
-    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobs, addedFut)
-  let added = await addedFut
+  let added = await router[].blockProcessor[].addBlock(
+    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobs)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain

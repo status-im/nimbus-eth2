@@ -117,13 +117,6 @@ type
     completed
     notCompleted
 
-proc addBlock*(
-    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars],
-    resfut: Future[Result[void, VerifierError]] = nil,
-    maybeFinalized = false,
-    validationDur = Duration())
-
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -385,6 +378,31 @@ proc checkBloblessSignature(self: BlockProcessor,
       signed_beacon_block.signature):
     return err("checkBloblessSignature: Invalid proposer signature")
   ok()
+
+proc enqueueBlock*(
+    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
+    blobs: Opt[BlobSidecars],
+    resfut: Future[Result[void, VerifierError]] = nil,
+    maybeFinalized = false,
+    validationDur = Duration()) =
+  withBlck(blck):
+    if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+      # let backfill blocks skip the queue - these are always "fast" to process
+      # because there are no state rewinds to deal with
+      let res = self.storeBackfillBlock(blck, blobs)
+      resfut.complete(res)
+      return
+
+  try:
+    self.blockQueue.addLastNoWait(BlockEntry(
+      blck: blck,
+      blobs: blobs,
+      maybeFinalized: maybeFinalized,
+      resfut: resfut, queueTick: Moment.now(),
+      validationDur: validationDur,
+      src: src))
+  except AsyncQueueFullError:
+    raiseAssert "unbounded queue"
 
 proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
@@ -700,10 +718,12 @@ proc storeBlock(
 
     withBlck(quarantined):
       when typeof(blck).toFork() < ConsensusFork.Deneb:
-        self[].addBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
+        self[].enqueueBlock(
+          MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
       else:
         if len(blck.message.body.blob_kzg_commitments) == 0:
-          self[].addBlock(MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
+          self[].enqueueBlock(
+            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
         else:
           if (let res = checkBloblessSignature(self[], blck); res.isErr):
             warn "Failed to verify signature of unorphaned blobless block",
@@ -712,7 +732,7 @@ proc storeBlock(
             continue
           if self.blobQuarantine[].hasBlobs(blck):
             let blobs = self.blobQuarantine[].popBlobs(blck.root)
-            self[].addBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
+            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
             if not self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, blck):
@@ -727,10 +747,8 @@ proc storeBlock(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars],
-    resfut: Future[Result[void, VerifierError]] = nil,
-    maybeFinalized = false,
-    validationDur = Duration()) =
+    blobs: Opt[BlobSidecars], maybeFinalized = false,
+    validationDur = Duration()): Future[Result[void, VerifierError]] =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
   #   There is no backpressure here - producers must wait for `resfut` to
@@ -740,26 +758,9 @@ proc addBlock*(
   # - SyncManager (during sync)
   # - RequestManager (missing ancestor blocks)
   # - API
-
-  withBlck(blck):
-    if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-      # let backfill blocks skip the queue - these are always "fast" to process
-      # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(blck, blobs)
-      if resfut != nil:
-        resfut.complete(res)
-      return
-
-  try:
-    self.blockQueue.addLastNoWait(BlockEntry(
-      blck: blck,
-      blobs: blobs,
-      maybeFinalized: maybeFinalized,
-      resfut: resfut, queueTick: Moment.now(),
-      validationDur: validationDur,
-      src: src))
-  except AsyncQueueFullError:
-    raiseAssert "unbounded queue"
+  let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
+  enqueueBlock(self, src, blck, blobs, resfut, maybeFinalized, validationDur)
+  resfut
 
 # Event Loop
 # ------------------------------------------------------------------------------
@@ -790,7 +791,7 @@ proc processBlock(
     # - MAY queue the block for later processing.
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
-    self[].addBlock(
+    self[].enqueueBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,
       entry.validationDur)
     # To ensure backpressure on the sync manager, do not complete these futures.
