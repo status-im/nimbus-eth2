@@ -122,8 +122,10 @@ proc apiResponseOr[T](future: FutureBase, timerFut: Future[void],
     else:
       ApiResponse[T].ok(Future[T](future).read())
   else:
-    doAssert(timerFut.finished())
-    ApiResponse[T].err(message)
+    if timerFut.finished():
+      ApiResponse[T].err(message)
+    else:
+      ApiResponse[T].err("Interrupted by the caller")
 
 template firstSuccessParallel*(
            vc: ValidatorClientRef,
