@@ -57,12 +57,12 @@ type
     ##
     ## It must be 8-byte aligned because `hash(ValidatorPubKey)` just casts a
     ## ptr to one to a ptr to the other, so it needs a compatible alignment.
-    blob* {.align: sizeof(Hash).}: array[RawPubKeySize, byte]
+    blob* {.align: 16.}: array[RawPubKeySize, byte]
 
   UncompressedPubKey* = object
     ## Uncompressed variation of ValidatorPubKey - this type is faster to
     ## deserialize but doubles the storage footprint
-    blob*: array[UncompressedPubKeySize, byte]
+    blob* {.align: 16.}: array[UncompressedPubKeySize, byte]
 
   CookedPubKey* = distinct blscurve.PublicKey ## Valid deserialized key
 
