@@ -1129,7 +1129,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # should have `previous_version` set to `current_version` while
   # this doesn't happen to be the case in network that go through
   # regular hard-fork upgrades. See for example:
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#testing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
@@ -2246,9 +2246,6 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
             break
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
-  if dag.cfg.consensusForkAtEpoch(bid.slot.epoch) < ConsensusFork.Bellatrix:
-    return ZERO_HASH
-
   let blockData = dag.getForkedBlock(bid).valueOr:
     return ZERO_HASH
 

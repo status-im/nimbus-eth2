@@ -76,7 +76,8 @@ type
     stamp*: chronos.Moment
     slots*: uint64
 
-  BeaconBlocksRes = NetRes[List[ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS]]
+  BeaconBlocksRes =
+    NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
   BlobSidecarsRes = NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
@@ -389,7 +390,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           queue_input_slot = man.queue.inpSlot,
           queue_output_slot = man.queue.outSlot,
           queue_last_slot = man.queue.finalSlot, direction = man.direction
-    await sleepAsync(RESP_TIMEOUT)
+    await sleepAsync(RESP_TIMEOUT_DUR)
     return
 
   debug "Creating new request for peer", wall_clock_slot = wallSlot,

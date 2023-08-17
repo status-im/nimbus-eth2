@@ -116,15 +116,16 @@ proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
 
 proc apiResponseOr[T](future: FutureBase, timerFut: Future[void],
                       message: string): ApiResponse[T] =
-  if future.finished():
-    doAssert(not(future.cancelled()))
+  if future.finished() and not(future.cancelled()):
     if future.failed():
       ApiResponse[T].err($future.error.msg)
     else:
       ApiResponse[T].ok(Future[T](future).read())
   else:
-    doAssert(timerFut.finished())
-    ApiResponse[T].err(message)
+    if timerFut.finished():
+      ApiResponse[T].err(message)
+    else:
+      ApiResponse[T].err("Interrupted by the caller")
 
 template firstSuccessParallel*(
            vc: ValidatorClientRef,
@@ -198,7 +199,7 @@ template firstSuccessParallel*(
           else:
             raceFut = race(pendingRequests)
 
-            if isNil(timerFut):
+            if not(isNil(timerFut)):
               await raceFut or timerFut
             else:
               await allFutures(raceFut)
@@ -346,7 +347,7 @@ template bestSuccess*(
             try:
               raceFut = race(pendingRequests)
 
-              if isNil(timerFut):
+              if not(isNil(timerFut)):
                 await raceFut or timerFut
               else:
                 await allFutures(raceFut)

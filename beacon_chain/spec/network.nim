@@ -23,18 +23,13 @@ const
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#configuration
-  MAX_REQUEST_BLOCKS* = 1024
-  RESP_TIMEOUT* = 10.seconds
+  # The spec now includes this as a bare integer as `RESP_TIMEOUT`
+  RESP_TIMEOUT_DUR* = RESP_TIMEOUT.seconds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#configuration
-  GOSSIP_MAX_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
-  MAX_CHUNK_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS_DENEB* = 128 # TODO Make use of in request code
   MAX_REQUEST_BLOB_SIDECARS* = MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
   # TODO MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
@@ -88,7 +83,7 @@ func compute_subnet_for_attestation*(
     (committees_since_epoch_start + committee_index.asUInt64) mod
     ATTESTATION_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest,
                           subnetId: SubnetId): string =
   ## For subscribing and unsubscribing to/from a subnet.

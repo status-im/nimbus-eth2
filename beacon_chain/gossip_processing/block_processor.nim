@@ -233,8 +233,8 @@ proc storeBackfillBlock(
   res
 
 from web3/engine_api_types import
-  PayloadAttributesV1, PayloadAttributesV2, PayloadExecutionStatus,
-  PayloadStatusV1
+  PayloadAttributesV1, PayloadAttributesV2, PayloadAttributesV3,
+  PayloadExecutionStatus, PayloadStatusV1
 from ../el/el_manager import
   ELManager, forkchoiceUpdated, hasConnection, hasProperlyConfiguredConnection,
   sendNewPayload
@@ -605,15 +605,20 @@ proc storeBlock*(
       self.consensusManager[].updateHead(newHead.get.blck)
 
       template callForkchoiceUpdated(attributes: untyped) =
-        discard await elManager.forkchoiceUpdated(
-          headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
-          safeBlockHash = newHead.get.safeExecutionPayloadHash,
-          finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
-          payloadAttributes = none attributes)
+        if  NewPayloadStatus.noResponse != payloadStatus and
+            not self.consensusManager[].optimisticExecutionPayloadHash.isZero:
+          discard await elManager.forkchoiceUpdated(
+            headBlockHash =
+              self.consensusManager[].optimisticExecutionPayloadHash,
+            safeBlockHash = newHead.get.safeExecutionPayloadHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+            payloadAttributes = none attributes)
 
       case self.consensusManager.dag.cfg.consensusForkAtEpoch(
           newHead.get.blck.bid.slot.epoch)
-      of ConsensusFork.Capella, ConsensusFork.Deneb:
+      of ConsensusFork.Deneb:
+        callForkchoiceUpdated(PayloadAttributesV3)
+      of ConsensusFork.Capella:
         # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
         # Consensus layer client MUST call this method instead of
         # `engine_forkchoiceUpdatedV1` under any of the following conditions:
