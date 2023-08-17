@@ -164,16 +164,16 @@ proc routeSignedBeaconBlock*(
         notice "Blob sent", blob = shortLog(signedBlobs[i]), error = res.error[]
     blobs = Opt.some(blobsOpt.get().mapIt(newClone(it.message)))
 
-  let newBlockRef = await router[].blockProcessor.storeBlock(
-    MsgSource.api, sendTime, blck, blobs)
+  let added = await router[].blockProcessor[].addBlock(
+    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobs)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
-  if newBlockRef.isErr():
-    return if newBlockRef.error()[0] != VerifierError.Duplicate:
+  if added.isErr():
+    return if added.error() != VerifierError.Duplicate:
       warn "Unable to add routed block to block pool",
         blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-        signature = shortLog(blck.signature), err = newBlockRef.error()
+        signature = shortLog(blck.signature), err = added.error()
       ok(Opt.none(BlockRef))
     else:
       # If it's duplicate, there's an existing BlockRef to return. The block
@@ -183,10 +183,16 @@ proc routeSignedBeaconBlock*(
       if blockRef.isErr:
         warn "Unable to add routed duplicate block to block pool",
           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-          signature = shortLog(blck.signature), err = newBlockRef.error()
+          signature = shortLog(blck.signature), err = added.error()
       ok(blockRef)
 
-  return ok(Opt.some(newBlockRef.get()))
+
+  let blockRef = router[].dag.getBlockRef(blck.root)
+  if blockRef.isErr:
+    warn "Block finalised while waiting for block processor",
+      blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+      signature = shortLog(blck.signature)
+  ok(blockRef)
 
 proc routeAttestation*(
     router: ref MessageRouter, attestation: Attestation,
