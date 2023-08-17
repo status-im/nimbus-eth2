@@ -65,7 +65,7 @@ type
     ## "free" attestations with those found in past blocks - these votes
     ## are tracked separately in the fork choice.
 
-    candidates*: array[ATTESTATION_LOOKBACK, AttestationTable] ## \
+    candidates*: array[ATTESTATION_LOOKBACK.int, AttestationTable] ## \
       ## We keep one item per slot such that indexing matches slot number
       ## together with startingSlot
 
