@@ -93,8 +93,7 @@ template ethTimeUnit*(typ: type) {.dirty.} =
   template shortLog*(v: typ): auto = distinctBase(v)
 
   # Serialization
-  proc writeValue*(writer: var JsonWriter, value: typ)
-                  {.raises: [IOError, Defect].}=
+  proc writeValue*(writer: var JsonWriter, value: typ) {.raises: [IOError].} =
     writeValue(writer, uint64 value)
 
   proc readValue*(reader: var JsonReader, value: var typ)

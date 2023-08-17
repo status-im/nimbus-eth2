@@ -196,8 +196,8 @@ func `==`*(a, b: BadProposal): bool =
 # Serialization
 # --------------------------------------------
 
-proc writeValue*(writer: var JsonWriter, value: PubKey0x)
-                {.inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: PubKey0x) {.inline, raises: [IOError].} =
   writer.writeValue("0x" & value.PubKeyBytes.toHex())
 
 proc readValue*(reader: var JsonReader, value: var PubKey0x)
@@ -207,8 +207,8 @@ proc readValue*(reader: var JsonReader, value: var PubKey0x)
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string expected")
 
-proc writeValue*(w: var JsonWriter, a: Eth2Digest0x)
-                {.inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    w: var JsonWriter, a: Eth2Digest0x) {.inline, raises: [IOError].} =
   w.writeValue "0x" & a.Eth2Digest.data.toHex()
 
 proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
@@ -218,8 +218,9 @@ proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
-proc writeValue*(w: var JsonWriter, a: SlotString or EpochString)
-                {.inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    w: var JsonWriter, a: SlotString or EpochString
+) {.inline, raises: [IOError].} =
   w.writeValue $distinctBase(a)
 
 proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))

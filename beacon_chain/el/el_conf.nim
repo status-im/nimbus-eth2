@@ -83,8 +83,8 @@ proc readValue*(reader: var TomlReader, value: var EngineApiRoles)
     else:
       reader.raiseError(unknownRoleMsg role)
 
-proc writeValue*(writer: var JsonWriter, roles: EngineApiRoles)
-                {.raises: [Defect, SerializationError, IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, roles: EngineApiRoles) {.raises: [IOError].} =
   var strRoles: seq[string]
 
   for role in EngineApiRole:

@@ -566,8 +566,7 @@ template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
     for i in 0'u64..<limit:
       yield T(i)
 
-  proc writeValue*(writer: var JsonWriter, value: T)
-                  {.raises: [IOError, Defect].} =
+  proc writeValue*(writer: var JsonWriter, value: T) {.raises: [IOError].} =
     writeValue(writer, distinctBase value)
 
   proc readValue*(reader: var JsonReader, value: var T)
@@ -661,8 +660,8 @@ proc readValue*(reader: var JsonReader, value: var JustificationBits)
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string of 1 byte expected")
 
-proc writeValue*(writer: var JsonWriter, value: JustificationBits)
-    {.raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: JustificationBits) {.raises: [IOError].} =
   writer.writeValue $value
 
 # `ValidatorIndex` seq handling.
@@ -888,8 +887,8 @@ func defaultGraffitiBytes*(): GraffitiBytes =
   static: doAssert graffitiBytes.len <= MAX_GRAFFITI_SIZE
   distinctBase(result)[0 ..< graffitiBytes.len] = graffitiBytes
 
-proc writeValue*(w: var JsonWriter, value: GraffitiBytes)
-                {.raises: [IOError, Defect].} =
+proc writeValue*(
+    w: var JsonWriter, value: GraffitiBytes) {.raises: [IOError].} =
   w.writeValue $value
 
 template `==`*(lhs, rhs: GraffitiBytes): bool =

@@ -145,7 +145,7 @@ func `==`*(a, b: Eth2Digest): bool =
 func isZero*(x: Eth2Digest): bool =
   x.isZeroMemory
 
-proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =
+proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a
 
 proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =

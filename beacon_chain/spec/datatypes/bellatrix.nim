@@ -370,8 +370,8 @@ func fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
      raises: [Defect, ValueError].} =
   hexToByteArray(s, result.data)
 
-proc writeValue*(writer: var JsonWriter, value: ExecutionAddress) {.
-     raises: [Defect, IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, value: ExecutionAddress) {.raises: [IOError].} =
   writer.writeValue to0xHex(value.data)
 
 proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
