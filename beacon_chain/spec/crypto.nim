@@ -67,7 +67,7 @@ type
   CookedPubKey* = distinct blscurve.PublicKey ## Valid deserialized key
 
   ValidatorSig* = object
-    blob*: array[RawSigSize, byte]
+    blob* {.align: 16.}: array[RawSigSize, byte]
 
   ValidatorPrivKey* = distinct blscurve.SecretKey
 
@@ -76,7 +76,7 @@ type
   BlsResult*[T] = Result[T, cstring]
 
   TrustedSig* = object
-    data*: array[RawSigSize, byte]
+    data* {.align: 16.}: array[RawSigSize, byte]
 
   SomeSig* = TrustedSig | ValidatorSig
 
