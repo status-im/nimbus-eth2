@@ -131,7 +131,7 @@ type
     timeOffset*: Opt[TimeOffset]
 
   EpochSelectionProof* = object
-    signatures*: array[SLOTS_PER_EPOCH, Opt[ValidatorSig]]
+    signatures*: array[SLOTS_PER_EPOCH.int, Opt[ValidatorSig]]
     sync_committee_index*: IndexInSyncCommittee
 
   SyncCommitteeSelectionProof* = seq[EpochSelectionProof]
@@ -1350,7 +1350,7 @@ proc waitForBlock*(
 iterator chunks*[T](data: openArray[T], maxCount: Positive): seq[T] =
   for i in countup(0, len(data) - 1, maxCount):
     yield @(data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
-    
+
 func init*(t: typedesc[TimeOffset], duration: Duration): TimeOffset =
   TimeOffset(value: duration.nanoseconds)
 
