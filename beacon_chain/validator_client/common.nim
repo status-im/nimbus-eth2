@@ -1242,8 +1242,9 @@ proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
                          waiter: BlockWaiter) =
     data.waiters.add(waiter)
     for mitem in data.waiters.mitems():
-      if mitem.count <= len(data.blocks):
+      if mitem.count >= len(data.blocks):
         if not(mitem.future.finished()): mitem.future.complete(data.blocks)
+    data.waiters.keepItIf(not(it.future.finished()))
 
   vc.blocksSeen.mgetOrPut(slot, BlockDataItem()).scheduleCallbacks(waiter)
   if not(retFuture.finished()): retFuture.cancelCallback = cancellation
@@ -1266,6 +1267,7 @@ proc registerBlock*(vc: ValidatorClientRef, eblck: EventBeaconBlockObject,
     for mitem in data.waiters.mitems():
       if mitem.count >= len(data.blocks):
         if not(mitem.future.finished()): mitem.future.complete(data.blocks)
+    data.waiters.keepItIf(not(it.future.finished()))
 
   vc.blocksSeen.mgetOrPut(eblck.slot, BlockDataItem()).scheduleCallbacks(eblck)
 
