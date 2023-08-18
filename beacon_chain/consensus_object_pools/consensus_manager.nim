@@ -172,7 +172,9 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
   # Can't use dag.head here because it hasn't been updated yet
   let (payloadExecutionStatus, latestValidHash) =
     case self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
-    of ConsensusFork.Capella, ConsensusFork.Deneb:
+    of ConsensusFork.Deneb:
+      callForkchoiceUpdated(PayloadAttributesV3)
+    of ConsensusFork.Capella:
       # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
       # Consensus layer client MUST call this method instead of
       # `engine_forkchoiceUpdatedV1` under any of the following conditions:
@@ -396,12 +398,21 @@ proc runProposalForkchoiceUpdated*(
         debug "Fork-choice updated for proposal", status
 
       static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Deneb:
+        callForkchoiceUpdated(PayloadAttributesV3(
+          timestamp: Quantity timestamp,
+          prevRandao: FixedBytes[32] randomData,
+          suggestedFeeRecipient: feeRecipient,
+          withdrawals:
+            toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+          parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
+      elif consensusFork >= ConsensusFork.Capella:
         callForkchoiceUpdated(PayloadAttributesV2(
           timestamp: Quantity timestamp,
           prevRandao: FixedBytes[32] randomData,
           suggestedFeeRecipient: feeRecipient,
-          withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
+          withdrawals:
+            toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
       else:
         callForkchoiceUpdated(PayloadAttributesV1(
           timestamp: Quantity timestamp,

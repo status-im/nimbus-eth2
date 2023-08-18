@@ -243,6 +243,8 @@ proc batchVerifyAsync*(
   # task will stay allocated in the async environment at least until the signal
   # has fired at which point it's safe to release it
   let taskPtr = addr task
+  doAssert verifier[].taskpool.numThreads > 1,
+    "Must have at least one separate thread or signal will never be fired"
   verifier[].taskpool.spawn batchVerifyTask(taskPtr)
   await signal.wait()
   task.ok.load()
@@ -279,16 +281,18 @@ proc processBatch(
 
   trace "batch crypto - starting", numSets, items = batch[].items.len
 
-  if numSets == 1:
-    # Avoid taskpools overhead when there's only a single signature to verify
-    trace "batch crypto - finished (1)",
-      numSets, items = batch[].items.len(),
-      batchDur = Moment.now() - startTick
-
-    batchCrypto[].complete(batch[], blsVerify(batch[].sigsets[0]))
-    return
-
-  let ok = await batchVerifyAsync(verifier, signal, batch)
+  let ok =
+    # Depending on how many signatures there are in the batch, it may or
+    # may not be beneficial to use batch verification:
+    # https://github.com/status-im/nim-blscurve/blob/3956f63dd0ed5d7939f6195ee09e4c5c1ace9001/blscurve/bls_batch_verifier.nim#L390
+    if numSets == 1:
+      blsVerify(batch[].sigsets[0])
+    elif batchCrypto[].taskpool.numThreads > 1 and numSets > 3:
+      await batchVerifyAsync(verifier, signal, batch)
+    else:
+      let secureRandomBytes = verifier[].rng[].generate(array[32, byte])
+      batchVerifySerial(
+        verifier[].sigVerifCache, batch.sigsets, secureRandomBytes)
 
   trace "batch crypto - finished",
     numSets, items = batch[].items.len(), ok,

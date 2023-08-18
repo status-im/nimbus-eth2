@@ -248,7 +248,8 @@ local-testnet-minimal:
 		--run-geth --dl-geth \
 		-- \
 		--verify-finalization \
-		--discv5:no
+		--discv5:no \
+		--num-threads:1
 
 local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \

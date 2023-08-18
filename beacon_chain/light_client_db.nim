@@ -57,10 +57,10 @@ type
       ## SyncCommitteePeriod -> altair.SyncCommittee
       ## Stores finalized `SyncCommittee` by sync committee period.
 
-template disposeSafe(s: untyped): untyped =
+template disposeSafe(s: var SqliteStmt): untyped =
   if distinctBase(s) != nil:
     s.dispose()
-    s = nil
+    s = typeof(s)(nil)
 
 proc initLegacyLightClientHeadersStore(
     backend: SqStoreRef,

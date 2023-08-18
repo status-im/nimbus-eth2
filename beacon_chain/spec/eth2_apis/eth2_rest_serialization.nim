@@ -1212,7 +1212,7 @@ proc writeValue*[
   # https://github.com/ConsenSys/web3signer/blob/d51337e96ba5ce410222943556bed7c4856b8e57/core/src/main/java/tech/pegasys/web3signer/core/service/http/handlers/signing/eth2/json/BlockRequestDeserializer.java#L42-L58
   writer.beginRecord()
   writer.writeField("version", value.kind.toString.toUpperAscii)
-  writer.writeField("block", value.data)
+  writer.writeField("block_header", value.data)
   writer.endRecord()
 
 proc writeValue*[
@@ -2109,8 +2109,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     if isSome(value.signingRoot):
       writer.writeField("signingRoot", value.signingRoot)
 
-    # https://github.com/ConsenSys/web3signer/blob/41c0cbfabcb1fca9587b59e058b7eb29f152c60c/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L418-L497
-    writer.writeField("beacon_block", value.beaconBlock)
+    # https://github.com/Consensys/web3signer/blob/2d956c019663ac70f60640d23196d1d321c1b1fa/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L483-L500
+    writer.writeField("beacon_block", value.beaconBlockHeader)
 
     if isSome(value.proofs):
       writer.writeField("proofs", value.proofs.get())
@@ -2312,13 +2312,13 @@ proc readValue*(reader: var JsonReader[RestJson],
       if len(proofs) > 0:
         Web3SignerRequest(
           kind: Web3SignerRequestKind.BlockV2,
-          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data,
+          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlockHeader: data,
           proofs: Opt.some(proofs)
         )
       else:
         Web3SignerRequest(
           kind: Web3SignerRequestKind.BlockV2,
-          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data
+          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlockHeader: data
         )
     of Web3SignerRequestKind.Deposit:
       if dataName != "deposit":

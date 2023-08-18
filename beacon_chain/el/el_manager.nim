@@ -140,7 +140,7 @@ type
     headBlockHash*: Eth2Digest
     safeBlockHash*: Eth2Digest
     finalizedBlockHash*: Eth2Digest
-    payloadAttributes*: PayloadAttributesV2
+    payloadAttributes*: PayloadAttributesV3
 
   ELManager* = ref object
     eth1Network: Option[Eth1Network]
@@ -767,7 +767,8 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
                timestamp: uint64,
                randomData: Eth2Digest,
                feeRecipient: Eth1Address,
-               withdrawals: seq[WithdrawalV1]): bool =
+               withdrawals: seq[WithdrawalV1],
+               parentBeaconBlockRoot: FixedBytes[32]): bool =
   expectedParams.isSome and
     expectedParams.get.headBlockHash == latestHead and
     expectedParams.get.safeBlockHash == latestSafe and
@@ -775,17 +776,22 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
     expectedParams.get.payloadAttributes.timestamp.uint64 == timestamp and
     expectedParams.get.payloadAttributes.prevRandao.bytes == randomData.data and
     expectedParams.get.payloadAttributes.suggestedFeeRecipient == feeRecipient and
-    expectedParams.get.payloadAttributes.withdrawals == withdrawals
+    expectedParams.get.payloadAttributes.withdrawals == withdrawals and
+    expectedParams.get.payloadAttributes.parentBeaconBlockRoot ==
+      parentBeaconBlockRoot
 
 proc forkchoiceUpdated(rpcClient: RpcClient,
                        state: ForkchoiceStateV1,
                        payloadAttributes: Option[PayloadAttributesV1] |
-                                          Option[PayloadAttributesV2]):
+                                          Option[PayloadAttributesV2] |
+                                          Option[PayloadAttributesV3]):
                        Future[ForkchoiceUpdatedResponse] =
   when payloadAttributes is Option[PayloadAttributesV1]:
     rpcClient.engine_forkchoiceUpdatedV1(state, payloadAttributes)
   elif payloadAttributes is Option[PayloadAttributesV2]:
     rpcClient.engine_forkchoiceUpdatedV2(state, payloadAttributes)
+  elif payloadAttributes is Option[PayloadAttributesV3]:
+    rpcClient.engine_forkchoiceUpdatedV3(state, payloadAttributes)
   else:
     static: doAssert false
 
@@ -799,6 +805,7 @@ proc getPayloadFromSingleEL(
     connection: ELConnection,
     GetPayloadResponseType: type,
     isForkChoiceUpToDate: bool,
+    consensusHead: Eth2Digest,
     headBlock, safeBlock, finalizedBlock: Eth2Digest,
     timestamp: uint64,
     randomData: Eth2Digest,
@@ -822,8 +829,7 @@ proc getPayloadFromSingleEL(
             timestamp: Quantity timestamp,
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient))
-      elif GetPayloadResponseType is engine_api.GetPayloadV2Response or
-           GetPayloadResponseType is engine_api.GetPayloadV3Response:
+      elif GetPayloadResponseType is engine_api.GetPayloadV2Response:
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -834,6 +840,18 @@ proc getPayloadFromSingleEL(
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
+      elif GetPayloadResponseType is engine_api.GetPayloadV3Response:
+        let response = await rpcClient.forkchoiceUpdated(
+          ForkchoiceStateV1(
+            headBlockHash: headBlock.asBlockHash,
+            safeBlockHash: safeBlock.asBlockHash,
+            finalizedBlockHash: finalizedBlock.asBlockHash),
+          some PayloadAttributesV3(
+            timestamp: Quantity timestamp,
+            prevRandao: FixedBytes[32] randomData.data,
+            suggestedFeeRecipient: suggestedFeeRecipient,
+            withdrawals: withdrawals,
+            parentBeaconBlockRoot: consensusHead.asBlockHash))
       else:
         static: doAssert false
 
@@ -849,7 +867,8 @@ proc getPayloadFromSingleEL(
       raise newException(CatchableError, "No confirmed execution head yet")
 
   when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
-    let payload= await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
+    let payload =
+      await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
     return BellatrixExecutionPayloadWithValue(
       executionPayload: payload,
       blockValue: computeBlockValue payload)
@@ -891,6 +910,7 @@ template toFork(T: type ExecutionPayloadV3): ConsensusFork =
 
 proc getPayload*(m: ELManager,
                  PayloadType: type ForkyExecutionPayloadForSigning,
+                 consensusHead: Eth2Digest,
                  headBlock, safeBlock, finalizedBlock: Eth2Digest,
                  timestamp: uint64,
                  randomData: Eth2Digest,
@@ -902,9 +922,10 @@ proc getPayload*(m: ELManager,
 
   let
     engineApiWithdrawals = toEngineWithdrawals withdrawals
-  let isFcUpToDate = m.nextExpectedPayloadParams.areSameAs(
-    headBlock, safeBlock, finalizedBlock, timestamp,
-    randomData, suggestedFeeRecipient, engineApiWithdrawals)
+    isFcUpToDate = m.nextExpectedPayloadParams.areSameAs(
+      headBlock, safeBlock, finalizedBlock, timestamp,
+      randomData, suggestedFeeRecipient, engineApiWithdrawals,
+      consensusHead.asBlockHash)
 
   # `getPayloadFromSingleEL` may introduce additional latency
   const extraProcessingOverhead = 500.milliseconds
@@ -913,7 +934,7 @@ proc getPayload*(m: ELManager,
     deadline = sleepAsync(timeout)
     requests = m.elConnections.mapIt(it.getPayloadFromSingleEL(
       EngineApiResponseType(PayloadType),
-      isFcUpToDate, headBlock, safeBlock, finalizedBlock,
+      isFcUpToDate, consensusHead, headBlock, safeBlock, finalizedBlock,
       timestamp, randomData, suggestedFeeRecipient, engineApiWithdrawals
     ))
     requestsCompleted = allFutures(requests)
@@ -1221,7 +1242,8 @@ proc forkchoiceUpdatedForSingleEL(
     connection: ELConnection,
     state: ref ForkchoiceStateV1,
     payloadAttributes: Option[PayloadAttributesV1] |
-                       Option[PayloadAttributesV2]):
+                       Option[PayloadAttributesV2] |
+                       Option[PayloadAttributesV3]):
     Future[PayloadStatusV1] {.async.} =
   let
     rpcClient = await connection.connectedRpcClient()
@@ -1242,7 +1264,8 @@ proc forkchoiceUpdated*(m: ELManager,
                         headBlockHash, safeBlockHash,
                         finalizedBlockHash: Eth2Digest,
                         payloadAttributes: Option[PayloadAttributesV1] |
-                                           Option[PayloadAttributesV2]):
+                                           Option[PayloadAttributesV2] |
+                                           Option[PayloadAttributesV3]):
                         Future[(PayloadExecutionStatus, Option[BlockHash])] {.async.} =
   doAssert not headBlockHash.isZero
 
@@ -1260,24 +1283,37 @@ proc forkchoiceUpdated*(m: ELManager,
   if m.elConnections.len == 0:
     return (PayloadExecutionStatus.syncing, none BlockHash)
 
-  when payloadAttributes is Option[PayloadAttributesV2]:
-    template payloadAttributesV2(): auto =
+  when payloadAttributes is Option[PayloadAttributesV3]:
+    template payloadAttributesV3(): auto =
       if payloadAttributes.isSome:
         payloadAttributes.get
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
-        (static(default(PayloadAttributesV2)))
-  elif payloadAttributes is Option[PayloadAttributesV1]:
-    template payloadAttributesV2(): auto =
+        (static(default(PayloadAttributesV3)))
+  elif payloadAttributes is Option[PayloadAttributesV2]:
+    template payloadAttributesV3(): auto =
       if payloadAttributes.isSome:
-        PayloadAttributesV2(
+        PayloadAttributesV3(
           timestamp: payloadAttributes.get.timestamp,
           prevRandao: payloadAttributes.get.prevRandao,
           suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
-          withdrawals: @[])
+          withdrawals: payloadAttributes.get.withdrawals,
+          parentBeaconBlockRoot: static(default(FixedBytes[32])))
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
-        (static(default(PayloadAttributesV2)))
+        (static(default(PayloadAttributesV3)))
+  elif payloadAttributes is Option[PayloadAttributesV1]:
+    template payloadAttributesV3(): auto =
+      if payloadAttributes.isSome:
+        PayloadAttributesV3(
+          timestamp: payloadAttributes.get.timestamp,
+          prevRandao: payloadAttributes.get.prevRandao,
+          suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
+          withdrawals: @[],
+          parentBeaconBlockRoot: static(default(FixedBytes[32])))
+      else:
+        # As timestamp and prevRandao are both 0, won't false-positive match
+        (static(default(PayloadAttributesV3)))
   else:
     static: doAssert false
 
@@ -1319,7 +1355,7 @@ proc forkchoiceUpdated*(m: ELManager,
         headBlockHash: headBlockHash,
         safeBlockHash: safeBlockHash,
         finalizedBlockHash: finalizedBlockHash,
-        payloadAttributes: payloadAttributesV2))
+        payloadAttributes: payloadAttributesV3))
 
   if responseProcessor.disagreementAlreadyDetected:
     return (PayloadExecutionStatus.invalid, none BlockHash)
@@ -2157,12 +2193,12 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
       await syncedConnectionFut.cancelAndWait()
       syncedConnectionFut = m.selectConnectionForChainSyncing()
 
-proc start*(m: ELManager) {.gcsafe.} =
+proc start*(m: ELManager, syncChain = true) {.gcsafe.} =
   if m.elConnections.len == 0:
     return
 
   ## Calling `ELManager.start()` on an already started ELManager is a noop
-  if m.chainSyncingLoopFut.isNil:
+  if syncChain and m.chainSyncingLoopFut.isNil:
     m.chainSyncingLoopFut =
       m.startChainSyncingLoop()
 

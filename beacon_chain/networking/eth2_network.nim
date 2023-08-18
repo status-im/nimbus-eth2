@@ -682,13 +682,13 @@ proc sendResponseChunkBytesSZ(
     contextBytes: openArray[byte] = []): Future[void] =
   inc response.writtenChunks
   response.stream.writeChunkSZ(
-    some Success, uncompressedLen, payloadSZ, contextBytes)
+    some ResponseCode.Success, uncompressedLen, payloadSZ, contextBytes)
 
 proc sendResponseChunkBytes(
     response: UntypedResponse, payload: openArray[byte],
     contextBytes: openArray[byte] = []): Future[void] =
   inc response.writtenChunks
-  response.stream.writeChunk(some Success, payload, contextBytes)
+  response.stream.writeChunk(some ResponseCode.Success, payload, contextBytes)
 
 proc sendResponseChunk(
     response: UntypedResponse, val: auto,
@@ -698,11 +698,11 @@ proc sendResponseChunk(
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResultFut: Future): untyped =
   let handlerRes = await handlerResultFut
-  writeChunk(stream, some Success, SSZ.encode(handlerRes))
+  writeChunk(stream, some ResponseCode.Success, SSZ.encode(handlerRes))
 
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResult: auto): untyped =
-  writeChunk(stream, some Success, SSZ.encode(handlerResult))
+  writeChunk(stream, some ResponseCode.Success, SSZ.encode(handlerResult))
 
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], cstring]]

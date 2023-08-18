@@ -26,12 +26,12 @@ const
   MockPubKeys* = MockPubKeysT()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/tests/core/pyspec/eth2spec/test/helpers/keys.py
-func `[]`*(_: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
+func `[]`*(sk: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
   var bytes = (index.uint64 + 1'u64).toBytesLE()  # Consistent with EF tests
   static: doAssert sizeof(bytes) <= sizeof(result)
   copyMem(addr result, addr bytes, sizeof(bytes))
 
-proc `[]`*(_: MockPubKeysT, index: uint64): ValidatorPubKey =
+proc `[]`*(pk: MockPubKeysT, index: uint64): ValidatorPubKey =
   var cache {.threadvar.}: Table[uint64, ValidatorPubKey]
   cache.withValue(index, key) do:
     return key[]
@@ -40,8 +40,8 @@ proc `[]`*(_: MockPubKeysT, index: uint64): ValidatorPubKey =
     cache[index] = key
     return key
 
-proc `[]`*(_: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
-  _[index.uint64]
+proc `[]`*(pk: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
+  pk[index.uint64]
 
 func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()

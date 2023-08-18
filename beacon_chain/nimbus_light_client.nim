@@ -138,6 +138,10 @@ programMain:
       network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Optimistic)
 
+  # Run `exchangeTransitionConfiguration` loop
+  if elManager != nil:
+    elManager.start(syncChain = false)
+
   info "Listening to incoming network requests"
   network.initBeaconSync(cfg, forkDigests, genesisBlockRoot, getBeaconTime)
   network.addValidator(

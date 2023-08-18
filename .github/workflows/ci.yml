@@ -124,7 +124,8 @@ jobs:
           # Stack usage test and UBSAN on recent enough gcc:
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
             if [[ '${{ github.sha }}' =~ ^7 ]]; then
-              export WITH_UBSAN=1 >> $GITHUB_ENV
+              export WITH_UBSAN=1
+              echo "WITH_UBSAN=1" >> $GITHUB_ENV
               export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage --passC:-fsanitize=undefined --passL:-fsanitize=undefined"
             else
               export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"

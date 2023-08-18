@@ -594,7 +594,9 @@ type
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
-      beaconBlock* {.
+      # https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
+      # https://github.com/Consensys/web3signer/blob/2d956c019663ac70f60640d23196d1d321c1b1fa/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L483-L500
+      beaconBlockHeader* {.
         serializedFieldName: "beacon_block".}: Web3SignerForkedBeaconBlock
       proofs*: Opt[seq[Web3SignerMerkleProof]]
     of Web3SignerRequestKind.Deposit:
@@ -823,7 +825,7 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
-    beaconBlock: data
+    beaconBlockHeader: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
@@ -839,7 +841,7 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     )),
     signingRoot: signingRoot,
     proofs: Opt.some(@proofs),
-    beaconBlock: data
+    beaconBlockHeader: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,

@@ -311,8 +311,8 @@ proc getExecutionPayload(
         else:
           @[]
       payload = await node.elManager.getPayload(
-        PayloadType, executionHead, latestSafe, latestFinalized,
-        timestamp, random, feeRecipient, withdrawals)
+        PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
+        latestFinalized, timestamp, random, feeRecipient, withdrawals)
 
     if payload.isNone:
       error "Failed to obtain execution payload from EL",

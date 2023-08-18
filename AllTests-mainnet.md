@@ -584,10 +584,12 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ bestSuccess() API timeout test                                                             OK
++ firstSuccessParallel() API timeout test                                                    OK
 + getAttestationDataScore() test vectors                                                     OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -698,4 +700,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 391/396 Fail: 0/396 Skip: 5/396
+OK: 393/398 Fail: 0/398 Skip: 5/398
