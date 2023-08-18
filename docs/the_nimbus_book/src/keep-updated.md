@@ -54,12 +54,10 @@ Complete the upgrade by restarting the node!
 
 ## Urgency guidelines
 
-As of `v1.4.0`, releases are marked with the following tags:
+Nimbus releases are marked with the following tags:
 
 - `low-urgency`: update at your own convenience, sometime within our normal update cycle of two weeks
-
 - `medium-urgency`: may contain an important stability fix, it is better to update sooner rather than later
-
 - `high-urgency`: update as soon as you can, this is a critical update required for Nimbus to function correctly
 
 

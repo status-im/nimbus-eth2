@@ -10,6 +10,9 @@ import
   chronos, presto/client,
   "."/[rest_types, eth2_rest_serialization]
 
+from std/times import Time, DateTime, toTime, fromUnix, now, utc, `-`,
+                      inNanoseconds
+
 export chronos, client, rest_types, eth2_rest_serialization
 
 proc raiseGenericError*(resp: RestPlainResponse) {.
@@ -52,3 +55,6 @@ proc getBodyBytesWithCap*(
     if not(isNil(reader)):
       await reader.closeWait()
     raise newHttpReadError("Could not read response")
+
+proc getTimestamp*(): uint64 =
+  uint64((toTime(now().utc) - fromUnix(0)).inNanoseconds())

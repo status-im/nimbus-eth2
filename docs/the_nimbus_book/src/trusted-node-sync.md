@@ -1,13 +1,14 @@
 # Sync from a trusted node
 
-When you [start the beacon node](./quick-start.md) for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take **several hours** or even days.
+When you [start the beacon node](./quick-start.md) for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take **several hours or even days**.
 
 Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in **minutes** instead of hours or days.
 
 To use trusted node sync, you must have access to a node that you trust and that exposes the [Beacon API](./rest-api.md) (for example, a locally running backup node).
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
 
-It is possible to use trusted node sync with a third-party API provider — see [here](trusted-node-sync.md#verify-you-synced-the-correct-chain) for how to verify that the chain you are given corresponds to the canonical chain at the time.
+It is possible to use trusted node sync with a third-party API provider.
+See [here](./trusted-node-sync.md#verify-you-synced-the-correct-chain) for how to verify that the chain you are given corresponds to the canonical chain at the time.
 
 !!! tip
     A list of community-operated checkpoint sync nodes can be found [here](https://eth-clients.github.io/checkpoint-sync-endpoints/).
@@ -22,7 +23,7 @@ It is possible to use trusted node sync with a third-party API provider — see 
     Which means you would run the commands below with `--trusted-node-url=http://127.0.0.1:3500`
 
 !!! note
-    The path specified for `--data-dir` must be an empty directory as trusted node sync needs to be started from a fresh database.
+    The path specified for `--data-dir` must be an empty directory, as trusted node sync needs to be started from a fresh database.
 
 To start trusted node sync, run:
 
@@ -36,9 +37,10 @@ To start trusted node sync, run:
 
 === "Prater"
     ```sh
-    build/nimbus_beacon_node trustedNodeSync --network:prater \
-    --data-dir=build/data/shared_prater_0  \
-    --trusted-node-url=http://localhost:5052
+    build/nimbus_beacon_node trustedNodeSync \
+      --network:prater \
+      --data-dir=build/data/shared_prater_0 \
+      --trusted-node-url=http://localhost:5052
     ```
 
 If the command was executed successfully, following log lines will be visible:

@@ -5,10 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import chronicles
-import ../spec/eth2_apis/eth2_rest_serialization,
-       ../spec/datatypes/[phase0, altair]
-import common, fallback_service
+import std/strutils
+import chronicles, stew/base10
+import ".."/spec/eth2_apis/eth2_rest_serialization,
+       ".."/spec/datatypes/[phase0, altair]
+import "."/[common, fallback_service, scoring]
 
 export eth2_rest_serialization, common
 
@@ -35,11 +36,46 @@ type
     status*: ApiOperation
     data*: seq[ApiNodeResponse[T]]
 
+  ApiScore* = object
+    index*: int
+    score*: Opt[float64]
+
+  BestNodeResponse*[T] = object
+    node*: BeaconNodeServerRef
+    data*: ApiResponse[T]
+    score*: float64
+
 const
   ViableNodeStatus = {RestBeaconNodeStatus.Compatible,
                       RestBeaconNodeStatus.NotSynced,
                       RestBeaconNodeStatus.OptSynced,
                       RestBeaconNodeStatus.Synced}
+
+proc `$`*(s: ApiScore): string =
+  var res = Base10.toString(uint64(s.index))
+  res.add(": ")
+  if s.score.isSome():
+    res.add(shortScore(s.score.get()))
+  else:
+    res.add("<n/a>")
+  res
+
+proc `$`*(ss: openArray[ApiScore]): string =
+  "[" & ss.mapIt($it).join(",") & "]"
+
+chronicles.formatIt(seq[ApiScore]):
+  $it
+
+func init*(t: typedesc[ApiScore], node: BeaconNodeServerRef,
+           score: float64): ApiScore =
+  ApiScore(index: node.index, score: Opt.some(score))
+
+func init*(t: typedesc[ApiScore], node: BeaconNodeServerRef): ApiScore =
+  ApiScore(index: node.index, score: Opt.none(float64))
+
+func init*[T](t: typedesc[BestNodeResponse], node: BeaconNodeServerRef,
+              data: ApiResponse[T], score: float64): BestNodeResponse[T] =
+  BestNodeResponse[T](node: node, data: data, score: score)
 
 proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase,
                 requestName: string, strategy: ApiStrategyKind) {.async.} =
@@ -77,6 +113,18 @@ proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
       await cancelAndWait(timerFut)
   else:
     await allFutures(futures)
+
+proc apiResponseOr[T](future: FutureBase, timerFut: Future[void],
+                      message: string): ApiResponse[T] =
+  if future.finished():
+    doAssert(not(future.cancelled()))
+    if future.failed():
+      ApiResponse[T].err($future.error.msg)
+    else:
+      ApiResponse[T].ok(Future[T](future).read())
+  else:
+    doAssert(timerFut.finished())
+    ApiResponse[T].err(message)
 
 template firstSuccessParallel*(
            vc: ValidatorClientRef,
@@ -118,8 +166,7 @@ template firstSuccessParallel*(
         # This case could not be happened.
         error "Unexpected exception while waiting for beacon nodes",
               err_name = $exc.name, err_msg = $exc.msg
-        var default: seq[BeaconNodeServerRef]
-        default
+        default(seq[BeaconNodeServerRef])
 
     if len(onlineNodes) == 0:
       retRes = ApiResponse[handlerType].err("No online beacon node(s)")
@@ -183,15 +230,8 @@ template firstSuccessParallel*(
             let
               node {.inject.} = beaconNode
               apiResponse {.inject.} =
-                if timerFut.finished():
-                  ApiResponse[responseType].err(
-                    "Timeout exceeded while awaiting for the response")
-                else:
-                  if requestFut.failed():
-                    ApiResponse[responseType].err($requestFut.error.msg)
-                  else:
-                    ApiResponse[responseType].ok(
-                      Future[responseType](requestFut).read())
+                apiResponseOr[responseType](requestFut, timerFut,
+                  "Timeout exceeded while awaiting for the response")
               handlerResponse =
                 try:
                   body2
@@ -200,7 +240,7 @@ template firstSuccessParallel*(
                 except CatchableError:
                   raiseAssert("Response handler must not raise exceptions")
 
-            if apiResponse.isOk() and handlerResponse.isOk():
+            if handlerResponse.isOk():
               retRes = handlerResponse
               resultReady = true
               asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
@@ -213,7 +253,7 @@ template firstSuccessParallel*(
             pendingCancel.add(raceFut.cancelAndWait())
           if not(isNil(timerFut)) and not(timerFut.finished()):
             pendingCancel.add(timerFut.cancelAndWait())
-          for index, future in pendingRequests.pairs():
+          for future in pendingRequests.items():
             if not(future.finished()):
               pendingCancel.add(future.cancelAndWait())
           await allFutures(pendingCancel)
@@ -236,13 +276,16 @@ template firstSuccessParallel*(
 template bestSuccess*(
            vc: ValidatorClientRef,
            responseType: typedesc,
+           handlerType: typedesc,
            timeout: Duration,
            statuses: set[RestBeaconNodeStatus],
            roles: set[BeaconNodeRole],
            bodyRequest,
-           bodyScore: untyped): ApiResponse[responseType] =
-  var it {.inject.}: RestClientRef
-  type BodyType = typeof(bodyRequest)
+           bodyScore,
+           bodyHandler: untyped): ApiResponse[handlerType] =
+  var
+    it {.inject.}: RestClientRef
+    iterations = 0
 
   var timerFut =
     if timeout != InfiniteDuration:
@@ -250,114 +293,166 @@ template bestSuccess*(
     else:
       nil
 
-  let onlineNodes =
-    try:
-      await vc.waitNodes(timerFut, statuses, roles, false)
-      vc.filterNodes(statuses, roles)
-    except CancelledError as exc:
-      if not(isNil(timerFut)) and not(timerFut.finished()):
-        await timerFut.cancelAndWait()
-      raise exc
-    except CatchableError as exc:
-      # This case could not be happened.
-      error "Unexpected exception while waiting for beacon nodes",
-            err_name = $exc.name, err_msg = $exc.msg
-      var default: seq[BeaconNodeServerRef]
-      default
+  var
+    retRes: ApiResponse[handlerType]
+    scores: seq[ApiScore]
+    bestResponse: Opt[BestNodeResponse[handlerType]]
 
-  if len(onlineNodes) == 0:
-    ApiResponse[responseType].err("No online beacon node(s)")
-  else:
-    let
-      (pendingRequests, pendingNodes) =
-        block:
-          var requests: seq[BodyType]
-          var nodes: seq[BeaconNodeServerRef]
-          for node {.inject.} in onlineNodes:
-            it = node.client
-            let fut = bodyRequest
-            requests.add(fut)
-            nodes.add(node)
-          (requests, nodes)
-
-      status =
+  block mainLoop:
+    while true:
+      let onlineNodes =
         try:
-          if isNil(timerFut):
-            await allFutures(pendingRequests)
-            ApiOperation.Success
+          if iterations == 0:
+            # We are not going to wait for BNs if there some available.
+            await vc.waitNodes(timerFut, statuses, roles, false)
           else:
-            let waitFut = allFutures(pendingRequests)
-            discard await race(waitFut, timerFut)
-            if not(waitFut.finished()):
-              await waitFut.cancelAndWait()
-              ApiOperation.Timeout
-            else:
-              if not(timerFut.finished()):
-                await timerFut.cancelAndWait()
-              ApiOperation.Success
+            # We get here only, if all the requests are failed. To avoid requests
+            # spam we going to wait for changes in BNs statuses.
+            await vc.waitNodes(timerFut, statuses, roles, true)
+          vc.filterNodes(statuses, roles)
         except CancelledError as exc:
-          # We should cancel all the pending requests and timer before we return
-          # result.
-          var pendingCancel: seq[Future[void]]
-          for future in pendingRequests:
-            if not(fut.finished()):
-              pendingCancel.add(fut.cancelAndWait())
           if not(isNil(timerFut)) and not(timerFut.finished()):
-            pendingCancel.add(timerFut.cancelAndWait())
-          await allFutures(pendingCancel)
+            await timerFut.cancelAndWait()
           raise exc
-        except CatchableError:
-          # This should not be happened, because allFutures() and race() did not
-          # raise any exceptions.
-          ApiOperation.Failure
+        except CatchableError as exc:
+          # This case could not be happened.
+          error "Unexpected exception while waiting for beacon nodes",
+                err_name = $exc.name, err_msg = $exc.msg
+          default(seq[BeaconNodeServerRef])
 
-      apiResponses {.inject.} =
-        block:
-          var res: seq[ApiNodeResponse[responseType]]
-          for requestFut, pnode in pendingRequests.pairs():
-            let beaconNode = pendingNodes[index]
-            if requestFut.finished():
-              if requestFut.failed():
-                let exc = requestFut.readError()
-                debug "One of operation requests has been failed",
-                      node = beaconNode, err_name = $exc.name,
-                      err_msg = $exc.msg
-                beaconNode.status.updateStatus(RestBeaconNodeStatus.Offline)
-              elif future.cancelled():
-                debug "One of operation requests has been interrupted",
-                      node = beaconNode
-              else:
-                res.add(
-                  ApiNodeResponse(
-                    node: beaconNode,
-                    data: ApiResponse[responseType].ok(future.read())
-                  )
-                )
-            else:
-              case status
-              of ApiOperation.Timeout:
-                debug "One of operation requests has been timed out",
-                      node = beaconNode
-                pendingNodes[index].status = RestBeaconNodeStatus.Offline
-              of ApiOperation.Success, ApiOperation.Failure,
-                 ApiOperation.Interrupt:
-                 # This should not be happened, because all Futures should be
-                 # finished.
-                debug "One of operation requests failed unexpectedly",
-                      node = beaconNode
-                pendingNodes[index].status = RestBeaconNodeStatus.Offline
-          res
-
-    if len(apiResponses) == 0:
-      ApiResponse[responseType].err("No successful responses available")
-    else:
-      let index = bestScore
-      if index >= 0:
-        debug "Operation request result was selected",
-              node = apiResponses[index].node
-        apiResponses[index].data
+      if len(onlineNodes) == 0:
+        retRes = ApiResponse[handlerType].err("No online beacon node(s)")
+        break mainLoop
       else:
-        ApiResponse[responseType].err("Unable to get best response")
+        var
+          (pendingRequests, pendingNodes) =
+            block:
+              var requests: seq[FutureBase]
+              var nodes: seq[BeaconNodeServerRef]
+              for node {.inject.} in onlineNodes:
+                it = node.client
+                let fut = FutureBase(bodyRequest)
+                requests.add(fut)
+                nodes.add(node)
+              (requests, nodes)
+          perfectScoreFound = false
+
+        block innerLoop:
+          while len(pendingRequests) > 0:
+            var
+              finishedRequests: seq[FutureBase]
+              finishedNodes: seq[BeaconNodeServerRef]
+              raceFut: Future[FutureBase]
+            try:
+              raceFut = race(pendingRequests)
+
+              if isNil(timerFut):
+                await raceFut or timerFut
+              else:
+                await allFutures(raceFut)
+
+              for index, future in pendingRequests.pairs():
+                if future.finished() or
+                   (not(isNil(timerFut)) and timerFut.finished()):
+                  finishedRequests.add(future)
+                  finishedNodes.add(pendingNodes[index])
+                  let
+                    node {.inject.} = pendingNodes[index]
+                    apiResponse {.inject.} =
+                      apiResponseOr[responseType](future, timerFut,
+                        "Timeout exceeded while awaiting for the response")
+                    handlerResponse =
+                      try:
+                        bodyHandler
+                      except CancelledError as exc:
+                        raise exc
+                      except CatchableError:
+                        raiseAssert(
+                          "Response handler must not raise exceptions")
+
+                  if handlerResponse.isOk():
+                    let
+                      itresponse {.inject.} = handlerResponse.get()
+                      score =
+                        try:
+                          bodyScore
+                        except CancelledError as exc:
+                          raise exc
+                        except CatchableError:
+                          raiseAssert("Score handler must not raise exceptions")
+                    scores.add(ApiScore.init(node, score))
+                    if bestResponse.isNone() or
+                      (score > bestResponse.get().score):
+                      bestResponse = Opt.some(
+                        BestNodeResponse.init(node, handlerResponse, score))
+                      if perfectScore(score):
+                        perfectScoreFound = true
+                        break
+                  else:
+                    scores.add(ApiScore.init(node))
+
+              if perfectScoreFound:
+                # lazyWait will cancel `pendingRequests` on timeout.
+                asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut,
+                                    RequestName, strategy)
+                break innerLoop
+
+              if not(isNil(timerFut)) and timerFut.finished():
+                # If timeout is exceeded we need to cancel all the tasks which
+                # are still running.
+                var pendingCancel: seq[Future[void]]
+                for future in pendingRequests.items():
+                  if not(future.finished()):
+                    pendingCancel.add(future.cancelAndWait())
+                await allFutures(pendingCancel)
+                break innerLoop
+
+              pendingRequests.keepItIf(it notin finishedRequests)
+              pendingNodes.keepItIf(it notin finishedNodes)
+
+            except CancelledError as exc:
+              var pendingCancel: seq[Future[void]]
+              # `or` operation does not cancelling Futures passed as arguments.
+              if not(isNil(raceFut)) and not(raceFut.finished()):
+                pendingCancel.add(raceFut.cancelAndWait())
+              if not(isNil(timerFut)) and not(timerFut.finished()):
+                pendingCancel.add(timerFut.cancelAndWait())
+              # We should cancel all the requests which are still pending.
+              for future in pendingRequests.items():
+                if not(future.finished()):
+                  pendingCancel.add(future.cancelAndWait())
+              # Awaiting cancellations.
+              await allFutures(pendingCancel)
+              raise exc
+            except CatchableError as exc:
+              # This should not be happened, because allFutures() and race()
+              # did not raise any exceptions.
+              error "Unexpected exception while processing request",
+                    err_name = $exc.name, err_msg = $exc.msg
+              retRes = ApiResponse[handlerType].err("Unexpected error")
+              break mainLoop
+
+        if bestResponse.isSome():
+          retRes = bestResponse.get().data
+          break mainLoop
+        else:
+          if timerFut.finished():
+            retRes = ApiResponse[handlerType].err(
+                       "Timeout exceeded while awaiting for responses")
+            break mainLoop
+          else:
+            # When all requests failed
+            discard
+
+      inc(iterations)
+
+  if retRes.isOk():
+    debug "Best score result selected",
+          request = RequestName, available_scores = scores,
+          best_score = shortScore(bestResponse.get().score),
+          best_node = bestResponse.get().node
+
+  retRes
 
 template onceToAll*(
            vc: ValidatorClientRef,
@@ -1225,7 +1320,7 @@ proc produceAttestationData*(
   var failures: seq[ApiNodeFailure]
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       ProduceAttestationDataResponse,
@@ -1262,6 +1357,47 @@ proc produceAttestationData*(
           ApiResponse[ProduceAttestationDataResponse].err(
             ResponseUnexpectedError)
 
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get().data
+
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      ProduceAttestationDataResponse,
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AttestationData},
+      produceAttestationDataPlain(it, slot, committee_index),
+      getAttestationDataScore(vc, itresponse)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[ProduceAttestationDataResponse].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(ProduceAttestationDataResponse, response.data,
+                                response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[ProduceAttestationDataResponse].err($res.error)
+          else:
+            ApiResponse[ProduceAttestationDataResponse].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[ProduceAttestationDataResponse].err(ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[ProduceAttestationDataResponse].err(ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[ProduceAttestationDataResponse].err(
+            ResponseNoSyncError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[ProduceAttestationDataResponse].err(
+            ResponseUnexpectedError)
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
     return res.get().data
@@ -1842,7 +1978,7 @@ proc produceBlockV2*(
 
 proc publishBlock*(
        vc: ValidatorClientRef,
-       data: ForkedSignedBeaconBlock,
+       data: RestPublishedSignedBlockContents,
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
   const
@@ -1869,12 +2005,7 @@ proc publishBlock*(
         of ConsensusFork.Capella:
           publishBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
-          debugRaiseAssert $denebImplementationMissing &
-                           ": validator_client/api.nim:publishBlock (1)"
-          let f = newFuture[RestPlainResponse]("")
-          f.fail(new RestError)
-          f
-
+          publishBlock(it, data.denebData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -1885,7 +2016,8 @@ proc publishBlock*(
           of 200:
             ApiResponse[bool].ok(true)
           of 202:
-            debug BlockBroadcasted, node = node, blck = shortLog(data)
+            debug BlockBroadcasted, node = node,
+             blck = shortLog(ForkedSignedBeaconBlock.init(data))
             ApiResponse[bool].ok(true)
           of 400:
             handle400()
@@ -1919,11 +2051,8 @@ proc publishBlock*(
       of ConsensusFork.Capella:
         publishBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
-        debugRaiseAssert $denebImplementationMissing &
-                         ": validator_client/api.nim:publishBlock (2)"
-        let f = newFuture[RestPlainResponse]("")
-        f.fail(new RestError)
-        f
+        publishBlock(it, data.denebData)
+
     do:
       if apiResponse.isErr():
         handleCommunicationError()
@@ -1934,7 +2063,8 @@ proc publishBlock*(
         of 200:
           return true
         of 202:
-          debug BlockBroadcasted, node = node, blck = shortLog(data)
+          debug BlockBroadcasted, node = node,
+           blck = shortLog(ForkedSignedBeaconBlock.init(data))
           return true
         of 400:
           handle400()

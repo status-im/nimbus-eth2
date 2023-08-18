@@ -65,10 +65,6 @@ As part of the migration process, you need to stop your existing client and expo
 
     You will then find the `slashing-protection.json` file in your specified `/path/to/export_dir` folder.
 
-    !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
-        Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
-
 === "Lighthouse"
 
     #### 1. Disable the Lighthouse validator client
@@ -101,10 +97,6 @@ As part of the migration process, you need to stop your existing client and expo
 
     This will export your history in the correct format to `slashing-protection.json`.
 
-    !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
-        Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
-
 === "Teku"
 
     #### 1. Disable Teku
@@ -132,10 +124,6 @@ As part of the migration process, you need to stop your existing client and expo
     - `--data-path` specifies the location of the Teku data directory.
     - `--to` specifies the file to export the slashing-protection data to (in this case `/home/slash/slashing-protection.json`).
 
-    !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
-        Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
-
 === "Nimbus"
 
     #### 1. Disable the Nimbus validator client
@@ -161,9 +149,9 @@ As part of the migration process, you need to stop your existing client and expo
 
     This will export your history in the correct format to `slashing-protection.json`.
 
-    !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
-        Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+!!! tip
+    To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
+    Only after that, continue with the next step of this guide.
 
 
 ### 3. Import your validator key(s) into Nimbus

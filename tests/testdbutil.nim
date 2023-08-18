@@ -10,7 +10,7 @@ import
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   ../beacon_chain/spec/datatypes/phase0,
-  ../beacon_chain/spec/[beaconstate, forks],
+  ../beacon_chain/spec/[beaconstate, forks, state_transition],
   eth/db/[kvstore, kvstore_sqlite3],
   ./testblockutil
 
@@ -21,20 +21,29 @@ proc makeTestDB*(
     eth1Data = Opt.none(Eth1Data),
     flags: UpdateFlags = {skipBlsValidation},
     cfg = defaultRuntimeConfig): BeaconChainDB =
-  let
-    genState = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Phase0,
-      phase0Data: initialize_hashed_beacon_state_from_eth1(
-        cfg,
-        ZERO_HASH,
-        0,
-        makeInitialDeposits(validators.uint64, flags),
-        flags))
+  var genState = (ref ForkedHashedBeaconState)(
+    kind: ConsensusFork.Phase0,
+    phase0Data: initialize_hashed_beacon_state_from_eth1(
+      cfg,
+      ZERO_HASH,
+      0,
+      makeInitialDeposits(validators.uint64, flags),
+      flags))
 
   # Override Eth1Data on request, skipping the lengthy Eth1 voting process
   if eth1Data.isOk:
     withState(genState[]):
       forkyState.data.eth1_data = eth1Data.get
+      forkyState.root = hash_tree_root(forkyState.data)
+
+  # Upgrade genesis state to later fork, if required by fork schedule
+  cfg.maybeUpgradeState(genState[])
+  withState(genState[]):
+    when consensusFork > ConsensusFork.Phase0:
+      forkyState.data.fork.previous_version =
+        forkyState.data.fork.current_version
+      forkyState.data.latest_block_header.body_root =
+        hash_tree_root(default(BeaconBlockBodyType(consensusFork)))
       forkyState.root = hash_tree_root(forkyState.data)
 
   result = BeaconChainDB.new("", cfg = cfg, inMemory = true)

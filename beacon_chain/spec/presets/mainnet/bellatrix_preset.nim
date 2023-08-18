@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Mainnet preset - Bellatrix
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/presets/mainnet/bellatrix.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/bellatrix.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

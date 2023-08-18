@@ -138,7 +138,7 @@ proc getValidator*(decryptor: var MultipleKeystoresDecryptor,
     ok(ValidatorStorage(kind: ValidatorStorageKind.Identifier,
                         ident: ident.get()))
 
-proc getIdent*(storage: ValidatorStorage): ValidatorIdent =
+func getIdent*(storage: ValidatorStorage): ValidatorIdent =
   case storage.kind
   of ValidatorStorageKind.Keystore:
     ValidatorIdent(kind: ValidatorQueryKind.Key,
@@ -190,16 +190,18 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
            reason = exc.msg
     quit 1
 
-  let exitAtEpoch = if config.exitAtEpoch.isSome:
-    Epoch config.exitAtEpoch.get
-  else:
+  let currentEpoch = block:
     let
-      genesisTime =  genesis.genesis_time
+      genesisTime = genesis.genesis_time
       beaconClock = BeaconClock.init(genesisTime)
       time = getTime()
       slot = beaconClock.toSlot(time).slot
-      epoch = slot.uint64 div 32
-    Epoch epoch
+    Epoch(slot.uint64 div 32)
+
+  let exitAtEpoch = if config.exitAtEpoch.isSome:
+    Epoch config.exitAtEpoch.get
+  else:
+    currentEpoch
 
   let fork = try:
     let response = await client.getStateForkPlain(stateIdHead)
@@ -214,6 +216,26 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
       raiseGenericError(response)
   except CatchableError as exc:
     fatal "Failed to obtain the fork id of the head state",
+           reason = exc.msg
+    quit 1
+
+  let signingFork = try:
+    let response = await client.getSpec()
+    if response.status == 200:
+      let spec = response.data
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#voluntary-exits
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+      if currentEpoch >= Epoch(spec.data.DENEB_FORK_EPOCH):
+        Fork(
+          current_version: spec.data.CAPELLA_FORK_VERSION,
+          previous_version: spec.data.CAPELLA_FORK_VERSION,
+          epoch: GENESIS_EPOCH)  # irrelevant when current/previous identical
+      else:
+        fork
+    else:
+      raise newException(RestError, "Error response (" & $response.status & ")")
+  except CatchableError as exc:
+    fatal "Failed to obtain the config spec of the beacon node",
            reason = exc.msg
     quit 1
 

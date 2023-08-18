@@ -51,8 +51,7 @@ proc initLightClient*(
 
             if not blckPayload.block_hash.isZero:
               # engine_newPayloadV1
-              discard await node.elManager.newExecutionPayload(
-                blck.message.body)
+              discard await node.elManager.newExecutionPayload(blck.message)
 
               # Retain optimistic head for other `forkchoiceUpdated` callers.
               # May temporarily block `forkchoiceUpdatedV1` calls, e.g., Geth:

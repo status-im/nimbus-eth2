@@ -82,25 +82,55 @@ func check_attestation_block(
   ok()
 
 func check_propagation_slot_range(
-    msgSlot: Slot, wallTime: BeaconTime): Result[Slot, ValidationError] =
-  let
-    futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
+    consensusFork: ConsensusFork, msgSlot: Slot, wallTime: BeaconTime):
+    Result[Slot, ValidationError] =
+  let futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Attestation slot in the future")
 
-  let
-    pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
+  let pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/p2p-interface.md#configuration
-  # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
-  # retransmit attestations on the cusp of being out of spec, and which by
-  # the time they reach their destination might be out of spec.
-  const ATTESTATION_PROPAGATION_SLOT_RANGE = 28
+  if not pastSlot.afterGenesis:
+    return ok(msgSlot)
 
-  if pastSlot.afterGenesis and
-      msgSlot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
-    return errIgnore("Attestation slot in the past")
+  if consensusFork < ConsensusFork.Deneb:
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#configuration
+    # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
+    # retransmit attestations on the cusp of being out of spec, and which by
+    # the time they reach their destination might be out of spec.
+    const ATTESTATION_PROPAGATION_SLOT_RANGE = 28
+
+    if msgSlot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
+      return errIgnore("Attestation slot in the past")
+  else:
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
+    # "[IGNORE] the epoch of attestation.data.slot is either the current or
+    # previous epoch (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
+    # compute_epoch_at_slot(attestation.data.slot) in
+    # (get_previous_epoch(state), get_current_epoch(state))"
+    #
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+    # "[IGNORE] the epoch of aggregate.data.slot is either the current or
+    # previous epoch (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
+    # compute_epoch_at_slot(aggregate.data.slot) in
+    # (get_previous_epoch(state), get_current_epoch(state))"
+    if msgSlot.epoch < pastSlot.slot.epoch.get_previous_epoch:
+      return errIgnore("Attestation slot in the past")
+
+  ok(msgSlot)
+
+func check_slot_exact(msgSlot: Slot, wallTime: BeaconTime):
+    Result[Slot, ValidationError] =
+  let futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
+
+  if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
+    return errIgnore("Sync committee slot in the future")
+
+  let pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
+
+  if pastSlot.afterGenesis and msgSlot < pastSlot.slot:
+    return errIgnore("Sync committee slot in the past")
 
   ok(msgSlot)
 
@@ -120,10 +150,9 @@ func check_beacon_and_target_block(
   ? check_attestation_block(pool, data.slot, blck)
 
   # [REJECT] The attestation's target block is an ancestor of the block named
-  # in the LMD vote -- i.e. get_ancestor(store,
-  # attestation.data.beacon_block_root,
-  # compute_start_slot_at_epoch(attestation.data.target.epoch)) ==
-  # attestation.data.target.root
+  # in the LMD vote -- i.e.
+  # get_checkpoint_block(store, attestation.data.beacon_block_root,
+  # attestation.data.target.epoch) == attestation.data.target.root
   # the sanity of target.epoch has been checked by check_attestation_slot_target
   let target = blck.atCheckpoint(data.target).valueOr:
     return errReject("Attestation target is not ancestor of LMD vote block")
@@ -384,7 +413,7 @@ proc validateBeaconBlock*(
   # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -464,7 +493,11 @@ proc validateBeaconBlock*(
        blockRoot = shortLog(signed_beacon_block.root),
        blck = shortLog(signed_beacon_block.message),
        err = r.error()
-
+    else:
+      debug "Block quarantined",
+        blockRoot = shortLog(signed_beacon_block.root),
+        blck = shortLog(signed_beacon_block.message),
+        signature = shortLog(signed_beacon_block.signature)
     return errIgnore("BeaconBlock: Parent not found")
 
   # Continues block parent validity checking in optimistic case, where it does
@@ -527,7 +560,8 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -556,8 +590,13 @@ proc validateAttestation*(
   # attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot
   # >= attestation.data.slot (a client MAY queue future attestations for
   # processing at the appropriate slot).
+  #
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
+  # modifies this for Deneb and newer forks.
   block:
-    let v = check_propagation_slot_range(slot, wallTime)
+    let v = check_propagation_slot_range(
+      pool.dag.cfg.consensusForkAtEpoch(wallTime.slotOrZero.epoch), slot,
+      wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 
@@ -584,11 +623,10 @@ proc validateAttestation*(
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
   #
-  # The current finalized_checkpoint is an ancestor of the block defined by
-  # attestation.data.beacon_block_root -- i.e. get_ancestor(store,
-  # attestation.data.beacon_block_root,
-  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
-  # store.finalized_checkpoint.root
+  # [IGNORE] The current finalized_checkpoint is an ancestor of the block
+  # defined by attestation.data.beacon_block_root -- i.e.
+  # get_checkpoint_block(store, attestation.data.beacon_block_root,
+  # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root
   let
     shufflingRef =
       pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
@@ -693,7 +731,8 @@ proc validateAttestation*(
 
   return ok((validator_index, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -723,8 +762,13 @@ proc validateAggregate*(
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
+  #
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+  # modifies this for Deneb and newer forks.
   block:
-    let v = check_propagation_slot_range(slot, wallTime)
+    let v = check_propagation_slot_range(
+      pool.dag.cfg.consensusForkAtEpoch(wallTime.slotOrZero.epoch), slot,
+      wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 
@@ -883,11 +927,10 @@ proc validateAggregate*(
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
   #
-  # The current finalized_checkpoint is an ancestor of the block defined by
-  # aggregate.data.beacon_block_root -- i.e. get_ancestor(store,
-  # aggregate.data.beacon_block_root,
-  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
-  # store.finalized_checkpoint.root
+  # [IGNORE] The current finalized_checkpoint is an ancestor of the block
+  # defined by aggregate.data.beacon_block_root -- i.e.
+  # get_checkpoint_block(store, aggregate.data.beacon_block_root,
+  # finalized_checkpoint.epoch) == store.finalized_checkpoint.root
 
   # Only valid aggregates go in the list
   if pool.nextAttestationEpoch.lenu64 <= aggregate_and_proof.aggregator_index:
@@ -929,22 +972,22 @@ proc validateBlsToExecutionChange*(
       if res.isErr:
         return pool.checkedReject(res.error)
 
-    # BLS to execution change signatures are batch-verified
-    let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
-      pool.dag.cfg.genesisFork, signed_address_change)
-    if deferredCrypto.isErr():
-      return pool.checkedReject(deferredCrypto.error)
+      # BLS to execution change signatures are batch-verified
+      let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
+        pool.dag.cfg.genesisFork, signed_address_change)
+      if deferredCrypto.isErr():
+        return pool.checkedReject(deferredCrypto.error)
 
-    let (cryptoFut, sig) = deferredCrypto.get()
-    case await cryptoFut
-    of BatchResult.Invalid:
-      return pool.checkedReject(
-        "SignedBLSToExecutionChange: invalid signature")
-    of BatchResult.Timeout:
-      return errIgnore(
-        "SignedBLSToExecutionChange: timeout checking signature")
-    of BatchResult.Valid:
-      discard  # keep going only in this case
+      let (cryptoFut, sig) = deferredCrypto.get()
+      case await cryptoFut
+      of BatchResult.Invalid:
+        return pool.checkedReject(
+          "SignedBLSToExecutionChange: invalid signature")
+      of BatchResult.Timeout:
+        return errIgnore(
+          "SignedBLSToExecutionChange: timeout checking signature")
+      of BatchResult.Valid:
+        discard  # keep going only in this case
 
   return ok()
 
@@ -1024,7 +1067,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     quarantine: ref Quarantine,
@@ -1040,7 +1083,7 @@ proc validateSyncCommitteeMessage*(
     # [IGNORE] The message's slot is for the current slot (with a
     # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
     # `sync_committee_message.slot == current_slot`.
-    let v = check_propagation_slot_range(msg.slot, wallTime)
+    let v = check_slot_exact(msg.slot, wallTime)
     if v.isErr():
       return err(v.error())
 
@@ -1135,7 +1178,7 @@ proc validateContribution*(
   # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
   # i.e. contribution.slot == current_slot.
   block:
-    let v = check_propagation_slot_range(syncCommitteeSlot, wallTime)
+    let v = check_slot_exact(syncCommitteeSlot, wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 
@@ -1265,7 +1308,7 @@ proc validateContribution*(
 
   return ok((blck.bid, sig, participants))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     finality_update: ForkedLightClientFinalityUpdate,
@@ -1301,7 +1344,7 @@ proc validateLightClientFinalityUpdate*(
   pool.latestForwardedFinalitySlot = finalized_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 proc validateLightClientOptimisticUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     optimistic_update: ForkedLightClientOptimisticUpdate,

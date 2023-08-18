@@ -1,9 +1,47 @@
+2023-07-19 v23.7.0
+
+Nimbus `v23.7.0` is a `low-priority` upgrade, bringing advanced profit optimisation capabilities to the Nimbus validator client and adressing risk factors that can contribute to poorer validator performance.
+
+### Improvements
+
+* The Nimbus validator client now uses a scoring algorithm capable of selecting the most optimal attestation data when working with multiple beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/5101
+
+* The Nimbus validator client now synchronizes its clock with the Nimbus beacon node in order to eliminate any risks for poor validator performance stemming from de-synchronized clocks:
+  https://github.com/status-im/nimbus-eth2/pull/4846
+
+* The `/eth/v1/beacon/states/{state_id}/*` family of REST end-points now support queries by state root as long as the state is within the most recent 8192 slots (approximately 27 hours):
+  https://github.com/status-im/nimbus-eth2/pull/5155
+
+* Improved validation of blocks during syncing allows Nimbus to optimize the initial syncing target of the execution layer node:
+  https://github.com/status-im/nimbus-eth2/pull/5169
+
+* The Nimbus light client is now available a C library for easy reuse and embedding in other software (alpha release):
+  https://github.com/status-im/nimbus-eth2/pull/5122
+
+### Fixes
+
+* Due to multiple reports of slow start-up times on certain hardware configurations, caused by the one-time initial pruning performed by Nimbus v23.6.0 and v23.6.1, this functionality has been temporarily disabled:
+  https://github.com/status-im/nimbus-eth2/pull/5191
+
+* The block monitoring performed by the Nimbus validator client was permanently interrupted in certain situations after a timed out request to the beacon node:
+  https://github.com/status-im/nimbus-eth2/pull/5109
+
+* Nimbus now uses the most up-to-date bootstrap nodes for the Gnosis chain:
+  https://github.com/status-im/nimbus-eth2/pull/5175
+
+* Nimbus has addressed a minor risk for missed block proposals at epoch boundaries due to multiple compounding risk factors:
+  https://github.com/status-im/nimbus-eth2/pull/5195
+  https://github.com/status-im/nimbus-eth2/pull/5196
+  https://github.com/status-im/nimbus-eth2/pull/5194
+
+
 2023-06-26 v23.6.1
 ==================
 
 Nimbus `v23.6.1` is a `low-urgency` point release significantly improving the performance of database pruning on Nimbus instances that have accumulated history prior to April 2021 (Nimbus 1.1.0). Affected users are advised to upgrade as soon as possible in order to reduce the risk of missed attestations and blocks.
 
-Fixes:
+### Fixes
 
 * The legacy Nimbus database is not subjected to pruning due to the high I/O cost of the operations:
   https://github.com/status-im/nimbus-eth2/pull/5116

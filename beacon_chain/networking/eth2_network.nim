@@ -341,7 +341,7 @@ func shortProtocolId(protocolId: string): string =
 proc openStream(node: Eth2Node,
                 peer: Peer,
                 protocolId: string): Future[Connection] {.async.} =
-  # When dialling here, we do not provide addresses - all new connection
+  # When dialing here, we do not provide addresses - all new connection
   # attempts are handled via `connect` which also takes into account
   # reconnection timeouts
   let
@@ -353,6 +353,10 @@ proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
 func peerId*(node: Eth2Node): PeerId =
   node.switch.peerInfo.peerId
+
+func nodeId*(node: Eth2Node): NodeId =
+  # `secp256k1` keys are always stored inside PeerId.
+  toNodeId(keys.PublicKey(node.switch.peerInfo.publicKey.skkey))
 
 func enrRecord*(node: Eth2Node): Record =
   node.discovery.localNode.record
@@ -716,7 +720,7 @@ proc uncompressFramedStream(conn: Connection,
     doAssert maxCompressedFrameDataLen >= maxUncompressedFrameDataLen.uint64
 
   var
-    frameData = newSeq[byte](maxCompressedFrameDataLen + 4)
+    frameData = newSeqUninitialized[byte](maxCompressedFrameDataLen + 4)
     output = newSeqUninitialized[byte](expectedSize)
     written = 0
 
@@ -2251,8 +2255,8 @@ proc getPersistentNetKeys*(
 
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
@@ -2271,8 +2275,14 @@ func gossipId(
 proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
                      seckey: PrivateKey, address: MultiAddress,
                      rng: ref HmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
-  SwitchBuilder
-    .new()
+  var sb =
+    if config.enableYamux:
+      SwitchBuilder.new().withYamux()
+    else:
+      SwitchBuilder.new()
+  # Order of multiplexers matters, the first will be default
+
+  sb
     .withPrivateKey(seckey)
     .withAddress(address)
     .withRng(rng)
@@ -2544,7 +2554,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#attestation-subnet-subscription
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.discovery.updateRecord({
     enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
@@ -2557,7 +2567,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
@@ -2662,6 +2672,14 @@ proc broadcastBeaconBlock*(
     node: Eth2Node, blck: deneb.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.deneb)
   node.broadcast(topic, blck)
+
+proc broadcastBlobSidecar*(
+    node: Eth2Node, subnet_id: SubnetId, blob: deneb.SignedBlobSidecar):
+      Future[SendResult] =
+  let
+    forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
+    topic = getBlobSidecarTopic(forkPrefix, subnet_id)
+  node.broadcast(topic, blob)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

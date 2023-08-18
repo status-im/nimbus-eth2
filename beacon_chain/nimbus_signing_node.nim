@@ -45,7 +45,7 @@ type
 
   SigningNodeError* = object of CatchableError
 
-proc validate(key: string, value: string): int =
+func validate(key: string, value: string): int =
   case key
   of "{validator_key}":
     0
@@ -219,10 +219,9 @@ proc installApiHandlers*(node: SigningNodeRef) =
           let
             forkInfo = request.forkInfo.get()
             blockRoot = hash_tree_root(request.beaconBlock)
-            signature = withBlck(request.beaconBlock):
-              get_block_signature(forkInfo.fork,
-                forkInfo.genesis_validators_root, blck.slot, blockRoot,
-                validator.data.privateKey).toValidatorSig().toHex()
+            signature = get_block_signature(forkInfo.fork,
+              forkInfo.genesis_validators_root, request.beaconBlock.data.slot,
+              blockRoot, validator.data.privateKey).toValidatorSig().toHex()
           return signatureResponse(Http200, signature)
 
         let (feeRecipientIndex, blockHeader) =
@@ -231,12 +230,10 @@ proc installApiHandlers*(node: SigningNodeRef) =
             # `phase0` and `altair` blocks do not have `fee_recipient`, so
             # we return an error.
             return errorResponse(Http400, BlockIncorrectFork)
-          of ConsensusFork.Bellatrix:
-            (GeneralizedIndex(401), request.beaconBlock.bellatrixData)
-          of ConsensusFork.Capella:
-            (GeneralizedIndex(401), request.beaconBlock.capellaData)
+          of ConsensusFork.Bellatrix, ConsensusFork.Capella:
+            (GeneralizedIndex(401), request.beaconBlock.data)
           of ConsensusFork.Deneb:
-            (GeneralizedIndex(801), request.beaconBlock.denebData)
+            (GeneralizedIndex(801), request.beaconBlock.data)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
           return errorResponse(Http400, MissingMerkleProofError)
@@ -258,10 +255,9 @@ proc installApiHandlers*(node: SigningNodeRef) =
         let
           forkInfo = request.forkInfo.get()
           blockRoot = hash_tree_root(request.beaconBlock)
-          signature = withBlck(request.beaconBlock):
-            get_block_signature(forkInfo.fork,
-              forkInfo.genesis_validators_root, blck.slot, blockRoot,
-              validator.data.privateKey).toValidatorSig().toHex()
+          signature = get_block_signature(forkInfo.fork,
+            forkInfo.genesis_validators_root, request.beaconBlock.data.slot,
+            blockRoot, validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Deposit:
         let

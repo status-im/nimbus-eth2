@@ -93,7 +93,8 @@ proc unblindAndRouteBlockMEV*(
         blck = shortLog(signedBlock)
 
       let newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
+        (await node.router.routeSignedBeaconBlock(
+          signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
           # submitBlindedBlock has run, so don't allow fallback to run
           return err("routeSignedBeaconBlock error") # Errors logged in router
 
@@ -168,7 +169,8 @@ proc unblindAndRouteBlockMEV*(
         blck = shortLog(signedBlock)
 
       let newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
+        (await node.router.routeSignedBeaconBlock(
+          signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
           # submitBlindedBlock has run, so don't allow fallback to run
           return err("routeSignedBeaconBlock error") # Errors logged in router
 
@@ -190,3 +192,10 @@ proc unblindAndRouteBlockMEV*(
   # local build process as a fallback, even in the event of some failure
   # with the external buildernetwork.
   return err("unblindAndRouteBlockMEV error")
+
+
+proc unblindAndRouteBlockMEV*(
+    node: BeaconNode, payloadBuilderRestClient: RestClientRef,
+    blindedBlock: deneb_mev.SignedBlindedBeaconBlock):
+    Future[Result[Opt[BlockRef], string]] {.async.} =
+  debugRaiseAssert $denebImplementationMissing & ": makeBlindedBeaconBlockForHeadAndSlot"

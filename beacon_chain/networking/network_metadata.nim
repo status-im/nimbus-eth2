@@ -255,9 +255,6 @@ elif const_preset == "mainnet":
     {.compile: "network_metadata_mainnet.S".}
 
   const
-    eth2NetworksDir = vendorDir & "/eth2-networks"
-    sepoliaDir = vendorDir & "/sepolia"
-
     mainnetMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/eth2-networks/shared/mainnet", some mainnet, not incbinEnabled)
     praterMetadata = loadCompileTimeNetworkMetadata(

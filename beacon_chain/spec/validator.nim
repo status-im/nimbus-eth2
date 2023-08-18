@@ -21,7 +21,7 @@ const
   PIVOT_VIEW_SIZE = SEED_SIZE + ROUND_SIZE
   TOTAL_SIZE = PIVOT_VIEW_SIZE + POSITION_WINDOW_SIZE
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_shuffled_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_shuffled_index
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_committee
 # Port of https://github.com/protolambda/zrnt/blob/master/eth2/beacon/shuffle.go
 # Shuffles or unshuffles, depending on the `dir` (true for shuffling, false for unshuffling
@@ -301,7 +301,7 @@ func get_beacon_committee_len*(
   withState(state):
     get_beacon_committee_len(forkyState.data, slot, index, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_shuffled_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_shuffled_index
 func compute_shuffled_index*(
     index: uint64, index_count: uint64, seed: Eth2Digest): uint64 =
   ## Return the shuffled index corresponding to ``seed`` (and ``index_count``).
@@ -336,7 +336,7 @@ func compute_shuffled_index*(
 
   cur_idx_permuted
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: ForkyBeaconState,
     indices: seq[ValidatorIndex], seed: Eth2Digest): Opt[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
@@ -363,7 +363,7 @@ func compute_proposer_index(state: ForkyBeaconState,
       return Opt.some(candidate_index)
     i += 1
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
     Opt[ValidatorIndex] =
@@ -401,7 +401,7 @@ func get_beacon_proposer_index*(
 
     return res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):
     Opt[ValidatorIndex] =
   ## Return the beacon proposer index at the current slot.
@@ -413,7 +413,7 @@ func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
   withState(state):
     get_beacon_proposer_index(forkyState.data, cache, slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
   let modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
   bytes_to_uint64(eth2digest(
@@ -470,3 +470,30 @@ func livenessFailsafeInEffect*(
       streakLen = 0
 
   false
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnet-subcription
+func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
+    SubnetId =
+  # Ensure neither `truncate` loses information
+  static:
+    doAssert EPOCHS_PER_SUBNET_SUBSCRIPTION <= high(uint64)
+    doAssert sizeof(UInt256) * 8 == NODE_ID_BITS
+    doAssert ATTESTATION_SUBNET_PREFIX_BITS < sizeof(SubnetId) * 8
+
+  let
+    node_id_prefix = truncate(
+      node_id shr (NODE_ID_BITS - ATTESTATION_SUBNET_PREFIX_BITS), uint64)
+    node_offset = truncate(node_id mod EPOCHS_PER_SUBNET_SUBSCRIPTION, uint64)
+    permutation_seed = eth2digest(uint_to_bytes(
+      uint64((epoch + node_offset) div EPOCHS_PER_SUBNET_SUBSCRIPTION)))
+    permutated_prefix = compute_shuffled_index(
+      node_id_prefix,
+      1 shl ATTESTATION_SUBNET_PREFIX_BITS,
+      permutation_seed,
+    )
+  SubnetId((permutated_prefix + index) mod ATTESTATION_SUBNET_COUNT)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnet-subcription
+iterator compute_subscribed_subnets*(node_id: UInt256, epoch: Epoch): SubnetId =
+  for index in 0'u64 ..< SUBNETS_PER_NODE:
+    yield compute_subscribed_subnet(node_id, epoch, index)

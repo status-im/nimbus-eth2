@@ -1,12 +1,14 @@
 # Sync your node
 
 Before you can use your node, it needs to sync with the network.
-Syncing starts automatically when you start your node, and may take several days depending on the performance of your hardware.
-
-If you are planning to become a validator, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit, or you might miss attestations and proposal duties until it has finished syncing.
+Syncing starts automatically when you start your node, and may take **several hours**, or even days, depending on the performance of your hardware.
 
 !!! tip
-    To get started more quickly, you can perform a [trusted node sync](./trusted-node-sync.md) instead - this requires access to a synced node or a third-party service.
+    To get started more quickly, you can perform a [trusted node sync](./trusted-node-sync.md) instead.
+    This requires access to a synced node or a third-party service.
+
+
+If you are planning to become a validator, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit; otherwise, you might miss attestations, proposal duties and sync committee duties until it has finished syncing.
 
 !!! note
     You need need to run an execution client (**web3 provider**) together with the beacon node.
@@ -17,9 +19,8 @@ If you are planning to become a validator, you should ensure that your beacon no
 Using Nimbus, you can connect either to a testnet or mainnet.
 Mainnet is the main Ethereum network where real assets are at stake, while testnets are used by users and developers alike to test their node and setup before committing real assets.
 
-!!! tip
-    If this is the first time you're setting up your node, it is recommended you run it on a testnet first.
-    Later, when everything is working, you can easily switch to mainnet.
+If this is the first time you're setting up your node, it is recommended you run it on a testnet first.
+Later, when everything is working, you can easily switch to mainnet.
 
 === "Testnet"
 
@@ -59,7 +60,7 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 ## Data directory
 
 While running, the beacon node will store chain data and other information its data directory, which by default is found in `build/data`.
-For more information, see the [data directory](./data-dir.md) guide.
+For more information, see the [data directory guide](./data-dir.md).
 
 ## Command line options
 
@@ -70,7 +71,7 @@ For example, to change the port to 9100, use:
 ./run-prater-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
-To see a list of the command line options availabe to you, with descriptions, run:
+To see a list of the command line options available to you, with descriptions, run:
 
 ```
 ./build/nimbus_beacon_node --help

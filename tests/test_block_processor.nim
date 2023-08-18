@@ -68,7 +68,7 @@ suite "Block processor" & preset():
     check:
       not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up
 
-      FetchRecord(root: b1.root) in quarantine[].checkMissing()
+      FetchRecord(root: b1.root) in quarantine[].checkMissing(32)
 
     let
       status = await processor.storeBlock(

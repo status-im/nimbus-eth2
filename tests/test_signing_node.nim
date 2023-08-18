@@ -116,26 +116,20 @@ proc getBlock(fork: ConsensusFork,
 proc init(t: typedesc[Web3SignerForkedBeaconBlock],
           forked: ForkedBeaconBlock): Web3SignerForkedBeaconBlock =
   case forked.kind
-  of ConsensusFork.Phase0:
-    Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Phase0,
-      phase0Data: forked.phase0Data)
-  of ConsensusFork.Altair:
-    Web3SignerForkedBeaconBlock(
-      kind: ConsensusFork.Altair,
-      altairData: forked.altairData)
+  of ConsensusFork.Phase0, ConsensusFork.Altair:
+    raiseAssert "supports Bellatrix and later forks"
   of ConsensusFork.Bellatrix:
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Bellatrix,
-      bellatrixData: forked.bellatrixData.toBeaconBlockHeader)
+      data: forked.bellatrixData.toBeaconBlockHeader)
   of ConsensusFork.Capella:
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Capella,
-      capellaData: forked.capellaData.toBeaconBlockHeader)
+      data: forked.capellaData.toBeaconBlockHeader)
   of ConsensusFork.Deneb:
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Deneb,
-      denebData: forked.denebData.toBeaconBlockHeader)
+      data: forked.denebData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =
@@ -764,76 +758,6 @@ suite "Nimbus remote signer/signing test (web3signer)":
       sres2.get() == rres2.get()
       sres3.get() == rres3.get()
 
-  asyncTest "Signing BeaconBlock (getBlockSignature(phase0))":
-    let
-      forked = getBlock(ConsensusFork.Phase0)
-      blockRoot = withBlck(forked): hash_tree_root(blck)
-
-      sres1 =
-        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      sres2 =
-        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      sres3 =
-        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      rres1 =
-        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      rres2 =
-        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      rres3 =
-        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-
-    check:
-      sres1.isOk()
-      sres2.isOk()
-      sres3.isOk()
-      rres1.isOk()
-      rres2.isOk()
-      rres3.isOk()
-      sres1.get() == rres1.get()
-      sres2.get() == rres2.get()
-      sres3.get() == rres3.get()
-
-  asyncTest "Signing BeaconBlock (getBlockSignature(altair))":
-    let
-      forked = getBlock(ConsensusFork.Altair)
-      blockRoot = withBlck(forked): hash_tree_root(blck)
-
-      sres1 =
-        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      sres2 =
-        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      sres3 =
-        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      rres1 =
-        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      rres2 =
-        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-      rres3 =
-        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot, forked)
-
-    check:
-      sres1.isOk()
-      sres2.isOk()
-      sres3.isOk()
-      rres1.isOk()
-      rres2.isOk()
-      rres3.isOk()
-      sres1.get() == rres1.get()
-      sres2.get() == rres2.get()
-      sres3.get() == rres3.get()
-
   asyncTest "Signing BeaconBlock (getBlockSignature(bellatrix))":
     let
       forked = getBlock(ConsensusFork.Bellatrix)
@@ -1160,180 +1084,6 @@ suite "Nimbus remote signer/signing test (verifying-web3signer)":
       await sleepAsync(500.milliseconds)
 
     await client.closeWait()
-
-  asyncTest "Signing BeaconBlock (getBlockSignature(phase0))":
-    let
-      fork = ConsensusFork.Phase0
-      forked1 = getBlock(fork)
-      blockRoot1 = withBlck(forked1): hash_tree_root(blck)
-      forked2 = getBlock(fork, SigningOtherFeeRecipient)
-      blockRoot2 = withBlck(forked2): hash_tree_root(blck)
-      request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
-        Web3SignerForkedBeaconBlock.init(forked1))
-      request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
-        Web3SignerForkedBeaconBlock.init(forked1), @[])
-      remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(basePort, RemoteSignerType.VerifyingWeb3Signer)
-      prestoFlags = {RestClientFlag.CommaSeparatedArray}
-      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
-      publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
-      publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
-      publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
-
-    check rclient.isOk()
-
-    let
-      client = rclient.get()
-      sres1 =
-        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      sres2 =
-        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      sres3 =
-        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      rres1 =
-        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      rres2 =
-        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      rres3 =
-        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      bres1 =
-        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot2, forked2)
-      bres2 =
-        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot2, forked2)
-      bres3 =
-        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot2, forked2)
-
-    check:
-      # Local requests
-      sres1.isOk()
-      sres2.isOk()
-      sres3.isOk()
-      # Phase0 blocks do not have FeeRecipient field, so it should not care
-      rres1.isErr()
-      rres2.isErr()
-      rres3.isErr()
-      # Phase0 blocks do not have FeeRecipient field, so it should not care
-      bres1.isErr()
-      bres2.isErr()
-      bres3.isErr()
-
-    try:
-      let
-        # `proofs` array is not present.
-        response1 = await client.signDataPlain(publicKey1, request1)
-        response2 = await client.signDataPlain(publicKey2, request1)
-        response3 = await client.signDataPlain(publicKey3, request1)
-        # `proofs` array is empty.
-        response4 = await client.signDataPlain(publicKey1, request2)
-        response5 = await client.signDataPlain(publicKey2, request2)
-        response6 = await client.signDataPlain(publicKey3, request2)
-      check:
-        # When `Phase0` block specified remote signer should ignore `proof`
-        # field and its value
-        response1.status == 400
-        response2.status == 400
-        response3.status == 400
-        response4.status == 400
-        response5.status == 400
-        response6.status == 400
-    finally:
-      await client.closeWait()
-
-  asyncTest "Signing BeaconBlock (getBlockSignature(altair))":
-    let
-      fork = ConsensusFork.Altair
-      forked1 = getBlock(fork)
-      blockRoot1 = withBlck(forked1): hash_tree_root(blck)
-      forked2 = getBlock(fork, SigningOtherFeeRecipient)
-      blockRoot2 = withBlck(forked2): hash_tree_root(blck)
-      request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
-        Web3SignerForkedBeaconBlock.init(forked1))
-      request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
-        Web3SignerForkedBeaconBlock.init(forked1), @[])
-      remoteUrl = "http://" & SigningNodeAddress & ":" &
-                  $getNodePort(basePort, RemoteSignerType.VerifyingWeb3Signer)
-      prestoFlags = {RestClientFlag.CommaSeparatedArray}
-      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
-      publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
-      publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
-      publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
-
-    check rclient.isOk()
-
-    let
-      client = rclient.get()
-      sres1 =
-        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      sres2 =
-        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      sres3 =
-        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      rres1 =
-        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      rres2 =
-        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      rres3 =
-        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot1, forked1)
-      bres1 =
-        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot2, forked2)
-      bres2 =
-        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot2, forked2)
-      bres3 =
-        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-          Slot(1), blockRoot2, forked2)
-
-    check:
-      # Local requests
-      sres1.isOk()
-      sres2.isOk()
-      sres3.isOk()
-      # Altair block do not have FeeRecipient field, so it should not care
-      rres1.isErr()
-      rres2.isErr()
-      rres3.isErr()
-      # Altair block do not have FeeRecipient field, so it should not care
-      bres1.isErr()
-      bres2.isErr()
-      bres3.isErr()
-
-    try:
-      let
-        # `proofs` array is not present.
-        response1 = await client.signDataPlain(publicKey1, request1)
-        response2 = await client.signDataPlain(publicKey2, request1)
-        response3 = await client.signDataPlain(publicKey3, request1)
-        # `proofs` array is empty.
-        response4 = await client.signDataPlain(publicKey1, request2)
-        response5 = await client.signDataPlain(publicKey2, request2)
-        response6 = await client.signDataPlain(publicKey3, request2)
-      check:
-        # When `Altair` block specified remote signer should ignore `proof`
-        # field and its value.
-        response1.status == 400
-        response2.status == 400
-        response3.status == 400
-        response4.status == 400
-        response5.status == 400
-        response6.status == 400
-    finally:
-      await client.closeWait()
 
   asyncTest "Signing BeaconBlock (getBlockSignature(bellatrix))":
     let

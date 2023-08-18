@@ -151,7 +151,7 @@ proc getStateSSZ*(
       else: len
 
   bytes = newSeqUninitialized[byte](wanted)
-  let (_, written) = uncompressFramed(tmp, bytes).valueOr:
+  discard uncompressFramed(tmp, bytes).valueOr:
     return err("State failed to decompress, era file corrupt?")
 
   ok()
@@ -384,7 +384,7 @@ proc getPartialState(
   try:
     readSszBytes(tmp.toOpenArray(0, partialBytes - 1), output)
     true
-  except CatchableError as exc:
+  except CatchableError:
     # TODO log?
     false
 

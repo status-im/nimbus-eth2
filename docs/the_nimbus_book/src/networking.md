@@ -127,7 +127,7 @@ To determine your private IP address, run the appropriate command for your OS:
 
 ## Check open ports on your connection
 
-Use [this tool](https://www.yougetsignal.com/tools/open-ports/) to check your external (public) IP address and detect open ports on your connection (Nimbus TCP and UDP ports are both set to `9000` by default).
+Use the [open ports tool](https://www.yougetsignal.com/tools/open-ports/) to check your external (public) IP address and detect open ports on your connection (Nimbus TCP and UDP ports are both set to `9000` by default).
 
 ## Reading the logs
 

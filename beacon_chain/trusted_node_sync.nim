@@ -150,7 +150,8 @@ proc doTrustedNodeSync*(
                 client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
                 largeRequestsTimeout):
               info "Attempt to download genesis state timed out"
-              nil
+              # https://github.com/nim-lang/Nim/issues/22180
+              (ref ForkedHashedBeaconState)(nil)
           except CatchableError as exc:
             info "Unable to download genesis state",
               error = exc.msg, restUrl
@@ -180,7 +181,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
