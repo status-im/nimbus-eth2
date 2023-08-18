@@ -725,6 +725,9 @@ fi
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 cleanup() {
+  echo "Current port usage:"
+  lsof -i -P | grep LISTEN
+
   echo "Cleaning up"
 
   # Avoid the trap enterring an infinite loop
