@@ -139,7 +139,7 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
       res[duty.subnet_id.int] = true
   res
 
-# TODO https://github.com/nim-lang/Nim/issues/22215 keeps from stabilitySubnets
+# TODO https://github.com/nim-lang/Nim/issues/12172 keeps from stabilitySubnets
 const allSubnetBits = block:
   var res: AttnetBits
   for i in 0..<res.len: res[i] = true
