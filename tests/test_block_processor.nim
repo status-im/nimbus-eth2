@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,16 +9,24 @@
 
 import
   chronos,
-  std/[options, sequtils],
+  std/sequtils,
   unittest2,
-  eth/keys, taskpools,
-  ../beacon_chain/beacon_clock,
+  taskpools,
+  ../beacon_chain/[conf, beacon_clock],
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
-  ../beacon_chain/gossip_processing/[block_processor, consensus_manager],
+  ../beacon_chain/spec/datatypes/deneb,
+  ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, block_clearance],
-  ../beacon_chain/eth1/eth1_monitor,
+    attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
+    block_clearance, consensus_manager],
+  ../beacon_chain/el/el_manager,
   ./testutil, ./testdbutil, ./testblockutil
+
+from chronos/unittest2/asynctests import asyncTest
+from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
+  DynamicFeeRecipientsStore, init
+from ../beacon_chain/validators/action_tracker import ActionTracker
+from ../beacon_chain/validators/keystore_management import KeymanagerHost
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -26,39 +34,45 @@ proc pruneAtFinalization(dag: ChainDAGRef) =
 
 suite "Block processor" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
+      blobQuarantine = newClone(BlobQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
-      eth1Monitor = new Eth1Monitor
+      elManager = new ELManager # TODO: initialise this properly
+      actionTracker: ActionTracker
+      keymanagerHost: ref KeymanagerHost
       consensusManager = ConsensusManager.new(
-        dag, attestationPool, quarantine, eth1Monitor)
+        dag, attestationPool, quarantine, elManager, actionTracker,
+        newClone(DynamicFeeRecipientsStore.init()), "",
+        Opt.some default(Eth1Address), defaultGasLimit)
       state = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data
       b2 = addTestBlock(state[], cache).phase0Data
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
-        false, "", "", keys.newRng(), taskpool, consensusManager,
-        validatorMonitor, getTimeFn)
+        false, "", "", rng, taskpool, consensusManager,
+        validatorMonitor, blobQuarantine, getTimeFn)
 
-  test "Reverse order block add & get" & preset():
-    let missing = processor[].storeBlock(
-      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2)
-    check: missing.error == BlockError.MissingParent
+  asyncTest "Reverse order block add & get" & preset():
+    let missing = await processor.storeBlock(
+      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2, Opt.none(BlobSidecars))
+    check: missing.error[0] == VerifierError.MissingParent
 
     check:
       not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up
 
-      FetchRecord(root: b1.root) in quarantine[].checkMissing()
+      FetchRecord(root: b1.root) in quarantine[].checkMissing(32)
 
     let
-      status = processor[].storeBlock(
-        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1)
+      status = await processor.storeBlock(
+        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1, Opt.none(BlobSidecars))
       b1Get = dag.getBlockRef(b1.root)
 
     check:
@@ -79,7 +93,7 @@ suite "Block processor" & preset():
 
       b2Get.get().parent == b1Get.get()
 
-    dag.updateHead(b2Get.get(), quarantine[])
+    dag.updateHead(b2Get.get(), quarantine[], [])
     dag.pruneAtFinalization()
 
     # The heads structure should have been updated to contain only the new

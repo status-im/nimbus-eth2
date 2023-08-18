@@ -1,24 +1,24 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import std/[options, macros],
        stew/byteutils, presto,
        ../spec/[forks],
-       ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
-       ../beacon_node,
+       ../spec/eth2_apis/[rest_types, eth2_rest_serialization, rest_common],
        ../validators/validator_duties,
        ../consensus_object_pools/blockchain_dag,
+       ../beacon_node,
        "."/[rest_constants, state_ttl_cache]
 
 export
   options, eth2_rest_serialization, blockchain_dag, presto, rest_types,
-  rest_constants
+  rest_constants, rest_common
 
 type
   ValidatorIndexError* {.pure.} = enum
@@ -30,42 +30,37 @@ func match(data: openArray[char], charset: set[char]): int =
       return 1
   0
 
-proc validate(key: string, value: string): int =
-  ## This is rough validation procedure which should be simple and fast,
-  ## because it will be used for query routing.
-  case key
-  of "{epoch}":
-    0
-  of "{slot}":
-    0
-  of "{peer_id}":
-    0
-  of "{state_id}":
-    0
-  of "{block_id}":
-    0
-  of "{validator_id}":
-    0
-  of "{block_root}":
-    0
-  else:
-    1
-
-proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
+proc getSyncedHead*(
+       node: BeaconNode,
+       slot: Slot
+     ): Result[BlockRef, cstring] =
   let head = node.dag.head
 
-  if slot > head.slot and not node.isSynced(head):
-    return err("Requesting way ahead of the current head")
+  if not node.isSynced(head):
+    return err("Beacon node not fully and non-optimistically synced")
+
+  # Enough ahead not to know the shuffling
+  if slot > head.slot + SLOTS_PER_EPOCH * 2:
+    return err("Requesting far ahead of the current head")
 
   ok(head)
 
-proc getSyncedHead*(node: BeaconNode,
-                     epoch: Epoch): Result[BlockRef, cstring] =
+func getCurrentSlot*(node: BeaconNode, slot: Slot):
+    Result[Slot, cstring] =
+  if slot <= (node.dag.head.slot + (SLOTS_PER_EPOCH * 2)):
+    ok(slot)
+  else:
+    err("Requesting slot too far ahead of the current head")
+
+proc getSyncedHead*(
+       node: BeaconNode,
+       epoch: Epoch,
+     ): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
   node.getSyncedHead(epoch.start_slot())
 
-proc getBlockSlotId*(node: BeaconNode,
+func getBlockSlotId*(node: BeaconNode,
                      stateIdent: StateIdent): Result[BlockSlotId, cstring] =
   case stateIdent.kind
   of StateQueryKind.Slot:
@@ -76,7 +71,7 @@ proc getBlockSlotId*(node: BeaconNode,
       return err("Requesting state too far ahead of current head")
 
     let bsi = node.dag.getBlockIdAtSlot(stateIdent.slot).valueOr:
-      return err("State for given slot not found, history not available?")
+      return err("History for given slot not available")
 
     ok(bsi)
 
@@ -84,14 +79,29 @@ proc getBlockSlotId*(node: BeaconNode,
     if stateIdent.root == getStateRoot(node.dag.headState):
       ok(node.dag.head.bid.atSlot())
     else:
+      # The `state_roots` field holds 8k historical state roots but not the
+      # one of the current state - this trick allows us to lookup states without
+      # keeping an on-disk index.
+      let headSlot = getStateField(node.dag.headState, slot)
+      for i in 0'u64..<SLOTS_PER_HISTORICAL_ROOT:
+        if i >= headSlot:
+          break
+        if getStateField(node.dag.headState, state_roots).item(
+            (headSlot - i - 1) mod SLOTS_PER_HISTORICAL_ROOT) ==
+            stateIdent.root:
+          return node.dag.getBlockIdAtSlot(headSlot - i - 1).orErr(
+            cstring("History for for given root not available"))
+
       # We don't have a state root -> BlockSlot mapping
-      err("State for given root not found")
+      err("State root not found - use by-slot lookup to query deep state history")
   of StateQueryKind.Named:
     case stateIdent.value
     of StateIdentType.Head:
       ok(node.dag.head.bid.atSlot())
     of StateIdentType.Genesis:
-      ok(node.dag.genesis.atSlot())
+      let bid = node.dag.getBlockIdAtSlot(GENESIS_SLOT).valueOr:
+        return err("Genesis state not available / pruned")
+      ok bid
     of StateIdentType.Finalized:
       ok(node.dag.finalizedHead.toBlockSlotId().expect("not nil"))
     of StateIdentType.Justified:
@@ -109,7 +119,7 @@ proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
     of BlockIdentType.Head:
       ok(node.dag.head.bid)
     of BlockIdentType.Genesis:
-      ok(node.dag.genesis)
+      node.dag.getBlockIdAtSlot(GENESIS_SLOT).map(proc(x: auto): auto = x.bid)
     of BlockIdentType.Finalized:
       ok(node.dag.finalizedHead.blck.bid)
   of BlockQueryKind.Root:
@@ -127,7 +137,7 @@ proc getForkedBlock*(node: BeaconNode, id: BlockIdent):
 
   node.dag.getForkedBlock(bid)
 
-proc disallowInterruptionsAux(body: NimNode) =
+func disallowInterruptionsAux(body: NimNode) =
   for n in body:
     const because =
       "because the `state` variable may be mutated (and thus invalidated) " &
@@ -206,7 +216,7 @@ template strData*(body: ContentBody): string =
   bind fromBytes
   string.fromBytes(body.data)
 
-proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
+func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
                                                           ValidatorIndexError] =
   when sizeof(ValidatorIndex) == 4:
     if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
@@ -230,14 +240,14 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
                                 epoch: Epoch
                                ): Result[seq[ValidatorPubKey], cstring] =
   withState(forkedState):
-    when stateFork >= BeaconStateFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       let
         epochPeriod = sync_committee_period(epoch)
-        curPeriod = sync_committee_period(state.data.slot)
+        curPeriod = sync_committee_period(forkyState.data.slot)
       if epochPeriod == curPeriod:
-        ok(@(state.data.current_sync_committee.pubkeys.data))
+        ok(@(forkyState.data.current_sync_committee.pubkeys.data))
       elif epochPeriod == curPeriod + 1:
-        ok(@(state.data.next_sync_committee.pubkeys.data))
+        ok(@(forkyState.data.next_sync_committee.pubkeys.data))
       else:
         err("Epoch is outside the sync committee period of the state")
     else:
@@ -269,17 +279,25 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
         indices[listIndex[]] = some(ValidatorIndex(validatorIndex))
   indices
 
-proc getRouter*(allowedOrigin: Option[string]): RestRouter =
-  RestRouter.init(validate, allowedOrigin = allowedOrigin)
+proc getShufflingOptimistic*(node: BeaconNode,
+                             dependentSlot: Slot,
+                             dependentRoot: Eth2Digest): Option[bool] =
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+    # `slot` in this `BlockId` may be higher than block's actual slot,
+    # this is alright for the purpose of calling `is_optimistic`.
+    let bid = BlockId(slot: dependentSlot, root: dependentRoot)
+    some[bool](node.dag.is_optimistic(bid))
+  else:
+    none[bool]()
 
 proc getStateOptimistic*(node: BeaconNode,
                          state: ForkedHashedBeaconState): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    case state.kind
-    of BeaconStateFork.Phase0, BeaconStateFork.Altair:
-      some[bool](false)
-    of BeaconStateFork.Bellatrix:
-      # TODO (cheatfate): Proper implementation required.
+    if state.kind >= ConsensusFork.Bellatrix:
+      # A state is optimistic iff the block which created it is
+      let stateBid = withState(state): forkyState.latest_block_id
+      some[bool](node.dag.is_optimistic(stateBid))
+    else:
       some[bool](false)
   else:
     none[bool]()
@@ -288,25 +306,31 @@ proc getBlockOptimistic*(node: BeaconNode,
                          blck: ForkedTrustedSignedBeaconBlock |
                                ForkedSignedBeaconBlock): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    case blck.kind
-    of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
-      some[bool](false)
-    of BeaconBlockFork.Bellatrix:
-      # TODO (cheatfate): Proper implementation required.
+    if blck.kind >= ConsensusFork.Bellatrix:
+      some[bool](node.dag.is_optimistic(blck.toBlockId()))
+    else:
       some[bool](false)
   else:
     none[bool]()
-
-proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
-  let blck = node.dag.getForkedBlock(blck.bid).get()
-  case blck.kind
-  of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
-    false
-  of BeaconBlockFork.Bellatrix:
-    # TODO (cheatfate): Proper implementation required.
-    false
 
 const
   jsonMediaType* = MediaType.init("application/json")
   sszMediaType* = MediaType.init("application/octet-stream")
   textEventStreamMediaType* = MediaType.init("text/event-stream")
+
+proc verifyRandao*(
+    node: BeaconNode, slot: Slot, proposer: ValidatorIndex,
+    randao: ValidatorSig, skip_randao_verification: bool): bool =
+  let
+    proposer_pubkey = node.dag.validatorKey(proposer).valueOr:
+      return false
+
+  if skip_randao_verification:
+    randao == ValidatorSig.infinity()
+  else:
+    let
+      fork = node.dag.forkAtEpoch(slot.epoch)
+      genesis_validators_root = node.dag.genesis_validators_root
+
+    verify_epoch_signature(
+      fork, genesis_validators_root, slot.epoch, proposer_pubkey, randao)

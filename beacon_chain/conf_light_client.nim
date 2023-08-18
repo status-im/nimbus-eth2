@@ -1,14 +1,11 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
-
-# This implements the pre-release proposal of the libp2p based light client sync
-# protocol. See https://github.com/ethereum/consensus-specs/pull/2802
+{.push raises: [].}
 
 import
   json_serialization/std/net,
@@ -39,6 +36,14 @@ type LightClientConf* = object
     desc: "Specifies a path for the written Json log file (deprecated)"
     name: "log-file" .}: Option[OutFile]
 
+  # Storage
+  dataDir* {.
+    desc: "The directory where nimbus will store all blockchain data"
+    defaultValue: config.defaultDataDir()
+    defaultValueDesc: ""
+    abbr: "d"
+    name: "data-dir" .}: OutDir
+
   # Network
   eth2Network* {.
     desc: "The Eth2 network to join"
@@ -59,19 +64,19 @@ type LightClientConf* = object
   listenAddress* {.
     desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
     defaultValue: defaultListenAddress
-    defaultValueDesc: "0.0.0.0"
+    defaultValueDesc: $defaultListenAddressDesc
     name: "listen-address" .}: ValidIpAddress
 
   tcpPort* {.
     desc: "Listening TCP port for Ethereum LibP2P traffic"
     defaultValue: defaultEth2TcpPort
-    defaultValueDesc: "9000"
+    defaultValueDesc: $defaultEth2TcpPortDesc
     name: "tcp-port" .}: Port
 
   udpPort* {.
     desc: "Listening UDP port for node discovery"
     defaultValue: defaultEth2TcpPort
-    defaultValueDesc: "9000"
+    defaultValueDesc: $defaultEth2TcpPortDesc
     name: "udp-port" .}: Port
 
   maxPeers* {.
@@ -97,6 +102,12 @@ type LightClientConf* = object
     defaultValue: false
     name: "enr-auto-update" .}: bool
 
+  enableYamux* {.
+    hidden
+    desc: "Enable the Yamux multiplexer"
+    defaultValue: false
+    name: "enable-yamux" .}: bool
+
   agentString* {.
     defaultValue: "nimbus",
     desc: "Node agent string which is used as identifier in network"
@@ -116,9 +127,46 @@ type LightClientConf* = object
     desc: "Recent trusted finalized block root to initialize light client from"
     name: "trusted-block-root" .}: Eth2Digest
 
+  # Execution layer
+  web3Urls* {.
+    desc: "One or more execution layer Engine API URLs"
+    name: "web3-url" .}: seq[EngineApiUrlConfigValue]
+
+  elUrls* {.
+    desc: "One or more execution layer Engine API URLs"
+    name: "el" .}: seq[EngineApiUrlConfigValue]
+
+  noEl* {.
+    defaultValue: false
+    desc: "Don't use an EL. The node will remain optimistically synced and won't be able to perform validator duties"
+    name: "no-el" .}: bool
+
+  jwtSecret* {.
+    desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
+    name: "jwt-secret" .}: Option[InputFile]
+
   # Testing
   stopAtEpoch* {.
     hidden
     desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
     defaultValue: 0
     name: "stop-at-epoch" .}: uint64
+
+template databaseDir*(config: LightClientConf): string =
+  config.dataDir.databaseDir
+
+template loadJwtSecret*(
+    rng: var HmacDrbgContext,
+    config: LightClientConf,
+    allowCreate: bool): Option[seq[byte]] =
+  rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)
+
+proc engineApiUrls*(config: LightClientConf): seq[EngineApiUrl] =
+  let elUrls = if config.noEl:
+    return newSeq[EngineApiUrl]()
+  elif config.elUrls.len == 0 and config.web3Urls.len == 0:
+    @[defaultEngineApiUrl]
+  else:
+    config.elUrls
+
+  (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)

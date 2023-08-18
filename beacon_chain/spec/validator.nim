@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -6,10 +6,9 @@
 
 # Helpers and functions pertaining to managing the validator set
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
-  std/[options, math, tables],
   ./datatypes/[phase0, altair, bellatrix],
   ./helpers
 
@@ -22,8 +21,8 @@ const
   PIVOT_VIEW_SIZE = SEED_SIZE + ROUND_SIZE
   TOTAL_SIZE = PIVOT_VIEW_SIZE + POSITION_WINDOW_SIZE
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#compute_shuffled_index
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#compute_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_shuffled_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_committee
 # Port of https://github.com/protolambda/zrnt/blob/master/eth2/beacon/shuffle.go
 # Shuffles or unshuffles, depending on the `dir` (true for shuffling, false for unshuffling
 func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
@@ -126,14 +125,22 @@ func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
     shuffle
 
 func get_shuffled_active_validator_indices*(
+    state: ForkyBeaconState, epoch: Epoch,
+    mix: Eth2Digest): seq[ValidatorIndex] =
+  # Non-spec function, to cache a data structure from which one can cheaply
+  # compute both get_active_validator_indexes() and get_beacon_committee().
+  var active_validator_indices = get_active_validator_indices(state, epoch)
+  let seed = get_seed(state, epoch, DOMAIN_BEACON_ATTESTER, mix)
+  shuffle_list(active_validator_indices, seed)
+  active_validator_indices
+
+func get_shuffled_active_validator_indices*(
     state: ForkyBeaconState, epoch: Epoch): seq[ValidatorIndex] =
   # Non-spec function, to cache a data structure from which one can cheaply
   # compute both get_active_validator_indexes() and get_beacon_committee().
   var active_validator_indices = get_active_validator_indices(state, epoch)
-
-  shuffle_list(
-    active_validator_indices, get_seed(state, epoch, DOMAIN_BEACON_ATTESTER))
-
+  let seed = get_seed(state, epoch, DOMAIN_BEACON_ATTESTER)
+  shuffle_list(active_validator_indices, seed)
   active_validator_indices
 
 func get_shuffled_active_validator_indices*(
@@ -151,15 +158,15 @@ func get_shuffled_active_validator_indices*(
     cache: var StateCache, state: ForkedHashedBeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   withState(state):
-    cache.get_shuffled_active_validator_indices(state.data, epoch)
+    cache.get_shuffled_active_validator_indices(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_active_validator_indices
 func count_active_validators*(state: ForkyBeaconState,
                               epoch: Epoch,
                               cache: var StateCache): uint64 =
   cache.get_shuffled_active_validator_indices(state, epoch).lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
   clamp(
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
@@ -177,24 +184,14 @@ func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
                                    epoch: Epoch,
                                    cache: var StateCache): uint64 =
   withState(state):
-    get_committee_count_per_slot(state.data, epoch, cache)
+    get_committee_count_per_slot(forkyState.data, epoch, cache)
 
 iterator get_committee_indices*(committee_count_per_slot: uint64): CommitteeIndex =
   for idx in 0'u64..<min(committee_count_per_slot, MAX_COMMITTEES_PER_SLOT):
     let committee_index = CommitteeIndex.init(idx).expect("value clamped")
     yield committee_index
 
-func get_previous_epoch*(state: ForkyBeaconState): Epoch =
-  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
-  # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
-  get_previous_epoch(get_current_epoch(state))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_previous_epoch
-func get_previous_epoch*(state: ForkedHashedBeaconState): Epoch =
-  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
-  get_previous_epoch(get_current_epoch(state))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#compute_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_committee
 func compute_committee_slice*(
     active_validators, index, count: uint64): Slice[int] =
   doAssert active_validators <= ValidatorIndex.high.uint64
@@ -240,7 +237,7 @@ func compute_committee_len*(
 
   (slice.b - slice.a + 1).uint64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): (int, ValidatorIndex) =
@@ -278,13 +275,14 @@ func get_beacon_committee*(
   # wrapper approach (e.g., toSeq). This is a perf tradeoff for test
   # correctness/consistency.
   withState(state):
-    get_beacon_committee(state.data, slot, index, cache)
+    get_beacon_committee(forkyState.data, slot, index, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): uint64 =
-  # Return the number of members in the beacon committee at ``slot`` for ``index``.
+  ## Return the number of members in the beacon committee at ``slot``
+  ## for ``index``.
   let
     epoch = epoch(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
@@ -301,9 +299,9 @@ func get_beacon_committee_len*(
     cache: var StateCache): uint64 =
   # This one is used by tests
   withState(state):
-    get_beacon_committee_len(state.data, slot, index, cache)
+    get_beacon_committee_len(forkyState.data, slot, index, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#compute_shuffled_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_shuffled_index
 func compute_shuffled_index*(
     index: uint64, index_count: uint64, seed: Eth2Digest): uint64 =
   ## Return the shuffled index corresponding to ``seed`` (and ``index_count``).
@@ -338,14 +336,14 @@ func compute_shuffled_index*(
 
   cur_idx_permuted
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#compute_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: ForkyBeaconState,
-    indices: seq[ValidatorIndex], seed: Eth2Digest): Option[ValidatorIndex] =
+    indices: seq[ValidatorIndex], seed: Eth2Digest): Opt[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
   const MAX_RANDOM_BYTE = 255
 
   if len(indices) == 0:
-    return none(ValidatorIndex)
+    return Opt.none(ValidatorIndex)
 
   let seq_len = indices.lenu64
 
@@ -362,20 +360,20 @@ func compute_proposer_index(state: ForkyBeaconState,
       effective_balance = state.validators[candidate_index].effective_balance
     if effective_balance * MAX_RANDOM_BYTE >=
         MAX_EFFECTIVE_BALANCE * random_byte:
-      return some(candidate_index)
+      return Opt.some(candidate_index)
     i += 1
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
-    Option[ValidatorIndex] =
+    Opt[ValidatorIndex] =
   let epoch = get_current_epoch(state)
 
   if slot.epoch() != epoch:
     # compute_proposer_index depends on `effective_balance`, therefore the
     # beacon proposer index can only be computed for the "current" epoch:
     # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
-    return none(ValidatorIndex)
+    return Opt.none(ValidatorIndex)
 
   cache.beacon_proposer_indices.withValue(slot, proposer) do:
     return proposer[]
@@ -392,7 +390,7 @@ func get_beacon_proposer_index*(
       # quite a while
       indices = get_active_validator_indices(state, epoch)
 
-    var res: Option[ValidatorIndex]
+    var res: Opt[ValidatorIndex]
     for epoch_slot in epoch.slots():
       buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
       let seed = eth2digest(buffer)
@@ -403,20 +401,99 @@ func get_beacon_proposer_index*(
 
     return res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):
-    Option[ValidatorIndex] =
+    Opt[ValidatorIndex] =
+  ## Return the beacon proposer index at the current slot.
   get_beacon_proposer_index(state, cache, state.slot)
 
 func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
                                 cache: var StateCache, slot: Slot):
-                                Option[ValidatorIndex] =
+                                Opt[ValidatorIndex] =
   withState(state):
-    get_beacon_proposer_index(state.data, cache, slot)
+    get_beacon_proposer_index(forkyState.data, cache, slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
-  let
-    modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
+  let modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
   bytes_to_uint64(eth2digest(
     slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
+
+# https://github.com/ethereum/builder-specs/pull/47
+func livenessFailsafeInEffect*(
+    block_roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest],
+    slot: Slot): bool =
+  const
+    MAX_MISSING_CONTIGUOUS = 3
+    MAX_MISSING_WINDOW = 5
+
+  static: doAssert MAX_MISSING_WINDOW > MAX_MISSING_CONTIGUOUS
+  if slot <= MAX_MISSING_CONTIGUOUS:
+    # Cannot ever trigger and allows a bit of safe arithmetic. Furthermore
+    # there's notionally always a genesis block, which pushes the earliest
+    # possible failure out an additional slot.
+    return false
+
+  # Using this slightly convoluted construction to handle wraparound better;
+  # baseIndex + faultInspectionWindow can overflow array but only exactly by
+  # the required amount. Furthermore, go back one more slot to address using
+  # that it looks ahead rather than looks back and whether a block's missing
+  # requires seeing the previous block_root.
+  let
+    faultInspectionWindow = min(distinctBase(slot) - 1, SLOTS_PER_EPOCH)
+    baseIndex = (slot + SLOTS_PER_HISTORICAL_ROOT - faultInspectionWindow) mod
+      SLOTS_PER_HISTORICAL_ROOT
+    endIndex = baseIndex + faultInspectionWindow - 1
+
+  doAssert endIndex mod SLOTS_PER_HISTORICAL_ROOT ==
+    (slot - 1) mod SLOTS_PER_HISTORICAL_ROOT
+
+  var
+    totalMissing = 0
+    streakLen = 0
+    maxStreakLen = 0
+
+  for i in baseIndex .. endIndex:
+    # This look-forward means checking slot i for being missing uses i - 1
+    if  block_roots[(i mod SLOTS_PER_HISTORICAL_ROOT).int] ==
+        block_roots[((i + 1) mod SLOTS_PER_HISTORICAL_ROOT).int]:
+      totalMissing += 1
+      if totalMissing > MAX_MISSING_WINDOW:
+        return true
+
+      streakLen += 1
+      if streakLen > maxStreakLen:
+        maxStreakLen = streakLen
+        if maxStreakLen > MAX_MISSING_CONTIGUOUS:
+          return true
+    else:
+      streakLen = 0
+
+  false
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnet-subcription
+func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
+    SubnetId =
+  # Ensure neither `truncate` loses information
+  static:
+    doAssert EPOCHS_PER_SUBNET_SUBSCRIPTION <= high(uint64)
+    doAssert sizeof(UInt256) * 8 == NODE_ID_BITS
+    doAssert ATTESTATION_SUBNET_PREFIX_BITS < sizeof(SubnetId) * 8
+
+  let
+    node_id_prefix = truncate(
+      node_id shr (NODE_ID_BITS - ATTESTATION_SUBNET_PREFIX_BITS), uint64)
+    node_offset = truncate(node_id mod EPOCHS_PER_SUBNET_SUBSCRIPTION, uint64)
+    permutation_seed = eth2digest(uint_to_bytes(
+      uint64((epoch + node_offset) div EPOCHS_PER_SUBNET_SUBSCRIPTION)))
+    permutated_prefix = compute_shuffled_index(
+      node_id_prefix,
+      1 shl ATTESTATION_SUBNET_PREFIX_BITS,
+      permutation_seed,
+    )
+  SubnetId((permutated_prefix + index) mod ATTESTATION_SUBNET_COUNT)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnet-subcription
+iterator compute_subscribed_subnets*(node_id: UInt256, epoch: Epoch): SubnetId =
+  for index in 0'u64 ..< SUBNETS_PER_NODE:
+    yield compute_subscribed_subnet(node_id, epoch, index)

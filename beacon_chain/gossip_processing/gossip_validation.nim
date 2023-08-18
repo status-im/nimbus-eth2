@@ -1,15 +1,11 @@
 # beacon_chain
-# Copyright (c) 2019-2022 Status Research & Development GmbH
+# Copyright (c) 2019-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
-
-# References to `vFuture` refer to the pre-release proposal of the libp2p based
-# light client sync protocol. Conflicting release versions are not in use.
-# https://github.com/ethereum/consensus-specs/pull/2802
+{.push raises: [].}
 
 import
   # Status
@@ -20,10 +16,13 @@ import
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, exit_pool, spec_cache,
-    light_client_pool, sync_committee_msg_pool],
+    attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
+    exit_pool, spec_cache, light_client_pool, sync_committee_msg_pool],
   ".."/[beacon_clock],
   ./batch_validation
+
+from ../spec/datatypes/capella import SignedBeaconBlock
+from ../spec/datatypes/deneb import SignedBeaconBlock, BLS_MODULUS
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 
@@ -83,25 +82,55 @@ func check_attestation_block(
   ok()
 
 func check_propagation_slot_range(
-    msgSlot: Slot, wallTime: BeaconTime): Result[Slot, ValidationError] =
-  let
-    futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
+    consensusFork: ConsensusFork, msgSlot: Slot, wallTime: BeaconTime):
+    Result[Slot, ValidationError] =
+  let futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Attestation slot in the future")
 
-  let
-    pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
+  let pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#configuration
-  # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
-  # retransmit attestations on the cusp of being out of spec, and which by
-  # the time they reach their destination might be out of spec.
-  const ATTESTATION_PROPAGATION_SLOT_RANGE = 28
+  if not pastSlot.afterGenesis:
+    return ok(msgSlot)
 
-  if pastSlot.afterGenesis and
-      msgSlot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
-    return errIgnore("Attestation slot in the past")
+  if consensusFork < ConsensusFork.Deneb:
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#configuration
+    # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
+    # retransmit attestations on the cusp of being out of spec, and which by
+    # the time they reach their destination might be out of spec.
+    const ATTESTATION_PROPAGATION_SLOT_RANGE = 28
+
+    if msgSlot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
+      return errIgnore("Attestation slot in the past")
+  else:
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
+    # "[IGNORE] the epoch of attestation.data.slot is either the current or
+    # previous epoch (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
+    # compute_epoch_at_slot(attestation.data.slot) in
+    # (get_previous_epoch(state), get_current_epoch(state))"
+    #
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+    # "[IGNORE] the epoch of aggregate.data.slot is either the current or
+    # previous epoch (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
+    # compute_epoch_at_slot(aggregate.data.slot) in
+    # (get_previous_epoch(state), get_current_epoch(state))"
+    if msgSlot.epoch < pastSlot.slot.epoch.get_previous_epoch:
+      return errIgnore("Attestation slot in the past")
+
+  ok(msgSlot)
+
+func check_slot_exact(msgSlot: Slot, wallTime: BeaconTime):
+    Result[Slot, ValidationError] =
+  let futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
+
+  if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
+    return errIgnore("Sync committee slot in the future")
+
+  let pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
+
+  if pastSlot.afterGenesis and msgSlot < pastSlot.slot:
+    return errIgnore("Sync committee slot in the past")
 
   ok(msgSlot)
 
@@ -121,28 +150,17 @@ func check_beacon_and_target_block(
   ? check_attestation_block(pool, data.slot, blck)
 
   # [REJECT] The attestation's target block is an ancestor of the block named
-  # in the LMD vote -- i.e. get_ancestor(store,
-  # attestation.data.beacon_block_root,
-  # compute_start_slot_at_epoch(attestation.data.target.epoch)) ==
-  # attestation.data.target.root
+  # in the LMD vote -- i.e.
+  # get_checkpoint_block(store, attestation.data.beacon_block_root,
+  # attestation.data.target.epoch) == attestation.data.target.root
   # the sanity of target.epoch has been checked by check_attestation_slot_target
-  let
-    target = blck.atSlot(data.target.epoch.start_slot())
-
-  if isNil(target.blck):
-    # Shouldn't happen - we've checked that the target epoch is within range
-    # already
-    return errReject("Attestation target block not found")
-
-  if not (target.blck.root == data.target.root):
-    return errReject(
-      "Attestation target block not the correct ancestor of LMD vote block")
+  let target = blck.atCheckpoint(data.target).valueOr:
+    return errReject("Attestation target is not ancestor of LMD vote block")
 
   ok(target)
 
 func check_aggregation_count(
     attestation: Attestation, singular: bool): Result[void, ValidationError] =
-
   let ones = attestation.aggregation_bits.countOnes()
   if singular and ones != 1:
     return errReject("Attestation must have a single attestation bit set")
@@ -152,11 +170,11 @@ func check_aggregation_count(
   ok()
 
 func check_attestation_subnet(
-    epochRef: EpochRef, slot: Slot, committee_index: CommitteeIndex,
+    shufflingRef: ShufflingRef, slot: Slot, committee_index: CommitteeIndex,
     subnet_id: SubnetId): Result[void, ValidationError] =
   let
     expectedSubnet = compute_subnet_for_attestation(
-      get_committee_count_per_slot(epochRef), slot, committee_index)
+      get_committee_count_per_slot(shufflingRef), slot, committee_index)
 
   if expectedSubnet != subnet_id:
     return errReject("Attestation not on the correct subnet")
@@ -166,86 +184,212 @@ func check_attestation_subnet(
 # Gossip Validation
 # ----------------------------------------------------------------
 
-template checkedReject(msg: cstring): untyped =
-  if verifyFinalization in pool.dag.updateFlags:
-    # This doesn't depend on the wall clock or the exact state of the DAG; it's
-    # an internal consistency/correctness check only, and effectively never has
-    # false positives. These don't, for example, arise from timeouts.
+# Generally, the following rules apply for gossip validation:
+#
+# [REJECT]
+# This doesn't depend on the wall clock or the exact state of the DAG; it's
+# an internal consistency/correctness check only, and effectively never has
+# false positives. These don't, for example, arise from timeouts.
+#
+# [IGNORE]
+# This may be intermittent, depend on timing or the current state of the DAG.
+
+template checkedReject(
+    msg: cstring, strictVerification: bool): untyped =
+  if strictVerification:
     raiseAssert $msg
   errReject(msg)
 
-template checkedReject(error: ValidationError): untyped =
+template checkedReject(
+    error: ValidationError, strictVerification: bool): untyped =
   doAssert error[0] == ValidationResult.Reject
-  if verifyFinalization in pool.dag.updateFlags:
-    # This doesn't depend on the wall clock or the exact state of the DAG; it's
-    # an internal consistency/correctness check only, and effectively never has
-    # false positives. These don't, for example, arise from timeouts.
+  if strictVerification:
     raiseAssert $error[1]
   err(error)
 
+template checkedResult*(
+    error: ValidationError, strictVerification: bool): untyped =
+  if error[0] == ValidationResult.Reject and strictVerification:
+    raiseAssert $error[1]
+  err(error)
+
+# ChainDAGRef
+template checkedReject(
+    dag: ChainDAGRef, msg: cstring): untyped =
+  checkedReject(msg, strictVerification in dag.updateFlags)
+
+template checkedReject(
+    dag: ChainDAGRef, error: ValidationError): untyped =
+  checkedReject(error, strictVerification in dag.updateFlags)
+
+template checkedResult(
+    dag: ChainDAGRef, error: ValidationError): untyped =
+  checkedResult(error, strictVerification in dag.updateFlags)
+
+# AttestationPool
+template checkedReject(
+    pool: ref AttestationPool, msg: cstring): untyped =
+  pool[].dag.checkedReject(msg)
+
+template checkedReject(
+    pool: ref AttestationPool, error: ValidationError): untyped =
+  pool[].dag.checkedReject(error)
+
+template checkedResult(
+    pool: ref AttestationPool, error: ValidationError): untyped =
+  pool[].dag.checkedResult(error)
+
+# ValidatorChangePool
+template checkedReject(
+    pool: ValidatorChangePool, msg: cstring): untyped =
+  pool.dag.checkedReject(msg)
+
+template checkedReject(
+    pool: ValidatorChangePool, error: ValidationError): untyped =
+  pool.dag.checkedReject(error)
+
+template checkedResult(
+    pool: ValidatorChangePool, error: ValidationError): untyped =
+  pool.dag.checkedResult(error)
+
 template validateBeaconBlockBellatrix(
-       signed_beacon_block: phase0.SignedBeaconBlock |
-                            altair.SignedBeaconBlock,
-       parent: BlockRef): untyped =
+    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+    parent: BlockRef): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
-       signed_beacon_block: bellatrix.SignedBeaconBlock,
-       parent: BlockRef): untyped =
+    signed_beacon_block:
+      bellatrix.SignedBeaconBlock |
+      capella.SignedBeaconBlock |
+      deneb.SignedBeaconBlock,
+    parent: BlockRef): untyped =
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
-  let executionEnabled =
-    if signed_beacon_block.message.body.execution_payload !=
-        default(ExecutionPayload):
-      true
-    elif dag.getEpochRef(parent, parent.slot.epoch, true).expect(
-        "parent EpochRef doesn't fail").merge_transition_complete:
-      # Should usually be inexpensive, but could require cache refilling - the
-      # parent block can be no older than the latest finalized block
-      true
-    else:
-      # Somewhat more expensive fallback, with database I/O, but should be
-      # mostly relevant around merge transition epochs. It's possible that
-      # the previous block is phase 0 or Altair, if this is the transition
-      # block itself.
-      let blockData = dag.getForkedBlock(parent.bid)
-      if blockData.isOk():
-        case blockData.get().kind:
-        of BeaconBlockFork.Phase0:
-          false
-        of BeaconBlockFork.Altair:
-          false
-        of BeaconBlockFork.Bellatrix:
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
-          # shows how this gets folded into the state each block; checking this
-          # is equivalent, without ever requiring state replay or any similarly
-          # expensive computation.
-          blockData.get().bellatrixData.message.body.execution_payload !=
-            default(ExecutionPayload)
-      else:
-        warn "Cannot load block parent, assuming execution is disabled",
-          parent = shortLog(parent)
-        false
-
-  if executionEnabled:
+  #
+  # `is_execution_enabled(state, block.body)` is
+  # `is_merge_transition_block(state, block.body) or is_merge_transition_complete(state)` is
+  # `(not is_merge_transition_complete(state) and block.body.execution_payload != ExecutionPayload()) or is_merge_transition_complete(state)` is
+  # `is_merge_transition_complete(state) or block.body.execution_payload != ExecutionPayload()` is
+  # `is_merge_transition_complete(state) or is_execution_block(block)`
+  #
+  # `is_merge_transition_complete(state)` tests for
+  # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
+  # shows that `state.latest_execution_payload_header` being default or not is
+  # exactly equivalent to whether that block's execution payload is default or
+  # not, so test cached block information rather than reconstructing a state.
+  if  signed_beacon_block.message.is_execution_block or
+      not dag.loadExecutionBlockHash(parent).isZero:
     # [REJECT] The block's execution payload timestamp is correct with respect
     # to the slot -- i.e. execution_payload.timestamp ==
     # compute_timestamp_at_slot(state, block.slot).
     let timestampAtSlot =
       withState(dag.headState):
-        compute_timestamp_at_slot(state.data, signed_beacon_block.message.slot)
+        compute_timestamp_at_slot(
+          forkyState.data, signed_beacon_block.message.slot)
     if not (signed_beacon_block.message.body.execution_payload.timestamp ==
         timestampAtSlot):
       quarantine[].addUnviable(signed_beacon_block.root)
-      return errReject("BeaconBlock: Mismatched execution payload timestamp")
+      return dag.checkedReject(
+        "BeaconBlock: mismatched execution payload timestamp")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/p2p-interface.md#beacon_block
+  # The condition:
+  # [REJECT] The block's parent (defined by `block.parent_root`) passes all
+  # validation (excluding execution node verification of the
+  # `block.body.execution_payload`).
+  # cannot occur here, because Nimbus's optimistic sync waits for either
+  # `ACCEPTED` or `SYNCING` from the EL to get this far.
+
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blob_sidecar_index
+proc validateBlobSidecar*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    blobQuarantine: ref BlobQuarantine,sbs: SignedBlobSidecar,
+    wallTime: BeaconTime, idx: BlobIndex): Result[void, ValidationError] =
+
+  # [REJECT] The sidecar is for the correct topic --
+  # i.e. sidecar.index matches the topic {index}.
+  if sbs.message.index != idx:
+    return dag.checkedReject("SignedBlobSidecar: mismatched gossip topic index")
+
+  if dag.getBlockRef(sbs.message.block_root).isSome():
+    return errIgnore("SignedBlobSidecar: already have block")
+
+  # [IGNORE] The sidecar is not from a future slot (with a
+  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
+  # sidecar.slot <= current_slot (a client MAY queue future sidecars
+  # for processing at the appropriate slot).
+  if not (sbs.message.slot <=
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
+    return errIgnore("SignedBlobSidecar: slot too high")
+
+  # [IGNORE] The block is from a slot greater than the latest
+  # finalized slot -- i.e. validate that
+  # signed_beacon_block.message.slot >
+  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
+  if not (sbs.message.slot > dag.finalizedHead.slot):
+    return errIgnore("SignedBlobSidecar: slot already finalized")
+
+  # [IGNORE] The block's parent (defined by block.parent_root) has
+  # been seen (via both gossip and non-gossip sources) (a client MAY
+  # queue blocks for processing once the parent block is retrieved).
+  # [REJECT] The sidecar's block's parent (defined by sidecar.block_parent_root)
+  # passes validation.
+  let parentRes = dag.getBlockRef(sbs.message.block_parent_root)
+  if parentRes.isErr:
+    if sbs.message.block_parent_root in quarantine[].unviable:
+      return dag.checkedReject("SignedBlobSidecar: parent not validated")
+    else:
+      return errIgnore("SignedBlobSidecar: parent not found")
+  template parent: untyped = parentRes.get
+
+  # [REJECT] The sidecar is from a higher slot than the sidecar's
+  # block's parent (defined by sidecar.block_parent_root).
+  if sbs.message.slot <= parent.bid.slot:
+    return dag.checkedReject("SignedBlobSidecar: slot lower than parents'")
+
+  # [REJECT] The sidecar is proposed by the expected proposer_index
+  # for the block's slot in the context of the current shuffling
+  # (defined by block_parent_root/slot).  If the proposer_index
+  # cannot immediately be verified against the expected shuffling,
+  # the sidecar MAY be queued for later processing while proposers
+  # for the block's branch are calculated -- in such a case do not
+  # REJECT, instead IGNORE this message.
+  let
+    proposer = getProposer(
+      dag, parent, sbs.message.slot).valueOr:
+      warn "cannot compute proposer for blob"
+      return errIgnore("SignedBlobSidecar: Cannot compute proposer")
+
+  if uint64(proposer) != sbs.message.proposer_index:
+    return dag.checkedReject("SignedBlobSidecar: Unexpected proposer")
+
+  # [REJECT] The proposer signature, signed_blob_sidecar.signature,
+  # is valid as verified by verify_sidecar_signature.
+  if not verify_blob_signature(
+    dag.forkAtEpoch(sbs.message.slot.epoch),
+    getStateField(dag.headState, genesis_validators_root),
+    sbs.message.slot,
+    sbs.message,
+    dag.validatorKey(proposer).get(),
+    sbs.signature):
+    return dag.checkedReject("SignedBlobSidecar: invalid blob signature")
+
+  # [IGNORE] The sidecar is the only sidecar with valid signature
+  # received for the tuple (sidecar.block_root, sidecar.index).
+  if blobQuarantine[].hasBlob(sbs.message):
+    return errIgnore(
+      "SignedBlobSidecar: already have blob with valid signature")
+
+  ok()
+
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                         bellatrix.SignedBeaconBlock,
+    signed_beacon_block: ForkySignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
@@ -269,7 +413,7 @@ proc validateBeaconBlock*(
   # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -315,25 +459,56 @@ proc validateBeaconBlock*(
   # (via both gossip and non-gossip sources) (a client MAY queue blocks for
   # processing once the parent block is retrieved).
   #
-  # And implicitly:
-  # [REJECT] The block's parent (defined by block.parent_root) passes validation.
+  # [REJECT] The block's parent (defined by block.parent_root)
+  # passes validation.
   let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
     if signed_beacon_block.message.parent_root in quarantine[].unviable:
       quarantine[].addUnviable(signed_beacon_block.root)
-      return errReject("BeaconBlock: parent from unviable fork")
+
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
+      # `is_execution_enabled(state, block.body)` check, but unlike in
+      # validateBeaconBlockBellatrix() don't have parent BlockRef.
+      if  signed_beacon_block.message.is_execution_block or
+          not dag.loadExecutionBlockHash(dag.finalizedHead.blck).isZero:
+        # Blocks with execution enabled will be permitted to propagate
+        # regardless of the validity of the execution payload. This prevents
+        # network segregation between optimistic and non-optimistic nodes.
+        #
+        # [IGNORE] The block's parent (defined by `block.parent_root`)
+        # passes all validation (including execution node verification of the
+        # `block.body.execution_payload`).
+        return errIgnore("BeaconBlock: ignored, parent from unviable fork")
+      else:
+        # [REJECT] The block's parent (defined by `block.parent_root`) passes
+        # validation.
+        return dag.checkedReject(
+          "BeaconBlock: rejected, parent from unviable fork")
 
     # When the parent is missing, we can't validate the block - we'll queue it
     # in the quarantine for later processing
-    if not quarantine[].addOrphan(
+    if (let r = quarantine[].addOrphan(
         dag.finalizedHead.slot,
-        ForkedSignedBeaconBlock.init(signed_beacon_block)):
-      debug "Block quarantine full"
-
+        ForkedSignedBeaconBlock.init(signed_beacon_block)); r.isErr):
+      debug "validateBeaconBlock: could not add orphan",
+       blockRoot = shortLog(signed_beacon_block.root),
+       blck = shortLog(signed_beacon_block.message),
+       err = r.error()
+    else:
+      debug "Block quarantined",
+        blockRoot = shortLog(signed_beacon_block.root),
+        blck = shortLog(signed_beacon_block.message),
+        signature = shortLog(signed_beacon_block.signature)
     return errIgnore("BeaconBlock: Parent not found")
+
+  # Continues block parent validity checking in optimistic case, where it does
+  # appear as a `BlockRef` (and not handled above) but isn't usable for gossip
+  # validation.
+  validateBeaconBlockBellatrix(signed_beacon_block, parent)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
-    return errReject("BeaconBlock: block not from higher slot than its parent")
+    return dag.checkedReject(
+      "BeaconBlock: block not from higher slot than its parent")
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
   # get_ancestor(store, block.parent_root,
@@ -352,8 +527,8 @@ proc validateBeaconBlock*(
       finalized_checkpoint.root == ancestor.root or
       finalized_checkpoint.root.isZero):
     quarantine[].addUnviable(signed_beacon_block.root)
-
-    return errReject("BeaconBlock: Finalized checkpoint not an ancestor")
+    return dag.checkedReject(
+      "BeaconBlock: Finalized checkpoint not an ancestor")
 
   # [REJECT] The block is proposed by the expected proposer_index for the
   # block's slot in the context of the current shuffling (defined by
@@ -362,16 +537,14 @@ proc validateBeaconBlock*(
   # processing while proposers for the block's branch are calculated -- in such
   # a case do not REJECT, instead IGNORE this message.
   let
-    proposer = getProposer(dag, parent, signed_beacon_block.message.slot)
+    proposer = getProposer(
+        dag, parent, signed_beacon_block.message.slot).valueOr:
+      warn "cannot compute proposer for message"
+      return errIgnore("BeaconBlock: Cannot compute proposer") # internal issue
 
-  if proposer.isNone:
-    warn "cannot compute proposer for message"
-    return errIgnore("BeaconBlock: Cannot compute proposer") # internal issue
-
-  if uint64(proposer.get()) != signed_beacon_block.message.proposer_index:
+  if uint64(proposer) != signed_beacon_block.message.proposer_index:
     quarantine[].addUnviable(signed_beacon_block.root)
-
-    return errReject("BeaconBlock: Unexpected proposer proposer")
+    return dag.checkedReject("BeaconBlock: Unexpected proposer proposer")
 
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.
@@ -380,17 +553,15 @@ proc validateBeaconBlock*(
       getStateField(dag.headState, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.root,
-      dag.validatorKey(proposer.get()).get(),
+      dag.validatorKey(proposer).get(),
       signed_beacon_block.signature):
     quarantine[].addUnviable(signed_beacon_block.root)
-
-    return errReject("BeaconBlock: Invalid proposer signature")
-
-  validateBeaconBlockBellatrix(signed_beacon_block, parent)
+    return dag.checkedReject("BeaconBlock: Invalid proposer signature")
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -411,7 +582,7 @@ proc validateAttestation*(
   let slot = block:
     let v = check_attestation_slot_target(attestation.data)
     if v.isErr():
-      return errReject(v.error())
+      return pool.checkedReject(v.error())
     v.get()
 
   # attestation.data.slot is within the last ATTESTATION_PROPAGATION_SLOT_RANGE
@@ -419,54 +590,58 @@ proc validateAttestation*(
   # attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot
   # >= attestation.data.slot (a client MAY queue future attestations for
   # processing at the appropriate slot).
+  #
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
+  # modifies this for Deneb and newer forks.
   block:
-    let v = check_propagation_slot_range(slot, wallTime) # [IGNORE]
-    if v.isErr():
+    let v = check_propagation_slot_range(
+      pool.dag.cfg.consensusForkAtEpoch(wallTime.slotOrZero.epoch), slot,
+      wallTime)
+    if v.isErr():  # [IGNORE]
       return err(v.error())
 
   # The attestation is unaggregated -- that is, it has exactly one
   # participating validator (len([bit for bit in attestation.aggregation_bits
   # if bit == 0b1]) == 1).
   block:
-    let v = check_aggregation_count(attestation, singular = true) # [REJECT]
-    if v.isErr():
-      return checkedReject(v.error)
+    let v = check_aggregation_count(attestation, singular = true)
+    if v.isErr():  # [REJECT]
+      return pool.checkedReject(v.error)
 
   # The block being voted for (attestation.data.beacon_block_root) has been seen
-  # (via both gossip and non-gossip sources) (a client MAY queue attestations for
-  # processing once block is retrieved).
-  # The block being voted for (attestation.data.beacon_block_root) passes
-  # validation.
+  # (via both gossip and non-gossip sources) (a client MAY queue attestations
+  # for processing once block is retrieved).
+  # [REJECT] The block being voted for (attestation.data.beacon_block_root)
+  # passes validation.
   # [IGNORE] if block is unseen so far and enqueue it in missing blocks
   let target = block:
-    let v = check_beacon_and_target_block(pool[], attestation.data) # [IGNORE/REJECT]
-    if v.isErr():
-      return err(v.error)
+    let v = check_beacon_and_target_block(pool[], attestation.data)
+    if v.isErr():  # [IGNORE/REJECT]
+      return pool.checkedResult(v.error)
     v.get()
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
   #
-  # The current finalized_checkpoint is an ancestor of the block defined by
-  # attestation.data.beacon_block_root -- i.e. get_ancestor(store,
-  # attestation.data.beacon_block_root,
-  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
-  # store.finalized_checkpoint.root
+  # [IGNORE] The current finalized_checkpoint is an ancestor of the block
+  # defined by attestation.data.beacon_block_root -- i.e.
+  # get_checkpoint_block(store, attestation.data.beacon_block_root,
+  # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root
   let
-    epochRef = block:
-      let tmp = pool.dag.getEpochRef(target.blck, target.slot.epoch, false)
-      if isErr(tmp): # shouldn't happen since we verified target
-        warn "No EpochRef for attestation",
+    shufflingRef =
+      pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+        # Target is verified - shouldn't happen
+        warn "No shuffling for attestation - report bug",
           attestation = shortLog(attestation), target = shortLog(target)
-        return errIgnore("Attestation:  no EpochRef")
-      tmp.get()
+        return errIgnore("Attestation: no shuffling")
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   let committee_index = block:
-    let idx = epochRef.get_committee_index(attestation.data.index)
+    let idx = shufflingRef.get_committee_index(attestation.data.index)
     if idx.isErr():
-      return checkedReject("Attestation: committee index not within expected range")
+      return pool.checkedReject(
+        "Attestation: committee index not within expected range")
     idx.get()
 
   # [REJECT] The attestation is for the correct subnet -- i.e.
@@ -477,9 +652,9 @@ proc validateAttestation*(
   # committee information for the signature check.
   block:
     let v = check_attestation_subnet(
-      epochRef, attestation.data.slot, committee_index, subnet_id) # [REJECT]
-    if v.isErr():
-      return err(v.error)
+      shufflingRef, attestation.data.slot, committee_index, subnet_id)
+    if v.isErr():  # [REJECT]
+      return pool.checkedReject(v.error)
 
   # [REJECT] The number of aggregation bits matches the committee size -- i.e.
   # len(attestation.aggregation_bits) == len(get_beacon_committee(state,
@@ -489,20 +664,19 @@ proc validateAttestation*(
   # epoch matches its target and attestation.data.target.root is an ancestor of
   # attestation.data.beacon_block_root.
   if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
-      epochRef, attestation.data.slot, committee_index)):
-    return checkedReject(
+      shufflingRef, attestation.data.slot, committee_index)):
+    return pool.checkedReject(
       "Attestation: number of aggregation bits and committee size mismatch")
 
   let
     fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
-    genesis_validators_root =
-      getStateField(pool.dag.headState, genesis_validators_root)
     attesting_index = get_attesting_indices_one(
-      epochRef, slot, committee_index, attestation.aggregation_bits)
+      shufflingRef, slot, committee_index, attestation.aggregation_bits)
 
   # The number of aggregation bits matches the committee size, which ensures
   # this condition holds.
-  doAssert attesting_index.isSome(), "We've checked bits length and one count already"
+  doAssert attesting_index.isSome(),
+    "We've checked bits length and one count already"
   let validator_index = attesting_index.get()
 
   # There has been no other valid attestation seen on an attestation subnet
@@ -515,10 +689,11 @@ proc validateAttestation*(
         attestation.data.target.epoch:
     return errIgnore("Attestation: Validator has already voted in epoch")
 
-  let pubkey = epochRef.validatorKey(validator_index)
-  if pubkey.isNone():
+  let pubkey = pool.dag.validatorKey(validator_index).valueOr:
     # can't happen, in theory, because we checked the aggregator index above
     return errIgnore("Attestation: cannot find validator pubkey")
+
+  # [REJECT] The signature of `attestation` is valid.
 
   # In the spec, is_valid_indexed_attestation is used to verify the signature -
   # here, we do a batch verification instead
@@ -527,27 +702,25 @@ proc validateAttestation*(
       # Attestation signatures are batch-verified
       let deferredCrypto = batchCrypto
                              .scheduleAttestationCheck(
-                              fork, genesis_validators_root, attestation.data,
-                              pubkey.get(), attestation.signature)
+                              fork, attestation.data, pubkey,
+                              attestation.signature)
       if deferredCrypto.isErr():
-        return checkedReject(deferredCrypto.error)
+        return pool.checkedReject(deferredCrypto.error)
 
       let (cryptoFut, sig) = deferredCrypto.get()
       # Await the crypto check
-      var x = (await cryptoFut)
+      let x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
-        return checkedReject("Attestation: invalid signature")
+        return pool.checkedReject("Attestation: invalid signature")
       of BatchResult.Timeout:
         beacon_attestations_dropped_queue_full.inc()
         return errIgnore("Attestation: timeout checking signature")
       of BatchResult.Valid:
         sig # keep going only in this case
     else:
-      let sig = attestation.signature.load()
-      if not sig.isSome():
-        return checkedReject("Attestation: unable to load signature")
-      sig.get()
+      attestation.signature.load().valueOr:
+        return pool.checkedReject("Attestation: unable to load signature")
 
   # Only valid attestations go in the list, which keeps validator_index
   # in range
@@ -558,12 +731,14 @@ proc validateAttestation*(
 
   return ok((validator_index, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
     signedAggregateAndProof: SignedAggregateAndProof,
-    wallTime: BeaconTime):
+    wallTime: BeaconTime,
+    checkSignature = true, checkCover = true):
     Future[Result[
       tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
       ValidationError]] {.async.} =
@@ -580,16 +755,21 @@ proc validateAggregate*(
   let slot = block:
     let v = check_attestation_slot_target(aggregate.data)
     if v.isErr():
-      return checkedReject(v.error)
+      return pool.checkedReject(v.error)
     v.get()
 
   # [IGNORE] aggregate.data.slot is within the last
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
+  #
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+  # modifies this for Deneb and newer forks.
   block:
-    let v = check_propagation_slot_range(slot, wallTime) # [IGNORE]
-    if v.isErr():
+    let v = check_propagation_slot_range(
+      pool.dag.cfg.consensusForkAtEpoch(wallTime.slotOrZero.epoch), slot,
+      wallTime)
+    if v.isErr():  # [IGNORE]
       return err(v.error())
 
   # [IGNORE] The aggregate is the first valid aggregate received for the
@@ -618,60 +798,50 @@ proc validateAggregate*(
   # But (2) would reflect an invalid aggregation in other ways, so reject it
   # either way.
   block:
-    let v = check_aggregation_count(aggregate, singular = false) # [REJECT]
-    if v.isErr():
-      return err(v.error)
+    let v = check_aggregation_count(aggregate, singular = false)
+    if v.isErr():  # [REJECT]
+      return pool.checkedReject(v.error)
 
   # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
   # passes validation.
   # [IGNORE] if block is unseen so far and enqueue it in missing blocks
   let target = block:
-    let v = check_beacon_and_target_block(pool[], aggregate.data) # [IGNORE/REJECT]
-    if v.isErr():
-      return err(v.error)
+    let v = check_beacon_and_target_block(pool[], aggregate.data)
+    if v.isErr():  # [IGNORE/REJECT]
+      return pool.checkedResult(v.error)
     v.get()
 
-  if pool[].covers(aggregate.data, aggregate.aggregation_bits):
-    # https://github.com/ethereum/consensus-specs/issues/2183 - althoughh this
-    # check was temporarily removed from the spec, the intent is to reinstate it
-    # per discussion in the ticket.
-    #
-    # [IGNORE] The valid aggregate attestation defined by
-    # `hash_tree_root(aggregate)` has _not_ already been seen
-    # (via aggregate gossip, within a verified block, or through the creation of
-    # an equivalent aggregate locally).
-
-    # Our implementation of this check is slightly different in that it doesn't
-    # consider aggregates from verified blocks - this would take a rather heavy
-    # index to work correcly under fork conditions - we also check for coverage
-    # of attestation bits instead of comparing with full root of aggreagte:
-    # this captures the spirit of the checkk by ignoring aggregates that are
-    # strict subsets of other, already-seen aggregates.
+  if checkCover and
+      pool[].covers(aggregate.data, aggregate.aggregation_bits):
+    # [IGNORE] A valid aggregate attestation defined by
+    # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
+    # superset has _not_ already been seen.
+    # https://github.com/ethereum/consensus-specs/pull/2847
     return errIgnore("Aggregate already covered")
 
   let
-    epochRef = block:
-      let tmp = pool.dag.getEpochRef(target.blck, target.slot.epoch, false)
-      if tmp.isErr: # shouldn't happen since we verified target
-        warn "No EpochRef for attestation - report bug",
+    shufflingRef =
+      pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+        # Target is verified - shouldn't happen
+        warn "No shuffling for attestation - report bug",
           aggregate = shortLog(aggregate), target = shortLog(target)
-        return errIgnore("Aggregate: no EpochRef")
-      tmp.get()
+        return errIgnore("Aggregate: no shuffling")
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   let committee_index = block:
-    let idx = epochRef.get_committee_index(aggregate.data.index)
+    let idx = shufflingRef.get_committee_index(aggregate.data.index)
     if idx.isErr():
-      return checkedReject("Attestation: committee index not within expected range")
+      return pool.checkedReject(
+        "Attestation: committee index not within expected range")
     idx.get()
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
   if not is_aggregator(
-      epochRef, slot, committee_index, aggregate_and_proof.selection_proof):
-    return checkedReject("Aggregate: incorrect aggregator")
+      shufflingRef, slot, committee_index, aggregate_and_proof.selection_proof):
+    return pool.checkedReject("Aggregate: incorrect aggregator")
 
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
   # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
@@ -679,81 +849,88 @@ proc validateAggregate*(
 
   let aggregator_index =
     ValidatorIndex.init(aggregate_and_proof.aggregator_index).valueOr:
-      return checkedReject("Aggregate: invalid aggregator index")
+      return pool.checkedReject("Aggregate: invalid aggregator index")
 
   if aggregator_index notin
-      get_beacon_committee(epochRef, slot, committee_index):
-    return checkedReject("Aggregate: aggregator's validator index not in committee")
+      get_beacon_committee(shufflingRef, slot, committee_index):
+    return pool.checkedReject(
+      "Aggregate: aggregator's validator index not in committee")
 
-  # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
-  #    aggregate.data.slot by the validator with index
+  # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature
+  #    of the aggregate.data.slot by the validator with index
   #    aggregate_and_proof.aggregator_index.
   #    get_slot_signature(state, aggregate.data.slot, privkey)
-  # 2. [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+  # 2. [REJECT] The aggregator signature,
+  #    signed_aggregate_and_proof.signature, is valid.
   # 3. [REJECT] The signature of aggregate is valid.
 
   let
     fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
-    genesis_validators_root =
-      getStateField(pool.dag.headState, genesis_validators_root)
     attesting_indices = get_attesting_indices(
-      epochRef, slot, committee_index, aggregate.aggregation_bits)
-
-  let deferredCrypto = batchCrypto
-                .scheduleAggregateChecks(
-                  fork, genesis_validators_root,
-                  signedAggregateAndProof, epochRef, attesting_indices
-                )
-  if deferredCrypto.isErr():
-    return checkedReject(deferredCrypto.error)
+      shufflingRef, slot, committee_index, aggregate.aggregation_bits)
 
   let
-    (aggregatorFut, slotFut, aggregateFut, sig) = deferredCrypto.get()
+    sig = if checkSignature:
+      let deferredCrypto = batchCrypto
+                    .scheduleAggregateChecks(
+                      fork, signedAggregateAndProof, pool.dag,
+                      attesting_indices
+                    )
+      if deferredCrypto.isErr():
+        return pool.checkedReject(deferredCrypto.error)
 
-  block:
-    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    var x = await aggregatorFut
-    case x
-    of BatchResult.Invalid:
-      return checkedReject("Aggregate: invalid aggregator signature")
-    of BatchResult.Timeout:
-      beacon_aggregates_dropped_queue_full.inc()
-      return errIgnore("Aggregate: timeout checking aggregator signature")
-    of BatchResult.Valid:
-      discard
+      let
+        (aggregatorFut, slotFut, aggregateFut, sig) = deferredCrypto.get()
 
-  block:
-    # [REJECT] aggregate_and_proof.selection_proof
-    var x = await slotFut
-    case x
-    of BatchResult.Invalid:
-      return checkedReject("Aggregate: invalid slot signature")
-    of BatchResult.Timeout:
-      beacon_aggregates_dropped_queue_full.inc()
-      return errIgnore("Aggregate: timeout checking slot signature")
-    of BatchResult.Valid:
-      discard
+      block:
+        # [REJECT] The aggregator signature,
+        # signed_aggregate_and_proof.signature, is valid.
+        let x = await aggregatorFut
+        case x
+        of BatchResult.Invalid:
+          return pool.checkedReject("Aggregate: invalid aggregator signature")
+        of BatchResult.Timeout:
+          beacon_aggregates_dropped_queue_full.inc()
+          return errIgnore("Aggregate: timeout checking aggregator signature")
+        of BatchResult.Valid:
+          discard
 
-  block:
-    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    var x = await aggregateFut
-    case x
-    of BatchResult.Invalid:
-      return checkedReject("Aggregate: invalid aggregate signature")
-    of BatchResult.Timeout:
-      beacon_aggregates_dropped_queue_full.inc()
-      return errIgnore("Aggregate: timeout checking aggregate signature")
-    of BatchResult.Valid:
-      discard
+      block:
+        # [REJECT] aggregate_and_proof.selection_proof
+        let x = await slotFut
+        case x
+        of BatchResult.Invalid:
+          return pool.checkedReject("Aggregate: invalid slot signature")
+        of BatchResult.Timeout:
+          beacon_aggregates_dropped_queue_full.inc()
+          return errIgnore("Aggregate: timeout checking slot signature")
+        of BatchResult.Valid:
+          discard
+
+      block:
+        # [REJECT] The aggregator signature,
+        # signed_aggregate_and_proof.signature, is valid.
+        let x = await aggregateFut
+        case x
+        of BatchResult.Invalid:
+          return pool.checkedReject("Aggregate: invalid aggregate signature")
+        of BatchResult.Timeout:
+          beacon_aggregates_dropped_queue_full.inc()
+          return errIgnore("Aggregate: timeout checking aggregate signature")
+        of BatchResult.Valid:
+          discard
+      sig
+    else:
+      aggregate.signature.load().valueOr:
+        return pool.checkedReject("Aggregate: unable to load signature")
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
   #
-  # The current finalized_checkpoint is an ancestor of the block defined by
-  # aggregate.data.beacon_block_root -- i.e. get_ancestor(store,
-  # aggregate.data.beacon_block_root,
-  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
-  # store.finalized_checkpoint.root
+  # [IGNORE] The current finalized_checkpoint is an ancestor of the block
+  # defined by aggregate.data.beacon_block_root -- i.e.
+  # get_checkpoint_block(store, aggregate.data.beacon_block_root,
+  # finalized_checkpoint.epoch) == store.finalized_checkpoint.root
 
   # Only valid aggregates go in the list
   if pool.nextAttestationEpoch.lenu64 <= aggregate_and_proof.aggregator_index:
@@ -764,16 +941,64 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/p2p-interface.md#bls_to_execution_change
+proc validateBlsToExecutionChange*(
+    pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
+    signed_address_change: SignedBLSToExecutionChange,
+    wallEpoch: Epoch): Future[Result[void, ValidationError]] {.async.} =
+  # [IGNORE] `current_epoch >= CAPELLA_FORK_EPOCH`, where `current_epoch` is
+  # defined by the current wall-clock time.
+  if not (wallEpoch >= pool.dag.cfg.CAPELLA_FORK_EPOCH):
+    return errIgnore(
+      "SignedBLSToExecutionChange: not accepting gossip until Capella")
+
+  # [IGNORE] The `signed_bls_to_execution_change` is the first valid signed bls
+  # to execution change received for the validator with index
+  # `signed_bls_to_execution_change.message.validator_index`.
+  if pool.isSeen(signed_address_change):
+    return errIgnore(
+      "SignedBLSToExecutionChange: not first valid change for validator index")
+
+  # [REJECT] All of the conditions within `process_bls_to_execution_change`
+  # pass validation.
+  withState(pool.dag.headState):
+    when consensusFork < ConsensusFork.Capella:
+      return errIgnore(
+        "SignedBLSToExecutionChange: can't validate against pre-Capella state")
+    else:
+      let res = check_bls_to_execution_change(
+        pool.dag.cfg.genesisFork, forkyState.data, signed_address_change,
+        {skipBlsValidation})
+      if res.isErr:
+        return pool.checkedReject(res.error)
+
+      # BLS to execution change signatures are batch-verified
+      let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
+        pool.dag.cfg.genesisFork, signed_address_change)
+      if deferredCrypto.isErr():
+        return pool.checkedReject(deferredCrypto.error)
+
+      let (cryptoFut, sig) = deferredCrypto.get()
+      case await cryptoFut
+      of BatchResult.Invalid:
+        return pool.checkedReject(
+          "SignedBLSToExecutionChange: invalid signature")
+      of BatchResult.Timeout:
+        return errIgnore(
+          "SignedBLSToExecutionChange: timeout checking signature")
+      of BatchResult.Valid:
+        discard  # keep going only in this case
+
+  return ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
-    pool: ExitPool, attester_slashing: AttesterSlashing):
+    pool: ValidatorChangePool, attester_slashing: AttesterSlashing):
     Result[void, ValidationError] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
   # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
   # verify if any(attester_slashed_indices.difference(prior_seen_attester_slashed_indices))).
-  # TODO sequtils2 should be able to make this more reasonable, from asSeq on
-  # down, and can sort and just find intersection that way
   if pool.isSeen(attester_slashing):
     return errIgnore(
       "AttesterSlashing: attester-slashed index already attester-slashed")
@@ -783,16 +1008,16 @@ proc validateAttesterSlashing*(
   let attester_slashing_validity =
     check_attester_slashing(pool.dag.headState, attester_slashing, {})
   if attester_slashing_validity.isErr:
-    return err((ValidationResult.Reject, attester_slashing_validity.error))
+    return pool.checkedReject(attester_slashing_validity.error)
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
-    pool: ExitPool, proposer_slashing: ProposerSlashing):
+    pool: ValidatorChangePool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
   # Not from spec; the rest of NBC wouldn't have correctly processed it either.
-  if proposer_slashing.signed_header_1.message.proposer_index > high(int).uint64:
+  if proposer_slashing.signed_header_1.message.proposer_index > int.high.uint64:
     return errIgnore("ProposerSlashing: proposer-slashed index too high")
 
   # [IGNORE] The proposer slashing is the first valid proposer slashing
@@ -802,17 +1027,18 @@ proc validateProposerSlashing*(
     return errIgnore(
       "ProposerSlashing: proposer-slashed index already proposer-slashed")
 
-  # [REJECT] All of the conditions within process_proposer_slashing pass validation.
+  # [REJECT] All of the conditions within process_proposer_slashing
+  # pass validation.
   let proposer_slashing_validity =
     check_proposer_slashing(pool.dag.headState, proposer_slashing, {})
   if proposer_slashing_validity.isErr:
-    return err((ValidationResult.Reject, proposer_slashing_validity.error))
+    return pool.checkedReject(proposer_slashing_validity.error)
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
-    pool: ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
+    pool: ValidatorChangePool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.
@@ -824,7 +1050,8 @@ proc validateVoluntaryExit*(
   # signed_voluntary_exit.message.validator_index.int is already valid, but
   # check explicitly if one changes that data structure.
   if pool.isSeen(signed_voluntary_exit):
-    return errIgnore("VoluntaryExit: validator index already voluntarily exited")
+    return errIgnore(
+      "VoluntaryExit: validator index already voluntarily exited")
 
   # [REJECT] All of the conditions within process_voluntary_exit pass
   # validation.
@@ -832,7 +1059,7 @@ proc validateVoluntaryExit*(
     check_voluntary_exit(
       pool.dag.cfg, pool.dag.headState, signed_voluntary_exit, {})
   if voluntary_exit_validity.isErr:
-    return err((ValidationResult.Reject, voluntary_exit_validity.error))
+    return pool.checkedReject(voluntary_exit_validity.error)
 
   # Send notification about new voluntary exit via callback
   if not(isNil(pool.onVoluntaryExitReceived)):
@@ -840,21 +1067,23 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
+    quarantine: ref Quarantine,
     batchCrypto: ref BatchCrypto,
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
     msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
     wallTime: BeaconTime,
     checkSignature: bool):
-    Future[Result[(seq[uint64], CookedSig), ValidationError]] {.async.} =
+    Future[Result[
+      (BlockId, CookedSig, seq[uint64]), ValidationError]] {.async.} =
   block:
     # [IGNORE] The message's slot is for the current slot (with a
     # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
     # `sync_committee_message.slot == current_slot`.
-    let v = check_propagation_slot_range(msg.slot, wallTime)
+    let v = check_slot_exact(msg.slot, wallTime)
     if v.isErr():
       return err(v.error())
 
@@ -867,8 +1096,21 @@ proc validateSyncCommitteeMessage*(
     msg.slot + 1, subcommitteeIdx, msg.validator_index)
 
   if positionsInSubcommittee.len == 0:
-    return errReject(
+    return dag.checkedReject(
       "SyncCommitteeMessage: originator not part of sync committee")
+
+  # [IGNORE] The block being signed (`sync_committee_message.beacon_block_root`)
+  # has been seen (via both gossip and non-gossip sources) (a client MAY queue
+  # sync committee messages for processing once block is received)
+  # [REJECT] The block being signed (`sync_committee_message.beacon_block_root`)
+  # passes validation.
+  let
+    blockRoot = msg.beacon_block_root
+    blck = dag.getBlockRef(blockRoot).valueOr:
+      if blockRoot in quarantine[].unviable:
+        return dag.checkedReject("SyncCommitteeMessage: target invalid")
+      quarantine[].addMissing(blockRoot)
+      return errIgnore("SyncCommitteeMessage: target not found")
 
   block:
     # [IGNORE] There has been no other valid sync committee message for the
@@ -878,61 +1120,57 @@ proc validateSyncCommitteeMessage*(
     # Note this validation is per topic so that for a given slot, multiple
     # messages could be forwarded with the same validator_index as long as
     # the subnet_ids are distinct.
-    if syncCommitteeMsgPool[].isSeen(msg, subcommitteeIdx):
+    if syncCommitteeMsgPool[].isSeen(msg, subcommitteeIdx, dag.head.bid):
       return errIgnore("SyncCommitteeMessage: duplicate message")
 
   # [REJECT] The signature is valid for the message beacon_block_root for the
   # validator referenced by validator_index.
   let
-    epoch = msg.slot.epoch
-    fork = dag.forkAtEpoch(epoch)
-    genesis_validators_root = dag.genesis_validators_root
-    senderPubKey = dag.validatorKey(msg.validator_index)
-
-  if senderPubKey.isNone():
-    return errReject("SyncCommitteeMessage: invalid validator index")
+    senderPubKey = dag.validatorKey(msg.validator_index).valueOr:
+      return dag.checkedReject("SyncCommitteeMessage: invalid validator index")
 
   let sig =
     if checkSignature:
       # Attestation signatures are batch-verified
       let deferredCrypto = batchCrypto
                             .scheduleSyncCommitteeMessageCheck(
-                              fork, genesis_validators_root,
+                              dag.forkAtEpoch(msg.slot.epoch),
                               msg.slot, msg.beacon_block_root,
-                              senderPubKey.get(), msg.signature)
+                              senderPubKey, msg.signature)
       if deferredCrypto.isErr():
-        return errReject(deferredCrypto.error)
+        return dag.checkedReject(deferredCrypto.error)
 
       # Await the crypto check
       let
         (cryptoFut, sig) = deferredCrypto.get()
 
-      var x = (await cryptoFut)
+      let x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
-        return errReject("SyncCommitteeMessage: invalid signature")
+        return dag.checkedReject("SyncCommitteeMessage: invalid signature")
       of BatchResult.Timeout:
         beacon_sync_messages_dropped_queue_full.inc()
         return errIgnore("SyncCommitteeMessage: timeout checking signature")
       of BatchResult.Valid:
         sig # keep going only in this case
     else:
-      let sig = msg.signature.load()
-      if not sig.isSome():
-        return errReject("SyncCommitteeMessage: unable to load signature")
-      sig.get()
+      msg.signature.load().valueOr:
+        return dag.checkedReject(
+          "SyncCommitteeMessage: unable to load signature")
 
-  return ok((positionsInSubcommittee, sig))
+  return ok((blck.bid, sig, positionsInSubcommittee))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
 proc validateContribution*(
     dag: ChainDAGRef,
+    quarantine: ref Quarantine,
     batchCrypto: ref BatchCrypto,
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
     msg: SignedContributionAndProof,
     wallTime: BeaconTime,
-    checkSignature: bool):
-    Future[Result[(CookedSig, seq[ValidatorIndex]), ValidationError]] {.async.} =
+    checkSignature: bool
+): Future[Result[
+    (BlockId, CookedSig, seq[ValidatorIndex]), ValidationError]] {.async.} =
   let
     syncCommitteeSlot = msg.message.contribution.slot
 
@@ -940,116 +1178,157 @@ proc validateContribution*(
   # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
   # i.e. contribution.slot == current_slot.
   block:
-    let v = check_propagation_slot_range(syncCommitteeSlot, wallTime) # [IGNORE]
-    if v.isErr():
+    let v = check_slot_exact(syncCommitteeSlot, wallTime)
+    if v.isErr():  # [IGNORE]
       return err(v.error())
 
   # [REJECT] The subcommittee index is in the allowed range
   # i.e. contribution.subcommittee_index < SYNC_COMMITTEE_SUBNET_COUNT.
-  let subcommitteeIdx = block:
-    let v = SyncSubcommitteeIndex.init(msg.message.contribution.subcommittee_index)
-    if v.isErr():
-      return errReject("SignedContributionAndProof: subcommittee index too high")
-    v.get()
+  let subcommitteeIdx = SyncSubcommitteeIndex.init(
+      msg.message.contribution.subcommittee_index).valueOr:
+    return dag.checkedReject("Contribution: subcommittee index too high")
 
-  # [REJECT] contribution_and_proof.selection_proof selects the validator as an aggregator for the slot
-  # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof) returns True.
+  # [REJECT] The contribution has participants
+  # that is, any(contribution.aggregation_bits).
+  if msg.message.contribution.aggregation_bits.isZeros:
+    return dag.checkedReject("Contribution: aggregation bits empty")
+
+  # [REJECT] contribution_and_proof.selection_proof selects the validator
+  # as an aggregator for the slot
+  # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof)
+  # returns True.
   if not is_sync_committee_aggregator(msg.message.selection_proof):
-    return errReject("SignedContributionAndProof: invalid selection_proof")
+    return dag.checkedReject("Contribution: invalid selection_proof")
 
-  # [IGNORE] The sync committee contribution is the first valid contribution
-  # received for the aggregator with index contribution_and_proof.aggregator_index
-  # for the slot contribution.slot and subcommittee index contribution.subcommittee_index
+  # [IGNORE] The sync committee contribution is the first valid
+  # contribution received for the aggregator with index
+  # contribution_and_proof.aggregator_index for the slot contribution.slot
+  # and subcommittee index contribution.subcommittee_index
   # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE for this
   #  topic that can be flushed after each slot).
   if syncCommitteeMsgPool[].isSeen(msg.message):
-    return errIgnore("SignedContributionAndProof: duplicate contribution")
+    return errIgnore("Contribution: duplicate contribution")
 
   # [REJECT] The aggregator's validator index is in the declared subcommittee
   # of the current sync committee.
   # i.e. state.validators[contribution_and_proof.aggregator_index].pubkey in
   #      get_sync_subcommittee_pubkeys(state, contribution.subcommittee_index).
   let
-    epoch = msg.message.contribution.slot.epoch
-    fork = dag.forkAtEpoch(epoch)
-    genesis_validators_root = dag.genesis_validators_root
+    aggregator_index =
+      ValidatorIndex.init(msg.message.aggregator_index).valueOr:
+        return dag.checkedReject("Contribution: invalid aggregator index")
+    # TODO we take a copy of the participants to avoid the data going stale
+    #      between validation and use - nonetheless, a design that avoids it and
+    #      stays safe would be nice
+    participants = dag.syncCommitteeParticipants(
+      msg.message.contribution.slot, subcommitteeIdx)
+  if aggregator_index notin participants:
+    return dag.checkedReject("Contribution: aggregator not in subcommittee")
 
-  if msg.message.contribution.aggregation_bits.countOnes() == 0:
-    # [REJECT] The contribution has participants
-    # that is, any(contribution.aggregation_bits).
-    return errReject("SignedContributionAndProof: aggregation bits empty")
+  # [IGNORE] The block being signed
+  # (`contribution_and_proof.contribution.beacon_block_root`) has been seen
+  # (via both gossip and non-gossip sources) (a client MAY queue sync committee
+  # contributions for processing once block is received)
+  # [REJECT] The block being signed
+  # (`contribution_and_proof.contribution.beacon_block_root`) passes validation.
+  let
+    blockRoot = msg.message.contribution.beacon_block_root
+    blck = dag.getBlockRef(blockRoot).valueOr:
+      if blockRoot in quarantine[].unviable:
+        return dag.checkedReject("Contribution: target invalid")
+      quarantine[].addMissing(blockRoot)
+      return errIgnore("Contribution: target not found")
 
-  # TODO we take a copy of the participants to avoid the data going stale
-  #      between validation and use - nonetheless, a design that avoids it and
-  #      stays safe would be nice
-  let participants = dag.syncCommitteeParticipants(
-    msg.message.contribution.slot, subcommitteeIdx)
+  # [IGNORE] A valid sync committee contribution with equal `slot`,
+  # `beacon_block_root` and `subcommittee_index` whose `aggregation_bits`
+  # is non-strict superset has _not_ already been seen.
+  if syncCommitteeMsgPool[].covers(msg.message.contribution, blck.bid):
+    return errIgnore("Contribution: duplicate contribution")
 
   let sig = if checkSignature:
     let deferredCrypto = batchCrypto.scheduleContributionChecks(
-      fork, genesis_validators_root, msg, subcommitteeIdx, dag)
+      dag.forkAtEpoch(msg.message.contribution.slot.epoch),
+      msg, subcommitteeIdx, dag)
     if deferredCrypto.isErr():
-      return errReject(deferredCrypto.error)
+      return dag.checkedReject(deferredCrypto.error)
 
     let
       (aggregatorFut, proofFut, contributionFut, sig) = deferredCrypto.get()
 
     block:
-      # [REJECT] The aggregator signature, signed_contribution_and_proof.signature, is valid
-      var x = await aggregatorFut
+      # [REJECT] The aggregator signature,
+      # `signed_contribution_and_proof.signature`, is valid.
+      let x = await aggregatorFut
       case x
       of BatchResult.Invalid:
-        return errReject("SignedContributionAndProof: invalid aggregator signature")
+        return dag.checkedReject(
+          "Contribution: invalid aggregator signature")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
-        return errIgnore("SignedContributionAndProof: timeout checking aggregator signature")
+        return errIgnore(
+          "Contribution: timeout checking aggregator signature")
       of BatchResult.Valid:
         discard
 
     block:
-      var x = await proofFut
+      # [REJECT] The `contribution_and_proof.selection_proof`
+      # is a valid signature of the `SyncAggregatorSelectionData`
+      # derived from the `contribution` by the validator with index
+      # `contribution_and_proof.aggregator_index`.
+      let x = await proofFut
       case x
       of BatchResult.Invalid:
-        return errReject("SignedContributionAndProof: invalid proof")
+        return dag.checkedReject("Contribution: invalid proof")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
-        return errIgnore("SignedContributionAndProof: timeout checking proof")
+        return errIgnore("Contribution: timeout checking proof")
       of BatchResult.Valid:
         discard
 
     block:
-      # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-      var x = await contributionFut
+      # [REJECT] The aggregate signature is valid for the message
+      # `beacon_block_root` and aggregate pubkey derived from the
+      # participation info in `aggregation_bits` for the subcommittee
+      # specified by the `contribution.subcommittee_index`.
+      let x = await contributionFut
       case x
       of BatchResult.Invalid:
-        return errReject("SignedContributionAndProof: invalid contribution signature")
+        return dag.checkedReject(
+          "Contribution: invalid contribution signature")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
-        return errIgnore("SignedContributionAndProof: timeout checking contribution signature")
+        return errIgnore(
+          "Contribution: timeout checking contribution signature")
       of BatchResult.Valid:
         discard
     sig
   else:
-    let sig = msg.message.contribution.signature.load()
-    if not sig.isSome():
-      return errReject("SyncCommitteeMessage: unable to load signature")
-    sig.get()
+    msg.message.contribution.signature.load().valueOr:
+      return dag.checkedReject("SyncCommitteeMessage: unable to load signature")
 
-  return ok((sig, participants))
+  return ok((blck.bid, sig, participants))
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
-    finality_update: altair.LightClientFinalityUpdate,
+    finality_update: ForkedLightClientFinalityUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
-  let finalized_slot = finality_update.finalized_header.slot
+  let finalized_slot = withForkyFinalityUpdate(finality_update):
+    when lcDataFork > LightClientDataFork.None:
+      forkyFinalityUpdate.finalized_header.beacon.slot
+    else:
+      GENESIS_SLOT
   if finalized_slot <= pool.latestForwardedFinalitySlot:
-    # [IGNORE] No other `finality_update` with a lower or equal
-    # `finalized_header.slot` was already forwarded on the network.
+    # [IGNORE] The `finalized_header.beacon.slot` is greater than that of all
+    # previously forwarded `finality_update`s
     return errIgnore("LightClientFinalityUpdate: slot already forwarded")
 
   let
-    signature_slot = finality_update.signature_slot
+    signature_slot = withForkyFinalityUpdate(finality_update):
+      when lcDataFork > LightClientDataFork.None:
+        forkyFinalityUpdate.signature_slot
+      else:
+        GENESIS_SLOT
     currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
     forwardTime = signature_slot.light_client_finality_update_time
   if currentTime < forwardTime:
@@ -1057,7 +1336,7 @@ proc validateLightClientFinalityUpdate*(
     # `signature_slot` was given enough time to propagate through the network.
     return errIgnore("LightClientFinalityUpdate: received too early")
 
-  if finality_update != dag.lightClientCache.latest:
+  if not finality_update.matches(dag.lcDataStore.cache.latest):
     # [IGNORE] The received `finality_update` matches the locally computed one
     # exactly.
     return errIgnore("LightClientFinalityUpdate: not matching local")
@@ -1065,19 +1344,27 @@ proc validateLightClientFinalityUpdate*(
   pool.latestForwardedFinalitySlot = finalized_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 proc validateLightClientOptimisticUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
-    optimistic_update: altair.LightClientOptimisticUpdate,
+    optimistic_update: ForkedLightClientOptimisticUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
-  let attested_slot = optimistic_update.attested_header.slot
+  let attested_slot = withForkyOptimisticUpdate(optimistic_update):
+    when lcDataFork > LightClientDataFork.None:
+      forkyOptimisticUpdate.attested_header.beacon.slot
+    else:
+      GENESIS_SLOT
   if attested_slot <= pool.latestForwardedOptimisticSlot:
-    # [IGNORE] No other `optimistic_update` with a lower or equal
-    # `attested_header.slot` was already forwarded on the network.
+    # [IGNORE] The `attested_header.beacon.slot` is greater than that of all
+    # previously forwarded `optimistic_update`s
     return errIgnore("LightClientOptimisticUpdate: slot already forwarded")
 
   let
-    signature_slot = optimistic_update.signature_slot
+    signature_slot = withForkyOptimisticUpdate(optimistic_update):
+      when lcDataFork > LightClientDataFork.None:
+        forkyOptimisticUpdate.signature_slot
+      else:
+        GENESIS_SLOT
     currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
     forwardTime = signature_slot.light_client_optimistic_update_time
   if currentTime < forwardTime:
@@ -1085,7 +1372,7 @@ proc validateLightClientOptimisticUpdate*(
     # `signature_slot` was given enough time to propagate through the network.
     return errIgnore("LightClientOptimisticUpdate: received too early")
 
-  if not optimistic_update.matches(dag.lightClientCache.latest):
+  if not optimistic_update.matches(dag.lcDataStore.cache.latest):
     # [IGNORE] The received `optimistic_update` matches the locally computed one
     # exactly.
     return errIgnore("LightClientOptimisticUpdate: not matching local")

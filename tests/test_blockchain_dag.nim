@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,8 +8,10 @@
 {.used.}
 
 import
+  std/[random, sequtils],
   unittest2,
-  eth/keys, taskpools,
+  taskpools,
+  ../beacon_chain/el/merkle_minimal,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
   ../beacon_chain/[beacon_chain_db],
@@ -17,23 +19,32 @@ import
     attestation_pool, blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil
 
+from ../beacon_chain/spec/datatypes/capella import
+  SignedBLSToExecutionChangeList
+
 func `$`(x: BlockRef): string = shortLog(x)
 
 const
   nilPhase0Callback = OnPhase0BlockAdded(nil)
   nilAltairCallback = OnAltairBlockAdded(nil)
+  nilBellatrixCallback = OnBellatrixBlockAdded(nil)
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
 
+type
+  AddHeadRes = Result[BlockRef, VerifierError]
+  AddBackRes = Result[void, VerifierError]
+
 suite "Block pool processing" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -74,6 +85,7 @@ suite "Block pool processing" & preset():
     let
       b2Add = dag.addHeadBlock(verifier, b2, nilPhase0Callback)
       b2Get = dag.getForkedBlock(b2.root)
+      sr = dag.findShufflingRef(b1Add[].bid, b1Add[].slot.epoch)
       er = dag.findEpochRef(b1Add[].bid, b1Add[].slot.epoch)
       validators = getStateField(dag.headState, validators).lenu64()
 
@@ -87,17 +99,22 @@ suite "Block pool processing" & preset():
       dag.parent(b2Add[].bid).get() == b1Add[].bid
       # head not updated yet - getBlockIdAtSlot won't give those blocks
       dag.getBlockIdAtSlot(b2Add[].slot).get() ==
-        BlockSlotId.init(dag.genesis, b2Add[].slot)
+        BlockSlotId.init(dag.getBlockIdAtSlot(GENESIS_SLOT).get().bid, b2Add[].slot)
 
-      not er.isErr()
+      sr.isSome()
+      er.isSome()
+      # er reuses shuffling ref instance
+      er[].shufflingRef == sr[]
       # Same epoch - same epochRef
       er[] == dag.findEpochRef(b2Add[].bid, b2Add[].slot.epoch)[]
       # Different epoch that was never processed
-      dag.findEpochRef(b1Add[].bid, b1Add[].slot.epoch + 1).isErr()
+      dag.findEpochRef(b1Add[].bid, b1Add[].slot.epoch + 1).isNone()
+      # ... but we know the shuffling already!
+      dag.findShufflingRef(b1Add[].bid, b1Add[].slot.epoch + 1).isSome()
 
-      er[].validatorKey(0'u64).isSome()
-      er[].validatorKey(validators - 1).isSome()
-      er[].validatorKey(validators).isNone()
+      dag.validatorKey(0'u64).isSome()
+      dag.validatorKey(validators - 1).isSome()
+      dag.validatorKey(validators).isNone()
 
     # Skip one slot to get a gap
     check:
@@ -112,7 +129,7 @@ suite "Block pool processing" & preset():
     check:
       b4Add[].parent == b2Add[]
 
-    dag.updateHead(b4Add[], quarantine)
+    dag.updateHead(b4Add[], quarantine, [])
     dag.pruneAtFinalization()
 
     check: # getBlockIdAtSlot operates on the head chain!
@@ -172,6 +189,9 @@ suite "Block pool processing" & preset():
     check:
       parentBsi.bid == dag.head.parent.bid
       parentBsi.slot == nextEpochSlot
+      # Pre-heated caches
+      dag.findShufflingRef(dag.head.parent.bid, dag.head.slot.epoch).isOk()
+      dag.findShufflingRef(dag.head.parent.bid, nextEpoch).isOk()
       dag.getEpochRef(dag.head.parent, nextEpoch, true).isOk()
 
       # Getting an EpochRef should not result in states being stored
@@ -195,14 +215,14 @@ suite "Block pool processing" & preset():
       b11 = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
 
     check:
-      b11.error == BlockError.Duplicate
+      b11 == AddHeadRes.err VerifierError.Duplicate
       not b10[].isNil
 
   test "updateHead updates head and headState" & preset():
     let
       b1Add = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
 
-    dag.updateHead(b1Add[], quarantine)
+    dag.updateHead(b1Add[], quarantine, [])
     dag.pruneAtFinalization()
 
     check:
@@ -263,6 +283,8 @@ when declared(GC_fullCollect): # i386 test machines seem to run low..
 
 suite "Block pool altair processing" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
+
     var
       cfg = defaultRuntimeConfig
     cfg.ALTAIR_FORK_EPOCH = Epoch(1)
@@ -271,7 +293,7 @@ suite "Block pool altair processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -283,7 +305,7 @@ suite "Block pool altair processing" & preset():
         cfg, state[], cfg.ALTAIR_FORK_EPOCH.start_slot(), cache,
         info, {}).isOk()
 
-      state[].kind == BeaconStateFork.Altair
+      state[].kind == ConsensusFork.Altair
 
     var
       b1 = addTestBlock(state[], cache).altairData
@@ -304,7 +326,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # Randao reveal
       var b = b2
@@ -312,7 +334,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # Attestations
       var b = b2
@@ -320,7 +342,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # SyncAggregate empty
       var b = b2
@@ -328,7 +350,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # SyncAggregate junk
       var b = b2
@@ -338,15 +360,16 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
 suite "chain DAG finalization tests" & preset():
   setup:
+    let rng = HmacDrbgContext.new()
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -387,12 +410,12 @@ suite "chain DAG finalization tests" & preset():
           tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
     check:
       dag.heads.len() == 1
-      dag.getBlockIdAtSlot(0.Slot).get() == BlockSlotId.init(dag.genesis, 0.Slot)
+      dag.getBlockIdAtSlot(0.Slot).get().bid.slot == 0.Slot
       dag.getBlockIdAtSlot(2.Slot).get() ==
         BlockSlotId.init(dag.getBlockIdAtSlot(1.Slot).get().bid, 2.Slot)
 
@@ -404,7 +427,7 @@ suite "chain DAG finalization tests" & preset():
       not dag.containsForkBlock(dag.getBlockIdAtSlot(5.Slot).get().bid.root)
       dag.containsForkBlock(dag.finalizedHead.blck.root)
 
-      dag.getBlockRef(dag.genesis.root).isNone() # Finalized - no BlockRef
+      dag.getBlockRef(dag.getBlockIdAtSlot(0.Slot).get().bid.root).isNone() # Finalized - no BlockRef
 
       dag.getBlockRef(dag.finalizedHead.blck.root).isSome()
 
@@ -451,8 +474,8 @@ suite "chain DAG finalization tests" & preset():
       not finalER.isErr()
 
     block:
-      for er in dag.epochRefs:
-        check: er == nil or er.epoch >= dag.finalizedHead.slot.epoch
+      for er in dag.epochRefs.entries:
+        check: er.value == nil or er.value.epoch >= dag.finalizedHead.slot.epoch
 
     block:
       let tmpStateData = assignClone(dag.headState)
@@ -478,7 +501,7 @@ suite "chain DAG finalization tests" & preset():
       let status = dag.addHeadBlock(verifier, lateBlock, nilPhase0Callback)
       # This _should_ be Unviable, but we can't tell, from the data that we have
       # so MissingParent is the least wrong thing to reply
-      check: status.error == BlockError.UnviableFork
+      check: status == AddHeadRes.err VerifierError.UnviableFork
 
     block:
       let
@@ -490,6 +513,11 @@ suite "chain DAG finalization tests" & preset():
         db.getStateRoot(finalizedCheckpoint.bid.root, finalizedCheckpoint.slot).isSome
         db.getStateRoot(prunedCheckpoint.bid.root, prunedCheckpoint.slot).isNone
 
+    # Roll back head block (e.g., because it was declared INVALID)
+    let parentRoot = dag.head.parent.root
+    dag.updateHead(dag.head.parent, quarantine, [])
+    check: dag.head.root == parentRoot
+
     let
       validatorMonitor2 = newClone(ValidatorMonitor.init())
       dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
@@ -498,6 +526,7 @@ suite "chain DAG finalization tests" & preset():
     check:
       dag2.tail.root == dag.tail.root
       dag2.head.root == dag.head.root
+      dag2.head.root == parentRoot
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       getStateRoot(dag2.headState) == getStateRoot(dag.headState)
@@ -512,7 +541,7 @@ suite "chain DAG finalization tests" & preset():
     check: dag2.getForkedBlock(lateBlock.root).isNone
 
   test "orphaned epoch block" & preset():
-    let prestate = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
+    let prestate = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Phase0)
     for i in 0 ..< SLOTS_PER_EPOCH:
       if i == SLOTS_PER_EPOCH - 1:
         assign(prestate[], dag.headState)
@@ -520,7 +549,7 @@ suite "chain DAG finalization tests" & preset():
       let blck = makeTestBlock(dag.headState, cache).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
     check:
@@ -550,11 +579,10 @@ suite "chain DAG finalization tests" & preset():
 
   test "init with gaps" & preset():
     for blck in makeTestBlocks(
-        dag.headState, cache, int(SLOTS_PER_EPOCH * 6 - 2),
-        true):
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 6 - 2), attested = true):
       let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
       check: added.isOk()
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
     # Advance past epoch so that the epoch transition is gapped
@@ -571,7 +599,7 @@ suite "chain DAG finalization tests" & preset():
 
     let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
     check: added.isOk()
-    dag.updateHead(added[], quarantine)
+    dag.updateHead(added[], quarantine, [])
     dag.pruneAtFinalization()
 
     block:
@@ -604,26 +632,30 @@ suite "chain DAG finalization tests" & preset():
 suite "Old database versions" & preset():
   setup:
     let
+      rng = HmacDrbgContext.new()
       genState = newClone(initialize_hashed_beacon_state_from_eth1(
         defaultRuntimeConfig, ZERO_HASH, 0,
         makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
         {skipBlsValidation}))
       genBlock = get_initial_beacon_block(genState[])
     var
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = Quarantine.init()
 
   test "pre-1.1.0":
     # only kvstore, no immutable validator keys
-
-    let db = BeaconChainDB.new("", inMemory = true)
+    let
+      sq = SqStoreRef.init("", "test", inMemory = true).expect(
+        "working database (out of memory?)")
+      v0 = BeaconChainDBV0.new(sq, readOnly = false)
+      db = BeaconChainDB.new(sq)
 
     # preInit a database to a v1.0.12 state
+    v0.putStateV0(genState[].root, genState[].data)
+    v0.putBlockV0(genBlock)
+
     db.putStateRoot(
       genState[].latest_block_root, genState[].data.slot, genState[].root)
-    db.putStateV0(genState[].root, genState[].data)
-
-    db.putBlockV0(genBlock)
     db.putTailBlock(genBlock.root)
     db.putHeadBlock(genBlock.root)
     db.putGenesisBlock(genBlock.root)
@@ -642,6 +674,8 @@ suite "Old database versions" & preset():
 
 suite "Diverging hardforks":
   setup:
+    let rng = HmacDrbgContext.new()
+
     var
       phase0RuntimeConfig = defaultRuntimeConfig
       altairRuntimeConfig = defaultRuntimeConfig
@@ -653,7 +687,7 @@ suite "Diverging hardforks":
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -673,7 +707,7 @@ suite "Diverging hardforks":
       b1Add = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
 
     check b1Add.isOk()
-    dag.updateHead(b1Add[], quarantine[])
+    dag.updateHead(b1Add[], quarantine[], [])
 
     let validatorMonitorAltair = newClone(ValidatorMonitor.init())
 
@@ -705,7 +739,7 @@ suite "Diverging hardforks":
       b2Add = dag.addHeadBlock(verifier, b2, nilPhase0Callback)
 
     check b2Add.isOk()
-    dag.updateHead(b2Add[], quarantine[])
+    dag.updateHead(b2Add[], quarantine[], [])
 
     let validatorMonitor = newClone(ValidatorMonitor.init())
 
@@ -717,7 +751,7 @@ suite "Backfill":
   setup:
     let
       genState = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
@@ -739,12 +773,14 @@ suite "Backfill":
       tailBlock = blocks[^1]
       genBlock = get_initial_beacon_block(genState[])
 
-    ChainDAGRef.preInit(
-        db, genState[], tailState[], tailBlock.asTrusted())
+    ChainDAGRef.preInit(db, genState[])
+    ChainDAGRef.preInit(db, tailState[])
 
     let
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+
+    var cache = StateCache()
 
     check:
       dag.getBlockRef(tailBlock.root).get().bid == dag.tail
@@ -756,27 +792,44 @@ suite "Backfill":
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
       dag.getBlockIdAtSlot(dag.tail.slot - 1).isNone()
 
-      dag.getBlockIdAtSlot(Slot(0)).get() == dag.genesis.atSlot()
+      dag.getBlockIdAtSlot(Slot(0)).isSome() # genesis stored in db
       dag.getBlockIdAtSlot(Slot(1)).isNone()
 
-      # No epochref for pre-tail epochs
+      # No EpochRef for pre-tail epochs
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
+
+      # Should get EpochRef for the tail however
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch, true).isOk()
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
+
+      # Should not get EpochRef for random block
+      dag.getEpochRef(
+        BlockId(root: blocks[^2].root, slot: dag.tail.slot), # root/slot mismatch
+        dag.tail.slot.epoch, true).isErr()
+
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
 
       dag.getFinalizedEpochRef() != nil
 
       dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+
+      # Check that we can propose right from the checkpoint state
+      dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
 
     var
       badBlock = blocks[^2].phase0Data
     badBlock.signature = blocks[^3].phase0Data.signature
 
     check:
-      dag.addBackfillBlock(badBlock).error == BlockError.Invalid
+      dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
 
     check:
-      dag.addBackfillBlock(blocks[^3].phase0Data).error == BlockError.MissingParent
-      dag.addBackfillBlock(tailBlock.phase0Data).error == BlockError.Duplicate
-      dag.addBackfillBlock(genBlock.phase0Data.asSigned()).error == BlockError.MissingParent
+      dag.addBackfillBlock(blocks[^3].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
+        AddBackRes.err VerifierError.MissingParent
+
+      dag.addBackfillBlock(tailBlock.phase0Data).isOk()
 
     check:
       dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
@@ -805,7 +858,8 @@ suite "Backfill":
       check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
 
     check:
-      dag.addBackfillBlock(genBlock.phase0Data.asSigned).error == BlockError.Duplicate
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned) ==
+        AddBackRes.err VerifierError.Duplicate
 
       dag.backfill.slot == GENESIS_SLOT
 
@@ -818,8 +872,8 @@ suite "Backfill":
     let
       tailBlock = blocks[^1]
 
-    ChainDAGRef.preInit(
-        db, genState[], tailState[], tailBlock.asTrusted())
+    ChainDAGRef.preInit(db, genState[])
+    ChainDAGRef.preInit(db, tailState[])
 
     let
       validatorMonitor = newClone(ValidatorMonitor.init())
@@ -846,3 +900,769 @@ suite "Backfill":
         blocks[^2].toBlockId().atSlot()
       dag2.getBlockIdAtSlot(dag.tail.slot - 2).isNone
       dag2.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
+
+  test "Init without genesis / block":
+    let
+      tailBlock = blocks[^1]
+      genBlock = get_initial_beacon_block(genState[])
+
+    ChainDAGRef.preInit(db, tailState[])
+
+    let
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+
+    check:
+      dag.getFinalizedEpochRef() != nil
+
+    for i in 0..<blocks.len:
+      check: dag.addBackfillBlock(
+        blocks[blocks.len - i - 1].phase0Data).isOk()
+
+    check:
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
+      dag.addBackfillBlock(
+        genBlock.phase0Data.asSigned) == AddBackRes.err VerifierError.Duplicate
+
+    let
+      rng = HmacDrbgContext.new()
+      taskpool = Taskpool.new()
+    var
+      cache: StateCache
+      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+      quarantine = newClone(Quarantine.init())
+
+    let
+      next = addTestBlock(tailState[], cache).phase0Data
+      nextAdd = dag.addHeadBlock(verifier, next, nilPhase0Callback).get()
+    dag.updateHead(nextAdd, quarantine[], [])
+
+    let
+      validatorMonitor2 = newClone(ValidatorMonitor.init())
+
+      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
+    check:
+      dag2.head.root == next.root
+
+suite "Starting states":
+  setup:
+    let
+      genState = (ref ForkedHashedBeaconState)(
+        kind: ConsensusFork.Phase0,
+        phase0Data: initialize_hashed_beacon_state_from_eth1(
+          defaultRuntimeConfig, ZERO_HASH, 0,
+          makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
+          {skipBlsValidation}))
+      tailState = assignClone(genState[])
+      db = BeaconChainDB.new("", inMemory = true)
+      quarantine = newClone(Quarantine.init())
+
+  test "Starting state without block":
+    var
+      cache: StateCache
+      info: ForkedEpochInfo
+    let
+      genBlock = get_initial_beacon_block(genState[])
+      blocks = block:
+        var blocks: seq[ForkedSignedBeaconBlock]
+        while getStateField(tailState[], slot).uint64 + 1 < SLOTS_PER_EPOCH:
+          blocks.add addTestBlock(tailState[], cache)
+        blocks
+      tailBlock = blocks[^1]
+
+    check process_slots(
+      defaultRuntimeConfig, tailState[], Slot(SLOTS_PER_EPOCH), cache, info,
+      {}).isOk()
+
+    ChainDAGRef.preInit(db, tailState[])
+
+    let
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+
+    # check that we can update head to itself
+    dag.updateHead(dag.head, quarantine[], [])
+
+    check:
+      dag.finalizedHead.toBlockSlotId()[] == BlockSlotId(
+        bid: dag.tail, slot: (dag.tail.slot.epoch+1).start_slot)
+      dag.getBlockRef(tailBlock.root).get().bid == dag.tail
+      dag.getBlockRef(blocks[^2].root).isNone()
+
+      dag.getBlockId(tailBlock.root).get() == dag.tail
+      dag.getBlockId(blocks[^2].root).isNone()
+
+      dag.getBlockIdAtSlot(Slot(0)).isNone() # no genesis stored in db
+      dag.getBlockIdAtSlot(Slot(1)).isNone()
+
+      # Should get EpochRef for the tail however
+      # dag.getEpochRef(dag.tail, dag.tail.slot.epoch, true).isOk()
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
+
+      # Should not get EpochRef for random block
+      dag.getEpochRef(
+        BlockId(root: blocks[^2].root, slot: dag.tail.slot), # root/slot mismatch
+        dag.tail.slot.epoch, true).isErr()
+
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
+
+      dag.getFinalizedEpochRef() != nil
+
+      dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+
+      # Check that we can propose right from the checkpoint state
+      dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
+
+    var
+      badBlock = blocks[^2].phase0Data
+    badBlock.signature = blocks[^3].phase0Data.signature
+    check:
+      dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
+
+    check:
+      dag.addBackfillBlock(blocks[^3].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
+        AddBackRes.err VerifierError.MissingParent
+
+      dag.addBackfillBlock(tailBlock.phase0Data) == AddBackRes.ok()
+
+    check:
+      dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
+
+      dag.getBlockRef(tailBlock.root).get().bid == dag.tail
+      dag.getBlockRef(blocks[^2].root).isNone()
+
+      dag.getBlockId(tailBlock.root).get() == dag.tail
+      dag.getBlockId(blocks[^2].root).get().root == blocks[^2].root
+
+      dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
+
+      dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
+
+    check:
+      dag.addBackfillBlock(blocks[^3].phase0Data).isOk()
+
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
+        blocks[^3].toBlockId().atSlot()
+      dag.getBlockIdAtSlot(dag.tail.slot - 3).isNone
+
+    for i in 3..<blocks.len:
+      check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
+
+    check:
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
+
+      dag.backfill.slot == GENESIS_SLOT
+
+    check:
+      dag.getFinalizedEpochRef() != nil
+
+suite "Latest valid hash" & preset():
+  setup:
+    let rng = HmacDrbgContext.new()
+
+    var runtimeConfig = defaultRuntimeConfig
+    runtimeConfig.ALTAIR_FORK_EPOCH = 1.Epoch
+    runtimeConfig.BELLATRIX_FORK_EPOCH = 2.Epoch
+
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, runtimeConfig, db, validatorMonitor, {})
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      quarantine = newClone(Quarantine.init())
+      cache = StateCache()
+      info = ForkedEpochInfo()
+      state = newClone(dag.headState)
+
+  test "LVH searching":
+    # Reach Bellatrix, where execution payloads exist
+    check process_slots(
+      runtimeConfig, state[],
+      getStateField(state[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
+      cache, info, {}).isOk()
+
+    var
+      b1 = addTestBlock(state[], cache, cfg = runtimeConfig).bellatrixData
+      b1Add = dag.addHeadBlock(verifier, b1, nilBellatrixCallback)
+      b2 = addTestBlock(state[], cache, cfg = runtimeConfig).bellatrixData
+      b2Add = dag.addHeadBlock(verifier, b2, nilBellatrixCallback)
+      b3 = addTestBlock(state[], cache, cfg = runtimeConfig).bellatrixData
+      b3Add = dag.addHeadBlock(verifier, b3, nilBellatrixCallback)
+
+    dag.updateHead(b3Add[], quarantine[], [])
+    check: dag.head.root == b3.root
+
+    # Ensure that head can go backwards in case of head being marked invalid
+    dag.updateHead(b2Add[], quarantine[], [])
+    check: dag.head.root == b2.root
+
+    dag.updateHead(b1Add[], quarantine[], [])
+    check: dag.head.root == b1.root
+
+    const fallbackEarliestInvalid =
+      Eth2Digest.fromHex("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+    check:
+      # Represents where LVH is two behind the invalid-marked block (because
+      # first param is parent). It searches using LVH (i.e. execution hash),
+      # but returns CL block hash, because that's what fork choice and other
+      # Nimbus components mostly use as a coordinate system. Since b1 is set
+      # to be valid here by being the LVH, it means that b2 must be invalid.
+      dag.getEarliestInvalidBlockRoot(
+        b2Add[].root, b1.message.body.execution_payload.block_hash,
+          fallbackEarliestInvalid) == b2Add[].root
+
+      # This simulates calling it based on b3 (child of b2), where there's no
+      # gap in detecting the invalid blocks. Because the API, due to testcase
+      # design, does not assume the block being tested is in the DAG, there's
+      # a manually specified fallback (CL) block root to use, because it does
+      # not have access to this information otherwise, because the very first
+      # newest block in the chain it's examining is already valid.
+      dag.getEarliestInvalidBlockRoot(
+        b2Add[].root, b2.message.body.execution_payload.block_hash,
+          fallbackEarliestInvalid) == fallbackEarliestInvalid
+
+suite "Pruning":
+  setup:
+    let
+      rng = HmacDrbgContext.new()
+      cfg = block:
+        var res = defaultRuntimeConfig
+        res.MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 4
+        res.CHURN_LIMIT_QUOTIENT = 1
+        doAssert res.MIN_EPOCHS_FOR_BLOCK_REQUESTS == 4
+        res
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      tmpState = assignClone(dag.headState)
+
+    var
+      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      quarantine = Quarantine.init()
+      cache = StateCache()
+      blocks = @[dag.head]
+
+    for i in 0 ..< (SLOTS_PER_EPOCH * (EPOCHS_PER_STATE_SNAPSHOT + cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS)):
+      let blck = addTestBlock(
+        tmpState[], cache,
+        attestations = makeFullAttestations(
+          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+      let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check: added.isOk()
+      blocks.add(added[])
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+
+  test "prune states":
+    dag.pruneHistory()
+
+    check:
+      dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
+      db.containsBlock(blocks[0].root)
+      db.containsBlock(blocks[1].root)
+
+    # Add a block
+    for i in 0..2:
+      let blck = addTestBlock(
+        tmpState[], cache,
+        attestations = makeFullAttestations(
+          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+      let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check: added.isOk()
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+
+    dag.pruneHistory()
+
+    check:
+      dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
+      not db.containsBlock(blocks[1].root)
+
+suite "Ancestry":
+  test "ancestorSlot":
+    const numValidators = SLOTS_PER_EPOCH
+    let
+      cfg = defaultRuntimeConfig
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = ChainDAGRef.init(
+        cfg, makeTestDB(numValidators, cfg = cfg),
+        validatorMonitor, {})
+      quarantine = newClone(Quarantine.init())
+      rng = HmacDrbgContext.new()
+      taskpool = Taskpool.new()
+
+    type Node = tuple[blck: BlockRef, state: ref phase0.HashedBeaconState]
+    template bid(n: Node): BlockId = n.blck.bid
+
+    var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    proc addBlock(parent: Node, slot: Slot): Node =
+      dag.updateHead(parent.blck, quarantine[], [])
+
+      var
+        cache: StateCache
+        info: ForkedEpochInfo
+      let res = process_slots(cfg, dag.headState, slot, cache, info, flags = {})
+      check res.isOk
+
+      let
+        blck = dag.headState.addTestBlock(cache, nextSlot = false, cfg = cfg)
+        added = block:
+          const nilCallback = OnPhase0BlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
+      check added.isOk()
+      dag.updateHead(added[], quarantine[], [])
+      (blck: dag.head, state: newClone(dag.headState.phase0Data))
+
+    #             s0
+    #            /  \
+    #           s1  s3
+    #          /      \
+    #         s2      s6
+    #        /  \       \
+    #       s4  s5      s7
+    #        \
+    #         s8
+    #          \
+    #           s9
+    let
+      sg = (blck: dag.head, state: newClone(dag.headState.phase0Data))
+      s0 = sg.addBlock(Slot(10))
+      s1 = s0.addBlock(Slot(11))
+      s2 = s1.addBlock(Slot(12))
+      s3 = s0.addBlock(Slot(13))
+      s4 = s2.addBlock(Slot(14))
+      s5 = s2.addBlock(Slot(15))
+      s6 = s3.addBlock(Slot(16))
+      s7 = s6.addBlock(Slot(17))
+      s8 = s4.addBlock(Slot(18))
+      s9 = s8.addBlock(Slot(19))
+
+    check:
+      dag.ancestorSlot(s0.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s1.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s2.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s4.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s5.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s8.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s0.state[], s9.bid, Slot(10)) == Opt.some(s0.bid.slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s0.state[], b.bid, Slot(11)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s1.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s1.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s2.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s1.state[], s4.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s5.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s1.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s1.state[], s8.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s1.state[], s9.bid, Slot(10)) == Opt.some(s1.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s1.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s1.state[], b.bid, Slot(12)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s2.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s2.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s2.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s2.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s2.state[], s4.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s2.state[], s5.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s2.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s2.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s2.state[], s8.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s2.state[], s9.bid, Slot(10)) == Opt.some(s2.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s2.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s2.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s2.state[], b.bid, Slot(13)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s3.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s1.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s2.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s3.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s3.state[], s4.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s5.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s6.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s3.state[], s7.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s3.state[], s8.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s3.state[], s9.bid, Slot(10)) == Opt.some(s0.bid.slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s3.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s3.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s3.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s3.state[], b.bid, Slot(14)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s4.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s4.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s4.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s4.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s4.state[], s4.bid, Slot(10)) == Opt.some(s4.bid.slot)
+      dag.ancestorSlot(s4.state[], s5.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s4.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s4.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s4.state[], s8.bid, Slot(10)) == Opt.some(s4.bid.slot)
+      dag.ancestorSlot(s4.state[], s9.bid, Slot(10)) == Opt.some(s4.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s4.state[], b.bid, Slot(15)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s5.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s5.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s5.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s5.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s5.state[], s4.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s5.state[], s5.bid, Slot(10)) == Opt.some(s5.bid.slot)
+      dag.ancestorSlot(s5.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s5.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s5.state[], s8.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s5.state[], s9.bid, Slot(10)) == Opt.some(s2.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s5.state[], b.bid, Slot(16)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s6.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s1.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s2.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s3.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s6.state[], s4.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s5.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s6.bid, Slot(10)) == Opt.some(s6.bid.slot)
+      dag.ancestorSlot(s6.state[], s7.bid, Slot(10)) == Opt.some(s6.bid.slot)
+      dag.ancestorSlot(s6.state[], s8.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s6.state[], s9.bid, Slot(10)) == Opt.some(s0.bid.slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(16)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s6.state[], b.bid, Slot(17)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s7.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s1.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s2.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s3.bid, Slot(10)) == Opt.some(s3.bid.slot)
+      dag.ancestorSlot(s7.state[], s4.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s5.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s6.bid, Slot(10)) == Opt.some(s6.bid.slot)
+      dag.ancestorSlot(s7.state[], s7.bid, Slot(10)) == Opt.some(s7.bid.slot)
+      dag.ancestorSlot(s7.state[], s8.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s7.state[], s9.bid, Slot(10)) == Opt.some(s0.bid.slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(16)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(17)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s7.state[], b.bid, Slot(18)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s8.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s8.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s8.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s8.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s8.state[], s4.bid, Slot(10)) == Opt.some(s4.bid.slot)
+      dag.ancestorSlot(s8.state[], s5.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s8.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s8.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s8.state[], s8.bid, Slot(10)) == Opt.some(s8.bid.slot)
+      dag.ancestorSlot(s8.state[], s9.bid, Slot(10)) == Opt.some(s8.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(16)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(17)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(18)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s8.state[], b.bid, Slot(19)) == Opt.none(Slot)
+
+    check:
+      dag.ancestorSlot(s9.state[], s0.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s9.state[], s1.bid, Slot(10)) == Opt.some(s1.bid.slot)
+      dag.ancestorSlot(s9.state[], s2.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s9.state[], s3.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s9.state[], s4.bid, Slot(10)) == Opt.some(s4.bid.slot)
+      dag.ancestorSlot(s9.state[], s5.bid, Slot(10)) == Opt.some(s2.bid.slot)
+      dag.ancestorSlot(s9.state[], s6.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s9.state[], s7.bid, Slot(10)) == Opt.some(s0.bid.slot)
+      dag.ancestorSlot(s9.state[], s8.bid, Slot(10)) == Opt.some(s8.bid.slot)
+      dag.ancestorSlot(s9.state[], s9.bid, Slot(10)) == Opt.some(s9.bid.slot)
+    for b in [s0, s3, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(11)) == Opt.none(Slot)
+    for b in [s0, s1, s3, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(12)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(13)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(14)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(15)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(16)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(17)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(18)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(19)) == Opt.none(Slot)
+    for b in [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9]:
+      check dag.ancestorSlot(s9.state[], b.bid, Slot(20)) == Opt.none(Slot)
+
+template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
+  const
+    numValidators = SLOTS_PER_EPOCH
+    targetNumValidators = 20 * SLOTS_PER_EPOCH * MAX_DEPOSITS
+  var deposits = newSeqOfCap[Deposit](targetNumValidators)
+  for depositIndex in 0 ..< targetNumValidators:
+    deposits.add Deposit(data: makeDeposit(depositIndex.int, cfg = cfg))
+  let
+    eth1Data = Eth1Data(
+      deposit_root: deposits.attachMerkleProofs(),
+      deposit_count: deposits.lenu64)
+    validatorMonitor = newClone(ValidatorMonitor.init())
+    dag = ChainDAGRef.init(
+      cfg, makeTestDB(
+        numValidators, eth1Data = Opt.some(eth1Data),
+        flags = {}, cfg = cfg),
+      validatorMonitor, {})
+    quarantine = newClone(Quarantine.init())
+    rng = HmacDrbgContext.new()
+    taskpool = Taskpool.new()
+
+  var
+    verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    graffiti: GraffitiBytes
+  proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
+    inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
+    for blck in makeTestBlocks(
+        dag.headState, cache, blocks.int, eth1_data = eth1Data,
+        attested = attested, allDeposits = deposits,
+        graffiti = graffiti, cfg = cfg):
+      let added =
+        case blck.kind
+        of ConsensusFork.Phase0:
+          const nilCallback = OnPhase0BlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
+        of ConsensusFork.Altair:
+          const nilCallback = OnAltairBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.altairData, nilCallback)
+        of ConsensusFork.Bellatrix:
+          const nilCallback = OnBellatrixBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
+        of ConsensusFork.Capella:
+          const nilCallback = OnCapellaBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
+        of ConsensusFork.Deneb:
+          const nilCallback = OnDenebBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.denebData, nilCallback)
+      check added.isOk()
+      dag.updateHead(added[], quarantine[], [])
+
+  var states: seq[ref ForkedHashedBeaconState]
+
+  # Genesis state
+  states.add newClone(dag.headState)
+
+  # Create a segment and cache the post state (0.75 epochs + empty slots)
+  proc createSegment(attested: bool, delaySlots = 0.uint64) =
+    var cache: StateCache
+
+    # Add some empty slots to have different deposit history
+    if delaySlots > 0:
+      var info: ForkedEpochInfo
+      check cfg.process_slots(
+        dag.headState,
+        getStateField(dag.headState, slot) + delaySlots,
+        cache, info, flags = {}).isOk
+
+    # Add 0.75 epochs
+    addBlocks((SLOTS_PER_EPOCH * 3) div 4, attested = attested, cache)
+    states.add newClone(dag.headState)
+
+  # Linear part of history (3.75 epochs)
+  for _ in 0 ..< 5:
+    createSegment(attested = true)
+
+  # Start branching (6 epochs + up to 0.5 epoch)
+  func numDelaySlots(branchId: int): uint64 =
+    branchId.uint64 * SLOTS_PER_EPOCH div 8
+  for a in 0 ..< 2:
+    let oldHead = dag.head
+    createSegment(attested = false, delaySlots = a.numDelaySlots)
+    for b in 0 ..< 2:
+      let oldHead = dag.head
+      createSegment(attested = false, delaySlots = b.numDelaySlots)
+      for _ in 0 ..< 3:
+        createSegment(attested = false, delaySlots = a.numDelaySlots)
+        createSegment(attested = false, delaySlots = b.numDelaySlots)
+      dag.updateHead(oldHead, quarantine[], [])
+    dag.updateHead(oldHead, quarantine[], [])
+
+  # Cover entire range of epochs plus some extra
+  const maxEpochOfInterest = compute_activation_exit_epoch(11.Epoch) + 2
+
+  template checkShuffling(
+      epochRef: Result[EpochRef, cstring],
+      computedShufflingRefParam: Opt[ShufflingRef]) =
+    ## Check that computed shuffling matches the one from `EpochRef`.
+    block:
+      let computedShufflingRef = computedShufflingRefParam
+      if computedShufflingRef.isOk:
+        check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
+
+  test "Accelerated shuffling computation":
+    randomize()
+    let forkBlocks = dag.forkBlocks.toSeq()
+    for _ in 0 ..< numRandomTests:  # Each test runs against _all_ cached states
+      let
+        blck = sample(forkBlocks).data
+        epoch = rand(GENESIS_EPOCH .. maxEpochOfInterest)
+      checkpoint "blck: " & $shortLog(blck) & " / epoch: " & $shortLog(epoch)
+
+      let epochRef = dag.getEpochRef(blck, epoch, true)
+      check epochRef.isOk
+
+      # If shuffling is computable from DAG, check its correctness
+      epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
+
+      # If shuffling is computable from DB, check its correctness
+      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
+
+      # Shuffling should be correct when starting from any cached state
+      for state in states:
+        withState(state[]):
+          let
+            shufflingRef =
+              dag.computeShufflingRefFromState(forkyState, blck, epoch)
+            stateEpoch = forkyState.data.get_current_epoch
+            blckEpoch = blck.bid.slot.epoch
+            minEpoch = min(stateEpoch, blckEpoch)
+          if compute_activation_exit_epoch(minEpoch) <= epoch or
+              dag.ancestorSlotForAttesterShuffling(
+                forkyState, blck, epoch).isNone:
+            check shufflingRef.isErr
+          else:
+            check shufflingRef.isOk
+            epochRef.checkShuffling shufflingRef
+
+  test "Accelerated shuffling computation (with epochRefState jump)":
+    # Test cases where `epochRefState` is set to a very old block
+    # that is advanced by several epochs to a recent slot.
+    #
+    # This is not dependent on the multilayer branching of the "Shufflings"
+    # suite, but a function of getEpochRef extending epochRefState towards
+    # a slot which it is essentially hallucinating a state, because it is
+    # not accounting for the blocks with deposits. As it takes non-trivial
+    # time to set up the "Shufflings" suite, we reuse its more complex DAG.
+    #
+    # The purely random fuzzing/tests have difficulty triggering this, because
+    # this needs to happen across a wide portion of the sampled range so that:
+    # (1) it checks a maximally early slot, both to create the gaps needed for
+    #     (2) and (3), and to keep both blocks on the same forks, with maximal
+    #     likelihood;
+    # (2) calls getEpochRef with a late enough epoch to trigger the
+    #     hallucination of relevance (>= epoch 4 typically works); and
+    # (3) there then have to be enough slots between the last added block and
+    #     the next state which will be sampled so that the validators can get
+    #     active, after some spec 5 epoch delay. This pushes the lowest epoch
+    #     possible to not much less than 8 which is already near the high end
+    #     of the epoch sampling. Too early an epoch and it is within range of
+    #     the headState check which gets it first, so the epochStateRef isn't
+    #     exercised.
+
+    let forkBlocks = dag.forkBlocks.toSeq()
+
+    proc findKeyedBlck(m: Slot): int =
+      # Avoid depending on implementation details of how `forkBlocks` is ordered
+      for idx, fb in forkBlocks:
+        if fb.data.slot == m:
+          return idx
+      raiseAssert "Unreachable"
+
+    # The epoch for the first block can range from at least 4 to 10
+    for (blockIdx, epoch) in [
+        (findKeyedBlck(64.Slot), 10.Epoch),
+        (findKeyedBlck(255.Slot), 8.Epoch)]:
+      let
+        blck = forkBlocks[blockIdx].data
+        epochRef = dag.getEpochRef(blck, epoch, true)
+      doAssert epochRef.isOk
+
+      # If shuffling is computable from DAG, check its correctness
+      epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
+
+      # If shuffling is computable from DB, check its correctness
+      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
+
+suite "Shufflings":
+  let cfg = defaultRuntimeConfig
+  runShufflingTests(cfg, numRandomTests = 150)
+
+suite "Shufflings (merged)":
+  let cfg = block:
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg
+  runShufflingTests(cfg, numRandomTests = 50)

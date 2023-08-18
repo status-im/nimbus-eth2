@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 [submodule "vendor/nim-eth2-scenarios"]
 	path = vendor/nim-eth2-scenarios
 	url = https://github.com/status-im/nim-eth2-scenarios
@@ -17,7 +24,7 @@
 	path = vendor/nim-libp2p
 	url = https://github.com/status-im/nim-libp2p.git
 	ignore = untracked
-	branch = master
+	branch = unstable
 [submodule "vendor/nimbus-build-system"]
 	path = vendor/nimbus-build-system
 	url = https://github.com/status-im/nimbus-build-system.git
@@ -57,7 +64,7 @@
 	path = vendor/nim-chronicles
 	url = https://github.com/status-im/nim-chronicles.git
 	ignore = untracked
-	branch = master
+	branch = nbc-1.5.3
 [submodule "vendor/nim-faststreams"]
 	path = vendor/nim-faststreams
 	url = https://github.com/status-im/nim-faststreams.git
@@ -103,11 +110,6 @@
 	url = https://github.com/status-im/nim-json-rpc.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/news"]
-	path = vendor/news
-	url = https://github.com/status-im/news.git
-	ignore = untracked
-	branch = status
 [submodule "vendor/nim-unicodedb"]
 	path = vendor/nim-unicodedb
 	url = https://github.com/nitely/nim-unicodedb.git
@@ -136,31 +138,6 @@
 [submodule "vendor/nim-snappy"]
 	path = vendor/nim-snappy
 	url = https://github.com/status-im/nim-snappy.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/asynctools"]
-	path = vendor/asynctools
-	url = https://github.com/cheatfate/asynctools.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/karax"]
-	path = vendor/karax
-	url = https://github.com/pragmagic/karax.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/jswebsockets"]
-	path = vendor/jswebsockets
-	url = https://github.com/stisa/jswebsockets.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/websocket.nim"]
-	path = vendor/websocket.nim
-	url = https://github.com/niv/websocket.nim.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/nim-chronicles-tail"]
-	path = vendor/nim-chronicles-tail
-	url = https://github.com/status-im/nim-chronicles-tail.git
 	ignore = untracked
 	branch = master
 [submodule "vendor/nimbus-security-resources"]
@@ -223,7 +200,23 @@
 	url = https://github.com/status-im/nim-toml-serialization.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/merge-testnets"]
-	path = vendor/merge-testnets
-	url = https://github.com/eth-clients/merge-testnets.git
+[submodule "vendor/gnosis-chain-configs"]
+	path = vendor/gnosis-chain-configs
+	url = https://github.com/gnosischain/configs.git
+	ignore = untracked
 	branch = main
+[submodule "vendor/sepolia"]
+	path = vendor/sepolia
+	url = https://github.com/eth-clients/sepolia.git
+	ignore = untracked
+	branch = main
+[submodule "vendor/nim-kzg4844"]
+	path = vendor/nim-kzg4844
+	url = https://github.com/status-im/nim-kzg4844.git
+	ignore = untracked
+	branch = master
+[submodule "vendor/nim-results"]
+	path = vendor/nim-results
+	url = https://github.com/arnetheduck/nim-results.git
+	ignore = untracked
+	branch = master

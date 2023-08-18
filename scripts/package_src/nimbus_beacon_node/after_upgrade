@@ -1,0 +1,6 @@
+#!/bin/sh
+
+set -e
+
+( systemctl is-active --quiet nimbus_beacon_node.service && \
+  echo "Nimbus has been upgraded, don't forget to restart with 'sudo systemctl restart nimbus_beacon_node.service'!" ) || true

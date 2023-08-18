@@ -1,10 +1,10 @@
 # Logging
 
-> :warning: The logging options outlined here are based on a preview feature, and are subject to change
+Nimbus offers several options for logging.
+By default, logs are written to stdout using the [chronicles](https://github.com/status-im/nim-chronicles#introduction) `textlines` format which is convenient to read and can be used with tooling for [heroku/logfmt](https://brandur.org/logfmt).
 
-Nimbus offers several options for logging - by default, logs are written to stdout using the [chronicles](https://github.com/status-im/nim-chronicles#introduction) `textlines` format which is convenient to read and can be used with tooling for [heroku/logfmt](https://brandur.org/logfmt).
-
-> ℹ️ `NOT` at the beginning of a log line means 'NOTICE`
+!!! tip
+    `NOT` at the beginning of a log line means `NOTICE`.
 
 ## Change log level
 
@@ -33,7 +33,8 @@ NONE
 
 ## Change logging style
 
-Nimbus supports three log formats: `colors`, `nocolors` and `json`. In `auto` mode, logs will be printed using either `colors` or `nocolors`.
+Nimbus supports three log formats: `colors`, `nocolors` and `json`.
+In `auto` mode, logs will be printed using either `colors` or `nocolors`.
 
 You can choose a log format with the `--log-format` option, which also understands `auto` and `none`:
 
@@ -51,5 +52,6 @@ To send logs to a file, you can redirect the stdout logs:
 ./run-mainnet-beacon-node.sh --log-format=json > filename.jsonl
 ```
 
-We recommend keeping an eye on the growth of this file with a [log rotator](./log-rotate.md). Logs are written in the "JSON Lines" format - one `json` entry per line.
+We recommend keeping an eye on the growth of this file with a [log rotator](./log-rotate.md).
+Logs are written in the "JSON Lines" format - one `json` entry per line.
 

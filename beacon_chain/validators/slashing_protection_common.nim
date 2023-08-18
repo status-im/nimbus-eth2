@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   # Stdlib
@@ -13,12 +13,12 @@ import
   # Status
   stew/[byteutils, results],
   serialization,
-  json_serialization,
+  json_serialization, json_serialization/std/options,
   chronicles,
   # Internal
   ../spec/datatypes/base
 
-export serialization, json_serialization # Generic sandwich https://github.com/nim-lang/Nim/issues/11225
+export options, serialization, json_serialization # Generic sandwich https://github.com/nim-lang/Nim/issues/11225
 
 # Slashing Protection Interop
 # --------------------------------------------
@@ -29,7 +29,7 @@ export serialization, json_serialization # Generic sandwich https://github.com/n
 # References: https://eips.ethereum.org/EIPS/eip-3076
 #
 # SPDIR: Nimbus-specific, Slashing Protection Database Intermediate Representation
-# SPDIF: Cross-client, json, Slashing Protection Database Interchange Format
+# SPDIF: Cross-client, JSON, Slashing Protection Database Interchange Format
 
 type
   SPDIR* = object
@@ -70,12 +70,12 @@ type
 
   SPDIR_SignedBlock* = object
     slot*: SlotString
-    signing_root*: Eth2Digest0x # compute_signing_root(block, domain)
+    signing_root*: Option[Eth2Digest0x] # compute_signing_root(block, domain)
 
   SPDIR_SignedAttestation* = object
     source_epoch*: EpochString
     target_epoch*: EpochString
-    signing_root*: Eth2Digest0x # compute_signing_root(attestation, domain)
+    signing_root*: Option[Eth2Digest0x] # compute_signing_root(attestation, domain)
 
 # Slashing Protection types
 # --------------------------------------------
@@ -241,16 +241,24 @@ proc importSlashingInterchange*(
 # Logging
 # --------------------------------------------
 
+func shortLog*(v: Option[Eth2Digest0x]): auto =
+  (
+    if v.isSome:
+      v.get.Eth2Digest.shortLog
+    else:
+      "none"
+  )
+
 func shortLog*(v: SPDIR_SignedBlock): auto =
   (
     slot: shortLog(v.slot.Slot),
-    signing_root: shortLog(v.signing_root.Eth2Digest)
+    signing_root: shortLog(v.signing_root)
   )
 func shortLog*(v: SPDIR_SignedAttestation): auto =
   (
     source_epoch: shortLog(v.source_epoch.Epoch),
     target_epoch: shortLog(v.target_epoch.Epoch),
-    signing_root: shortLog(v.signing_root.Eth2Digest)
+    signing_root: shortLog(v.signing_root)
   )
 
 chronicles.formatIt SlotString: it.Slot.shortLog
@@ -319,11 +327,23 @@ proc importInterchangeV5Impl*(
       maxValidSlotSeen = int dbSlot.get()
 
     if spdir.data[v].signed_blocks.len >= 1:
-      # Minification, to limit Sqlite IO we only import the last block after sorting
+      # Minification, to limit SQLite IO we only import the last block after sorting
       template B: untyped = spdir.data[v].signed_blocks[^1]
-      let status = db.registerBlock(
-        parsedKey, B.slot.Slot, B.signing_root.Eth2Digest
-      )
+      let
+        signing_root =
+          if B.signing_root.isSome:
+            B.signing_root.get.Eth2Digest
+          else:
+            # https://eips.ethereum.org/EIPS/eip-3076#advice-for-complete-databases
+            # "If your database records the signing roots of messages in
+            # addition to their slot/epochs, you should ensure that imported
+            # messages without signing roots are assigned a suitable dummy
+            # signing root internally. We suggest using a special "null" value
+            # which is distinct from all other signing roots, although a value
+            # like 0x0 may be used instead (as it is extremely unlikely to
+            # collide with any real signing root)."
+            ZeroDigest
+        status = db.registerBlock(parsedKey, B.slot.Slot, signing_root)
       if status.isErr():
         # We might be importing a duplicate which EIP-3076 allows
         # there is no reason during normal operation to integrate
@@ -333,8 +353,8 @@ proc importInterchangeV5Impl*(
         #       having 2 blocks with the same signing root and different slots
         #       would break the blockchain so we only check for exact slot.
         if status.error.kind == DoubleProposal and
-            B.signing_root.Eth2Digest != ZeroDigest and
-            status.error.existingBlock == B.signing_root.Eth2Digest:
+            signing_root != ZeroDigest and
+            status.error.existingBlock == signing_root:
           warn "Block already exists in the DB",
             pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
             candidateBlock = B

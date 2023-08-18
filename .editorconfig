@@ -3,6 +3,8 @@ root = true
 [*.nim]
 indent_style = space
 indent_size = 2
+trim_trailing_whitespace = true
+insert_final_newline = false
 
 [*.sh]
 indent_style = space
@@ -11,4 +13,3 @@ indent_size = 2
 [Makefile]
 ident_size = 2
 ident_style = tab
-

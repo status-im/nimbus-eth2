@@ -45,6 +45,10 @@ type
   GetDistributedKeystoresResponse* = object
     data*: seq[DistributedKeystoreInfo]
 
+  GetValidatorGasLimitResponse* = object
+    pubkey*: ValidatorPubKey
+    gas_limit*: uint64
+
   ImportRemoteKeystoresBody* = object
     remote_keys*: seq[RemoteKeystoreInfo]
 
@@ -56,7 +60,7 @@ type
 
   DeleteKeystoresResponse* = object
     data*: seq[RequestItemStatus]
-    slashing_protection*: SPDIR
+    slashing_protection*: string
 
   RemoteKeystoreStatus* = object
     status*: KeystoreStatus
@@ -64,6 +68,20 @@ type
 
   DeleteRemoteKeystoresResponse* = object
     data*: seq[RemoteKeystoreStatus]
+
+  SetFeeRecipientRequest* = object
+    ethaddress*: Eth1Address
+
+  ListFeeRecipientResponse* = object
+    pubkey*: ValidatorPubKey
+    ethaddress*: Eth1Address
+
+  ListGasLimitResponse* = object
+    pubkey*: ValidatorPubKey
+    gas_limit*: uint64
+
+  SetGasLimitRequest* = object
+    gas_limit*: uint64
 
   KeystoreStatus* = enum
     error =  "error"
@@ -78,9 +96,12 @@ type
     missingBearerScheme = "Bearer Authentication is not included in request"
     incorrectToken = "Authentication token is incorrect"
 
+  KeymanagerGenericError* = object
+    message*: string
+
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):
-    var c = cmp(a, b)
+    let c = cmp(a, b)
     if c < 0: return true
     if c > 0: return false
   return false

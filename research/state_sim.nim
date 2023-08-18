@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2022 Status Research & Development GmbH
+# Copyright (c) 2019-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -63,11 +63,11 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
         write(stdout, ".")
 
       if last:
-        withState(state[]): writeJson("state.json", state.data)
+        withState(state[]): writeJson("state.json", forkyState.data)
     else:
       withState(state[]):
-        if state.data.slot mod json_interval.uint64 == 0:
-          writeJson(jsonName(prefix, state.data.slot), state.data)
+        if forkyState.data.slot mod json_interval.uint64 == 0:
+          writeJson(jsonName(prefix, forkyState.data.slot), forkyState.data)
           write(stdout, ":")
         else:
           write(stdout, ".")
@@ -107,18 +107,18 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
       withState(state[]):
         let
-          slot = state.data.slot
+          slot = forkyState.data.slot
           epoch = slot.epoch
           committees_per_slot =
-            get_committee_count_per_slot(state.data, epoch, cache)
+            get_committee_count_per_slot(forkyState.data, epoch, cache)
         for committee_index in get_committee_indices(committees_per_slot):
           let committee = get_beacon_committee(
-            state.data, slot, committee_index, cache)
+            forkyState.data, slot, committee_index, cache)
           var
             attestation = Attestation(
               aggregation_bits: CommitteeValidatorsBits.init(committee.len),
               data: makeAttestationData(
-                state.data, slot, committee_index, latest_block_root),
+                forkyState.data, slot, committee_index, latest_block_root),
             )
             first = true
 
@@ -129,11 +129,11 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
               if (rand(r, high(int)).float * attesterRatio).int <= high(int):
                 attestation.aggregation_bits.setBit index_in_committee
 
-            if attestation.aggregation_bits.countOnes() > 0:
+            if not attestation.aggregation_bits.isZeros:
               if validate:
                 attestation.signature = makeAttestationSig(
-                  state.data.fork, genesis_validators_root, attestation.data,
-                  committee, attestation.aggregation_bits)
+                  forkyState.data.fork, genesis_validators_root,
+                  attestation.data, committee, attestation.aggregation_bits)
 
               # add the attestation if any of the validators attested, as given
               # by the randomness. We have to delay when the attestation is

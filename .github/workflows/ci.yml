@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 name: CI
 on:
   push:
@@ -10,6 +17,10 @@ on:
     paths-ignore: ['media/**', 'docs/**', '**/*.md']
   workflow_dispatch:
 
+concurrency: # Cancel stale PR builds (but not push builds)
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   build:
     strategy:
@@ -18,21 +29,19 @@ jobs:
         target:
           - os: linux
             cpu: amd64
-          - os: linux
-            cpu: i386
           - os: macos
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [version-1-2, version-1-6]
+        branch: [~, upstream/version-1-6]
         include:
           - target:
               os: linux
-            builder: ubuntu-18.04
+            builder: ubuntu-22.04
             shell: bash
           - target:
               os: macos
-            builder: macos-10.15
+            builder: macos-11
             shell: bash
           - target:
               os: windows
@@ -43,63 +52,11 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
 
-    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
+    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ matrix.branch }}${{ matrix.branch != '' && ')' || '' }}
     runs-on: ${{ matrix.builder }}
     steps:
-      - name: Get branch name
-        shell: bash
-        run: |
-          if [[ '${{  github.event_name }}' == 'pull_request' ]]; then
-            echo "##[set-output name=branch_name;]$(echo ${GITHUB_HEAD_REF})"
-            echo "Branch found (PR): ${GITHUB_HEAD_REF}"
-          else
-            echo "##[set-output name=branch_name;]$(echo ${GITHUB_REF#refs/heads/})"
-            echo "Branch found (not PR): ${GITHUB_REF#refs/heads/}"
-          fi
-        id: get_branch
-
-      - name: Cancel Previous Runs (except main branches)
-        if: >
-          steps.get_branch.outputs.branch_name != 'stable' &&
-          steps.get_branch.outputs.branch_name != 'unstable' &&
-          steps.get_branch.outputs.branch_name != 'testing'
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Install build dependencies (Linux i386)
-        if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-fast update -qq
-          sudo DEBIAN_FRONTEND='noninteractive' apt-fast install \
-            --no-install-recommends -yq gcc-multilib g++-multilib
-          mkdir -p external/bin
-          cat << EOF > external/bin/gcc
-          #!/bin/bash
-          exec $(which gcc) -m32 -mno-adx "\$@"
-          EOF
-          cat << EOF > external/bin/g++
-          #!/bin/bash
-          exec $(which g++) -m32 -mno-adx "\$@"
-          EOF
-          chmod 755 external/bin/gcc external/bin/g++
-          echo "${{ github.workspace }}/external/bin" >> $GITHUB_PATH
-
-      - name: MSYS2 (Windows i386)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
-        uses: msys2/setup-msys2@v2
-        with:
-          path-type: inherit
-          msystem: MINGW32
-          install: >-
-            base-devel
-            git
-            mingw-w64-i686-toolchain
-            mingw-w64-i686-cmake
+        uses: actions/checkout@v3
 
       - name: MSYS2 (Windows amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
@@ -115,9 +72,9 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
-          path: external/dlls
+          path: external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
 
       - name: Install DLLs dependencies (Windows)
@@ -127,21 +84,15 @@ jobs:
         run: |
           mkdir -p external
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x -y external/windeps.zip -oexternal/dlls
+          7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
 
       - name: Path to cached dependencies (Windows)
         if: >
           runner.os == 'Windows'
         run: |
-          echo "${{ github.workspace }}/external/dlls" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/external/dlls-${{ matrix.target.cpu }}" >> $GITHUB_PATH
           # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
           echo "." >> $GITHUB_PATH
-
-      - name: Install build dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install gnu-getopt
-          brew link --force gnu-getopt
 
       - name: Derive environment variables
         run: |
@@ -150,18 +101,16 @@ jobs:
           else
             PLATFORM=x86
           fi
-          echo "PLATFORM=${PLATFORM}" >> $GITHUB_ENV
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
 
-          # Stack usage test on recent enough gcc:
+          # Stack usage test and UBSAN on recent enough gcc:
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
-            export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
+            if [[ '${{ github.sha }}' =~ ^7 ]]; then
+              export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage --passC:-fsanitize=undefined --passL:-fsanitize=undefined"
+            else
+              export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
+            fi
             echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
-          fi
-
-          # libminiupnp / natpmp
-          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386' ]]; then
-            export CFLAGS="${CFLAGS} -m32 -mno-adx"
-            echo "CFLAGS=${CFLAGS}" >> $GITHUB_ENV
           fi
 
           ncpu=""
@@ -176,6 +125,9 @@ jobs:
           'Windows')
             ncpu=${NUMBER_OF_PROCESSORS}
             make_cmd="mingw32-make"
+            echo "Number of cores: ${NUMBER_OF_PROCESSORS}"
+            echo "Physical memory: $(wmic ComputerSystem get TotalPhysicalMemory)"
+            echo "Partition sizes: $(wmic partition get name,size,type)"
             ;;
           esac
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
@@ -196,9 +148,15 @@ jobs:
           fixturesHash=$(getHash status-im/nim-eth2-scenarios)
           echo "::set-output name=fixtures::${fixturesHash}"
 
+      - name: Build binaries (with trace logging enabled)
+        run: |
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none"
+          # The Windows image runs out of disk space, so make some room
+          rm -rf build nimcache
+
       - name: Restore Ethereum Foundation fixtures from cache
         id: fixtures-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: fixturesCache
           key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
@@ -209,50 +167,76 @@ jobs:
         run: |
           scripts/setup_scenarios.sh fixturesCache
 
-      - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
-        run: |
-          if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
-            # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client || false
-          else
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client
-          fi
-
-      - name: Build all tools
-        run: |
-          if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
-            # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} || false
-          else
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }}
-          fi
-          # The Windows image runs out of disk space, so make some room
-          rm -rf nimcache
-
       - name: Run tests
         run: |
-          if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
-            # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test || false
-          else
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
-          fi
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
       # The upload creates a combined report that gets posted as a comment on the PR
       # https://github.com/EnricoMi/publish-unit-test-result-action
       - name: Upload combined results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
           path: build/*.xml
+
+  lint:
+    name: "Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # In PR, has extra merge commit: ^1 = PR, ^2 = base
+          submodules: 'recursive'
+
+      - name: Check copyright year
+        if: ${{ !cancelled() }} && github.event_name == 'pull_request'
+        run: |
+          excluded_files="config.yaml"
+          excluded_extensions="ans|json|md|png|ssz|txt"
+
+          current_year=$(date +"%Y")
+          outdated_files=()
+          while read -r file; do
+            if ! grep -qE 'Copyright \(c\) .*'$current_year' Status Research & Development GmbH' "$file"; then
+              outdated_files+=("$file")
+            fi
+          done < <(git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '(\.('$excluded_extensions')|'$excluded_files')$' || true)
+
+          if (( ${#outdated_files[@]} )); then
+            echo "The following files do not have an up-to-date copyright year:"
+            for file in "${outdated_files[@]}"; do
+              echo "- $file"
+            done
+            exit 2
+          fi
+
+      - name: Check submodules
+        if: ${{ !cancelled() }} && github.event_name == 'pull_request'
+        run: |
+          while read -r file; do
+            commit="$(git -C "$file" rev-parse HEAD)"
+            if ! branch="$(git config -f .gitmodules --get "submodule.$file.branch")"; then
+              echo "Submodule '$file': '.gitmodules' lacks 'branch' entry"
+              exit 2
+            fi
+            if ! error="$(git -C "$file" fetch -q origin "$branch")"; then
+              echo "Submodule '$file': Failed to fetch '$branch': $error"
+              exit 2
+            fi
+            if ! git -C "$file" merge-base --is-ancestor "$commit" "origin/$branch"; then
+              echo "Submodule '$file': '$commit' is not on '$branch'"
+              exit 2
+            fi
+          done < <(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep -f <(git config --file .gitmodules --get-regexp path | awk '{ print $2 }') || true)
 
   # https://github.com/EnricoMi/publish-unit-test-result-action
   event_file:
     name: "Event File"
     runs-on: ubuntu-latest
     steps:
-    - name: Upload
-      uses: actions/upload-artifact@v2
-      with:
-        name: Event File
-        path: ${{ github.event_path }}
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: Event File
+          path: ${{ github.event_path }}

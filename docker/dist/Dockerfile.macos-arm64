@@ -6,6 +6,8 @@ SHELL ["/bin/bash", "-c"]
 ARG USER_ID
 ARG GROUP_ID
 
+ENV BUILD_TOOLS=${BUILD_TOOLS}
+
 RUN addgroup --gid ${GROUP_ID} user; \
 	adduser --disabled-password --gecos '' --uid ${USER_ID} --gid ${GROUP_ID} user;
 

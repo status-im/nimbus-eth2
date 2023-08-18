@@ -8,23 +8,44 @@
 {.used.}
 
 import
-  # Standard library
-  os, strutils,
   # Beacon chain internals
   chronicles,
   ../../../beacon_chain/spec/state_transition_epoch,
   ../../../beacon_chain/spec/datatypes/phase0,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils,
+  ../fixtures_utils, ../os_ops,
   ./test_fixture_rewards,
   ../../helpers/debug_state
 
-const RootDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"
+from std/sequtils import mapIt, toSeq
+from std/strutils import rsplit
+
+const
+  RootDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"
+
+  JustificationFinalizationDir = RootDir/"justification_and_finalization"
+  RegistryUpdatesDir =           RootDir/"registry_updates"
+  SlashingsDir =                 RootDir/"slashings"
+  Eth1DataResetDir =             RootDir/"eth1_data_reset"
+  EffectiveBalanceUpdatesDir =   RootDir/"effective_balance_updates"
+  SlashingsResetDir =            RootDir/"slashings_reset"
+  RandaoMixesResetDir =          RootDir/"randao_mixes_reset"
+  HistoricalRootsUpdateDir =     RootDir/"historical_roots_update"
+  RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
+  ParticipationRecordsDir =      RootDir/"participation_record_updates"
+
+doAssert toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) ==
+  toHashSet([
+    JustificationFinalizationDir, RegistryUpdatesDir, SlashingsDir,
+    Eth1DataResetDir, EffectiveBalanceUpdatesDir, SlashingsResetDir,
+    RandaoMixesResetDir, HistoricalRootsUpdateDir, ParticipationRecordsDir,
+    RewardsAndPenaltiesDir])
 
 template runSuite(suiteDir, testName: string, transitionProc: untyped): untyped =
   suite "EF - Phase 0 - Epoch Processing - " & testName & preset():
-    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
+    for testDir in walkDirRec(
+        suiteDir / "pyspec_tests", yieldFilter = {pcDir}, checkDir = true):
 
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
@@ -32,7 +53,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped): untyped 
         type T = phase0.BeaconState
         let preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
         var cache {.inject, used.} = StateCache()
-        var info {.inject.}: EpochInfo
+        var info {.inject.}: phase0.EpochInfo
         template state: untyped {.inject, used.} = preState[]
         template cfg: untyped {.inject, used.} = defaultRuntimeConfig
         init(info, preState[])
@@ -47,8 +68,6 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped): untyped 
 
 # Justification & Finalization
 # ---------------------------------------------------------------
-
-const JustificationFinalizationDir = RootDir/"justification_and_finalization"/"pyspec_tests"
 runSuite(JustificationFinalizationDir, "Justification & Finalization"):
   info.process_attestations(state, cache)
   process_justification_and_finalization(state, info.balances)
@@ -56,20 +75,23 @@ runSuite(JustificationFinalizationDir, "Justification & Finalization"):
 
 # Rewards & Penalties
 # ---------------------------------------------------------------
+runSuite(RewardsAndPenaltiesDir, "Rewards and penalties"):
+  var info: phase0.EpochInfo
+  var cache: StateCache
+  info.init(state)
+  info.process_attestations(state, cache)
+  process_rewards_and_penalties(state, info)
+  Result[void, cstring].ok()
 
-# in test_fixture_rewards
+# rest in test_fixture_rewards
 
 # Registry updates
 # ---------------------------------------------------------------
-
-const RegistryUpdatesDir = RootDir/"registry_updates"/"pyspec_tests"
 runSuite(RegistryUpdatesDir, "Registry updates"):
   process_registry_updates(cfg, state, cache)
 
 # Slashings
 # ---------------------------------------------------------------
-
-const SlashingsDir = RootDir/"slashings"/"pyspec_tests"
 runSuite(SlashingsDir, "Slashings"):
   info.process_attestations(state, cache)
   process_slashings(state, info.balances.current_epoch)
@@ -77,33 +99,26 @@ runSuite(SlashingsDir, "Slashings"):
 
 # Final updates
 # ---------------------------------------------------------------
-
-const Eth1DataResetDir = RootDir/"eth1_data_reset/"/"pyspec_tests"
 runSuite(Eth1DataResetDir, "Eth1 data reset"):
   process_eth1_data_reset(state)
   Result[void, cstring].ok()
 
-const EffectiveBalanceUpdatesDir = RootDir/"effective_balance_updates"/"pyspec_tests"
 runSuite(EffectiveBalanceUpdatesDir, "Effective balance updates"):
   process_effective_balance_updates(state)
   Result[void, cstring].ok()
 
-const SlashingsResetDir = RootDir/"slashings_reset"/"pyspec_tests"
 runSuite(SlashingsResetDir, "Slashings reset"):
   process_slashings_reset(state)
   Result[void, cstring].ok()
 
-const RandaoMixesResetDir = RootDir/"randao_mixes_reset"/"pyspec_tests"
 runSuite(RandaoMixesResetDir, "RANDAO mixes reset"):
   process_randao_mixes_reset(state)
   Result[void, cstring].ok()
 
-const HistoricalRootsUpdateDir = RootDir/"historical_roots_update"/"pyspec_tests"
 runSuite(HistoricalRootsUpdateDir, "Historical roots update"):
   process_historical_roots_update(state)
   Result[void, cstring].ok()
 
-const ParticipationRecordsDir = RootDir/"participation_record_updates"/"pyspec_tests"
 runSuite(ParticipationRecordsDir, "Participation record updates"):
   process_participation_record_updates(state)
   Result[void, cstring].ok()

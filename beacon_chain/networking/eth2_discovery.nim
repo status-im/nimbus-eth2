@@ -1,19 +1,19 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[os, strutils],
-  chronicles, stew/shims/net, stew/results, bearssl,
-  eth/keys, eth/p2p/discoveryv5/[enr, protocol, node],
+  chronicles, stew/shims/net, stew/results,
+  eth/p2p/discoveryv5/[enr, protocol, node],
   ".."/[conf, conf_light_client]
 
-export protocol, keys
+export protocol
 
 type
   Eth2DiscoveryProtocol* = protocol.Protocol
@@ -80,7 +80,7 @@ proc new*(T: type Eth2DiscoveryProtocol,
           config: BeaconNodeConf | LightClientConf,
           enrIp: Option[ValidIpAddress], enrTcpPort, enrUdpPort: Option[Port],
           pk: PrivateKey,
-          enrFields: openArray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
+          enrFields: openArray[(string, seq[byte])], rng: ref HmacDrbgContext):
           T =
   # TODO
   # Implement more configuration options:

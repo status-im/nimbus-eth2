@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Types specific to phase0 (ie known to have changed across hard forks) - see
+# Types specific to phase0 (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
@@ -13,7 +13,7 @@
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   chronicles,
@@ -22,7 +22,7 @@ import
 export base
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -65,6 +65,7 @@ type
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
       ## Previous epoch snapshot
@@ -72,17 +73,45 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_total_balance
+  TotalBalances* = object
+    # The total effective balance of all active validators during the _current_
+    # epoch.
+    current_epoch_raw*: Gwei
+    # The total effective balance of all active validators during the _previous_
+    # epoch.
+    previous_epoch_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _current_ epoch.
+    current_epoch_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _current_ epoch and agreed with the state about the beacon block at the
+    # first slot of the _current_ epoch.
+    current_epoch_target_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _previous_ epoch.
+    previous_epoch_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _previous_ epoch and agreed with the state about the beacon block at the
+    # first slot of the _previous_ epoch.
+    previous_epoch_target_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _previous_ epoch and agreed with the state about the beacon block at the
+    # time of attestation.
+    previous_epoch_head_attesters_raw*: Gwei
+
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
   #      https://github.com/nim-lang/RFCs/issues/250
   BeaconStateRef* = ref BeaconState not nil
   NilableBeaconStateRef* = ref BeaconState
 
+  # TODO: There should be only a single generic HashedBeaconState definition
   HashedBeaconState* = object
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -100,11 +129,6 @@ type
       ## The state root, _after_ this block has been processed
 
     body*: BeaconBlockBody
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#metadata
-  MetaData* = object
-    seq_number*: uint64
-    attnets*: AttnetBits
 
   SigVerifiedBeaconBlock* = object
     ## A BeaconBlock that contains verified signatures
@@ -143,11 +167,14 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
+      ## Eth1 data vote
+
     graffiti*: GraffitiBytes
+      ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -192,7 +219,7 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -268,8 +295,16 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants: -1 # Altair logging compatibility
+    sync_committee_participants: -1, # Altair logging compatibility
+    block_number: 0'u64, # Bellatrix compat
+    fee_recipient: "",
+    bls_to_execution_changes_len: 0,  # Capella compat
+    blob_kzg_commitments_len: 0,  # Deneb compat
   )
+
+# TODO: There should be only a single generic HashedBeaconState definition
+func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
+  HashedBeaconState(data: s)
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
@@ -288,6 +323,10 @@ template asSigVerified*(
        MsgTrustedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+  isomorphicCast[SigVerifiedBeaconBlock](x)
 
 template asMsgTrusted*(
     x: SignedBeaconBlock |

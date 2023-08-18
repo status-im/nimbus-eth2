@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Types specific to altair (ie known to have changed across hard forks) - see
+# Types specific to altair (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
@@ -13,11 +13,7 @@
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
-{.push raises: [Defect].}
-
-# References to `vFuture` refer to the pre-release proposal of the libp2p based
-# light client sync protocol. Conflicting release versions are not in use.
-# https://github.com/ethereum/consensus-specs/pull/2802
+{.push raises: [].}
 
 import
   std/[typetraits, sets, hashes],
@@ -31,7 +27,7 @@ from ssz_serialization/proofs import GeneralizedIndex
 export proofs.GeneralizedIndex
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#incentivization-weights
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#incentivization-weights
   TIMELY_SOURCE_WEIGHT* = 14
   TIMELY_TARGET_WEIGHT* = 26
   TIMELY_HEAD_WEIGHT* = 14
@@ -42,26 +38,26 @@ const
   PARTICIPATION_FLAG_WEIGHTS* =
     [TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#misc
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#constants
   # All of these indices are rooted in `BeaconState`.
   # The first member (`genesis_time`) is 32, subsequent members +1 each.
   # If there are ever more than 32 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_INDEX` is one layer deeper, i.e., `52 * 2 + 1`.
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/ssz/merkle-proofs.md
   FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex # `finalized_checkpoint` > `root`
   CURRENT_SYNC_COMMITTEE_INDEX* = 54.GeneralizedIndex # `current_sync_committee`
   NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex # `next_sync_committee`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#participation-flag-indices
   TIMELY_SOURCE_FLAG_INDEX* = 0
   TIMELY_TARGET_FLAG_INDEX* = 1
   TIMELY_HEAD_FLAG_INDEX* = 2
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#inactivity-penalties
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#inactivity-penalties
   INACTIVITY_SCORE_BIAS* = 4
   INACTIVITY_SCORE_RECOVERY_RATE* = 16
 
@@ -75,13 +71,16 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
 type
   ### New types
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
 
   EpochParticipationFlags* =
-    distinct HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    distinct List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    ## Not a HashList because the list sees significant updates every block
+    ## effectively making the cost of clearing the cache higher than the typical
+    ## gains
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#syncaggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: ValidatorSig
@@ -90,12 +89,12 @@ type
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#synccommittee
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#synccommittee
   SyncCommittee* = object
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#synccommitteemessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#synccommitteemessage
   SyncCommitteeMessage* = object
     slot*: Slot
       ## Slot to which this contribution pertains
@@ -109,7 +108,7 @@ type
     signature*: ValidatorSig
       ## Signature by the validator over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#synccommitteecontribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#synccommitteecontribution
   SyncCommitteeAggregationBits* =
     BitArray[SYNC_SUBCOMMITTEE_SIZE]
 
@@ -131,74 +130,84 @@ type
     signature*: ValidatorSig
       ## Signature by the validator(s) over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#contributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#contributionandproof
   ContributionAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     contribution*: SyncCommitteeContribution
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#signedcontributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#signedcontributionandproof
   SignedContributionAndProof* = object
     message*: ContributionAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#syncaggregatorselectiondata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#syncaggregatorselectiondata
   SyncAggregatorSelectionData* = object
     slot*: Slot
     subcommittee_index*: uint64 # `SyncSubcommitteeIndex` after validation
 
   ### Modified/overloaded
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientbootstrap
+  FinalityBranch* =
+    array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+
+  CurrentSyncCommitteeBranch* =
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+
+  NextSyncCommitteeBranch* =
+    array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientheader
+  LightClientHeader* = object
+    beacon*: BeaconBlockHeader
+      ## Beacon block header
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
-    header*: BeaconBlockHeader
-      ## The requested beacon block header
+    header*: LightClientHeader
+      ## Header matching the requested beacon block root
 
     current_sync_committee*: SyncCommittee
-      ## Current sync committee corresponding to `header`
+      ## Current sync committee corresponding to `header.beacon.state_root`
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
 
-    current_sync_committee_branch*:
-      array[log2trunc(CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
-
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
-    attested_header*: BeaconBlockHeader
-      ## The beacon block header that is attested to by the sync committee
+    attested_header*: LightClientHeader
+      ## Header attested to by the sync committee
 
     next_sync_committee*: SyncCommittee
-      ## Next sync committee corresponding to `attested_header`,
-      ## if signature is from current sync committee
-    next_sync_committee_branch*:
-      array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+      ## Next sync committee corresponding to
+      ## `attested_header.beacon.state_root`
+    next_sync_committee_branch*: NextSyncCommitteeBranch
 
-    # The finalized beacon block header attested to by Merkle branch
-    finalized_header*: BeaconBlockHeader
-    finality_branch*:
-      array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+    # Finalized header corresponding to `attested_header.beacon.state_root`
+    finalized_header*: LightClientHeader
+    finality_branch*: FinalityBranch
 
     sync_aggregate*: SyncAggregate
+      ## Sync committee aggregate signature
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
-    # The beacon block header that is attested to by the sync committee
-    attested_header*: BeaconBlockHeader
+    # Header attested to by the sync committee
+    attested_header*: LightClientHeader
 
-    # The finalized beacon block header attested to by Merkle branch
-    finalized_header*: BeaconBlockHeader
-    finality_branch*:
-      array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+    # Finalized header corresponding to `attested_header.beacon.state_root`
+    finalized_header*: LightClientHeader
+    finality_branch*: FinalityBranch
 
     # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate
     # Slot at which the aggregate signature was created (untrusted)
     signature_slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
   LightClientOptimisticUpdate* = object
-    # The beacon block header that is attested to by the sync committee
-    attested_header*: BeaconBlockHeader
+    # Header attested to by the sync committee
+    attested_header*: LightClientHeader
 
     # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate
@@ -221,27 +230,30 @@ type
     LightClientBootstrap |
     SomeLightClientUpdate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientstore
   LightClientStore* = object
-    finalized_header*: BeaconBlockHeader
-      ## Beacon block header that is finalized
+    finalized_header*: LightClientHeader
+      ## Header that is finalized
 
     current_sync_committee*: SyncCommittee
-      ## Sync committees corresponding to the header
+      ## Sync committees corresponding to the finalized header
     next_sync_committee*: SyncCommittee
 
-    best_valid_update*: Option[LightClientUpdate]
-      ## Best available header to switch finalized head to if we see nothing else
+    best_valid_update*: Opt[LightClientUpdate]
+      ## Best available header to switch finalized head to
+      ## if we see nothing else
 
-    optimistic_header*: BeaconBlockHeader
+    optimistic_header*: LightClientHeader
       ## Most recent available reasonably-safe header
 
     previous_max_active_participants*: uint64
-      ## Max number of active participants in a sync committee (used to compute
-      ## safety threshold)
+      ## Max number of active participants in a sync committee
+      ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#beaconstate
+  InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -278,19 +290,20 @@ type
 
     # Participation
     previous_epoch_participation*: EpochParticipationFlags
+      ## [Modified in Altair]
     current_epoch_participation*: EpochParticipationFlags
+      ## [Modified in Altair]
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
-
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]  # [New in Altair]
+    inactivity_scores*: InactivityScores  # [New in Altair]
 
     # Light client sync committees
     current_sync_committee*: SyncCommittee     # [New in Altair]
@@ -326,7 +339,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -383,7 +396,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -418,7 +431,10 @@ type
     ## The block state transition has NOT been verified
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
+      ## Eth1 data vote
+
     graffiti*: GraffitiBytes
+      ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -432,7 +448,7 @@ type
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
@@ -442,7 +458,10 @@ type
     ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
+      ## Eth1 data vote
+
     graffiti*: GraffitiBytes
+      ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -454,7 +473,7 @@ type
     # [New in Altair]
     sync_aggregate*: TrustedSyncAggregate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -511,62 +530,6 @@ type
   SyncSubcommitteeIndex* = distinct uint8
   IndexInSyncCommittee* = distinct uint16
 
-  BeaconStateDiff* = object
-    # Small and/or static; always include
-    slot*: Slot
-    latest_block_header*: BeaconBlockHeader
-
-    # Mod-increment/circular
-    block_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
-    state_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
-
-    # Append-only; either 0 or 1 per epoch
-    historical_root_added*: bool
-    historical_root*: Eth2Digest
-
-    # Replace
-    eth1_data*: Eth1Data
-
-    eth1_data_votes_replaced*: bool
-    eth1_data_votes*:
-      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
-
-    # Replace
-    eth1_deposit_index*: uint64
-
-    # Validators come in two parts, the immutable public key and mutable
-    # entrance/exit/slashed information about that validator.
-    validator_statuses*:
-      List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Represent in full
-    balances*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Mod-increment
-    randao_mix*: Eth2Digest
-    slashing*: uint64
-
-    # Represent in full; for the next epoch, current_epoch_participation in
-    # epoch n is previous_epoch_participation in epoch n+1 but this doesn't
-    # generalize.
-    previous_epoch_participation*:
-      List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
-    current_epoch_participation*:
-      List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    justification_bits*: JustificationBits
-    previous_justified_checkpoint*: Checkpoint
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
-
-    # Represent in full
-    inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Represent in full; for the next epoch, next_sync_committee is
-    # current_sync_committee, but this doesn't generalize.
-    current_sync_committee*: SyncCommittee
-    next_sync_committee*: SyncCommittee
-
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt SyncSubcommitteeIndex: uint8(it)
 
@@ -580,26 +543,44 @@ template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, auto] | seq;
 makeLimitedU8(SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
 makeLimitedU16(IndexInSyncCommittee, SYNC_COMMITTEE_SIZE)
 
-template asHashList*(epochFlags: EpochParticipationFlags): untyped =
-  HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+template asList*(epochFlags: EpochParticipationFlags): untyped =
+  List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+template asList*(epochFlags: var EpochParticipationFlags): untyped =
+  let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr epochFlags)
+  tmp[]
+
+template asSeq*(epochFlags: EpochParticipationFlags): untyped =
+  seq[ParticipationFlags] asList(epochFlags)
+
+template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
+  let tmp = cast[ptr seq[ParticipationFlags]](addr epochFlags)
+  tmp[]
 
 template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
-  asHashList(epochFlags).item(idx)
+  asList(epochFlags)[idx]
 
-template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64): ParticipationFlags =
-  asHashList(epochFlags)[idx]
+template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64|int): ParticipationFlags =
+  asList(epochFlags)[idx]
 
 template `[]=`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex, flags: ParticipationFlags) =
-  asHashList(epochFlags)[idx] = flags
+  asList(epochFlags)[idx] = flags
 
 template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags): bool =
-  asHashList(epochFlags).add flags
+  asList(epochFlags).add flags
 
 template len*(epochFlags: EpochParticipationFlags): int =
-  asHashList(epochFlags).len
+  asList(epochFlags).len
 
-template data*(epochFlags: EpochParticipationFlags): untyped =
-  asHashList(epochFlags).data
+template low*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).low
+template high*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).high
+
+template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
+  # TODO https://github.com/nim-lang/Nim/issues/21123
+  mixin assign
+  var tmp = cast[ptr seq[ParticipationFlags]](addr v)
+  assign(tmp[], distinctBase src)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
@@ -614,7 +595,11 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants: countOnes(v.body.sync_aggregate.sync_committee_bits)
+    sync_committee_participants: v.body.sync_aggregate.num_active_participants,
+    block_number: 0'u64, # Bellatrix compat
+    fee_recipient: "",
+    bls_to_execution_changes_len: 0,  # Capella compat
+    blob_kzg_commitments_len: 0,  # Deneb compat
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
@@ -627,7 +612,7 @@ func shortLog*(v: SyncCommitteeContribution): auto =
   (
     slot: shortLog(v.slot),
     beacon_block_root: shortLog(v.beacon_block_root),
-    subnetId: v.subcommittee_index,
+    subcommittee_index: v.subcommittee_index,
     aggregation_bits: $v.aggregation_bits
   )
 
@@ -641,6 +626,9 @@ func shortLog*(v: SyncCommitteeMessage): auto =
 
 func init*(T: type SyncAggregate): SyncAggregate =
   SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+
+func num_active_participants*(v: SomeSyncAggregate): int =
+  countOnes(v.sync_committee_bits)
 
 func shortLog*(v: SyncAggregate): auto =
   $(v.sync_committee_bits)
@@ -663,6 +651,16 @@ chronicles.formatIt SyncCommitteeContribution: shortLog(it)
 chronicles.formatIt ContributionAndProof: shortLog(it)
 chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_valid_light_client_header
+func is_valid_light_client_header*(
+    header: LightClientHeader, cfg: RuntimeConfig): bool =
+  true
+
+func shortLog*(v: LightClientHeader): auto =
+  (
+    beacon: shortLog(v.beacon)
+  )
+
 func shortLog*(v: LightClientBootstrap): auto =
   (
     header: shortLog(v.header)
@@ -671,9 +669,10 @@ func shortLog*(v: LightClientBootstrap): auto =
 func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
-    has_next_sync_committee: not v.next_sync_committee.isZeroMemory,
+    has_next_sync_committee:
+      v.next_sync_committee != default(typeof(v.next_sync_committee)),
     finalized: shortLog(v.finalized_header),
-    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot
   )
 
@@ -681,14 +680,14 @@ func shortLog*(v: LightClientFinalityUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     finalized: shortLog(v.finalized_header),
-    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot
   )
 
 func shortLog*(v: LightClientOptimisticUpdate): auto =
   (
     attested: shortLog(v.attested_header),
-    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot,
   )
 
@@ -696,71 +695,6 @@ chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
-
-template toFull*(
-    update: SomeLightClientUpdate): LightClientUpdate =
-  when update is LightClientUpdate:
-    update
-  elif update is SomeLightClientUpdateWithFinality:
-    LightClientUpdate(
-      attested_header: update.attested_header,
-      finalized_header: update.finalized_header,
-      finality_branch: update.finality_branch,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-  else:
-    LightClientUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-template toFinality*(
-    update: SomeLightClientUpdate): LightClientFinalityUpdate =
-  when update is LightClientFinalityUpdate:
-    update
-  elif update is SomeLightClientUpdateWithFinality:
-    LightClientFinalityUpdate(
-      attested_header: update.attested_header,
-      finalized_header: update.finalized_header,
-      finality_branch: update.finality_branch,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-  else:
-    LightClientFinalityUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-template toOptimistic*(
-    update: SomeLightClientUpdate): LightClientOptimisticUpdate =
-  when update is LightClientOptimisticUpdate:
-    update
-  else:
-    LightClientOptimisticUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-func matches*[A, B: SomeLightClientUpdate](a: A, b: B): bool =
-  if a.attested_header != b.attested_header:
-    return false
-  when a is SomeLightClientUpdateWithSyncCommittee and
-      b is SomeLightClientUpdateWithSyncCommittee:
-    if a.next_sync_committee != b.next_sync_committee:
-      return false
-    if a.next_sync_committee_branch != b.next_sync_committee_branch:
-      return false
-  when a is SomeLightClientUpdateWithFinality and
-      b is SomeLightClientUpdateWithFinality:
-    if a.finalized_header != b.finalized_header:
-      return false
-    if a.finality_branch != b.finality_branch:
-      return false
-  if a.sync_aggregate != b.sync_aggregate:
-    return false
-  if a.signature_slot != b.signature_slot:
-    return false
-  true
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
@@ -777,6 +711,10 @@ template asSigVerified*(
        MsgTrustedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+  isomorphicCast[SigVerifiedBeaconBlock](x)
 
 template asMsgTrusted*(
     x: SignedBeaconBlock |

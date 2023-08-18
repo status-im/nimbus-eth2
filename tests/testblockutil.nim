@@ -1,20 +1,22 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[options, random],
   chronicles,
-  eth/keys,
   stew/endians2,
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
-  ../beacon_chain/validators/validator_pool,
   ../beacon_chain/spec/datatypes/bellatrix,
   ../beacon_chain/spec/[
     beaconstate, helpers, keystore, signatures, state_transition, validator]
+
+# TODO remove this dependency
+from std/random import rand
+
+from eth/common/eth_types_rlp import rlpHash
 
 type
   MockPrivKeysT = object
@@ -23,23 +25,30 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/tests/core/pyspec/eth2spec/test/helpers/keys.py
-func `[]`*(_: MockPrivKeysT, index: ValidatorIndex): ValidatorPrivKey =
-  # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
-  # lighthouse. EF tests use 1 instead of 1000.
-  var bytes = (index.uint64 + 1000'u64).toBytesLE()
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/tests/core/pyspec/eth2spec/test/helpers/keys.py
+func `[]`*(_: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
+  var bytes = (index.uint64 + 1'u64).toBytesLE()  # Consistent with EF tests
   static: doAssert sizeof(bytes) <= sizeof(result)
   copyMem(addr result, addr bytes, sizeof(bytes))
 
-func `[]`*(_: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
-  MockPrivKeys[index].toPubKey().toPubKey()
+proc `[]`*(_: MockPubKeysT, index: uint64): ValidatorPubKey =
+  var cache {.threadvar.}: Table[uint64, ValidatorPubKey]
+  cache.withValue(index, key) do:
+    return key[]
+  do:
+    let key = MockPrivKeys[index].toPubKey().toPubKey()
+    cache[index] = key
+    return key
+
+proc `[]`*(_: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
+  _[index.uint64]
 
 func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
   static: doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
-func makeDeposit*(
+proc makeDeposit*(
     i: int,
     flags: UpdateFlags = {},
     cfg = defaultRuntimeConfig): DepositData =
@@ -56,7 +65,7 @@ func makeDeposit*(
   if skipBlsValidation notin flags:
     result.signature = get_deposit_signature(cfg, result, privkey).toValidatorSig()
 
-func makeInitialDeposits*(
+proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}, cfg = defaultRuntimeConfig): seq[DepositData] =
   for i in 0..<n.int:
     result.add makeDeposit(i, flags, cfg = cfg)
@@ -75,17 +84,82 @@ func signBlock(
         ValidatorSig()
   ForkedSignedBeaconBlock.init(forked, root, signature)
 
+from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
+from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
+
+proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
+    bellatrix.ExecutionPayloadForSigning =
+  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
+  ## without any transactions from a non-merged block.
+
+  doAssert not is_merge_transition_complete(state)
+
+  let
+    latest = state.latest_execution_payload_header
+    timestamp = compute_timestamp_at_slot(state, state.slot)
+    randao_mix = get_randao_mix(state, get_current_epoch(state))
+
+  var payload = bellatrix.ExecutionPayload(
+    parent_hash: latest.block_hash,
+    state_root: latest.state_root, # no changes to the state
+    receipts_root: EMPTY_ROOT_HASH,
+    block_number: latest.block_number + 1,
+    prev_randao: randao_mix,
+    gas_limit: 30000000, # retain same limit
+    gas_used: 0, # empty block, 0 gas
+    timestamp: timestamp,
+    base_fee_per_gas: EIP1559_INITIAL_BASE_FEE)
+
+  payload.block_hash = rlpHash payloadToBlockHeader(payload)
+
+  bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
+                                       blockValue: Wei.zero)
+
+from stew/saturating_arith import saturate
+
+proc build_empty_execution_payload(
+    state: bellatrix.BeaconState,
+    feeRecipient: Eth1Address): bellatrix.ExecutionPayloadForSigning =
+  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
+  ## without any transactions.
+  let
+    latest = state.latest_execution_payload_header
+    timestamp = compute_timestamp_at_slot(state, state.slot)
+    randao_mix = get_randao_mix(state, get_current_epoch(state))
+    base_fee = calcEip1599BaseFee(GasInt.saturate latest.gas_limit,
+                                  GasInt.saturate latest.gas_used,
+                                  latest.base_fee_per_gas)
+
+  var payload = bellatrix.ExecutionPayloadForSigning(
+    executionPayload: bellatrix.ExecutionPayload(
+      parent_hash: latest.block_hash,
+      fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
+      state_root: latest.state_root, # no changes to the state
+      receipts_root: EMPTY_ROOT_HASH,
+      block_number: latest.block_number + 1,
+      prev_randao: randao_mix,
+      gas_limit: latest.gas_limit, # retain same limit
+      gas_used: 0, # empty block, 0 gas
+      timestamp: timestamp,
+      base_fee_per_gas: base_fee),
+    blockValue: Wei.zero)
+
+  payload.executionPayload.block_hash =
+    payload.executionPayload.compute_execution_block_hash()
+
+  payload
+
 proc addTestBlock*(
     state: var ForkedHashedBeaconState,
     cache: var StateCache,
-    eth1_data = Eth1Data(),
-    attestations = newSeq[Attestation](),
-    deposits = newSeq[Deposit](),
-    sync_aggregate = SyncAggregate.init(),
-    graffiti = default(GraffitiBytes),
+    eth1_data: Eth1Data = Eth1Data(),
+    attestations: seq[Attestation] = newSeq[Attestation](),
+    deposits: seq[Deposit] = newSeq[Deposit](),
+    sync_aggregate: SyncAggregate = SyncAggregate.init(),
+    graffiti: GraffitiBytes = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
-    nextSlot = true,
-    cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
+    nextSlot: bool = true,
+    cfg: RuntimeConfig = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
     var info = ForkedEpochInfo()
@@ -95,34 +169,56 @@ proc addTestBlock*(
 
   let
     proposer_index = get_beacon_proposer_index(
-      state, cache, getStateField(state, slot))
-    privKey = MockPrivKeys[proposer_index.get]
+      state, cache, getStateField(state, slot)).expect("valid proposer index")
+    privKey = MockPrivKeys[proposer_index]
     randao_reveal =
       if skipBlsValidation notin flags:
-        privKey.genRandaoReveal(
+        get_epoch_signature(
           getStateField(state, fork),
           getStateField(state, genesis_validators_root),
-          getStateField(state, slot)).toValidatorSig()
+          getStateField(state, slot).epoch, privKey).toValidatorSig()
       else:
         ValidatorSig()
 
-  let
-    message = makeBeaconBlock(
+  let message = withState(state):
+    let execution_payload =
+      when consensusFork > ConsensusFork.Bellatrix:
+        default(consensusFork.ExecutionPayloadForSigning)
+      elif consensusFork == ConsensusFork.Bellatrix:
+        if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          # Can't keep correctly doing this once Capella happens, but LVH search
+          # test relies on merging. So, merge only if no Capella transition.
+          default(bellatrix.ExecutionPayloadForSigning)
+        else:
+          # Merge shortly after Bellatrix
+          if  forkyState.data.slot >
+              cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
+            if is_merge_transition_complete(forkyState.data):
+              const feeRecipient = default(Eth1Address)
+              build_empty_execution_payload(forkyState.data, feeRecipient)
+            else:
+              build_empty_merge_execution_payload(forkyState.data)
+          else:
+            default(bellatrix.ExecutionPayloadForSigning)
+      else:
+        default(bellatrix.ExecutionPayloadForSigning)
+
+    makeBeaconBlock(
       cfg,
       state,
-      proposer_index.get(),
+      proposer_index,
       randao_reveal,
       # Keep deposit counts internally consistent.
       Eth1Data(
         deposit_root: eth1_data.deposit_root,
-        deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
+        deposit_count: forkyState.data.eth1_deposit_index + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
       attestations,
       deposits,
-      BeaconBlockExits(),
+      BeaconBlockValidatorChanges(),
       sync_aggregate,
-      default(ExecutionPayload),
+      execution_payload,
       noRollback,
       cache,
       verificationFlags = {skipBlsValidation})
@@ -170,7 +266,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,
@@ -216,7 +312,8 @@ func makeAttestationData*(
   ## `state` is the state corresponding to the `beacon_block_root` advanced to
   ## the slot we're attesting to.
   withState(state):
-    makeAttestationData(state.data, slot, committee_index, beacon_block_root)
+    makeAttestationData(
+      forkyState.data, slot, committee_index, beacon_block_root)
 
 func makeAttestation*(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
@@ -228,13 +325,13 @@ func makeAttestation*(
   # monotonic enumerable index, is wasteful and slow. Most test callers
   # want ValidatorIndex, so that's supported too.
   let
-    sac_index = committee.find(validator_index)
+    index_in_committee = committee.find(validator_index)
     data = makeAttestationData(state, slot, committee_index, beacon_block_root)
 
-  doAssert sac_index != -1, "find_beacon_committee should guarantee this"
+  doAssert index_in_committee != -1, "find_beacon_committee should guarantee this"
 
   var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
-  aggregation_bits.setBit sac_index
+  aggregation_bits.setBit index_in_committee
 
   let sig = if skipBlsValidation in flags:
     ValidatorSig()
@@ -310,11 +407,11 @@ proc makeSyncAggregate(
   let
     syncCommittee =
       withState(state):
-        when stateFork >= BeaconStateFork.Altair:
-          if (state.data.slot + 1).is_sync_committee_period():
-            state.data.next_sync_committee
+        when consensusFork >= ConsensusFork.Altair:
+          if (forkyState.data.slot + 1).is_sync_committee_period():
+            forkyState.data.next_sync_committee
           else:
-            state.data.current_sync_committee
+            forkyState.data.current_sync_committee
         else:
           return SyncAggregate.init()
     fork =
@@ -323,9 +420,10 @@ proc makeSyncAggregate(
       getStateField(state, genesis_validators_root)
     slot =
       getStateField(state, slot)
-    latest_block_root =
-      withState(state): state.latest_block_root
-    syncCommitteePool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
+    latest_block_id =
+      withState(state): forkyState.latest_block_id
+    rng = HmacDrbgContext.new()
+    syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
 
   type
     Aggregator = object
@@ -386,11 +484,11 @@ proc makeSyncAggregate(
 
       let signature = get_sync_committee_message_signature(
         fork, genesis_validators_root,
-        slot, latest_block_root,
+        slot, latest_block_id.root,
         MockPrivKeys[validatorIdx])
       syncCommitteePool[].addSyncCommitteeMessage(
         slot,
-        latest_block_root,
+        latest_block_id,
         uint64 validatorIdx,
         signature,
         subcommitteeIdx,
@@ -399,7 +497,7 @@ proc makeSyncAggregate(
   for aggregator in aggregators:
     var contribution: SyncCommitteeContribution
     if syncCommitteePool[].produceContribution(
-        slot, latest_block_root, aggregator.subcommitteeIdx, contribution):
+        slot, latest_block_id, aggregator.subcommitteeIdx, contribution):
       let
         contributionAndProof = ContributionAndProof(
           aggregator_index: uint64 aggregator.validatorIdx,
@@ -413,29 +511,49 @@ proc makeSyncAggregate(
           message: contributionAndProof,
           signature: contributionSig.toValidatorSig)
       syncCommitteePool[].addContribution(
-        signedContributionAndProof, contribution.signature.load.get)
+        signedContributionAndProof,
+        latest_block_id, contribution.signature.load.get)
 
-  syncCommitteePool[].produceSyncAggregate(latest_block_root)
+  syncCommitteePool[].produceSyncAggregate(latest_block_id, slot + 1)
 
 iterator makeTestBlocks*(
   state: ForkedHashedBeaconState,
   cache: var StateCache,
   blocks: int,
-  attested: bool,
+  eth1_data = Eth1Data(),
+  attested = false,
+  allDeposits = newSeq[Deposit](),
   syncCommitteeRatio = 0.0,
+  graffiti = default(GraffitiBytes),
   cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
-  var
-    state = assignClone(state)
+  var state = assignClone(state)
   for _ in 0..<blocks:
     let
-      parent_root = withState(state[]): state.latest_block_root
+      parent_root = withState(state[]): forkyState.latest_block_root
       attestations =
         if attested:
           makeFullAttestations(
             state[], parent_root, getStateField(state[], slot), cache)
         else:
           @[]
+      stateEth1 = getStateField(state[], eth1_data)
+      stateDepositIndex = getStateField(state[], eth1_deposit_index)
+      deposits =
+        if stateDepositIndex < stateEth1.deposit_count:
+          let
+            lowIndex = stateDepositIndex
+            numDeposits = min(MAX_DEPOSITS, stateEth1.deposit_count - lowIndex)
+            highIndex = lowIndex + numDeposits - 1
+          allDeposits[lowIndex .. highIndex]
+        else:
+          newSeq[Deposit]()
       sync_aggregate = makeSyncAggregate(state[], syncCommitteeRatio, cfg)
 
-    yield addTestBlock(state[], cache,
-      attestations = attestations, sync_aggregate = sync_aggregate, cfg = cfg)
+    yield addTestBlock(
+      state[], cache,
+      eth1_data = eth1_data,
+      attestations = attestations,
+      deposits = deposits,
+      sync_aggregate = sync_aggregate,
+      graffiti = graffiti,
+      cfg = cfg)

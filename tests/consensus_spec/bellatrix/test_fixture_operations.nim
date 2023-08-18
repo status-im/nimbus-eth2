@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,19 +8,22 @@
 {.used.}
 
 import
-  # Standard library
-  std/[os, sequtils, sets, strutils],
   # Utilities
   chronicles,
   unittest2,
   stew/results,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[beaconstate, state_transition_block],
+  ../../../beacon_chain/spec/state_transition_block,
   ../../../beacon_chain/spec/datatypes/bellatrix,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils,
+  ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
+
+from std/sequtils import mapIt, toSeq
+from std/strutils import contains
+from ../../../beacon_chain/spec/beaconstate import
+  get_base_reward_per_increment, get_total_active_balance, process_attestation
 
 const
   OpDir                 = SszTestsDir/const_preset/"bellatrix"/"operations"
@@ -126,18 +129,17 @@ suite baseDescription & "Deposit " & preset():
 suite baseDescription & "Execution Payload " & preset():
   for path in walkTests(OpExecutionPayloadDir):
     proc applyExecutionPayload(
-        preState: var bellatrix.BeaconState,
-        executionPayload: ExecutionPayload):
+        preState: var bellatrix.BeaconState, body: bellatrix.BeaconBlockBody):
         Result[void, cstring] =
       let payloadValid =
-        readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
+        os_ops.readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
           contains("execution_valid: true")
-      func executePayload(_: ExecutionPayload): bool = payloadValid
+      func executePayload(_: bellatrix.ExecutionPayload): bool = payloadValid
       process_execution_payload(
-            preState, executionPayload, executePayload)
+        preState, body.execution_payload, executePayload)
 
-    runTest[ExecutionPayload, typeof applyExecutionPayload](
-      OpExecutionPayloadDir, "Execution Payload", "execution_payload",
+    runTest[bellatrix.BeaconBlockBody, typeof applyExecutionPayload](
+      OpExecutionPayloadDir, "Execution Payload", "body",
       applyExecutionPayload, path)
 
 suite baseDescription & "Proposer Slashing " & preset():
@@ -159,7 +161,8 @@ suite baseDescription & "Sync Aggregate " & preset():
       Result[void, cstring] =
     var cache = StateCache()
     process_sync_aggregate(
-      preState, syncAggregate, get_total_active_balance(preState, cache), cache)
+      preState, syncAggregate, get_total_active_balance(preState, cache),
+      {}, cache)
 
   for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](

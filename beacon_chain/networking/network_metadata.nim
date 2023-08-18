@@ -1,36 +1,40 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[sequtils, strutils, os],
-  stew/byteutils, stew/shims/macros, nimcrypto/hash,
-  eth/common/eth_types as commonEthTypes,
+  stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
   web3/[ethtypes, conversions],
   chronicles,
   eth/common/eth_types_json_serialization,
-  ssz_serialization/navigator,
-  ../spec/eth2_ssz_serialization,
-  ../spec/datatypes/phase0
+  ../spec/eth2_ssz_serialization
 
-from ../consensus_object_pools/block_pools_types_light_client
-  import LightClientDataImportMode
-
-# ATTENTION! This file will produce a large C file, because we are inlining
-# genesis states as C literals in the generated code (and blobs in the final
-# binary). It makes sense to keep the file small and separated from the rest
-# of the module in order go gain maximum efficiency in incremental compilation.
-#
 # TODO(zah):
 # We can compress the embedded states with snappy before embedding them here.
 
+# ATTENTION! This file is intentionally avoiding the Nim `/` operator for
+# constructing paths. The standard operator is relying the `DirSep` constant
+# which depends on the selected target OS (when doing cross-compilation), so
+# the compile-time manipulation of paths performed here will break (e.g. when
+# cross-compiling for Windows from Linux)
+#
+# Nim seems to need a more general solution for detecting the host OS during
+# compilation, so a host OS specific separator can be used when deriving paths
+# from `currentSourcePath`.
+
 export
   ethtypes, conversions, RuntimeConfig
+
+const
+  vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
+
+  incbinEnabled* = sizeof(pointer) == 8
 
 type
   Eth1BlockHash* = ethtypes.BlockHash
@@ -42,12 +46,6 @@ type
     goerli
     sepolia
 
-  Eth2NetworkConfigDefaults* = object
-    ## Network specific config defaults
-    lightClientEnable*: bool
-    lightClientDataServe*: bool
-    lightClientDataImportMode*: LightClientDataImportMode
-
   Eth2NetworkMetadata* = object
     case incompatible*: bool
     of false:
@@ -56,7 +54,7 @@ type
       #      branch is not active and thus it will override the first variable
       #      in this branch.
       dummy: string
-      # If the eth1Network is specified, the Eth1Monitor will perform some
+      # If the eth1Network is specified, the ELManager will perform some
       # additional checks to ensure we are connecting to a web3 provider
       # serving data for the same network. The value can be set to `None`
       # for custom networks and testing purposes.
@@ -66,32 +64,27 @@ type
       # Parsing `enr.Records` is still not possible at compile-time
       bootstrapNodes*: seq[string]
 
-      depositContractDeployedAt*: BlockHashOrNumber
+      depositContractBlock*: uint64
+      depositContractBlockHash*: Eth2Digest
 
-      # Please note that we are using `string` here because SSZ.decode
-      # is not currently usable at compile time and we want to load the
-      # network metadata into a constant.
-      #
-      # We could have also used `seq[byte]`, but this results in a lot
-      # more generated code that slows down compilation. The impact on
-      # compilation times of embedding the genesis as a string is roughly
-      # 0.1s on my machine (you can test this by choosing an invalid name
-      # for the genesis file below).
-      #
       # `genesisData` will have `len == 0` for networks with a still
       # unknown genesis state.
-      genesisData*: string
-      genesisDepositsSnapshot*: string
+      when incbinEnabled:
+        genesisData*: seq[byte]
+      else:
+        genesisData*: string
 
-      configDefaults*: Eth2NetworkConfigDefaults
+      genesisDepositsSnapshot*: string
     else:
       incompatibilityDesc*: string
 
-const
-  eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
-  mergeTestnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/merge-testnets"
+template genesisBytes*(metadata: Eth2NetworkMetadata): auto =
+  when incbinEnabled:
+    metadata.genesisData
+  else:
+    metadata.genesisData.toOpenArrayByte(0, metadata.genesisData.high)
 
-proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
+proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
   if fileExists(path):
     splitLines(readFile(path)).
@@ -100,7 +93,7 @@ proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].
   else:
     @[]
 
-proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
+proc readBootEnr*(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
   if fileExists(path):
     splitLines(readFile(path)).
@@ -109,8 +102,9 @@ proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
   else:
     @[]
 
-proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Eth2NetworkMetadata
-                             {.raises: [CatchableError, Defect].} =
+proc loadEth2NetworkMetadata*(
+    path: string, eth1Network = none(Eth1Network), loadGenesis = true):
+    Eth2NetworkMetadata {.raises: [CatchableError].} =
   # Load data in eth2-networks format
   # https://github.com/eth-clients/eth2-networks
 
@@ -121,6 +115,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       configPath = path & "/config.yaml"
       deployBlockPath = path & "/deploy_block.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
+      depositContractBlockHashPath = path & "/deposit_contract_block_hash.txt"
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
       bootEnrPath = path & "/boot_enr.yaml"
       runtimeConfig = if fileExists(configPath):
@@ -135,28 +130,48 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       else:
         defaultRuntimeConfig
 
-      depositContractBlock = if fileExists(depositContractBlockPath):
+      depositContractBlockStr = if fileExists(depositContractBlockPath):
         readFile(depositContractBlockPath).strip
       else:
         ""
 
-      deployBlock = if fileExists(deployBlockPath):
+      depositContractBlockHashStr = if fileExists(depositContractBlockHashPath):
+        readFile(depositContractBlockHashPath).strip
+      else:
+        ""
+
+      deployBlockStr = if fileExists(deployBlockPath):
         readFile(deployBlockPath).strip
       else:
         ""
 
-      depositContractDeployedAt = if depositContractBlock.len > 0:
-        BlockHashOrNumber.init(depositContractBlock)
-      elif deployBlock.len > 0:
-        BlockHashOrNumber.init(deployBlock)
+      depositContractBlock = if depositContractBlockStr.len > 0:
+        parseBiggestUInt depositContractBlockStr
+      elif deployBlockStr.len > 0:
+        parseBiggestUInt deployBlockStr
+      elif not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue:
+        raise newException(ValueError,
+          "A network with deposit contract should specify the " &
+          "deposit contract deployment block in a file named " &
+          "deposit_contract_block.txt or deploy_block.txt")
       else:
-        BlockHashOrNumber(isHash: false, number: 1)
+        1'u64
+
+      depositContractBlockHash = if depositContractBlockHashStr.len > 0:
+        Eth2Digest.strictParse(depositContractBlockHashStr)
+      elif not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue:
+        raise newException(ValueError,
+          "A network with deposit contract should specify the " &
+          "deposit contract deployment block hash in a file " &
+          "name deposit_contract_block_hash.txt")
+      else:
+        default(Eth2Digest)
 
       bootstrapNodes = deduplicate(
         readBootstrapNodes(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
-      genesisData = if fileExists(genesisPath):
+      genesisData = if loadGenesis and fileExists(genesisPath):
         readFile(genesisPath)
       else:
         ""
@@ -166,56 +181,17 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       else:
         ""
 
-      shouldSupportLightClient =
-        if genesisData.len >= 40:
-          # SSZ processing at compile time does not work well.
-          #
-          # `BeaconState` layout:
-          # ```
-          # - genesis_time: uint64
-          # - genesis_validators_root: Eth2Digest
-          # - ...
-          # ```
-          #
-          # Comparing the first 40 bytes covers those two fields,
-          # which should identify the network with high likelihood.
-          # ''.join('%02X'%b for b in open("network_name/genesis.ssz", "rb").read()[:40])
-          let data = (genesisData[0 ..< 40].toHex())
-          data in [
-            # Kiln
-            "0C572B620000000099B09FCD43E5905236C370F184056BEC6E6638CFC31A323B304FC4AA789CB4AD",
-            # Ropsten
-            "F0DB94620000000044F1E56283CA88B35C789F7F449E52339BC1FEFE3A45913A43A6D16EDCD33CF1",
-            # Prater
-            "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
-            # Sepolia
-            "607DB06200000000D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078",
-          ]
-        else:
-          false
-
-      configDefaults =
-        Eth2NetworkConfigDefaults(
-          lightClientEnable:
-            false, # Only produces debug logs so far
-          lightClientDataServe:
-            shouldSupportLightClient,
-          lightClientDataImportMode:
-            if shouldSupportLightClient:
-              LightClientDataImportMode.OnlyNew
-            else:
-              LightClientDataImportMode.None
-        )
-
     Eth2NetworkMetadata(
       incompatible: false,
       eth1Network: eth1Network,
       cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
-      depositContractDeployedAt: depositContractDeployedAt,
-      genesisData: genesisData,
-      genesisDepositsSnapshot: genesisDepositsSnapshot,
-      configDefaults: configDefaults)
+      depositContractBlock: depositContractBlock,
+      depositContractBlockHash: depositContractBlockHash,
+      genesisData:
+        when incbinEnabled: toBytes genesisData
+        else: genesisData,
+      genesisDepositsSnapshot: genesisDepositsSnapshot)
 
   except PresetIncompatibleError as err:
     Eth2NetworkMetadata(incompatible: true,
@@ -223,95 +199,168 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
 
 proc loadCompileTimeNetworkMetadata(
     path: string,
-    eth1Network = none(Eth1Network)): Eth2NetworkMetadata {.raises: [Defect].} =
-  try:
-    result = loadEth2NetworkMetadata(path, eth1Network)
-    if result.incompatible:
-      macros.error "The current build is misconfigured. " &
-                   "Attempt to load an incompatible network metadata: " &
-                   result.incompatibilityDesc
-  except CatchableError as err:
-    macros.error "Failed to load network metadata at '" & path & "': " & err.msg
+    eth1Network = none(Eth1Network),
+    loadGenesis = true): Eth2NetworkMetadata {.raises: [].} =
+  if fileExists(path & "/config.yaml"):
+    try:
+      result = loadEth2NetworkMetadata(path, eth1Network, loadGenesis)
+      if result.incompatible:
+        macros.error "The current build is misconfigured. " &
+                     "Attempt to load an incompatible network metadata: " &
+                     result.incompatibilityDesc
+    except CatchableError as err:
+      macros.error "Failed to load network metadata at '" & path & "': " & err.msg
+  else:
+    macros.error "config.yaml not found for network '" & path
 
-template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
-  loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
-                                 some eth1Network)
+when const_preset == "gnosis":
+  import stew/assign2
 
-template mergeTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
-  loadCompileTimeNetworkMetadata(mergeTestnetsDir & "/" & path,
-                                 some eth1Network)
+  when incbinEnabled:
+    let
+      gnosisGenesis {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
+      gnosisGenesisSize {.importc: "gnosis_mainnet_genesis_size".}: int
 
-when not defined(gnosisChainBinary):
-  when const_preset == "mainnet":
-    const
-      mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
-      praterMetadata* = eth2Network("shared/prater", goerli)
-      ropstenMetadata = mergeTestnet("ropsten-beacon-chain", ropsten)
-      sepoliaMetadata = mergeTestnet("sepolia", sepolia)
-    static:
-      for network in [mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
-        checkForkConsistency(network.cfg)
+    # let `.incbin` in assembly file find the binary file through search path
+    {.passc: "-I" & vendorDir.}
+    {.compile: "network_metadata_gnosis.S".}
 
-  proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
-    template loadRuntimeMetadata: auto =
-      if fileExists(networkName / "config.yaml"):
-        try:
-          loadEth2NetworkMetadata(networkName)
-        except CatchableError as exc:
-          fatal "Cannot load network", msg = exc.msg, networkName
-          quit 1
-      else:
-        fatal "config.yaml not found for network", networkName
+  const
+    gnosisMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/gnosis-chain-configs/mainnet",
+      none(Eth1Network), not incbinEnabled)
+
+  static:
+    checkForkConsistency(gnosisMetadata.cfg)
+    doAssert gnosisMetadata.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
+
+elif const_preset == "mainnet":
+  import stew/assign2
+
+  when incbinEnabled:
+    # Nim is very inefficent at loading large constants from binary files so we
+    # use this trick instead which saves significant amounts of compile time
+    let
+      mainnetGenesis {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
+      mainnetGenesisSize {.importc: "eth2_mainnet_genesis_size".}: int
+
+      praterGenesis {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
+      praterGenesisSize {.importc: "eth2_goerli_genesis_size".}: int
+
+      sepoliaGenesis {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
+      sepoliaGenesisSize {.importc: "eth2_sepolia_genesis_size".}: int
+
+    # let `.incbin` in assembly file find the binary file through search path
+    {.passc: "-I" & vendorDir.}
+    {.compile: "network_metadata_mainnet.S".}
+
+  const
+    mainnetMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/eth2-networks/shared/mainnet", some mainnet, not incbinEnabled)
+    praterMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/eth2-networks/shared/prater", some goerli, not incbinEnabled)
+    sepoliaMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/sepolia/bepolia", some sepolia, not incbinEnabled)
+
+  static:
+    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
+      checkForkConsistency(network.cfg)
+
+    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
+      doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
+
+proc getMetadataForNetwork*(
+    networkName: string): Eth2NetworkMetadata {.raises: [IOError].} =
+  template loadRuntimeMetadata(): auto =
+    if fileExists(networkName / "config.yaml"):
+      try:
+        loadEth2NetworkMetadata(networkName)
+      except CatchableError as exc:
+        fatal "Cannot load network", msg = exc.msg, networkName
         quit 1
+    else:
+      fatal "config.yaml not found for network", networkName
+      quit 1
 
-    var
-      metadata = when const_preset == "mainnet":
-        case toLowerAscii(networkName)
-        of "mainnet":
-          mainnetMetadata
-        of "prater":
-          praterMetadata
-        of "ropsten":
-          ropstenMetadata
-        of "sepolia":
-          sepoliaMetadata
-        else:
-          loadRuntimeMetadata()
+  if networkName == "ropsten":
+    warn "Ropsten is unsupported; https://blog.ethereum.org/2022/11/30/ropsten-shutdown-announcement suggests migrating to Goerli or Sepolia"
+
+  template withGenesis(metadata, genesis: untyped): untyped =
+    when incbinEnabled:
+      var tmp = metadata
+      case tmp.incompatible
+      of false:
+        assign(tmp.genesisData, genesis.toOpenArray(0, `genesis Size` - 1))
+      of true:
+        raiseAssert "Unreachable"  # `loadCompileTimeNetworkMetadata`
+      tmp
+    else:
+      metadata
+
+  let metadata =
+    when const_preset == "gnosis":
+      case toLowerAscii(networkName)
+      of "gnosis":
+        withGenesis(gnosisMetadata, gnosisGenesis)
+      of "gnosis-chain":
+        warn "`--network:gnosis-chain` is deprecated, " &
+          "use `--network:gnosis` instead"
+        withGenesis(gnosisMetadata, gnosisGenesis)
       else:
         loadRuntimeMetadata()
 
-    if metadata.incompatible:
-      fatal "The selected network is not compatible with the current build",
-              reason = metadata.incompatibilityDesc
-      quit 1
-    metadata
+    elif const_preset == "mainnet":
+      case toLowerAscii(networkName)
+      of "mainnet":
+        withGenesis(mainnetMetadata, mainnetGenesis)
+      of "prater", "goerli":
+        withGenesis(praterMetadata, praterGenesis)
+      of "sepolia":
+        withGenesis(sepoliaMetadata, sepoliaGenesis)
+      else:
+        loadRuntimeMetadata()
 
-  proc getRuntimeConfig*(
-      eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
+    else:
+      loadRuntimeMetadata()
+
+  if metadata.incompatible:
+    fatal "The selected network is not compatible with the current build",
+            reason = metadata.incompatibilityDesc
+    quit 1
+
+  metadata
+
+proc getRuntimeConfig*(
+    eth2Network: Option[string]): RuntimeConfig {.raises: [IOError].} =
+  ## Returns the run-time config for a network specified on the command line
+  ## If the network is not explicitly specified, the function will act as the
+  ## regular Nimbus binary, returning the mainnet config.
+  ##
+  ## TODO the assumption that the input variable is a CLI config option is not
+  ## quite appropriate in such as low-level function. The "assume mainnet by
+  ## default" behavior is something that should be handled closer to the `conf`
+  ## layer.
+  let metadata =
     if eth2Network.isSome:
-      return getMetadataForNetwork(eth2Network.get).cfg
-    defaultRuntimeConfig
+      getMetadataForNetwork(eth2Network.get)
+    else:
+      when const_preset == "mainnet":
+        mainnetMetadata
+      elif const_preset == "gnosis":
+        gnosisMetadata
+      else:
+        # This is a non-standard build (i.e. minimal), and the function was
+        # most likely executed in a test. The best we can do is return a fully
+        # default config:
+        return defaultRuntimeConfig
 
-else:
-  const
-    gnosisMetadata* = loadCompileTimeNetworkMetadata(
-      currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis")
-
-  static: checkForkConsistency(gnosisMetadata.cfg)
-
-  proc checkNetworkParameterUse*(eth2Network: Option[string]) =
-    # Support `gnosis-chain` as network name which was used in v22.3
-    if eth2Network.isSome and eth2Network.get notin ["gnosis", "gnosis-chain"]:
-      fatal "The only supported value for the --network parameter is 'gnosis'"
-      quit 1
-
-    if eth2Network.isSome and eth2Network.get == "gnosis-chain":
-      warn "`--network:gnosis-chain` is deprecated, use `--network:gnosis` instead"
-
-  proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
-    checkNetworkParameterUse eth2Network
-    gnosisMetadata.cfg
-
-proc extractGenesisValidatorRootFromSnapshot*(
-    snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
-  sszMount(snapshot, phase0.BeaconState).genesis_validators_root[]
+  return
+    case metadata.incompatible
+    of false:
+      metadata.cfg
+    of true:
+      # `getMetadataForNetwork` / `loadCompileTimeNetworkMetadata`
+      raiseAssert "Unreachable"

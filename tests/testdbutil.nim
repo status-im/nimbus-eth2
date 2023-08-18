@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,27 +10,80 @@ import
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   ../beacon_chain/spec/datatypes/phase0,
-  ../beacon_chain/spec/[beaconstate, forks],
+  ../beacon_chain/spec/[beaconstate, forks, state_transition],
   eth/db/[kvstore, kvstore_sqlite3],
   ./testblockutil
 
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(
-    tailState: ForkedHashedBeaconState,
-    tailBlock: ForkedTrustedSignedBeaconBlock): BeaconChainDB =
-  result = BeaconChainDB.new("", inMemory = true)
-  ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
+    validators: Natural,
+    eth1Data = Opt.none(Eth1Data),
+    flags: UpdateFlags = {skipBlsValidation},
+    cfg = defaultRuntimeConfig): BeaconChainDB =
+  var genState = (ref ForkedHashedBeaconState)(
+    kind: ConsensusFork.Phase0,
+    phase0Data: initialize_hashed_beacon_state_from_eth1(
+      cfg,
+      ZERO_HASH,
+      0,
+      makeInitialDeposits(validators.uint64, flags),
+      flags))
 
-proc makeTestDB*(validators: Natural): BeaconChainDB =
-  let
-    genState = (ref ForkedHashedBeaconState)(
-      kind: BeaconStateFork.Phase0,
-      phase0Data: initialize_hashed_beacon_state_from_eth1(
-        defaultRuntimeConfig,
-        ZERO_HASH,
-        0,
-        makeInitialDeposits(validators.uint64, flags = {skipBlsValidation}),
-        {skipBlsValidation}))
-    genBlock = get_initial_beacon_block(genState[])
-  makeTestDB(genState[], genBlock)
+  # Override Eth1Data on request, skipping the lengthy Eth1 voting process
+  if eth1Data.isOk:
+    withState(genState[]):
+      forkyState.data.eth1_data = eth1Data.get
+      forkyState.root = hash_tree_root(forkyState.data)
+
+  # Upgrade genesis state to later fork, if required by fork schedule
+  cfg.maybeUpgradeState(genState[])
+  withState(genState[]):
+    when consensusFork > ConsensusFork.Phase0:
+      forkyState.data.fork.previous_version =
+        forkyState.data.fork.current_version
+      forkyState.data.latest_block_header.body_root =
+        hash_tree_root(default(BeaconBlockBodyType(consensusFork)))
+      forkyState.root = hash_tree_root(forkyState.data)
+
+  result = BeaconChainDB.new("", cfg = cfg, inMemory = true)
+  ChainDAGRef.preInit(result, genState[])
+
+proc getEarliestInvalidBlockRoot*(
+    dag: ChainDAGRef, initialSearchRoot: Eth2Digest,
+    latestValidHash: Eth2Digest, defaultEarliestInvalidBlockRoot: Eth2Digest):
+    Eth2Digest =
+  # Earliest within a chain/fork in question, per LVH definition. Intended to
+  # be called with `initialRoot` as the parent of the block regarding which a
+  # newPayload or forkchoiceUpdated execution_status has been received as the
+  # tests effectively require being able to access this before the BlockRef's
+  # made. Therefore, to accommodate the EF consensus spec sync tests, and the
+  # possibilities that the LVH might be an immediate parent or a more distant
+  # ancestor special-case handling of an earliest invalid root as potentially
+  # not being from this function's search, but being provided as a default by
+  # the caller with access to the block.
+  var curBlck = dag.getBlockRef(initialSearchRoot).valueOr:
+    # Being asked to traverse a chain which the DAG doesn't know about -- but
+    # that'd imply the block's otherwise invalid for CL as well as EL.
+    return static(default(Eth2Digest))
+
+  # Only allow this special case outside loop; it's when the LVH is the direct
+  # parent of the reported invalid block
+  if  curBlck.executionBlockHash.isSome and
+      curBlck.executionBlockHash.get == latestValidHash:
+    return defaultEarliestInvalidBlockRoot
+
+  while true:
+    # This was supposed to have been either caught by the pre-loop check or the
+    # parent check.
+    if  curBlck.executionBlockHash.isSome and
+        curBlck.executionBlockHash.get == latestValidHash:
+      doAssert false, "getEarliestInvalidBlockRoot: unexpected LVH in loop body"
+
+    if (curBlck.parent.isNil) or
+       curBlck.parent.executionBlockHash.get(latestValidHash) ==
+         latestValidHash:
+      break
+    curBlck = curBlck.parent
+
+  curBlck.root

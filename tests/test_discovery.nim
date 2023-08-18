@@ -1,10 +1,16 @@
+# beacon_chain
+# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 {.used.}
 
 import
   testutils/unittests,
   chronos, stew/shims/net, eth/keys, eth/p2p/discoveryv5/enr,
-  ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/spec/network,
+  ../beacon_chain/spec/[forks, network],
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
   ./testutil
 
@@ -13,13 +19,13 @@ proc new(T: type Eth2DiscoveryProtocol,
     enrIp: Option[ValidIpAddress], enrTcpPort, enrUdpPort: Option[Port],
     bindPort: Port, bindIp: ValidIpAddress,
     enrFields: openArray[(string, seq[byte])] = [],
-    rng: ref BrHmacDrbgContext):
+    rng: ref HmacDrbgContext):
     T {.raises: [CatchableError, Defect].} =
 
   newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields,
     bindPort = bindPort, bindIp = bindIp, rng = rng)
 
-proc generateNode(rng: ref BrHmacDrbgContext, port: Port,
+proc generateNode(rng: ref HmacDrbgContext, port: Port,
     enrFields: openArray[(string, seq[byte])] = []): Eth2DiscoveryProtocol =
   let ip = ValidIpAddress.init("127.0.0.1")
   Eth2DiscoveryProtocol.new(keys.PrivateKey.random(rng[]),
@@ -30,7 +36,7 @@ const noSyncnetsPreference = SyncnetBits()
 
 procSuite "Eth2 specific discovery tests":
   let
-    rng = keys.newRng()
+    rng = HmacDrbgContext.new()
     enrForkId = ENRForkID(
       fork_digest: ForkDigest([byte 0, 1, 2, 3]),
       next_fork_version: Version([byte 0, 0, 0, 0]),
@@ -65,10 +71,10 @@ procSuite "Eth2 specific discovery tests":
     await node2.closeWait()
 
   asyncTest "Invalid attnets field":
-    var invalidAttnets: BitArray[ATTESTATION_SUBNET_COUNT div 2]
+    var invalidAttnets: BitArray[ATTESTATION_SUBNET_COUNT.int div 2]
     invalidAttnets.setBit(15)
     # TODO: This doesn't fail actually.
-    # var invalidAttnets2: BitArray[ATTESTATION_SUBNET_COUNT * 2]
+    # var invalidAttnets2: BitArray[ATTESTATION_SUBNET_COUNT.int * 2]
     # invalidAttnets2.setBit(15)
     var attnets: AttnetBits
     attnets.setBit(15)
@@ -201,3 +207,117 @@ suite "Fork id compatibility test":
         fork_digest: ForkDigest([byte 0, 1, 2, 3]),
         next_fork_version: Version([byte 0, 0, 0, 0]),
         next_fork_epoch: Epoch(2)))
+
+suite "Discovery fork ID":
+  test "Expected fork IDs":
+    let genesis_validators_root = ZERO_HASH
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = 5.Epoch
+    cfg.BELLATRIX_FORK_EPOCH = 10.Epoch
+
+    let
+      # Phase 0
+      phase0ForkId = block:
+        let
+          current_fork_version = cfg.GENESIS_FORK_VERSION
+          next_fork_version = current_fork_version
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: FAR_FUTURE_EPOCH)
+        for epoch in GENESIS_EPOCH ..< cfg.ALTAIR_FORK_EPOCH - 1:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
+
+      # Altair should become visible 1 epoch before the fork
+      phase0AltairForkId = block:
+        let
+          current_fork_version = cfg.GENESIS_FORK_VERSION
+          next_fork_version = cfg.ALTAIR_FORK_VERSION
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: cfg.ALTAIR_FORK_EPOCH)
+        for epoch in cfg.ALTAIR_FORK_EPOCH - 1 ..< cfg.ALTAIR_FORK_EPOCH:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
+
+      # Altair
+      altairForkId = block:
+        let
+          current_fork_version = cfg.ALTAIR_FORK_VERSION
+          next_fork_version = current_fork_version
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: FAR_FUTURE_EPOCH)
+        for epoch in cfg.ALTAIR_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH - 1:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
+
+      # Bellatrix should become visible 1 epoch before the fork
+      altairBellatrixForkId = block:
+        let
+          current_fork_version = cfg.ALTAIR_FORK_VERSION
+          next_fork_version = cfg.BELLATRIX_FORK_VERSION
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: cfg.BELLATRIX_FORK_EPOCH)
+        for epoch in cfg.BELLATRIX_FORK_EPOCH - 1 ..< cfg.BELLATRIX_FORK_EPOCH:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
+
+      # Bellatrix
+      bellatrixForkId = block:
+        let
+          current_fork_version = cfg.BELLATRIX_FORK_VERSION
+          next_fork_version = current_fork_version
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: FAR_FUTURE_EPOCH)
+        for epoch in cfg.BELLATRIX_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH + 5:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
+
+    check:  # isCompatibleForkId(ourForkId, peerForkId)
+      isCompatibleForkId(phase0ForkId, phase0ForkId)
+      isCompatibleForkId(phase0ForkId, phase0AltairForkId)
+      not isCompatibleForkId(phase0ForkId, altairForkId)
+      not isCompatibleForkId(phase0ForkId, altairBellatrixForkId)
+      not isCompatibleForkId(phase0ForkId, bellatrixForkId)
+
+      not isCompatibleForkId(phase0AltairForkId, phase0ForkId)  # fork -1 epoch
+      isCompatibleForkId(phase0AltairForkId, phase0AltairForkId)
+      not isCompatibleForkId(phase0AltairForkId, altairForkId)
+      not isCompatibleForkId(phase0AltairForkId, altairBellatrixForkId)
+      not isCompatibleForkId(phase0AltairForkId, bellatrixForkId)
+
+      not isCompatibleForkId(altairForkId, phase0ForkId)
+      not isCompatibleForkId(altairForkId, phase0AltairForkId)
+      isCompatibleForkId(altairForkId, altairForkId)
+      isCompatibleForkId(altairForkId, altairBellatrixForkId)
+      not isCompatibleForkId(altairForkId, bellatrixForkId)
+
+      not isCompatibleForkId(altairBellatrixForkId, phase0ForkId)
+      not isCompatibleForkId(altairBellatrixForkId, phase0AltairForkId)
+      not isCompatibleForkId(altairBellatrixForkId, altairForkId)  # fork -1 ep
+      isCompatibleForkId(altairBellatrixForkId, altairBellatrixForkId)
+      not isCompatibleForkId(altairBellatrixForkId, bellatrixForkId)
+
+      not isCompatibleForkId(bellatrixForkId, phase0ForkId)
+      not isCompatibleForkId(bellatrixForkId, phase0AltairForkId)
+      not isCompatibleForkId(bellatrixForkId, altairForkId)
+      not isCompatibleForkId(bellatrixForkId, altairBellatrixForkId)
+      isCompatibleForkId(bellatrixForkId, bellatrixForkId)

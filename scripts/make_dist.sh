@@ -22,6 +22,11 @@ docker rm ${DOCKER_TAG} &>/dev/null || true
 
 cd docker/dist
 
+BUILD_TOOLS_ENV="--env BUILD_TOOLS=${BUILD_TOOLS:-"0"}"
+
+echo "${BUILD_TOOLS_ENV}"
+
+
 DOCKER_BUILDKIT=1 \
   docker build \
   -t ${DOCKER_TAG} \
@@ -31,7 +36,7 @@ DOCKER_BUILDKIT=1 \
   -f Dockerfile.${ARCH} .
 
 # seccomp can have some serious overhead, so we disable it with "--privileged" - https://pythonspeed.com/articles/docker-performance-overhead/
-docker run --privileged --rm --name ${DOCKER_TAG} -v ${REPO_DIR}:/home/user/nimbus-eth2 ${DOCKER_TAG}
+docker run --privileged ${BUILD_TOOLS_ENV} --rm --name ${DOCKER_TAG} -v ${REPO_DIR}:/home/user/nimbus-eth2 ${DOCKER_TAG}
 
 cd - &>/dev/null
 

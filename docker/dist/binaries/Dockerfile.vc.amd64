@@ -1,0 +1,15 @@
+FROM debian:bullseye-slim
+
+SHELL ["/bin/bash", "-c"]
+
+# Likely to match the first regular user:group created on the host.
+RUN addgroup --gid 1000 user; \
+	adduser --disabled-password --gecos '' --uid 1000 --gid 1000 user;
+
+USER user
+
+STOPSIGNAL SIGINT
+
+COPY "nimbus-eth2/build/nimbus_validator_client" "/home/user/nimbus_validator_client"
+WORKDIR "/home/user/"
+ENTRYPOINT ["/home/user/nimbus_validator_client"]

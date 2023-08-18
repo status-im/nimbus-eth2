@@ -29,7 +29,7 @@ suite "Beacon state" & preset():
   test "process_slots":
     var
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
@@ -43,7 +43,7 @@ suite "Beacon state" & preset():
   test "latest_block_root":
     var
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
@@ -69,7 +69,7 @@ suite "Beacon state" & preset():
   test "get_beacon_proposer_index":
     var
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
@@ -94,7 +94,7 @@ suite "Beacon state" & preset():
   test "dependent_root":
     var
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
@@ -122,3 +122,38 @@ suite "Beacon state" & preset():
       state[].phase0Data.dependent_root(Epoch(1)) ==
         state[].phase0Data.data.get_block_root_at_slot(Epoch(1).start_slot - 1)
       state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root
+
+  test "merklizer state roundtrip":
+    let
+      dcs = DepositContractState()
+      merkleizer = DepositsMerkleizer.init(dcs)
+
+    check:
+      dcs == merkleizer.toDepositContractState()
+
+  test "can_advance_slots":
+    var
+      state = (ref ForkedHashedBeaconState)(
+        kind: ConsensusFork.Phase0,
+        phase0Data: initialize_hashed_beacon_state_from_eth1(
+          defaultRuntimeConfig, ZERO_HASH, 0,
+          makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
+      genBlock = get_initial_beacon_block(state[])
+      cache: StateCache
+      info: ForkedEpochInfo
+
+    check:
+      state[].can_advance_slots(genBlock.root, Slot(0))
+      state[].can_advance_slots(genBlock.root, Slot(0))
+      state[].can_advance_slots(genBlock.root, Slot(0))
+
+    let blck = addTestBlock(
+      state[], cache, flags = {skipBlsValidation})
+
+    check:
+      not state[].can_advance_slots(genBlock.root, Slot(0))
+      not state[].can_advance_slots(genBlock.root, Slot(0))
+      not state[].can_advance_slots(genBlock.root, Slot(0))
+      not state[].can_advance_slots(blck.root, Slot(0))
+      state[].can_advance_slots(blck.root, Slot(1))
+      state[].can_advance_slots(blck.root, Slot(2))

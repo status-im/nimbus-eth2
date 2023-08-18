@@ -1,15 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
-
-# References to `vFuture` refer to the pre-release proposal of the libp2p based
-# light client sync protocol. Conflicting release versions are not in use.
-# https://github.com/ethereum/consensus-specs/pull/2802
+{.push raises: [].}
 
 import
   std/[hashes, typetraits],
@@ -47,51 +43,51 @@ const
   GENESIS_SLOT* = Slot(0)
   GENESIS_EPOCH* = Epoch(0) # compute_epoch_at_slot(GENESIS_SLOT)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/fork-choice.md#constant
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#constant
   INTERVALS_PER_SLOT* = 3
 
   FAR_FUTURE_BEACON_TIME* = BeaconTime(ns_since_genesis: int64.high())
-  FAR_FUTURE_SLOT* = Slot(not 0'u64)
-  # FAR_FUTURE_EPOCH* = Epoch(not 0'u64) # in presets
-  FAR_FUTURE_PERIOD* = SyncCommitteePeriod(not 0'u64)
 
-  NANOSECONDS_PER_SLOT = SECONDS_PER_SLOT * 1_000_000_000'u64
+  NANOSECONDS_PER_SLOT* = SECONDS_PER_SLOT * 1_000_000_000'u64
 
-# TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
-# switch proc {.noSideEffect.} to func.
 template ethTimeUnit*(typ: type) {.dirty.} =
-  proc `+`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
-  proc `-`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
-  proc `-`*(x: uint64, y: typ): typ {.borrow, noSideEffect.}
+  func `+`*(x: typ, y: uint64): typ {.borrow.}
+  func `-`*(x: typ, y: uint64): typ {.borrow.}
+  func `-`*(x: uint64, y: typ): typ {.borrow.}
 
   # Not closed over type in question (Slot or Epoch)
-  proc `mod`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
-  proc `div`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
-  proc `div`*(x: uint64, y: typ): uint64 {.borrow, noSideEffect.}
-  proc `-`*(x: typ, y: typ): uint64 {.borrow, noSideEffect.}
+  func `mod`*(x: typ, y: uint64): uint64 {.borrow.}
+  func `div`*(x: typ, y: uint64): uint64 {.borrow.}
+  func `div`*(x: uint64, y: typ): uint64 {.borrow.}
+  func `-`*(x: typ, y: typ): uint64 {.borrow.}
 
-  proc `*`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
+  iterator countdown*(a, b: typ, step: Positive = 1): typ =
+    # otherwise we use the signed version that breaks at the boundary
+    for i in countdown(distinctBase(a), distinctBase(b), step):
+      yield typ(i)
 
-  proc `+=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
-  proc `+=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
-  proc `-=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
-  proc `-=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
+  func `*`*(x: typ, y: uint64): uint64 {.borrow.}
+
+  func `+=`*(x: var typ, y: typ) {.borrow.}
+  func `+=`*(x: var typ, y: uint64) {.borrow.}
+  func `-=`*(x: var typ, y: typ) {.borrow.}
+  func `-=`*(x: var typ, y: uint64) {.borrow.}
 
   # Comparison operators
-  proc `<`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `<`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `<`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
+  func `<`*(x: typ, y: typ): bool {.borrow.}
+  func `<`*(x: typ, y: uint64): bool {.borrow.}
+  func `<`*(x: uint64, y: typ): bool {.borrow.}
+  func `<=`*(x: typ, y: typ): bool {.borrow.}
+  func `<=`*(x: typ, y: uint64): bool {.borrow.}
+  func `<=`*(x: uint64, y: typ): bool {.borrow.}
 
-  proc `==`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `==`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `==`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
+  func `==`*(x: typ, y: typ): bool {.borrow.}
+  func `==`*(x: typ, y: uint64): bool {.borrow.}
+  func `==`*(x: uint64, y: typ): bool {.borrow.}
 
   # Nim integration
-  proc `$`*(x: typ): string {.borrow, noSideEffect.}
-  proc hash*(x: typ): Hash {.borrow, noSideEffect.}
+  func `$`*(x: typ): string {.borrow.}
+  func hash*(x: typ): Hash {.borrow.}
 
   template asUInt64*(v: typ): uint64 = distinctBase(v)
   template shortLog*(v: typ): auto = distinctBase(v)
@@ -138,22 +134,22 @@ template `+`*(a: TimeDiff, b: Duration): TimeDiff =
 const
   # Offsets from the start of the slot to when the corresponding message should
   # be sent
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#attesting
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#attesting
   attestationSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#broadcast-aggregate
   aggregateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#prepare-sync-committee-message
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#prepare-sync-committee-message
   syncCommitteeMessageSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#broadcast-sync-committee-contribution
   syncContributionSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientFinalityUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientOptimisticUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 
@@ -187,13 +183,13 @@ func slotOrZero*(time: BeaconTime): Slot =
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func epoch*(slot: Slot): Epoch = # aka compute_epoch_at_slot
   ## Return the epoch number at ``slot``.
   if slot == FAR_FUTURE_SLOT: FAR_FUTURE_EPOCH
   else: Epoch(slot div SLOTS_PER_EPOCH)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/fork-choice.md#compute_slots_since_epoch_start
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#compute_slots_since_epoch_start
 func since_epoch_start*(slot: Slot): uint64 = # aka compute_slots_since_epoch_start
   ## How many slots since the beginning of the epoch (`[0..SLOTS_PER_EPOCH-1]`)
   (slot mod SLOTS_PER_EPOCH)
@@ -201,14 +197,14 @@ func since_epoch_start*(slot: Slot): uint64 = # aka compute_slots_since_epoch_st
 template is_epoch*(slot: Slot): bool =
   slot.since_epoch_start == 0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func start_slot*(epoch: Epoch): Slot = # aka compute_start_slot_at_epoch
   ## Return the start slot of ``epoch``.
   const maxEpoch = Epoch(FAR_FUTURE_SLOT div SLOTS_PER_EPOCH)
   if epoch >= maxEpoch: FAR_FUTURE_SLOT
   else: Slot(epoch * SLOTS_PER_EPOCH)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(current_epoch: Epoch): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   if current_epoch == GENESIS_EPOCH:
@@ -221,7 +217,7 @@ iterator slots*(epoch: Epoch): Slot =
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
     yield slot
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#sync-committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#sync-committee
 template sync_committee_period*(epoch: Epoch): SyncCommitteePeriod =
   if epoch == FAR_FUTURE_EPOCH: FAR_FUTURE_PERIOD
   else: SyncCommitteePeriod(epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
@@ -257,6 +253,12 @@ template start_slot*(period: SyncCommitteePeriod): Slot =
     FAR_FUTURE_SLOT div SLOTS_PER_SYNC_COMMITTEE_PERIOD)
   if period >= maxPeriod: FAR_FUTURE_SLOT
   else: Slot(period * SLOTS_PER_SYNC_COMMITTEE_PERIOD)
+
+func proposer_dependent_slot*(epoch: Epoch): Slot =
+  if epoch >= 1: epoch.start_slot() - 1 else: Slot(0)
+
+func attester_dependent_slot*(epoch: Epoch): Slot =
+  if epoch >= 2: (epoch - 1).start_slot() - 1 else: Slot(0)
 
 func `$`*(t: BeaconTime): string =
   if t.ns_since_genesis >= 0:

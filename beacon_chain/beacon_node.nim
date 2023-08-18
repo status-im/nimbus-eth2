@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,38 +11,42 @@ import
   std/osproc,
 
   # Nimble packages
-  chronos, json_rpc/servers/httpserver, presto,
+  chronos, json_rpc/servers/httpserver, presto, bearssl/rand,
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf, light_client],
-  ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
+  ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
   ./networking/eth2_network,
-  ./eth1/eth1_monitor,
+  ./el/el_manager,
   ./consensus_object_pools/[
-    blockchain_dag, block_quarantine, exit_pool, attestation_pool,
-    sync_committee_msg_pool],
+    blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
+    exit_pool, attestation_pool, sync_committee_msg_pool],
   ./spec/datatypes/[base, altair],
-  ./sync/[optimistic_sync_light_client, sync_manager, request_manager],
-  ./validators/[action_tracker, validator_monitor, validator_pool],
+  ./spec/eth2_apis/dynamic_fee_recipients,
+  ./sync/[sync_manager, request_manager],
+  ./validators/[
+    action_tracker, message_router, validator_monitor, validator_pool,
+    keystore_management],
   ./rpc/state_ttl_cache
 
 export
   osproc, chronos, httpserver, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
   attestation_pool, sync_committee_msg_pool, validator_pool,
-  eth2_network, eth1_monitor, optimistic_sync_light_client,
-  request_manager, sync_manager, eth2_processor, blockchain_dag,
-  block_quarantine, base, exit_pool, validator_monitor, consensus_manager
+  eth2_network, el_manager, request_manager, sync_manager,
+  eth2_processor, optimistic_processor, blockchain_dag, block_quarantine,
+  base, exit_pool,  message_router, validator_monitor,
+  consensus_manager, dynamic_fee_recipients
 
 type
-  RpcServer* = RpcHttpServer
-
   EventBus* = object
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
-    finUpdateQueue*: AsyncEventQueue[altair.LightClientFinalityUpdate]
-    optUpdateQueue*: AsyncEventQueue[altair.LightClientOptimisticUpdate]
+    finUpdateQueue*: AsyncEventQueue[
+      RestVersioned[ForkedLightClientFinalityUpdate]]
+    optUpdateQueue*: AsyncEventQueue[
+      RestVersioned[ForkedLightClientOptimisticUpdate]]
     attestQueue*: AsyncEventQueue[Attestation]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
@@ -56,35 +60,43 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
-    lcOptSync*: LCOptimisticSync
+    optimisticProcessor*: OptimisticProcessor
     lightClient*: LightClient
     dag*: ChainDAGRef
     quarantine*: ref Quarantine
+    blobQuarantine*: ref BlobQuarantine
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
-    exitPool*: ref ExitPool
-    eth1Monitor*: Eth1Monitor
+    validatorChangePool*: ref ValidatorChangePool
+    elManager*: ELManager
     restServer*: RestServerRef
+    keymanagerHost*: ref KeymanagerHost
     keymanagerServer*: RestServerRef
-    keymanagerToken*: Option[string]
+    keystoreCache*: KeystoreCacheRef
     eventBus*: EventBus
     vcProcess*: Process
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
     genesisSnapshotContent*: string
-    actionTracker*: ActionTracker
     processor*: ref Eth2Processor
     blockProcessor*: ref BlockProcessor
     consensusManager*: ref ConsensusManager
     attachedValidatorBalanceTotal*: uint64
     gossipState*: GossipState
+    blocksGossipState*: GossipState
     beaconClock*: BeaconClock
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor
     stateTtlCache*: StateTtlCache
-    nextExchangeTransitionConfTime*: Moment
+    router*: ref MessageRouter
+    dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
+    externalBuilderRegistrations*:
+      Table[ValidatorPubKey, SignedValidatorRegistrationV1]
+    dutyValidatorCount*: int
+      ## Number of validators that we've checked for activation
+    processingDelay*: Opt[Duration]
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
@@ -98,5 +110,40 @@ template findIt*(s: openArray, predicate: untyped): int =
       break
   res
 
+template rng*(node: BeaconNode): ref HmacDrbgContext =
+  node.network.rng
+
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
+
+func getPayloadBuilderAddress*(config: BeaconNodeConf): Opt[string] =
+  if config.payloadBuilderEnable:
+    Opt.some config.payloadBuilderUrl
+  else:
+    Opt.none(string)
+
+proc getPayloadBuilderClient*(
+    node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
+  if not node.config.payloadBuilderEnable:
+    return err "Payload builder globally disabled"
+
+  let
+    defaultPayloadBuilderAddress = node.config.getPayloadBuilderAddress
+    pubkey = withState(node.dag.headState):
+      if validator_index >= forkyState.data.validators.lenu64:
+        return err "Validator index too high"
+      forkyState.data.validators.item(validator_index).pubkey
+    payloadBuilderAddress =
+      if node.keyManagerHost.isNil:
+        defaultPayloadBuilderAddress
+      else:
+        node.keyManagerHost[].getBuilderConfig(pubkey).valueOr:
+          defaultPayloadBuilderAddress
+
+  if payloadBuilderAddress.isNone:
+    return err "Payload builder disabled"
+  let res = RestClientRef.new(payloadBuilderAddress.get)
+  if res.isOk and res.get.isNil:
+    err "Got nil payload builder REST client reference"
+  else:
+    res

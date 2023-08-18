@@ -1,4 +1,5 @@
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# beacon_chain
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -6,10 +7,8 @@
 
 import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
-       ".."/eth1/eth1_monitor,
        ".."/spec/forks,
        "."/rest_utils
-from ../fork_choice/proto_array import PROPOSER_SCORE_BOOST
 
 export rest_utils
 
@@ -23,7 +22,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     cachedConfigSpec =
       RestApiResponse.prepareJsonResponse(
         (
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/phase0.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/phase0.yaml
           MAX_COMMITTEES_PER_SLOT:
             Base10.toString(MAX_COMMITTEES_PER_SLOT),
           TARGET_COMMITTEE_SIZE:
@@ -38,8 +37,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(HYSTERESIS_DOWNWARD_MULTIPLIER),
           HYSTERESIS_UPWARD_MULTIPLIER:
             Base10.toString(HYSTERESIS_UPWARD_MULTIPLIER),
-          SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
-            Base10.toString(SAFE_SLOTS_TO_UPDATE_JUSTIFIED),
           MIN_DEPOSIT_AMOUNT:
             Base10.toString(MIN_DEPOSIT_AMOUNT),
           MAX_EFFECTIVE_BALANCE:
@@ -91,7 +88,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VOLUNTARY_EXITS:
             Base10.toString(MAX_VOLUNTARY_EXITS),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/altair.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/altair.yaml
           INACTIVITY_PENALTY_QUOTIENT_ALTAIR:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_ALTAIR),
           MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR:
@@ -107,7 +104,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           UPDATE_TIMEOUT:
             Base10.toString(UPDATE_TIMEOUT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/bellatrix.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/bellatrix.yaml
           INACTIVITY_PENALTY_QUOTIENT_BELLATRIX:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_BELLATRIX),
           MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX:
@@ -123,7 +120,15 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_EXTRA_DATA_BYTES:
             Base10.toString(uint64(MAX_EXTRA_DATA_BYTES)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/capella.yaml
+          MAX_BLS_TO_EXECUTION_CHANGES:
+            Base10.toString(uint64(MAX_BLS_TO_EXECUTION_CHANGES)),
+          MAX_WITHDRAWALS_PER_PAYLOAD:
+            Base10.toString(uint64(MAX_WITHDRAWALS_PER_PAYLOAD)),
+          MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP:
+            Base10.toString(uint64(MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)),
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/mainnet.yaml
           PRESET_BASE:
             cfg.PRESET_BASE,
           CONFIG_NAME:
@@ -154,10 +159,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.CAPELLA_FORK_VERSION,
           CAPELLA_FORK_EPOCH:
             Base10.toString(uint64(cfg.CAPELLA_FORK_EPOCH)),
-          SHARDING_FORK_VERSION:
-            "0x" & $cfg.SHARDING_FORK_VERSION,
-          SHARDING_FORK_EPOCH:
-            Base10.toString(uint64(cfg.SHARDING_FORK_EPOCH)),
+          DENEB_FORK_VERSION:
+            "0x" & $cfg.DENEB_FORK_VERSION,
+          DENEB_FORK_EPOCH:
+            Base10.toString(uint64(cfg.DENEB_FORK_EPOCH)),
           SECONDS_PER_SLOT:
             Base10.toString(SECONDS_PER_SLOT),
           SECONDS_PER_ETH1_BLOCK:
@@ -179,7 +184,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           CHURN_LIMIT_QUOTIENT:
             Base10.toString(cfg.CHURN_LIMIT_QUOTIENT),
           PROPOSER_SCORE_BOOST:
-            Base10.toString(uint64(PROPOSER_SCORE_BOOST)),
+            Base10.toString(PROPOSER_SCORE_BOOST),
           DEPOSIT_CHAIN_ID:
             Base10.toString(cfg.DEPOSIT_CHAIN_ID),
           DEPOSIT_NETWORK_ID:
@@ -187,7 +192,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DEPOSIT_CONTRACT_ADDRESS:
             $cfg.DEPOSIT_CONTRACT_ADDRESS,
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH
           # FAR_FUTURE_EPOCH
@@ -214,7 +219,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DOMAIN_AGGREGATE_AND_PROOF:
             to0xHex(DOMAIN_AGGREGATE_AND_PROOF.data),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#constants
           TIMELY_SOURCE_FLAG_INDEX:
             to0xHex([byte(TIMELY_SOURCE_FLAG_INDEX)]),
           TIMELY_TARGET_FLAG_INDEX:
@@ -241,17 +246,20 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             to0xHex(DOMAIN_CONTRIBUTION_AND_PROOF.data),
           # PARTICIPATION_FLAG_WEIGHTS
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#domain-types
+          DOMAIN_BLS_TO_EXECUTION_CHANGE:
+            to0xHex(DOMAIN_BLS_TO_EXECUTION_CHANGE.data),
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
-          RANDOM_SUBNETS_PER_VALIDATOR:
-            Base10.toString(RANDOM_SUBNETS_PER_VALIDATOR),
+          RANDOM_SUBNETS_PER_VALIDATOR: "1",
           EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION:
             Base10.toString(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION),
           ATTESTATION_SUBNET_COUNT:
-            Base10.toString(uint64(ATTESTATION_SUBNET_COUNT)),
+            Base10.toString(ATTESTATION_SUBNET_COUNT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#constants
           TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE:
             Base10.toString(uint64(TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)),
           SYNC_COMMITTEE_SUBNET_COUNT:
@@ -283,21 +291,3 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/config/deposit_contract") do () -> RestApiResponse:
     return RestApiResponse.response(cachedDepositContract, Http200,
                                     "application/json")
-
-  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
-  # `/api` path component
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/config/fork_schedule",
-    "/eth/v1/config/fork_schedule"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/config/spec",
-    "/eth/v1/config/spec"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/config/deposit_contract",
-    "/eth/v1/config/deposit_contract"
-  )

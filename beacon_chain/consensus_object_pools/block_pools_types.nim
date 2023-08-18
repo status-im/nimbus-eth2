@@ -1,15 +1,15 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   # Standard library
-  std/[options, sets, tables, hashes],
+  std/[sets, tables, hashes],
   # Status libraries
   chronicles,
   # Internals
@@ -19,32 +19,35 @@ import
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
-from "."/vanity_logs/pandas import VanityLogs
+from ../spec/datatypes/capella import TrustedSignedBeaconBlock
+from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
+
+from "."/vanity_logs/vanity_logs import VanityLogs
 
 export
-  options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
+  sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
   block_pools_types_light_client, validator_monitor, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
 
 type
-  BlockError* {.pure.} = enum
+  VerifierError* {.pure.} = enum
     Invalid
-      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
+      ## Value is broken / doesn't apply cleanly - whoever sent it is fishy (or
       ## we're buggy)
 
     MissingParent
-      ## We don't know the parent of this block so we can't tell if it's valid
+      ## We don't know the parent of this value so we can't tell if it's valid
       ## or not - it'll go into the quarantine and be reexamined when the parent
       ## appears or be discarded if finality obsoletes it
 
     UnviableFork
-      ## Block is from a history / fork that does not include our most current
+      ## Value is from a history / fork that does not include our most current
       ## finalized checkpoint
 
     Duplicate
-      ## We've seen this block already, can't add again
+      ## We've seen this value already, can't add again
 
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}
@@ -62,9 +65,13 @@ type
     # unnecessary overhead.
     data*: BlockRef
 
+  LRUCache*[I: static[int], T] = object
+    entries*: array[I, tuple[value: T, lastUsed: uint32]]
+    timestamp*: uint32
+
   ChainDAGRef* = ref object
     ## ChainDAG validates, stores and serves chain history of valid blocks
-    ## according to the beacon chain state transtion. From genesis to the
+    ## according to the beacon chain state transition. From genesis to the
     ## finalization point, block history is linear - from there, it branches out
     ## into a dag with several heads, one of which is considered canonical.
     ##
@@ -103,7 +110,7 @@ type
     ##          |         |               |
     ##          db.finalizedBlocks        dag.forkBlocks
     ##
-    ## The archive is the the part of finalized history for which we no longer
+    ## The archive is the part of finalized history for which we no longer
     ## recreate states quickly because we don't have a reasonable state to
     ## start replay from - when starting from a checkpoint, this is the typical
     ## case - recreating history requires either replaying from genesis or
@@ -131,17 +138,19 @@ type
       ## `finalizedHead.slot..head.slot` (inclusive) - dag.heads keeps track
       ## of each potential head block in this table.
 
-    genesis*: BlockId
-      ## The genesis block of the network
+    genesis*: Opt[BlockId]
+      ## The root of the genesis block, iff it is known (ie if the database was
+      ## created with a genesis state available)
 
     tail*: BlockId
-      ## The earliest finalized block for which we have a corresponding state -
-      ## when making a replay of chain history, this is as far back as we can
-      ## go - the tail block is unique in that its parent is set to `nil`, even
-      ## in the case where an earlier genesis block exists.
+      ## The earliest block for which we can construct a state - we consider
+      ## the tail implicitly finalized no matter what fork choice and state
+      ## says - when starting from a trusted checkpoint, the tail is set to
+      ## the checkpoint block.
 
     head*: BlockRef
-      ## The most recently known head, as chosen by fork choice
+      ## The most recently known head, as chosen by fork choice; might be
+      ## optimistic
 
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
@@ -153,7 +162,7 @@ type
       ## backfilling reaches this point - empty when not backfilling.
 
     heads*: seq[BlockRef]
-    ## Candidate heads of candidate chains
+      ## Candidate heads of candidate chains
 
     finalizedHead*: BlockSlot
       ## The latest block that was finalized according to the block in head
@@ -165,6 +174,12 @@ type
     lastPrunePoint*: BlockSlotId
       ## The last prune point
       ## We can prune up to finalizedHead
+
+    lastHistoryPruneHorizon*: Slot
+      ## The horizon when we last pruned, for horizon diff computation
+
+    lastHistoryPruneBlockHorizon*: Slot
+      ## Block pruning progress at the last call
 
     # -----------------------------------
     # Rewinder - Mutable state processing
@@ -185,13 +200,9 @@ type
 
     cfg*: RuntimeConfig
 
-    lightClientDataServe*: bool
-      ## Whether to make local light client data available or not
+    shufflingRefs*: LRUCache[16, ShufflingRef]
 
-    lightClientDataImportMode*: LightClientDataImportMode
-      ## Which classes of light client data to import
-
-    epochRefs*: array[32, EpochRef]
+    epochRefs*: LRUCache[32, EpochRef]
       ## Cached information about a particular epoch ending with the given
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
@@ -203,15 +214,13 @@ type
       ## full ChainDAG.
 
     vanityLogs*: VanityLogs
-      ## Upon the merge activating, these get displayed, at least once when the
-      ## head becomes post-merge and then when the merge is finalized. If chain
-      ## reorgs happen around the initial merge onMergeTransitionBlock might be
-      ## called several times.
+      ## Logs for celebratory events, typically featuring ANSI art.
 
     # -----------------------------------
-    # Data to enable light clients to stay in sync with the network
+    # Light client data
 
-    lightClientCache*: LightClientCache
+    lcDataStore*: LightClientDataStore
+      # Data store to enable light clients to sync with the network
 
     # -----------------------------------
     # Callbacks
@@ -224,10 +233,6 @@ type
       ## On beacon chain reorganization
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
-    onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
-      ## On new `LightClientFinalityUpdate` callback
-    onLightClientOptimisticUpdate*: OnLightClientOptimisticUpdateCallback
-      ## On new `LightClientOptimisticUpdate` callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
@@ -245,47 +250,47 @@ type
     epoch*: Epoch
     bid*: BlockId
 
-  EpochRef* = ref object
-    dag*: ChainDAGRef
-    key*: EpochKey
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
-    eth1_data*: Eth1Data
-    eth1_deposit_index*: uint64
-    beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
-    proposer_dependent_root*: Eth2Digest
+  ShufflingRef* = ref object
+    ## Attestation committee shuffling that determines when validators have
+    ## duties - determined with one epoch of look-ahead - the dependent root is
+    ## the block root that is the last to affect the shuffling outcome.
+    epoch*: Epoch
+    attester_dependent_root*: Eth2Digest
+      ## Root of the block that determined the shuffling - this is the last
+      ## block that was applied in (epoch - 2).
 
     shuffled_active_validator_indices*: seq[ValidatorIndex]
-    attester_dependent_root*: Eth2Digest
 
-    # enables more efficient merge block validation
-    merge_transition_complete*: bool
+  EpochRef* = ref object
+    key*: EpochKey
+
+    eth1_data*: Eth1Data
+    eth1_deposit_index*: uint64
+
+    checkpoints*: FinalityCheckpoints
+
+    beacon_proposers*: array[SLOTS_PER_EPOCH, Opt[ValidatorIndex]]
+    proposer_dependent_root*: Eth2Digest
+
+    shufflingRef*: ShufflingRef
+
+    total_active_balance*: Gwei
 
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
-  # TODO when Nim 1.2 support is dropped, make these generic. 1.2 generates
-  # invalid C code, which gcc refuses to compile. Example test case:
-  # type
-  #   OnBlockAdded[T] = proc(x: T)
-  #   OnPhase0BlockAdded = OnBlockAdded[int]
-  # proc f(x: OnPhase0BlockAdded) = discard
-  # const nilCallback = OnPhase0BlockAdded(nil)
-  # f(nilCallback)
-  OnPhase0BlockAdded* = proc(
-    blckRef: BlockRef,
-    blck: phase0.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+  OnBlockAdded[T] = proc(
+    blckRef: BlockRef, blck: T, epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+  OnPhase0BlockAdded* = OnBlockAdded[phase0.TrustedSignedBeaconBlock]
+  OnAltairBlockAdded* = OnBlockAdded[altair.TrustedSignedBeaconBlock]
+  OnBellatrixBlockAdded* = OnBlockAdded[bellatrix.TrustedSignedBeaconBlock]
+  OnCapellaBlockAdded* = OnBlockAdded[capella.TrustedSignedBeaconBlock]
+  OnDenebBlockAdded* = OnBlockAdded[deneb.TrustedSignedBeaconBlock]
 
-  OnAltairBlockAdded* = proc(
-    blckRef: BlockRef,
-    blck: altair.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
-
-  OnBellatrixBlockAdded* = proc(
-    blckRef: BlockRef,
-    blck: bellatrix.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+  OnForkyBlockAdded* =
+    OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
+    OnCapellaBlockAdded | OnDenebBlockAdded
 
   HeadChangeInfoObject* = object
     slot*: Slot
@@ -316,15 +321,35 @@ type
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
+func proposer_dependent_slot*(epochRef: EpochRef): Slot =
+  epochRef.key.epoch.proposer_dependent_slot()
+
+func attester_dependent_slot*(shufflingRef: ShufflingRef): Slot =
+  shufflingRef.epoch.attester_dependent_slot()
+
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
-template frontfill*(dagParam: ChainDAGRef): BlockId =
+template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
+  ## When there's a gap in the block database, this is the most recent block
+  ## that we know of _before_ the gap - after a checkpoint sync, this will
+  ## typically be the genesis block (iff available) - if we have era files,
+  ## this is the most recent era file block.
   let dag = dagParam
   if dag.frontfillBlocks.lenu64 > 0:
-    BlockId(
+    Opt.some BlockId(
       slot: Slot(dag.frontfillBlocks.lenu64 - 1), root: dag.frontfillBlocks[^1])
   else:
     dag.genesis
+
+func horizon*(dag: ChainDAGRef): Slot =
+  ## The sync horizon that we target during backfill - we will backfill and
+  ## retain this and newer blocks, but anything older may get pruned depending
+  ## on the history mode
+  let minSlots = dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS * SLOTS_PER_EPOCH
+  if dag.head.slot > minSlots:
+    min(dag.finalizedHead.slot, dag.head.slot - minSlots)
+  else:
+    GENESIS_SLOT
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
 

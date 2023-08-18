@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -18,7 +18,7 @@ import
 
   # Internals
   ../../beacon_chain/extras,
-  ../../beacon_chain/eth1/merkle_minimal,
+  ../../beacon_chain/el/merkle_minimal,
 
   # Test utilities
   ../testblockutil
@@ -89,7 +89,7 @@ template mockGenesisDepositsImpl(
       depositsData.add result[valIdx]
       depositsDataHash.add hash_tree_root(result[valIdx])
 
-func mockGenesisBalancedDeposits*(
+proc mockGenesisBalancedDeposits*(
         validatorCount: uint64,
         amountInEth: Positive,
         flags: UpdateFlags = {}
@@ -106,7 +106,7 @@ func mockGenesisBalancedDeposits*(
   mockGenesisDepositsImpl(result, validatorCount,amount,flags):
     discard
 
-func mockUpdateStateForNewDeposit*(
+proc mockUpdateStateForNewDeposit*(
        state: var ForkyBeaconState,
        validator_index: uint64,
        amount: uint64,
@@ -126,12 +126,11 @@ func mockUpdateStateForNewDeposit*(
   )
 
   var result_seq = @[result]
-  attachMerkleProofs(result_seq)
+  let deposit_root = attachMerkleProofs(result_seq)
   result.proof = result_seq[0].proof
 
   # TODO: this logic from the consensus-specs test suite seems strange
   #       but confirmed by running it
   state.eth1_deposit_index = 0
-  state.eth1_data.deposit_root =
-     hash_tree_root(List[DepositData, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH](@[result.data]))
+  state.eth1_data.deposit_root = deposit_root
   state.eth1_data.deposit_count = 1

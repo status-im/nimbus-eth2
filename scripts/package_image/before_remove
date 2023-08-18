@@ -1,6 +1,0 @@
-#!/bin/sh
-
-set -e
-
-systemctl stop 'nimbus_beacon_node.service'
-systemctl disable 'nimbus_beacon_node.service'

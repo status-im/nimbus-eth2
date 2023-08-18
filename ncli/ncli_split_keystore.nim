@@ -1,6 +1,13 @@
+# beacon_chain
+# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/os,
-  bearssl, nimcrypto/utils, confutils, eth/keys,
+  confutils,
   ../beacon_chain/validators/keystore_management,
   ../beacon_chain/spec/[keystore, crypto],
   ../beacon_chain/conf
@@ -58,16 +65,15 @@ proc main =
     error "The specified treshold must be lower or equal to the number of signers"
     quit 1
 
-  var
-    rng = keys.newRng()
-    rngCtx = rng[]
+  let rng = HmacDrbgContext.new()
+  template rngCtx: untyped = rng[]
 
   let
     validatorsDir = conf.validatorsDir
     secretsDir = conf.secretsDir
     keystore = loadKeystore(validatorsDir,
                             secretsDir,
-                            conf.key, true).valueOr:
+                            conf.key, true, nil).valueOr:
       error "Can't load keystore", validatorsDir, secretsDir, pubkey = conf.key
       quit 1
 
@@ -88,7 +94,7 @@ proc main =
 
   let
     outSharesDir = conf.outDir / "shares"
-    status = generateDistirbutedStore(
+    status = generateDistributedStore(
       rngCtx,
       shares,
       signingPubKey,

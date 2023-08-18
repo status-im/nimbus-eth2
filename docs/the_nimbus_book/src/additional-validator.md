@@ -1,7 +1,10 @@
 # Add an additional validator
 
-To add an additional validator, just follow [the same steps](./keys.md) as you did when you added your first.
+<!-- TODO: We should work on a new recommended way to add validators based on the Keymanager API (this doesn't require a node restart) -->
 
-You'll have to restart the beacon node for the changes to take effect.
+To add an additional validator, [generate a new key](./more-keys.md) then follow [the same steps](./run-a-validator.md#2-import-your-validator-keys) as you did when adding your other keys.
 
-> Note that a single Nimbus instance is able to handle multiple validators.
+You'll have to [restart](./run-a-validator.md#3-start-validating) the beacon node for the changes to take effect.
+
+!!! tip
+    A single Nimbus instance is able to handle multiple validators.

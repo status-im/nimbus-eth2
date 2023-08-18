@@ -1,17 +1,20 @@
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   chronos, presto/client, chronicles,
   ".."/".."/validators/slashing_protection_common,
   ".."/datatypes/[phase0, altair, bellatrix],
+  ".."/mev/bellatrix_mev,
   ".."/[helpers, forks, keystore, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
+
+from ".."/datatypes/capella import SignedBeaconBlock
 
 export chronos, client, rest_types, eth2_rest_serialization
 
@@ -53,6 +56,14 @@ proc getStateValidators*(state_id: StateIdent,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
 
+proc getStateValidatorsPlain*(
+       state_id: StateIdent,
+       id: seq[ValidatorIdent]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/states/{state_id}/validators",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
+
 proc getStateValidator*(state_id: StateIdent,
                         validator_id: ValidatorIdent
                        ): RestResponse[GetStateValidatorResponse] {.
@@ -75,6 +86,12 @@ proc getStateValidatorBalances*(state_id: StateIdent
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
 
+proc getStateRandao*(state_id: StateIdent
+             ): RestResponse[GetStateRandaoResponse] {.
+     rest, endpoint: "/eth/v1/beacon/states/{state_id}/randao",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateRandao
+
 proc getEpochCommittees*(state_id: StateIdent, epoch: Option[Epoch],
                         ): RestResponse[GetEpochCommitteesResponse] {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/committees",
@@ -93,10 +110,42 @@ proc getBlockHeaders*(slot: Option[Slot], parent_root: Option[Eth2Digest]
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeaders
 
-proc getBlockHeader*(block_id: BlockIdent): RestResponse[GetBlockHeaderResponse] {.
+# proc getBlockHeader*(block_id: BlockIdent): RestResponse[GetBlockHeaderResponse] {.
+#      rest, endpoint: "/eth/v1/beacon/headers/{block_id}",
+#      meth: MethodGet.}
+#   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
+
+proc getBlockHeaderPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/headers/{block_id}",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
+
+proc getBlockHeader*(
+       client: RestClientRef,
+       block_id: BlockIdent
+     ): Future[Opt[GetBlockHeaderResponse]] {.async.} =
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
+  let resp = await client.getBlockHeaderPlain(block_id)
+  return
+    case resp.status
+    of 200:
+      let response = decodeBytes(GetBlockHeaderResponse, resp.data,
+                                 resp.contentType).valueOr:
+        raise newException(RestError, $error)
+      Opt.some(response)
+    of 404:
+      Opt.none(GetBlockHeaderResponse)
+    of 400, 500:
+      let error = decodeBytes(RestErrorMessage, resp.data,
+                              resp.contentType).valueOr:
+        let msg = "Incorrect response error format (" & $resp.status &
+                  ") [" & $error & "]"
+        raise (ref RestResponseError)(msg: msg, status: resp.status)
+      let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
+      raise (ref RestResponseError)(
+        msg: msg, status: error.code, message: error.message)
+    else:
+      raiseRestResponseError(resp)
 
 proc publishBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks",
@@ -113,48 +162,61 @@ proc publishBlock*(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
-proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks/{block_id}",
-     accept: preferSSZ,
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
+proc publishBlock*(body: capella.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
-proc getBlock*(client: RestClientRef, block_id: BlockIdent,
-               restAccept = ""): Future[ForkedSignedBeaconBlock] {.async.} =
-  let resp =
-    if len(restAccept) > 0:
-      await client.getBlockPlain(block_id, restAcceptType = restAccept)
-    else:
-      await client.getBlockPlain(block_id)
-  let data =
-    case resp.status
-    of 200:
-      case resp.contentType
-      of "application/json":
-        let blck =
-          block:
-            let res = decodeBytes(GetBlockResponse, resp.data,
-                                  resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            res.get()
-        ForkedSignedBeaconBlock.init(blck.data)
-      of "application/octet-stream":
-        let blck =
-          block:
-            let res = decodeBytes(GetPhase0BlockSszResponse, resp.data,
-                                  resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            res.get()
-        ForkedSignedBeaconBlock.init(blck)
-      else:
-        raise newException(RestError, "Unsupported content-type")
-    of 400, 404, 500:
-      raiseGenericError(resp)
-    else:
-      raiseUnknownStatusError(resp)
-  return data
+proc publishBlock*(body: DenebSignedBlockContents): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
+
+proc publishSszBlock*(
+       client: RestClientRef,
+       blck: ForkySignedBeaconBlock
+     ): Future[RestPlainResponse] {.async.} =
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
+  let
+    consensus = typeof(blck).toFork.toString()
+    resp = await client.publishBlock(
+      blck, restContentType = $OctetStreamMediaType,
+      extraHeaders = @[("eth-consensus-version", consensus)])
+  return resp
+
+proc publishBlindedBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
+proc publishBlindedBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
+proc publishBlindedBlock*(body: bellatrix_mev.SignedBlindedBeaconBlock):
+       RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
+proc publishBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock):
+       RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
+proc publishSszBlindedBlock*(
+       client: RestClientRef,
+       blck: ForkySignedBeaconBlock
+     ): Future[RestPlainResponse] {.async.} =
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+  let
+    consensus = typeof(blck).toFork.toString()
+    resp = await client.publishBlindedBlock(
+      blck, restContentType = $OctetStreamMediaType,
+      extraHeaders = @[("eth-consensus-version", consensus)])
+  return resp
 
 proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/blocks/{block_id}",
@@ -177,42 +239,43 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
   return
     case resp.status
     of 200:
-      case resp.contentType
-      of "application/json":
-        let blck =
-          block:
-            let res = decodeBytes(GetBlockV2Response, resp.data,
-                                  resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            newClone(res.get())
-        some blck
-      of "application/octet-stream":
-        try:
-          some newClone(readSszForkedSignedBeaconBlock(cfg, resp.data))
-        except CatchableError as exc:
-          raise newException(RestError, exc.msg)
+      if resp.contentType.isNone() or
+         isWildCard(resp.contentType.get().mediaType):
+        raise newException(RestError, "Missing or incorrect Content-Type")
       else:
-        raise newException(RestError, "Unsupported content-type")
+        let mediaType = resp.contentType.get().mediaType
+        if mediaType == ApplicationJsonMediaType:
+          let blck = decodeBytes(GetBlockV2Response, resp.data,
+                                 resp.contentType).valueOr:
+            raise newException(RestError, $error)
+          some(newClone(blck))
+        elif mediaType == OctetStreamMediaType:
+          try:
+            some newClone(readSszForkedSignedBeaconBlock(cfg, resp.data))
+          except CatchableError as exc:
+            raise newException(RestError, exc.msg)
+        else:
+          raise newException(RestError, "Unsupported Content-Type")
     of 404:
       none(ref ForkedSignedBeaconBlock)
-
     of 400, 500:
-      let error =
-        block:
-          let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
-          if res.isErr():
-            let msg = "Incorrect response error format (" & $resp.status &
-                      ") [" & $res.error() & "]"
-            raise newException(RestError, msg)
-          res.get()
+      let error = decodeBytes(RestErrorMessage, resp.data,
+                              resp.contentType).valueOr:
+        let msg = "Incorrect response error format (" & $resp.status &
+                  ") [" & $error & "]"
+        raise (ref RestResponseError)(msg: msg, status: resp.status)
       let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
-      raise newException(RestError, msg)
+      raise (ref RestResponseError)(
+        msg: msg, status: error.code, message: error.message)
     else:
-      let msg = "Unknown response status error (" & $resp.status & ")"
-      raise newException(RestError, msg)
+      raiseRestResponseError(resp)
 
 proc getBlockRoot*(block_id: BlockIdent): RestResponse[GetBlockRootResponse] {.
+     rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
+
+proc getBlockRootPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
@@ -270,3 +333,8 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/voluntary_exits",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
+
+proc getDepositSnapshot*(): RestResponse[GetDepositSnapshotResponse] {.
+     rest, endpoint: "/eth/v1/beacon/deposit_snapshot",
+     meth: MethodGet.}
+  ## https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md

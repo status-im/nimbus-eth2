@@ -1,62 +1,87 @@
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[os, sequtils, times],
-  bearssl, chronicles,
+  stew/byteutils,
+  chronicles,
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/signatures,
   ./validators/keystore_management,
   "."/[conf, beacon_clock, filepath]
 
-proc getSignedExitMessage(config: BeaconNodeConf,
-                          validatorKeyAsStr: string,
-                          exitAtEpoch: Epoch,
-                          validatorIdx: uint64 ,
-                          fork: Fork,
-                          genesis_validators_root: Eth2Digest): SignedVoluntaryExit =
-  let
-    validatorsDir = config.validatorsDir
-    keystoreDir = validatorsDir / validatorKeyAsStr
+type
+  ValidatorStorageKind* {.pure.} = enum
+    Keystore, Identifier
 
-  if not dirExists(keystoreDir):
-    echo "The validator keystores directory '" & validatorsDir &
-         "' does not contain a keystore for the selected validator with public " &
-         "key '" & validatorKeyAsStr & "'."
-    quit 1
+  ValidatorStorage* = object
+    case kind: ValidatorStorageKind
+    of ValidatorStorageKind.Keystore:
+      privateKey: ValidatorPrivKey
+    of ValidatorStorageKind.Identifier:
+      ident: ValidatorIdent
 
-  let signingItem = loadKeystore(
-    validatorsDir,
-    config.secretsDir,
-    validatorKeyAsStr,
-    config.nonInteractive)
+proc getSignedExitMessage(
+       config: BeaconNodeConf,
+       storage: ValidatorStorage,
+       validatorKeyAsStr: string,
+       exitAtEpoch: Epoch,
+       validatorIdx: uint64,
+       fork: Fork,
+       genesis_validators_root: Eth2Digest
+     ): SignedVoluntaryExit =
 
-  if signingItem.isNone:
-    fatal "Unable to continue without decrypted signing key"
-    quit 1
+  let signingKey =
+    case storage.kind
+    of ValidatorStorageKind.Identifier:
+      let
+        validatorsDir = config.validatorsDir
+        keystoreDir = validatorsDir / validatorKeyAsStr
+
+      if not dirExists(keystoreDir):
+        echo "The validator keystores directory '" & validatorsDir &
+             "' does not contain a keystore for the selected validator " &
+             "with public key '" & validatorKeyAsStr & "'."
+        quit 1
+
+      let signingItem = loadKeystore(
+        validatorsDir,
+        config.secretsDir,
+        validatorKeyAsStr,
+        config.nonInteractive,
+        nil)
+
+      if signingItem.isNone:
+        fatal "Unable to continue without decrypted signing key"
+        quit 1
+
+      signingItem.get().privateKey
+
+    of ValidatorStorageKind.Keystore:
+      storage.privateKey
 
   var signedExit = SignedVoluntaryExit(
     message: VoluntaryExit(
       epoch: exitAtEpoch,
-      validator_index: validatorIdx))
+      validator_index: validatorIdx
+    )
+  )
 
   signedExit.signature =
-    block:
-      let key = signingItem.get.privateKey
-      get_voluntary_exit_signature(fork, genesis_validators_root,
-                                   signedExit.message, key).toValidatorSig()
-
+    get_voluntary_exit_signature(fork, genesis_validators_root,
+                                 signedExit.message,
+                                 signingKey).toValidatorSig()
   signedExit
 
 type
   ClientExitAction = enum
-    quiting = "q"
-    confirmation = "I understand the implications of submitting a voluntary exit"
+    abort = "q"
+    confirm = "I understand the implications of submitting a voluntary exit"
 
 proc askForExitConfirmation(): ClientExitAction =
   template ask(prompt: string): string =
@@ -72,16 +97,6 @@ proc askForExitConfirmation(): ClientExitAction =
   echoP "Publishing a voluntary exit is an irreversible operation! " &
         "You won't be able to restart again with the same validator."
 
-  echoP "By requesting an exit now, you'll be exempt from penalties " &
-        "stemming from not performing your validator duties, but you " &
-        "won't be able to withdraw your deposited funds for the time " &
-        "being. This means that your funds will be effectively frozen " &
-        "until withdrawals are enabled in a future phase of Eth2."
-
-  echoP "To understand more about the Eth2 roadmap, we recommend you " &
-        "have a look at\n" &
-        "https://ethereum.org/en/eth2/#roadmap"
-
   echoP "You must keep your validator running for at least 5 epochs " &
         "(32 minutes) after requesting a validator exit, as you will " &
         "still be required to perform validator duties until your exit " &
@@ -93,20 +108,43 @@ proc askForExitConfirmation(): ClientExitAction =
 
   var choice = ""
 
-  while not(choice == $ClientExitAction.confirmation or
-            choice == $ClientExitAction.quiting) :
+  while not(choice == $ClientExitAction.confirm or
+            choice == $ClientExitAction.abort) :
     echoP "To proceed to submitting your voluntary exit, please type '" &
-          $ClientExitAction.confirmation &
+          $ClientExitAction.confirm &
           "' (without the quotes) in the prompt below and " &
           "press ENTER or type 'q' to quit."
     echo ""
 
     choice = ask "Your choice"
 
-  if choice == $ClientExitAction.confirmation:
-    ClientExitAction.confirmation
+  if choice == $ClientExitAction.confirm:
+    ClientExitAction.confirm
   else:
-    ClientExitAction.quiting
+    ClientExitAction.abort
+
+proc getValidator*(decryptor: var MultipleKeystoresDecryptor,
+                   name: string): Result[ValidatorStorage, string] =
+  let ident = ValidatorIdent.decodeString(name)
+  if ident.isErr():
+    if not(isFile(name)):
+      return err($ident.error)
+    let key = decryptor.importKeystoreFromFile(name)
+    if key.isErr():
+      return err(key.error())
+    ok(ValidatorStorage(kind: ValidatorStorageKind.Keystore,
+                        privateKey: key.get()))
+  else:
+    ok(ValidatorStorage(kind: ValidatorStorageKind.Identifier,
+                        ident: ident.get()))
+
+func getIdent*(storage: ValidatorStorage): ValidatorIdent =
+  case storage.kind
+  of ValidatorStorageKind.Keystore:
+    ValidatorIdent(kind: ValidatorQueryKind.Key,
+                   key: storage.privateKey.toPubKey().toPubKey())
+  of ValidatorStorageKind.Identifier:
+    storage.ident
 
 proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   let
@@ -117,32 +155,24 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
                              value: StateIdentType.Head)
     blockIdentHead = BlockIdent(kind: BlockQueryKind.Named,
                                 value: BlockIdentType.Head)
-    validatorIdent = ValidatorIdent.decodeString(config.exitedValidator)
 
-  if validatorIdent.isErr():
-    fatal "Incorrect validator index or key specified",
-           err = $validatorIdent.error()
-    quit 1
-
-  let restValidator = try:
-    let response = await client.getStateValidatorPlain(stateIdHead,
-                                                       validatorIdent.get())
-    if response.status == 200:
-      let validator = decodeBytes(GetStateValidatorResponse,
-                                  response.data,
-                                  response.contentType)
-      if validator.isErr():
-        raise newException(RestError, $validator.error)
-      validator.get().data
-    else:
-      raiseGenericError(response)
-  except CatchableError as err:
-    fatal "Failed to obtain information for validator", err = err.msg
-    quit 1
-
-  let
-    validator = restValidator.validator
-    validatorIdx = restValidator.index.uint64
+  # Before making any REST requests, we'll make sure that the supplied
+  # inputs are correct:
+  var validators: seq[ValidatorStorage]
+  if config.exitAllValidatorsFlag:
+    var keystoreCache = KeystoreCacheRef.init()
+    for keystore in listLoadableKeystores(config, keystoreCache):
+      validators.add ValidatorStorage(kind: ValidatorStorageKind.Keystore,
+                                      privateKey: keystore.privateKey)
+  else:
+    var decryptor: MultipleKeystoresDecryptor
+    defer: dispose decryptor
+    for pubKey in config.exitedValidators:
+      let validatorStorage = decryptor.getValidator(pubkey).valueOr:
+        fatal "Incorrect validator index, key or keystore path specified",
+              value = pubKey, reason = error
+        quit 1
+      validators.add validatorStorage
 
   let genesis = try:
     let response = await client.getGenesisPlain()
@@ -155,21 +185,23 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
       genesis.get().data
     else:
       raiseGenericError(response)
-  except CatchableError as err:
+  except CatchableError as exc:
     fatal "Failed to obtain the genesis validators root of the network",
-           err = err.msg
+           reason = exc.msg
     quit 1
+
+  let currentEpoch = block:
+    let
+      genesisTime = genesis.genesis_time
+      beaconClock = BeaconClock.init(genesisTime)
+      time = getTime()
+      slot = beaconClock.toSlot(time).slot
+    Epoch(slot.uint64 div 32)
 
   let exitAtEpoch = if config.exitAtEpoch.isSome:
     Epoch config.exitAtEpoch.get
   else:
-    let
-      genesisTime =  genesis.genesis_time
-      beaconClock = BeaconClock.init(genesisTime)
-      time = getTime()
-      slot = beaconClock.toSlot(time).slot
-      epoch = slot.uint64 div 32
-    Epoch epoch
+    currentEpoch
 
   let fork = try:
     let response = await client.getStateForkPlain(stateIdHead)
@@ -182,61 +214,125 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
       fork.get().data
     else:
       raiseGenericError(response)
-  except CatchableError as err:
+  except CatchableError as exc:
     fatal "Failed to obtain the fork id of the head state",
-           err = err.msg
+           reason = exc.msg
     quit 1
 
-  let
-    genesis_validators_root = genesis.genesis_validators_root
-    validatorKeyAsStr = "0x" & $validator.pubkey
-    signedExit = getSignedExitMessage(config,
-                                      validatorKeyAsStr,
-                                      exitAtEpoch,
-                                      validatorIdx,
-                                      fork,
-                                      genesis_validators_root)
-
-  try:
-    let choice = askForExitConfirmation()
-    if choice == ClientExitAction.quiting:
-      quit 0
-    elif choice == ClientExitAction.confirmation:
-      let
-        response = await client.submitPoolVoluntaryExit(signedExit)
-        success = response.status == 200
-      if success:
-        echo "Successfully published voluntary exit for validator " &
-              $validatorIdx & "(" & validatorKeyAsStr[0..9] & ")."
-        quit 0
+  let signingFork = try:
+    let response = await client.getSpec()
+    if response.status == 200:
+      let spec = response.data
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#voluntary-exits
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+      if currentEpoch >= Epoch(spec.data.DENEB_FORK_EPOCH):
+        Fork(
+          current_version: spec.data.CAPELLA_FORK_VERSION,
+          previous_version: spec.data.CAPELLA_FORK_VERSION,
+          epoch: GENESIS_EPOCH)  # irrelevant when current/previous identical
       else:
-        let responseError = try:
-              Json.decode(response.data, RestGenericError)
-        except CatchableError as err:
-          fatal "Failed to decode invalid error server response on `submitPoolVoluntaryExit` request",
-            err = err.msg
-          quit 1
+        fork
+    else:
+      raise newException(RestError, "Error response (" & $response.status & ")")
+  except CatchableError as exc:
+    fatal "Failed to obtain the config spec of the beacon node",
+           reason = exc.msg
+    quit 1
 
+  if not config.printData:
+    case askForExitConfirmation()
+    of ClientExitAction.abort:
+      quit 0
+    of ClientExitAction.confirm:
+      discard
+
+  var hadErrors = false
+  for validator in validators:
+    let restValidator = try:
+      let response = await client.getStateValidatorPlain(stateIdHead, validator.getIdent)
+      if response.status == 200:
+        let validatorInfo = decodeBytes(GetStateValidatorResponse,
+                                        response.data, response.contentType)
+        if validatorInfo.isErr():
+          raise newException(RestError, $validatorInfo.error)
+        validatorInfo.get().data
+      else:
+        raiseGenericError(response)
+    except CatchableError as exc:
+      fatal "Failed to obtain information for validator", reason = exc.msg
+      quit 1
+
+    let
+      validatorIdx = restValidator.index.uint64
+      validatorKey = restValidator.validator.pubkey
+
+    let
+      genesis_validators_root = genesis.genesis_validators_root
+      validatorKeyAsStr = "0x" & $validatorKey
+      signedExit = getSignedExitMessage(config,
+                                        validator,
+                                        validatorKeyAsStr,
+                                        exitAtEpoch,
+                                        validatorIdx,
+                                        fork,
+                                        genesis_validators_root)
+
+    if config.printData:
+      let bytes = encodeBytes(signedExit, "application/json").valueOr:
+        error "Unable to serialize signed exit message", reason = error
+        hadErrors = true
+        continue
+
+      echoP "You can use following command to send voluntary exit message to " &
+            "remote beacon node host:\n"
+
+      echo "curl -X 'POST' \\"
+      echo "  '" & config.restUrlForExit &
+           "/eth/v1/beacon/pool/voluntary_exits' \\"
+      echo "  -H 'Accept: */*' \\"
+      echo "  -H 'Content-Type: application/json' \\"
+      echo "  -d '" & string.fromBytes(bytes) & "'"
+      quit 0
+    else:
+      try:
         let
-          responseMessage = responseError.message
-          responseStacktraces = responseError.stacktraces
+          validatorDesc = $validatorIdx & "(" & validatorKeyAsStr[0..9] & ")"
+          response = await client.submitPoolVoluntaryExit(signedExit)
+          success = response.status == 200
+        if success:
+          echo "Successfully published voluntary exit for validator " &
+                validatorDesc & "."
+        else:
+          hadErrors = true
+          let responseError = try:
+            Json.decode(response.data, RestErrorMessage)
+          except CatchableError as exc:
+            error "Failed to decode invalid error server response on " &
+                  "`submitPoolVoluntaryExit` request", reason = exc.msg
+            continue
 
-        echo "The voluntary exit was not submitted successfully."
-        echo responseMessage & ":"
-        for el in responseStacktraces.get():
-          echo el
-        echoP "Please try again."
-        quit 1
+          let
+            responseMessage = responseError.message
+            responseStacktraces = responseError.stacktraces
 
-  except CatchableError as err:
-    fatal "Failed to send the signed exit message",
-           err = err.msg
+          echo "The voluntary exit for validator " & validatorDesc &
+               " was not submitted successfully."
+          echo responseMessage & ":"
+          for el in responseStacktraces.get():
+            echo el
+          echoP "Please try again."
+      except CatchableError as err:
+        fatal "Failed to send the signed exit message",
+              signedExit, reason = err.msg
+        hadErrors = true
+
+  if hadErrors:
     quit 1
 
 proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
   await restValidatorExit(config)
 
-proc doDeposits*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
+proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
   case config.depositsCmd
   of DepositsCmd.createTestnetDeposits:
@@ -338,13 +434,14 @@ proc doDeposits*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
         InputDir(cwd / "validator_keys")
       else:
         echo "The default search path for validator keys is a sub-directory " &
-              "named 'validator_keys' in the current working directory. Since " &
-              "no such directory exists, please either provide the correct path" &
-              "as an argument or copy the imported keys in the expected location."
+              "named 'validator_keys' in the current working directory. " &
+              " Since no such directory exists, please either provide the " &
+              "correct path as an argument or copy the imported keys in the " &
+              "expected location."
         quit 1
 
     importKeystoresFromDir(
-      rng,
+      rng, config.importMethod,
       validatorKeysDir.string,
       config.validatorsDir, config.secretsDir)
 

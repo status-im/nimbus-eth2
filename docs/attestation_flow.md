@@ -6,10 +6,10 @@ This is a WIP document to explain the attestation flows.
 
 It is important to distinguish attestation `validation` from attestation `verification`.
 - Attestation `validation` is defined in the P2P specs. Validated attestations can be forwarded on GossipSub.
-  - Aggregated: https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-  - Unaggregated: https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+  - Aggregated: https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+  - Unaggregated: https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 - Attestation `verification` is defined in the consensus specs. Verified attestations can affect fork choice and may be included in a block.
-  - https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#attestations
+  - https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#attestations
 
 From the specs it seems like gossip attestation `validation` is a superset of consensus attestation `verification`.
 
@@ -51,8 +51,8 @@ These GossipSub topics are used to listen for attestations:
 - Unaggregated: `/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz_snappy`
 
 The attestations are then validated by `validateAttestation()` or `validateAggregate()` in either `attestationValidator()` or `aggregateValidator()` according to the P2P specs.
-- https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-- https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#attestation-subnets
+- https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+- https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnets
 
 Finally, valid attestations are added to the local `attestationPool`.
 Attestations are dropped in case of an error.
@@ -63,7 +63,7 @@ After validation in `attestationValidator()` or `aggregateValidator()` in eth2_p
 - We jump into method `validate(PubSub, Message)` in libp2p/protocols/pubsub/pubsub.nim
 - which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`
 
-### Eth2 RPC in
+### Consensus RPC in
 
 There is no RPC for attestations but attestations might be included in synced blocks.
 ### Comments
@@ -80,7 +80,7 @@ Verifying attestations only consumes a small share of block processing time. Att
 ##### Latency & Throughput sensitiveness
 
 We distinguish aggregation of attestations from batched validation:
-- aggregation of attestations is defined by the Eth2 specs. When multiple validators sign the same attestation, their individual signatures may be combined into an aggregate signature to save storage space and to reduce validation time. The aggregate signature is exchanged over the P2P network and included in blocks, but the aggregate public key is computed on-the-fly based on the individual validator public keys according to a participation bitfield.
+- aggregation of attestations is defined by the consensus specs. When multiple validators sign the same attestation, their individual signatures may be combined into an aggregate signature to save storage space and to reduce validation time. The aggregate signature is exchanged over the P2P network and included in blocks, but the aggregate public key is computed on-the-fly based on the individual validator public keys according to a participation bitfield.
 - batched validation is an opportunistic client side optimization. Multiple attestations of the same underlying data are collected and processed as a batch once a threshold of them has been received or after a time limit is exceeded. As part of this batched validation, both the aggregate signature as well as the aggregate public key are computed on-the-fly.
 
 Attestations are included in blocks during sync and do not require gossip validation.

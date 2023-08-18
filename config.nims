@@ -1,4 +1,23 @@
+# beacon_chain
+# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import strutils
+
+--noNimblePath
+
+const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
+
+if getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
+   # BEWARE
+   # In Nim 1.6, config files are evaluated with a working directory
+   # matching where the Nim command was invocated. This means that we
+   # must do all file existance checks with full absolute paths:
+   system.fileExists(currentDir & "nimbus-build-system.paths"):
+  include "nimbus-build-system.paths"
 
 const nimCachePathOverride {.strdefine.} = ""
 when nimCachePathOverride == "":
@@ -21,8 +40,8 @@ if defined(release) and not defined(disableLTO):
     switch("passC", "-flto=thin")
     switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
   elif defined(linux):
-    switch("passC", "-flto=jobserver")
-    switch("passL", "-flto=jobserver")
+    switch("passC", "-flto=auto")
+    switch("passL", "-flto=auto")
     switch("passC", "-finline-limit=100000")
     switch("passL", "-finline-limit=100000")
   else:
@@ -67,12 +86,6 @@ if defined(windows):
   # toolchain: https://github.com/status-im/nimbus-eth2/issues/3121
   switch("define", "nimRawSetjmp")
 
-# This helps especially for 32-bit x86, which sans SSE2 and newer instructions
-# requires quite roundabout code generation for cryptography, and other 64-bit
-# and larger arithmetic use cases, along with register starvation issues. When
-# engineering a more portable binary release, this should be tweaked but still
-# use at least -msse2 or -msse3.
-#
 # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#ssse3-supplemental-sse3
 # suggests that SHA256 hashing with SSSE3 is 20% faster than without SSSE3, so
 # given its near-ubiquity in the x86 installed base, it renders a distribution
@@ -81,20 +94,30 @@ if defined(windows):
 if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
     if defined(macosx):
-      # https://support.apple.com/kb/SP777
-      # "macOS Mojave - Technical Specifications": EOL as of 2021-10 so macOS
-      # users on pre-Nehalem must be running either some Hackintosh, or using
-      # an unsupported macOS version beyond that most recently EOL'd. Nehalem
-      # supports instruction set extensions through SSE4.2 and POPCNT.
-      switch("passC", "-march=nehalem")
-      switch("passL", "-march=nehalem")
+      # macOS Catalina is EOL as of 2022-09
+      # https://support.apple.com/kb/sp833
+      # "macOS Big Sur - Technical Specifications" lists current oldest
+      # supported models: MacBook (2015 or later), MacBook Air (2013 or later),
+      # MacBook Pro (Late 2013 or later), Mac mini (2014 or later), iMac (2014
+      # or later), iMac Pro (2017 or later), Mac Pro (2013 or later).
+      #
+      # These all have Haswell or newer CPUs.
+      #
+      # This ensures AVX2, AES-NI, PCLMUL, BMI1, and BMI2 instruction set support.
+      switch("passC", "-march=haswell -mtune=generic")
+      switch("passL", "-march=haswell -mtune=generic")
     else:
-      switch("passC", "-mssse3")
-      switch("passL", "-mssse3")
+      if defined(marchOptimized):
+        # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#bmi2--adx
+        switch("passC", "-march=broadwell -mtune=generic")
+        switch("passL", "-march=broadwell -mtune=generic")
+      else:
+        switch("passC", "-mssse3")
+        switch("passL", "-mssse3")
 elif defined(macosx) and defined(arm64):
   # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
-  switch("passC", "-mcpu=apple-a14")
-  switch("passL", "-mcpu=apple-a14")
+  switch("passC", "-mcpu=apple-m1")
+  switch("passL", "-mcpu=apple-m1")
 else:
   switch("passC", "-march=native")
   switch("passL", "-march=native")
@@ -118,11 +141,6 @@ switch("passL", "-fno-omit-frame-pointer")
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
-# TODO https://github.com/status-im/nimbus-eth2/issues/3130
-# We are still seeing problems with the websock package, se we stick to using news:
-switch("define", "json_rpc_websocket_package=news")
-
-const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
 
@@ -169,8 +187,17 @@ switch("warning", "ObservableStores:off")
 # Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
 switch("warning", "LockLevel:off")
 
+# Too many right now to read compiler output. Warnings are legitimate, but
+# should be fixed out-of-band of `unstable` branch.
+switch("warning", "BareExcept:off")
+
+# Too many of these because of Defect compat in 1.2
+switch("hint", "XCannotRaiseY:off")
+
 # Useful for Chronos metrics.
 #--define:chronosFutureTracking
+
+--define:kzgExternalBlst
 
 # ############################################################
 #
@@ -179,7 +206,7 @@ switch("warning", "LockLevel:off")
 # ############################################################
 
 # This applies per-file compiler flags to C files
-# which do not support {.localPassc: "-fno-lto".}
+# which do not support {.localPassC: "-fno-lto".}
 # Unfortunately this is filename based instead of path-based
 # Assumes GCC
 
@@ -207,4 +234,3 @@ put("ecp_BLS12381.always", "-fno-lto")
 # sqlite3.c: In function ‘sqlite3SelectNew’:
 # vendor/nim-sqlite3-abi/sqlite3.c:124500: warning: function may return address of local variable [-Wreturn-local-addr]
 put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
-

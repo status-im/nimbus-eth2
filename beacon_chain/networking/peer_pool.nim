@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import std/[tables, heapqueue]
 import chronos
@@ -349,7 +349,7 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
 
 proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
                        peerType: PeerType) =
-  proc onPeerClosed(udata: pointer) {.gcsafe, raises: [Defect].} =
+  proc onPeerClosed(udata: pointer) {.gcsafe, raises: [].} =
     discard pool.deletePeer(peer)
 
   let item = PeerItem[A](data: peer, peerType: peerType,

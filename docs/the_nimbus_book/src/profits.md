@@ -1,8 +1,9 @@
-# Optimise for profitability
+# Optimize for profitability
 
 Key insights:
-- Profitability depends heavily on the network and peer quality
-- While block proposals are more lucrative than attestations, they are much rarer
+
+- Profitability depends heavily on the network and peer quality.
+- While block proposals are more lucrative than attestations, they are much rarer.
 
 
 
@@ -31,7 +32,8 @@ Specifically, have a look at `nextActionWait` time.
 If you're concerned about missing an attestation or proposal, wait until `nextActionWait` is greater than 4 minutes or so before restarting Nimbus.
 
 
-You can also use the `nimbus-eth2` [API](./api.md). For example, to check if your validator has a next Proposal slot assigned, run:
+You can also use the `nimbus-eth2` [API](./api.md).
+For example, to check if your validator has a next Proposal slot assigned, run:
 
 ```
 curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_duties_proposer","params":[${HEAD_EPOCH_NUMBER}],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq ".result[]" | grep ${PATTERN_WHICH_MATCHES_VALIDATOR_PUBLIC_KEYS}
@@ -39,17 +41,18 @@ curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_duties_proposer","params":[
 
 
 ## Subscribe to all subnets
+
 Launching the beacon node with the `--subscribe-all-subnets` option increases bandwidth and cpu usage, but helps the network and makes the block production algorithm perform slightly better.
 
-To elaborate a little, without this option enabled Nimbus only listens to a subset of the attestation traffic - in particular, Nimbus doesn't listen to all unaggregated traffic but instead relies on peers to aggregate attestations on the subnets it doesn't subscribe to. 
+To elaborate a little, without this option enabled Nimbus only listens to a subset of the attestation traffic: in particular, Nimbus doesn't listen to all unaggregated traffic but instead relies on peers to aggregate attestations on the subnets it doesn't subscribe to. 
 
-With this option enabled, Nimbus listens to all unaggregated channels (subscribes to all subnets). Practically speaking, this means that when producing a block, Nimbus can "top up" the aggregates that other peers have made with it's own unaggregated attestations. This can lead to better packing in some cases, which can lead to slightly greater rewards.
+With this option enabled, Nimbus listens to all unaggregated channels (subscribes to all subnets).
+Practically speaking, this means that when producing a block, Nimbus can "top up" the aggregates that other peers have made with it's own unaggregated attestations.
+This can lead to better packing in some cases, which can lead to slightly greater rewards.
 
 ## Useful resources
 
 - [The journey of a validator balance](https://kb.beaconcha.in/rewards-and-penalties)
 
 - [Validator rewards in practice](https://pintail.xyz/posts/validator-rewards-in-practice/)
-
-
 

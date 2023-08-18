@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 # Common routines for a BeaconNode and a ValidatorClient
 
@@ -14,24 +14,30 @@ import
   std/[tables, strutils, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils, toml_serialization,
+  chronos, confutils, presto, toml_serialization, metrics,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
 
   # Local modules
-  ./spec/[helpers],
+  ./spec/[helpers, keystore],
   ./spec/datatypes/base,
-  "."/[beacon_clock, beacon_node_status, conf, filepath]
+  "."/[beacon_clock, beacon_node_status, conf, version]
 
 when defined(posix):
   import termios
+
+declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
+versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
+
+declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
+nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
 
 export
   confutils, toml_serialization, beacon_clock, beacon_node_status, conf
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: Slot): Future[void] {.gcsafe,
+                           lastSlot: Slot): Future[bool] {.gcsafe,
   raises: [Defect].}
 
 # silly chronicles, colors is a compile-time property
@@ -74,7 +80,7 @@ proc updateLogLevel*(logLevel: string) {.raises: [Defect, ValueError].} =
   # Updates log levels (without clearing old ones)
   let directives = logLevel.split(";")
   try:
-    setLogLevel(parseEnum[LogLevel](directives[0]))
+    setLogLevel(parseEnum[LogLevel](directives[0].capitalizeAscii()))
   except ValueError:
     raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
 
@@ -98,6 +104,7 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
 
 when defaultChroniclesStream.outputs.type.arity == 2:
   from std/os import splitFile
+  from "."/filepath import secureCreatePath
 
 proc setupLogging*(
     logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
@@ -193,30 +200,36 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
     ConfType.load(
       version = version, # but a short version string makes more sense...
       copyrightBanner = clientId,
-      secondarySources = proc (config: ConfType, sources: auto) =
+      secondarySources = proc (
+          config: ConfType, sources: auto
+      ) {.raises: [ConfigurationError].} =
         if config.configFile.isSome:
           sources.addConfigFile(Toml, config.configFile.get)
     )
   except CatchableError as err:
     # We need to log to stderr here, because logging hasn't been configured yet
-    stderr.write "Failure while loading the configuration:\n"
-    stderr.write err.msg
-    stderr.write "\n"
+    try:
+      stderr.write "Failure while loading the configuration:\n"
+      stderr.write err.msg
+      stderr.write "\n"
 
-    if err[] of ConfigurationError and
-       err.parent != nil and
-       err.parent[] of TomlFieldReadingError:
-      let fieldName = ((ref TomlFieldReadingError)(err.parent)).field
-      if fieldName in ["web3-url", "bootstrap-node",
-                       "direct-peer", "validator-monitor-pubkey"]:
-        stderr.write "Since the '" & fieldName & "' option is allowed to " &
-                     "have more than one value, please make sure to supply " &
-                     "a properly formatted TOML array\n"
+      if err[] of ConfigurationError and
+        err.parent != nil and
+        err.parent[] of TomlFieldReadingError:
+        let fieldName = ((ref TomlFieldReadingError)(err.parent)).field
+        if fieldName in ["web3-url", "bootstrap-node",
+                        "direct-peer", "validator-monitor-pubkey"]:
+          stderr.write "Since the '" & fieldName & "' option is allowed to " &
+                       "have more than one value, please make sure to supply " &
+                       "a properly formatted TOML array\n"
+    except IOError:
+      discard
     quit 1
   {.pop.}
   config
 
-proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64) =
+proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
+                               stopAtEpoch: uint64): bool =
   # Offset backwards slightly to allow this epoch's finalization check to occur
   if scheduledSlot > 3 and stopAtEpoch > 0'u64 and
       (scheduledSlot - 3).epoch() >= stopAtEpoch:
@@ -224,9 +237,9 @@ proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64) =
       chosenEpoch = stopAtEpoch,
       epoch = scheduledSlot.epoch(),
       slot = scheduledSlot
-
-    # Brute-force, but ensure it's reliable enough to run in CI.
-    quit(0)
+    true
+  else:
+    false
 
 proc resetStdin*() =
   when defined(posix):
@@ -236,6 +249,18 @@ proc resetStdin*() =
     discard fd.tcGetAttr(attrs.addr)
     attrs.c_lflag = attrs.c_lflag or Cflag(ECHO)
     discard fd.tcSetAttr(TCSANOW, attrs.addr)
+
+proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
+  while true:
+    let exitLoop =
+      try:
+        await sleepAsync(60.seconds)
+        false
+      except CatchableError:
+        cache.clear()
+        true
+    if exitLoop: break
+    cache.pruneExpiredKeys()
 
 proc runSlotLoop*[T](node: T, startTime: BeaconTime,
                      slotProc: SlotStartProc[T]) {.async.} =
@@ -302,8 +327,114 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
           curSlot = shortLog(curSlot),
           nextSlot = shortLog(curSlot)
 
-    await slotProc(node, wallTime, curSlot)
+    let breakLoop = await slotProc(node, wallTime, curSlot)
+    if breakLoop:
+      break
 
     curSlot = wallSlot
     nextSlot = wallSlot + 1
     timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
+
+proc init*(T: type RestServerRef,
+           ip: ValidIpAddress,
+           port: Port,
+           allowedOrigin: Option[string],
+           validateFn: PatternCallback,
+           config: AnyConf): T =
+  let address = initTAddress(ip, port)
+  let serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
+                     HttpServerFlags.NotifyDisconnect}
+  # We increase default timeout to help validator clients who poll our server
+  # at least once per slot (12.seconds).
+  let
+    headersTimeout =
+      if config.restRequestTimeout == 0:
+        chronos.InfiniteDuration
+      else:
+        seconds(int64(config.restRequestTimeout))
+    maxHeadersSize = config.restMaxRequestHeadersSize * 1024
+    maxRequestBodySize = config.restMaxRequestBodySize * 1024
+
+  let res = try:
+    RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
+                      address, serverFlags = serverFlags,
+                      httpHeadersTimeout = headersTimeout,
+                      maxHeadersSize = maxHeadersSize,
+                      maxRequestBodySize = maxRequestBodySize)
+  except CatchableError as err:
+    notice "Rest server could not be started", address = $address,
+           reason = err.msg
+    return nil
+
+  if res.isErr():
+    notice "Rest server could not be started", address = $address,
+           reason = res.error()
+    nil
+  else:
+    notice "Starting REST HTTP server",
+      url = "http://" & $ip & ":" & $port & "/"
+
+    res.get()
+
+type
+  KeymanagerInitResult* = object
+    server*: RestServerRef
+    token*: string
+
+proc initKeymanagerServer*(
+    config: AnyConf,
+    existingRestServer: RestServerRef = nil): KeymanagerInitResult
+    {.raises: [Defect].} =
+
+  var token: string
+  let keymanagerServer = if config.keymanagerEnabled:
+    if config.keymanagerTokenFile.isNone:
+      echo "To enable the Keymanager API, you must also specify " &
+           "the --keymanager-token-file option."
+      quit 1
+
+    let
+      tokenFilePath = config.keymanagerTokenFile.get.string
+      tokenFileReadRes = readAllChars(tokenFilePath)
+
+    if tokenFileReadRes.isErr:
+      fatal "Failed to read the keymanager token file",
+            error = $tokenFileReadRes.error
+      quit 1
+
+    token = tokenFileReadRes.value.strip
+    if token.len == 0:
+      fatal "The keymanager token should not be empty", tokenFilePath
+      quit 1
+
+    when config is BeaconNodeConf:
+      if existingRestServer != nil and
+         config.restAddress == config.keymanagerAddress and
+        config.restPort == config.keymanagerPort:
+        existingRestServer
+      else:
+        RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
+                           config.keymanagerAllowedOrigin,
+                           validateKeymanagerApiQueries,
+                           config)
+    else:
+      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
+                         config.keymanagerAllowedOrigin,
+                         validateKeymanagerApiQueries,
+                         config)
+  else:
+    nil
+
+  KeymanagerInitResult(server: keymanagerServer, token: token)
+
+proc quitDoppelganger*() =
+  # Avoid colliding with
+  # https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Process%20Exit%20Codes
+  # This error code is used to permanently shut down validators
+  fatal "Doppelganger detection triggered! It appears a validator loaded into " &
+    "this process is already live on the network - the validator is at high " &
+    "risk of being slashed due to the same keys being used in two setups. " &
+    "See https://nimbus.guide/doppelganger-detection.html for more information!"
+
+  const QuitDoppelganger = 129
+  quit QuitDoppelganger

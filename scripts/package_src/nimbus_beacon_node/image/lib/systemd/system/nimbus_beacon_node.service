@@ -1,0 +1,68 @@
+# To configure the service, use `systemctl edit nimbus_beacon_node.service`
+# and override the environment variables in this file:
+# [Service]
+# Environment="WEB3_URL=wss://provider/"
+#
+# To completely override the start command (to add custom parameters such as
+# graffiti), override the `ExecStart` value instead by first emptying it, then
+# specifying a new one:
+#
+# [Service]
+# ExecStart=
+# ExecStart=/usr/bin/nimbus_beacon_node --network=${NETWORK} \
+#  --data-dir="${DATA_DIR_PREFIX}/shared_${NETWORK}_${NODE_ID}" \
+#  --graffiti=123
+#
+# See https://nimbus.guide/ for more information
+
+[Unit]
+Description=Nimbus Beacon Node (Ethereum consensus client)
+Wants=network-online.target
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+# Network - use `prater` to connect to the prater testnet
+Environment=NETWORK=mainnet
+
+# You need to have have access to an execution client - by default, we assume
+# a compatible execution client is running on the same machine on the default
+# websocket port. Make sure to supply the right path to the JWT secret.
+
+Environment=WEB3_URL=http://127.0.0.1:8551
+Environment=JWT_SECRET=/tmp/jwtsecret
+
+# Where to store chain data
+Environment=DATA_DIR_PREFIX=/var/lib/nimbus
+
+# Default ports - if you want to run multiple instances of nimbus, for example
+# to run both prater and mainnet, separate ports must be used
+Environment=TCP_PORT=9000
+Environment=UDP_PORT=9000
+Environment=REST_PORT=5052
+Environment=METRICS_PORT=8008
+
+# Interaction and monitoring
+Environment=REST_ENABLED=Yes
+Environment=METRICS_ENABLED=Yes
+
+# Default group = nimbus
+User=nimbus
+WorkingDirectory=/var/lib/nimbus
+TimeoutSec=1200
+Restart=always
+
+# Don't restart when Doppelganger detection has been activated
+RestartPreventExitStatus=129
+
+ExecStart=/usr/bin/nimbus_beacon_node \
+  --network=${NETWORK} \
+  --data-dir="${DATA_DIR_PREFIX}/shared_${NETWORK}_0" \
+  --tcp-port=${TCP_PORT} \
+  --udp-port=${UDP_PORT} \
+  --rest=${REST_ENABLED} --rest-port=${REST_PORT} \
+  --metrics=${METRICS_ENABLED} --metrics-port=${METRICS_PORT} \
+  --web3-url=${WEB3_URL} \
+  --jwt-secret=${JWT_SECRET}

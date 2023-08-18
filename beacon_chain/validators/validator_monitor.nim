@@ -1,17 +1,21 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[options, tables],
+  std/tables,
   metrics, chronicles,
+  ../spec/datatypes/phase0,
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
 
-{.push raises: [Defect].}
+# TODO when forks re-exports capella, drop this
+from ../spec/datatypes/capella import shortLog
+
+{.push raises: [].}
 
 logScope: topics = "val_mon"
 
@@ -185,7 +189,7 @@ type
   MonitoredValidator = object
     id: string # A short id is used above all for metrics
     pubkey: ValidatorPubKey
-    index: Option[ValidatorIndex]
+    index: Opt[ValidatorIndex]
     summaries: array[2, EpochSummary] # We monitor the current and previous epochs
 
   ValidatorMonitor* = object
@@ -219,7 +223,7 @@ proc update_if_lt[T](current: var Option[T], val: T) =
 
 proc addMonitor*(
     self: var ValidatorMonitor, pubkey: ValidatorPubKey,
-    index: Option[ValidatorIndex]) =
+    index: Opt[ValidatorIndex]) =
   if pubkey in self.monitors:
     return
 
@@ -241,9 +245,12 @@ proc addAutoMonitor*(
   if not self.autoRegister:
     return
 
+  if pubkey in self.monitors:
+    return
+
   # automatic monitors must be registered with index - we don't look for them in
   # the state
-  self.addMonitor(pubkey, some(index))
+  self.addMonitor(pubkey, Opt.some(index))
 
   info "Started monitoring validator",
     validator = shortLog(pubkey), pubkey, index
@@ -290,10 +297,10 @@ proc updateEpoch(self: var ValidatorMonitor, epoch: Epoch) =
       var agg: int64
       for monitor {.inject.} in self.monitors.mvalues:
         agg += monitor.summaries[summaryIdx].name
-      metric.set(agg, [total])
+      metrics.set(metric, agg, [total])
     else:
       for monitor {.inject.} in self.monitors.mvalues:
-        metric.set(monitor.summaries[summaryIdx].name, [monitor.id])
+        metrics.set(metric, monitor.summaries[summaryIdx].name, [monitor.id])
 
   template observeAll(metric, name: untyped) =
     for monitor {.inject.} in self.monitors.mvalues:
@@ -301,7 +308,6 @@ proc updateEpoch(self: var ValidatorMonitor, epoch: Epoch) =
         metric.observe(
           monitor.summaries[summaryIdx].name.get.toGaugeValue(),
           [if self.totals: total else: monitor.id])
-
 
   setAll(
     validator_monitor_prev_epoch_attestations_total,
@@ -464,24 +470,27 @@ proc registerEpochInfo*(
           epoch = prev_epoch,
           validator = id
 
-      # Indicates if any on-chain attestation hit the head.
-      if previous_epoch_matched_head:
-        validator_monitor_prev_epoch_on_chain_head_attester_hit.inc(1, [metricId])
-      else:
-        validator_monitor_prev_epoch_on_chain_head_attester_miss.inc(1, [metricId])
-        notice "Attestation failed to match head",
-          epoch = prev_epoch,
-          validator = id
-
       # Indicates if any on-chain attestation hit the target.
       if previous_epoch_matched_target:
         validator_monitor_prev_epoch_on_chain_target_attester_hit.inc(1, [metricId])
       else:
         validator_monitor_prev_epoch_on_chain_target_attester_miss.inc(1, [metricId])
 
-        notice "Attestation failed to match target",
-          epoch = prev_epoch,
-          validator = id
+        if previous_epoch_matched_source:
+          notice "Attestation failed to match target and head",
+            epoch = prev_epoch,
+            validator = id
+
+      # Indicates if any on-chain attestation hit the head.
+      if previous_epoch_matched_head:
+        validator_monitor_prev_epoch_on_chain_head_attester_hit.inc(1, [metricId])
+      else:
+        validator_monitor_prev_epoch_on_chain_head_attester_miss.inc(1, [metricId])
+        if previous_epoch_matched_target:
+          notice "Attestation failed to match head",
+            epoch = prev_epoch,
+            validator = id
+
 
       when state isnot phase0.BeaconState: # altair+
         # Indicates the number of sync committee signatures that made it into
@@ -536,7 +545,7 @@ proc registerState*(self: var ValidatorMonitor, state: ForkyBeaconState) =
   # Update indices for the validators we're monitoring
   for v in self.knownValidators..<state.validators.len:
     self.monitors.withValue(state.validators[v].pubkey, monitor):
-      monitor[][].index = some(ValidatorIndex(v))
+      monitor[][].index = Opt.some(ValidatorIndex(v))
       self.indices[uint64(v)] = monitor[]
 
       info "Started monitoring validator",
@@ -665,7 +674,7 @@ proc registerAggregate*(
       delay.toGaugeValue(), [$src, metricId])
 
     if not self.totals:
-      info "Aggregated attestion seen",
+      info "Aggregated attestation seen",
         aggregate = shortLog(aggregate_and_proof.aggregate),
         src, epoch = slot.epoch, validator = id, delay
 
@@ -716,6 +725,8 @@ proc registerAttestationInBlock*(
       epochSummary.attestation_block_inclusions += 1
       update_if_lt(
         epochSummary.attestation_min_block_inclusion_distance, inclusion_lag)
+
+from ../spec/datatypes/deneb import shortLog
 
 proc registerBeaconBlock*(
     self: var ValidatorMonitor,
@@ -768,7 +779,6 @@ proc registerSyncContribution*(
     participants: openArray[ValidatorIndex]) =
   let
     slot = contribution_and_proof.contribution.slot
-    beacon_block_root = contribution_and_proof.contribution.beacon_block_root
     delay = seen_timestamp - slot.sync_contribution_deadline()
 
   let aggregator_index = contribution_and_proof.aggregator_index

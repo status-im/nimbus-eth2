@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,8 +9,8 @@
 
 import
   # Standard library
-  os, strutils, streams, strformat,
-  macros, sets,
+  strutils, streams, strformat,
+  macros,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -18,7 +18,7 @@ import
   # Status libraries
   snappy,
   # Test utilities
-  ../../testutil, ../fixtures_utils
+  ../../testutil, ../fixtures_utils, ../os_ops
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -115,13 +115,15 @@ suite "EF - Altair - SSZ consensus objects " & preset():
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "LightClientBootstrap":
-            checkSSZ(LightClientBootstrap, path, hash)
+            checkSSZ(altair.LightClientBootstrap, path, hash)
+          of "LightClientHeader":
+            checkSSZ(altair.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            discard # Modified - checkSSZ(LightClientUpdate, path, hash)
+            checkSSZ(altair.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            checkSSZ(LightClientFinalityUpdate, path, hash)
+            checkSSZ(altair.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            checkSSZ(LightClientOptimisticUpdate, path, hash)
+            checkSSZ(altair.LightClientOptimisticUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":

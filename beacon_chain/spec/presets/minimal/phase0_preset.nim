@@ -1,5 +1,12 @@
+# beacon_chain
+# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 # Minimal preset - Phase0
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/minimal/phase0.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/minimal/phase0.yaml
 
 const
   #
@@ -7,11 +14,11 @@ const
   # ---------------------------------------------------------------
   # [customized] Just 4 committees for slot for testing purposes
   MAX_COMMITTEES_PER_SLOT* {.intdefine.}: uint64 = 4
-  # [customized] unsecure, but fast
+  # [customized] insecure, but fast
   TARGET_COMMITTEE_SIZE*: uint64 = 4
   # 2**11 (= 2,048)
   MAX_VALIDATORS_PER_COMMITTEE*: uint64 = 2048
-  # [customized] Faster, but unsecure.
+  # [customized] Faster, but insecure.
   SHUFFLE_ROUND_COUNT*: uint64 = 10
   # 4
   HYSTERESIS_QUOTIENT*: uint64 = 4
@@ -19,12 +26,6 @@ const
   HYSTERESIS_DOWNWARD_MULTIPLIER*: uint64 = 1
   # 5 (plus 1.25)
   HYSTERESIS_UPWARD_MULTIPLIER*: uint64 = 5
-
-
-  # Fork Choice
-  # ---------------------------------------------------------------
-  # 2**1 (= 1)
-  SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64 = 2
 
 
   # Gwei values

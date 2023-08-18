@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,7 @@
 import
   std/[os, options, json, typetraits, uri, algorithm],
   unittest2, chronos, chronicles, stint, json_serialization,
-  blscurve, eth/keys,
+  blscurve,
   libp2p/crypto/crypto as lcrypto,
   stew/[io2, byteutils],
   ../beacon_chain/filepath,
@@ -44,7 +44,7 @@ proc contentEquals(filePath, expectedContent: string): bool =
   expectedContent == readAll(file)
 
 let
-  rng = keys.newRng()
+  rng = HmacDrbgContext.new()
   mnemonic = generateMnemonic(rng[])
   seed = getSeed(mnemonic, KeystorePass.init "")
   cfg = defaultRuntimeConfig
@@ -432,10 +432,10 @@ suite "createValidatorFiles()":
 
   test "Add keystore files [LOCAL]":
     let
-      res = createValidatorFiles(testSecretsDir, testValidatorsDir,
-                                 keystoreDir,
-                                 secretFile, password,
-                                 keystoreFile, keystoreJsonContents)
+      res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
+                                      keystoreDir,
+                                      secretFile, password,
+                                      keystoreFile, keystoreJsonContents)
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -458,15 +458,15 @@ suite "createValidatorFiles()":
 
   test "Add keystore files twice [LOCAL]":
     let
-      res1 = createValidatorFiles(testSecretsDir, testValidatorsDir,
-                                  keystoreDir,
-                                  secretFile, password,
-                                  keystoreFile, keystoreJsonContents)
+      res1 = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
+                                       keystoreDir,
+                                       secretFile, password,
+                                       keystoreFile, keystoreJsonContents)
 
-      res2 = createValidatorFiles(testSecretsDir, testValidatorsDir,
-                                  keystoreDir,
-                                  secretFile, password,
-                                  keystoreFile, keystoreJsonContents)
+      res2 = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
+                                       keystoreDir,
+                                       secretFile, password,
+                                       keystoreFile, keystoreJsonContents)
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -493,9 +493,9 @@ suite "createValidatorFiles()":
       remoteKeystoreFile = curKeystoreDir / RemoteKeystoreFileName
       localKeystoreFile = curKeystoreDir / KeystoreFileName
 
-      res = createValidatorFiles(testValidatorsDir, curKeystoreDir,
-                                 remoteKeystoreFile,
-                                 MultipleRemoteKeystoreJsons[0])
+      res = createRemoteValidatorFiles(testValidatorsDir, curKeystoreDir,
+                                       remoteKeystoreFile,
+                                       MultipleRemoteKeystoreJsons[0])
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -525,13 +525,13 @@ suite "createValidatorFiles()":
       remoteKeystoreFile = curKeystoreDir / RemoteKeystoreFileName
       localKeystoreFile = curKeystoreDir / KeystoreFileName
 
-      res1 = createValidatorFiles(testValidatorsDir, curKeystoreDir,
-                                  remoteKeystoreFile,
-                                  MultipleRemoteKeystoreJsons[0])
+      res1 = createRemoteValidatorFiles(testValidatorsDir, curKeystoreDir,
+                                        remoteKeystoreFile,
+                                        MultipleRemoteKeystoreJsons[0])
 
-      res2 = createValidatorFiles(testValidatorsDir, curKeystoreDir,
-                                  remoteKeystoreFile,
-                                  MultipleRemoteKeystoreJsons[0])
+      res2 = createRemoteValidatorFiles(testValidatorsDir, curKeystoreDir,
+                                        remoteKeystoreFile,
+                                        MultipleRemoteKeystoreJsons[0])
 
       validatorsCount = directoryItemsCount(testValidatorsDir)
       secretsCount = directoryItemsCount(testSecretsDir)
@@ -557,16 +557,16 @@ suite "createValidatorFiles()":
   # TODO The following tests are disabled on Windows because the io2 module
   # doesn't implement the permission/mode parameter at the moment:
   when not defined(windows):
-    test "`createValidatorFiles` with `secretsDir` without permissions":
+    test "`createLocalValidatorFiles` with `secretsDir` without permissions":
       # Creating `secrets` dir with `UserRead` permissions before
       # calling `createValidatorFiles` which should result in problem
       # with creating a secret file inside the dir:
       let
         secretsDirNoPermissions = createPath(testSecretsDir, 0o400)
-        res = createValidatorFiles(testSecretsDir, testValidatorsDir,
-                                   keystoreDir,
-                                   secretFile, password,
-                                   keystoreFile, keystoreJsonContents)
+        res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
+                                        keystoreDir,
+                                        secretFile, password,
+                                        keystoreFile, keystoreJsonContents)
       check:
         res.isErr and res.error.kind == FailedToCreateSecretFile
 
@@ -578,16 +578,16 @@ suite "createValidatorFiles()":
         # The creation of the validators dir should be rolled-back
         not dirExists(testValidatorsDir)
 
-    test "`createValidatorFiles` with `validatorsDir` without permissions":
+    test "`createLocalValidatorFiles` with `validatorsDir` without permissions":
       # Creating `validators` dir with `UserRead` permissions before
       # calling `createValidatorFiles` which should result in problems
       # creating `keystoreDir` inside the dir.
       let
         validatorsDirNoPermissions = createPath(testValidatorsDir, 0o400)
-        res = createValidatorFiles(testSecretsDir, testValidatorsDir,
-                                   keystoreDir,
-                                   secretFile, password,
-                                   keystoreFile, keystoreJsonContents)
+        res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
+                                        keystoreDir,
+                                        secretFile, password,
+                                        keystoreFile, keystoreJsonContents)
       check:
         res.isErr and res.error.kind == FailedToCreateKeystoreDir
 
@@ -599,17 +599,17 @@ suite "createValidatorFiles()":
         dirExists(testValidatorsDir)
         testValidatorsDir.isEmptyDir
 
-    test "`createValidatorFiles` with `keystoreDir` without permissions":
+    test "`createLocalValidatorFiles` with `keystoreDir` without permissions":
       # Creating `keystore` dir with `UserRead` permissions before
       # calling `createValidatorFiles` which should result in problems
       # creating keystore file inside this dir:
       let
         validatorsDir = createPath(testValidatorsDir, 0o700)
         keystoreDirNoPermissions = createPath(keystoreDir, 0o400)
-        res = createValidatorFiles(testSecretsDir, testValidatorsDir,
-                                   keystoreDir,
-                                   secretFile, password,
-                                   keystoreFile, keystoreJsonContents)
+        res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
+                                        keystoreDir,
+                                        secretFile, password,
+                                        keystoreFile, keystoreJsonContents)
       check:
         res.isErr and res.error.kind == FailedToCreateKeystoreFile
 
@@ -634,14 +634,14 @@ suite "createValidatorFiles()":
         validatorsCountBefore = directoryItemsCount(testValidatorsDir)
         secretsCountBefore = directoryItemsCount(testSecretsDir)
 
-        # Creating `keystore` dir with `UserRead` permissions before calling `createValidatorFiles`
-        # which will result in error
+        # Creating `keystore` dir with `UserRead` permissions before calling
+        # `createValidatorFiles` which will result in error
         keystoreDirNoPermissions = createPath(keystoreDir, 0o400)
 
-        res = createValidatorFiles(testSecretsDir, testValidatorsDir,
-                                   keystoreDir,
-                                   secretFile, password,
-                                   keystoreFile, keystoreJsonContents)
+        res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
+                                        keystoreDir,
+                                        secretFile, password,
+                                        keystoreFile, keystoreJsonContents)
 
         validatorsCountAfter = directoryItemsCount(testValidatorsDir)
         secretsCountAfter = directoryItemsCount(testSecretsDir)

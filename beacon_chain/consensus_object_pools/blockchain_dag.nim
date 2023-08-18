@@ -1,21 +1,24 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
-  std/[algorithm, options, sequtils, tables, sets],
-  stew/[assign2, byteutils, results],
+  std/[algorithm, sequtils, tables, sets],
+  stew/[arrayops, assign2, byteutils, results],
   metrics, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/forks,
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ".."/[beacon_chain_db, era_db],
   "."/[block_pools_types, block_quarantine]
+
+from ../spec/datatypes/deneb import shortLog
 
 export
   eth2_merkleization, eth2_ssz_serialization,
@@ -47,10 +50,16 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 logScope: topics = "chaindag"
 
 const
-  # When finality happens, we prune historical states from the database except
-  # for a snapshort every 32 epochs from which replays can happen - there's a
-  # balance here between making long replays and saving on disk space
-  EPOCHS_PER_STATE_SNAPSHOT = 32
+  EPOCHS_PER_STATE_SNAPSHOT* = 32
+    ## When finality happens, we prune historical states from the database except
+    ## for a snapshot every 32 epochs from which replays can happen - there's a
+    ## balance here between making long replays and saving on disk space
+  MAX_SLOTS_PER_PRUNE* = SLOTS_PER_EPOCH
+    ## We prune the database incrementally so as not to introduce long
+    ## processing breaks - this number is the maximum number of blocks we allow
+    ## to be pruned every time the prune call is made (once per slot typically)
+    ## unless head is moving faster (ie during sync)
+
 
 proc putBlock*(
     dag: ChainDAGRef, signedBlock: ForkyTrustedSignedBeaconBlock) =
@@ -71,20 +80,20 @@ template withUpdatedState*(
     var cache {.inject.} = StateCache()
     if updateState(dag, stateParam, bsi, false, cache):
       template bid(): BlockId {.inject, used.} = bsi.bid
-      template state(): ForkedHashedBeaconState {.inject, used.} = stateParam
+      template updatedState(): ForkedHashedBeaconState {.inject, used.} = stateParam
       okBody
     else:
       failureBody
 
-func get_effective_balances(validators: openArray[Validator], epoch: Epoch):
-    seq[Gwei] =
+func get_effective_balances(
+    validators: openArray[Validator], epoch: Epoch): seq[Gwei] =
   ## Get the balances from a state as counted for fork choice
   result.newSeq(validators.len) # zero-init
 
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
     let validator = unsafeAddr validators[i]
-    if validator[].is_active_validator(epoch):
+    if validator[].is_active_validator(epoch) and not validator[].slashed:
       result[i] = validator[].effective_balance
 
 proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
@@ -129,71 +138,20 @@ proc updateFrontfillBlocks*(dag: ChainDAGRef) =
     reset(dag.frontfillBlocks)
 
 func validatorKey*(
-    dag: ChainDAGRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
+    dag: ChainDAGRef, index: ValidatorIndex or uint64): Opt[CookedPubKey] =
   ## Returns the validator pubkey for the index, assuming it's been observed
   ## at any point in time - this function may return pubkeys for indicies that
   ## are not (yet) part of the head state (if the key has been observed on a
   ## non-head branch)!
   dag.db.immutableValidators.load(index)
 
-func validatorKey*(
-    epochRef: EpochRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
-  ## Returns the validator pubkey for the index, assuming it's been observed
-  ## at any point in time - this function may return pubkeys for indicies that
-  ## are not (yet) part of the head state (if the key has been observed on a
-  ## non-head branch)!
-  validatorKey(epochRef.dag, index)
-
-func init*(
-    T: type EpochRef, dag: ChainDAGRef, state: ForkedHashedBeaconState,
-    cache: var StateCache): T =
-  let
-    epoch = state.get_current_epoch()
-    proposer_dependent_root = withState(state): state.proposer_dependent_root
-    attester_dependent_root = withState(state): state.attester_dependent_root
-    epochRef = EpochRef(
-      dag: dag, # This gives access to the validator pubkeys through an EpochRef
-      key: dag.epochAncestor(state.latest_block_id, epoch),
-      eth1_data: getStateField(state, eth1_data),
-      eth1_deposit_index: getStateField(state, eth1_deposit_index),
-      current_justified_checkpoint:
-        getStateField(state, current_justified_checkpoint),
-      finalized_checkpoint: getStateField(state, finalized_checkpoint),
-      proposer_dependent_root: proposer_dependent_root,
-      shuffled_active_validator_indices:
-        cache.get_shuffled_active_validator_indices(state, epoch),
-      attester_dependent_root: attester_dependent_root,
-      merge_transition_complete:
-        case state.kind:
-        of BeaconStateFork.Phase0: false
-        of BeaconStateFork.Altair: false
-        of BeaconStateFork.Bellatrix:
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
-          state.bellatrixData.data.latest_execution_payload_header !=
-            ExecutionPayloadHeader()
-    )
-    epochStart = epoch.start_slot()
-
-  for i in 0'u64..<SLOTS_PER_EPOCH:
-    epochRef.beacon_proposers[i] = get_beacon_proposer_index(
-      state, cache, epochStart + i)
-
-  # When fork choice runs, it will need the effective balance of the justified
-  # checkpoint - we pre-load the balances here to avoid rewinding the justified
-  # state later and compress them because not all checkpoints end up being used
-  # for fork choice - specially during long periods of non-finalization
-  proc snappyEncode(inp: openArray[byte]): seq[byte] =
-    try:
-      snappy.encode(inp)
-    except CatchableError as err:
-      raiseAssert err.msg
-
-  epochRef.effective_balances_bytes =
-    snappyEncode(SSZ.encode(
-      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](
-        get_effective_balances(getStateField(state, validators).asSeq, epoch))))
-
-  epochRef
+template is_merge_transition_complete*(
+    stateParam: ForkedHashedBeaconState): bool =
+  withState(stateParam):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      is_merge_transition_complete(forkyState.data)
+    else:
+      false
 
 func effective_balances*(epochRef: EpochRef): seq[Gwei] =
   try:
@@ -219,11 +177,12 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   ## Retrieve the canonical block at the given slot, or the last block that
   ## comes before - similar to atSlot, but without the linear scan - may hit
   ## the database to look up early indices.
-  if slot == dag.genesis.slot:
-    return ok BlockSlotId.init(dag.genesis, slot)
-
   if slot > dag.finalizedHead.slot:
     return dag.head.atSlot(slot).toBlockSlotId() # iterate to the given slot
+
+  if dag.finalizedHead.blck == nil:
+    # Not initialized yet (in init)
+    return Opt.none(BlockSlotId)
 
   if slot >= dag.finalizedHead.blck.slot:
     # finalized head is still in memory
@@ -243,7 +202,120 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
 
       pos = pos - 1
 
-  err() # not backfilled yet, and not genesis
+  if slot == GENESIS_SLOT and dag.genesis.isSome():
+    return ok dag.genesis.get().atSlot()
+
+  err() # not backfilled yet
+
+proc containsBlock(
+    cfg: RuntimeConfig, db: BeaconChainDB, slot: Slot, root: Eth2Digest): bool =
+  db.containsBlock(root, cfg.consensusForkAtEpoch(slot.epoch))
+
+proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
+    Opt[ForkedTrustedSignedBeaconBlock] =
+  # When we only have a digest, we don't know which fork it's from so we try
+  # them one by one - this should be used sparingly
+  static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+  if (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, altair.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, phase0.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  else:
+    err()
+
+proc containsBlock(dag: ChainDAGRef, bid: BlockId): bool =
+  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+  if dag.db.containsBlock(bid.root, fork):
+    return true
+
+  # TODO avoid loading bytes from era
+  var bytes: seq[byte]
+  (bid.slot <= dag.finalizedHead.slot and
+    getBlockSZ(
+      dag.era, getStateField(dag.headState, historical_roots).asSeq,
+      dag.headState.historical_summaries().asSeq,
+      bid.slot, bytes).isOk and bytes.len > 0)
+
+proc getBlock*(
+    dag: ChainDAGRef, bid: BlockId,
+    T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
+  dag.db.getBlock(bid.root, T) or
+    getBlock(
+      dag.era, getStateField(dag.headState, historical_roots).asSeq,
+      dag.headState.historical_summaries().asSeq,
+      bid.slot, Opt[Eth2Digest].ok(bid.root), T)
+
+proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
+  # Load the SSZ-encoded data of a block into `bytes`, overwriting the existing
+  # content
+  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+  dag.db.getBlockSSZ(bid.root, bytes, fork) or
+    (bid.slot <= dag.finalizedHead.slot and
+      getBlockSSZ(
+        dag.era, getStateField(dag.headState, historical_roots).asSeq,
+        dag.headState.historical_summaries().asSeq,
+        bid.slot, bytes).isOk)
+
+proc getBlockSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
+  # Load the snappy-frame-compressed ("SZ") SSZ-encoded data of a block into
+  # `bytes`, overwriting the existing content
+  # careful: there are two snappy encodings in use, with and without framing!
+  # Returns true if the block is found, false if not
+  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+  dag.db.getBlockSZ(bid.root, bytes, fork) or
+    (bid.slot <= dag.finalizedHead.slot and
+      getBlockSZ(
+        dag.era, getStateField(dag.headState, historical_roots).asSeq,
+        dag.headState.historical_summaries().asSeq,
+        bid.slot, bytes).isOk)
+
+proc getForkedBlock*(
+    dag: ChainDAGRef, bid: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
+
+  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+  result.ok(ForkedTrustedSignedBeaconBlock(kind: fork))
+  withBlck(result.get()):
+    type T = type(blck)
+    blck = getBlock(dag, bid, T).valueOr:
+        getBlock(
+            dag.era, getStateField(dag.headState, historical_roots).asSeq,
+            dag.headState.historical_summaries().asSeq,
+            bid.slot, Opt[Eth2Digest].ok(bid.root), T).valueOr:
+          result.err()
+          return
+
+proc getBlockId*(db: BeaconChainDB, root: Eth2Digest): Opt[BlockId] =
+  block: # We might have a summary in the database
+    let summary = db.getBeaconBlockSummary(root)
+    if summary.isOk():
+      return ok(BlockId(root: root, slot: summary.get().slot))
+
+  block:
+    # We might have a block without having written a summary - this can happen
+    # if there was a crash between writing the block and writing the summary,
+    # specially in databases written by older nimbus versions
+    let forked = db.getForkedBlock(root)
+    if forked.isSome():
+      # Shouldn't happen too often but..
+      let
+        blck = forked.get()
+        summary = withBlck(blck): blck.message.toBeaconBlockSummary()
+      debug "Writing summary", blck = shortLog(blck)
+      db.putBeaconBlockSummary(root, summary)
+      return ok(BlockId(root: root, slot: summary.slot))
+
+  err()
 
 proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
   ## Look up block id by root in history - useful for turning a root into a
@@ -255,12 +327,16 @@ proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
     if blck.isOk():
       return ok(blck.get().bid)
 
-  block: # We might have a summary in the database
-    let summary = dag.db.getBeaconBlockSummary(root)
-    if summary.isOk():
-      return ok(BlockId(root: root, slot: summary.get().slot))
+  dag.db.getBlockId(root)
 
-  err()
+proc getForkedBlock*(
+    dag: ChainDAGRef, root: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
+  let bid = dag.getBlockId(root)
+  if bid.isSome():
+    dag.getForkedBlock(bid.get())
+  else:
+    # In case we didn't have a summary - should be rare, but ..
+    dag.db.getForkedBlock(root)
 
 func isCanonical*(dag: ChainDAGRef, bid: BlockId): bool =
   ## Return true iff the given `bid` is part of the history selected by `dag.head`
@@ -313,7 +389,90 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
-func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
+func nextTimestamp[I, T](cache: var LRUCache[I, T]): uint32 =
+  if cache.timestamp == uint32.high:
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      if e.lastUsed != 0:
+        e.lastUsed = 1
+    cache.timestamp = 1
+  inc cache.timestamp
+  cache.timestamp
+
+template peekIt[I, T](cache: var LRUCache[I, T], predicate: untyped): Opt[T] =
+  block:
+    var res: Opt[T]
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      template it: untyped {.inject, used.} = e.value
+      if e.lastUsed != 0 and predicate:
+        res.ok it
+        break
+    res
+
+template findIt[I, T](cache: var LRUCache[I, T], predicate: untyped): Opt[T] =
+  block:
+    var res: Opt[T]
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      template it: untyped {.inject, used.} = e.value
+      if e.lastUsed != 0 and predicate:
+        e.lastUsed = cache.nextTimestamp
+        res.ok it
+        break
+    res
+
+template delIt[I, T](cache: var LRUCache[I, T], predicate: untyped) =
+  block:
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      template it: untyped {.inject, used.} = e.value
+      if e.lastUsed != 0 and predicate:
+        e.reset()
+
+func put[I, T](cache: var LRUCache[I, T], value: T) =
+  var lru = 0
+  block:
+    var min = uint32.high
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      if e.lastUsed < min:
+        min = e.lastUsed
+        lru = i
+        if min == 0:
+          break
+
+  template e: untyped = cache.entries[lru]
+  e.value = value
+  e.lastUsed = cache.nextTimestamp
+
+func epochAncestor(dag: ChainDAGRef, bid: BlockId, epoch: Epoch):
+    Opt[BlockSlotId] =
+  ## The epoch ancestor is the last block that has an effect on the epoch-
+  ## related state data, as updated in `process_epoch` - this block determines
+  ## effective balances, validator addtions and removals etc and serves as a
+  ## base for `EpochRef` construction.
+  if epoch < dag.tail.slot.epoch or bid.slot < dag.tail.slot:
+    # Not enough information in database to meaningfully process pre-tail epochs
+    return Opt.none BlockSlotId
+
+  let
+    dependentSlot =
+      if epoch == dag.tail.slot.epoch:
+        # Use the tail as "dependent block" - this may be the genesis block, or,
+        # in the case of checkpoint sync, the checkpoint block
+        dag.tail.slot
+      else:
+        epoch.start_slot() - 1
+    bsi = ? dag.atSlot(bid, dependentSlot)
+    epochSlot =
+      if epoch == dag.tail.slot.epoch:
+        dag.tail.slot
+      else:
+        epoch.start_slot()
+  ok BlockSlotId(bid: bsi.bid, slot: epochSlot)
+
+func epochKey(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochKey] =
   ## The state transition works by storing information from blocks in a
   ## "working" area until the epoch transition, then batching work collected
   ## during the epoch. Thus, last block in the ancestor epochs is the block
@@ -322,30 +481,134 @@ func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
   ## This function returns an epoch key pointing to that epoch boundary, i.e. the
   ## boundary where the last block has been applied to the state and epoch
   ## processing has been done.
-  if epoch < dag.tail.slot.epoch or bid.slot < dag.tail.slot:
-    return EpochKey() # We can't load these states
+  let bsi = dag.epochAncestor(bid, epoch).valueOr:
+    return Opt.none(EpochKey)
 
-  if epoch == dag.tail.slot.epoch:
-    return EpochKey(bid: dag.tail, epoch: epoch)
+  Opt.some(EpochKey(bid: bsi.bid, epoch: epoch))
 
-  let bsi = dag.atSlot(bid, epoch.start_slot - 1).valueOr:
-    # If we lack history for the given slot, we can use the given bid as epoch
-    # ancestor
-    return EpochKey(epoch: epoch, bid: bid)
+func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
+  ## Store shuffling in the cache
+  if shufflingRef.epoch < dag.finalizedHead.slot.epoch():
+    # Only cache epoch information for unfinalized blocks - earlier states
+    # are seldomly used (ie RPC), so no need to cache
+    return
 
-  EpochKey(epoch: epoch, bid: bsi.bid)
+  dag.shufflingRefs.put shufflingRef
+
+func findShufflingRef*(
+    dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[ShufflingRef] =
+  ## Lookup a shuffling in the cache, returning `none` if it's not present - see
+  ## `getShufflingRef` for a version that creates a new instance if it's missing
+  let
+    dependent_slot = epoch.attester_dependent_slot()
+    dependent_bsi = ? dag.atSlot(bid, dependent_slot)
+
+  # Check `ShufflingRef` cache
+  let shufflingRef = dag.shufflingRefs.findIt(
+    it.epoch == epoch and it.attester_dependent_root == dependent_bsi.bid.root)
+  if shufflingRef.isOk:
+    return shufflingRef
+
+  # Check `EpochRef` cache
+  let epochRef = dag.epochRefs.peekIt(
+    it.shufflingRef.epoch == epoch and
+    it.shufflingRef.attester_dependent_root == dependent_bsi.bid.root)
+  if epochRef.isOk:
+    dag.putShufflingRef(epochRef.get.shufflingRef)
+    return ok epochRef.get.shufflingRef
+
+  err()
 
 func findEpochRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochRef] =
-  ## Look for an existing cached EpochRef, but unlike `getEpochRef`, don't
-  ## try to create one by recreating the epoch state
-  let ancestor = dag.epochAncestor(bid, epoch)
+  ## Lookup an EpochRef in the cache, returning `none` if it's not present - see
+  ## `getEpochRef` for a version that creates a new instance if it's missing
+  let key = ? dag.epochKey(bid, epoch)
 
-  for i in 0..<dag.epochRefs.len:
-    if dag.epochRefs[i] != nil and dag.epochRefs[i].key == ancestor:
-      return ok(dag.epochRefs[i])
+  dag.epochRefs.findIt(it.key == key)
 
-  err()
+func putEpochRef(dag: ChainDAGRef, epochRef: EpochRef) =
+  if epochRef.epoch < dag.finalizedHead.slot.epoch():
+    # Only cache epoch information for unfinalized blocks - earlier states
+    # are seldomly used (ie RPC), so no need to cache
+    return
+
+  dag.epochRefs.put epochRef
+
+func init*(
+    T: type ShufflingRef, state: ForkedHashedBeaconState,
+    cache: var StateCache, epoch: Epoch): T =
+  let
+    dependent_epoch =
+      if epoch < 1: Epoch(0) else: epoch - 1
+    attester_dependent_root =
+      withState(state): forkyState.dependent_root(dependent_epoch)
+
+  ShufflingRef(
+    epoch: epoch,
+    attester_dependent_root: attester_dependent_root,
+    shuffled_active_validator_indices:
+      cache.get_shuffled_active_validator_indices(state, epoch),
+  )
+
+func init*(
+    T: type EpochRef, dag: ChainDAGRef, state: ForkedHashedBeaconState,
+    cache: var StateCache): T =
+  let
+    epoch = state.get_current_epoch()
+    proposer_dependent_root = withState(state):
+      forkyState.proposer_dependent_root
+    shufflingRef = dag.findShufflingRef(state.latest_block_id, epoch).valueOr:
+      let tmp = ShufflingRef.init(state, cache, epoch)
+      dag.putShufflingRef(tmp)
+      tmp
+
+    attester_dependent_root = withState(state):
+      forkyState.attester_dependent_root
+    total_active_balance = withState(state):
+      get_total_active_balance(forkyState.data, cache)
+    epochRef = EpochRef(
+      key: dag.epochKey(state.latest_block_id, epoch).expect(
+        "Valid epoch ancestor when processing state"),
+
+      eth1_data:
+        getStateField(state, eth1_data),
+      eth1_deposit_index:
+        getStateField(state, eth1_deposit_index),
+
+      checkpoints:
+        FinalityCheckpoints(
+          justified: getStateField(state, current_justified_checkpoint),
+          finalized: getStateField(state, finalized_checkpoint)),
+
+      # beacon_proposers: Separately filled below
+      proposer_dependent_root: proposer_dependent_root,
+
+      shufflingRef: shufflingRef,
+      total_active_balance: total_active_balance
+    )
+    epochStart = epoch.start_slot()
+
+  for i in 0'u64..<SLOTS_PER_EPOCH:
+    epochRef.beacon_proposers[i] =
+      get_beacon_proposer_index(state, cache, epochStart + i)
+
+  # When fork choice runs, it will need the effective balance of the justified
+  # checkpoint - we pre-load the balances here to avoid rewinding the justified
+  # state later and compress them because not all checkpoints end up being used
+  # for fork choice - specially during long periods of non-finalization
+  proc snappyEncode(inp: openArray[byte]): seq[byte] =
+    try:
+      snappy.encode(inp)
+    except CatchableError as err:
+      raiseAssert err.msg
+
+  epochRef.effective_balances_bytes =
+    snappyEncode(SSZ.encode(
+      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](
+        get_effective_balances(getStateField(state, validators).asSeq, epoch))))
+
+  epochRef
 
 func loadStateCache(
     dag: ChainDAGRef, cache: var StateCache, bid: BlockId, epoch: Epoch) =
@@ -357,26 +620,40 @@ func loadStateCache(
     block:
       let epoch = e
       if epoch notin cache.shuffled_active_validator_indices:
+        let shufflingRef = dag.findShufflingRef(bid, epoch)
+        if shufflingRef.isSome():
+          cache.shuffled_active_validator_indices[epoch] =
+            shufflingRef[][].shuffled_active_validator_indices
         let epochRef = dag.findEpochRef(bid, epoch)
         if epochRef.isSome():
-          cache.shuffled_active_validator_indices[epoch] =
-            epochRef[].shuffled_active_validator_indices
           let start_slot = epoch.start_slot()
-          for i, idx in epochRef[].beacon_proposers:
+          for i, idx in epochRef[][].beacon_proposers:
             cache.beacon_proposer_indices[start_slot + i] = idx
+          cache.total_active_balance[epoch] = epochRef[][].total_active_balance
 
   load(epoch)
 
   if epoch > 0:
     load(epoch - 1)
 
+  if dag.head != nil: # nil during init.. sigh
+    let period = dag.head.slot.sync_committee_period
+    if period == epoch.sync_committee_period and
+        period notin cache.sync_committees and
+        period > dag.cfg.ALTAIR_FORK_EPOCH.sync_committee_period():
+      # If the block we're aiming for shares ancestry with head, we can reuse
+      # the cached head committee - this accounts for most "live" cases like
+      # syncing and checking blocks since the committees rarely change
+      let periodBsi = dag.atSlot(bid, period.start_slot)
+      if periodBsi.isSome and periodBsi ==
+          dag.atSlot(dag.head.bid, period.start_slot):
+        # We often end up sharing sync committees with head during sync / gossip
+        # validation / head updates
+        cache.sync_committees[period] = dag.headSyncCommittees
+
 func containsForkBlock*(dag: ChainDAGRef, root: Eth2Digest): bool =
   ## Checks for blocks at the finalized checkpoint or newer
   KeyedBlockRef.asLookupKey(root) in dag.forkBlocks
-
-proc containsBlock(
-    cfg: RuntimeConfig, db: BeaconChainDB, slot: Slot, root: Eth2Digest): bool =
-  db.containsBlock(root, cfg.blockForkAtEpoch(slot.epoch))
 
 func isFinalizedStateSnapshot(slot: Slot): bool =
   slot.is_epoch and slot.epoch mod EPOCHS_PER_STATE_SNAPSHOT == 0
@@ -397,27 +674,46 @@ func isStateCheckpoint(dag: ChainDAGRef, bsi: BlockSlotId): bool =
   (bsi.slot.is_epoch and bsi.slot.epoch == (bsi.bid.slot.epoch + 1))
 
 proc getState(
-    db: BeaconChainDB, fork: BeaconStateFork, state_root: Eth2Digest,
-    state: var ForkedHashedBeaconState, rollback: RollbackProc): bool =
-  if state.kind != fork:
-    # Avoid temporary (!)
-    state = (ref ForkedHashedBeaconState)(kind: fork)[]
-
-  withState(state):
-    if not db.getState(state_root, state.data, rollback):
-      return false
-
-    state.root = state_root
-
-  true
-
-proc getState(
     db: BeaconChainDB, cfg: RuntimeConfig, block_root: Eth2Digest, slot: Slot,
     state: var ForkedHashedBeaconState, rollback: RollbackProc): bool =
   let state_root = db.getStateRoot(block_root, slot).valueOr:
     return false
 
-  db.getState(cfg.stateForkAtEpoch(slot.epoch), state_root, state, rollback)
+  db.getState(cfg.consensusForkAtEpoch(slot.epoch), state_root, state, rollback)
+
+proc containsState*(
+    db: BeaconChainDB, cfg: RuntimeConfig, block_root: Eth2Digest,
+    slots: Slice[Slot], legacy = true): bool =
+  var slot = slots.b
+  while slot >= slots.a:
+    let state_root = db.getStateRoot(block_root, slot)
+    if state_root.isSome() and
+        db.containsState(
+          cfg.consensusForkAtEpoch(slot.epoch), state_root.get(), legacy):
+      return true
+
+    if slot == slots.a: # avoid underflow at genesis
+      break
+    slot -= 1
+  false
+
+proc getState*(
+    db: BeaconChainDB, cfg: RuntimeConfig, block_root: Eth2Digest,
+    slots: Slice[Slot], state: var ForkedHashedBeaconState,
+    rollback: RollbackProc): bool =
+  var slot = slots.b
+  while slot >= slots.a:
+    let state_root = db.getStateRoot(block_root, slot)
+    if state_root.isSome() and
+        db.getState(
+          cfg.consensusForkAtEpoch(slot.epoch), state_root.get(), state,
+          rollback):
+      return true
+
+    if slot == slots.a: # avoid underflow at genesis
+      break
+    slot -= 1
+  false
 
 proc getState(
     dag: ChainDAGRef, bsi: BlockSlotId, state: var ForkedHashedBeaconState): bool =
@@ -440,74 +736,40 @@ proc getState(
 
   dag.db.getState(dag.cfg, bsi.bid.root, bsi.slot, state, rollback)
 
-proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
-    Opt[ForkedTrustedSignedBeaconBlock] =
-  # When we only have a digest, we don't know which fork it's from so we try
-  # them one by one - this should be used sparingly
-  if (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock);
-      blck.isSome()):
-    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
-  elif (let blck = db.getBlock(root, altair.TrustedSignedBeaconBlock);
-      blck.isSome()):
-    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
-  elif (let blck = db.getBlock(root, phase0.TrustedSignedBeaconBlock);
-      blck.isSome()):
-    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
-  else:
-    err()
+proc getStateByParent(
+    dag: ChainDAGRef, bid: BlockId, state: var ForkedHashedBeaconState): bool =
+  ## Try to load the state referenced by the parent of the given `bid` - this
+  ## state can be used to advance to the `bid` state itself.
+  let slot = bid.slot
 
-proc getBlock*(
-    dag: ChainDAGRef, bid: BlockId,
-    T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
-  dag.db.getBlock(bid.root, T) or
-    getBlock(
-      dag.era, getStateField(dag.headState, historical_roots).asSeq,
-      bid.slot, Opt[Eth2Digest].ok(bid.root), T)
+  let
+    summary = dag.db.getBeaconBlockSummary(bid.root).valueOr:
+      return false
+    parentMinSlot =
+      dag.db.getBeaconBlockSummary(summary.parent_root).
+        map(proc(x: auto): auto = x.slot).valueOr:
+      # in the cases that we don't have slot information, we'll search for the
+      # state for a few back from the `bid` slot - if there are gaps of empty
+      # slots larger than this, we will not be able to load the state using this
+      # trick
+      if slot.uint64 >= (EPOCHS_PER_STATE_SNAPSHOT * 2) * SLOTS_PER_EPOCH:
+        slot - (EPOCHS_PER_STATE_SNAPSHOT * 2) * SLOTS_PER_EPOCH
+      else:
+        Slot(0)
 
-proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
-  # Load the SSZ-encoded data of a block into `bytes`, overwriting the existing
-  # content
-  let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
-  dag.db.getBlockSSZ(bid.root, bytes, fork) or
-    (bid.slot <= dag.finalizedHead.slot and
-      getBlockSSZ(
-        dag.era, getStateField(dag.headState, historical_roots).asSeq,
-        bid.slot, bytes).isOk)
+  let rollbackAddr =
+    # Any restore point will do as long as it's not the object being updated
+    if unsafeAddr(state) == unsafeAddr(dag.headState):
+      unsafeAddr dag.clearanceState
+    else:
+      unsafeAddr dag.headState
 
-proc getBlockSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
-  # Load the snappy-frame-compressed ("SZ") SSZ-encoded data of a block into
-  # `bytes`, overwriting the existing content
-  # careful: there are two snappy encodings in use, with and without framing!
-  # Returns true if the block is found, false if not
-  let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
-  dag.db.getBlockSZ(bid.root, bytes, fork) or
-    (bid.slot <= dag.finalizedHead.slot and
-      getBlockSZ(
-        dag.era, getStateField(dag.headState, historical_roots).asSeq,
-        bid.slot, bytes).isOk)
+  let v = addr state
+  func rollback() =
+    assign(v[], rollbackAddr[])
 
-proc getForkedBlock*(
-    dag: ChainDAGRef, bid: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
-
-  let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
-  result.ok(ForkedTrustedSignedBeaconBlock(kind: fork))
-  withBlck(result.get()):
-    type T = type(blck)
-    blck = getBlock(dag, bid, T).valueOr:
-        getBlock(
-            dag.era, getStateField(dag.headState, historical_roots).asSeq,
-            bid.slot, Opt[Eth2Digest].ok(bid.root), T).valueOr:
-          result.err()
-          return
-
-proc getForkedBlock*(
-    dag: ChainDAGRef, root: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
-  let bid = dag.getBlockId(root)
-  if bid.isSome():
-    dag.getForkedBlock(bid.get())
-  else:
-    # In case we didn't have a summary - should be rare, but ..
-    dag.db.getForkedBlock(root)
+  dag.db.getState(
+    dag.cfg, summary.parent_root, parentMinSlot..slot, state, rollback)
 
 proc currentSyncCommitteeForPeriod*(
     dag: ChainDAGRef,
@@ -523,9 +785,9 @@ proc currentSyncCommitteeForPeriod*(
     syncCommitteeSlot = max(periodStartSlot, lowSlot)
     bsi = ? dag.getBlockIdAtSlot(syncCommitteeSlot)
   dag.withUpdatedState(tmpState, bsi) do:
-    withState(state):
-      when stateFork >= BeaconStateFork.Altair:
-        ok state.data.current_sync_committee
+    withState(updatedState):
+      when consensusFork >= ConsensusFork.Altair:
+        ok forkyState.data.current_sync_committee
       else: err()
   do: err()
 
@@ -555,26 +817,26 @@ proc updateBeaconMetrics(
 
   withState(state):
     beacon_pending_deposits.set(
-      (state.data.eth1_data.deposit_count -
-        state.data.eth1_deposit_index).toGaugeValue)
+      (forkyState.data.eth1_data.deposit_count -
+        forkyState.data.eth1_deposit_index).toGaugeValue)
     beacon_processed_deposits_total.set(
-      state.data.eth1_deposit_index.toGaugeValue)
+      forkyState.data.eth1_deposit_index.toGaugeValue)
 
     beacon_current_justified_epoch.set(
-      state.data.current_justified_checkpoint.epoch.toGaugeValue)
+      forkyState.data.current_justified_checkpoint.epoch.toGaugeValue)
     beacon_current_justified_root.set(
-      state.data.current_justified_checkpoint.root.toGaugeValue)
+      forkyState.data.current_justified_checkpoint.root.toGaugeValue)
     beacon_previous_justified_epoch.set(
-      state.data.previous_justified_checkpoint.epoch.toGaugeValue)
+      forkyState.data.previous_justified_checkpoint.epoch.toGaugeValue)
     beacon_previous_justified_root.set(
-      state.data.previous_justified_checkpoint.root.toGaugeValue)
+      forkyState.data.previous_justified_checkpoint.root.toGaugeValue)
     beacon_finalized_epoch.set(
-      state.data.finalized_checkpoint.epoch.toGaugeValue)
+      forkyState.data.finalized_checkpoint.epoch.toGaugeValue)
     beacon_finalized_root.set(
-      state.data.finalized_checkpoint.root.toGaugeValue)
+      forkyState.data.finalized_checkpoint.root.toGaugeValue)
 
     let active_validators = count_active_validators(
-      state.data, state.data.slot.epoch, cache).toGaugeValue
+      forkyState.data, forkyState.data.slot.epoch, cache).toGaugeValue
     beacon_active_validators.set(active_validators)
     beacon_current_active_validators.set(active_validators)
 
@@ -586,33 +848,22 @@ export
   blockchain_dag_light_client.getLightClientFinalityUpdate,
   blockchain_dag_light_client.getLightClientOptimisticUpdate
 
-proc getViableHead(cfg: RuntimeConfig, db: BeaconChainDB): Opt[BlockId] =
-  # When the database has been written with a pre-fork version of the
-  # software, it may happen that blocks produced using an "unforked"
-  # chain get written to the database - we need to skip such blocks
-  # when loading the database with a fork-compatible version
-  let
-    headRoot = ? db.getHeadBlock()
-
-  for blck in db.getAncestorSummaries(headRoot):
-    if containsBlock(cfg, db, blck.summary.slot, blck.root):
-      return ok(BlockId(slot: blck.summary.slot, root: blck.root))
-
-  err()
-
 proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
   # Store a state and its root
+  let slot = getStateField(state, slot)
   logScope:
     blck = shortLog(bid)
-    stateSlot = shortLog(getStateField(state, slot))
+    stateSlot = shortLog(slot)
     stateRoot = shortLog(getStateRoot(state))
 
-  if not dag.isStateCheckpoint(BlockSlotId.init(bid, getStateField(state, slot))):
+  if not dag.isStateCheckpoint(BlockSlotId.init(bid, slot)):
     return
 
   # Don't consider legacy tables here, they are slow to read so we'll want to
   # rewrite things in the new table anyway.
-  if dag.db.containsState(getStateRoot(state), legacy = false):
+  if dag.db.containsState(
+      dag.cfg.consensusForkAtEpoch(slot.epoch), getStateRoot(state),
+      legacy = false):
     return
 
   let startTick = Moment.now()
@@ -620,7 +871,7 @@ proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
   withState(state):
-    dag.db.putState(state)
+    dag.db.putState(forkyState)
 
   debug "Stored state", putStateDur = Moment.now() - startTick
 
@@ -650,9 +901,10 @@ proc advanceSlots*(
       # in the monitor. This may be inaccurate during a deep reorg (>1 epoch)
       # which is an acceptable tradeoff for monitoring.
       withState(state):
-        let postEpoch = state.data.slot.epoch
+        let postEpoch = forkyState.data.slot.epoch
         if preEpoch != postEpoch:
-          dag.validatorMonitor[].registerEpochInfo(postEpoch, info, state.data)
+          dag.validatorMonitor[].registerEpochInfo(
+            postEpoch, info, forkyState.data)
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
@@ -660,21 +912,33 @@ proc applyBlock(
 
   loadStateCache(dag, cache, bid, getStateField(state, slot).epoch)
 
-  case dag.cfg.blockForkAtEpoch(bid.slot.epoch)
-  of BeaconBlockFork.Phase0:
+  case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+  of ConsensusFork.Phase0:
     let data = getBlock(dag, bid, phase0.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     let data = getBlock(dag, bid, altair.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     let data = getBlock(dag, bid, bellatrix.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    state_transition(
+      dag.cfg, state, data, cache, info,
+      dag.updateFlags + {slotProcessed}, noRollback)
+  of ConsensusFork.Capella:
+    let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    state_transition(
+      dag.cfg, state, data, cache, info,
+      dag.updateFlags + {slotProcessed}, noRollback)
+  of ConsensusFork.Deneb:
+    let data = getBlock(dag, bid, deneb.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
       dag.cfg, state, data, cache, info,
@@ -685,14 +949,11 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            eraPath = ".",
            onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
            onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
-           onLCFinalityUpdateCb: OnLightClientFinalityUpdateCallback = nil,
-           onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil,
-           lightClientDataServe = false,
-           lightClientDataImportMode = LightClientDataImportMode.None,
-           vanityLogs = default(VanityLogs)): ChainDAGRef =
+           vanityLogs = default(VanityLogs),
+           lcDataConfig = default(LightClientDataConfig)): ChainDAGRef =
   cfg.checkForkConsistency()
 
-  doAssert updateFlags in [{}, {verifyFinalization}],
+  doAssert updateFlags - {strictVerification} == {},
     "Other flags not supported in ChainDAG"
 
   # TODO we require that the db contains both a head and a tail block -
@@ -702,48 +963,50 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # genesis or a checkpoint
   let
     startTick = Moment.now()
-    genesisRoot = db.getGenesisBlock().expect(
-      "preInit should have initialized the database with a genesis block root")
+    genesisRoot = db.getGenesisBlock()
     tailRoot = db.getTailBlock().expect(
       "preInit should have initialized the database with a tail block root")
-    tailBlock = db.getForkedBlock(tailRoot).expect(
-      "Tail block in database, corrupt?")
-    head = getViableHead(cfg, db).expect("Head root in database, corrupt?")
+    tail = db.getBlockId(tailRoot).expect(
+      "tail block summary in database, database corrupt?")
+    headRoot = db.getHeadBlock().expect("head root, database corrupt?")
+    head = db.getBlockId(headRoot).expect("head block id, database corrupt?")
 
     # Have to be careful with this instance, it is not yet fully initialized so
     # as to avoid having to allocate a separate "init" state
     dag = ChainDAGRef(
       db: db,
       validatorMonitor: validatorMonitor,
-      genesis: BlockId(root: genesisRoot, slot: GENESIS_SLOT),
-      tail: tailBlock.toBlockId(),
+      genesis: genesisRoot.map(
+        proc(x: auto): auto = BlockId(root: x, slot: GENESIS_SLOT)),
+      tail: tail,
 
-      # The only allowed flag right now is verifyFinalization, as the others all
+      # The only allowed flag right now is strictVerification, as the others all
       # allow skipping some validation.
-      updateFlags: {verifyFinalization} * updateFlags,
+      updateFlags: updateFlags * {strictVerification},
       cfg: cfg,
 
       vanityLogs: vanityLogs,
 
-      lightClientDataServe: lightClientDataServe,
-      lightClientDataImportMode: lightClientDataImportMode,
+      lcDataStore: initLightClientDataStore(
+        lcDataConfig, cfg, db.getLightClientDataDB()),
 
       onBlockAdded: onBlockCb,
       onHeadChanged: onHeadCb,
       onReorgHappened: onReorgCb,
       onFinHappened: onFinCb,
-      onLightClientFinalityUpdate: onLCFinalityUpdateCb,
-      onLightClientOptimisticUpdate: onLCOptimisticUpdateCb
     )
     loadTick = Moment.now()
 
   var
     headRef, curRef: BlockRef
-    slot = head.slot
+
+    # When starting from a checkpoint with an empty block, we'll store the state
+    # "ahead" of the head slot - this slot would be considered finalized
+    slot = max(head.slot, (tail.slot.epoch + 1).start_slot)
     # To know the finalized checkpoint of the head, we need to recreate its
     # state - the tail is implicitly finalized, and if we have a finalized block
     # table, that provides another hint
-    finalizedSlot = db.finalizedBlocks.high.get(dag.tail.slot)
+    finalizedSlot = db.finalizedBlocks.high.get(tail.slot)
     newFinalized: seq[BlockId]
     cache: StateCache
     foundHeadState = false
@@ -752,9 +1015,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Load head -> finalized, or all summaries in case the finalized block table
   # hasn't been written yet
   for blck in db.getAncestorSummaries(head.root):
-    let newRef = BlockRef.init(blck.root, ZERO_HASH, blck.summary.slot)
+    # The execution block root gets filled in as needed. Nonfinalized Bellatrix
+    # and later blocks are loaded as optimistic, which gets adjusted that first
+    # `VALID` fcU from an EL plus markBlockVerified. Pre-merge blocks still get
+    # marked as `VALID`.
+    let newRef = BlockRef.init(
+      blck.root, Opt.none Eth2Digest, executionValid = false,
+      blck.summary.slot)
     if headRef == nil:
-      doAssert blck.root == head.root
       headRef = newRef
 
     if curRef != nil:
@@ -765,35 +1033,26 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.forkBlocks.incl(KeyedBlockRef.init(curRef))
 
     if not foundHeadState:
-      while slot >= blck.summary.slot:
-        # Try loading state from database - we need the head state early on to
-        # establish the (real) finalized checkpoint
-        if db.getState(cfg, blck.root, slot, dag.headState, noRollback):
-          # EpochRef needs an epoch boundary state
-          assign(dag.epochRefState, dag.headState)
-
-          var info: ForkedEpochInfo
-
-          while headBlocks.len > 0:
-            dag.applyBlock(
-              dag.headState, headBlocks.pop().bid, cache,
-              info).expect("head blocks should apply")
-
-          dag.head = headRef
-
-          assign(dag.clearanceState, dag.headState)
-
-          finalizedSlot =
-            max(finalizedSlot,
-              getStateField(dag.headState, finalized_checkpoint).epoch.start_slot)
-          foundHeadState = true
-          break
-        slot -= 1
-
-      slot += 1
+      foundHeadState = db.getState(
+        cfg, blck.root, blck.summary.slot..slot, dag.headState, noRollback)
+      slot = blck.summary.slot
 
       if not foundHeadState:
-        headBlocks.add curRef
+        # When the database has been written with a pre-fork version of the
+        # software, it may happen that blocks produced using an "unforked"
+        # chain get written to the database - we need to skip such blocks
+        # when loading the database with a fork-compatible version
+        if containsBlock(cfg, db, curRef.slot, curRef.root):
+          headBlocks.add curRef
+        else:
+          if headBlocks.len > 0:
+            fatal "Missing block needed to create head state, database corrupt?",
+              curRef = shortLog(curRef)
+            quit 1
+          # Without the block data we can't form a state for this root, so
+          # we'll need to move the head back
+          headRef = nil
+          dag.forkBlocks.excl(KeyedBlockRef.init(curRef))
 
     if curRef.slot <= finalizedSlot:
       # Only non-finalized slots get a `BlockRef`
@@ -802,21 +1061,58 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   let summariesTick = Moment.now()
 
   if not foundHeadState:
-    fatal "Could not load head state, database corrupt?",
-      head = shortLog(head), tail = shortLog(dag.tail),
-      genesis = shortLog(dag.genesis)
-    quit 1
+    if not dag.getStateByParent(curRef.bid, dag.headState):
+      fatal "Could not load head state, database corrupt?",
+        head = shortLog(head), tail = shortLog(dag.tail)
+      quit 1
+
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Altair:
+      dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
+
+  block:
+    # EpochRef needs an epoch boundary state
+    assign(dag.epochRefState, dag.headState)
+
+    var info: ForkedEpochInfo
+
+    while headBlocks.len > 0:
+      dag.applyBlock(
+        dag.headState, headBlocks.pop().bid, cache,
+        info).expect("head blocks should apply")
+
+    dag.head = headRef
+    dag.heads = @[headRef]
+
+    assign(dag.clearanceState, dag.headState)
+
+    if dag.headState.latest_block_root == tail.root:
+      # In case we started from a checkpoint with an empty slot
+      finalizedSlot = getStateField(dag.headState, slot)
+
+    finalizedSlot =
+      max(
+        finalizedSlot,
+        getStateField(dag.headState, finalized_checkpoint).epoch.start_slot)
 
   let
     configFork = case dag.headState.kind
-      of BeaconStateFork.Phase0: genesisFork(cfg)
-      of BeaconStateFork.Altair: altairFork(cfg)
-      of BeaconStateFork.Bellatrix: bellatrixFork(cfg)
+      of ConsensusFork.Phase0: genesisFork(cfg)
+      of ConsensusFork.Altair: altairFork(cfg)
+      of ConsensusFork.Bellatrix: bellatrixFork(cfg)
+      of ConsensusFork.Capella: capellaFork(cfg)
+      of ConsensusFork.Deneb:   denebFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
-  if stateFork != configFork:
+  # Here, we check only the `current_version` field because the spec
+  # mandates that testnets starting directly from a particular fork
+  # should have `previous_version` set to `current_version` while
+  # this doesn't happen to be the case in network that go through
+  # regular hard-fork upgrades. See for example:
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#testing
+  if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
-      genesis = dag.genesis, tail = dag.tail, headRef, stateFork, configFork
+      tail = dag.tail, headRef, stateFork, configFork
     quit 1
 
   # Need to load state to find genesis validators root, before loading era db
@@ -829,8 +1125,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   dag.finalizedHead = headRef.atSlot(finalizedSlot)
   dag.lastPrunePoint = dag.finalizedHead.toBlockSlotId().expect("not nil")
 
-  dag.heads = @[headRef]
-
   doAssert dag.finalizedHead.blck != nil,
     "The finalized head should exist at the slot"
   doAssert dag.finalizedHead.blck.parent == nil,
@@ -841,7 +1135,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         db.finalizedBlocks.high.get() < dag.finalizedHead.blck.slot:
       info "Loading finalized blocks",
         finHigh = db.finalizedBlocks.high,
-          finalizedHead = shortLog(dag.finalizedHead)
+        finalizedHead = shortLog(dag.finalizedHead)
 
       for blck in db.getAncestorSummaries(dag.finalizedHead.blck.root):
         if db.finalizedBlocks.high.isSome and
@@ -867,20 +1161,24 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   dag.backfill = block:
     let backfillSlot = db.finalizedBlocks.low.expect("tail at least")
-    if backfillSlot < dag.tail.slot:
+    if backfillSlot <= dag.horizon:
+      # Backfill done, no need to load anything
+      BeaconBlockSummary()
+    elif backfillSlot < dag.tail.slot:
       let backfillRoot = db.finalizedBlocks.get(backfillSlot).expect(
         "low to be loadable")
 
       db.getBeaconBlockSummary(backfillRoot).expect(
         "Backfill block must have a summary: " & $backfillRoot)
     else:
-      withBlck(tailBlock): blck.message.toBeaconBlockSummary()
+      db.getBeaconBlockSummary(dag.tail.root).expect(
+        "Tail block must have a summary: " & $dag.tail.root)
 
   dag.forkDigests = newClone ForkDigests.init(
     cfg, getStateField(dag.headState, genesis_validators_root))
 
   withState(dag.headState):
-    dag.validatorMonitor[].registerState(state.data)
+    dag.validatorMonitor[].registerState(forkyState.data)
 
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
 
@@ -891,40 +1189,38 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
     let
       historical_roots = getStateField(dag.headState, historical_roots).asSeq()
+      historical_summaries = dag.headState.historical_summaries.asSeq()
 
     var
       blocks = 0
-      parent: Eth2Digest
 
     # Here, we'll build up the slot->root mapping in memory for the range of
     # blocks from genesis to backfill, if possible.
-    for summary in dag.era.getBlockIds(historical_roots, Slot(0)):
-      if summary.slot >= dag.backfill.slot:
+    for bid in dag.era.getBlockIds(
+        historical_roots, historical_summaries, Slot(0), Eth2Digest()):
+      if bid.slot >= dag.backfill.slot:
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
-          slot = summary.slot
+          bid
         quit 1
 
       # In BeaconState.block_roots, empty slots are filled with the root of
       # the previous block - in our data structure, we use a zero hash instead
-      if summary.root != parent:
-        dag.frontfillBlocks.setLen(summary.slot.int + 1)
-        dag.frontfillBlocks[summary.slot.int] = summary.root
+      dag.frontfillBlocks.setLen(bid.slot.int + 1)
+      dag.frontfillBlocks[bid.slot.int] = bid.root
 
-        if summary.root == dag.backfill.parent_root:
-          # We've reached the backfill point, meaning blocks are available
-          # in the sqlite database from here onwards - remember this point in
-          # time so that we can write summaries to the database - it's a lot
-          # faster to load from database than to iterate over era files with
-          # the current naive era file reader.
-          reset(dag.backfill)
+      if bid.root == dag.backfill.parent_root:
+        # We've reached the backfill point, meaning blocks are available
+        # in the sqlite database from here onwards - remember this point in
+        # time so that we can write summaries to the database - it's a lot
+        # faster to load from database than to iterate over era files with
+        # the current naive era file reader.
+        reset(dag.backfill)
 
-          dag.updateFrontfillBlocks()
+        dag.updateFrontfillBlocks()
 
-          break
-
-        parent = summary.root
+        break
 
       blocks += 1
 
@@ -937,9 +1233,15 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # have a cache
   dag.updateValidatorKeys(getStateField(dag.headState, validators).asSeq())
 
-  withState(dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
-      dag.headSyncCommittees = state.data.get_sync_committee_cache(cache)
+  # Initialize pruning such that when starting with a database that hasn't been
+  # pruned, we work our way from the tail to the horizon in incremental steps
+  dag.lastHistoryPruneHorizon = dag.horizon()
+  dag.lastHistoryPruneBlockHorizon = block:
+    let boundary = min(dag.tail.slot, dag.horizon())
+    if boundary.epoch() >= EPOCHS_PER_STATE_SNAPSHOT:
+      start_slot(boundary.epoch() - EPOCHS_PER_STATE_SNAPSHOT)
+    else:
+      Slot(0)
 
   info "Block DAG initialized",
     head = shortLog(dag.head),
@@ -953,7 +1255,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     frontfillDur = frontfillTick - finalizedTick,
     keysDur = Moment.now() - frontfillTick
 
-  dag.initLightClientCache()
+  dag.initLightClientDataCache()
 
   dag
 
@@ -971,35 +1273,14 @@ func getEpochRef*(
     bid = state.latest_block_id
     epoch = state.get_current_epoch()
 
-  var epochRef = dag.findEpochRef(bid, epoch)
-  if epochRef.isErr:
+  dag.findEpochRef(bid, epoch).valueOr:
     let res = EpochRef.init(dag, state, cache)
-    if epoch >= dag.finalizedHead.slot.epoch():
-      # Only cache epoch information for unfinalized blocks - earlier states
-      # are seldomly used (ie RPC), so no need to cache
-
-      # Because we put a cap on the number of epochRefs we store, we want to
-      # prune the least useful state - for now, we'll assume that to be the
-      # oldest epochRef we know about.
-
-      var
-        oldest = 0
-      for x in 0..<dag.epochRefs.len:
-        let candidate = dag.epochRefs[x]
-        if candidate == nil:
-          oldest = x
-          break
-        if candidate.key.epoch < dag.epochRefs[oldest].epoch:
-          oldest = x
-
-      dag.epochRefs[oldest] = res
+    dag.putEpochRef(res)
     res
-  else:
-    epochRef.get()
 
 proc getEpochRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch,
-    preFinalized: bool): Opt[EpochRef] =
+    preFinalized: bool): Result[EpochRef, cstring] =
   ## Return a cached EpochRef or construct one from the database, if possible -
   ## returns `none` on failure.
   ##
@@ -1013,45 +1294,251 @@ proc getEpochRef*(
   ##
   ## Requests for epochs < dag.finalizedHead.slot.epoch may fail, either because
   ## the search was limited by the `preFinalized` flag or because state history
-  ## has been pruned - none will be returned in this case.
+  ## has been pruned - `none` will be returned in this case.
   if not preFinalized and epoch < dag.finalizedHead.slot.epoch:
-    return err()
+    return err("Requesting pre-finalized EpochRef")
 
   if bid.slot < dag.tail.slot or epoch < dag.tail.slot.epoch:
-    return err()
+    return err("Requesting EpochRef for pruned state")
 
   let epochRef = dag.findEpochRef(bid, epoch)
   if epochRef.isOk():
     beacon_state_data_cache_hits.inc
-    return epochRef
+    return ok epochRef.get()
 
   beacon_state_data_cache_misses.inc
 
-  # TODO instead of using the epoch ancestor, we should really be looking
-  #      for _any_ state in the desired epoch in the history of bid since the
-  #      epoch values remain unchanged: currently `epochAncestor` itself
-  #      contains a work-around for the tail state, but it would be better to
-  #      turn that work-around into a more efficient loading solution here
   let
-    ancestor = dag.epochAncestor(bid, epoch)
+    ancestor = dag.epochAncestor(bid, epoch).valueOr:
+      # If we got in here, the bid must be unknown or we would have gotten
+      # _some_ ancestor (like the tail)
+      return err("Requesting EpochRef for non-canonical block")
 
   var cache: StateCache
-  if not updateState(
-      dag, dag.epochRefState, ? dag.atSlot(ancestor.bid, epoch.start_slot),
-      false, cache):
-    return err()
+  if not updateState(dag, dag.epochRefState, ancestor, false, cache):
+    return err("Could not load requested state")
 
   ok(dag.getEpochRef(dag.epochRefState, cache))
 
 proc getEpochRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
-    preFinalized: bool): Opt[EpochRef] =
+    preFinalized: bool): Result[EpochRef, cstring] =
   dag.getEpochRef(blck.bid, epoch, preFinalized)
 
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
   dag.getEpochRef(
     dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).expect(
       "getEpochRef for finalized head should always succeed")
+
+proc getBlockIdAtSlot(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState, slot: Slot): Opt[BlockId] =
+  if slot >= state.data.slot:
+    Opt.some state.latest_block_id
+  elif state.data.slot <= slot + SLOTS_PER_HISTORICAL_ROOT:
+    dag.getBlockId(state.data.get_block_root_at_slot(slot))
+  else:
+    Opt.none(BlockId)
+
+proc ancestorSlot*(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState, bid: BlockId,
+    lowSlot: Slot): Opt[Slot] =
+  ## Return common ancestor slot of `bid` and `state`, if at least `lowSlot`.
+  ## Return `none` if no common ancestor is found with slot >= `lowSlot`.
+  if state.data.slot < lowSlot or bid.slot < lowSlot:
+    return Opt.none(Slot)
+
+  var stateBid = ? dag.getBlockIdAtSlot(state, bid.slot)
+  if stateBid.slot < lowSlot:
+    return Opt.none(Slot)
+
+  var blockBid = (? dag.atSlot(bid, stateBid.slot)).bid
+  if blockBid.slot < lowSlot:
+    return Opt.none(Slot)
+
+  while stateBid != blockBid:
+    if stateBid.slot >= blockBid.slot:
+      stateBid = ? dag.getBlockIdAtSlot(
+        state, min(blockBid.slot, stateBid.slot - 1))
+      if stateBid.slot < lowSlot:
+        return Opt.none(Slot)
+    else:
+      blockBid = ? dag.parent(blockBid)
+      if blockBid.slot < lowSlot:
+        return Opt.none(Slot)
+
+  Opt.some stateBid.slot
+
+proc ancestorSlotForAttesterShuffling*(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState,
+    blck: BlockRef, epoch: Epoch): Opt[Slot] =
+  ## Return slot of `blck` ancestor to which `state` can be rewinded
+  ## so that RANDAO at `epoch.attester_dependent_slot` can be computed.
+  ## Return `err` if `state` is unviable to compute shuffling for `blck@epoch`.
+
+  # A state must be somewhat recent so that `get_active_validator_indices`
+  # for the queried `epoch` cannot be affected by any such skipped processing.
+  const numDelayEpochs = compute_activation_exit_epoch(GENESIS_EPOCH).uint64
+  let
+    lowEpoch = max(epoch, (numDelayEpochs - 1).Epoch) - (numDelayEpochs - 1)
+    ancestorSlot = ? dag.ancestorSlot(state, blck.bid, lowEpoch.start_slot)
+  Opt.some min(ancestorSlot, epoch.attester_dependent_slot)
+
+type AttesterRandaoMix = tuple[dependentBid: BlockId, mix: Eth2Digest]
+
+proc computeAttesterRandaoMix(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState,
+    blck: BlockRef, epoch: Epoch): Opt[AttesterRandaoMix] =
+  ## Compute the requested RANDAO mix for `blck@epoch` based on `state`.
+  ## If `state` has unviable `get_active_validator_indices`, return `none`.
+
+  # Check `state` has locked-in `get_active_validator_indices` for `epoch`
+  let
+    stateSlot = state.data.slot
+    dependentSlot = epoch.attester_dependent_slot
+    ancestorSlot = ? dag.ancestorSlotForAttesterShuffling(state, blck, epoch)
+  doAssert ancestorSlot <= stateSlot
+  doAssert ancestorSlot <= dependentSlot
+
+  # Determine block for obtaining RANDAO mix
+  let
+    dependentBid =
+      if dependentSlot >= dag.finalizedHead.slot:
+        var b = blck.get_ancestor(dependentSlot)
+        doAssert b != nil
+        b.bid
+      else:
+        let bsi = ? dag.getBlockIdAtSlot(dependentSlot)
+        bsi.bid
+    dependentBdata = ? dag.getForkedBlock(dependentBid)
+  var mix {.noinit.}: Eth2Digest
+
+  # If `dependentBid` is post merge, RANDAO information is available
+  withBlck(dependentBdata):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      if blck.message.is_execution_block:
+        mix = eth2digest(blck.message.body.randao_reveal.toRaw())
+        mix.data.mxor blck.message.body.execution_payload.prev_randao.data
+        return ok (dependentBid: dependentBid, mix: mix)
+
+  # RANDAO mix has to be recomputed from `blck` and `state`
+  proc mixToAncestor(highBid: BlockId): Opt[void] =
+    ## Mix in/out RANDAO reveals back to `ancestorSlot`
+    var bid = highBid
+    while bid.slot > ancestorSlot:
+      let bdata = ? dag.getForkedBlock(bid)
+      withBlck(bdata):  # See `process_randao` / `process_randao_mixes_reset`
+        mix.data.mxor eth2digest(blck.message.body.randao_reveal.toRaw()).data
+      bid = ? dag.parent(bid)
+    ok()
+
+  # Mix in RANDAO from `blck`
+  if ancestorSlot < dependentBid.slot:
+    withBlck(dependentBdata):
+      mix = eth2digest(blck.message.body.randao_reveal.toRaw())
+    ? mixToAncestor(? dag.parent(dependentBid))
+  else:
+    mix.reset()
+
+  # Mix in RANDAO from `state`
+  let ancestorEpoch = ancestorSlot.epoch
+  if ancestorEpoch + EPOCHS_PER_HISTORICAL_VECTOR <= stateSlot.epoch:
+    return Opt.none(AttesterRandaoMix)
+  let mixRoot = state.dependent_root(ancestorEpoch + 1)
+  if mixRoot.isZero:
+    return Opt.none(AttesterRandaoMix)
+  ? mixToAncestor(? dag.getBlockId(mixRoot))
+  mix.data.mxor state.data.get_randao_mix(ancestorEpoch).data
+
+  ok (dependentBid: dependentBid, mix: mix)
+
+proc computeShufflingRefFromState*(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState,
+    blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
+  let (dependentBid, mix) =
+    ? dag.computeAttesterRandaoMix(state, blck, epoch)
+
+  return ok ShufflingRef(
+    epoch: epoch,
+    attester_dependent_root: dependentBid.root,
+    shuffled_active_validator_indices:
+      state.data.get_shuffled_active_validator_indices(epoch, mix))
+
+proc computeShufflingRefFromMemory*(
+    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
+  ## Compute `ShufflingRef` from states available in memory (up to ~5 ms)
+  template tryWithState(state: ForkedHashedBeaconState) =
+    block:
+      withState(state):
+        let shufflingRef =
+          dag.computeShufflingRefFromState(forkyState, blck, epoch)
+        if shufflingRef.isOk:
+          return shufflingRef
+  tryWithState dag.headState
+  tryWithState dag.epochRefState
+  tryWithState dag.clearanceState
+
+proc computeShufflingRefFromDatabase*(
+    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
+  ## Load state from DB, for when DAG states are unviable (up to ~500 ms)
+  let
+    dependentSlot = epoch.attester_dependent_slot
+    state = newClone(dag.headState)
+  var
+    e = dependentSlot.epoch
+    b = blck
+  while e > GENESIS_EPOCH and compute_activation_exit_epoch(e) > epoch:
+    let boundaryBlockSlot = e.start_slot - 1
+    b = b.get_ancestor(boundaryBlockSlot)  # nil if < finalized head
+    let
+      bid =
+        if b != nil:
+          b.bid
+        else:
+          let bsi = ? dag.getBlockIdAtSlot(boundaryBlockSlot)
+          bsi.bid
+      bsi = BlockSlotId.init(bid, boundaryBlockSlot + 1)
+    if not dag.getState(bsi, state[]):
+      dec e
+      continue
+
+    return withState(state[]):
+      dag.computeShufflingRefFromState(forkyState, blck, epoch)
+  err()
+
+proc computeShufflingRef*(
+    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
+  # Try to compute `ShufflingRef` from states available in memory
+  let shufflingRef = dag.computeShufflingRefFromMemory(blck, epoch)
+  if shufflingRef.isOk:
+    return shufflingRef
+
+  # Fall back to database
+  dag.computeShufflingRefFromDatabase(blck, epoch)
+
+proc getShufflingRef*(
+    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
+    preFinalized: bool): Opt[ShufflingRef] =
+  ## Return the shuffling in the given history and epoch - this potentially is
+  ## faster than returning a full EpochRef because the shuffling is determined
+  ## an epoch in advance and therefore is less sensitive to reorgs
+  var shufflingRef = dag.findShufflingRef(blck.bid, epoch)
+  if shufflingRef.isSome:
+    return shufflingRef
+
+  # Use existing states to quickly compute the shuffling
+  shufflingRef = dag.computeShufflingRef(blck, epoch)
+  if shufflingRef.isSome:
+    dag.putShufflingRef(shufflingRef.get)
+    return shufflingRef
+
+  # Last resort, this can take several seconds as this may replay states
+  # TODO here, we could check the existing cached states and see if any one
+  # has the right dependent root - unlike EpochRef, we don't need an _exact_
+  # epoch match
+  let epochRef = dag.getEpochRef(blck, epoch, preFinalized).valueOr:
+    return Opt.none ShufflingRef
+  dag.putShufflingRef(epochRef.shufflingRef)
+  Opt.some epochRef.shufflingRef
 
 func stateCheckpoint*(dag: ChainDAGRef, bsi: BlockSlotId): BlockSlotId =
   ## The first ancestor BlockSlot that is a state checkpoint
@@ -1089,8 +1576,13 @@ proc getBlockRange*(
     head = shortLog(dag.head.root), requestedCount, startSlot, skipStep, headSlot
 
   if startSlot < dag.backfill.slot:
-    notice "Got request for pre-backfill slot",
-      startSlot, backfillSlot = dag.backfill.slot
+    if startSlot < dag.horizon:
+      # We will not backfill these
+      debug "Got request for pre-horizon slot",
+        startSlot, backfillSlot = dag.backfill.slot
+    else:
+      notice "Got request for pre-backfill slot",
+        startSlot, backfillSlot = dag.backfill.slot
     return output.len
 
   if headSlot <= startSlot or requestedCount == 0:
@@ -1143,7 +1635,7 @@ proc updateState*(
   let
     startTick = Moment.now()
     current {.used.} = withState(state):
-      BlockSlotId.init(state.latest_block_id, state.data.slot)
+      BlockSlotId.init(forkyState.latest_block_id, forkyState.data.slot)
 
   var
     ancestors: seq[BlockId]
@@ -1215,7 +1707,6 @@ proc updateState*(
         ancestors.add(cur.bid)
 
       # Move slot by slot to capture epoch boundary states
-      # TODO https://github.com/nim-lang/Nim/issues/19613
       cur = dag.parentOrSlot(cur).valueOr:
         break
 
@@ -1237,7 +1728,8 @@ proc updateState*(
     # no longer recreate history - this happens for example when starting from
     # a checkpoint block
     let startEpoch = bsi.slot.epoch
-    while not canAdvance(state, cur) and not dag.db.getState(dag.cfg, cur.bid.root, cur.slot, state, noRollback):
+    while not canAdvance(state, cur) and
+        not dag.db.getState(dag.cfg, cur.bid.root, cur.slot, state, noRollback):
       # There's no state saved for this particular BlockSlot combination, and
       # the state we have can't trivially be advanced (in case it was older than
       # RewindBlockThreshold), keep looking..
@@ -1258,12 +1750,13 @@ proc updateState*(
         return false
 
       # Move slot by slot to capture epoch boundary states
-      # TODO https://github.com/nim-lang/Nim/issues/19613
       cur = dag.parentOrSlot(cur).valueOr:
-        notice "Request for pruned historical state",
-          request = shortLog(bsi), tail = shortLog(dag.tail),
-          cur = shortLog(cur)
-        return false
+        if not dag.getStateByParent(cur.bid, state):
+          notice "Request for pruned historical state",
+            request = shortLog(bsi), tail = shortLog(dag.tail),
+            cur = shortLog(cur)
+          return false
+        break
 
     beacon_state_rewinds.inc()
 
@@ -1271,7 +1764,7 @@ proc updateState*(
   let
     assignTick = Moment.now()
     ancestor {.used.} = withState(state):
-      BlockSlotId.init(state.latest_block_id, state.data.slot)
+      BlockSlotId.init(forkyState.latest_block_id, forkyState.data.slot)
     ancestorRoot {.used.} = getStateRoot(state)
 
   var info: ForkedEpochInfo
@@ -1281,7 +1774,12 @@ proc updateState*(
     # again. Also, because we're applying blocks that were loaded from the
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
-    if dag.applyBlock(state, ancestors[i], cache, info).isErr:
+    if (let res = dag.applyBlock(state, ancestors[i], cache, info); res.isErr):
+      warn "Failed to apply block from database",
+        blck = shortLog(ancestors[i]),
+        state_bid = shortLog(state.latest_block_id),
+        error = res.error()
+
       return false
 
   # ...and make sure to process empty slots as requested
@@ -1338,13 +1836,28 @@ proc updateState*(
   true
 
 proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
-  # Delete state state and mapping for a particular block+slot
+  # Delete state and mapping for a particular block+slot
   if not dag.isStateCheckpoint(bsi):
     return # We only ever save epoch states
 
   if (let root = dag.db.getStateRoot(bsi.bid.root, bsi.slot); root.isSome()):
-    dag.db.delState(root.get())
-    dag.db.delStateRoot(bsi.bid.root, bsi.slot)
+    dag.db.withManyWrites:
+      dag.db.delStateRoot(bsi.bid.root, bsi.slot)
+      dag.db.delState(
+        dag.cfg.consensusForkAtEpoch(bsi.slot.epoch), root.get())
+
+proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
+  # TODO: should we move that disk I/O to `onSlotEnd`
+  dag.delState(bs.toBlockSlotId().expect("not nil"))
+
+  if bs.isProposed():
+    # Update light client data
+    dag.deleteLightClientData(bs.blck.bid)
+
+    bs.blck.executionValid = true
+    dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
+    discard dag.db.delBlock(
+      dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch), bs.blck.root)
 
 proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## This prunes the block DAG
@@ -1380,16 +1893,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
       "finalizedHead parent should have been pruned from memory already"
 
     while cur.blck.parent != nil:
-      # TODO: should we move that disk I/O to `onSlotEnd`
-      dag.delState(cur.toBlockSlotId().expect("not nil"))
-
-      if cur.isProposed():
-        # Update light client data
-        dag.deleteLightClientData(cur.blck.bid)
-
-        dag.forkBlocks.excl(KeyedBlockRef.init(cur.blck))
-        dag.db.delBlock(cur.blck.root)
-
+      dag.pruneBlockSlot(cur)
       cur = cur.parentOrSlot
 
     dag.heads.del(n)
@@ -1398,6 +1902,34 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     currentCandidateHeads = dag.heads.len,
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/sync/optimistic.md#helpers
+template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
+  let blck =
+    if bid.slot <= dag.finalizedHead.slot:
+      dag.finalizedHead.blck
+    else:
+      dag.getBlockRef(bid.root).expect("Non-finalized block is known")
+  not blck.executionValid
+
+proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
+  var cur = blck
+
+  while true:
+    cur.executionValid = true
+
+    debug "markBlockVerified", blck = shortLog(cur)
+
+    if cur.parent.isNil:
+      break
+
+    cur = cur.parent
+
+    # Always check at least as far back as the parent so that when a new block
+    # is added with executionValid already set, it stil sets the ancestors, to
+    # the next valid in the chain.
+    if cur.executionValid:
+      return
 
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorIndex],
@@ -1423,10 +1955,10 @@ iterator syncSubcommitteePairs*(
 func syncCommitteeParticipants*(dag: ChainDAGRef,
                                 slot: Slot): seq[ValidatorIndex] =
   withState(dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       let
         period = sync_committee_period(slot)
-        curPeriod = sync_committee_period(state.data.slot)
+        curPeriod = sync_committee_period(forkyState.data.slot)
 
       if period == curPeriod:
         @(dag.headSyncCommittees.current_sync_committee)
@@ -1453,10 +1985,10 @@ func getSubcommitteePositions*(
     subcommitteeIdx: SyncSubcommitteeIndex,
     validatorIdx: uint64): seq[uint64] =
   withState(dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       let
         period = sync_committee_period(slot)
-        curPeriod = sync_committee_period(state.data.slot)
+        curPeriod = sync_committee_period(forkyState.data.slot)
 
       template search(syncCommittee: openArray[ValidatorIndex]): seq[uint64] =
         dag.getSubcommitteePositionsAux(
@@ -1507,10 +2039,10 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
       prev = dag.parentOrSlot(dag.stateCheckpoint(dag.lastPrunePoint))
 
     while cur.isSome and prev.isSome and cur.get() != prev.get():
-      if not isFinalizedStateSnapshot(cur.get().slot) and
-          cur.get().slot != dag.tail.slot:
-        dag.delState(cur.get())
-      # TODO https://github.com/nim-lang/Nim/issues/19613
+      let bs = cur.get()
+      if not isFinalizedStateSnapshot(bs.slot) and
+          bs.slot != dag.tail.slot:
+        dag.delState(bs)
       let tmp = cur.get()
       cur = dag.parentOrSlot(tmp)
 
@@ -1519,10 +2051,9 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
   block: # Clean up old EpochRef instances
     # After finalization, we can clear up the epoch cache and save memory -
     # it will be recomputed if needed
-    for i in 0..<dag.epochRefs.len:
-      if dag.epochRefs[i] != nil and
-          dag.epochRefs[i].epoch < dag.finalizedHead.slot.epoch:
-        dag.epochRefs[i] = nil
+    dag.epochRefs.delIt(it.epoch < dag.finalizedHead.slot.epoch)
+    dag.shufflingRefs.delIt(it.epoch < dag.finalizedHead.slot.epoch)
+
   let epochRefPruneTick = Moment.now()
 
   dag.lastPrunePoint = dag.finalizedHead.toBlockSlotId().expect("not nil")
@@ -1531,17 +2062,216 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     statePruneDur = statePruneTick - startTick,
     epochRefPruneDur = epochRefPruneTick - statePruneTick
 
-template getHeadStateMergeComplete*(dag: ChainDAGRef): bool =
-  withState(dag.headState):
-    when stateFork >= BeaconStateFork.Bellatrix:
-      is_merge_transition_complete(state.data)
+func pruneStep(horizon, lastHorizon, lastBlockHorizon: Slot):
+    tuple[stateHorizon, blockHorizon: Slot] =
+  ## Compute a reasonable incremental pruning step considering the current
+  ## horizon, how far the database has been pruned already and where we want the
+  ## tail to be - the return value shows the first state and block that we
+  ## should _keep_ (inclusive).
+
+  const SLOTS_PER_STATE_SNAPSHOT =
+    uint64(EPOCHS_PER_STATE_SNAPSHOT * SLOTS_PER_EPOCH)
+
+  let
+    blockHorizon = block:
+      let
+        # Keep up with horizon if it's moving fast, ie if we're syncing
+        maxSlots = max(horizon - lastHorizon, MAX_SLOTS_PER_PRUNE)
+
+        # Move the block horizon cap with a lag so that it moves slot-by-slot
+        # instead of a big jump every time we prune a state - assuming we
+        # prune every slot, this makes us prune one slot at a time instead of
+        # a burst of prunes (as computed by maxSlots) around every snapshot
+        # change followed by no pruning for the rest of the period
+        maxBlockHorizon =
+          if horizon + 1 >= SLOTS_PER_STATE_SNAPSHOT:
+            horizon + 1 - SLOTS_PER_STATE_SNAPSHOT
+          else:
+            Slot(0)
+
+      # `lastBlockHorizon` captures the case where we're incrementally
+      # pruning a database that hasn't been pruned for a while: it's
+      # initialized to a pre-tail value on startup and moves to approach
+      # `maxBlockHorizon`.
+      min(maxBlockHorizon, lastBlockHorizon + maxSlots)
+
+    # Round up such that we remove state only once blocks have been removed
+    stateHorizon =
+      ((blockHorizon + SLOTS_PER_STATE_SNAPSHOT - 1) div
+        SLOTS_PER_STATE_SNAPSHOT) * SLOTS_PER_STATE_SNAPSHOT
+
+  (Slot(stateHorizon), blockHorizon)
+
+proc pruneHistory*(dag: ChainDAGRef, startup = false) =
+  ## Perform an incremental pruning step of the history
+  if dag.db.db.readOnly:
+    return
+
+  let
+    horizon = dag.horizon()
+    (stateHorizon, blockHorizon) = pruneStep(
+      horizon, dag.lastHistoryPruneHorizon, dag.lastHistoryPruneBlockHorizon)
+
+  doAssert blockHorizon <= stateHorizon,
+    "we must never prune blocks while leaving the state"
+
+  debug "Pruning history",
+    horizon, blockHorizon, stateHorizon,
+    lastHorizon = dag.lastHistoryPruneHorizon,
+    lastBlockHorizon = dag.lastHistoryPruneBlockHorizon,
+    tail = dag.tail, head = dag.head
+
+  dag.lastHistoryPruneHorizon = horizon
+  dag.lastHistoryPruneBlockHorizon = blockHorizon
+
+  dag.db.withManyWrites:
+    if stateHorizon > dag.tail.slot:
+      # First, we want to see if it's possible to prune any states - we store one
+      # state every EPOCHS_PER_STATE_SNAPSHOT, so this happens infrequently.
+
+      var
+        cur = dag.getBlockIdAtSlot(stateHorizon)
+
+      var first = true
+      while cur.isSome():
+        let bs = cur.get()
+        # We don't delete legacy states because the legacy database is openend
+        # in read-only and slow to delete from due to its sub-optimal structure
+        if dag.db.containsState(
+            dag.cfg, bs.bid.root, bs.slot..bs.slot, legacy = first):
+          if first:
+            # We leave the state on the prune horizon intact and update the tail
+            # to point to this state, indicating the new point in time from
+            # which we can load states in general.
+            debug "Updating tail", bs
+            dag.db.putTailBlock(bs.bid.root)
+            dag.tail = bs.bid
+            first = false
+          else:
+            debug "Pruning historical state", bs
+            dag.delState(bs)
+        elif not bs.isProposed:
+          trace "Reached already-pruned slot, done pruning states", bs
+          break
+
+        if bs.isProposed:
+          # We store states either at the same slot at the block (checkpoint) or
+          # by advancing the slot to the nearest epoch start - check both when
+          # pruning
+          cur = dag.parentOrSlot(bs)
+        elif bs.slot.epoch > EPOCHS_PER_STATE_SNAPSHOT:
+          # Jump one snapshot interval at a time, but don't prune genesis
+          cur = dag.getBlockIdAtSlot(start_slot(bs.slot.epoch() - EPOCHS_PER_STATE_SNAPSHOT))
+        else:
+          break
+
+    # Prune blocks after sanity-checking that we don't prune post-tail blocks -
+    # this could happen if a state is missing at the expected state horizon and
+    # would indicate a partially inconsistent database since the base
+    # invariant is that there exists a state at the snapshot slot - better not
+    # further mess things up regardless
+    if blockHorizon > GENESIS_SLOT and blockHorizon <= dag.tail.slot:
+      var
+        # Leave the horizon block itself
+        cur = dag.getBlockIdAtSlot(blockHorizon - 1).map(proc(x: auto): auto = x.bid)
+
+      while cur.isSome:
+        let
+          bid = cur.get()
+          fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+
+        if bid.slot == GENESIS_SLOT:
+          # Leave genesis block for nostalgia and the REST API
+          break
+
+        if not dag.db.delBlock(fork, bid.root):
+          # Stop at the first gap - this is typically the pruning point of the
+          # previous call to pruneHistory. An inconsistent DB might have more
+          # blocks beyond that point but we have no efficient way of detecting
+          # that.
+          break
+
+        cur = dag.parent(bid)
+
+    # TODO There have been varied reports of startup pruning causing long
+    #      startup times - an incremental approach would be needed here also
+    if false and
+        startup and
+        dag.cfg.consensusForkAtEpoch(blockHorizon.epoch) > ConsensusFork.Phase0:
+      # Once during start, we'll clear all "old fork" data - this ensures we get
+      # rid of any leftover junk in the tables - we do so after linear pruning
+      # so as to "mostly" clean up the phase0 tables as well (which cannot be
+      # pruned easily by fork) - one fork at a time, so as not to take too long
+
+      let stateFork = dag.cfg.consensusForkAtEpoch(dag.tail.slot.epoch)
+      var clearedStates = false
+      if stateFork > ConsensusFork.Phase0:
+        for fork in ConsensusFork.Phase0..<stateFork:
+          if dag.db.clearStates(fork):
+            clearedStates = true
+            break
+
+      let blockFork = dag.cfg.consensusForkAtEpoch(blockHorizon.epoch)
+      if not clearedStates and blockFork > ConsensusFork.Phase0:
+        for fork in ConsensusFork.Phase0..<blockFork:
+          if dag.db.clearBlocks(fork):
+            break
+
+proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
+  if dag.cfg.consensusForkAtEpoch(bid.slot.epoch) < ConsensusFork.Bellatrix:
+    return ZERO_HASH
+
+  let blockData = dag.getForkedBlock(bid).valueOr:
+    return ZERO_HASH
+
+  withBlck(blockData):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      blck.message.body.execution_payload.block_hash
     else:
-      false
+      ZERO_HASH
+
+proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
+  if blck.executionBlockHash.isNone:
+    blck.executionBlockHash = Opt.some dag.loadExecutionBlockHash(blck.bid)
+  blck.executionBlockHash.unsafeGet
+
+from std/packedsets import PackedSet, incl, items
+
+func getValidatorChangeStatuses(
+    state: ForkedHashedBeaconState, vis: openArray[ValidatorIndex]):
+    PackedSet[ValidatorIndex] =
+  var res: PackedSet[ValidatorIndex]
+  withState(state):
+    for vi in vis:
+      if  forkyState.data.validators[vi].withdrawal_credentials.data[0] ==
+          BLS_WITHDRAWAL_PREFIX:
+        res.incl vi
+  res
+
+func checkBlsToExecutionChanges(
+    state: ForkedHashedBeaconState, vis: PackedSet[ValidatorIndex]): bool =
+  # Within each fork, BLS_WITHDRAWAL_PREFIX to ETH1_ADDRESS_WITHDRAWAL_PREFIX
+  # and never ETH1_ADDRESS_WITHDRAWAL_PREFIX to BLS_WITHDRAWAL_PREFIX. Latter
+  # can still happen via reorgs.
+  # Cases:
+  # 1) unchanged (BLS_WITHDRAWAL_PREFIX or ETH1_ADDRESS_WITHDRAWAL_PREFIX) from
+  #    old to new head.
+  # 2) ETH1_ADDRESS_WITHDRAWAL_PREFIX to BLS_WITHDRAWAL_PREFIX
+  # 3) BLS_WITHDRAWAL_PREFIX to ETH1_ADDRESS_WITHDRAWAL_PREFIX
+  #
+  # Only report (3), i.e. whether there were validator indices with withdrawal
+  # credentials previously using BLS_WITHDRAWAL_PREFIX now using, instead, the
+  # ETH1_ADDRESS_WITHDRAWAL_PREFIX prefix indicating a BLS to execution change
+  # went through.
+  #
+  # Since it tracks head, it's possible reorgs trigger reporting the same
+  # validator indices multiple times; this is fine.
+  withState(state):
+    anyIt( vis, forkyState.data.validators[it].has_eth1_withdrawal_credential)
 
 proc updateHead*(
-    dag: ChainDAGRef,
-    newHead: BlockRef,
-    quarantine: var Quarantine) =
+    dag: ChainDAGRef, newHead: BlockRef, quarantine: var Quarantine,
+    knownValidators: openArray[ValidatorIndex]) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ##
@@ -1551,8 +2281,12 @@ proc updateHead*(
   ## now fall from grace, or no longer be considered resolved.
   doAssert not newHead.isNil()
 
-  let
-    lastHead = dag.head
+  # Could happen if enough blocks get invalidated and would corrupt database -
+  # When finalized checkpoint is empty, the slot may also be smaller
+  doAssert newHead.slot >= dag.finalizedHead.slot or
+    newHead == dag.finalizedHead.blck
+
+  let lastHead = dag.head
 
   logScope:
     newHead = shortLog(newHead)
@@ -1572,7 +2306,10 @@ proc updateHead*(
 
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
-    lastHeadMergeComplete = dag.getHeadStateMergeComplete()
+    lastHeadMergeComplete = dag.headState.is_merge_transition_complete()
+    lastHeadKind = dag.headState.kind
+    lastKnownValidatorsChangeStatuses = getValidatorChangeStatuses(
+      dag.headState, knownValidators)
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -1589,21 +2326,43 @@ proc updateHead*(
 
   dag.head = newHead
 
-  if dag.getHeadStateMergeComplete() and not lastHeadMergeComplete:
+  if  dag.headState.is_merge_transition_complete() and not
+      lastHeadMergeComplete and
+      dag.vanityLogs.onMergeTransitionBlock != nil:
     dag.vanityLogs.onMergeTransitionBlock()
+
+  if dag.headState.kind > lastHeadKind:
+    case dag.headState.kind
+    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
+      discard
+    of ConsensusFork.Capella:
+      if dag.vanityLogs.onUpgradeToCapella != nil:
+        dag.vanityLogs.onUpgradeToCapella()
+    of ConsensusFork.Deneb:
+      if dag.vanityLogs.onUpgradeToDeneb != nil:
+        dag.vanityLogs.onUpgradeToDeneb()
+
+  if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
+      checkBlsToExecutionChanges(
+        dag.headState, lastKnownValidatorsChangeStatuses):
+    dag.vanityLogs.onKnownBlsToExecutionChange()
 
   dag.db.putHeadBlock(newHead.root)
 
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
 
   withState(dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
-      dag.headSyncCommittees = state.data.get_sync_committee_cache(cache)
+    when consensusFork >= ConsensusFork.Altair:
+      dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   let
     finalized_checkpoint =
       getStateField(dag.headState, finalized_checkpoint)
-    finalizedSlot = max(finalized_checkpoint.epoch.start_slot(), dag.tail.slot)
+    finalizedSlot =
+      # finalized checkpoint may move back in the head state compared to what
+      # we've seen in other forks - it does not move back in fork choice
+      # however, so we'll use the last-known-finalized in that case
+      max(finalized_checkpoint.epoch.start_slot(), dag.finalizedHead.slot)
     finalizedHead = newHead.atSlot(finalizedSlot)
 
   doAssert (not finalizedHead.blck.isNil),
@@ -1619,7 +2378,8 @@ proc updateHead*(
       stateRoot = shortLog(getStateRoot(dag.headState)),
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
-      finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
+      finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
+      isOptHead = not newHead.executionValid
 
     if not(isNil(dag.onReorgHappened)):
       let
@@ -1640,19 +2400,21 @@ proc updateHead*(
       stateRoot = shortLog(getStateRoot(dag.headState)),
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
-      finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
+      finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
+      isOptHead = newHead.executionValid
 
     if not(isNil(dag.onHeadChanged)):
       let
         currentEpoch = epoch(newHead.slot)
-        depRoot = withState(dag.headState): state.proposer_dependent_root
-        prevDepRoot = withState(dag.headState): state.attester_dependent_root
+        depRoot = withState(dag.headState): forkyState.proposer_dependent_root
+        prevDepRoot = withState(dag.headState):
+          forkyState.attester_dependent_root
         epochTransition = (finalizedHead != dag.finalizedHead)
         # TODO (cheatfate): Proper implementation required
         data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
                                          getStateRoot(dag.headState),
-                                         epochTransition, depRoot,
-                                         prevDepRoot)
+                                         epochTransition, prevDepRoot,
+                                         depRoot)
       dag.onHeadChanged(data)
 
   withState(dag.headState):
@@ -1660,7 +2422,7 @@ proc updateHead*(
     # state-related metrics change - notify the validator monitor.
     # Doing this update during head update ensures there's a reasonable number
     # of such updates happening - at most once per valid block.
-    dag.validatorMonitor[].registerState(state.data)
+    dag.validatorMonitor[].registerState(forkyState.data)
 
   if finalizedHead != dag.finalizedHead:
     debug "Reached new finalization checkpoint",
@@ -1690,8 +2452,9 @@ proc updateHead*(
 
       dag.db.updateFinalizedBlocks(newFinalized)
 
-    if  oldFinalizedHead.blck.executionBlockRoot.isZero and
-        not dag.finalizedHead.blck.executionBlockRoot.isZero:
+    if  dag.loadExecutionBlockHash(oldFinalizedHead.blck).isZero and
+        not dag.loadExecutionBlockHash(dag.finalizedHead.blck).isZero and
+        dag.vanityLogs.onFinalizedMergeTransitionBlock != nil:
       dag.vanityLogs.onFinalizedMergeTransitionBlock()
 
     # Pruning the block dag is required every time the finalized head changes
@@ -1717,119 +2480,69 @@ proc updateHead*(
       dag.onFinHappened(dag, data)
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
-  # Lightweight check to see if we have the minimal information needed to
-  # load up a database - we don't check head here - if something is wrong with
-  # head, it's likely an initialized, but corrupt database - init will detect
-  # that
-  let
-    genesisBlockRoot = db.getGenesisBlock()
-
-  if not genesisBlockRoot.isSome():
-    return err("Genesis block root missing")
-
-  let
-    genesisBlock = db.getForkedBlock(genesisBlockRoot.get())
-  if not genesisBlock.isSome():
-    return err("Genesis block missing")
-
-  let
-    genesisStateRoot = withBlck(genesisBlock.get()): blck.message.state_root
-
-  if not db.containsState(genesisStateRoot):
-    return err("Genesis state missing")
-
+  ## Lightweight check to see if it is likely that the given database has been
+  ## initialized
   let
     tailBlockRoot = db.getTailBlock()
   if not tailBlockRoot.isSome():
     return err("Tail block root missing")
 
   let
-    tailBlock = db.getForkedBlock(tailBlockRoot.get())
+    tailBlock = db.getBlockId(tailBlockRoot.get())
   if not tailBlock.isSome():
-    return err("Tail block missing")
-
-  let
-    tailStateRoot = withBlck(tailBlock.get()): blck.message.state_root
-
-  if not db.containsState(tailStateRoot):
-    return err("Tail state missing")
+    return err("Tail block information missing")
 
   ok()
 
 proc preInit*(
-    T: type ChainDAGRef, db: BeaconChainDB,
-    genesisState, tailState: ForkedHashedBeaconState,
-    tailBlock: ForkedTrustedSignedBeaconBlock) =
-  # write a genesis state, the way the ChainDAGRef expects it to be stored in
-  # database
-
+    T: type ChainDAGRef, db: BeaconChainDB, state: ForkedHashedBeaconState) =
+  ## Initialize a database using the given state, which potentially may be a
+  ## non-genesis state.
+  ##
+  ## When used with a non-genesis state, the resulting database will not be
+  ## compatible with pre-22.11 versions.
   logScope:
-    genesisStateRoot = getStateRoot(genesisState)
-    genesisStateSlot = getStateField(genesisState, slot)
-    tailStateRoot = getStateRoot(tailState)
-    tailStateSlot = getStateField(tailState, slot)
+    stateRoot = $getStateRoot(state)
+    stateSlot = getStateField(state, slot)
 
-  let genesisBlockRoot = withState(genesisState):
-    if state.root != getStateRoot(tailState):
-      # Different tail and genesis
-      if state.data.slot >= getStateField(tailState, slot):
-        fatal "Tail state must be newer or the same as genesis state"
-        quit 1
+  doAssert getStateField(state, slot).is_epoch,
+    "Can only initialize database from epoch states"
 
-      let tail_genesis_validators_root =
-        getStateField(tailState, genesis_validators_root)
-      if state.data.genesis_validators_root != tail_genesis_validators_root:
-        fatal "Tail state doesn't match genesis validators root, it is likely from a different network!",
-          genesis_validators_root = shortLog(state.data.genesis_validators_root),
-          tail_genesis_validators_root = shortLog(tail_genesis_validators_root)
-        quit 1
+  withState(state):
+    db.putState(forkyState)
 
-      let blck = get_initial_beacon_block(state)
+    if forkyState.data.slot == GENESIS_SLOT:
+      let blck = get_initial_beacon_block(forkyState)
       db.putBlock(blck)
-      db.putState(state)
-
       db.putGenesisBlock(blck.root)
-
-      blck.root
-    else: # tail and genesis are the same
-      withBlck(tailBlock):
-        db.putGenesisBlock(blck.root)
-        blck.root
-
-  withState(tailState):
-    withBlck(tailBlock):
-      # When looking up the state root of the tail block, we don't use the
-      # BlockSlot->state_root map, so the only way the init code can find the
-      # state is through the state root in the block - this could be relaxed
-      # down the line
-      if blck.message.state_root != state.root:
-        fatal "State must match the given block",
-            tailBlck = shortLog(blck)
-
-        quit 1
-
-      db.putBlock(blck)
-      db.putState(state)
-
-      db.putTailBlock(blck.root)
       db.putHeadBlock(blck.root)
+      db.putTailBlock(blck.root)
 
-      notice "New database from snapshot",
-        genesisBlockRoot = shortLog(genesisBlockRoot),
-        genesisStateRoot = shortLog(getStateRoot(genesisState)),
-        tailBlockRoot = shortLog(blck.root),
-        tailStateRoot = shortLog(state.root),
-        fork = state.data.fork,
-        validators = state.data.validators.len()
+      notice "Database initialized from genesis",
+        blockRoot = $blck.root
+    else:
+      let blockRoot = forkyState.latest_block_root()
+      # We write a summary but not the block contents - these will have to be
+      # backfilled from the network
+      db.putBeaconBlockSummary(blockRoot, BeaconBlockSummary(
+        slot: forkyState.data.latest_block_header.slot,
+        parent_root: forkyState.data.latest_block_header.parent_root
+      ))
+      db.putHeadBlock(blockRoot)
+      db.putTailBlock(blockRoot)
+
+      if db.getGenesisBlock().isSome():
+        notice "Checkpoint written to database", blockRoot = $blockRoot
+      else:
+        notice "Database initialized from checkpoint", blockRoot = $blockRoot
 
 proc getProposer*(
-    dag: ChainDAGRef, head: BlockRef, slot: Slot): Option[ValidatorIndex] =
+    dag: ChainDAGRef, head: BlockRef, slot: Slot): Opt[ValidatorIndex] =
   let
-    epochRef = block:
-      let tmp = dag.getEpochRef(head.bid, slot.epoch(), false)
-      if tmp.isErr():
-        return none(ValidatorIndex)
-      tmp.get()
+    epochRef = dag.getEpochRef(head.bid, slot.epoch(), false).valueOr:
+      notice "Cannot load EpochRef for given head", head, slot, error
+      return Opt.none(ValidatorIndex)
+
     slotInEpoch = slot.since_epoch_start()
 
   let proposer = epochRef.beacon_proposers[slotInEpoch]
@@ -1840,39 +2553,69 @@ proc getProposer*(
       # created validators in the state without updating the cache!
       warn "Proposer key not found",
         keys = dag.db.immutableValidators.lenu64(), proposer = proposer.get()
-      return none(ValidatorIndex)
+      return Opt.none(ValidatorIndex)
 
   proposer
 
-proc aggregateAll*(
+proc getProposalState*(
+    dag: ChainDAGRef, head: BlockRef, slot: Slot, cache: var StateCache):
+    Result[ref ForkedHashedBeaconState, cstring] =
+  ## Return a state suitable for making proposals for the given head and slot -
+  ## in particular, the state can be discarded after use and does not have a
+  ## state root set
+
+  # Start with the clearance state, since this one typically has been advanced
+  # and thus has a hot hash tree cache
+  let state = newClone(dag.clearanceState)
+
+  var
+    info = ForkedEpochInfo()
+  if not state[].can_advance_slots(head.root, slot):
+    # The last state root will be computed as part of block production, so skip
+    # it now
+    if not dag.updateState(
+        state[], head.atSlot(slot - 1).toBlockSlotId().expect("not nil"),
+        false, cache):
+      error "Cannot get proposal state - skipping block production, database corrupt?",
+        head = shortLog(head),
+        slot
+      return err("Cannot create proposal state")
+  else:
+    loadStateCache(dag, cache, head.bid, slot.epoch)
+
+  if getStateField(state[], slot) < slot:
+    process_slots(
+      dag.cfg, state[], slot, cache, info,
+      {skipLastStateRootCalculation}).expect("advancing 1 slot should not fail")
+
+  ok state
+
+func aggregateAll*(
   dag: ChainDAGRef,
   validator_indices: openArray[ValidatorIndex]): Result[CookedPubKey, cstring] =
   if validator_indices.len == 0:
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
-    # Eth2 spec requires at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # Consensus specs require at least one attesting index in attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregate: no attesting keys")
 
   let
-    firstKey = dag.validatorKey(validator_indices[0])
-
-  if not firstKey.isSome():
-    return err("aggregate: invalid validator index")
+    firstKey = dag.validatorKey(validator_indices[0]).valueOr:
+      return err("aggregate: invalid validator index")
 
   var aggregateKey{.noinit.}: AggregatePublicKey
 
-  aggregateKey.init(firstKey.get())
+  aggregateKey.init(firstKey)
 
   for i in 1 ..< validator_indices.len:
-    let key = dag.validatorKey(validator_indices[i])
-    if not key.isSome():
+    let key = dag.validatorKey(validator_indices[i]).valueOr:
       return err("aggregate: invalid validator index")
-    aggregateKey.aggregate(key.get())
+    aggregateKey.aggregate(key)
 
   ok(finish(aggregateKey))
 
-proc aggregateAll*(
+func aggregateAll*(
   dag: ChainDAGRef,
   validator_indices: openArray[ValidatorIndex|uint64],
   bits: BitSeq | BitArray): Result[CookedPubKey, cstring] =
@@ -1885,14 +2628,13 @@ proc aggregateAll*(
 
   for i in 0..<bits.len():
     if bits[i]:
-      let key = dag.validatorKey(validator_indices[i])
-      if not key.isSome():
+      let key = dag.validatorKey(validator_indices[i]).valueOr:
         return err("aggregate: invalid validator index")
 
       if inited:
-        aggregateKey.aggregate(key.get)
+        aggregateKey.aggregate(key)
       else:
-        aggregateKey = AggregatePublicKey.init(key.get)
+        aggregateKey = AggregatePublicKey.init(key)
         inited = true
 
   if not inited:
@@ -1901,25 +2643,19 @@ proc aggregateAll*(
     ok(finish(aggregateKey))
 
 func needsBackfill*(dag: ChainDAGRef): bool =
-  dag.backfill.slot > dag.genesis.slot
+  dag.backfill.slot > dag.horizon
 
 proc rebuildIndex*(dag: ChainDAGRef) =
   ## After a checkpoint sync, we lack intermediate states to replay from - this
   ## function rebuilds them so that historical replay can take place again
-  if dag.backfill.slot > 0:
-    debug "Backfill not complete, cannot rebuild archive"
-    return
-
-  if dag.tail.slot == dag.genesis.slot:
-    # The tail is the earliest slot for which we're supposed to have states -
-    # if it's sufficiently recent, don't do anything
-    debug "Archive does not need rebuilding"
-    return
-
+  ## TODO the pruning of junk states could be moved to a separate function that
+  ##      runs either on startup
   # First, we check what states we already have in the database - that allows
   # resuming the operation at any time
   let
     roots = dag.db.loadStateRoots()
+    historicalRoots = getStateField(dag.headState, historical_roots).asSeq()
+    historicalSummaries = dag.headState.historical_summaries.asSeq()
 
   var
     canonical = newSeq[Eth2Digest](
@@ -1932,6 +2668,8 @@ proc rebuildIndex*(dag: ChainDAGRef) =
   for k, v in roots:
     if k[0] >= dag.finalizedHead.slot:
       continue # skip newer stuff
+    if k[0] < dag.backfill.slot:
+      continue # skip stuff for which we have no blocks
 
     if not isFinalizedStateSnapshot(k[0]):
       # `tail` will move at the end of the process, so we won't need any
@@ -1948,7 +2686,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
         junk.add((k, v))
         continue
 
-    if not dag.db.containsState(v):
+    if not dag.db.containsState(dag.cfg.consensusForkAtEpoch(k[0].epoch), v):
       continue # If it's not in the database..
 
     canonical[k[0].epoch div EPOCHS_PER_STATE_SNAPSHOT] = v
@@ -1959,25 +2697,63 @@ proc rebuildIndex*(dag: ChainDAGRef) =
   var
     cache: StateCache
     info: ForkedEpochInfo
+    tailBid: Opt[BlockId]
+    states: int
 
   # `canonical` holds all slots at which a state is expected to appear, using a
   # zero root whenever a particular state is missing - this way, if there's
   # partial progress or gaps, they will be dealt with correctly
   for i, state_root in canonical.mpairs():
-    if not state_root.isZero:
+    let
+      slot = Epoch(i * EPOCHS_PER_STATE_SNAPSHOT).start_slot
+
+    if slot < dag.backfill.slot:
+      # TODO if we have era files, we could try to load blocks from them at
+      #      this point
+      # TODO if we don't do the above, we can of course compute the starting `i`
       continue
 
-    doAssert i > 0, "Genesis should always be available"
+    if tailBid.isNone():
+      if state_root.isZero:
+        # If we can find an era file with this state, use it as an alternative
+        # starting point - ignore failures for now
+        var bytes: seq[byte]
+        if dag.era.getState(
+            historicalRoots, historicalSummaries, slot, state[]).isOk():
+          state_root = getStateRoot(state[])
+
+          withState(state[]): dag.db.putState(forkyState)
+          tailBid = Opt.some state[].latest_block_id()
+
+      else:
+        if not dag.db.getState(
+            dag.cfg.consensusForkAtEpoch(slot.epoch), state_root, state[],
+            noRollback):
+          fatal "Cannot load state, database corrupt or created for a different network?",
+            state_root, slot
+          quit 1
+        tailBid = Opt.some state[].latest_block_id()
+
+      continue
+
+    if i == 0 or canonical[i - 1].isZero:
+      reset(tailBid) # No unbroken history!
+      continue
+
+    if not state_root.isZero:
+      states += 1
+      continue
 
     let
       startSlot = Epoch((i - 1) * EPOCHS_PER_STATE_SNAPSHOT).start_slot
-      slot = Epoch(i * EPOCHS_PER_STATE_SNAPSHOT).start_slot
 
     info "Recreating state snapshot",
       slot, startStateRoot = canonical[i - 1],  startSlot
 
     if getStateRoot(state[]) != canonical[i - 1]:
-      if not dag.db.getState(dag.cfg.stateForkAtEpoch(startSlot.epoch), canonical[i - 1], state[], noRollback):
+      if not dag.db.getState(
+          dag.cfg.consensusForkAtEpoch(startSlot.epoch), canonical[i - 1],
+          state[], noRollback):
         error "Can't load start state, database corrupt?",
           startStateRoot = shortLog(canonical[i - 1]), slot = startSlot
         return
@@ -1991,7 +2767,9 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       if bids.isProposed and getStateField(state[], latest_block_header).slot < bids.bid.slot:
         let res = dag.applyBlock(state[], bids.bid, cache, info)
         if res.isErr:
-          error "Failed to apply block while ", bids, slot
+          error "Failed to apply block while building index",
+            state_bid = shortLog(state[].latest_block_id()),
+            error = res.error()
           return
 
         if slot.is_epoch:
@@ -2002,20 +2780,22 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       dag.updateFlags).expect("process_slots shouldn't fail when state slot is correct")
 
     withState(state[]):
-      dag.db.putState(state)
+      dag.db.putState(forkyState)
       dag.db.checkpoint()
 
-      state_root = state.root
+      state_root = forkyState.root
 
-  # Now that we have states all the way to genesis, we can adjust the tail
-  # and readjust the in-memory indices to what they would look like if we had
-  # started with an earlier tail
-  dag.db.putTailBlock(dag.genesis.root)
+  # Now that we've found a starting point and topped up with "intermediate"
+  # states, we can update the tail to start at the starting point of the
+  # first loadable state
 
-  dag.tail = dag.genesis
+  if tailBid.isSome():
+    dag.tail = tailBid.get()
+    dag.db.putTailBlock(dag.tail.root)
 
   if junk.len > 0:
-    info "Dropping redundant states", states = junk.len
+    info "Dropping redundant states", states, redundant = junk.len
 
     for i in junk:
-      dag.db.delState(i[1])
+      dag.db.delStateRoot(i[0][1], i[0][0])
+      dag.db.delState(dag.cfg.consensusForkAtEpoch(i[0][0].epoch), i[1])

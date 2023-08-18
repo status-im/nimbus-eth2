@@ -1,0 +1,164 @@
+/* beacon_chain
+ * Copyright (c) 2019-2023 Status Research & Development GmbH
+ * Licensed and distributed under either of
+ *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+ *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+ * at your option. This file may not be copied, modified, or distributed except according to those terms.
+ */
+
+pipeline {
+  /* This way we run the same Jenkinsfile on different platforms. */
+  agent { label params.AGENT_LABEL }
+
+  parameters {
+    string(
+      name: 'AGENT_LABEL',
+      description: 'Label for targetted CI slave host: linux/macos',
+      defaultValue: params.AGENT_LABEL ?: getAgentLabel(),
+    )
+    choice(
+      name: 'VERBOSITY',
+      description: 'Value for the V make flag to increase log verbosity',
+      choices: [0, 1, 2]
+    )
+  }
+
+  options {
+    timestamps()
+    ansiColor('xterm')
+    /* This also includes wait time in the queue. */
+    timeout(time: 24, unit: 'HOURS')
+    /* Limit builds retained. */
+    buildDiscarder(logRotator(
+      numToKeepStr: '5',
+      daysToKeepStr: '30',
+      artifactNumToKeepStr: '3',
+    ))
+    /* Throttle number of concurrent builds. */
+    throttleJobProperty(
+      throttleEnabled: true,
+      throttleOption: 'category',
+      categories: ['nimbus-eth2'],
+      maxConcurrentPerNode: 1,
+      maxConcurrentTotal: 9
+    )
+    /* Abort old builds for non-main branches. */
+    disableConcurrentBuilds(
+      abortPrevious: !isMainBranch()
+    )
+  }
+
+  environment {
+    NPROC = Runtime.getRuntime().availableProcessors()
+    MAKEFLAGS = "V=${params.VERBOSITY} -j${env.NPROC}"
+  }
+
+  stages {
+    stage('Deps') {
+      steps { timeout(20) {
+        /* To allow the following parallel stages. */
+        sh 'make QUICK_AND_DIRTY_COMPILER=1 update'
+        /* Allow the following parallel stages. */
+        sh 'make deps'
+        /* Download test vectors. */
+        sh './scripts/setup_scenarios.sh'
+      } }
+    }
+
+    stage('Build') {
+      steps { timeout(40) {
+        sh 'make LOG_LEVEL=TRACE'
+        /* Check documentation reflects `nimbus_beacon_node --help`. */
+        sh '''#!/usr/bin/env bash
+          diff -u \\
+            <(sed -n '/Usage/,/^...$/ { /^...$/d; p; }' \\
+              docs/the_nimbus_book/src/options.md) \\
+            <(COLUMNS=200 build/nimbus_beacon_node --help | \\
+              sed -n '/Usage/,/Available sub-commands/ { /Available sub-commands/d; p; }' | \\
+              sed 's/\\x1B\\[[0-9;]*[mG]//g' | \\
+              sed 's/[[:space:]]*$//')
+        '''
+      } }
+    }
+
+    stage('Tests') {
+      parallel {
+        stage('General') {
+          steps { timeout(60) {
+            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
+            sh 'git diff --exit-code'  /* Check no uncommitted changes. */
+          } }
+        }
+
+        stage('REST') {
+          steps { timeout(5) {
+            sh 'make restapi-test'
+          } }
+          post { always {
+            sh 'tar cjf restapi-test.tar.gz resttest0_data/*.txt'
+          } }
+        }
+      }
+      post { always { timeout(5) {
+        archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
+      } } }
+    }
+
+    stage('Finalizations') {
+      stages {  /* parallel builds of minimal / mainnet not yet supported */
+        stage('minimal') {
+          steps { timeout(26) {
+            sh 'make local-testnet-minimal'
+          } }
+          post { always {
+            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
+          } }
+        }
+
+        stage('mainnet') {
+          steps { timeout(62) {
+            sh 'make local-testnet-mainnet'
+          } }
+          post { always {
+            sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/logs/*'
+          } }
+        }
+      }
+      post { always { timeout(5) {
+        archiveArtifacts(
+          artifacts: '*.tar.gz',
+          excludes: '**/geth-*.tar.gz',  /* `scripts/geth_binaries.sh` */
+          allowEmptyArchive: true
+        )
+      } } }
+    }
+  }
+
+  post {
+    always {
+      cleanWs(
+        disableDeferredWipeout: true,
+        deleteDirs: true
+      )
+    }
+  }
+}
+
+def isMainBranch() {
+  return ['stable', 'testing', 'unstable'].contains(env.BRANCH_NAME)
+}
+
+/* This allows us to use one Jenkinsfile and run
+ * jobs on different platforms based on job name. */
+def getAgentLabel() {
+    if (params.AGENT_LABEL) { return params.AGENT_LABEL }
+    /* We extract the name of the job from currentThread because
+     * before an agent is picket env is not available. */
+    def tokens = Thread.currentThread().getName().split('/')
+    def labels = []
+    /* Check if the job path contains any of the valid labels. */
+    ['linux', 'macos', 'x86_64', 'aarch64', 'arm64'].each {
+        if (tokens.contains(it)) { labels.add(it) }
+    }
+    return labels.join(' && ')
+}

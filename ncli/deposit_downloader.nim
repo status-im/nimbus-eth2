@@ -1,137 +1,87 @@
+# beacon_chain
+# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
-  json, strutils,
+  std/[json, strutils, times, sequtils],
   chronos, confutils, chronicles,
   web3, web3/ethtypes as web3Types,
   eth/async_utils,
+  ../beacon_chain/beacon_chain_db,
   ../beacon_chain/networking/network_metadata,
-  ../beacon_chain/eth1/eth1_monitor,
-  ../beacon_chain/spec/helpers
+  ../beacon_chain/el/el_manager,
+  ../beacon_chain/spec/[presets, helpers]
 
 type
   CliFlags = object
-    web3Url {.
-      name: "web3-url".}: string
-    depositContractAddress {.
-      name: "deposit-contract".}: string
-    startBlock {.
-      name: "start-block".}: uint64
-    endBlock {.
-      name: "start-block".}: Option[uint64]
-    outDepositsFile {.
-      defaultValue: "deposits.csv"
-      name: "out-deposits-file".}: OutFile
-
-contract(DepositContract):
-  proc deposit(pubkey: Bytes48,
-               withdrawalCredentials: Bytes32,
-               signature: Bytes96,
-               deposit_data_root: FixedBytes[32])
-
-  proc get_deposit_root(): FixedBytes[32]
-  proc get_deposit_count(): Bytes8
-
-  proc DepositEvent(pubkey: Bytes48,
-                    withdrawalCredentials: Bytes32,
-                    amount: Bytes8,
-                    signature: Bytes96,
-                    index: Bytes8) {.event.}
-
-const
-  web3Timeouts = 60.seconds
+    network* {.
+      defaultValue: "mainnet"
+      name: "network".}: string
+    elUrls* {.
+      name: "el".}: seq[EngineApiUrlConfigValue]
+    jwtSecret* {.
+      name: "jwt-secret".}: Option[InputFile]
+    outDepositsFile* {.
+      name: "out-deposits-file".}: Option[OutFile]
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" .}: Option[InputFile]
 
 proc main(flags: CliFlags) {.async.} =
-  let web3 = waitFor newWeb3(flags.web3Url)
+  let
+    db = BeaconChainDB.new("", inMemory = true)
+    metadata = getMetadataForNetwork(flags.network)
+    beaconTimeFn = proc(): BeaconTime =
+      # BEWARE of this hack
+      # The EL manager consults the current time in order to determine when the
+      # transition configuration exchange should start. We assume Bellatrix has
+      # just arrived which should trigger the configuration exchange and allow
+      # the downloader to connect to ELs serving the Engine API.
+      start_beacon_time(Slot(metadata.cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH))
 
-  let endBlock = if flags.endBlock.isSome:
-    flags.endBlock.get
-  else:
-    awaitWithRetries(web3.provider.eth_getBlockByNumber(blockId"latest", false)).number.uint64
+  let
+    elManager = ELManager.new(
+      metadata.cfg,
+      metadata.depositContractBlock,
+      metadata.depositContractBlockHash,
+      db,
+      toFinalEngineApiUrls(flags.elUrls, flags.jwtSecret),
+      eth1Network = metadata.eth1Network)
 
-  let depositContract = web3.contractSender(
-    DepositContract,
-    Eth1Address.fromHex flags.depositContractAddress)
+  elManager.start()
 
-  var depositsFile = open(string flags.outDepositsFile, fmWrite)
-  depositsFile.write(
-    "block", ",",
-    "transaction", ",",
-    "depositor", ",",
-    "amount", ",",
-    "validatorKey", ",",
-    "withdrawalCredentials", "\n")
+  var depositsFile: File
+  if flags.outDepositsFile.isSome:
+    depositsFile = open(string flags.outDepositsFile.get, fmWrite)
+    depositsFile.write(
+      "block", ",",
+      "validatorKey", ",",
+      "withdrawalCredentials", "\n")
+    depositsFile.flushFile()
 
-  var currentBlock = flags.startBlock
-  while currentBlock < endBlock:
-    var
-      blocksPerRequest = 5000'u64 # This is roughly a day of Eth1 blocks
-      backoff = 100
+  var blockIdx = 0
+  while not elManager.isSynced():
+    await sleepAsync chronos.seconds(1)
 
-    while true:
-      let maxBlockNumberRequested = min(endBlock, currentBlock + blocksPerRequest - 1)
-
-      template retryOrRaise(err: ref CatchableError) =
-        blocksPerRequest = blocksPerRequest div 2
-        if blocksPerRequest == 0:
-          raise err
-        continue
-
-      debug "Obtaining deposit log events",
-            fromBlock = currentBlock,
-            toBlock = maxBlockNumberRequested,
-            backoff
-
-      # Reduce all request rate until we have a more general solution
-      # for dealing with Infura's rate limits
-      await sleepAsync(milliseconds(backoff))
-
-      let jsonLogsFut = depositContract.getJsonLogs(
-        DepositEvent,
-        fromBlock = some blockId(currentBlock),
-        toBlock = some blockId(maxBlockNumberRequested))
-
-      let depositLogs = try:
-        # Downloading large amounts of deposits can be quite slow
-        awaitWithTimeout(jsonLogsFut, web3Timeouts):
-          retryOrRaise newException(DataProviderTimeout,
-            "Request time out while obtaining json logs")
-      except CatchableError as err:
-        debug "Request for deposit logs failed", err = err.msg
-        backoff = (backoff * 3) div 2
-        retryOrRaise err
-
-      currentBlock = maxBlockNumberRequested + 1
-      for deposit in depositLogs:
-        let txNode = deposit{"transactionHash"}
-        if txNode != nil and txNode.kind == JString:
-          var
-            pubkey: Bytes48
-            withdrawalCredentials: Bytes32
-            amount: Bytes8
-            signature: Bytes96
-            index: Bytes8
-
-          let blockNum = parseHexInt deposit["blockNumber"].str
-          let depositData = strip0xPrefix(deposit["data"].getStr)
-          var offset = 0
-          offset += decode(depositData, offset, pubkey)
-          offset += decode(depositData, offset, withdrawalCredentials)
-          offset += decode(depositData, offset, amount)
-          offset += decode(depositData, offset, signature)
-          offset += decode(depositData, offset, index)
-
-          let txHash = TxHash.fromHex txNode.str
-          let tx = awaitWithRetries web3.provider.eth_getTransactionByHash(txHash)
-
+    if flags.outDepositsFile.isSome and
+       elManager.eth1ChainBlocks.len > blockIdx:
+      for i in blockIdx ..< elManager.eth1ChainBlocks.len:
+        for deposit in elManager.eth1ChainBlocks[i].deposits:
           depositsFile.write(
-            $blockNum, ",",
-            $txHash, ",",
-            $tx.source, ",",
-            $bytes_to_uint64(array[8, byte](amount)), ",",
-            $pubkey, ",",
-            $withdrawalCredentials, "\n")
+            $elManager.eth1ChainBlocks[i].number, ",",
+            $deposit.pubkey, ",",
+            $deposit.withdrawal_credentials, "\n")
           depositsFile.flushFile()
 
-  info "Done"
+      blockIdx = elManager.eth1ChainBlocks.len
 
-waitFor main(load CliFlags)
+  info "All deposits downloaded"
 
+waitFor main(
+  load(CliFlags,
+       secondarySources = proc (config: CliFlags, sources: auto) =
+        if config.configFile.isSome:
+          sources.addConfigFile(Toml, config.configFile.get)))

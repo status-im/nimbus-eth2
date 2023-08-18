@@ -1,5 +1,12 @@
+# beacon_chain
+# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 # Mainnet preset - Phase0
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/phase0.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/phase0.yaml
 
 const
   #
@@ -19,12 +26,6 @@ const
   HYSTERESIS_DOWNWARD_MULTIPLIER*: uint64 = 1
   # 5 (plus 1.25)
   HYSTERESIS_UPWARD_MULTIPLIER*: uint64 = 5
-
-
-  # Fork Choice
-  # ---------------------------------------------------------------
-  # 2**3 (= 8)
-  SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64 = 8
 
 
   # Gwei values

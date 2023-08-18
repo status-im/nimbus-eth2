@@ -1,4 +1,5 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# beacon_chain
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,9 +12,9 @@ import
   libp2p/[multiaddress, multicodec, peerstore],
   libp2p/protocols/pubsub/pubsubpeer,
   ./rest_utils,
-  ../eth1/eth1_monitor,
+  ../el/el_manager,
   ../validators/validator_duties,
-  ../spec/forks,
+  ../spec/[forks, beacon_time],
   ../beacon_node, ../nimbus_binary_common
 
 export rest_utils
@@ -51,10 +52,22 @@ type
     line*: int
     state*: string
 
+  RestChronosMetricsInfo* = object
+    tcp_transports*: uint64
+    udp_transports*: uint64
+    tcp_servers*: uint64
+    stream_readers*: uint64
+    stream_writers*: uint64
+    http_client_connections*: uint64
+    http_client_requests*: uint64
+    http_client_responses*: uint64
+    http_server_connections*: uint64
+    http_body_readers*: uint64
+    http_body_writers*: uint64
+
   RestPubSubPeer* = object
     peerId*: PeerId
     score*: float64
-    iWantBudget*: int
     iHaveBudget*: int
     outbound*: bool
     appScore*: float64
@@ -90,7 +103,6 @@ proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
   RestPubSubPeer(
     peerId: v.peerId,
     score: v.score,
-    iWantBudget: v.iWantBudget,
     iHaveBudget: v.iHaveBudget,
     outbound: v.outbound,
     appScore: v.appScore,
@@ -169,7 +181,8 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if contentBody.isNone:
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
-    template setGraffitiAux(node: BeaconNode, graffitiStr: string): RestApiResponse =
+    template setGraffitiAux(node: BeaconNode,
+                            graffitiStr: string): RestApiResponse =
       node.graffitiBytes = try:
         GraffitiBytes.init(graffitiStr)
       except CatchableError as err:
@@ -177,21 +190,21 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          err.msg)
       RestApiResponse.jsonResponse((result: true))
 
-    case contentBody.get.contentType
-    of "application/json":
-      let graffitiBytes = decodeBody(GraffitiBytes, contentBody.get)
-      if graffitiBytes.isErr:
+    let body = contentBody.get()
+    if body.contentType == ApplicationJsonMediaType:
+      let graffitiBytes = decodeBody(GraffitiBytes, body)
+      if graffitiBytes.isErr():
         return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
-                                         $graffitiBytes.error)
-      node.graffitiBytes = graffitiBytes.get
+                                         $graffitiBytes.error())
+      node.graffitiBytes = graffitiBytes.get()
       return RestApiResponse.jsonResponse((result: true))
-    of "text/plain":
-      return node.setGraffitiAux contentBody.get.strData
-    of "application/x-www-form-urlencoded":
-      return node.setGraffitiAux decodeUrl(contentBody.get.strData)
+    elif body.contentType == TextPlainMediaType:
+      return node.setGraffitiAux body.strData()
+    elif body.contentType == UrlEncodedMediaType:
+      return node.setGraffitiAux decodeUrl(body.strData())
     else:
       return RestApiResponse.jsonError(Http400, "Unsupported content type: " &
-                                                $contentBody.get.contentType)
+                                                $body.contentType)
 
   router.api(MethodGet, "/nimbus/v1/graffiti") do (
     ) -> RestApiResponse:
@@ -213,11 +226,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   router.api(MethodGet, "/nimbus/v1/eth1/chain") do (
     ) -> RestApiResponse:
-    let res =
-      if not(isNil(node.eth1Monitor)):
-        mapIt(node.eth1Monitor.depositChainBlocks, it)
-      else:
-        @[]
+    let res = mapIt(node.elManager.eth1ChainBlocks, it)
     return RestApiResponse.jsonResponse(res)
 
   router.api(MethodGet, "/nimbus/v1/eth1/proposal_data") do (
@@ -227,14 +236,18 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let res = node.getSyncedHead(wallSlot)
         if res.isErr():
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                           $res.error())
+        let tres = res.get()
+        if not tres.executionValid:
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-        res.get()
+        tres
     let proposalState = assignClone(node.dag.headState)
     node.dag.withUpdatedState(
         proposalState[],
         head.atSlot(wallSlot).toBlockSlotId().expect("not nil")):
       return RestApiResponse.jsonResponse(
-        node.getBlockProposalEth1Data(state))
+        node.getBlockProposalEth1Data(updatedState))
     do:
       return RestApiResponse.jsonError(Http400, PrunedStateError)
 
@@ -262,6 +275,96 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       return RestApiResponse.jsonError(Http503,
         "Compile with '-d:chronosFutureTracking' to get this request working")
+
+  router.api(MethodGet, "/nimbus/v1/debug/chronos/metrics") do (
+    ) -> RestApiResponse:
+
+    template getCount(ttype: untyped, name: string): uint64 =
+      let res = ttype(getTracker(name))
+      if res.isNil(): 0'u64 else: uint64(res.opened - res.closed)
+
+    let res = RestChronosMetricsInfo(
+      tcp_transports: getCount(StreamTransportTracker, "stream.transport"),
+      udp_transports: getCount(DgramTransportTracker, "datagram.transport"),
+      tcp_servers: getCount(StreamServerTracker, "stream.server"),
+      stream_readers: getCount(AsyncStreamTracker,
+                               AsyncStreamReaderTrackerName),
+      stream_writers: getCount(AsyncStreamTracker,
+                               AsyncStreamWriterTrackerName),
+      http_client_connections: getCount(HttpClientTracker,
+                                        HttpClientConnectionTrackerName),
+      http_client_requests: getCount(HttpClientTracker,
+                                     HttpClientRequestTrackerName),
+      http_client_responses: getCount(HttpClientTracker,
+                                      HttpClientResponseTrackerName),
+      http_server_connections: lenu64(node.restServer.server.connections),
+      http_body_readers: getCount(HttpBodyTracker, HttpBodyReaderTrackerName),
+      http_body_writers: getCount(HttpBodyTracker, HttpBodyWriterTrackerName)
+    )
+    return RestApiResponse.jsonResponse(res)
+
+  router.api(MethodPost, "/nimbus/v1/validator/activity/{epoch}") do (
+    epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let indexList =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+        let dres = decodeBody(seq[RestValidatorIndex], contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidValidatorIndexValueError,
+                                           $dres.error())
+        var
+          res: seq[ValidatorIndex]
+          dupset: HashSet[ValidatorIndex]
+
+        let items = dres.get()
+        for item in items:
+          let vres = item.toValidatorIndex()
+          if vres.isErr():
+            case vres.error()
+            of ValidatorIndexError.TooHighValue:
+              return RestApiResponse.jsonError(Http400,
+                                               TooHighValidatorIndexValueError)
+            of ValidatorIndexError.UnsupportedValue:
+              return RestApiResponse.jsonError(Http500,
+                                            UnsupportedValidatorIndexValueError)
+          let index = vres.get()
+          if index in dupset:
+            return RestApiResponse.jsonError(Http400,
+                                             DuplicateValidatorIndexArrayError)
+          dupset.incl(index)
+          res.add(index)
+        if len(res) == 0:
+          return RestApiResponse.jsonError(Http400,
+                                           EmptyValidatorIndexArrayError)
+        res
+    let qepoch =
+      block:
+        if epoch.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                           $epoch.error())
+        let
+          res = epoch.get()
+          wallEpoch = node.currentSlot().epoch()
+          nextEpoch =
+            if wallEpoch == FAR_FUTURE_EPOCH:
+              wallEpoch
+            else:
+              wallEpoch + 1
+          prevEpoch = get_previous_epoch(wallEpoch)
+        if (res < prevEpoch) or (res > nextEpoch):
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                    "Requested epoch is more than one epoch from current epoch")
+        res
+    let response = indexList.mapIt(
+      RestActivityItem(
+        index: it,
+        epoch: qepoch,
+        active: node.attestationPool[].validatorSeenAtEpoch(qepoch, it)
+      )
+    )
+    return RestApiResponse.jsonResponse(response)
 
   router.api(MethodGet, "/nimbus/v1/debug/gossip/peers") do (
     ) -> RestApiResponse:
@@ -326,61 +429,26 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     )
 
-  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
-  # `/api` path component
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/beacon/head",
-    "/nimbus/v1/beacon/head")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/chain/head",
-    "/nimbus/v1/chain/head")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/syncmanager/status",
-    "/nimbus/v1/syncmanager/status")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/node/peerid",
-    "/nimbus/v1/node/peerid")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/node/version",
-    "/nimbus/v1/node/version")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/network/ids",
-    "/nimbus/v1/network/ids")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/network/peers",
-    "/nimbus/v1/network/peers")
-  router.redirect(
-    MethodPost,
-    "/api/nimbus/v1/graffiti",
-    "/nimbus/v1/graffiti")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/graffiti",
-    "/nimbus/v1/graffiti")
-  router.redirect(
-    MethodPost,
-    "/api/nimbus/v1/chronicles/settings",
-    "/nimbus/v1/chronicles/settings")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/eth1/chain",
-    "/nimbus/v1/eth1/chain")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/eth1/proposal_data",
-    "/nimbus/v1/eth1/proposal_data")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/debug/chronos/futures",
-    "/nimbus/v1/debug/chronos/futures")
-  router.redirect(
-    MethodGet,
-    "/api/nimbus/v1/debug/gossip/peers",
-    "/nimbus/v1/debug/gossip/peers")
+  router.api(MethodPost, "/nimbus/v1/timesync") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      timestamp2 = getTimestamp()
+      timestamp1 =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let dres = decodeBody(RestNimbusTimestamp1, contentBody.get())
+          if dres.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidTimestampValue,
+                                             $dres.error())
+          dres.get().timestamp1
+    let
+      delay = node.processingDelay.valueOr: ZeroDuration
+      response = RestNimbusTimestamp2(
+        timestamp1: timestamp1,
+        timestamp2: timestamp2,
+        timestamp3: getTimestamp(),
+        delay: uint64(delay.nanoseconds)
+      )
+    return RestApiResponse.jsonResponsePlain(response)

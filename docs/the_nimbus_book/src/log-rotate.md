@@ -1,10 +1,14 @@
-# Log rotation
+# Set up log rotation
 
-Nimbus logs are written to `stdout`, and can be redirected to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a *log rotator*. A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.
+Nimbus logs are written to `stdout`, and can be redirected to a file.
+Writing to a file for a long-running process may lead to difficulties when the file grows large.
+This is typically solved with a *log rotator*.
+A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.
 
 ## Using `logrotate`
 
-[logrotate](https://github.com/logrotate/logrotate) provides log rotation and compression. The corresponding package will install its Cron hooks (or Systemd timer) -- all you have to do is add a configuration file for Nimbus in "/etc/logrotate.d/nimbus-eth2":
+[logrotate](https://github.com/logrotate/logrotate) provides log rotation and compression.
+The corresponding package will install its Cron hooks (or Systemd timer) -- all you have to do is add a configuration file for Nimbus in `/etc/logrotate.d/nimbus-eth2`:
 
 ```text
 /var/log/nimbus-eth2/*.log {
@@ -14,11 +18,13 @@ Nimbus logs are written to `stdout`, and can be redirected to a file. Writing to
 }
 ```
 
-The above assumes you've configured Nimbus to write its logs to "/var/log/nimbus-eth2/" (usually by redirecting `stdout` and `stderr` from your init script).
+The above assumes you've configured Nimbus to write its logs to `/var/log/nimbus-eth2/` (usually by redirecting `stdout` and `stderr` from your init script).
 
-"copytruncate" is required because, when it comes to moving the log file, `logrotate`'s default behaviour requires application support for re-opening that log file at runtime (something which is currently lacking). So, instead of a move, we tell `logrotate` to do a copy and a truncation of the existing file. A few log lines may be lost in the process.
+`copytruncate` is required because, when it comes to moving the log file, `logrotate`'s default behaviour requires application support for re-opening that log file at runtime (something which is currently lacking).
+So, instead of a move, we tell `logrotate` to do a copy and a truncation of the existing file.
+A few log lines may be lost in the process.
 
-You can control rotation frequency and the maximum number of log files kept by using the global configuration file - "/etc/logrotate.conf":
+You can control rotation frequency and the maximum number of log files kept by using the global configuration file, `/etc/logrotate.conf`:
 
 ```text
 # rotate daily
@@ -37,7 +43,10 @@ In particular, when `systemd` and its accompanying `journald` log daemon are use
 
 ### Compression
 
-`rotatelogs` works by reading `stdin` and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. The [Nimbus-eth2 repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh) provides a helper script that does this:
+`rotatelogs` works by reading `stdin` and redirecting it to a file based on a name pattern.
+Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files.
+Our aim is to compress the log file to save space.
+The [Nimbus-eth2 repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh) provides a helper script that does this:
 
 ```bash
 # Create a rotation script for rotatelogs

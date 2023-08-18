@@ -1,12 +1,13 @@
-# Migration options (advanced)
+# Client migration (advanced)
 
-The main migration guide is located [here](./migration.md). Here we document a couple of advanced options you can use if you wish to have more fine-grained control.
+The main migration guide is located [here](./migration.md).
+Here we document a couple of advanced options you can use if you wish to have more fine-grained control.
 
 ## Export validators
 
 The default command for exporting your slashing protection history is:
 
-```
+```sh
 build/nimbus_beacon_node slashingdb export database.json
 ```
 
@@ -23,7 +24,7 @@ Export finished: '$HOME/.cache/nimbus/BeaconNode/validators/slashing_protection.
 
 The validator directory contains your validator's setup.
 
-```
+```sh
 build/nimbus_beacon_node slashingdb export database.json --validators-dir=path/to/validatorsdir/
 ```
 
@@ -31,7 +32,7 @@ build/nimbus_beacon_node slashingdb export database.json --validators-dir=path/t
 
 The data directory (`data-dir`) contains your beacon node setup.
 
-```
+```sh
 build/nimbus_beacon_node slashingdb export database.json --data-dir=path/to/datadir/
 ```
 
@@ -39,7 +40,7 @@ build/nimbus_beacon_node slashingdb export database.json --data-dir=path/to/data
 
 You can perform a partial export by specifying the public key of the relevant validator you wish to export.
 
-```
+```sh
 build/nimbus_beacon_node slashingdb export database.json --validator=0xb5da853a51d935da6f3bd46934c719fcca1bbf0b493264d3d9e7c35a1023b73c703b56d598edf0239663820af36ec615
 ```
 
@@ -50,7 +51,7 @@ If you wish to export multiple validators, you must specify the `--validator` op
 
 The default command for importing your validator's slashing protection history into the database is:
 
-```
+```sh
 build/nimbus_beacon_node slashingdb import database.json
 ```
 
@@ -58,7 +59,7 @@ build/nimbus_beacon_node slashingdb import database.json
 
 The validator directory contains your validator's setup.
 
-```
+```sh
 build/nimbus_beacon_node slashingdb import database.json --validators-dir=path/to/validatorsdir/
 ```
 
@@ -66,7 +67,7 @@ build/nimbus_beacon_node slashingdb import database.json --validators-dir=path/t
 
 The data directory contains your beacon node's setup.
 
-```
+```sh
 build/nimbus_beacon_node slashingdb import database.json --data-dir=path/to/datadir/
 ```
 

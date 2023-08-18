@@ -1,3 +1,9 @@
+# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   stew/[byteutils, results],
   chronicles,
@@ -264,14 +270,19 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           node.syncManager.inProgress
       isOptimistic =
         if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-          # TODO (cheatfate): Proper implementation required
-          some(false)
+          some(not node.dag.head.executionValid)
         else:
           none[bool]()
+      elOffline =
+        if node.currentSlot().epoch() >= node.dag.cfg.CAPELLA_FORK_EPOCH:
+          some(not node.elManager.hasAnyWorkingConnection)
+        else:
+          none[bool]()  # Added with ethereum/beacon-APIs v2.4.0
 
       info = RestSyncInfo(
         head_slot: headSlot, sync_distance: distance,
-        is_syncing: isSyncing, is_optimistic: isOptimistic
+        is_syncing: isSyncing, is_optimistic: isOptimistic,
+        el_offline: elOffline
       )
     return RestApiResponse.jsonResponse(info)
 
@@ -285,41 +296,3 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         Http200
     return RestApiResponse.response("", status, contentType = "")
-
-  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
-  # `/api` path component
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/node/identity",
-    "/eth/v1/node/identity"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/node/peers",
-    "/eth/v1/node/peers"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/node/peer_count",
-    "/eth/v1/node/peer_count"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/node/peers/{peer_id}",
-    "/eth/v1/node/peers/{peer_id}"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/node/version",
-    "/eth/v1/node/version"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/node/syncing",
-    "/eth/v1/node/syncing"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/node/health",
-    "/eth/v1/node/health"
-  )

@@ -1,4 +1,11 @@
-{.push raises: [Defect].}
+# beacon_chain
+# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
 
 import
   std/strformat,
@@ -18,10 +25,6 @@ const
 
   SnappyBeaconBlock* = [byte 0x01, 0x00]
   SnappyBeaconState* = [byte 0x02, 0x00]
-
-  TypeFieldLen = 2
-  LengthFieldLen = 6
-  HeaderFieldLen = TypeFieldLen + LengthFieldLen
 
   FAR_FUTURE_ERA* = Era(not 0'u64)
 
@@ -53,9 +56,15 @@ proc toString(v: IoErrorCode): string =
 
 func eraRoot*(
     genesis_validators_root: Eth2Digest,
-    historical_roots: openArray[Eth2Digest], era: Era): Opt[Eth2Digest] =
+    historical_roots: openArray[Eth2Digest],
+    historical_summaries: openArray[HistoricalSummary],
+    era: Era): Opt[Eth2Digest] =
   if era == Era(0): ok(genesis_validators_root)
-  elif era <= historical_roots.lenu64(): ok(historical_roots[int(uint64(era) - 1)])
+  elif era <= historical_roots.lenu64():
+    ok(historical_roots[int(uint64(era) - 1)])
+  elif era <= historical_roots.lenu64() + historical_summaries.lenu64():
+    ok(hash_tree_root(
+      historical_summaries[int(uint64(era) - 1) - historical_roots.len()]))
   else: err()
 
 func eraFileName*(
@@ -71,10 +80,14 @@ proc append(f: IoHandle, data: openArray[byte]): Result[void, string] =
   ok()
 
 proc appendHeader(f: IoHandle, typ: Type, dataLen: int): Result[int64, string] =
+  if dataLen.uint64 > uint32.high:
+    return err("entry does not fit 32-bit length")
+
   let start = ? getFilePos(f).mapErr(toString)
 
   ? append(f, typ)
-  ? append(f, toBytesLE(dataLen.uint64).toOpenArray(0, 5))
+  ? append(f, toBytesLE(dataLen.uint32))
+  ? append(f, [0'u8, 0'u8])
 
   ok(start)
 
@@ -137,9 +150,8 @@ proc readHeader(f: IoHandle): Result[Header, string] =
     typ: Type
   discard typ.copyFrom(buf)
 
-  # Cast safe because we had only 6 bytes of length data
-  let
-    len = cast[int64](uint64.fromBytesLE(buf.toOpenArray(2, 9)))
+  # Conversion safe because we had only 4 bytes of length data
+  let len = (uint32.fromBytesLE(buf.toOpenArray(2, 5))).int64
 
   # No point reading these..
   if len > int.high(): return err("header length exceeds int.high")

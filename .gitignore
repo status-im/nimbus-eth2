@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 nimcache/
 
 # Executables shall be put in an ignored build/ directory
@@ -15,6 +22,7 @@ build/
 # Each developer can create a personal .env file with
 # local settings overrides (e.g. WEB3_URL)
 .env
+.direnv/
 
 # Ignore dynamic, static libs and libtool archive files
 *.so
@@ -36,8 +44,18 @@ build/
 *.sqlite3-shm
 *.sqlite3-wal
 
+/local-testnet-*/
 /local_testnet_data*/
 /local_testnet*_data*/
+
+test_keymanager_api
+test_sim
+
+/*linkerArgs.txt
+
+# scripts/geth_binaries.sh
+geth-*.tar.gz
+geth-*.zip
 
 # Prometheus db
 /data
@@ -52,10 +70,13 @@ build/
 /.update.timestamp
 resttest0_data
 
-# OSX
+# macOS
 .DS_Store
 **/.DS_Store
 
 # Nimble user files
 nimble.develop
 nimble.paths
+
+# nimbus-build-system files
+nimbus-build-system.paths

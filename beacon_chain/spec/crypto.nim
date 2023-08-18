@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,21 +21,23 @@
 # A, B and C, and another with B, C and D, we cannot practically combine them
 # even if in theory it is possible to allow this in BLS.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
-  # Standard library
-  std/[options, hashes, sequtils, tables],
   # Status
   stew/[endians2, objects, results, byteutils],
   blscurve,
   chronicles,
-  bearssl,
+  bearssl/rand,
   json_serialization
+
+from std/hashes import Hash
+from std/sequtils import mapIt
+from std/tables import Table, withValue, `[]=`
 
 from nimcrypto/utils import burnMem
 
-export options, results, json_serialization, blscurve
+export results, blscurve, rand, json_serialization
 
 # Type definitions
 # ----------------------------------------------------------------------
@@ -93,7 +95,7 @@ export
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
   ## Derive a public key from a private key
@@ -115,21 +117,21 @@ func toPubKey*(pubKey: CookedPubKey): ValidatorPubKey =
   # Un-specced in either hash-to-curve or Eth2
   ValidatorPubKey(blob: pubKey.toRaw())
 
-func load*(v: ValidatorPubKey): Option[CookedPubKey] =
+func load*(v: ValidatorPubKey): Opt[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
-    some CookedPubKey(val)
+    Opt.some CookedPubKey(val)
   else:
-    none CookedPubKey
+    Opt.none CookedPubKey
 
-func load*(v: UncompressedPubKey): Option[CookedPubKey] =
+func load*(v: UncompressedPubKey): Opt[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
-    some CookedPubKey(val)
+    Opt.some CookedPubKey(val)
   else:
-    none CookedPubKey
+    Opt.none CookedPubKey
 
 func loadValid*(v: UncompressedPubKey | ValidatorPubKey): CookedPubKey {.noinit.} =
   ## Parse known-to-be-valid key - this is the case for any key that's passed
@@ -141,7 +143,7 @@ func loadValid*(v: UncompressedPubKey | ValidatorPubKey): CookedPubKey {.noinit.
 
   CookedPubKey(val)
 
-proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
+proc loadWithCache*(v: ValidatorPubKey): Opt[CookedPubKey] =
   ## Parse public key blob - this may fail - this function uses a cache to
   ## avoid the expensive deserialization - for now, external public keys only
   ## come from deposits in blocks - when more sources are added, the memory
@@ -151,7 +153,7 @@ proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
   # Try to get parse value from cache - if it's not in there, try to parse it -
   # if that's not possible, it's broken
   cache.withValue(v.blob, key) do:
-    return some key[]
+    return Opt.some key[]
   do:
     # Only valid keys are cached
     let cooked = v.load()
@@ -159,13 +161,13 @@ proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
       cache[v.blob] = cooked.get()
     return cooked
 
-func load*(v: ValidatorSig): Option[CookedSig] =
+func load*(v: ValidatorSig): Opt[CookedSig] =
   ## Parse signature blob - this may fail
   var parsed: blscurve.Signature
   if fromBytes(parsed, v.blob):
-    some(CookedSig(parsed))
+    Opt.some(CookedSig(parsed))
   else:
-    none(CookedSig)
+    Opt.none(CookedSig)
 
 func init*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
   ## Initializes an aggregate signature context
@@ -201,7 +203,7 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
   sig.finish(agg)
   CookedSig(sig)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#bls-signatures
 func blsVerify*(
     pubkey: CookedPubKey, message: openArray[byte],
     signature: CookedSig): bool =
@@ -214,7 +216,7 @@ func blsVerify*(
   ## to enforce correct usage.
   PublicKey(pubkey).verify(message, blscurve.Signature(signature))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: CookedSig): bool =
@@ -488,21 +490,22 @@ func infinity*(T: type ValidatorSig): T =
 func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))
 
-proc keyGen(rng: var BrHmacDrbgContext): BlsResult[blscurve.SecretKey] =
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
+proc keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
   var
-    bytes: array[32, byte]
     pubkey: blscurve.PublicKey
-  brHmacDrbgGenerate(rng, bytes)
+  let bytes = rng.generate(array[32, byte])
   result.ok default(blscurve.SecretKey)
   if not keyGen(bytes, pubkey, result.value):
     return err "key generation failed"
+{.pop.}
 
 proc secretShareId(x: uint32) : blscurve.ID =
   let bytes: array[8, uint32] = [uint32 x, 0, 0, 0, 0, 0, 0, 0]
   blscurve.ID.fromUint32(bytes)
 
 func generateSecretShares*(sk: ValidatorPrivKey,
-                           rng: var BrHmacDrbgContext,
+                           rng: var HmacDrbgContext,
                            k: uint32, n: uint32): BlsResult[seq[SecretShare]] =
   doAssert k > 0 and k <= n
 
@@ -533,10 +536,8 @@ func recoverSignature*(sings: seq[SignatureShare]): CookedSig =
 
 proc confirmShares*(pubKey: ValidatorPubKey,
                     shares: seq[SecretShare],
-                    rng: var BrHmacDrbgContext): bool =
-  var confirmationData: array[32, byte]
-  brHmacDrbgGenerate(rng, confirmationData)
-
+                    rng: var HmacDrbgContext): bool =
+  let confirmationData = rng.generate(array[32, byte])
   var signs: seq[SignatureShare]
   for share in items(shares):
     let signature = share.key.blsSign(confirmationData).toSignatureShare(share.id);

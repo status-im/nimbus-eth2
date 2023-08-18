@@ -26,10 +26,11 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
   exit 1
 fi
 
-OPTS="ht:"
-LONGOPTS="help,tarball:"
+OPTS="hb:t:"
+LONGOPTS="help,binary:,tarball:,install-fpm"
 
 # default values
+BINARY=""
 TARBALL=""
 PKG_ARCH=""
 
@@ -38,7 +39,9 @@ print_help() {
 Usage: $(basename "$0") --tarball dist/nimbus-eth2_Linux_amd64_1.5.4_382be3fd.tar.gz
 
   -h, --help                  this help message
+  -b, --binary                which binary to package (nimbus_beacon_node, nimbus_validator_client, ...)
   -t, --tarball               tarball produced by "make dist-..."
+  --install-fpm               install the appropriate fpm version with "gem'
 EOF
 }
 
@@ -56,9 +59,17 @@ while true; do
       print_help
       exit
       ;;
+    -b|--binary)
+      BINARY="$2"
+      shift 2
+      ;;
     -t|--tarball)
       TARBALL="$2"
       shift 2
+      ;;
+    --install-fpm)
+      INSTALL_FPM="1"
+      shift 1
       ;;
     --)
       shift
@@ -91,25 +102,36 @@ case "${TARBALL}" in
 esac
 
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-PKG_NAME="nimbus_beacon_node"
-PKG_IMG_DIR="${SCRIPT_DIR}/package_image"
-BINARIES="nimbus_beacon_node"
+PKG_NAME="$(echo ${BINARY} | tr '_' '-')"
+PKG_IMG_DIR="${SCRIPT_DIR}/package_image/${BINARY}"
+PKG_SRC_DIR="${SCRIPT_DIR}/package_src/${BINARY}"
 PKG_VERSION="$(echo "${TARBALL}" | sed 's/^.*_\([^_]\+\)_[^_]\+$/\1/')"
 TARBALL_TOP_DIR="$(echo "${TARBALL}" | sed 's#^.*/\([^/]\+\)\.tar\.gz$#\1#')"
-PKG_PATH_DEB="${SCRIPT_DIR}/../build/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_DEB}.deb"
-PKG_PATH_RPM="${SCRIPT_DIR}/../build/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_RPM}.rpm"
+PKG_PATH_DEB="${SCRIPT_DIR}/../dist/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_DEB}.deb"
+PKG_PATH_RPM="${SCRIPT_DIR}/../dist/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_RPM}.rpm"
 
-if ! command -v fpm &> /dev/null;then
-  printf "Please install FPM! \nhttps://fpm.readthedocs.io/en/latest/installation.html\n"
-  exit 1
+[ -d $PKG_SRC_DIR ] || { echo Unsupported binary "${BINARY}"; exit 1; }
+
+FPM_VERSION=1.14.2
+if [[ "$(fpm -v)" != "$FPM_VERSION" ]] ; then
+  if [[ "$INSTALL_FPM" == "1" ]] ; then
+    gem install fpm -v $FPM_VERSION
+  else
+    cat << EOF
+Please install FPM $FPM_VERSION (https://fpm.readthedocs.io/en/latest/installation.html):
+
+gem install fpm -v $FPM_VERSION
+EOF
+    exit 1
+  fi
 fi
 
+rm -rf  "${PKG_IMG_DIR}"
 BIN_DIR="${PKG_IMG_DIR}/usr/bin"
 rm -rf "${BIN_DIR}"
 mkdir -p "${BIN_DIR}"
-for BINARY in ${BINARIES}; do
-  tar -xzf "${TARBALL}" --strip-components 2 -C "${BIN_DIR}" "${TARBALL_TOP_DIR}/build/${BINARY}"
-done
+tar -xzf "${TARBALL}" --strip-components 2 -C "${BIN_DIR}" "${TARBALL_TOP_DIR}/build/${BINARY}"
+cp -ar ${PKG_SRC_DIR}/image/* ${PKG_IMG_DIR}
 
 # delete existing packages
 rm -f "${PKG_PATH_DEB}" "${PKG_PATH_RPM}"
@@ -119,15 +141,15 @@ fpm -s dir -t deb -n "${PKG_NAME}" \
   -v "${PKG_VERSION}" \
   -C "${PKG_IMG_DIR}" \
   -p "${PKG_PATH_DEB}" \
-  --depends lsb-release \
-  --after-install "${PKG_IMG_DIR}/after_install" \
-  --before-remove "${PKG_IMG_DIR}/before_remove" \
-  --after-remove "${PKG_IMG_DIR}/after_remove" \
-  --after-upgrade "${PKG_IMG_DIR}/after_upgrade" \
-  --deb-after-purge "${PKG_IMG_DIR}/deb_after_purge" \
+  -a "${PKG_ARCH_DEB}" \
+  --after-install "${PKG_SRC_DIR}/after_install" \
+  --before-remove "${PKG_SRC_DIR}/before_remove" \
+  --after-remove "${PKG_SRC_DIR}/after_remove" \
+  --after-upgrade "${PKG_SRC_DIR}/after_upgrade" \
+  --deb-after-purge "${PKG_SRC_DIR}/deb_after_purge" \
   --license "Apache 2.0 + MIT" \
   --maintainer "The Nimbus Team" \
-  --description "Nimbus Beacon Chain / Ethereum Consensus client" \
+  --description "$(cat ${PKG_SRC_DIR}/description)" \
   --url "https://nimbus.team/" \
   2>/dev/null
 
@@ -135,14 +157,14 @@ fpm -s dir -t rpm -n "${PKG_NAME}" \
   -v "${PKG_VERSION}" \
   -C "${PKG_IMG_DIR}" \
   -p "${PKG_PATH_RPM}" \
-  --depends redhat-lsb-core \
-  --after-install "${PKG_IMG_DIR}/after_install" \
-  --before-remove "${PKG_IMG_DIR}/before_remove" \
-  --after-remove "${PKG_IMG_DIR}/after_remove" \
-  --after-upgrade "${PKG_IMG_DIR}/after_upgrade" \
+  -a "${PKG_ARCH_RPM}" \
+  --after-install "${PKG_SRC_DIR}/after_install" \
+  --before-remove "${PKG_SRC_DIR}/before_remove" \
+  --after-remove "${PKG_SRC_DIR}/after_remove" \
+  --after-upgrade "${PKG_SRC_DIR}/after_upgrade" \
   --license "Apache 2.0 + MIT" \
   --maintainer "The Nimbus Team" \
-  --description "Nimbus Beacon Chain / Ethereum Consensus client" \
+  --description "$(cat ${PKG_SRC_DIR}/description)" \
   --url "https://nimbus.team/" \
   2>/dev/null
 

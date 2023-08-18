@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e
+
+rm -rf /var/lib/nimbus
+
+# https://wiki.debian.org/AccountHandlingInMaintainerScripts argues "mostly"
+# that users should not be removed, as do several debian bug debates that have
+# been ongoing since forever. Fedora is clear on the topic: don't remove
+# https://fedoraproject.org/wiki/Packaging:UsersAndGroups#Allocation_Strategies
+if id -u `nimbus` > /dev/null 2>&1; then
+  echo User `nimbus` needs to be removed manually
+fi

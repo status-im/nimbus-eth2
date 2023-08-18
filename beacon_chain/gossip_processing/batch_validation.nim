@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2019-2021 Status Research & Development GmbH
+# Copyright (c) 2019-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   std/[deques, sequtils],
@@ -98,6 +98,10 @@ type
     # we accumulate here instead
     counts: tuple[signatures, batches, aggregates: int64]
 
+    # Most scheduled checks require this immutable value, so don't require it
+    # to be provided separately each time
+    genesis_validators_root: Eth2Digest
+
 const
   # We cap waiting for an idle slot in case there's a lot of network traffic
   # taking up all CPU - we don't want to _completely_ stop processing
@@ -121,11 +125,13 @@ const
   BatchedCryptoSize = 72
 
 proc new*(
-    T: type BatchCrypto, rng: ref BrHmacDrbgContext,
-    eager: Eager, taskpool: TaskPoolPtr): ref BatchCrypto =
+    T: type BatchCrypto, rng: ref HmacDrbgContext,
+    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: TaskPoolPtr):
+    ref BatchCrypto =
   (ref BatchCrypto)(
     verifier: BatchVerifier(rng: rng, taskpool: taskpool),
     eager: eager,
+    genesis_validators_root: genesis_validators_root,
     pruneTime: Moment.now())
 
 func len(batch: Batch): int =
@@ -161,12 +167,12 @@ proc pruneBatchQueue(batchCrypto: ref BatchCrypto) =
 
     batchCrypto.batches.popFirst()[].skip()
 
-proc combine(a: var Signature, b: Signature) =
+func combine(a: var Signature, b: Signature) =
   var tmp = AggregateSignature.init(CookedSig(a))
   tmp.aggregate(b)
   a = Signature(tmp.finish())
 
-proc combine(a: var PublicKey, b: PublicKey) =
+func combine(a: var PublicKey, b: PublicKey) =
   var tmp = AggregatePublicKey.init(CookedPubKey(a))
   tmp.aggregate(b)
   a = PublicKey(tmp.finish())
@@ -270,13 +276,6 @@ proc scheduleBatch(batchCrypto: ref BatchCrypto, fresh: bool) =
     # If there's a full batch, process it eagerly assuming the callback allows
     batchCrypto.processBatch()
 
-template orReturnErr(v: Option, error: cstring): untyped =
-  ## Returns with given error string if the option does not have a value
-  let tmp = v
-  if tmp.isNone:
-    return err(error) # this exits the calling scope, as templates are inlined.
-  tmp.unsafeGet()
-
 template withBatch(
     batchCrypto: ref BatchCrypto, name: cstring,
     body: untyped): Future[BatchResult] =
@@ -310,10 +309,9 @@ template withBatch(
 
 # See also verify_attestation_signature
 proc scheduleAttestationCheck*(
-      batchCrypto: ref BatchCrypto,
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      attestationData: AttestationData,
-      pubkey: CookedPubKey, signature: ValidatorSig
+      batchCrypto: ref BatchCrypto, fork: Fork,
+      attestationData: AttestationData, pubkey: CookedPubKey,
+      signature: ValidatorSig
      ): Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
   ## Schedule crypto verification of an attestation
   ##
@@ -325,18 +323,18 @@ proc scheduleAttestationCheck*(
   ## and a future with the deferred attestation check otherwise.
   ##
   let
-    sig = signature.load().orReturnErr("attestation: cannot load signature")
+    sig = signature.load().valueOr:
+      return err("attestation: cannot load signature")
     fut = batchCrypto.withBatch("batch_validation.scheduleAttestationCheck"):
       attestation_signature_set(
-        fork, genesis_validators_root, attestationData, pubkey, sig)
+        fork, batchCrypto[].genesis_validators_root, attestationData, pubkey,
+        sig)
 
   ok((fut, sig))
 
 proc scheduleAggregateChecks*(
-      batchCrypto: ref BatchCrypto,
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      signedAggregateAndProof: SignedAggregateAndProof,
-      epochRef: EpochRef,
+      batchCrypto: ref BatchCrypto, fork: Fork,
+      signedAggregateAndProof: SignedAggregateAndProof, dag: ChainDAGRef,
       attesting_indices: openArray[ValidatorIndex]
      ): Result[tuple[
         aggregatorFut, slotFut, aggregateFut: Future[BatchResult],
@@ -361,37 +359,36 @@ proc scheduleAggregateChecks*(
   # Do the eager steps first to avoid polluting batches with needlessly
   let
     aggregatorKey =
-      epochRef.validatorKey(aggregate_and_proof.aggregator_index).orReturnErr(
-        "SignedAggregateAndProof: invalid aggregator index")
-    aggregatorSig = signedAggregateAndProof.signature.load().orReturnErr(
-      "aggregateAndProof: invalid proof signature")
-    slotSig = aggregate_and_proof.selection_proof.load().orReturnErr(
-      "aggregateAndProof: invalid selection signature")
-    aggregateKey = ? aggregateAll(epochRef.dag, attesting_indices)
-    aggregateSig = aggregate.signature.load().orReturnErr(
-      "aggregateAndProof: invalid aggregate signature")
+      dag.validatorKey(aggregate_and_proof.aggregator_index).valueOr:
+        return err("SignedAggregateAndProof: invalid aggregator index")
+    aggregatorSig = signedAggregateAndProof.signature.load().valueOr:
+      return err("aggregateAndProof: invalid proof signature")
+    slotSig = aggregate_and_proof.selection_proof.load().valueOr:
+      return err("aggregateAndProof: invalid selection signature")
+    aggregateKey = ? aggregateAll(dag, attesting_indices)
+    aggregateSig = aggregate.signature.load().valueOr:
+      return err("aggregateAndProof: invalid aggregate signature")
 
   let
     aggregatorFut = batchCrypto.withBatch("scheduleAggregateChecks.aggregator"):
       aggregate_and_proof_signature_set(
-        fork, genesis_validators_root, aggregate_and_proof, aggregatorKey,
-        aggregatorSig)
+        fork, batchCrypto[].genesis_validators_root, aggregate_and_proof,
+        aggregatorKey, aggregatorSig)
     slotFut = batchCrypto.withBatch("scheduleAggregateChecks.selection_proof"):
       slot_signature_set(
-        fork, genesis_validators_root, aggregate.data.slot, aggregatorKey,
-        slotSig)
+        fork, batchCrypto[].genesis_validators_root, aggregate.data.slot,
+        aggregatorKey, slotSig)
     aggregateFut = batchCrypto.withBatch("scheduleAggregateChecks.aggregate"):
       attestation_signature_set(
-        fork, genesis_validators_root, aggregate.data, aggregateKey,
-        aggregateSig)
+        fork, batchCrypto[].genesis_validators_root, aggregate.data,
+        aggregateKey, aggregateSig)
 
   ok((aggregatorFut, slotFut, aggregateFut, aggregateSig))
 
 proc scheduleSyncCommitteeMessageCheck*(
-      batchCrypto: ref BatchCrypto,
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      slot: Slot, beacon_block_root: Eth2Digest,
-      pubkey: CookedPubKey, signature: ValidatorSig
+      batchCrypto: ref BatchCrypto, fork: Fork, slot: Slot,
+      beacon_block_root: Eth2Digest, pubkey: CookedPubKey,
+      signature: ValidatorSig
      ): Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
   ## Schedule crypto verification of an attestation
   ##
@@ -403,20 +400,19 @@ proc scheduleSyncCommitteeMessageCheck*(
   ## and a future with the deferred attestation check otherwise.
   ##
   let
-    sig = signature.load().orReturnErr(
-      "SyncCommitteMessage: cannot load signature")
+    sig = signature.load().valueOr:
+      return err("SyncCommitteMessage: cannot load signature")
     fut = batchCrypto.withBatch("scheduleSyncCommitteeMessageCheck"):
       sync_committee_message_signature_set(
-        fork, genesis_validators_root, slot, beacon_block_root, pubkey, sig)
+        fork, batchCrypto[].genesis_validators_root, slot, beacon_block_root,
+        pubkey, sig)
 
   ok((fut, sig))
 
 proc scheduleContributionChecks*(
       batchCrypto: ref BatchCrypto,
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      signedContributionAndProof: SignedContributionAndProof,
-      subcommitteeIdx: SyncSubcommitteeIndex,
-      dag: ChainDAGRef): Result[tuple[
+      fork: Fork, signedContributionAndProof: SignedContributionAndProof,
+      subcommitteeIdx: SyncSubcommitteeIndex, dag: ChainDAGRef): Result[tuple[
        aggregatorFut, proofFut, contributionFut: Future[BatchResult],
        sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
@@ -435,14 +431,14 @@ proc scheduleContributionChecks*(
   # Do the eager steps first to avoid polluting batches with needlessly
   let
     aggregatorKey =
-      dag.validatorKey(contribution_and_proof.aggregator_index).orReturnErr(
-        "SignedAggregateAndProof: invalid contributor index")
-    aggregatorSig = signedContributionAndProof.signature.load().orReturnErr(
-      "SignedContributionAndProof: invalid proof signature")
-    proofSig = contribution_and_proof.selection_proof.load().orReturnErr(
-      "SignedContributionAndProof: invalid selection signature")
-    contributionSig = contribution.signature.load().orReturnErr(
-      "SignedContributionAndProof: invalid contribution signature")
+      dag.validatorKey(contribution_and_proof.aggregator_index).valueOr:
+        return err("SignedAggregateAndProof: invalid contributor index")
+    aggregatorSig = signedContributionAndProof.signature.load().valueOr:
+      return err("SignedContributionAndProof: invalid proof signature")
+    proofSig = contribution_and_proof.selection_proof.load().valueOr:
+      return err("SignedContributionAndProof: invalid selection signature")
+    contributionSig = contribution.signature.load().valueOr:
+      return err("SignedContributionAndProof: invalid contribution signature")
 
     contributionKey = ? aggregateAll(
       dag, dag.syncCommitteeParticipants(contribution.slot + 1, subcommitteeIdx),
@@ -450,15 +446,51 @@ proc scheduleContributionChecks*(
   let
     aggregatorFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.aggregator"):
       contribution_and_proof_signature_set(
-        fork, genesis_validators_root, contribution_and_proof, aggregatorKey,
-        aggregatorSig)
+        fork, batchCrypto[].genesis_validators_root, contribution_and_proof,
+        aggregatorKey, aggregatorSig)
     proofFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.selection_proof"):
       sync_committee_selection_proof_set(
-        fork, genesis_validators_root, contribution.slot,
+        fork, batchCrypto[].genesis_validators_root, contribution.slot,
         subcommitteeIdx, aggregatorKey, proofSig)
     contributionFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.contribution"):
       sync_committee_message_signature_set(
-        fork, genesis_validators_root, contribution.slot,
+        fork, batchCrypto[].genesis_validators_root, contribution.slot,
         contribution.beacon_block_root, contributionKey, contributionSig)
 
   ok((aggregatorFut, proofFut, contributionFut, contributionSig))
+
+proc scheduleBlsToExecutionChangeCheck*(
+      batchCrypto: ref BatchCrypto,
+      genesisFork: Fork,
+      signedBLSToExecutionChange: SignedBLSToExecutionChange): Result[tuple[
+       blsToExecutionFut: Future[BatchResult],
+       sig: CookedSig], cstring] =
+  ## Schedule crypto verification of all signatures in a
+  ## SignedBLSToExecutionChange message
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred check otherwise.
+
+  # Must be genesis fork
+  doAssert genesis_fork.previous_version == genesis_fork.current_version
+
+  let
+    # Only called when matching already-known withdrawal credentials, so it's
+    # resistant to allowing loadWithCache DoSing
+    validatorChangePubkey =
+      signedBLSToExecutionChange.message.from_bls_pubkey.loadWithCache.valueOr:
+        return err("scheduleBlsToExecutionChangeCheck: cannot load BLS to withdrawals pubkey")
+
+    validatorChangeSig = signedBLSToExecutionChange.signature.load().valueOr:
+      return err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
+    validatorChangeFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.contribution"):
+      bls_to_execution_change_signature_set(
+        genesis_fork, batchCrypto[].genesis_validators_root,
+        signedBLSToExecutionChange.message,
+        validatorChangePubkey, validatorChangeSig)
+
+  ok((validatorChangeFut, validatorChangeSig))
