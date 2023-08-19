@@ -458,8 +458,9 @@ template `<`*(x, y: ValidatorPubKey): bool =
 
 {.pragma: serializationRaises, raises: [SerializationError, IOError, Defect].}
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey | CookedPubKey) {.
-    inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: ValidatorPubKey | CookedPubKey
+) {.inline, raises: [IOError].} =
   writer.writeValue(value.toHex())
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPubKey)
@@ -471,8 +472,9 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPubKey)
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.
-    inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: ValidatorSig
+) {.inline, raises: [IOError].} =
   # Workaround: https://github.com/status-im/nimbus-eth2/issues/374
   writer.writeValue(value.toHex())
 
@@ -485,8 +487,9 @@ proc readValue*(reader: var JsonReader, value: var ValidatorSig)
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded signature expected")
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.
-    inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: ValidatorPrivKey
+) {.inline, raises: [IOError].} =
   writer.writeValue(value.toHex())
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey)
