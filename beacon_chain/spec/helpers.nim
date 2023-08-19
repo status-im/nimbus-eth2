@@ -16,7 +16,6 @@ import
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/[db, hexary],
   # Internal
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb],
   "."/[eth2_merkleization, forks, ssz_codec]
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
@@ -419,8 +418,9 @@ proc computeWithdrawalsTrieRoot*(
       doAssert false, "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
 
-proc payloadToBlockHeader*(
-    payload: ForkyExecutionPayload): ExecutionBlockHeader =
+proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
+  template payload: auto = blck.body.execution_payload
+
   static:  # `GasInt` is signed. We only use it for hashing.
     doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
     doAssert sizeof(GasInt) == sizeof(payload.gas_used)
@@ -442,28 +442,33 @@ proc payloadToBlockHeader*(
         some payload.excess_blob_gas
       else:
         none(uint64)
+    parentBeaconBlockRoot =
+      when typeof(payload).toFork >= ConsensusFork.Deneb:
+        some ExecutionHash256(data: blck.parent_root.data)
+      else:
+        none(ExecutionHash256)
 
   ExecutionBlockHeader(
-    parentHash     : payload.parent_hash,
-    ommersHash     : EMPTY_UNCLE_HASH,
-    coinbase       : EthAddress payload.fee_recipient.data,
-    stateRoot      : payload.state_root,
-    txRoot         : txRoot,
-    receiptRoot    : payload.receipts_root,
-    bloom          : payload.logs_bloom.data,
-    difficulty     : default(DifficultyInt),
-    blockNumber    : payload.block_number.u256,
-    gasLimit       : cast[GasInt](payload.gas_limit),
-    gasUsed        : cast[GasInt](payload.gas_used),
-    timestamp      : fromUnix(int64.saturate payload.timestamp),
-    extraData      : payload.extra_data.asSeq,
-    mixDigest      : payload.prev_randao, # EIP-4399 `mixDigest` -> `prevRandao`
-    nonce          : default(BlockNonce),
-    fee            : some payload.base_fee_per_gas,
-    withdrawalsRoot: withdrawalsRoot,
-    blobGasUsed    : blobGasUsed,         # EIP-4844
-    excessBlobGas  : excessBlobGas)       # EIP-4844
+    parentHash            : payload.parent_hash,
+    ommersHash            : EMPTY_UNCLE_HASH,
+    coinbase              : EthAddress payload.fee_recipient.data,
+    stateRoot             : payload.state_root,
+    txRoot                : txRoot,
+    receiptRoot           : payload.receipts_root,
+    bloom                 : payload.logs_bloom.data,
+    difficulty            : default(DifficultyInt),
+    blockNumber           : payload.block_number.u256,
+    gasLimit              : cast[GasInt](payload.gas_limit),
+    gasUsed               : cast[GasInt](payload.gas_used),
+    timestamp             : fromUnix(int64.saturate payload.timestamp),
+    extraData             : payload.extra_data.asSeq,
+    mixDigest             : payload.prev_randao, # EIP-4399 `mixDigest` -> `prevRandao`
+    nonce                 : default(BlockNonce),
+    fee                   : some payload.base_fee_per_gas,
+    withdrawalsRoot       : withdrawalsRoot,
+    blobGasUsed           : blobGasUsed,           # EIP-4844
+    excessBlobGas         : excessBlobGas,         # EIP-4844
+    parentBeaconBlockRoot : parentBeaconBlockRoot) # EIP-4788
 
-proc compute_execution_block_hash*(
-    payload: ForkyExecutionPayload): Eth2Digest =
-  rlpHash payloadToBlockHeader(payload)
+proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
+  rlpHash blockToBlockHeader(blck)

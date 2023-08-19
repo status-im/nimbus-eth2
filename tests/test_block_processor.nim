@@ -12,7 +12,7 @@ import
   std/sequtils,
   unittest2,
   taskpools,
-  ../beacon_chain/[conf, beacon_clock],
+  ../beacon_chain/conf,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/deneb,
   ../beacon_chain/gossip_processing/block_processor,
