@@ -38,6 +38,8 @@ from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
 
+logScope: topics = "gossip_blocks"
+
 # Block Processor
 # ------------------------------------------------------------------------------
 # The block processor moves blocks from "Incoming" to "Consensus verified"
@@ -509,9 +511,11 @@ proc storeBlock(
     when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
-          payload.block_hash != payload.compute_execution_block_hash():
+          payload.block_hash !=
+            signedBlock.message.compute_execution_block_hash():
         debug "Execution block hash validation failed",
           execution_payload = shortLog(payload)
+        self[].dumpInvalidBlock(signedBlock)
         doAssert strictVerification notin dag.updateFlags
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
         return err((VerifierError.Invalid, ProcessingStatus.completed))
