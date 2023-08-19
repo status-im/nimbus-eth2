@@ -4,6 +4,8 @@ import
   chronicles,
   ../datatypes/base
 
+logScope: topics = "fee_recipient"
+
 type
   Entry = object
     recipient: Eth1Address
