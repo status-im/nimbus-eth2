@@ -744,7 +744,9 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
 
 proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.async.} =
   while not connection.isConnected:
+    warn "EL is not connected, `tryConnecting`"
     if not await connection.tryConnecting():
+      warn "EL is not connected, `sleepAsync(10)`"
       await sleepAsync(chronos.seconds(10))
 
   return connection.web3.get.provider
@@ -811,15 +813,25 @@ proc getPayloadFromSingleEL(
     randomData: Eth2Digest,
     suggestedFeeRecipient: Eth1Address,
     withdrawals: seq[WithdrawalV1]): Future[GetPayloadResponseType] {.async.} =
-
+  logScope:
+    headBlock
+    safeBlock
+    finalizedBlock
+    timestamp
+  error "getPayloadFromSingleEL, awaiting `rpcClient`"
   let
     rpcClient = await connection.connectedRpcClient()
+  error "getPayloadFromSingleEL, awaiting `payloadId`"
+  let
     payloadId = if isForkChoiceUpToDate and connection.lastPayloadId.isSome:
+      warn "have payload ID"
       connection.lastPayloadId.get
     elif not headBlock.isZero:
+      warn "block is not zero, setting metric"
       engine_api_last_minute_forkchoice_updates_sent.inc(1, [connection.engineUrl.url])
 
       when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
+        warn "fcU, BellatrixExecutionPayloadWithValue"
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -830,6 +842,7 @@ proc getPayloadFromSingleEL(
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient))
       elif GetPayloadResponseType is engine_api.GetPayloadV2Response:
+        warn "fcU, GetPayloadV2Response"
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -841,6 +854,7 @@ proc getPayloadFromSingleEL(
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
       elif GetPayloadResponseType is engine_api.GetPayloadV3Response:
+        warn "fcU, GetPayloadV3Response"
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -854,18 +868,21 @@ proc getPayloadFromSingleEL(
             parentBeaconBlockRoot: consensusHead.asBlockHash))
       else:
         static: doAssert false
+      warn "Done with fcU"
 
       if response.payloadStatus.status != PayloadExecutionStatus.valid or
          response.payloadId.isNone:
         raise newException(CatchableError, "Head block is not a valid payload")
 
       # Give the EL some time to assemble the block
+      warn "Doing `sleepAsync`"
       await sleepAsync(chronos.milliseconds 500)
 
       response.payloadId.get
     else:
       raise newException(CatchableError, "No confirmed execution head yet")
 
+  error "getPayloadFromSingleEL, awaiting `getPayload`"
   when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
     let payload =
       await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
@@ -918,6 +935,7 @@ proc getPayload*(m: ELManager,
                  withdrawals: seq[capella.Withdrawal]):
                  Future[Opt[PayloadType]] {.async.} =
   if m.elConnections.len == 0:
+    error "DEbUG: m.elConnections.len == 0"
     return err()
 
   let
@@ -944,6 +962,7 @@ proc getPayload*(m: ELManager,
   var bestPayloadIdx = none int
   for idx, req in requests:
     if not req.finished:
+      error "DEBUG: not req.finished --> Triggering cancellation"
       req.cancel()
     elif req.failed:
       error "Failed to get execution payload from EL",

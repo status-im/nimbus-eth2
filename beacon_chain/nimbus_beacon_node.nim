@@ -1372,6 +1372,49 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
 
+  # Debug: Request payload on every single slot
+  var cache = StateCache()
+  let
+    head = node.dag.head
+    slot = wallSlot
+    feeRecipient = default(Eth1Address)
+    maybeState = node.dag.getProposalState(head, slot, cache)
+  if maybeState.isOk:
+    error "DEBUG: Requesting payload"
+    let proposalState = maybeState.get
+    try:
+      let
+        beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
+        executionHead = withState(proposalState[]):
+          when consensusFork >= ConsensusFork.Bellatrix:
+            forkyState.data.latest_execution_payload_header.block_hash
+          else:
+            (static(default(Eth2Digest)))
+        latestSafe = beaconHead.safeExecutionPayloadHash
+        latestFinalized = beaconHead.finalizedExecutionPayloadHash
+        timestamp = withState(proposalState[]):
+          compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
+        random = withState(proposalState[]):
+          get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
+        withdrawals = withState(proposalState[]):
+          when consensusFork >= ConsensusFork.Capella:
+            get_expected_withdrawals(forkyState.data)
+          else:
+            @[]
+        payload = await node.elManager.getPayload(
+          capella.ExecutionPayloadForSigning,
+          beaconHead.blck.bid.root, executionHead, latestSafe,
+          latestFinalized, timestamp, random, feeRecipient, withdrawals)
+
+      if payload.isNone:
+        error "DEBUG: Failed to obtain execution payload from EL",
+              executionHeadBlock = executionHead
+      else:
+        error "DEBUG: Obtained payload", payload = payload.get
+    except CatchableError as err:
+      error "DEBUG: Error creating non-empty execution payload",
+        msg = err.msg
+
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#registration-dissemination
@@ -1435,16 +1478,19 @@ proc installMessageValidators(node: BeaconNode) =
 
       # beacon_block
       # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
-      node.network.addValidator(
+      node.network.addAsyncValidator(
         getBeaconBlocksTopic(digest), proc (
           signedBlock: consensusFork.SignedBeaconBlock
-        ): ValidationResult =
+        ): Future[ValidationResult] {.async.} =
           if node.shouldSyncOptimistically(node.currentSlot):
-            toValidationResult(
+            return toValidationResult(
               node.optimisticProcessor.processSignedBeaconBlock(
                 signedBlock))
           else:
-            toValidationResult(
+            warn "DEBUG: Received block"
+            await sleepAsync(chronos.seconds(2))  # DEBUG: Force local block
+            warn "DEBUG: Delivering block"
+            return toValidationResult(
               node.processor[].processSignedBeaconBlock(
                 MsgSource.gossip, signedBlock)))
 

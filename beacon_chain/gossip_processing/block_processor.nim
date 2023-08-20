@@ -686,7 +686,7 @@ proc storeBlock(
               ConsensusFork.Bellatrix:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV1)
 
-        if self.consensusManager.checkNextProposer(wallSlot).isNone:
+        if false: # self.consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
           callForkChoiceUpdated()
         else:

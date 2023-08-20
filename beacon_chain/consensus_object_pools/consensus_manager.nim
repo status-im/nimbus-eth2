@@ -345,16 +345,16 @@ proc runProposalForkchoiceUpdated*(
     self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async.} =
   let
     nextWallSlot = wallSlot + 1
-    (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
-      return err()
-  debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
-    nextWallSlot, validatorIndex, nextProposer
+    # (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
+    #   return err()
+  error "DEBUG: runProposalForkchoiceUpdated: expected to be proposing next slot",
+    nextWallSlot#, validatorIndex, nextProposer
 
   # In Capella and later, computing correct withdrawals would mean creating a
   # proposal state. Instead, only do that at proposal time.
   if nextWallSlot.is_epoch:
-    debug "runProposalForkchoiceUpdated: not running early fcU for epoch-aligned proposal slot",
-      nextWallSlot, validatorIndex, nextProposer
+    error "DEBUG: runProposalForkchoiceUpdated: not running early fcU for epoch-aligned proposal slot",
+      nextWallSlot#, validatorIndex, nextProposer
     return err()
 
   # Approximately lines up with validator_duties version. Used optimistically/
@@ -367,8 +367,8 @@ proc runProposalForkchoiceUpdated*(
     # constant until the next block.
     randomData = withState(self.dag.headState):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
-    feeRecipient = self[].getFeeRecipient(
-      nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
+    feeRecipient = default(Eth1Address) # self[].getFeeRecipient(
+      # nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     withdrawals =
       if self.dag.headState.kind >= ConsensusFork.Capella:
         # Head state is not eventual proposal state, but withdrawals will be
@@ -395,7 +395,7 @@ proc runProposalForkchoiceUpdated*(
           headBlockHash, safeBlockHash,
           beaconHead.finalizedExecutionPayloadHash,
           payloadAttributes = some fcPayloadAttributes)
-        debug "Fork-choice updated for proposal", status
+        error "DEBUG: Fork-choice updated for proposal", status
 
       static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
       when consensusFork >= ConsensusFork.Deneb:
@@ -419,7 +419,7 @@ proc runProposalForkchoiceUpdated*(
           prevRandao: FixedBytes[32] randomData,
           suggestedFeeRecipient: feeRecipient))
   except CatchableError as err:
-    error "Engine API fork-choice update failed", err = err.msg
+    error "DEBUG: Engine API fork-choice update failed", err = err.msg
 
   ok()
 
