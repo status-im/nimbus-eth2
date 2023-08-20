@@ -14,7 +14,7 @@ import
   libp2p/protocols/pubsub/pubsubpeer,
   ./rest_utils,
   ../el/el_manager,
-  ../validators/validator_duties,
+  ../validators/beacon_validators,
   ../spec/[forks, beacon_time],
   ../beacon_node, ../nimbus_binary_common
 

@@ -19,7 +19,7 @@ import
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
-  ./validators/[keystore_management, validator_duties],
+  ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
     nimbus_binary_common, statusbar, trusted_node_sync, wallets]
