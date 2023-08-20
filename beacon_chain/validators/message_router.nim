@@ -89,8 +89,7 @@ func shortLog*(v: SignedBlobSidecars): auto =
 type RouteBlockResult = Result[Opt[BlockRef], cstring]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-  blobsOpt: Opt[SignedBlobSidecars]):
-    Future[RouteBlockResult] {.async.} =
+    blobsOpt: Opt[SignedBlobSidecars]): Future[RouteBlockResult] {.async.} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
@@ -159,9 +158,9 @@ proc routeSignedBeaconBlock*(
       doAssert res.finished()
       if res.failed():
         notice "Blob not sent",
-         blob = shortLog(signedBlobs[i])
+          blob = shortLog(signedBlobs[i]), error = res.error[]
       else:
-        notice "Blob sent", blob = shortLog(signedBlobs[i]), error = res.error[]
+        notice "Blob sent", blob = shortLog(signedBlobs[i])
     blobs = Opt.some(blobsOpt.get().mapIt(newClone(it.message)))
 
   let added = await router[].blockProcessor[].addBlock(

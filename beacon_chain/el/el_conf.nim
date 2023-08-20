@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/[options, strutils, uri],
   stew/results, chronicles, confutils,
@@ -83,8 +90,8 @@ proc readValue*(reader: var TomlReader, value: var EngineApiRoles)
     else:
       reader.raiseError(unknownRoleMsg role)
 
-proc writeValue*(writer: var JsonWriter, roles: EngineApiRoles)
-                {.raises: [Defect, SerializationError, IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, roles: EngineApiRoles) {.raises: [IOError].} =
   var strRoles: seq[string]
 
   for role in EngineApiRole:

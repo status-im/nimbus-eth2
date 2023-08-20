@@ -242,11 +242,11 @@ jobs:
               echo "Submodule '$file': '.gitmodules' lacks 'branch' entry"
               exit 2
             fi
-            if ! error="$(git -C "$file" fetch -q origin "$branch")"; then
+            if ! error="$(git -C "$file" fetch -q origin "+refs/heads/$branch:refs/remotes/origin/$branch")"; then
               echo "Submodule '$file': Failed to fetch '$branch': $error"
               exit 2
             fi
-            if ! git -C "$file" merge-base --is-ancestor "$commit" "origin/$branch"; then
+            if ! git -C "$file" merge-base --is-ancestor "$commit" "refs/remotes/origin/$branch"; then
               echo "Submodule '$file': '$commit' is not on '$branch'"
               exit 2
             fi
