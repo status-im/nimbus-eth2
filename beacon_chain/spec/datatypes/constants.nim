@@ -23,8 +23,8 @@ const
   EPOCHS_PER_SUBNET_SUBSCRIPTION* = 256'u64
   SUBNETS_PER_NODE* = 2'u64
   ATTESTATION_SUBNET_COUNT*: uint64 = 64
-  ATTESTATION_SUBNET_EXTRA_BITS* = 0
-  ATTESTATION_SUBNET_PREFIX_BITS* = 6 ## \
+  ATTESTATION_SUBNET_EXTRA_BITS* = 0'u64
+  ATTESTATION_SUBNET_PREFIX_BITS* = 6'u64 ## \
     ## int(ceillog2(ATTESTATION_SUBNET_COUNT) + ATTESTATION_SUBNET_EXTRA_BITS)
 
 static: doAssert 1 shl (ATTESTATION_SUBNET_PREFIX_BITS - ATTESTATION_SUBNET_EXTRA_BITS) ==
@@ -73,3 +73,6 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#configuration
   GOSSIP_MAX_SIZE* = 10'u64 * 1024 * 1024 # bytes
   MAX_CHUNK_SIZE* = 10'u64 * 1024 * 1024 # bytes
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#configuration
+  MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS* = 4096'u64
