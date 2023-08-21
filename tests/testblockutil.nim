@@ -280,7 +280,7 @@ func makeAttestationData*(
     )
   )
 
-func makeAttestationSig*(
+func makeAttestationSig(
     fork: Fork, genesis_validators_root: Eth2Digest, data: AttestationData,
     committee: openArray[ValidatorIndex],
     bits: CommitteeValidatorsBits): ValidatorSig =
@@ -317,15 +317,11 @@ func makeAttestationData*(
     makeAttestationData(
       forkyState.data, slot, committee_index, beacon_block_root)
 
-func makeAttestation*(
+func makeAttestation(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
     committee: seq[ValidatorIndex], slot: Slot, committee_index: CommitteeIndex,
     validator_index: ValidatorIndex, cache: var StateCache,
     flags: UpdateFlags = {}): Attestation =
-  # Avoids state_sim silliness; as it's responsible for all validators,
-  # transforming, from monotonic enumerable index -> committee index ->
-  # monotonic enumerable index, is wasteful and slow. Most test callers
-  # want ValidatorIndex, so that's supported too.
   let
     index_in_committee = committee.find(validator_index)
     data = makeAttestationData(state, slot, committee_index, beacon_block_root)

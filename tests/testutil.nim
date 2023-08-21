@@ -6,40 +6,24 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.push raises: [].}
-{.used.}
 
 import
-  std/[algorithm, strformat, stats, tables, times],
   testutils/markdown_reports,
   unittest2,
   ../beacon_chain/spec/presets
+
+from std/algorithm import SortOrder, sort
+from std/strformat import `&`
+from std/tables import OrderedTable, `[]=`, initOrderedTable, mgetOrPut, sort
+from std/times import Duration, inNanoseconds
 
 export unittest2
 
 type
   TestDuration = tuple[duration: float, label: string]
 
-func preset*(): string =
+func preset*(): string {.compileTime.} =
   " [Preset: " & const_preset & ']'
-
-# For state_sim
-template withTimer*(duration: var float, body: untyped) =
-  let start = getMonoTime()
-
-  block:
-    body
-
-  duration = (getMonoTime() - start).inMicroseconds.float / 1000000.0
-
-# For state_sim
-template withTimerRet*(stats: var RunningStat, body: untyped): untyped =
-  let start = getMonoTime()
-  let tmp = block:
-    body
-  let stop = getMonoTime()
-  stats.push (stop - start).inMicroseconds.float / 1000000.0
-
-  tmp
 
 var testTimes: seq[TestDuration]
 var status = initOrderedTable[string, OrderedTable[string, Status]]()
