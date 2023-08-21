@@ -1236,8 +1236,6 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     return nil
   if data.blobGasUsed.isSome != data.excessBlobGas.isSome:
     return nil
-  if bdata.parentBeaconBlockRoot.isSome != bdata.parentBeaconBlockRoot.isSome:
-    return nil
 
   # Construct block header
   static:  # `GasInt` is signed. We only use it for hashing.
@@ -1280,8 +1278,8 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       else:
         none(uint64),
     parentBeaconBlockRoot:
-      if bdata.parentBeaconBlockRoot.isSome:
-        some distinctBase(bdata.parentBeaconBlockRoot.get.asEth2Digest)
+      if data.parentBeaconBlockRoot.isSome:
+        some distinctBase(data.parentBeaconBlockRoot.get.asEth2Digest)
       else:
         none(ExecutionHash256))
   if rlpHash(blockHeader) != executionHash[]:
