@@ -680,7 +680,9 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
-          of ConsensusFork.Capella, ConsensusFork.Deneb:
+          of ConsensusFork.Deneb:
+            callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
+          of ConsensusFork.Capella:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV2)
           of  ConsensusFork.Phase0, ConsensusFork.Altair,
               ConsensusFork.Bellatrix:
