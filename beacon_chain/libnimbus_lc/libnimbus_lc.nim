@@ -1223,7 +1223,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     return nil
 
   # Check fork consistency
-  static: doAssert totalSerializedFields(BlockObject) == 25,
+  static: doAssert totalSerializedFields(BlockObject) == 26,
     "Only update this number once code is adjusted to check new fields!"
   if data.baseFeePerGas.isNone and (
       data.withdrawals.isSome or data.withdrawalsRoot.isSome or
@@ -1235,6 +1235,8 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   if data.withdrawals.isSome != data.withdrawalsRoot.isSome:
     return nil
   if data.blobGasUsed.isSome != data.excessBlobGas.isSome:
+    return nil
+  if bdata.parentBeaconBlockRoot.isSome != bdata.parentBeaconBlockRoot.isSome:
     return nil
 
   # Construct block header
@@ -1276,7 +1278,12 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       if data.excessBlobGas.isSome:
         some distinctBase(data.excessBlobGas.get)
       else:
-        none(uint64))
+        none(uint64),
+    parentBeaconBlockRoot:
+      if bdata.parentBeaconBlockRoot.isSome:
+        some distinctBase(bdata.parentBeaconBlockRoot.get.asEth2Digest)
+      else:
+        none(ExecutionHash256))
   if rlpHash(blockHeader) != executionHash[]:
     return nil
 

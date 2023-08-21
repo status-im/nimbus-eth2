@@ -2193,12 +2193,12 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
       await syncedConnectionFut.cancelAndWait()
       syncedConnectionFut = m.selectConnectionForChainSyncing()
 
-proc start*(m: ELManager) {.gcsafe.} =
+proc start*(m: ELManager, syncChain = true) {.gcsafe.} =
   if m.elConnections.len == 0:
     return
 
   ## Calling `ELManager.start()` on an already started ELManager is a noop
-  if m.chainSyncingLoopFut.isNil:
+  if syncChain and m.chainSyncingLoopFut.isNil:
     m.chainSyncingLoopFut =
       m.startChainSyncingLoop()
 

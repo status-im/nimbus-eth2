@@ -12,7 +12,7 @@ import
   std/sequtils,
   unittest2,
   taskpools,
-  ../beacon_chain/[conf, beacon_clock],
+  ../beacon_chain/conf,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/deneb,
   ../beacon_chain/gossip_processing/block_processor,
@@ -59,11 +59,15 @@ suite "Block processor" & preset():
       processor = BlockProcessor.new(
         false, "", "", rng, taskpool, consensusManager,
         validatorMonitor, blobQuarantine, getTimeFn)
+      processorFut = processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
-    let missing = await processor.storeBlock(
-      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2, Opt.none(BlobSidecars))
-    check: missing.error[0] == VerifierError.MissingParent
+    let
+      missing = await processor[].addBlock(
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
+        Opt.none(BlobSidecars))
+
+    check: missing.error == VerifierError.MissingParent
 
     check:
       not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up
@@ -71,8 +75,9 @@ suite "Block processor" & preset():
       FetchRecord(root: b1.root) in quarantine[].checkMissing(32)
 
     let
-      status = await processor.storeBlock(
-        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1, Opt.none(BlobSidecars))
+      status = await processor[].addBlock(
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
+        Opt.none(BlobSidecars))
       b1Get = dag.getBlockRef(b1.root)
 
     check:
@@ -81,7 +86,6 @@ suite "Block processor" & preset():
       dag.containsForkBlock(b1.root)
       not dag.containsForkBlock(b2.root) # Async pipeline must still run
 
-    discard processor.runQueueProcessingLoop()
     while processor[].hasBlocks():
       poll()
 
