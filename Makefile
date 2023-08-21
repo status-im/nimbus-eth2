@@ -289,7 +289,6 @@ XML_TEST_BINARIES := \
 
 # test suite
 TEST_BINARIES := \
-	state_sim \
 	block_sim \
 	test_libnimbus_lc
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
@@ -346,8 +345,8 @@ fork_choice: | build deps
 # CI false negatives in a process lasting hours and requiring a restart, and
 # therefore even more wasted time, when it does.
 #
-# If one asks for, e.g., `make all_tests state_sim`, it intentionally allows
-# those in paralle, because the CI system does do that.
+# If one asks for, e.g., `make all_tests block_sim`, it intentionally allows
+# those in parallel, because the CI system doesn't do that.
 #
 # https://www.gnu.org/software/make/manual/html_node/Parallel-Disable.html
 # describes a special target .WAIT which would enable this more easily but
@@ -367,15 +366,7 @@ all_tests: | build deps nimbus_signing_node force_build_alone_all_tests
 			$(NIM_PARAMS) $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
-# State and block sims; getting to 4th epoch triggers consensus checks
-state_sim: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"research/$@.nim" \
-			$(NIM_PARAMS) && \
-		echo -e $(BUILD_END_MSG) "build/$@"
-
+# Block sim; getting to 4th epoch triggers consensus checks
 block_sim: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
@@ -404,8 +395,7 @@ endif
 	for TEST_BINARY in $(TEST_BINARIES); do \
 		PARAMS=""; \
 		REDIRECT=""; \
-		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
-		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
+		if [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=10000 --slots=192"; \
 		elif [[ "$${TEST_BINARY}" == "test_libnimbus_lc" ]]; then REDIRECT="$${TEST_BINARY}.log"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
@@ -804,7 +794,7 @@ ntu: | build deps
 	+ $(ENV_SCRIPT) $(NIMC) -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile,nimbus-wix/obj}
+	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,transition*,generate_makefile,nimbus-wix/obj}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ "$(MAKE)" -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
