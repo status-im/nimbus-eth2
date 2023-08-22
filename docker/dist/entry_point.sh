@@ -36,6 +36,11 @@ rm -f nimbus-build-system.paths
 make clean
 make update -j$(nproc)
 
+pushd vendor/holesky
+git lfs fetch
+git lfs checkout
+popd
+
 NIMFLAGS_COMMON="-d:disableMarchNative --gcc.options.debug:'-g1' --clang.options.debug:'-gline-tables-only'"
 if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # Cross-compilation using the MXE distribution of Mingw-w64
