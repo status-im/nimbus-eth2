@@ -15,7 +15,7 @@ import
   eth/p2p/discoveryv5/[enr, random2],
   ./consensus_object_pools/blob_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
-  ./networking/topic_params,
+  ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
@@ -462,8 +462,8 @@ const
 proc init*(T: type BeaconNode,
            rng: ref HmacDrbgContext,
            config: BeaconNodeConf,
-           metadata: Eth2NetworkMetadata): BeaconNode
-          {.raises: [CatchableError].} =
+           metadata: Eth2NetworkMetadata): Future[BeaconNode]
+          {.async, raises: [CatchableError].} =
   var taskpool: TaskPoolPtr
 
   template cfg: auto = metadata.cfg
@@ -541,18 +541,28 @@ proc init*(T: type BeaconNode,
   if engineApiUrls.len == 0:
     notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
 
-  var genesisState =
-    if metadata.genesisData.len > 0:
-      try:
-        newClone readSszForkedHashedBeaconState(cfg, metadata.genesisBytes)
-      except CatchableError as err:
-        raiseAssert "Invalid baked-in state of length " &
-          $metadata.genesisBytes.len & " and eth2digest " &
-          $eth2digest(metadata.genesisBytes) & ": " & err.msg
-    else:
-      nil
+  var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
   if not ChainDAGRef.isInitialized(db).isOk():
+    let genesisState =
+      if metadata.hasGenesis:
+        let genesisBytes = try: await metadata.genesis.fetchBytes()
+        except CatchableError as err:
+          error "Failed to obtain genesis state",
+                source = metadata.genesis.sourceDesc,
+                err = err.msg
+          quit 1
+        try:
+          newClone readSszForkedHashedBeaconState(cfg, genesisBytes)
+        except CatchableError as err:
+          error "Invalid genesis state",
+                size = genesisBytes.len,
+                digest = eth2digest(genesisBytes),
+                err = err.msg
+          quit 1
+      else:
+        nil
+
     if genesisState == nil and checkpointState == nil:
       fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
             "with the network configuration"
@@ -573,6 +583,8 @@ proc init*(T: type BeaconNode,
       # answering genesis queries
       if not genesisState.isNil:
         ChainDAGRef.preInit(db, genesisState[])
+        networkGenesisValidatorsRoot =
+          Opt.some(getStateField(genesisState[], genesis_validators_root))
 
       if not checkpointState.isNil:
         if genesisState.isNil or
@@ -605,12 +617,6 @@ proc init*(T: type BeaconNode,
     validatorMonitor[].addMonitor(key, Opt.none(ValidatorIndex))
 
   let
-    networkGenesisValidatorsRoot =
-      if not genesisState.isNil:
-        Opt.some(getStateField(genesisState[], genesis_validators_root))
-      else:
-        Opt.none(Eth2Digest)
-
     dag = loadChainDag(
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot)
@@ -1893,7 +1899,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       bnStatus = BeaconNodeStatus.Stopping
     c_signal(ansi_c.SIGTERM, SIGTERMHandler)
 
-  let node = BeaconNode.init(rng, config, metadata)
+  let node = waitFor BeaconNode.init(rng, config, metadata)
 
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
     let res =
@@ -2042,8 +2048,14 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
             kind: TrustedNodeSyncKind.StateId,
             stateId: "finalized")
       genesis =
-        if network.genesisData.len > 0:
-          newClone(readSszForkedHashedBeaconState(cfg, network.genesisBytes))
+        if network.hasGenesis:
+          let genesisBytes = try: waitFor network.genesis.fetchBytes()
+          except CatchableError as err:
+            error "Failed to obtain genesis state",
+                  source = network.genesis.sourceDesc,
+                  err = err.msg
+            quit 1
+          newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
         else: nil
 
     if config.blockId.isSome():

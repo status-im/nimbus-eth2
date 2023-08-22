@@ -301,7 +301,7 @@ proc startBeaconNode(basePort: int) {.raises: [CatchableError].} =
 
   let
     metadata = loadEth2NetworkMetadata(dataDir)
-    node = BeaconNode.init(rng, runNodeConf, metadata)
+    node = waitFor BeaconNode.init(rng, runNodeConf, metadata)
 
   node.start() # This will run until the node is terminated by
                #  setting its `bnStatus` to `Stopping`.
