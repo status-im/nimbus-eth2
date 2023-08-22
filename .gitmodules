@@ -220,3 +220,8 @@
 	url = https://github.com/arnetheduck/nim-results.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/holesky"]
+	path = vendor/holesky
+  url = https://github.com/eth-clients/holesky
+  ignore = untracked
+  branch = main

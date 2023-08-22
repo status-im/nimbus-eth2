@@ -367,10 +367,11 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Network metadata
 ```diff
 + goerli                                                                                     OK
++ holesky                                                                                    OK
 + mainnet                                                                                    OK
 + sepolia                                                                                    OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
@@ -700,4 +701,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 393/398 Fail: 0/398 Skip: 5/398
+OK: 394/399 Fail: 0/399 Skip: 5/399

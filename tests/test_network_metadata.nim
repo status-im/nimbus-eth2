@@ -37,3 +37,8 @@ suite "Network metadata":
     checkRoot(
       "sepolia",
       "fb9afe32150fa39f4b346be2519a67e2a4f5efcd50a1dc192c3f6b3d013d2798")
+
+  test "holesky":
+    checkRoot(
+      "holesky",
+      "706eeb43c9e44932b312cd26b8d35ef69725f117275ef3dcd67653625b519f16")

@@ -76,6 +76,9 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
+    # Not actively used, but part of the spec
+    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch
+
   PresetFile* = object
     values*: Table[string, string]
     missingValues*: seq[string]
@@ -118,6 +121,7 @@ when const_preset == "mainnet":
     # * 'prater' - testnet
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
+    # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "",
 
@@ -221,6 +225,7 @@ elif const_preset == "gnosis":
     # * 'prater' - testnet
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
+    # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "",
 
@@ -319,6 +324,7 @@ elif const_preset == "minimal":
     # * 'prater' - testnet
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
+    # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "minimal",
 
@@ -585,9 +591,6 @@ proc readRuntimeConfig*(
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
   checkCompatibility MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
-
-  # Never pervasively implemented, still under discussion
-  checkCompatibility TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH
 
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST

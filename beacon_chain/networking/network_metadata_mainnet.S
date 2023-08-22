@@ -43,6 +43,14 @@ eth2_goerli_genesis_end:
 cdecl(eth2_goerli_genesis_size):
     .quad    eth2_goerli_genesis_end - eth2_goerli_genesis_data
 
+eth2_holesky_genesis_data:
+    .incbin "holesky/custom_config_data/genesis.ssz"
+eth2_holesky_genesis_end:
+    .global cdecl(eth2_holesky_genesis_size)
+    .p2align 3
+cdecl(eth2_holesky_genesis_size):
+    .quad    eth2_holesky_genesis_end - eth2_holesky_genesis_data
+
 eth2_sepolia_genesis_data:
     .incbin "sepolia/bepolia/genesis.ssz"
 eth2_sepolia_genesis_end:
@@ -66,6 +74,11 @@ cdecl(eth2_mainnet_genesis):
     .p2align 3
 cdecl(eth2_goerli_genesis):
     .quad eth2_goerli_genesis_data
+
+    .global cdecl(eth2_holesky_genesis)
+    .p2align 3
+cdecl(eth2_holesky_genesis):
+    .quad eth2_holesky_genesis_data
 
     .global cdecl(eth2_sepolia_genesis)
     .p2align 3

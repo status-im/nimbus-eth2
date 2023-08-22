@@ -45,6 +45,7 @@ type
     rinkeby
     goerli
     sepolia
+    holesky
 
   Eth2NetworkMetadata* = object
     case incompatible*: bool
@@ -254,6 +255,9 @@ elif const_preset == "mainnet":
       praterGenesis {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
       praterGenesisSize {.importc: "eth2_goerli_genesis_size".}: int
 
+      holeskyGenesis {.importc: "eth2_holesky_genesis".}: ptr UncheckedArray[byte]
+      holeskyGenesisSize {.importc: "eth2_holesky_genesis_size".}: int
+
       sepoliaGenesis {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
       sepoliaGenesisSize {.importc: "eth2_sepolia_genesis_size".}: int
 
@@ -266,14 +270,16 @@ elif const_preset == "mainnet":
       vendorDir & "/eth2-networks/shared/mainnet", some mainnet, not incbinEnabled)
     praterMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/eth2-networks/shared/prater", some goerli, not incbinEnabled)
+    holeskyMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/holesky/custom_config_data", some holesky, not incbinEnabled)
     sepoliaMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/sepolia/bepolia", some sepolia, not incbinEnabled)
 
   static:
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
+    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
       checkForkConsistency(network.cfg)
 
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
+    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
       doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
@@ -327,6 +333,8 @@ proc getMetadataForNetwork*(
         withGenesis(mainnetMetadata, mainnetGenesis)
       of "prater", "goerli":
         withGenesis(praterMetadata, praterGenesis)
+      of "holesky":
+        withGenesis(holeskyMetadata, holeskyGenesis)
       of "sepolia":
         withGenesis(sepoliaMetadata, sepoliaGenesis)
       else:
