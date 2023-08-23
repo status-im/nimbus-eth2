@@ -853,7 +853,7 @@ func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,
     signingRoot: signingRoot,
     deposit: Web3SignerDepositData(
       pubkey: data.pubkey,
-      withdrawalCredentials: data.withdrawalCredentials,
+      withdrawalCredentials: data.withdrawal_credentials,
       genesisForkVersion: genesisForkVersion,
       amount: data.amount
     )
