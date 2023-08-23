@@ -235,18 +235,24 @@ done
 sed -e "s/GIT_COMMIT/${GIT_COMMIT}/" docker/dist/README.md.tpl > "${DIST_PATH}/README.md"
 
 if [[ "${PLATFORM}" == "Linux_amd64" ]]; then
-  sed -i -e 's/^make dist$/make dist-amd64/' "${DIST_PATH}/README.md"
+  sed -e 's/^make dist$/make dist-amd64/' "${DIST_PATH}/README.md" > "${DIST_PATH}/README.md.tmp"
+  mv "${DIST_PATH}/README.md.tmp" "${DIST_PATH}/README.md"
 elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
-  sed -i -e 's/^make dist$/make dist-arm/' "${DIST_PATH}/README.md"
+  sed -e 's/^make dist$/make dist-arm/' "${DIST_PATH}/README.md" > "${DIST_PATH}/README.md.tmp"
+  mv "${DIST_PATH}/README.md.tmp" "${DIST_PATH}/README.md"
 elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
-  sed -i -e 's/^make dist$/make dist-arm64/' "${DIST_PATH}/README.md"
+  sed -e 's/^make dist$/make dist-arm64/' "${DIST_PATH}/README.md" > "${DIST_PATH}/README.md.tmp"
+  mv "${DIST_PATH}/README.md.tmp" "${DIST_PATH}/README.md"
 elif [[ "${PLATFORM}" == "Windows_amd64" ]]; then
-  sed -i -e 's/^make dist$/make dist-win64/' "${DIST_PATH}/README.md"
+  sed -e 's/^make dist$/make dist-win64/' "${DIST_PATH}/README.md" > "${DIST_PATH}/README.md.tmp"
+  mv "${DIST_PATH}/README.md.tmp" "${DIST_PATH}/README.md"
   cp -a docker/dist/README-Windows.md.tpl "${DIST_PATH}/README-Windows.md"
 elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
-  sed -i -e 's/^make dist$/make dist-macos/' "${DIST_PATH}/README.md"
+  sed -e 's/^make dist$/make dist-macos/' "${DIST_PATH}/README.md" > "${DIST_PATH}/README.md.tmp"
+  mv "${DIST_PATH}/README.md.tmp" "${DIST_PATH}/README.md"
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
-  sed -i -e 's/^make dist$/make dist-macos-arm64/' "${DIST_PATH}/README.md"
+  sed -e 's/^make dist$/make dist-macos-arm64/' "${DIST_PATH}/README.md" > "${DIST_PATH}/README.md.tmp"
+  mv "${DIST_PATH}/README.md.tmp" "${DIST_PATH}/README.md"
 fi
 
 cp -a scripts/run-beacon-node.sh "${DIST_PATH}/scripts"
@@ -258,4 +264,3 @@ tar czf "${DIR}.tar.gz" "${DIR}"
 # don't leave the directory hanging around
 rm -rf "${DIR}"
 cd - >/dev/null
-

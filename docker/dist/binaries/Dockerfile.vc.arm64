@@ -1,10 +1,11 @@
+FROM multiarch/qemu-user-static:x86_64-aarch64 as qemu
 FROM arm64v8/debian:bullseye-slim
 
 SHELL ["/bin/bash", "-c"]
 
 # We need the host's registered binfmt_misc "interpreter" inside the container,
 # for that transparent virtualisation to work.
-COPY "qemu-aarch64-static" "/usr/bin/"
+COPY --from=qemu "/usr/bin/qemu-aarch64-static" "/usr/bin"
 
 # Likely to match the first regular user:group created on the host.
 RUN addgroup --gid 1000 user; \
@@ -17,4 +18,3 @@ STOPSIGNAL SIGINT
 COPY "nimbus-eth2/build/nimbus_validator_client" "/home/user/nimbus_validator_client"
 WORKDIR "/home/user/"
 ENTRYPOINT ["/home/user/nimbus_validator_client"]
-
