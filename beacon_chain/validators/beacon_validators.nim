@@ -97,6 +97,11 @@ type
                  blobsBundleOpt: Opt[BlobsBundle]], string]
   BlindedBlockResult[SBBB] =
     Result[tuple[blindedBlckPart: SBBB, blockValue: UInt256], string]
+  BlockProposalBidFutures[SBBB] = object
+    engineBidAvailable: bool
+    engineBlockFut: Future[ForkedBlockResult]
+    builderBidAvailable: bool
+    payloadBuilderBidFut: Future[BlindedBlockResult[SBBB]]
 
 proc getValidator*(validators: auto,
                    pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
@@ -800,22 +805,13 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
     else:
       return err("Attempt to create pre-Bellatrix blinded block")
 
-proc proposeBlockAux(
+proc collectBidFutures(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
-    validator: AttachedValidator, validator_index: ValidatorIndex,
-    head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
-    genesis_validators_root: Eth2Digest,
-    localBlockValueBoost: uint8): Future[BlockRef] {.async.} =
-  # Collect bids
-  var payloadBuilderClient: RestClientRef
-
-  let payloadBuilderClientMaybe = node.getPayloadBuilderClient(
-    validator_index.distinctBase)
-  if payloadBuilderClientMaybe.isOk:
-    payloadBuilderClient = payloadBuilderClientMaybe.get
-
+    payloadBuilderClient: RestClientRef, validator: AttachedValidator,
+    validator_index: ValidatorIndex, head: BlockRef, slot: Slot,
+    randao: ValidatorSig): Future[BlockProposalBidFutures[SBBB]] {.async.} =
   let usePayloadBuilder =
-    if payloadBuilderClientMaybe.isOk:
+    if not payloadBuilderClient.isNil:
       withState(node.dag.headState):
         # Head slot, not proposal slot, matters here
         # TODO it might make some sense to allow use of builder API if local
@@ -886,26 +882,50 @@ proc proposeBlockAux(
         err = engineBlockFut.error.msg
       false
 
-  template builderBetterBid(builderValue: UInt256, engineValue: Wei): bool =
-    # Scale down to ensure no overflows; if lower few bits would have been
-    # otherwise decisive, was close enough not to matter. Calibrate to let
-    # uint8-range percentages avoid overflowing.
-    const scalingBits = 10
-    static: doAssert 1 shl scalingBits >
-      high(typeof(localBlockValueBoost)).uint16 + 100
-    let
-      scaledBuilderValue = (builderValue shr scalingBits) * 100
-      scaledEngineValue = engineValue shr scalingBits
-    scaledBuilderValue >
-      scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
+  return BlockProposalBidFutures[SBBB](
+    engineBidAvailable: engineBidAvailable,
+    engineBlockFut: engineBlockFut,
+    builderBidAvailable: builderBidAvailable,
+    payloadBuilderBidFut: payloadBuilderBidFut)
+
+func builderBetterBid(
+    localBlockValueBoost: uint8, builderValue: UInt256, engineValue: Wei): bool =
+  # Scale down to ensure no overflows; if lower few bits would have been
+  # otherwise decisive, was close enough not to matter. Calibrate to let
+  # uint8-range percentages avoid overflowing.
+  const scalingBits = 10
+  static: doAssert 1 shl scalingBits >
+    high(typeof(localBlockValueBoost)).uint16 + 100
+  let
+    scaledBuilderValue = (builderValue shr scalingBits) * 100
+    scaledEngineValue = engineValue shr scalingBits
+  scaledBuilderValue >
+    scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
+
+proc proposeBlockAux(
+    SBBB: typedesc, EPS: typedesc, node: BeaconNode,
+    validator: AttachedValidator, validator_index: ValidatorIndex,
+    head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    localBlockValueBoost: uint8): Future[BlockRef] {.async.} =
+  var payloadBuilderClient: RestClientRef
+  let payloadBuilderClientMaybe = node.getPayloadBuilderClient(
+    validator_index.distinctBase)
+  if payloadBuilderClientMaybe.isOk:
+    payloadBuilderClient = payloadBuilderClientMaybe.get
+
+  let collectedBids = await collectBidFutures(
+    SBBB, EPS, node, payloadBuilderClient, validator, validator_index, head,
+    slot, randao)
 
   let useBuilderBlock =
-    if builderBidAvailable:
-      (not engineBidAvailable) or builderBetterBid(
-        payloadBuilderBidFut.read.get().blockValue,
-        engineBlockFut.read.get().blockValue)
+    if collectedBids.builderBidAvailable:
+      (not collectedBids.engineBidAvailable) or builderBetterBid(
+        localBlockValueBoost,
+        collectedBids.payloadBuilderBidFut.read.get().blockValue,
+        collectedBids.engineBlockFut.read.get().blockValue)
     else:
-      if not engineBidAvailable:
+      if not collectedBids.engineBidAvailable:
         return head   # errors logged in router
       false
 
@@ -913,7 +933,7 @@ proc proposeBlockAux(
     let
       blindedBlock = (await blindedBlockCheckSlashingAndSign(
         node, slot, validator, validator_index,
-        payloadBuilderBidFut.read.get.blindedBlckPart)).valueOr:
+        collectedBids.payloadBuilderBidFut.read.get.blindedBlckPart)).valueOr:
           return head
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
@@ -929,7 +949,7 @@ proc proposeBlockAux(
       beacon_block_builder_missed_without_fallback.inc()
       return head
 
-  var forkedBlck = engineBlockFut.read.get().blck
+  var forkedBlck = collectedBids.engineBlockFut.read.get().blck
 
   withBlck(forkedBlck):
     let
@@ -944,7 +964,7 @@ proc proposeBlockAux(
     let blobSidecarsOpt =
       when blck is deneb.BeaconBlock:
         var sidecars: seq[BlobSidecar]
-        let bundle = engineBlockFut.read.get().blobsBundleOpt.get()
+        let bundle = collectedBids.engineBlockFut.read.get().blobsBundleOpt.get
         let (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
         for i in 0..<blobs.len:
           var sidecar = BlobSidecar(
