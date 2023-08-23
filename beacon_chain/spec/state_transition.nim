@@ -44,12 +44,11 @@ import
   chronicles,
   stew/results,
   ../extras,
-  ./datatypes/[phase0, altair, bellatrix],
   "."/[
     beaconstate, eth2_merkleization, forks, helpers, signatures,
     state_transition_block, state_transition_epoch, validator]
 
-export results, extras, phase0, altair, bellatrix
+export results, extras
 
 logScope:
   topics = "state_transition"
@@ -533,28 +532,9 @@ proc makeBeaconBlock*(
     # Override for MEV
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
-        when consensusFork < ConsensusFork.Bellatrix:
-          # Vacuously
+        when consensusFork < ConsensusFork.Capella:
+          # Nimbus doesn't support pre-Capella builder API
           discard
-        elif consensusFork == ConsensusFork.Bellatrix:
-          forkyState.data.latest_execution_payload_header.transactions_root =
-            transactions_root.get
-
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/beacon-chain.md#beaconblockbody
-          # Effectively hash_tree_root(ExecutionPayload) with the beacon block
-          # body, with the execution payload replaced by the execution payload
-          # header. htr(payload) == htr(payload header), so substitute.
-          forkyState.data.latest_block_header.body_root = hash_tree_root(
-            [hash_tree_root(randao_reveal),
-             hash_tree_root(eth1_data),
-             hash_tree_root(graffiti),
-             hash_tree_root(validator_changes.proposer_slashings),
-             hash_tree_root(validator_changes.attester_slashings),
-             hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
-             hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
-             hash_tree_root(validator_changes.voluntary_exits),
-             hash_tree_root(sync_aggregate),
-             execution_payload_root.get])
         elif consensusFork == ConsensusFork.Capella:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
@@ -609,22 +589,17 @@ proc makeBeaconBlock*(
     of ConsensusFork.Phase0:    makeBeaconBlock(phase0)
     of ConsensusFork.Altair:    makeBeaconBlock(altair)
     of ConsensusFork.Bellatrix: makeBeaconBlock(bellatrix)
-    of ConsensusFork.Capella, ConsensusFork.Deneb:
-      raiseAssert "Attempt to use Bellatrix payload with post-Bellatrix state"
+    else: raiseAssert "Attempt to use Bellatrix payload with post-Bellatrix state"
   elif payloadFork == ConsensusFork.Capella:
     case state.kind
-    of  ConsensusFork.Phase0, ConsensusFork.Altair,
-        ConsensusFork.Bellatrix, ConsensusFork.Deneb:
-      raiseAssert "Attempt to use Capella payload with non-Capella state"
     of ConsensusFork.Capella:   makeBeaconBlock(capella)
+    else: raiseAssert "Attempt to use Capella payload with non-Capella state"
   elif payloadFork == ConsensusFork.Deneb:
     case state.kind
-    of  ConsensusFork.Phase0, ConsensusFork.Altair,
-        ConsensusFork.Bellatrix, ConsensusFork.Capella:
-      raiseAssert "Attempt to use Deneb payload with non-Deneb state"
-    of ConsensusFork.Deneb: makeBeaconBlock(deneb)
+    of ConsensusFork.Deneb:     makeBeaconBlock(deneb)
+    else: raiseAssert "Attempt to use Deneb payload with non-Deneb state"
   else:
-    {.error: "You need to add support for the next fork".}
+    {.error: "Unsupported fork".}
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have
 # these be default arguments
