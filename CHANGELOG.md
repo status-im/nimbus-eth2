@@ -1,7 +1,7 @@
 2023-08-23 v23.8.0
 ==================
 
-Nimbus `v23.8.0` is a low-priority upgrade focusing on performance and stability improvements, aiming to address the increasing number of validators on mainnet and upcoming testnets such as Holesky.
+Nimbus `v23.8.0` is a `low-urgency` upgrade focusing on performance and stability improvements, aiming to address the increasing number of validators on mainnet and upcoming testnets such as Holesky.
 
 Please note that this version enables the [new attestation subnet subscription logic](https://github.com/ethereum/consensus-specs/pull/3312), proposed in the Ethereum 1.4 consensus spec. This will significantly reduce the CPU usage and the consumed network bandwidth on beacon nodes with many validators, but it will slightly increase them on nodes with a single validator. The `--subscribe-all-subnets` option can still be used on powerful hardware configurations to produce potentially more profitable blocks by processing all attestations directly instead of relying on aggregators.
 
@@ -115,7 +115,7 @@ Nimbus `v23.6.1` is a `low-urgency` point release significantly improving the pe
 2023-06-20 v23.6.0
 ==================
 
-Nimbus `v23.6.0` is a `medium-priority` upgrade, further improving the efficiency and the standards-compliance of Nimbus while laying out the foundations for the upcoming Deneb hard-fork.
+Nimbus `v23.6.0` is a `medium-urgency` upgrade, further improving the efficiency and the standards-compliance of Nimbus while laying out the foundations for the upcoming Deneb hard-fork.
 
 ### Improvements
 
