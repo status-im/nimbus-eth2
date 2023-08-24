@@ -19,6 +19,7 @@ import
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/validators/keystore_management,
+  ../tests/mocking/mock_genesis,
   ./logtrace
 
 # Compiled version of /scripts/depositContract.v.py in this repo
@@ -339,7 +340,7 @@ proc doCreateTestnet*(config: CliConfig,
     else:
       uint64(times.toUnix(times.getTime()) + config.genesisOffset.get(0))
     outGenesis = config.outputGenesis.string
-    eth1Hash = eth1BlockHash # TODO: Can we set a more appropriate value?
+    eth1Hash = mockEth1BlockHash # TODO: Can we set a more appropriate value?
     cfg = getRuntimeConfig(config.eth2Network)
 
   # This is intentionally left default initialized, when the user doesn't
