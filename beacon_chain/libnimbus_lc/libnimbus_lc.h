@@ -1422,6 +1422,51 @@ const ETHRoot *ETHAccessTupleGetStorageKey(
     int storageKeyIndex);
 
 /**
+ * Obtains the max fee per blob gas of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Max fee per blob gas.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHTransactionGetMaxFeePerBlobGas(const ETHTransaction *transaction);
+
+/**
+ * Indicates the total number of blob versioned hashes of a transaction.
+ *
+ * - Individual blob versioned hashes may be investigated using
+ *   `ETHTransactionGetBlobVersionedHash`.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Number of available blob versioned hashes.
+ */
+ETH_RESULT_USE_CHECK
+int ETHTransactionGetNumBlobVersionedHashes(const ETHTransaction *transaction);
+
+/**
+ * Obtains an individual blob versioned hash by sequential index
+ * in a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ * @param      versionedHashIndex   Sequential blob versioned hash index.
+ *
+ * @return Blob versioned hash.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHTransactionGetBlobVersionedHash(
+    const ETHTransaction *transaction,
+    int versionedHashIndex);
+
+/**
  * Obtains the signature of a transaction.
  *
  * - The returned value is allocated in the given transaction.

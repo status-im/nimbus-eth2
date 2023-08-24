@@ -1355,6 +1355,8 @@ type
     value: UInt256
     input: seq[byte]
     accessList: seq[ETHAccessTuple]
+    maxFeePerBlobGas: uint64
+    blobVersionedHashes: seq[Eth2Digest]
     signature: seq[byte]
     bytes: TypedTransaction
 
@@ -1402,26 +1404,36 @@ proc ETHTransactionsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(TransactionObject) == 19,
+    static: doAssert totalSerializedFields(TransactionObject) == 21,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):
       of 0.Quantity:
         if data.accessList.isSome or
-            data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome:
+            data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
+            data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
           return nil
         TxLegacy
       of 1.Quantity:
         if data.chainId.isNone or data.accessList.isNone:
           return nil
-        if data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome:
+        if data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
+            data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
           return nil
         TxEip2930
       of 2.Quantity:
         if data.chainId.isNone or data.accessList.isNone or
             data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone:
           return nil
+        if data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
+          return nil
         TxEip1559
+      of 3.Quantity:
+        if data.to.isNone or data.chainId.isNone or data.accessList.isNone or
+            data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone or
+            data.maxFeePerBlobGas.isNone or data.blobVersionedHashes.isNone:
+          return nil
+        TxEip4844
       else:
         return nil
 
@@ -1430,6 +1442,7 @@ proc ETHTransactionsCreateFromJson(
       doAssert sizeof(uint64) == sizeof(ChainId)
       doAssert sizeof(int64) == sizeof(data.gasPrice)
       doAssert sizeof(int64) == sizeof(data.maxPriorityFeePerGas.get)
+      doAssert sizeof(int64) == sizeof(data.maxFeePerBlobGas.get)
     if data.chainId.get(default(UInt256)) > distinctBase(ChainId.high).u256:
       return nil
     if distinctBase(data.gasPrice) > int64.high.uint64:
@@ -1437,6 +1450,9 @@ proc ETHTransactionsCreateFromJson(
     if distinctBase(data.maxFeePerGas.get(0.Quantity)) > int64.high.uint64:
       return nil
     if distinctBase(data.maxPriorityFeePerGas.get(0.Quantity)) >
+        int64.high.uint64:
+      return nil
+    if distinctBase(data.maxFeePerBlobGas.get(0.Quantity)) >
         int64.high.uint64:
       return nil
     if distinctBase(data.gas) > int64.high.uint64:
@@ -1465,6 +1481,14 @@ proc ETHTransactionsCreateFromJson(
             data.accessList.get.mapIt(AccessPair(
               address: distinctBase(it.address),
               storageKeys: it.storageKeys.mapIt(distinctBase(it))))
+          else:
+            @[],
+        maxFeePerBlobGas:
+          distinctBase(data.maxFeePerBlobGas.get(0.Quantity)).GasInt,
+        versionedHashes:
+          if data.blobVersionedHashes.isSome:
+            data.blobVersionedHashes.get.mapIt(
+              ExecutionHash256(data: distinctBase(it)))
           else:
             @[],
         V: data.v.truncate(uint64).int64,
@@ -1533,6 +1557,8 @@ proc ETHTransactionsCreateFromJson(
       accessList: tx.accessList.mapIt(ETHAccessTuple(
         address: ExecutionAddress(data: it.address),
         storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it)))),
+      maxFeePerBlobGas: tx.maxFeePerBlobGas.uint64,
+      blobVersionedHashes: tx.versionedHashes,
       signature: @rawSig,
       bytes: rlpBytes.TypedTransaction)
 
@@ -1857,6 +1883,53 @@ func ETHAccessTupleGetStorageKey(
   ## Returns:
   ## * Storage key.
   addr accessTuple[].storageKeys[storageKeyIndex.int]
+
+func ETHTransactionGetMaxFeePerBlobGas(
+    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+  ## Obtains the max fee per blob gas of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Max fee per blob gas.
+  addr transaction[].maxFeePerBlobGas
+
+func ETHTransactionGetNumBlobVersionedHashes(
+    transaction: ptr ETHTransaction): cint {.exported.} =
+  ## Indicates the total number of blob versioned hashes of a transaction.
+  ##
+  ## * Individual blob versioned hashes may be investigated using
+  ##   `ETHTransactionGetBlobVersionedHash`.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Number of available blob versioned hashes.
+  transaction[].blobVersionedHashes.len.cint
+
+func ETHTransactionGetBlobVersionedHash(
+    transaction: ptr ETHTransaction,
+    versionedHashIndex: cint): ptr Eth2Digest {.exported.} =
+  ## Obtains an individual blob versioned hash by sequential index
+  ## in a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ## * `versionedHashIndex` - Sequential blob versioned hash index.
+  ##
+  ## Returns:
+  ## * Blob versioned hash.
+  addr transaction[].blobVersionedHashes[versionedHashIndex.int]
 
 func ETHTransactionGetSignatureBytes(
     transaction: ptr ETHTransaction,

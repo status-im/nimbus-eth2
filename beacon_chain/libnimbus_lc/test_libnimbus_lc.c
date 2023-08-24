@@ -480,6 +480,20 @@ int main(void)
             }
         }
 
+        const uint64_t *transactionMaxFeePerBlobGas =
+            ETHTransactionGetMaxFeePerBlobGas(transaction);
+        printf("    - max_fee_per_blob_gas: %" PRIu64 "\n", *transactionMaxFeePerBlobGas);
+
+        printf("    - blob_versioned_hashes:\n");
+        int numBlobVersionedHashes = ETHTransactionGetNumBlobVersionedHashes(transaction);
+        for (int hashIndex = 0; hashIndex < numBlobVersionedHashes; hashIndex++) {
+            const ETHRoot *blobVersionedHash =
+                ETHTransactionGetBlobVersionedHash(transaction, hashIndex);
+            printf("        - ");
+            printHexString(blobVersionedHash, sizeof *blobVersionedHash);
+            printf("\n");
+        }
+
         int numTransactionSignatureBytes;
         const void *transactionSignatureBytes =
             ETHTransactionGetSignatureBytes(transaction, &numTransactionSignatureBytes);
