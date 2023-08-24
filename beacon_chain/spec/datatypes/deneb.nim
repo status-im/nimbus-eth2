@@ -603,13 +603,14 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
 
   if epoch < cfg.DENEB_FORK_EPOCH:
-    if header.execution.excess_blob_gas != 0:
+    if header.execution.blob_gas_used != 0 or
+        header.execution.excess_blob_gas != 0:
       return false
 
   if epoch < cfg.CAPELLA_FORK_EPOCH:
