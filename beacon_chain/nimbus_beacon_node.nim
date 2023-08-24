@@ -1622,27 +1622,6 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
 
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      try:
-        setupForeignThreadGc()
-      except Exception as exc: raiseAssert exc.msg # shouldn't happen
-    notice "Shutting down after having received SIGINT"
-    bnStatus = BeaconNodeStatus.Stopping
-  try:
-    setControlCHook(controlCHandler)
-  except Exception as exc: # TODO Exception
-    warn "Cannot set ctrl-c handler", msg = exc.msg
-
-  # equivalent SIGTERM handler
-  when defined(posix):
-    proc SIGTERMHandler(signal: cint) {.noconv.} =
-      notice "Shutting down after having received SIGTERM"
-      bnStatus = BeaconNodeStatus.Stopping
-    c_signal(ansi_c.SIGTERM, SIGTERMHandler)
-
   # main event loop
   while bnStatus == BeaconNodeStatus.Running:
     poll() # if poll fails, the network is broken
@@ -1881,6 +1860,27 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
+
+  ## Ctrl+C handling
+  proc controlCHandler() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      try:
+        setupForeignThreadGc()
+      except Exception as exc: raiseAssert exc.msg # shouldn't happen
+    notice "Shutting down after having received SIGINT"
+    bnStatus = BeaconNodeStatus.Stopping
+  try:
+    setControlCHook(controlCHandler)
+  except Exception as exc: # TODO Exception
+    warn "Cannot set ctrl-c handler", msg = exc.msg
+
+  # equivalent SIGTERM handler
+  when defined(posix):
+    proc SIGTERMHandler(signal: cint) {.noconv.} =
+      notice "Shutting down after having received SIGTERM"
+      bnStatus = BeaconNodeStatus.Stopping
+    c_signal(ansi_c.SIGTERM, SIGTERMHandler)
 
   let node = BeaconNode.init(rng, config, metadata)
 
