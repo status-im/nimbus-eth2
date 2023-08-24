@@ -134,7 +134,7 @@ type
     excess_blob_gas*: uint64 # [New in Deneb]
 
   ExecutePayload* = proc(
-    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
+    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object

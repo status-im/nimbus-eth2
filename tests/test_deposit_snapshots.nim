@@ -19,7 +19,7 @@ template key2: array[1, byte] = [byte(kDepositTreeSnapshot)]
 
 type
   DepositSnapshotUpgradeProc = proc(old: OldDepositContractSnapshot): DepositTreeSnapshot
-                                   {.gcsafe, raises: [Defect].}
+                                   {.gcsafe, raises: [].}
 
 proc ifNecessaryMigrateDCS(db: BeaconChainDB,
                            upgradeProc: DepositSnapshotUpgradeProc) =

@@ -97,7 +97,7 @@ template ethTimeUnit*(typ: type) {.dirty.} =
     writeValue(writer, uint64 value)
 
   proc readValue*(reader: var JsonReader, value: var typ)
-                 {.raises: [IOError, SerializationError, Defect].} =
+                 {.raises: [IOError, SerializationError].} =
     value = typ reader.readValue(uint64)
 
 ethTimeUnit Slot

@@ -201,7 +201,7 @@ proc writeValue*(
   writer.writeValue("0x" & value.PubKeyBytes.toHex())
 
 proc readValue*(reader: var JsonReader, value: var PubKey0x)
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   try:
     value = PubKey0x hexToByteArray(reader.readValue(string), RawPubKeySize)
   except ValueError:
@@ -212,7 +212,7 @@ proc writeValue*(
   w.writeValue "0x" & a.Eth2Digest.data.toHex()
 
 proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   try:
     a = Eth2Digest0x fromHex(Eth2Digest, r.readValue(string))
   except ValueError:
@@ -224,7 +224,7 @@ proc writeValue*(
   w.writeValue $distinctBase(a)
 
 proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   try:
     a = (typeof a)(r.readValue(string).parseBiggestUInt())
   except ValueError:
@@ -232,7 +232,7 @@ proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
 
 proc importSlashingInterchange*(
        db: auto,
-       path: string): SlashingImportStatus {.raises: [Defect, IOError, SerializationError].} =
+       path: string): SlashingImportStatus {.raises: [IOError, SerializationError].} =
   ## Import a Slashing Protection Database Interchange Format
   ## into a Nimbus DB.
   ## This adds data to already existing data.
@@ -275,7 +275,7 @@ proc importInterchangeV5Impl*(
        db: auto,
        spdir: var SPDIR
      ): SlashingImportStatus
-      {.raises: [SerializationError, IOError, Defect].} =
+      {.raises: [SerializationError, IOError].} =
   ## Common implementation of interchange import
   ## according to https://eips.ethereum.org/EIPS/eip-3076
   ## spdir needs to be `var` as it will be sorted in-place

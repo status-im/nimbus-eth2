@@ -38,7 +38,7 @@ export
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
                            lastSlot: Slot): Future[bool] {.gcsafe,
-  raises: [Defect].}
+  raises: [].}
 
 # silly chronicles, colors is a compile-time property
 proc stripAnsi(v: string): string =
@@ -76,7 +76,7 @@ proc stripAnsi(v: string): string =
 
   res
 
-proc updateLogLevel*(logLevel: string) {.raises: [Defect, ValueError].} =
+proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
   let directives = logLevel.split(";")
   try:
@@ -388,7 +388,7 @@ type
 proc initKeymanagerServer*(
     config: AnyConf,
     existingRestServer: RestServerRef = nil): KeymanagerInitResult
-    {.raises: [Defect].} =
+    {.raises: [].} =
 
   var token: string
   let keymanagerServer = if config.keymanagerEnabled:

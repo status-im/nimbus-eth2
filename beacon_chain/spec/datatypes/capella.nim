@@ -117,7 +117,7 @@ type
       ## [New in Capella]
 
   ExecutePayload* = proc(
-    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
+    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
   ExecutionBranch* =
     array[log2trunc(EXECUTION_PAYLOAD_INDEX), Eth2Digest]

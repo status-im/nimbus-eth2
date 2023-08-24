@@ -42,7 +42,7 @@ type
 
 # TODO: change ptr uint to ptr csize_t when available in newer Nim version.
 proc copyState(state: phase0.BeaconState, xoutput: ptr byte,
-    xoutput_size: ptr uint): bool {.raises: [FuzzCrashError, Defect].} =
+    xoutput_size: ptr uint): bool {.raises: [FuzzCrashError].} =
   var resultState =
     try:
       SSZ.encode(state)
@@ -99,17 +99,17 @@ template decodeAndProcess(typ, process: untyped): bool =
     false
 
 proc nfuzz_attestation(input: openArray[byte], xoutput: ptr byte,
-    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(AttestationInput):
     process_attestation(data.state, data.attestation, flags, 0.Gwei, cache).isOk
 
 proc nfuzz_attester_slashing(input: openArray[byte], xoutput: ptr byte,
-    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(AttesterSlashingInput):
     process_attester_slashing(getRuntimeConfig(some "mainnet"), data.state, data.attesterSlashing, flags, cache).isOk
 
 proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
-    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   # There's not a perfect approach here, but it's not worth switching the rest
   # and requiring HashedBeaconState (yet). So to keep consistent, puts wrapper
   # only in one function.
@@ -133,22 +133,22 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
       getRuntimeConfig(some "mainnet"), data, data.beaconBlock, flags, noRollback).isOk
 
 proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
-    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(BlockHeaderInput):
     process_block_header(data.state, data.beaconBlock.message, flags, cache).isOk
 
 proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
-    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(DepositInput):
     process_deposit(getRuntimeConfig(some "mainnet"), data.state, data.deposit, flags).isOk
 
 proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
-    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(ProposerSlashingInput):
     process_proposer_slashing(getRuntimeConfig(some "mainnet"), data.state, data.proposerSlashing, flags, cache).isOk
 
 proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
-    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
+    xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(VoluntaryExitInput):
     process_voluntary_exit(getRuntimeConfig(some "mainnet"), data.state, data.exit, flags, cache).isOk
 
@@ -157,7 +157,7 @@ proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
 # TODO: rework to copy immediatly in an uint8 openArray, considering we have to
 # go over the list anyhow?
 proc nfuzz_shuffle(input_seed: ptr byte, xoutput: var openArray[uint64]): bool
-    {.exportc, raises: [Defect].} =
+    {.exportc, raises: [].} =
   var seed: Eth2Digest
   # Should be OK as max 2 bytes are passed by the framework.
   let list_size = xoutput.len

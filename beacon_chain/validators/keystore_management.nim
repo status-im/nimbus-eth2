@@ -71,12 +71,12 @@ type
 
   ValidatorPubKeyToDataFn* =
     proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
-         {.raises: [Defect], gcsafe.}
+         {.raises: [], gcsafe.}
 
   GetForkFn* =
-    proc (epoch: Epoch): Opt[Fork] {.raises: [Defect], gcsafe.}
+    proc (epoch: Epoch): Opt[Fork] {.raises: [], gcsafe.}
   GetGenesisFn* =
-    proc (): Eth2Digest {.raises: [Defect], gcsafe.}
+    proc (): Eth2Digest {.raises: [], gcsafe.}
 
   KeymanagerHost* = object
     validatorPool*: ref ValidatorPool
@@ -140,7 +140,7 @@ proc echoP*(msg: string) =
 
 func init*(T: type KeystoreData,
            privateKey: ValidatorPrivKey,
-           keystore: Keystore, handle: FileLockHandle): T {.raises: [Defect].} =
+           keystore: Keystore, handle: FileLockHandle): T {.raises: [].} =
   KeystoreData(
     kind: KeystoreKind.Local,
     privateKey: privateKey,
@@ -153,7 +153,7 @@ func init*(T: type KeystoreData,
   )
 
 func init(T: type KeystoreData, keystore: RemoteKeystore,
-          handle: FileLockHandle): Result[T, cstring] {.raises: [Defect].} =
+          handle: FileLockHandle): Result[T, cstring] {.raises: [].} =
   let cookedKey = keystore.pubkey.load().valueOr:
         return err("Invalid validator's public key")
 
@@ -193,10 +193,10 @@ func init(T: type KeystoreData, cookedKey: CookedPubKey,
   )
 
 func init(T: type AddValidatorFailure, status: AddValidatorStatus,
-          msg = ""): AddValidatorFailure {.raises: [Defect].} =
+          msg = ""): AddValidatorFailure {.raises: [].} =
   AddValidatorFailure(status: status, message: msg)
 
-func toKeystoreKind(kind: ValidatorKind): KeystoreKind {.raises: [Defect].} =
+func toKeystoreKind(kind: ValidatorKind): KeystoreKind {.raises: [].} =
   case kind
   of ValidatorKind.Local:
     KeystoreKind.Local
@@ -351,7 +351,7 @@ proc keyboardCreatePassword(prompt: string,
 
 proc keyboardGetPassword[T](prompt: string, attempts: int,
                             pred: proc(p: string): KsResult[T] {.
-     gcsafe, raises: [Defect].}): KsResult[T] =
+     gcsafe, raises: [].}): KsResult[T] =
   var
     remainingAttempts = attempts
     counter = 1
@@ -373,7 +373,7 @@ proc keyboardGetPassword[T](prompt: string, attempts: int,
   err("Failed to decrypt keystore")
 
 proc loadSecretFile(path: string): KsResult[KeystorePass] {.
-     raises: [Defect].} =
+     raises: [].} =
   let res = readAllChars(path)
   if res.isErr():
     return err(ioErrorMsg(res.error()))
@@ -532,7 +532,7 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
 proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
                            kind: KeystoreKind
                           ): KmResult[RemoveValidatorStatus] {.
-     raises: [Defect].} =
+     raises: [].} =
   let
     keystoreDir = validatorsDir / keyName
     keystoreFile =
@@ -584,7 +584,7 @@ proc removeValidator*(pool: var ValidatorPool,
                       validatorsDir, secretsDir: string,
                       publicKey: ValidatorPubKey,
                       kind: KeystoreKind): KmResult[RemoveValidatorStatus] {.
-     raises: [Defect].} =
+     raises: [].} =
   let validator = pool.getValidator(publicKey).valueOr:
     return ok(RemoveValidatorStatus.notFound)
   if validator.kind.toKeystoreKind() != kind:
@@ -610,7 +610,7 @@ func checkKeyName(keyName: string): bool =
   true
 
 proc existsKeystore(keystoreDir: string, keyKind: KeystoreKind): bool {.
-     raises: [Defect].} =
+     raises: [].} =
   case keyKind
   of KeystoreKind.Local:
     fileExists(keystoreDir / KeystoreFileName)
@@ -618,7 +618,7 @@ proc existsKeystore(keystoreDir: string, keyKind: KeystoreKind): bool {.
     fileExists(keystoreDir / RemoteKeystoreFileName)
 
 proc existsKeystore(keystoreDir: string,
-                    keysMask: set[KeystoreKind]): bool {.raises: [Defect].} =
+                    keysMask: set[KeystoreKind]): bool {.raises: [].} =
   if KeystoreKind.Local in keysMask:
     if existsKeystore(keystoreDir, KeystoreKind.Local):
       return true
@@ -925,7 +925,7 @@ proc createLocalValidatorFiles*(
        secretsDir, validatorsDir, keystoreDir,
        secretFile, passwordAsString, keystoreFile,
        encodedStorage: string
-     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
+     ): Result[void, KeystoreGenerationError] {.raises: [].} =
 
   var
     success = false # becomes true when everything is created successfully
@@ -972,7 +972,7 @@ proc createLockedLocalValidatorFiles(
        secretsDir, validatorsDir, keystoreDir,
        secretFile, passwordAsString, keystoreFile,
        encodedStorage: string
-     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [].} =
 
   var
     success = false # becomes true when everything is created successfully
@@ -1018,7 +1018,7 @@ proc createLockedLocalValidatorFiles(
 
 proc createRemoteValidatorFiles*(
        validatorsDir, keystoreDir, keystoreFile, encodedStorage: string
-     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
+     ): Result[void, KeystoreGenerationError] {.raises: [].} =
   var
     success = false  # becomes true when everything is created successfully
 
@@ -1044,7 +1044,7 @@ proc createRemoteValidatorFiles*(
 
 proc createLockedRemoteValidatorFiles(
        validatorsDir, keystoreDir, keystoreFile, encodedStorage: string
-     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [].} =
   var
     success = false  # becomes true when everything is created successfully
 
@@ -1077,7 +1077,7 @@ proc saveKeystore*(
        password: string,
        salt: openArray[byte] = @[],
        mode = Secure
-     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
+     ): Result[void, KeystoreGenerationError] {.raises: [].} =
   let
     keypass = KeystorePass.init(password)
     keyName = signingPubKey.fsName
@@ -1117,7 +1117,7 @@ proc saveLockedKeystore(
        signingKeyPath: KeyPath,
        password: string,
        mode = Secure
-     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [].} =
   let
     keypass = KeystorePass.init(password)
     keyName = signingPubKey.fsName
@@ -1158,7 +1158,7 @@ proc saveKeystore(
        flags: set[RemoteKeystoreFlag] = {},
        remoteType = RemoteSignerType.Web3Signer,
        desc = ""
-     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
+     ): Result[void, KeystoreGenerationError] {.raises: [].} =
   let
     keyName = publicKey.fsName
     keystoreDir = validatorsDir / keyName
@@ -1200,7 +1200,7 @@ proc saveLockedKeystore(
        flags: set[RemoteKeystoreFlag] = {},
        remoteType = RemoteSignerType.Web3Signer,
        desc = ""
-     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [].} =
   let
     keyName = publicKey.fsName
     keystoreDir = validatorsDir / keyName
@@ -1238,14 +1238,14 @@ proc saveKeystore*(
        validatorsDir: string,
        publicKey: ValidatorPubKey,
        url:  HttpHostUri
-     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
+     ): Result[void, KeystoreGenerationError] {.raises: [].} =
   let remoteInfo = RemoteSignerInfo(url: url, id: 0)
   saveKeystore(validatorsDir, publicKey, @[remoteInfo], 1)
 
 proc importKeystore*(pool: var ValidatorPool,
                      validatorsDir: string,
                      keystore: RemoteKeystore): ImportResult[KeystoreData]
-                    {.raises: [Defect].} =
+                    {.raises: [].} =
   let
     publicKey = keystore.pubkey
     keyName = publicKey.fsName
@@ -1278,7 +1278,7 @@ proc importKeystore*(pool: var ValidatorPool,
                      validatorsDir, secretsDir: string,
                      keystore: Keystore,
                      password: string): ImportResult[KeystoreData] {.
-     raises: [Defect].} =
+     raises: [].} =
   let keypass = KeystorePass.init(password)
   let privateKey =
     block:

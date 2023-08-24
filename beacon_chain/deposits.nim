@@ -333,7 +333,7 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
   await restValidatorExit(config)
 
 proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
-    raises: [Defect, CatchableError].} =
+    raises: [CatchableError].} =
   case config.depositsCmd
   of DepositsCmd.createTestnetDeposits:
     if config.eth2Network.isNone:

@@ -321,7 +321,7 @@ proc createDepositTreeSnapshot(deposits: seq[DepositData],
 
 proc doCreateTestnet*(config: CliConfig,
                       rng: var HmacDrbgContext)
-                     {.raises: [Defect, CatchableError].} =
+                     {.raises: [CatchableError].} =
   let launchPadDeposits = try:
     Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
   except SerializationError as err:
@@ -464,7 +464,7 @@ proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
   web3.send(tr)
 
 type
-  DelayGenerator* = proc(): chronos.Duration {.gcsafe, raises: [Defect].}
+  DelayGenerator* = proc(): chronos.Duration {.gcsafe, raises: [].}
 
 proc ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256

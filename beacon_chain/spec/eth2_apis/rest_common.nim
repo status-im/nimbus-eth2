@@ -16,7 +16,7 @@ from std/times import Time, DateTime, toTime, fromUnix, now, utc, `-`,
 export chronos, client, rest_types, eth2_rest_serialization
 
 proc raiseGenericError*(resp: RestPlainResponse) {.
-     noreturn, raises: [RestError, Defect].} =
+     noreturn, raises: [RestError].} =
   let error =
     block:
       let res = decodeBytes(RestErrorMessage, resp.data, resp.contentType)
@@ -29,7 +29,7 @@ proc raiseGenericError*(resp: RestPlainResponse) {.
   raise newException(RestError, msg)
 
 proc raiseUnknownStatusError*(resp: RestPlainResponse) {.
-     noreturn, raises: [RestError, Defect].} =
+     noreturn, raises: [RestError].} =
   let msg = "Unknown response status error (" & $resp.status & ")"
   raise newException(RestError, msg)
 

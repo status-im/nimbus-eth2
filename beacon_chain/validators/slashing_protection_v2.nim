@@ -737,7 +737,7 @@ proc init*(T: type SlashingProtectionDB_v2,
 proc loadUnchecked*(
        T: type SlashingProtectionDB_v2,
        basePath, dbname: string, readOnly: bool
-     ): SlashingProtectionDB_v2 {.raises:[Defect, IOError].}=
+     ): SlashingProtectionDB_v2 {.raises:[IOError].}=
   ## Load a slashing protection DB
   ## Note: This is for conversion usage in ncli_slashing
   ##       this doesn't check the genesis validator root
@@ -1339,7 +1339,7 @@ proc registerSyntheticAttestation*(
     checkStatus()
 
 proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
-             {.raises: [IOError, Defect].} =
+             {.raises: [IOError].} =
   ## Export the full slashing protection database
   ## to a json the Slashing Protection Database Interchange (Complete) Format
   result.metadata.interchange_format_version = "5"
@@ -1435,7 +1435,7 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
         doAssert status.isOk()
 
 proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): SlashingImportStatus
-             {.raises: [SerializationError, IOError, Defect].} =
+             {.raises: [SerializationError, IOError].} =
   ## Import a Slashing Protection Database Intermediate Representation
   ## file into the specified slashing protection DB
   ##
