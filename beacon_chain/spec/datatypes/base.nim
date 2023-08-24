@@ -593,8 +593,8 @@ template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
   template asInt*(x: T): int = int(distinctBase(x))
   template asUInt64*(x: T): uint64 = uint64(distinctBase(x))
 
-  template toSszType(x: T): uint64 =
-    {.error: "Limited types should not be used with SSZ (ABI differences)".}
+  func toSszType*(x: T): uint64 {.error:
+    "Limited types should not be used with SSZ (ABI differences)".}
 
 template makeLimitedU8*(T: untyped, limit: uint8) =
   makeLimitedUInt(T, limit)
