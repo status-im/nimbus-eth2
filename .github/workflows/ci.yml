@@ -218,6 +218,7 @@ jobs:
         run: |
           while read -r file; do
             commit="$(git -C "$file" rev-parse HEAD)"
+            commit_date=$(git -C "$file" show -s --format='%ci' HEAD)
             if ! branch="$(git config -f .gitmodules --get "submodule.$file.branch")"; then
               echo "Submodule '$file': '.gitmodules' lacks 'branch' entry"
               exit 2
@@ -227,7 +228,6 @@ jobs:
               echo "Submodule '$file': Failed to fetch '$branch': $error"
               exit 2
             fi
-            commit_date=$(git -C "$file" show -s --format='%ci' HEAD)
             if ! error="$(git -C "$file" fetch -q --shallow-since="$commit_date" origin "+refs/heads/${branch}:refs/remotes/origin/${branch}")"; then
               echo "Submodule '$file': Failed to fetch '$branch': $error"
               exit 2
