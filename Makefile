@@ -744,7 +744,6 @@ clean-gnosis-chain:
 
 libnimbus_lc.a: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		set -x && \
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) $(NIMC) c -d:disable_libbacktrace -d:release --app:staticlib --noMain --nimcache:nimcache/libnimbus_lc_static -o:build/$@ $(NIM_PARAMS) beacon_chain/libnimbus_lc/libnimbus_lc.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
@@ -753,7 +752,6 @@ libnimbus_lc.a: | build deps
 # `-fsanitize=undefined` in Windows: https://github.com/msys2/MINGW-packages/issues/3163
 test_libnimbus_lc: libnimbus_lc.a
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		set -x && \
 		EXTRA_FLAGS=() && \
 		case "$$(uname)" in \
 		Darwin) \

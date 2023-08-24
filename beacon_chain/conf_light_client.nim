@@ -145,6 +145,11 @@ type LightClientConf* = object
     desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
     name: "jwt-secret" .}: Option[InputFile]
 
+  bandwidthEstimate* {.
+    hidden
+    desc: "Bandwidth estimate for the node (bits per second)"
+    name: "debug-bandwidth-estimate" .}: Option[Natural]
+
   # Testing
   stopAtEpoch* {.
     hidden

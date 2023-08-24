@@ -80,6 +80,13 @@ suite "Honest validator":
         "/eth2/00000000/sync_committee_3/ssz_snappy"
       getBlobSidecarTopic(forkDigest, SubnetId(1)) ==
         "/eth2/00000000/blob_sidecar_1/ssz_snappy"
+      toSeq(blobSidecarTopics(forkDigest)) ==
+        ["/eth2/00000000/blob_sidecar_0/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_1/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_2/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_3/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_4/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_5/ssz_snappy"]
 
   test "is_aggregator":
     check:

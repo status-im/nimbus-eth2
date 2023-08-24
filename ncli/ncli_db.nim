@@ -12,7 +12,6 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, era_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
     beaconstate, state_transition, state_transition_epoch, validator,
     ssz_codec],
@@ -210,9 +209,6 @@ func getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slo
       else: start + count
   (start, ends)
 
-from ../beacon_chain/spec/datatypes/capella import
-  HashedBeaconState, TrustedSignedBeaconBlock
-
 proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   var timers: array[Timers, RunningStat]
 
@@ -353,6 +349,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   processBlocks(blocks[1])
   processBlocks(blocks[2])
   processBlocks(blocks[3])
+  processBlocks(blocks[4])
 
   printTimers(false, timers)
 
@@ -365,6 +362,7 @@ proc cmdDumpState(conf: DbConf) =
     altairState    = (ref altair.HashedBeaconState)()
     bellatrixState = (ref bellatrix.HashedBeaconState)()
     capellaState   = (ref capella.HashedBeaconState)()
+    denebState     = (ref deneb.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -382,6 +380,7 @@ proc cmdDumpState(conf: DbConf) =
     doit(altairState[])
     doit(bellatrixState[])
     doit(capellaState[])
+    doit(denebState[])
 
     echo "Couldn't load ", stateRoot
 
@@ -413,6 +412,8 @@ proc cmdDumpBlock(conf: DbConf) =
       elif (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
       elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock); blck.isSome):
+        dump("./", blck.get())
+      elif (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
       else:
         echo "Couldn't load ", blockRoot

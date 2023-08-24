@@ -623,6 +623,11 @@ type
         desc: "Experimental, debug option; could disappear at any time without warning"
         name: "temporary-debug-trusted-setup-file" .}: Option[string]
 
+      bandwidthEstimate* {.
+        hidden
+        desc: "Bandwidth estimate for the node (bits per second)"
+        name: "debug-bandwidth-estimate" .}: Option[Natural]
+
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
       of WalletsCmd.create:

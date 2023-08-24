@@ -258,10 +258,10 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   self.updateHead(newHead.blck)
 
 func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
-  # This is a tweaked version of the validator_duties isSynced. TODO, refactor
+  # This is a tweaked version of the beacon_validators isSynced. TODO, refactor
   # that one so this becomes the default version, with the same information to
   # work with. For the head slot, use the DAG head regardless of what head the
-  # proposer forkchoiceUpdated is using, because by the validator_duties might
+  # proposer forkchoiceUpdated is using, because by the beacon_validators might
   # be ready to actually propose, it's going to do so from the DAG head. Given
   # the defaultSyncHorizon, it will start triggering in time so that potential
   # discrepancies between the head here, and the head the DAG has (which might

@@ -581,6 +581,10 @@ proc readRuntimeConfig*(
   checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
   checkCompatibility MAX_CHUNK_SIZE
   checkCompatibility SUBNETS_PER_NODE
+  checkCompatibility ATTESTATION_SUBNET_EXTRA_BITS
+  checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
+  checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
+  checkCompatibility MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
 
   # Never pervasively implemented, still under discussion
   checkCompatibility TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH

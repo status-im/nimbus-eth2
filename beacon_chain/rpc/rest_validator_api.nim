@@ -10,7 +10,7 @@ import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
-       ".."/validators/validator_duties,
+       ".."/validators/beacon_validators,
        ".."/spec/[beaconstate, forks, network],
        ".."/spec/datatypes/[phase0, altair],
        "."/[rest_utils, state_ttl_cache]
