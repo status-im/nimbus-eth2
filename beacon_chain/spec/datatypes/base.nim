@@ -550,10 +550,6 @@ func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
     withdrawal_credentials: validator.withdrawal_credentials)
 
 template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
-  # A "tigher" type is often used for T, but for the range check to be effective
-  # it must make sense..
-  type L = typeof limit
-
   static: doAssert limit <= distinctBase(T).high()
   # Many `uint64` values in the spec have a more limited range of valid values
   func init*(t: type T, value: uint64): Result[T, cstring] =
