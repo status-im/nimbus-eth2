@@ -115,7 +115,7 @@ proc init*(
 proc loadUnchecked*(
        T: type SlashingProtectionDB,
        basePath, dbname: string, readOnly: bool
-     ): SlashingProtectionDB {.raises:[Defect, IOError].}=
+     ): SlashingProtectionDB {.raises:[IOError].}=
   ## Load a slashing protection DB
   ## Note: This is for CLI tool usage
   ##       this doesn't check the genesis validator root
@@ -269,18 +269,18 @@ proc registerSyntheticAttestation*(db: SlashingProtectionDB,
   db.db_v2.registerSyntheticAttestation(validator, source, target)
 
 proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
-             {.raises: [SerializationError, IOError, Defect].} =
+             {.raises: [SerializationError, IOError].} =
   db.db_v2.inclSPDIR(spdir)
 
 proc toSPDIR*(db: SlashingProtectionDB): SPDIR
-             {.raises: [IOError, Defect].} =
+             {.raises: [IOError].} =
   db.db_v2.toSPDIR()
 
 proc exportSlashingInterchange*(
        db: SlashingProtectionDB,
        path: string,
        validatorsWhiteList: seq[PubKey0x] = @[],
-       prettify = true) {.raises: [Defect, IOError].} =
+       prettify = true) {.raises: [IOError].} =
   ## Export a database to the Slashing Protection Database Interchange Format
   # We could modify toSPDIR to do the filtering directly
   # but this is not a performance sensitive operation.
@@ -302,4 +302,3 @@ proc exportSlashingInterchange*(
 
   Json.saveFile(path, spdir, prettify)
   echo "Exported slashing protection DB to '", path, "'"
-

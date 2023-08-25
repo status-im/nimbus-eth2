@@ -566,7 +566,7 @@ template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
     writeValue(writer, distinctBase value)
 
   proc readValue*(reader: var JsonReader, value: var T)
-                {.raises: [IOError, SerializationError, Defect].} =
+                {.raises: [IOError, SerializationError].} =
     let v = T.init(reader.readValue(uint64))
     if v.isSome():
       value = v.get()
@@ -637,7 +637,7 @@ template writeValue*(
 
 proc readValue*(
     reader: var JsonReader, value: var (Version | ForkDigest | DomainType))
-               {.raises: [IOError, SerializationError, Defect].} =
+               {.raises: [IOError, SerializationError].} =
   let hex = reader.readValue(string)
   try:
     hexToByteArray(hex, distinctBase(value))
@@ -649,7 +649,7 @@ func `$`*(x: JustificationBits): string =
   "0x" & toHex(uint64(uint8(x)))
 
 proc readValue*(reader: var JsonReader, value: var JustificationBits)
-    {.raises: [IOError, SerializationError, Defect].} =
+    {.raises: [IOError, SerializationError].} =
   let hex = reader.readValue(string)
   try:
     value = JustificationBits(hexToByteArray(hex, 1)[0])
@@ -847,7 +847,7 @@ func toPrettyString*(bytes: openArray[byte]): string =
 func `$`*(value: GraffitiBytes): string = toPrettyString(distinctBase value)
 
 func init*(T: type GraffitiBytes, input: string): GraffitiBytes
-          {.raises: [ValueError, Defect].} =
+          {.raises: [ValueError].} =
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
     if input.len > sizeof(GraffitiBytes) * 2 + 2:
       raise newException(ValueError, "The graffiti bytes should be less than 32")
@@ -891,7 +891,7 @@ template `==`*(lhs, rhs: GraffitiBytes): bool =
   distinctBase(lhs) == distinctBase(rhs)
 
 proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
-               {.raises: [IOError, SerializationError, Defect].} =
+               {.raises: [IOError, SerializationError].} =
   try:
     init(GraffitiBytes, r.readValue(string))
   except ValueError as err:

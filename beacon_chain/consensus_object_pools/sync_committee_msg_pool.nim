@@ -46,7 +46,7 @@ type
                     BestSyncSubcommitteeContribution]
 
   OnSyncContributionCallback* =
-    proc(data: SignedContributionAndProof) {.gcsafe, raises: [Defect].}
+    proc(data: SignedContributionAndProof) {.gcsafe, raises: [].}
 
   # Messages from different slots / forks may sign the same beacon block root.
   # Messages across slots are compatible, but not across forks (signing root).

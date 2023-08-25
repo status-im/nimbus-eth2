@@ -963,7 +963,7 @@ type
 
 func readSszForkedHashedBeaconState*(
     consensusFork: ConsensusFork, data: openArray[byte]):
-    ForkedHashedBeaconState {.raises: [Defect, SszError].} =
+    ForkedHashedBeaconState {.raises: [SszError].} =
   # TODO https://github.com/nim-lang/Nim/issues/19357
   result = ForkedHashedBeaconState(kind: consensusFork)
 

@@ -62,7 +62,7 @@ type
     network*: Eth2Node
 
     # TODO this belongs somewhere else, ie sync committee pool
-    onSyncCommitteeMessage*: proc(slot: Slot) {.gcsafe, raises: [Defect].}
+    onSyncCommitteeMessage*: proc(slot: Slot) {.gcsafe, raises: [].}
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already

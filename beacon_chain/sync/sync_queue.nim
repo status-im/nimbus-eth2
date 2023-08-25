@@ -23,11 +23,11 @@ logScope:
   topics = "syncqueue"
 
 type
-  GetSlotCallback* = proc(): Slot {.gcsafe, raises: [Defect].}
-  ProcessingCallback* = proc() {.gcsafe, raises: [Defect].}
+  GetSlotCallback* = proc(): Slot {.gcsafe, raises: [].}
+  ProcessingCallback* = proc() {.gcsafe, raises: [].}
   BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
-      Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
+      Future[Result[void, VerifierError]] {.gcsafe, raises: [].}
 
   SyncQueueKind* {.pure.} = enum
     Forward, Backward

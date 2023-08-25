@@ -270,7 +270,7 @@ proc addPreTestRemoteKeystores(validatorsDir: string) =
             err = res.error
       quit 1
 
-proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
+proc startBeaconNode(basePort: int) {.raises: [CatchableError].} =
   let rng = HmacDrbgContext.new()
 
   copyHalfValidators(nodeDataDir, true)
@@ -339,7 +339,7 @@ const
 
 proc listLocalValidators(validatorsDir,
                          secretsDir: string): seq[ValidatorPubKey] {.
-     raises: [Defect].} =
+     raises: [].} =
   var validators: seq[ValidatorPubKey]
   try:
     for el in listLoadableKeys(validatorsDir, secretsDir,
@@ -352,7 +352,7 @@ proc listLocalValidators(validatorsDir,
 
 proc listRemoteValidators(validatorsDir,
                           secretsDir: string): seq[ValidatorPubKey] {.
-     raises: [Defect].} =
+     raises: [].} =
   var validators: seq[ValidatorPubKey]
   try:
     for el in listLoadableKeys(validatorsDir, secretsDir,

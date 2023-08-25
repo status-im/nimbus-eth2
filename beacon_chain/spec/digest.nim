@@ -148,14 +148,14 @@ func isZero*(x: Eth2Digest): bool =
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a
 
-proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =
+proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [IOError, SerializationError].} =
   try:
     a = fromHex(type(a), r.readValue(string))
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
 func strictParse*(T: type Eth2Digest, hexStr: openArray[char]): T
-                 {.raises: [Defect, ValueError].} =
+                 {.raises: [ValueError].} =
   ## TODO We use this local definition because the string parsing functions
   ##      provided by nimcrypto are currently too lax in their requirements
   ##      for the input string. Invalid strings are silently ignored.
