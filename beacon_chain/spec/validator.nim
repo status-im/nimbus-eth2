@@ -471,7 +471,7 @@ func livenessFailsafeInEffect*(
 
   false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnet-subcription
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
     SubnetId =
   # Ensure neither `truncate` loses information
@@ -482,7 +482,8 @@ func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
 
   let
     node_id_prefix = truncate(
-      node_id shr (NODE_ID_BITS - ATTESTATION_SUBNET_PREFIX_BITS), uint64)
+      node_id shr (
+        NODE_ID_BITS - static(ATTESTATION_SUBNET_PREFIX_BITS.int)), uint64)
     node_offset = truncate(
       node_id mod static(EPOCHS_PER_SUBNET_SUBSCRIPTION.u256), uint64)
     permutation_seed = eth2digest(uint_to_bytes(
@@ -494,7 +495,7 @@ func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
     )
   SubnetId((permutated_prefix + index) mod ATTESTATION_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnet-subcription
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 iterator compute_subscribed_subnets*(node_id: UInt256, epoch: Epoch): SubnetId =
   for index in 0'u64 ..< SUBNETS_PER_NODE:
     yield compute_subscribed_subnet(node_id, epoch, index)

@@ -11,7 +11,7 @@ import std/[options, macros],
        stew/byteutils, presto,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization, rest_common],
-       ../validators/validator_duties,
+       ../validators/beacon_validators,
        ../consensus_object_pools/blockchain_dag,
        ../beacon_node,
        "."/[rest_constants, state_ttl_cache]
