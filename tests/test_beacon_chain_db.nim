@@ -15,6 +15,7 @@ import
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
+  ./mocking/mock_genesis,
   ./testutil, ./testdbutil, ./testblockutil, ./teststateutil
 
 from std/algorithm import sort
@@ -727,7 +728,7 @@ suite "Beacon chain DB" & preset():
 
     let
       state = newClone(initialize_hashed_beacon_state_from_eth1(
-        defaultRuntimeConfig, eth1BlockHash, 0,
+        defaultRuntimeConfig, mockEth1BlockHash, 0,
         makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation}))
 
     db.putState(state[].root, state[].data)
