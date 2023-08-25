@@ -919,10 +919,13 @@ proc getPayload*(m: ELManager,
     requestsCompleted = allFutures(requests)
 
   await requestsCompleted or deadline
+  debug "Processing get execution payload responses"
 
   var bestPayloadIdx = none int
   for idx, req in requests:
     if not req.finished:
+      error "Timed out getting execution payload from EL",
+             url = m.elConnections[idx].engineUrl.url
       req.cancel()
     elif req.failed:
       error "Failed to get execution payload from EL",
