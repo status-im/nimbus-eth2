@@ -49,6 +49,12 @@ if defined(release) and not defined(disableLTO):
     # used for static libraries.
     discard
 
+# Hidden visibility allows for better position-independent codegen - it also
+# resolves a build issue in BLST where otherwise private symbols would require
+# an unsupported relocation on PIE-enabled distros such as ubuntu - BLST itself
+# solves this via a linker script which is messy
+switch("passC", "-fvisibility=hidden")
+
 # show C compiler warnings
 if defined(cwarnings):
   let common_gcc_options = "-Wno-discarded-qualifiers -Wno-incompatible-pointer-types"
@@ -134,6 +140,7 @@ switch("passL", "-fno-omit-frame-pointer")
 
 --threads:on
 --opt:speed
+--mm:refc
 --excessiveStackTrace:on
 # enable metric collection
 --define:metrics

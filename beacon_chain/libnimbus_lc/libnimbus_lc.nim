@@ -8,7 +8,13 @@
 {.push raises: [].}
 
 import
+  std/[json, times],
+  stew/saturation_arith,
+  eth/common/eth_types_rlp,
   eth/p2p/discoveryv5/random2,
+  json_rpc/jsonmarshal,
+  web3/ethtypes,
+  ../el/el_manager,
   ../spec/eth2_apis/[eth2_rest_serialization, rest_light_client_calls],
   ../spec/[helpers, light_client_sync],
   ../sync/light_client_sync_helpers,
@@ -17,11 +23,18 @@ import
 {.pragma: exported, cdecl, exportc, dynlib, raises: [].}
 {.pragma: exportedConst, exportc, dynlib.}
 
-proc destroy(x: auto) =
-  x[].reset()
-  x.dealloc()
+proc toUnmanagedPtr[T](x: ref T): ptr T =
+  GC_ref(x)
+  addr x[]
 
-proc ETHRandomNumberCreate(): ptr ref HmacDrbgContext {.exported.} =
+func asRef[T](x: ptr T): ref T =
+  cast[ref T](x)
+
+proc destroy[T](x: ptr T) =
+  x[].reset()
+  GC_unref(asRef(x))
+
+proc ETHRandomNumberCreate(): ptr HmacDrbgContext {.exported.} =
   ## Creates a new cryptographically secure random number generator.
   ##
   ## * The cryptographically secure random number generator must be destroyed
@@ -31,11 +44,9 @@ proc ETHRandomNumberCreate(): ptr ref HmacDrbgContext {.exported.} =
   ## * Pointer to an initialized cryptographically secure random number
   ##   generator context - If successful.
   ## * `NULL` - If an error occurred.
-  let rng = (ref HmacDrbgContext).create()
-  rng[] = HmacDrbgContext.new()
-  rng
+  HmacDrbgContext.new().toUnmanagedPtr()
 
-proc ETHRandomNumberDestroy(rng: ptr ref HmacDrbgContext) {.exported.} =
+proc ETHRandomNumberDestroy(rng: ptr HmacDrbgContext) {.exported.} =
   ## Destroys a cryptographically secure random number generator.
   ##
   ## * The cryptographically secure random number generator
@@ -63,14 +74,13 @@ proc ETHConsensusConfigCreateFromYaml(
   ## * `NULL` - If the given `config.yaml` is malformed or incompatible.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/configs/README.md
-  let cfg = RuntimeConfig.create()
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/configs/README.md
+  let cfg = RuntimeConfig.new()
   try:
     cfg[] = readRuntimeConfig($configFileContent, "config.yaml")[0]
-    cfg
   except IOError, PresetFileError, PresetIncompatibleError:
-    cfg.destroy()
-    nil
+    return nil
+  cfg.toUnmanagedPtr()
 
 proc ETHConsensusConfigDestroy(cfg: ptr RuntimeConfig) {.exported.} =
   ## Destroys an Ethereum Consensus Layer network configuration.
@@ -128,27 +138,24 @@ proc ETHBeaconStateCreateFromSsz(
   ## * `NULL` - If the given `sszBytes` is malformed.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/configs/README.md
   let
     consensusFork = decodeEthConsensusVersion($consensusVersion).valueOr:
       return nil
-    state = ForkedHashedBeaconState.create()
+    state = ForkedHashedBeaconState.new()
   try:
     state[] = consensusFork.readSszForkedHashedBeaconState(
       sszBytes.toOpenArray(0, numSszBytes - 1))
-    withState(state[]):
-      if cfg[].consensusForkAtEpoch(forkyState.data.slot.epoch) == state.kind:
-        state
-      else:
-        state.destroy()
-        nil
   except SszError:
-    state.destroy()
-    nil
+    return nil
+  withState(state[]):
+    if cfg[].consensusForkAtEpoch(forkyState.data.slot.epoch) != state.kind:
+      return nil
+  state.toUnmanagedPtr()
 
 proc ETHBeaconStateDestroy(state: ptr ForkedHashedBeaconState) {.exported.} =
   ## Destroys a beacon state.
@@ -171,9 +178,9 @@ proc ETHBeaconStateCopyGenesisValidatorsRoot(
   ##
   ## Returns:
   ## * Pointer to a copy of the given beacon state's genesis validators root.
-  let genesisValRoot = Eth2Digest.create()
+  let genesisValRoot = Eth2Digest.new()
   genesisValRoot[] = getStateField(state[], genesis_validators_root)
-  genesisValRoot
+  genesisValRoot.toUnmanagedPtr()
 
 proc ETHRootDestroy(root: ptr Eth2Digest) {.exported.} =
   ## Destroys a Merkle root.
@@ -184,12 +191,12 @@ proc ETHRootDestroy(root: ptr Eth2Digest) {.exported.} =
   ## * `root` - Merkle root.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#custom-types
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#custom-types
   root.destroy()
 
 proc ETHForkDigestsCreateFromState(
     cfg: ptr RuntimeConfig,
-    state: ptr ForkedHashedBeaconState): ptr ref ForkDigests {.exported.} =
+    state: ptr ForkedHashedBeaconState): ptr ForkDigests {.exported.} =
   ## Creates a fork digests cache for a given beacon state.
   ##
   ## * The fork digests cache must be destroyed with `ETHForkDigestsDestroy`
@@ -203,13 +210,13 @@ proc ETHForkDigestsCreateFromState(
   ## * Pointer to an initialized fork digests cache based on the beacon state.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_fork_digest
-  let forkDigests = (ref ForkDigests).create()
-  forkDigests[] = newClone ForkDigests.init(
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#compute_fork_digest
+  let forkDigests = ForkDigests.new()
+  forkDigests[] = ForkDigests.init(
     cfg[], getStateField(state[], genesis_validators_root))
-  forkDigests
+  forkDigests.toUnmanagedPtr()
 
-proc ETHForkDigestsDestroy(forkDigests: ptr ref ForkDigests) {.exported.} =
+proc ETHForkDigestsDestroy(forkDigests: ptr ForkDigests) {.exported.} =
   ## Destroys a fork digests cache.
   ##
   ## * The fork digests cache must no longer be used after destruction.
@@ -230,9 +237,9 @@ proc ETHBeaconClockCreateFromState(
   ##
   ## Returns:
   ## * Pointer to an initialized beacon clock based on the beacon state.
-  let beaconClock = BeaconClock.create()
+  let beaconClock = BeaconClock.new()
   beaconClock[] = BeaconClock.init(getStateField(state[], genesis_time))
-  beaconClock
+  beaconClock.toUnmanagedPtr()
 
 proc ETHBeaconClockDestroy(beaconClock: ptr BeaconClock) {.exported.} =
   ## Destroys a beacon clock.
@@ -254,7 +261,7 @@ proc ETHBeaconClockGetSlot(beaconClock: ptr BeaconClock): cint {.exported.} =
   ## * `0` - If genesis is still pending.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#custom-types
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#custom-types
   beaconClock[].now().slotOrZero().cint
 
 const lcDataFork = LightClientDataFork.high
@@ -313,8 +320,8 @@ proc ETHLightClientStoreCreateFromBootstrap(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/light-client.md
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
   let
     mediaType = MediaType.init($mediaType)
     consensusFork = decodeEthConsensusVersion($consensusVersion).valueOr:
@@ -329,12 +336,11 @@ proc ETHLightClientStoreCreateFromBootstrap(
   doAssert bootstrap.kind > LightClientDataFork.None
   bootstrap.migrateToDataFork(lcDataFork)
 
-  let store = lcDataFork.LightClientStore.create()
+  let store = lcDataFork.LightClientStore.new()
   store[] = initialize_light_client_store(
       trustedBlockRoot[], bootstrap.forky(lcDataFork), cfg[]).valueOr:
-    store.destroy()
     return nil
-  store
+  store.toUnmanagedPtr()
 
 proc ETHLightClientStoreDestroy(
     store: ptr lcDataFork.LightClientStore) {.exported.} =
@@ -431,7 +437,7 @@ proc ETHLightClientStoreGetNextSyncTask(
 
 proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
     store: ptr lcDataFork.LightClientStore,
-    rng: ptr ref HmacDrbgContext,
+    rng: ptr HmacDrbgContext,
     beaconClock: ptr BeaconClock,
     latestProcessResult: cint): cint {.exported.} =
   ## Indicates the delay until a new light client sync task becomes available.
@@ -451,7 +457,7 @@ proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
   ## Returns:
   ## * Number of milliseconds until `ETHLightClientStoreGetNextSyncTask`
   ##   should be called again to obtain the next light client sync task.
-  rng[].nextLcSyncTaskDelay(
+  asRef(rng).nextLcSyncTaskDelay(
     wallTime = beaconClock[].now(),
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
@@ -461,7 +467,7 @@ proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
 proc ETHLightClientStoreProcessUpdatesByRange(
     store: ptr lcDataFork.LightClientStore,
     cfg: ptr RuntimeConfig,
-    forkDigests: ptr ref ForkDigests,
+    forkDigests: ptr ForkDigests,
     genesisValRoot: ptr Eth2Digest,
     beaconClock: ptr BeaconClock,
     startPeriod: cint,
@@ -505,7 +511,7 @@ proc ETHLightClientStoreProcessUpdatesByRange(
     try:
       seq[ForkedLightClientUpdate].decodeHttpLightClientObjects(
         updatesBytes.toOpenArray(0, numUpdatesBytes - 1),
-        mediaType, cfg[], forkDigests[])
+        mediaType, cfg[], asRef(forkDigests))
     except RestError:
       return 1
   let e = updates.checkLightClientUpdates(
@@ -538,7 +544,7 @@ proc ETHLightClientStoreProcessUpdatesByRange(
 proc ETHLightClientStoreProcessFinalityUpdate(
     store: ptr lcDataFork.LightClientStore,
     cfg: ptr RuntimeConfig,
-    forkDigests: ptr ref ForkDigests,
+    forkDigests: ptr ForkDigests,
     genesisValRoot: ptr Eth2Digest,
     beaconClock: ptr BeaconClock,
     mediaType: cstring,
@@ -623,7 +629,7 @@ proc ETHLightClientStoreProcessFinalityUpdate(
 proc ETHLightClientStoreProcessOptimisticUpdate(
     store: ptr lcDataFork.LightClientStore,
     cfg: ptr RuntimeConfig,
-    forkDigests: ptr ref ForkDigests,
+    forkDigests: ptr ForkDigests,
     genesisValRoot: ptr Eth2Digest,
     beaconClock: ptr BeaconClock,
     mediaType: cstring,
@@ -721,7 +727,7 @@ func ETHLightClientStoreGetFinalizedHeader(
   ## * Latest finalized header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].finalized_header
 
 func ETHLightClientStoreIsNextSyncCommitteeKnown(
@@ -740,8 +746,8 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ## * Whether or not the next sync committee is currently known.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(
@@ -760,7 +766,7 @@ func ETHLightClientStoreGetOptimisticHeader(
   ## * Latest optimistic header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].optimistic_header
 
 func ETHLightClientStoreGetSafetyThreshold(
@@ -781,7 +787,7 @@ func ETHLightClientStoreGetSafetyThreshold(
   ## * Light client store safety threshold.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#get_safety_threshold
   store[].get_safety_threshold.cint
 
 proc ETHLightClientHeaderCreateCopy(
@@ -797,9 +803,9 @@ proc ETHLightClientHeaderCreateCopy(
   ##
   ## Returns:
   ## * Pointer to a shallow copy of the given header.
-  let copy = lcDataFork.LightClientHeader.create()
+  let copy = lcDataFork.LightClientHeader.new()
   copy[] = header[]
-  copy
+  copy.toUnmanagedPtr()
 
 proc ETHLightClientHeaderDestroy(
     header: ptr lcDataFork.LightClientHeader) {.exported.} =
@@ -827,11 +833,11 @@ proc ETHLightClientHeaderCopyBeaconRoot(
   ## * Pointer to a copy of the given header's beacon block root.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#hash_tree_root
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#hash_tree_root
   discard cfg  # Future-proof against new fields, see `get_lc_execution_root`.
-  let root = Eth2Digest.create()
+  let root = Eth2Digest.new()
   root[] = header[].beacon.hash_tree_root()
-  root
+  root.toUnmanagedPtr()
 
 func ETHLightClientHeaderGetBeacon(
     header: ptr lcDataFork.LightClientHeader
@@ -849,7 +855,7 @@ func ETHLightClientHeaderGetBeacon(
   ## * Beacon block header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconblockheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beaconblockheader
   addr header[].beacon
 
 func ETHBeaconBlockHeaderGetSlot(
@@ -939,9 +945,9 @@ proc ETHLightClientHeaderCopyExecutionHash(
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#executionpayloadheader
   discard cfg  # Future-proof against SSZ execution block header, EIP-6404ff.
-  let root = Eth2Digest.create()
+  let root = Eth2Digest.new()
   root[] = header[].execution.block_hash
-  root
+  root.toUnmanagedPtr()
 
 type ExecutionPayloadHeader =
   typeof(default(lcDataFork.LightClientHeader).execution)
@@ -1145,24 +1151,182 @@ func ETHExecutionPayloadHeaderGetBaseFeePerGas(
   ## * Base fee per gas.
   addr execution[].base_fee_per_gas
 
-func ETHExecutionPayloadHeaderGetDataGasUsed(
+func ETHExecutionPayloadHeaderGetBlobGasUsed(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the data gas used of a given execution payload header.
+  ## Obtains the blob gas used of a given execution payload header.
   ##
   ## Parameters:
   ## * `execution` - Execution payload header.
   ##
   ## Returns:
-  ## * Data gas used.
-  execution[].data_gas_used.cint
+  ## * Blob gas used.
+  execution[].blob_gas_used.cint
 
-func ETHExecutionPayloadHeaderGetExcessDataGas(
+func ETHExecutionPayloadHeaderGetExcessBlobGas(
     execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the excess data gas of a given execution payload header.
+  ## Obtains the excess blob gas of a given execution payload header.
   ##
   ## Parameters:
   ## * `execution` - Execution payload header.
   ##
   ## Returns:
-  ## * Excess data gas.
-  execution[].excess_data_gas.cint
+  ## * Excess blob gas.
+  execution[].excess_blob_gas.cint
+
+type ETHExecutionBlockHeader = object
+  txRoot: Eth2Digest
+  withdrawalsRoot: Eth2Digest
+
+proc ETHExecutionBlockHeaderCreateFromJson(
+    executionHash: ptr Eth2Digest,
+    blockHeaderJson: cstring): ptr ETHExecutionBlockHeader {.exported.} =
+  ## Verifies that a JSON execution block header is valid and that it matches
+  ## the given `executionHash`.
+  ##
+  ## * The JSON-RPC `eth_getBlockByHash` with params `[executionHash, false]`
+  ##   may be used to obtain execution block header data for a given execution
+  ##   block hash. Pass the response's `result` property to `blockHeaderJson`.
+  ##
+  ## * The execution block header must be destroyed with
+  ##   `ETHExecutionBlockHeaderDestroy` once no longer needed,
+  ##   to release memory.
+  ##
+  ## Parameters:
+  ## * `executionHash` - Execution block hash.
+  ## * `blockHeaderJson` - Buffer with JSON encoded header. NULL-terminated.
+  ##
+  ## Returns:
+  ## * Pointer to an initialized execution block header - If successful.
+  ## * `NULL` - If the given `blockHeaderJson` is malformed or incompatible.
+  ##
+  ## See:
+  ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
+  let node =
+    try:
+      parseJson($blockHeaderJson)
+    except Exception:
+      return nil
+  var bdata: BlockObject
+  try:
+    fromJson(node, argName = "", bdata)
+  except KeyError, ValueError:
+    return nil
+  if bdata == nil:
+    return nil
+
+  # Sanity check
+  if bdata.hash.asEth2Digest != executionHash[]:
+    return nil
+
+  # Check fork consistency
+  static: doAssert totalSerializedFields(BlockObject) == 26,
+    "Only update this number once code is adjusted to check new fields!"
+  if bdata.baseFeePerGas.isNone and (
+      bdata.withdrawals.isSome or bdata.withdrawalsRoot.isSome or
+      bdata.blobGasUsed.isSome or bdata.excessBlobGas.isSome):
+    return nil
+  if bdata.withdrawalsRoot.isNone and (
+      bdata.blobGasUsed.isSome or bdata.excessBlobGas.isSome):
+    return nil
+  if bdata.withdrawals.isSome != bdata.withdrawalsRoot.isSome:
+    return nil
+  if bdata.blobGasUsed.isSome != bdata.excessBlobGas.isSome:
+    return nil
+  if bdata.parentBeaconBlockRoot.isSome != bdata.parentBeaconBlockRoot.isSome:
+    return nil
+
+  # Construct block header
+  static:  # `GasInt` is signed. We only use it for hashing.
+    doAssert sizeof(int64) == sizeof(bdata.gasLimit)
+    doAssert sizeof(int64) == sizeof(bdata.gasUsed)
+  if distinctBase(bdata.timestamp) > int64.high.uint64:
+    return nil
+  if bdata.nonce.isNone:
+    return nil
+  let blockHeader = ExecutionBlockHeader(
+    parentHash: bdata.parentHash.asEth2Digest,
+    ommersHash: bdata.sha3Uncles.asEth2Digest,
+    coinbase: distinctBase(bdata.miner),
+    stateRoot: bdata.stateRoot.asEth2Digest,
+    txRoot: bdata.transactionsRoot.asEth2Digest,
+    receiptRoot: bdata.receiptsRoot.asEth2Digest,
+    bloom: distinctBase(bdata.logsBloom),
+    difficulty: bdata.difficulty,
+    blockNumber: distinctBase(bdata.number).u256,
+    gasLimit: cast[int64](bdata.gasLimit),
+    gasUsed: cast[int64](bdata.gasUsed),
+    timestamp: fromUnix(int64.saturate distinctBase(bdata.timestamp)),
+    extraData: distinctBase(bdata.extraData),
+    mixDigest: bdata.mixHash.asEth2Digest,
+    nonce: distinctBase(bdata.nonce.get),
+    fee: bdata.baseFeePerGas,
+    withdrawalsRoot:
+      if bdata.withdrawalsRoot.isSome:
+        some(bdata.withdrawalsRoot.get.asEth2Digest)
+      else:
+        none(ExecutionHash256),
+    blobGasUsed:
+      if bdata.blobGasUsed.isSome:
+        some distinctBase(bdata.blobGasUsed.get)
+      else:
+        none(uint64),
+    excessBlobGas:
+      if bdata.excessBlobGas.isSome:
+        some distinctBase(bdata.excessBlobGas.get)
+      else:
+        none(uint64),
+    parentBeaconBlockRoot:
+      if bdata.parentBeaconBlockRoot.isSome:
+        some distinctBase(bdata.parentBeaconBlockRoot.get.asEth2Digest)
+      else:
+        none(ExecutionHash256))
+  if rlpHash(blockHeader) != executionHash[]:
+    return nil
+
+  let executionBlockHeader = ETHExecutionBlockHeader.new()
+  executionBlockHeader[] = ETHExecutionBlockHeader(
+    txRoot: blockHeader.txRoot,
+    withdrawalsRoot: blockHeader.withdrawalsRoot.get(ZERO_HASH))
+  executionBlockHeader.toUnmanagedPtr()
+
+proc ETHExecutionBlockHeaderDestroy(
+    executionBlockHeader: ptr ETHExecutionBlockHeader) {.exported.} =
+  ## Destroys an execution block header.
+  ##
+  ## * The execution block header must no longer be used after destruction.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  executionBlockHeader.destroy()
+
+func ETHExecutionBlockHeaderGetTransactionsRoot(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the transactions MPT root of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Execution transactions root.
+  addr executionBlockHeader[].txRoot
+
+func ETHExecutionBlockHeaderGetWithdrawalsRoot(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the withdrawals MPT root of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Execution withdrawals root.
+  addr executionBlockHeader[].withdrawalsRoot

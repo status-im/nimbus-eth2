@@ -38,6 +38,8 @@ from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
 
+logScope: topics = "gossip_blocks"
+
 # Block Processor
 # ------------------------------------------------------------------------------
 # The block processor moves blocks from "Incoming" to "Consensus verified"
@@ -117,13 +119,6 @@ type
     completed
     notCompleted
 
-proc addBlock*(
-    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars],
-    resfut: Future[Result[void, VerifierError]] = nil,
-    maybeFinalized = false,
-    validationDur = Duration())
-
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -144,7 +139,7 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier(rng: rng, taskpool: taskpool),
+    verifier: BatchVerifier.init(rng, taskpool)
   )
 
 # Sync callbacks
@@ -233,8 +228,8 @@ proc storeBackfillBlock(
   res
 
 from web3/engine_api_types import
-  PayloadAttributesV1, PayloadAttributesV2, PayloadExecutionStatus,
-  PayloadStatusV1
+  PayloadAttributesV1, PayloadAttributesV2, PayloadAttributesV3,
+  PayloadExecutionStatus, PayloadStatusV1
 from ../el/el_manager import
   ELManager, forkchoiceUpdated, hasConnection, hasProperlyConfiguredConnection,
   sendNewPayload
@@ -386,7 +381,32 @@ proc checkBloblessSignature(self: BlockProcessor,
     return err("checkBloblessSignature: Invalid proposer signature")
   ok()
 
-proc storeBlock*(
+proc enqueueBlock*(
+    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
+    blobs: Opt[BlobSidecars],
+    resfut: Future[Result[void, VerifierError]] = nil,
+    maybeFinalized = false,
+    validationDur = Duration()) =
+  withBlck(blck):
+    if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+      # let backfill blocks skip the queue - these are always "fast" to process
+      # because there are no state rewinds to deal with
+      let res = self.storeBackfillBlock(blck, blobs)
+      resfut.complete(res)
+      return
+
+  try:
+    self.blockQueue.addLastNoWait(BlockEntry(
+      blck: blck,
+      blobs: blobs,
+      maybeFinalized: maybeFinalized,
+      resfut: resfut, queueTick: Moment.now(),
+      validationDur: validationDur,
+      src: src))
+  except AsyncQueueFullError:
+    raiseAssert "unbounded queue"
+
+proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars],
@@ -444,6 +464,10 @@ proc storeBlock*(
     err((error, ProcessingStatus.completed))
 
   let
+    # We have to be careful that there exists only one in-flight entry point
+    # for adding blocks or the checks performed in `checkHeadBlock` might
+    # be invalidated (ie a block could be added while we wait for EL response
+    # here)
     parent = dag.checkHeadBlock(signedBlock)
 
   if parent.isErr():
@@ -487,9 +511,11 @@ proc storeBlock*(
     when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
-          payload.block_hash != payload.compute_execution_block_hash():
+          payload.block_hash !=
+            signedBlock.message.compute_execution_block_hash():
         debug "Execution block hash validation failed",
           execution_payload = shortLog(payload)
+        self[].dumpInvalidBlock(signedBlock)
         doAssert strictVerification notin dag.updateFlags
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
         return err((VerifierError.Invalid, ProcessingStatus.completed))
@@ -605,15 +631,20 @@ proc storeBlock*(
       self.consensusManager[].updateHead(newHead.get.blck)
 
       template callForkchoiceUpdated(attributes: untyped) =
-        discard await elManager.forkchoiceUpdated(
-          headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
-          safeBlockHash = newHead.get.safeExecutionPayloadHash,
-          finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
-          payloadAttributes = none attributes)
+        if  NewPayloadStatus.noResponse != payloadStatus and
+            not self.consensusManager[].optimisticExecutionPayloadHash.isZero:
+          discard await elManager.forkchoiceUpdated(
+            headBlockHash =
+              self.consensusManager[].optimisticExecutionPayloadHash,
+            safeBlockHash = newHead.get.safeExecutionPayloadHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+            payloadAttributes = none attributes)
 
       case self.consensusManager.dag.cfg.consensusForkAtEpoch(
           newHead.get.blck.bid.slot.epoch)
-      of ConsensusFork.Capella, ConsensusFork.Deneb:
+      of ConsensusFork.Deneb:
+        callForkchoiceUpdated(PayloadAttributesV3)
+      of ConsensusFork.Capella:
         # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
         # Consensus layer client MUST call this method instead of
         # `engine_forkchoiceUpdatedV1` under any of the following conditions:
@@ -649,7 +680,9 @@ proc storeBlock*(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
-          of ConsensusFork.Capella, ConsensusFork.Deneb:
+          of ConsensusFork.Deneb:
+            callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
+          of ConsensusFork.Capella:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV2)
           of  ConsensusFork.Phase0, ConsensusFork.Altair,
               ConsensusFork.Bellatrix:
@@ -693,10 +726,12 @@ proc storeBlock*(
 
     withBlck(quarantined):
       when typeof(blck).toFork() < ConsensusFork.Deneb:
-        self[].addBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
+        self[].enqueueBlock(
+          MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
       else:
         if len(blck.message.body.blob_kzg_commitments) == 0:
-          self[].addBlock(MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
+          self[].enqueueBlock(
+            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
         else:
           if (let res = checkBloblessSignature(self[], blck); res.isErr):
             warn "Failed to verify signature of unorphaned blobless block",
@@ -705,7 +740,7 @@ proc storeBlock*(
             continue
           if self.blobQuarantine[].hasBlobs(blck):
             let blobs = self.blobQuarantine[].popBlobs(blck.root)
-            self[].addBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
+            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
             if not self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, blck):
@@ -720,10 +755,8 @@ proc storeBlock*(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars],
-    resfut: Future[Result[void, VerifierError]] = nil,
-    maybeFinalized = false,
-    validationDur = Duration()) =
+    blobs: Opt[BlobSidecars], maybeFinalized = false,
+    validationDur = Duration()): Future[Result[void, VerifierError]] =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
   #   There is no backpressure here - producers must wait for `resfut` to
@@ -732,26 +765,10 @@ proc addBlock*(
   # - Gossip (when synced)
   # - SyncManager (during sync)
   # - RequestManager (missing ancestor blocks)
-
-  withBlck(blck):
-    if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-      # let backfill blocks skip the queue - these are always "fast" to process
-      # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(blck, blobs)
-      if resfut != nil:
-        resfut.complete(res)
-      return
-
-  try:
-    self.blockQueue.addLastNoWait(BlockEntry(
-      blck: blck,
-      blobs: blobs,
-      maybeFinalized: maybeFinalized,
-      resfut: resfut, queueTick: Moment.now(),
-      validationDur: validationDur,
-      src: src))
-  except AsyncQueueFullError:
-    raiseAssert "unbounded queue"
+  # - API
+  let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
+  enqueueBlock(self, src, blck, blobs, resfut, maybeFinalized, validationDur)
+  resfut
 
 # Event Loop
 # ------------------------------------------------------------------------------
@@ -780,9 +797,9 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
-    self[].addBlock(
+    self[].enqueueBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,
       entry.validationDur)
     # To ensure backpressure on the sync manager, do not complete these futures.

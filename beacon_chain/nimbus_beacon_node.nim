@@ -332,44 +332,40 @@ proc initFullNode(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor,
       blobQuarantine, getBeaconTime)
-    blockVerifier =  proc(signedBlock: ForkedSignedBeaconBlock,
-                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
+    blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
+                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
-      let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
-      blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                blobs,
-                                resfut,
-                                maybeFinalized = maybeFinalized)
-      resfut
+      blockProcessor[].addBlock(
+        MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                              maybeFinalized: bool):
+                             maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
-      let resfut = newFuture[Result[void, VerifierError]]("rmanBlockVerifier")
       withBlck(signedBlock):
         when typeof(blck).toFork() >= ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(blck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, blck):
-              let e = Result[void, VerifierError].err(VerifierError.UnviableFork)
-              resfut.complete(e)
-            return
-          let blobs = blobQuarantine[].popBlobs(blck.root)
-          blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    Opt.some(blobs),
-                                    resfut,
-                                    maybeFinalized = maybeFinalized)
+              Future.completed(
+                Result[void, VerifierError].err(VerifierError.UnviableFork),
+                "rmanBlockVerifier")
+            else:
+              Future.completed(
+                Result[void, VerifierError].err(VerifierError.MissingParent),
+                "rmanBlockVerifier")
+          else:
+            let blobs = blobQuarantine[].popBlobs(blck.root)
+            blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.some(blobs),
+                                      maybeFinalized = maybeFinalized)
         else:
           blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars),
-                                    resfut,
                                     maybeFinalized = maybeFinalized)
-      resfut
-
 
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -550,7 +546,9 @@ proc init*(T: type BeaconNode,
       try:
         newClone readSszForkedHashedBeaconState(cfg, metadata.genesisBytes)
       except CatchableError as err:
-        raiseAssert "Invalid baked-in state: " & err.msg
+        raiseAssert "Invalid baked-in state of length " &
+          $metadata.genesisBytes.len & " and eth2digest " &
+          $eth2digest(metadata.genesisBytes) & ": " & err.msg
     else:
       nil
 
@@ -772,7 +770,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.deneb]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#attestation-subnet-subscription
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
@@ -1168,6 +1166,25 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # This is the last pruning to do as it clears the "needPruning" condition.
   node.consensusManager[].pruneStateCachesAndForkChoice()
 
+  # prune blobs
+  let blobPruneEpoch = (slot.epoch -
+                        MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
+  if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
+    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
+    var count = 0
+    let
+      startIndex = node.dag.getBlockRange(blobPruneEpoch.start_slot, 1,
+                          blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
+    for i in startIndex..<SLOTS_PER_EPOCH:
+      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
+      withBlck(blck):
+        when typeof(blck).toFork() < ConsensusFork.Deneb: continue
+        else:
+          for j in 0..len(blck.message.body.blob_kzg_commitments) - 1:
+            if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
+              count = count + 1
+    debug "pruned blobs", count, blobPruneEpoch
+
   if node.config.historyMode == HistoryMode.Prune:
     if not (slot + 1).is_epoch():
       # The epoch slot already is "heavy" due to the epoch processing, leave
@@ -1366,48 +1383,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   return false
 
-proc handleMissingBlobs(node: BeaconNode) =
-  let
-    wallTime = node.beaconClock.now()
-    wallSlot = wallTime.slotOrZero()
-    delay = wallTime - wallSlot.start_beacon_time()
-    waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
-
-  var fetches: seq[BlobFetchRecord]
-  for blobless in node.quarantine[].peekBlobless():
-
-    # give blobs a chance to arrive over gossip
-    if blobless.message.slot == wallSlot and delay < waitDur:
-      debug "Not handling missing blobs as early in slot"
-      continue
-
-    if not node.blobQuarantine[].hasBlobs(blobless):
-      let missing = node.blobQuarantine[].blobFetchRecord(blobless)
-      if len(missing.indices) == 0:
-        warn "quarantine missing blobs, but missing indices is empty",
-         blk=blobless.root,
-         indices=node.blobQuarantine[].blobIndices(blobless.root),
-         kzgs=len(blobless.message.body.blob_kzg_commitments)
-      fetches.add(missing)
-    else:
-      # this is a programming error should it occur.
-      warn "missing blob handler found blobless block with all blobs"
-      node.blockProcessor[].addBlock(
-        MsgSource.gossip,
-        ForkedSignedBeaconBlock.init(blobless),
-        Opt.some(node.blobQuarantine[].popBlobs(
-          blobless.root))
-      )
-      node.quarantine[].removeBlobless(blobless)
-  if fetches.len > 0:
-    debug "Requesting detected missing blobs", blobs = shortLog(fetches)
-    node.requestManager.fetchMissingBlobs(fetches)
-
 proc onSecond(node: BeaconNode, time: Moment) =
-  ## This procedure will be called once per second.
-  if not(node.syncManager.inProgress):
-    node.handleMissingBlobs()
-
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
 
@@ -1506,7 +1482,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, attesterSlashing)))
 
       # proposer_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#proposer_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#proposer_slashing
       node.network.addValidator(
         getProposerSlashingsTopic(digest), proc (
           proposerSlashing: ProposerSlashing
@@ -1516,7 +1492,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, proposerSlashing)))
 
       # voluntary_exit
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#voluntary_exit
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#voluntary_exit
       node.network.addValidator(
         getVoluntaryExitsTopic(digest), proc (
           signedVoluntaryExit: SignedVoluntaryExit
@@ -1527,7 +1503,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Altair:
         # sync_committee_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#sync_committee_subnet_id
         for subcommitteeIdx in SyncSubcommitteeIndex:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = subcommitteeIdx
@@ -1540,7 +1516,7 @@ proc installMessageValidators(node: BeaconNode) =
                     MsgSource.gossip, msg, idx)))
 
         # sync_committee_contribution_and_proof
-        # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
         node.network.addAsyncValidator(
           getSyncCommitteeContributionAndProofTopic(digest), proc (
             msg: SignedContributionAndProof
@@ -1550,7 +1526,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -1561,7 +1537,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{index}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
         for i in 0 ..< BLOB_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = i

@@ -166,7 +166,8 @@ proc readRecord*(f: IoHandle, data: var seq[byte]): Result[Header, string] =
   if header.len > 0:
     ? f.checkBytesLeft(header.len)
 
-    data.setLen(header.len)
+    if data.len != header.len:
+      data = newSeqUninitialized[byte](header.len)
 
     ? readFileExact(f, data)
 

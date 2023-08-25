@@ -230,12 +230,23 @@ proc addHeadBlockWithParent*(
   ## Cryptographic checks can be skipped by adding skipBlsValidation to
   ## dag.updateFlags.
   ##
-  ## The parent must be obtained using `checkHeadBlock` to ensure complete
-  ## verification.
+  ## The parent should be obtained using `checkHeadBlock`.
   logScope:
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
     signature = shortLog(signedBlock.signature)
+
+  block:
+    # We re-check parent pre-conditions here to avoid the case where the parent
+    # has become stale - it is possible that the dag has finalized the parent
+    # by the time we get here which will cause us to return early.
+    let checkedParent = ? checkHeadBlock(dag, signedBlock)
+    if checkedParent != parent:
+      # This should never happen: it would mean that the caller supplied a
+      # different parent than the block points to!
+      error "checkHeadBlock parent mismatch - this is a bug",
+        parent = shortLog(parent), checkedParent = shortLog(checkedParent)
+      return err(VerifierError.MissingParent)
 
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root

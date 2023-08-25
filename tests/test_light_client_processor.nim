@@ -44,7 +44,7 @@ suite "Light client processor" & preset():
     quarantine = newClone(Quarantine.init())
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
-  var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+  var verifier =BatchVerifier.init(rng, taskpool)
 
   var cache: StateCache
   proc addBlocks(blocks: uint64, syncCommitteeRatio: float) =

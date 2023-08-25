@@ -106,12 +106,20 @@ proc getBlockSSZ*(
     f: EraFile, slot: Slot, bytes: var seq[byte]): Result[void, string] =
   var tmp: seq[byte]
   ? f.getBlockSZ(slot, tmp)
+  let
+    len = uncompressedLenFramed(tmp).valueOr:
+      return err("Cannot read uncompressed length, era file corrupt?")
 
-  try:
-    bytes = decodeFramed(tmp)
-    ok()
-  except CatchableError as exc:
-    err(exc.msg)
+  if len > int.high.uint64:
+    return err("Invalid uncompressed size")
+
+  bytes = newSeqUninitialized[byte](len)
+
+  # Where it matters, we will integrity-check the data with SSZ - no
+  # need to waste cycles on crc32
+  discard uncompressFramed(tmp, bytes, checkIntegrity = false).valueOr:
+    return err("Block failed to decompress, era file corrupt?")
+  ok()
 
 proc getStateSZ*(
     f: EraFile, slot: Slot, bytes: var seq[byte]): Result[void, string] =
@@ -151,7 +159,10 @@ proc getStateSSZ*(
       else: len
 
   bytes = newSeqUninitialized[byte](wanted)
-  discard uncompressFramed(tmp, bytes).valueOr:
+
+  # Where it matters, we will integrity-check the data with SSZ - no
+  # need to waste cycles on crc32
+  discard uncompressFramed(tmp, bytes, checkIntegrity = false).valueOr:
     return err("State failed to decompress, era file corrupt?")
 
   ok()
@@ -169,7 +180,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
 
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
-  var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+  var verifier = BatchVerifier.init(rng, taskpool)
 
   var tmp: seq[byte]
   ? f.getStateSSZ(startSlot, tmp)

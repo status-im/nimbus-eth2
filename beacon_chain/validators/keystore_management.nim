@@ -1429,7 +1429,7 @@ proc getSuggestedFeeRecipient*(
   host.validatorsDir.getSuggestedFeeRecipient(pubkey, defaultFeeRecipient)
 
 proc getSuggestedFeeRecipient(
-    host: KeyManagerHost, pubkey: ValidatorPubKey,
+    host: KeymanagerHost, pubkey: ValidatorPubKey,
     withdrawalAddress: Opt[Eth1Address]): Eth1Address =
   # Enforce the gsfr(foo).valueOr(foo) pattern where feasible
   let perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(

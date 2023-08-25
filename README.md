@@ -79,15 +79,15 @@ We provide several tools to interact with ETH2 and the data in the beacon chain:
 
 ## For researchers
 
-### State transition simulation
+### Block simulation
 
-The state transition simulator can quickly run the Beacon chain state transition function in isolation and output JSON snapshots of the state. The simulation runs without networking and blocks are processed without slot time delays.
+The block simulator can quickly run the Beacon chain state transition function in isolation. The simulation runs without networking and without slot time delays.
 
 ```bash
-# build and run the state simulator, then display its help ("-d:release" speeds it
+# build and run the block simulator, then display its help ("-d:release" speeds it
 # up substantially, allowing the simulation of longer runs in reasonable time)
-make NIMFLAGS="-d:release" state_sim
-build/state_sim --help
+make NIMFLAGS="-d:release" block_sim
+build/block_sim --help
 ```
 
 ### Local network simulation

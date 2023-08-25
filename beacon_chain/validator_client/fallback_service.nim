@@ -141,15 +141,21 @@ proc checkCompatible(
 
   node.config = info
   node.genesis = Opt.some(genesis)
-  let res =
+
+  return
     if configFlag or genesisFlag:
       if node.status != RestBeaconNodeStatus.Incompatible:
         warn "Beacon node has incompatible configuration",
               genesis_flag = genesisFlag, config_flag = configFlag
       RestBeaconNodeStatus.Incompatible
     else:
-      RestBeaconNodeStatus.Compatible
-  return res
+      let res = vc.updateRuntimeConfig(node, node.config)
+      if res.isErr():
+        warn "Beacon nodes report different configuration values",
+             reason = res.error
+        RestBeaconNodeStatus.Incompatible
+      else:
+        RestBeaconNodeStatus.Compatible
 
 proc checkSync(
        vc: ValidatorClientRef,

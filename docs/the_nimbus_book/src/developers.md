@@ -104,7 +104,7 @@ nim --version # Nimbus is tested and supported on 1.2.12 at the moment
 
 - build a specific tool:
   ```bash
-  make state_sim
+  make block_sim
   ```
 
 - you can control the Makefile's verbosity with the V variable (defaults to 0):
@@ -232,8 +232,8 @@ It runs without networking and blocks are processed without slot time delays.
 ```bash
 # build the state simulator, then display its help ("-d:release" speeds it
 # up substantially, allowing the simulation of longer runs in reasonable time)
-make NIMFLAGS="-d:release" state_sim
-build/state_sim --help
+make NIMFLAGS="-d:release" block_sim
+build/block_sim --help
 ```
 
 Use the output of the `help` command to pass desired values to the simulator.
@@ -244,11 +244,10 @@ The most important options are:
 - `slots`: the number of slots to run the simulation for (default 192)
 - `validators`: the number of validators (default 6400)
 - `attesterRatio`: the expected fraction of attesters that actually do their work for every slot (default 0.73)
-- `json_interval`: how often JSON snapshots of the state are outputted (default every 32 slots -- or once per epoch)
 
-For example, to run the state simulator for 384 slots, with 20,000 validators, and an average of 66% of attesters doing their work every slot, while outputting snapshots of the state twice per epoch, run:
+For example, to run the block simulator for 384 slots, with 20,000 validators, and an average of 66% of attesters doing their work every slot, run:
 
 ```
-build/state_sim --slots=384 --validators=20000 --attesterRatio=0.66 --json_interval=16
+build/block_sim --slots=384 --validators=20000 --attesterRatio=0.66
 ```
 

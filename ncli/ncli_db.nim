@@ -620,7 +620,7 @@ proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
 
       if header.typ == SnappyBeaconBlock:
         withTimer(timers[tBlock]):
-          let uncompressed = decodeFramed(data)
+          let uncompressed = decodeFramed(data, checkIntegrity = false)
           let blck = try: readSszForkedSignedBeaconBlock(cfg, uncompressed)
           except CatchableError as exc:
             error "Invalid snappy block", msg = exc.msg, file

@@ -1009,7 +1009,7 @@ const ETHUInt256 *ETHExecutionPayloadHeaderGetBaseFeePerGas(
  * @return Data gas used.
  */
 ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetDataGasUsed(
+int ETHExecutionPayloadHeaderGetBlobGasUsed(
     const ETHExecutionPayloadHeader *execution);
 
 /**
@@ -1020,8 +1020,77 @@ int ETHExecutionPayloadHeaderGetDataGasUsed(
  * @return Excess data gas.
  */
 ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetExcessDataGas(
+int ETHExecutionPayloadHeaderGetExcessBlobGas(
     const ETHExecutionPayloadHeader *execution);
+
+/**
+ * Execution block header.
+ */
+typedef struct ETHExecutionBlockHeader ETHExecutionBlockHeader;
+
+/**
+ * Verifies that a JSON execution block header is valid and that it matches
+ * the given `executionHash`.
+ *
+ * - The JSON-RPC `eth_getBlockByHash` with params `[executionHash, false]`
+ *   may be used to obtain execution block header data for a given execution
+ *   block hash. Pass the response's `result` property to `blockHeaderJson`.
+ *
+ * - The execution block header must be destroyed with
+ *   `ETHExecutionBlockHeaderDestroy` once no longer needed,
+ *   to release memory.
+ *
+ * @param      executionHash        Execution block hash.
+ * @param      blockHeaderJson      Buffer with JSON encoded header. NULL-terminated.
+ *
+ * @return Pointer to an initialized execution block header - If successful.
+ * @return `NULL` - If the given `blockHeaderJson` is malformed or incompatible.
+ *
+ * @see https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
+ */
+ETH_RESULT_USE_CHECK
+ETHExecutionBlockHeader *ETHExecutionBlockHeaderCreateFromJson(
+    const ETHRoot *executionHash,
+    const char *blockHeaderJson);
+
+/**
+ * Destroys an execution block header.
+ *
+ * - The execution block header must no longer be used after destruction.
+ *
+ * @param      executionBlockHeader Execution block header.
+ */
+void ETHExecutionBlockHeaderDestroy(ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the transactions MPT root of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Execution transactions root.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionBlockHeaderGetTransactionsRoot(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the withdrawals MPT root of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Execution withdrawals root.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionBlockHeaderGetWithdrawalsRoot(
+    const ETHExecutionBlockHeader *executionBlockHeader);
 
 #if __has_feature(nullability)
 #pragma clang assume_nonnull end

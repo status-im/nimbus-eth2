@@ -297,6 +297,7 @@ ConsensusSpecPreset-minimal
 + EF - Deneb - Slots - slots_2 [Preset: minimal]                                             OK
 + EF - Deneb - Transition - normal_transition [Preset: minimal]                              OK
 + EF - Deneb - Transition - simple_transition [Preset: minimal]                              OK
++ EF - Deneb - Transition - transition_attestation_from_previous_fork_with_new_range [Preset OK
 + EF - Deneb - Transition - transition_missing_first_post_block [Preset: minimal]            OK
 + EF - Deneb - Transition - transition_missing_last_pre_fork_block [Preset: minimal]         OK
 + EF - Deneb - Transition - transition_only_blocks_post_fork [Preset: minimal]               OK
@@ -663,6 +664,8 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]    OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: minim OK
++ [Invalid] EF - Deneb - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mini OK
++ [Invalid] EF - Deneb - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: minima OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mini OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]   OK
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
@@ -769,13 +772,13 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Sanity - Blocks - attestation [Preset: minimal]                 OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - attester_slashing [Preset: minimal]           OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - balance_driven_status_transitions [Preset: mi OK
++ [Valid]   EF - Bellatrix - Sanity - Blocks - block_transition_randomized_payload [Preset:  OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - deposit_in_block [Preset: minimal]            OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - deposit_top_up [Preset: minimal]              OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - duplicate_attestation_same_block [Preset: min OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition [Preset: minimal]      OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_large_validator_set [P OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal OK
-+ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_randomized_payload [Pr OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition [Preset: minimal]      OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition_large_validator_set [P OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset OK
@@ -832,6 +835,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Sanity - Blocks - attestation [Preset: minimal]                   OK
 + [Valid]   EF - Capella - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
 + [Valid]   EF - Capella - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
++ [Valid]   EF - Capella - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
 + [Valid]   EF - Capella - Sanity - Blocks - bls_change [Preset: minimal]                    OK
 + [Valid]   EF - Capella - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
 + [Valid]   EF - Capella - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
@@ -840,7 +844,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
 + [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
 + [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
-+ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_randomized_payload [Pres OK
 + [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
 + [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
 + [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
@@ -903,6 +906,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - attestation [Preset: minimal]                     OK
 + [Valid]   EF - Deneb - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
 + [Valid]   EF - Deneb - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
++ [Valid]   EF - Deneb - Sanity - Blocks - block_transition_randomized_payload [Preset: mini OK
 + [Valid]   EF - Deneb - Sanity - Blocks - bls_change [Preset: minimal]                      OK
 + [Valid]   EF - Deneb - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]          OK
 + [Valid]   EF - Deneb - Sanity - Blocks - deposit_in_block [Preset: minimal]                OK
@@ -911,7 +915,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition [Preset: minimal]          OK
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition_large_validator_set [Prese OK
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]    OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition_randomized_payload [Preset OK
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition [Preset: minimal]          OK
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition_large_validator_set [Prese OK
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
@@ -927,14 +930,16 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - historical_batch [Preset: minimal]                OK
 + [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
 + [Valid]   EF - Deneb - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - include_attestation_from_previous_fork_with_new_r OK
 + [Valid]   EF - Deneb - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
 + [Valid]   EF - Deneb - Sanity - Blocks - max_blobs_per_block [Preset: minimal]             OK
++ [Valid]   EF - Deneb - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]     OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: m OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pres OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
 + [Valid]   EF - Deneb - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
 + [Valid]   EF - Deneb - Sanity - Blocks - one_blob [Preset: minimal]                        OK
++ [Valid]   EF - Deneb - Sanity - Blocks - one_blob_max_txs [Preset: minimal]                OK
++ [Valid]   EF - Deneb - Sanity - Blocks - one_blob_two_txs [Preset: minimal]                OK
 + [Valid]   EF - Deneb - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
 + [Valid]   EF - Deneb - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]   OK
 + [Valid]   EF - Deneb - Sanity - Blocks - proposer_self_slashing [Preset: minimal]          OK
@@ -1003,7 +1008,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 ```
-OK: 992/1000 Fail: 0/1000 Skip: 8/1000
+OK: 997/1005 Fail: 0/1005 Skip: 8/1005
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_max_inclusion_slot        OK
@@ -2501,7 +2506,10 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_commitment               OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_commitments_order        OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_1_byt OK
-+ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_32_by OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_1_ext OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_32_ex OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_empty OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - no_transactions_with_commitments   OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_first_payload OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_regular_paylo OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_transactions_first_paylo OK
@@ -2516,7 +2524,7 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Deneb - Operations - Execution Payload - zero_length_transaction_regular_pa OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - zeroed_commitment                  OK
 ```
-OK: 87/87 Fail: 0/87 Skip: 0/87
+OK: 90/90 Fail: 0/90 Skip: 0/90
 ## Proposer Slashing
 ```diff
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_different_proposer_indice OK
@@ -2876,4 +2884,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 102/102 Fail: 0/102 Skip: 0/102
 
 ---TOTAL---
-OK: 2558/2566 Fail: 0/2566 Skip: 8/2566
+OK: 2566/2574 Fail: 0/2574 Skip: 8/2574

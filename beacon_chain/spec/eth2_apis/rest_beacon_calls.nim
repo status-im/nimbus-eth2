@@ -184,6 +184,45 @@ proc publishSszBlock*(
       extraHeaders = @[("eth-consensus-version", consensus)])
   return resp
 
+proc publishBlockV2Plain(body: phase0.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
+
+proc publishBlockV2Plain(body: altair.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
+
+proc publishBlockV2Plain(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
+
+proc publishBlockV2Plain(body: capella.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
+
+proc publishBlockV2Plain(body: DenebSignedBlockContents): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
+
+proc publishBlockV2*(
+       client: RestClientRef,
+       blck: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+       bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+       deneb.SignedBeaconBlock
+     ): Future[RestPlainResponse] {.async} =
+  let
+    consensus = typeof(blck).toFork.toString()
+    resp = await client.publishBlockV2Plain(
+      blck, extraHeaders = @[
+        ("eth-consensus-version", consensus),
+        ("broadcast_validation", "gossip")])
+  return resp
+
 proc publishBlindedBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blinded_blocks",
      meth: MethodPost.}
