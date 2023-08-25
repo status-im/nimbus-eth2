@@ -32,6 +32,7 @@ func toEther*(gwei: Gwei): Ether =
 
 type
   ExecutionHash256* = eth_types.Hash256
+  ExecutionTransaction* = eth_types.Transaction
   ExecutionWithdrawal = eth_types.Withdrawal
   ExecutionBlockHeader* = eth_types.BlockHeader
 
