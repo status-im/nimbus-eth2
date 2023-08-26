@@ -1111,34 +1111,26 @@ func ETHExecutionPayloadHeaderGetTimestamp(
   execution[].timestamp.cint
 
 func ETHExecutionPayloadHeaderGetExtraDataBytes(
-    execution: ptr ExecutionPayloadHeader
-): ptr UncheckedArray[byte] {.exported.} =
+    execution: ptr ExecutionPayloadHeader,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the extra data buffer of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
   ##   It must neither be released nor written to, and the execution payload
   ##   header must not be released while the returned value is in use.
   ##
-  ## * Use `ETHExecutionPayloadHeaderGetNumExtraDataBytes`
-  ##   to obtain the length of the buffer.
-  ##
   ## Parameters:
   ## * `execution` - Execution payload header.
+  ## * `numBytes` [out] - Length of buffer.
   ##
   ## Returns:
   ## * Buffer with execution block extra data.
+  numBytes[] = execution[].extra_data.len.cint
+  if execution[].extra_data.len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultExtraData: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultExtraData)
   cast[ptr UncheckedArray[byte]](addr execution[].extra_data[0])
-
-func ETHExecutionPayloadHeaderGetNumExtraDataBytes(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the extra data buffer's length of a given execution payload header.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Length of execution block extra data.
-  execution[].extra_data.len.cint
 
 func ETHExecutionPayloadHeaderGetBaseFeePerGas(
     execution: ptr ExecutionPayloadHeader): ptr UInt256 {.exported.} =
@@ -1974,3 +1966,425 @@ func ETHTransactionGetBytes(
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](addr distinctBase(transaction[].bytes)[0])
+
+type
+  ETHLog = object
+    address: ExecutionAddress
+    topics: seq[Eth2Digest]
+    data: seq[byte]
+
+  ReceiptStatusType {.pure.} = enum
+    Root,
+    Status  # EIP-658
+
+  ETHReceipt = object
+    statusType: ReceiptStatusType
+    root: Eth2Digest
+    status: bool
+    gasUsed: uint64
+    logsBloom: BloomLogs
+    logs: seq[ETHLog]
+    bytes: seq[byte]
+
+proc ETHReceiptsCreateFromJson(
+    receiptsRoot: ptr Eth2Digest,
+    receiptsJson: cstring): ptr seq[ETHReceipt] {.exported.} =
+  ## Verifies that JSON receipts data is valid and that it matches
+  ## the given `receiptsRoot`.
+  ##
+  ## * The JSON-RPC `eth_getTransactionReceipt` may be used to obtain
+  ##   receipts data for a given transaction hash. For verification, it is
+  ##   necessary to obtain the receipt for _all_ transactions within a block.
+  ##   Pass a JSON array containing _all_ receipt's `result` as `receiptsJson`.
+  ##   The receipts need to be in the same order as the transactions.
+  ##
+  ## * The receipt sequence must be destroyed with `ETHReceiptsDestroy`
+  ##   once no longer needed, to release memory.
+  ##
+  ## Parameters:
+  ## * `receiptsRoot` - Execution receipts root.
+  ## * `receiptsJson` - Buffer with JSON receipts list. NULL-terminated.
+  ##
+  ## Returns:
+  ## * Pointer to an initialized receipt sequence - If successful.
+  ## * `NULL` - If the given `receiptsJson` is malformed or incompatible.
+  ##
+  ## See:
+  ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_gettransactionreceipt
+  let node =
+    try:
+      parseJson($receiptsJson)
+    except Exception:
+      return nil
+  var datas: seq[ReceiptObject]
+  try:
+    fromJson(node, argName = "", datas)
+  except KeyError, ValueError:
+    return nil
+
+  var
+    recs = newSeqOfCap[ETHReceipt](datas.len)
+    cumulativeGasUsed = 0'u64
+    logIndex = uint64.high
+  for i, data in datas:
+    # Sanity check
+    if distinctBase(data.transactionIndex) != i.uint64:
+      return nil
+
+    # Check fork consistency
+    static: doAssert totalSerializedFields(ReceiptObject) == 15,
+      "Only update this number once code is adjusted to check new fields!"
+    static: doAssert totalSerializedFields(LogObject) == 9,
+      "Only update this number once code is adjusted to check new fields!"
+    let txType =
+      case data.`type`.get(0.Quantity):
+      of 0.Quantity:
+        TxLegacy
+      of 1.Quantity:
+        TxEip2930
+      of 2.Quantity:
+        TxEip1559
+      of 3.Quantity:
+        TxEip4844
+      else:
+        return nil
+    if data.root.isNone and data.status.isNone or
+        data.root.isSome and data.status.isSome:
+      return nil
+    if data.status.isSome and distinctBase(data.status.get) > 1:
+      return nil
+    if distinctBase(data.cumulativeGasUsed) !=
+        cumulativeGasUsed + distinctBase(data.gasUsed):
+      return nil
+    cumulativeGasUsed = distinctBase(data.cumulativeGasUsed)
+    for log in data.logs:
+      if log.removed:
+        return nil
+      if distinctBase(log.logIndex) != logIndex + 1:
+        return nil
+      logIndex = distinctBase(log.logIndex)
+      if log.transactionIndex != data.transactionIndex:
+        return nil
+      if log.transactionHash != data.transactionHash:
+        return nil
+      if log.blockHash != data.blockHash:
+        return nil
+      if log.blockNumber != data.blockNumber:
+        return nil
+      if log.data.len mod 32 != 0:
+        return nil
+      if log.topics.len > 4:
+        return nil
+
+    # Construct receipt
+    static:
+      doAssert sizeof(int64) == sizeof(data.cumulativeGasUsed)
+    if distinctBase(data.cumulativeGasUsed) > int64.high.uint64:
+      return nil
+    let
+      rec = ExecutionReceipt(
+        receiptType: txType,
+        isHash: data.root.isSome,
+        status: distinctBase(data.status.get(1.Quantity)) != 0'u64,
+        hash:
+          if data.root.isSome:
+            ExecutionHash256(data: distinctBase(data.root.get))
+          else:
+            default(ExecutionHash256),
+        cumulativeGasUsed: distinctBase(data.cumulativeGasUsed).GasInt,
+        bloom: distinctBase(data.logsBloom),
+        logs: data.logs.mapIt(Log(
+          address: distinctBase(it.address),
+          topics: it.topics.mapIt(distinctBase(it)),
+          data: it.data)))
+      rlpBytes =
+        try:
+          rlp.encode(rec)
+        except RlpError:
+          raiseAssert "Unreachable"
+
+    recs.add ETHReceipt(
+      statusType:
+        if rec.isHash:
+          ReceiptStatusType.Root
+        else:
+          ReceiptStatusType.Status,
+      root: rec.hash,
+      status: rec.status,
+      gasUsed: distinctBase(data.gasUsed),  # Validated in sanity checks.
+      logsBloom: BloomLogs(data: rec.bloom),
+      logs: rec.logs.mapIt(ETHLog(
+        address: ExecutionAddress(data: it.address),
+        topics: it.topics.mapIt(Eth2Digest(data: it)),
+        data: it.data)),
+      bytes: rlpBytes)
+
+  var tr = initHexaryTrie(newMemoryDB())
+  for i, rec in recs:
+    try:
+      tr.put(rlp.encode(i), rec.bytes)
+    except RlpError:
+      raiseAssert "Unreachable"
+  if tr.rootHash() != receiptsRoot[]:
+    echo $tr.rootHash()
+    return nil
+
+  let receipts = seq[ETHReceipt].new()
+  receipts[] = recs
+  receipts.toUnmanagedPtr()
+
+proc ETHReceiptsDestroy(
+    receipts: ptr seq[ETHReceipt]) {.exported.} =
+  ## Destroys a receipt sequence.
+  ##
+  ## * The receipt sequence must no longer be used after destruction.
+  ##
+  ## Parameters:
+  ## * `receipts` - Receipt sequence.
+  receipts.destroy()
+
+func ETHReceiptsGetCount(
+    receipts: ptr seq[ETHReceipt]): cint {.exported.} =
+  ## Indicates the total number of receipts in a receipt sequence.
+  ##
+  ## * Individual receipts may be investigated using `ETHReceiptsGet`.
+  ##
+  ## Parameters:
+  ## * `receipts` - Receipt sequence.
+  ##
+  ## Returns:
+  ## * Number of available receipts.
+  receipts[].len.cint
+
+func ETHReceiptsGet(
+    receipts: ptr seq[ETHReceipt],
+    receiptIndex: cint): ptr ETHReceipt {.exported.} =
+  ## Obtains an individual receipt by sequential index
+  ## in a receipt sequence.
+  ##
+  ## * The returned value is allocated in the given receipt sequence.
+  ##   It must neither be released nor written to, and the receipt
+  ##   sequence must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipts` - Receipt sequence.
+  ## * `receiptIndex` - Sequential receipt index.
+  ##
+  ## Returns:
+  ## * Receipt.
+  addr receipts[][receiptIndex.int]
+
+func ETHReceiptHasStatus(
+    receipt: ptr ETHReceipt): bool {.exported.} =
+  ## Indicates whether or not a receipt has a status code.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Whether or not the receipt has a status code.
+  ##
+  ## See:
+  ## * https://eips.ethereum.org/EIPS/eip-658
+  case receipt[].statusType
+  of ReceiptStatusType.Root:
+    false
+  of ReceiptStatusType.Status:
+    true
+
+func ETHReceiptGetRoot(
+    receipt: ptr ETHReceipt): ptr Eth2Digest {.exported.} =
+  ## Obtains the intermediate post-state root of a receipt with no status code.
+  ##
+  ## * If the receipt has a status code, this function returns a zero hash.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Intermediate post-state root.
+  addr receipt[].root
+
+func ETHReceiptGetStatus(
+    receipt: ptr ETHReceipt): bool {.exported.} =
+  ## Obtains the status code of a receipt with a status code.
+  ##
+  ## * If the receipt has no status code, this function returns true.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Status code.
+  ##
+  ## See:
+  ## * https://eips.ethereum.org/EIPS/eip-658
+  receipt[].status
+
+func ETHReceiptGetGasUsed(
+    receipt: ptr ETHReceipt): ptr uint64 {.exported.} =
+  ## Obtains the gas used of a receipt.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Gas used.
+  addr receipt[].gasUsed
+
+func ETHReceiptGetLogsBloom(
+    receipt: ptr ETHReceipt): ptr BloomLogs {.exported.} =
+  ## Obtains the logs bloom of a receipt.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Logs bloom.
+  addr receipt[].logsBloom
+
+func ETHReceiptGetLogs(
+    receipt: ptr ETHReceipt): ptr seq[ETHLog] {.exported.} =
+  ## Obtains the logs of a receipt.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Log sequence.
+  addr receipt[].logs
+
+func ETHLogsGetCount(
+    logs: ptr seq[ETHLog]): cint {.exported.} =
+  ## Indicates the total number of logs in a log sequence.
+  ##
+  ## * Individual logs may be investigated using `ETHLogsGet`.
+  ##
+  ## Parameters:
+  ## * `logs` - Log sequence.
+  ##
+  ## Returns:
+  ## * Number of available logs.
+  logs[].len.cint
+
+func ETHLogsGet(
+    logs: ptr seq[ETHLog],
+    logIndex: cint): ptr ETHLog {.exported.} =
+  ## Obtains an individual log by sequential index in a log sequence.
+  ##
+  ## * The returned value is allocated in the given log sequence.
+  ##   It must neither be released nor written to, and the log sequence
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `logs` - Log sequence.
+  ## * `logIndex` - Sequential log index.
+  ##
+  ## Returns:
+  ## * Log.
+  addr logs[][logIndex.int]
+
+func ETHLogGetAddress(
+    log: ptr ETHLog): ptr ExecutionAddress {.exported.} =
+  ## Obtains the address of a log.
+  ##
+  ## * The returned value is allocated in the given log.
+  ##   It must neither be released nor written to, and the log
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `log` - Log.
+  ##
+  ## Returns:
+  ## * Address.
+  addr log[].address
+
+func ETHLogGetNumTopics(
+    log: ptr ETHLog): cint {.exported.} =
+  ## Indicates the total number of topics in a log.
+  ##
+  ## * Individual topics may be investigated using `ETHLogGetTopic`.
+  ##
+  ## Parameters:
+  ## * `log` - Log.
+  ##
+  ## Returns:
+  ## * Number of available topics.
+  log[].topics.len.cint
+
+func ETHLogGetTopic(
+    log: ptr ETHLog,
+    topicIndex: cint): ptr Eth2Digest {.exported.} =
+  ## Obtains an individual topic by sequential index in a log.
+  ##
+  ## * The returned value is allocated in the given log.
+  ##   It must neither be released nor written to, and the log
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `log` - Log.
+  ## * `topicIndex` - Sequential topic index.
+  ##
+  ## Returns:
+  ## * Topic.
+  addr log[].topics[topicIndex.int]
+
+func ETHLogGetDataBytes(
+    log: ptr ETHLog,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the data of a log.
+  ##
+  ## * The returned value is allocated in the given log.
+  ##   It must neither be released nor written to, and the log
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `log` - Log.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with data.
+  numBytes[] = log[].data.len.cint
+  if log[].data.len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultData: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultData)
+  cast[ptr UncheckedArray[byte]](addr log[].data[0])
+
+func ETHReceiptGetBytes(
+    receipt: ptr ETHReceipt,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the raw byte representation of a receipt.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with raw receipt data.
+  numBytes[] = distinctBase(receipt[].bytes).len.cint
+  if distinctBase(receipt[].bytes).len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultBytes: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultBytes)
+  cast[ptr UncheckedArray[byte]](addr distinctBase(receipt[].bytes)[0])
