@@ -364,7 +364,7 @@ type
         hidden
         desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
         defaultValue: 0
-        name: "stop-at-epoch" .}: uint64
+        name: "debug-stop-at-epoch" .}: uint64
 
       stopAtSyncedEpoch* {.
         hidden
@@ -959,7 +959,7 @@ type
     stopAtEpoch* {.
       desc: "A positive epoch selects the epoch at which to stop"
       defaultValue: 0
-      name: "stop-at-epoch" .}: uint64
+      name: "debug-stop-at-epoch" .}: uint64
 
     payloadBuilderEnable* {.
       desc: "Enable usage of beacon node with external payload builder (BETA)"
