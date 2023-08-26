@@ -627,6 +627,67 @@ proc existsKeystore(keystoreDir: string,
       return true
   false
 
+proc queryValidatorsSource*(config: AnyConf): Future[seq[KeystoreData]] {.
+     async.} =
+  var keystores: seq[KeystoreData]
+  if len(config.validatorsSource) == 0:
+    return keystores
+
+  let
+    httpFlags: HttpClientFlags = {}
+    prestoFlags = {RestClientFlag.CommaSeparatedArray}
+    socketFlags = {SocketFlags.TcpNoDelay}
+    client =
+      block:
+        let res = RestClientRef.new(config.validatorsSource, prestoFlags,
+                                    httpFlags, socketFlags = socketFlags)
+        if res.isErr():
+          # TODO keep trying in case of temporary network failure
+          warn "Unable to resolve validator's source distributed signer " &
+               "address", remote_url = config.validatorsSource
+          return keystores
+        else:
+          res.get()
+    keys =
+      try:
+        let response = await getKeysPlain(client)
+        if response.status != 200:
+          warn "Remote validator's source responded with error",
+               error = response.status
+          return keystores
+
+        let res = decodeBytes(Web3SignerKeysResponse, response.data,
+                              response.contentType)
+        if res.isErr():
+          warn "Unable to obtain validator's source response",
+               reason = res.error
+          return keystores
+
+        res.get()
+      except RestError as exc:
+        warn "Unable to poll validator's source", reason = $exc.msg
+        return keystores
+      except CancelledError as exc:
+        debug "The polling of validator's source was interrupted"
+        raise exc
+      except CatchableError as exc:
+        warn "Unexpected error occured while polling validator's source",
+             error = $exc.name, reason = $exc.msg
+        return keystores
+
+  for pubkey in keys:
+    keystores.add(KeystoreData(
+      kind: KeystoreKind.Remote,
+      handle: FileLockHandle(opened: false),
+      pubkey: pubkey,
+      remotes: @[RemoteSignerInfo(
+        url: HttpHostUri(parseUri(config.validatorsSource)),
+        pubkey: pubkey)],
+      flags: {RemoteKeystoreFlag.DynamicKeystore},
+      remoteType: RemoteSignerType.Web3Signer))
+
+  keystores
+
 iterator listLoadableKeys*(validatorsDir, secretsDir: string,
                            keysMask: set[KeystoreKind]): CookedPubKey =
   try:
@@ -1244,8 +1305,8 @@ proc saveKeystore*(
 
 proc importKeystore*(pool: var ValidatorPool,
                      validatorsDir: string,
-                     keystore: RemoteKeystore): ImportResult[KeystoreData]
-                    {.raises: [].} =
+                     keystore: RemoteKeystore): ImportResult[KeystoreData] {.
+     raises: [].} =
   let
     publicKey = keystore.pubkey
     keyName = publicKey.fsName
@@ -1253,9 +1314,9 @@ proc importKeystore*(pool: var ValidatorPool,
 
   # We check `publicKey`.
   let cookedKey = publicKey.load().valueOr:
-        return err(
-          AddValidatorFailure.init(AddValidatorStatus.failed,
-                                   "Invalid validator's public key"))
+    return err(
+      AddValidatorFailure.init(AddValidatorStatus.failed,
+                               "Invalid validator's public key"))
 
   # We check `publicKey` in memory storage first.
   if publicKey in pool:

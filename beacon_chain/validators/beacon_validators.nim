@@ -117,8 +117,8 @@ proc getValidator*(validators: auto,
 proc addValidators*(node: BeaconNode) =
   info "Loading validators", validatorsDir = node.config.validatorsDir(),
                 keystore_cache_available = not(isNil(node.keystoreCache))
-  let
-    epoch = node.currentSlot().epoch
+  let epoch = node.currentSlot().epoch
+
   for keystore in listLoadableKeystores(node.config, node.keystoreCache):
     let
       data = withState(node.dag.headState):
@@ -132,7 +132,33 @@ proc addValidators*(node: BeaconNode) =
         keystore.pubkey, index, epoch)
       gasLimit = node.consensusManager[].getGasLimit(keystore.pubkey)
 
-      v = node.attachedValidators[].addValidator(keystore, feeRecipient, gasLimit)
+      v = node.attachedValidators[].addValidator(keystore, feeRecipient,
+                                                 gasLimit)
+    v.updateValidator(data)
+
+  let dynamicStores =
+    try:
+      waitFor(queryValidatorsSource(node.config))
+    except CatchableError as exc:
+      warn "Unexpected error happens while polling validator's source",
+           error = $exc.name, reason = $exc.msg
+      default(seq[KeystoreData])
+
+  for keystore in dynamicStores:
+    let
+      data =
+        withState(node.dag.headState):
+          getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+      index =
+        if data.isSome():
+          Opt.some(data.get().index)
+        else:
+          Opt.none(ValidatorIndex)
+      feeRecipient =
+        node.consensusManager[].getFeeRecipient(keystore.pubkey, index, epoch)
+      gasLimit = node.consensusManager[].getGasLimit(keystore.pubkey)
+      v = node.attachedValidators[].addValidator(keystore, feeRecipient,
+                                                 gasLimit)
     v.updateValidator(data)
 
 proc getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator] =
