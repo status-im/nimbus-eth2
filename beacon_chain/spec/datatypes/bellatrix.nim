@@ -95,7 +95,7 @@ type
     transactions_root*: Eth2Digest
 
   ExecutePayload* = proc(
-    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
+    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/fork-choice.md#powblock
   PowBlock* = object
@@ -363,11 +363,11 @@ func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
 
 func fromHex*(T: typedesc[BloomLogs], s: string): T {.
-     raises: [Defect, ValueError].} =
+     raises: [ValueError].} =
   hexToByteArray(s, result.data)
 
 func fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
-     raises: [Defect, ValueError].} =
+     raises: [ValueError].} =
   hexToByteArray(s, result.data)
 
 proc writeValue*(
@@ -375,7 +375,7 @@ proc writeValue*(
   writer.writeValue to0xHex(value.data)
 
 proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
-     raises: [Defect, IOError, SerializationError].} =
+     raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), value.data)
   except ValueError:

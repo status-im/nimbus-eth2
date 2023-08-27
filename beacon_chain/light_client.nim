@@ -23,10 +23,10 @@ logScope: topics = "lightcl"
 type
   LightClientHeaderCallback* =
     proc(lightClient: LightClient, header: ForkedLightClientHeader) {.
-      gcsafe, raises: [Defect].}
+      gcsafe, raises: [].}
 
   LightClientValueObserver[V] =
-    proc(lightClient: LightClient, v: V) {.gcsafe, raises: [Defect].}
+    proc(lightClient: LightClient, v: V) {.gcsafe, raises: [].}
   LightClientBootstrapObserver* =
     LightClientValueObserver[ForkedLightClientBootstrap]
   LightClientUpdateObserver* =

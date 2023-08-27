@@ -33,7 +33,7 @@ const
     ## that potentially could be added to a newly created block
 
 type
-  OnAttestationCallback* = proc(data: Attestation) {.gcsafe, raises: [Defect].}
+  OnAttestationCallback* = proc(data: Attestation) {.gcsafe, raises: [].}
 
   Validation* = object
     ## Validations collect a set of signatures for a distict attestation - in

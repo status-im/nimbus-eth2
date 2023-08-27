@@ -75,7 +75,7 @@ template raiseError(reader: var JsonReader, msg: string) =
   raiseTomlErr(reader.lex, msg)
 
 proc readValue*(reader: var TomlReader, value: var EngineApiRoles)
-               {.raises: [Defect, SerializationError, IOError].} =
+               {.raises: [SerializationError, IOError].} =
   let roles = reader.readValue seq[string]
   if roles.len == 0:
     reader.raiseError "At least one role should be provided"
@@ -100,7 +100,7 @@ proc writeValue*(
   writer.writeValue strRoles
 
 proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   var
     uri = parseUri(input)
     jwtSecret: Option[string]
@@ -140,7 +140,7 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
     roles: roles)
 
 proc readValue*(reader: var TomlReader, value: var EngineApiUrlConfigValue)
-               {.raises: [Defect, SerializationError, IOError].} =
+               {.raises: [SerializationError, IOError].} =
   if reader.lex.readable and reader.lex.peekChar in ['\'', '"']:
     # If the input is a string, we'll reuse the command-line parsing logic
     value = try: parseCmdArg(EngineApiUrlConfigValue, reader.readValue(string))

@@ -252,7 +252,7 @@ type
     current_version*: Version
     genesis_validators_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#checkpoint
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
@@ -380,7 +380,7 @@ type
     message*: VoluntaryExit
     signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
@@ -433,7 +433,7 @@ type
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading
@@ -485,7 +485,7 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#eth2-field
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
     next_fork_version*: Version
@@ -550,10 +550,6 @@ func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
     withdrawal_credentials: validator.withdrawal_credentials)
 
 template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
-  # A "tigher" type is often used for T, but for the range check to be effective
-  # it must make sense..
-  type L = typeof limit
-
   static: doAssert limit <= distinctBase(T).high()
   # Many `uint64` values in the spec have a more limited range of valid values
   func init*(t: type T, value: uint64): Result[T, cstring] =
@@ -570,7 +566,7 @@ template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
     writeValue(writer, distinctBase value)
 
   proc readValue*(reader: var JsonReader, value: var T)
-                {.raises: [IOError, SerializationError, Defect].} =
+                {.raises: [IOError, SerializationError].} =
     let v = T.init(reader.readValue(uint64))
     if v.isSome():
       value = v.get()
@@ -593,8 +589,8 @@ template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
   template asInt*(x: T): int = int(distinctBase(x))
   template asUInt64*(x: T): uint64 = uint64(distinctBase(x))
 
-  template toSszType(x: T): uint64 =
-    {.error: "Limited types should not be used with SSZ (ABI differences)".}
+  func toSszType*(x: T): uint64 {.error:
+    "Limited types should not be used with SSZ (ABI differences)".}
 
 template makeLimitedU8*(T: untyped, limit: uint8) =
   makeLimitedUInt(T, limit)
@@ -641,7 +637,7 @@ template writeValue*(
 
 proc readValue*(
     reader: var JsonReader, value: var (Version | ForkDigest | DomainType))
-               {.raises: [IOError, SerializationError, Defect].} =
+               {.raises: [IOError, SerializationError].} =
   let hex = reader.readValue(string)
   try:
     hexToByteArray(hex, distinctBase(value))
@@ -653,7 +649,7 @@ func `$`*(x: JustificationBits): string =
   "0x" & toHex(uint64(uint8(x)))
 
 proc readValue*(reader: var JsonReader, value: var JustificationBits)
-    {.raises: [IOError, SerializationError, Defect].} =
+    {.raises: [IOError, SerializationError].} =
   let hex = reader.readValue(string)
   try:
     value = JustificationBits(hexToByteArray(hex, 1)[0])
@@ -851,7 +847,7 @@ func toPrettyString*(bytes: openArray[byte]): string =
 func `$`*(value: GraffitiBytes): string = toPrettyString(distinctBase value)
 
 func init*(T: type GraffitiBytes, input: string): GraffitiBytes
-          {.raises: [ValueError, Defect].} =
+          {.raises: [ValueError].} =
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
     if input.len > sizeof(GraffitiBytes) * 2 + 2:
       raise newException(ValueError, "The graffiti bytes should be less than 32")
@@ -895,7 +891,7 @@ template `==`*(lhs, rhs: GraffitiBytes): bool =
   distinctBase(lhs) == distinctBase(rhs)
 
 proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
-               {.raises: [IOError, SerializationError, Defect].} =
+               {.raises: [IOError, SerializationError].} =
   try:
     init(GraffitiBytes, r.readValue(string))
   except ValueError as err:
@@ -997,11 +993,6 @@ func clear*(cache: var StateCache) =
   cache.shuffled_active_validator_indices.clear
   cache.beacon_proposer_indices.clear
   cache.sync_committees.clear
-
-const eth1BlockHash* = block:
-  var x: Eth2Digest
-  for v in x.data.mitems: v = 0x42
-  x
 
 func checkForkConsistency*(cfg: RuntimeConfig) =
   let forkVersions =

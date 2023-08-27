@@ -35,7 +35,7 @@ type
     Endpoint[Nothing, ForkedLightClientOptimisticUpdate]
 
   ValueVerifier[V] =
-    proc(v: V): Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
+    proc(v: V): Future[Result[void, VerifierError]] {.gcsafe, raises: [].}
   BootstrapVerifier* =
     ValueVerifier[ForkedLightClientBootstrap]
   UpdateVerifier* =
@@ -46,11 +46,11 @@ type
     ValueVerifier[ForkedLightClientOptimisticUpdate]
 
   GetTrustedBlockRootCallback* =
-    proc(): Option[Eth2Digest] {.gcsafe, raises: [Defect].}
+    proc(): Option[Eth2Digest] {.gcsafe, raises: [].}
   GetBoolCallback* =
-    proc(): bool {.gcsafe, raises: [Defect].}
+    proc(): bool {.gcsafe, raises: [].}
   GetSyncCommitteePeriodCallback* =
-    proc(): SyncCommitteePeriod {.gcsafe, raises: [Defect].}
+    proc(): SyncCommitteePeriod {.gcsafe, raises: [].}
 
   LightClientManager* = object
     network: Eth2Node
@@ -116,7 +116,7 @@ proc doRequest(
     peer: Peer,
     blockRoot: Eth2Digest
 ): Future[NetRes[ForkedLightClientBootstrap]] {.
-    raises: [Defect, IOError].} =
+    raises: [IOError].} =
   peer.lightClientBootstrap(blockRoot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
@@ -127,7 +127,7 @@ proc doRequest(
     peer: Peer,
     key: tuple[startPeriod: SyncCommitteePeriod, count: uint64]
 ): Future[LightClientUpdatesByRangeResponse] {.
-    async, raises: [Defect, IOError].} =
+    async, raises: [IOError].} =
   let (startPeriod, count) = key
   doAssert count > 0 and count <= MAX_REQUEST_LIGHT_CLIENT_UPDATES
   let response = await peer.lightClientUpdatesByRange(startPeriod, count)
@@ -143,7 +143,7 @@ proc doRequest(
     e: typedesc[FinalityUpdate],
     peer: Peer
 ): Future[NetRes[ForkedLightClientFinalityUpdate]] {.
-    raises: [Defect, IOError].} =
+    raises: [IOError].} =
   peer.lightClientFinalityUpdate()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
@@ -151,7 +151,7 @@ proc doRequest(
     e: typedesc[OptimisticUpdate],
     peer: Peer
 ): Future[NetRes[ForkedLightClientOptimisticUpdate]] {.
-    raises: [Defect, IOError].} =
+    raises: [IOError].} =
   peer.lightClientOptimisticUpdate()
 
 template valueVerifier[E](

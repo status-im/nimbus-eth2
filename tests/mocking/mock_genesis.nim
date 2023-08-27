@@ -14,6 +14,9 @@ import
   # Mocking procs
   ./mock_deposits
 
+const mockEth1BlockHash* =
+  Eth2Digest.fromHex("0x4242424242424242424242424242424242424242")
+
 proc initGenesisState*(
     num_validators = 8'u64 * SLOTS_PER_EPOCH,
     cfg = defaultRuntimeConfig): ref ForkedHashedBeaconState =
@@ -26,7 +29,7 @@ proc initGenesisState*(
   result = (ref ForkedHashedBeaconState)(
     kind: ConsensusFork.Phase0,
     phase0Data: initialize_hashed_beacon_state_from_eth1(
-      cfg, eth1BlockHash, 0, deposits, {}))
+      cfg, mockEth1BlockHash, 0, deposits, {}))
 
   maybeUpgradeState(cfg, result[])
 

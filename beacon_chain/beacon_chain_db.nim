@@ -108,7 +108,7 @@ type
     immutableValidatorsDb*: DbSeq[ImmutableValidatorDataDb2]
     immutableValidators*: seq[ImmutableValidatorData2]
 
-    checkpoint*: proc() {.gcsafe, raises: [Defect].}
+    checkpoint*: proc() {.gcsafe, raises: [].}
 
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock

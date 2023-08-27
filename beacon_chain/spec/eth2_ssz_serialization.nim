@@ -21,7 +21,7 @@ from ./datatypes/deneb import SignedBeaconBlock, TrustedSignedBeaconBlock
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
 
 proc readAndUpdateRoot(data: openArray[byte], val: var auto, updateRoot = true) {.
-     raises: [Defect, MalformedSszError, SszSizeMismatchError].} =
+     raises: [MalformedSszError, SszSizeMismatchError].} =
   readSszValue(data, val)
   if updateRoot:
     val.root = hash_tree_root(val.message)
@@ -65,7 +65,7 @@ template readSszBytes*(
   readSszValue(data, val)
 
 func readSszBytes(T: type, data: openArray[byte], updateRoot = true): T {.
-    raises: [Defect, MalformedSszError, SszSizeMismatchError].} =
+    raises: [MalformedSszError, SszSizeMismatchError].} =
   var res: T
   readSszBytes(data, res, updateRoot)
   res

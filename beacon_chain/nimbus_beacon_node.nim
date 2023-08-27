@@ -463,7 +463,7 @@ proc init*(T: type BeaconNode,
            rng: ref HmacDrbgContext,
            config: BeaconNodeConf,
            metadata: Eth2NetworkMetadata): BeaconNode
-          {.raises: [Defect, CatchableError].} =
+          {.raises: [CatchableError].} =
   var taskpool: TaskPoolPtr
 
   template cfg: auto = metadata.cfg
@@ -1460,7 +1460,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, signedBlock)))
 
       # beacon_attestation_{subnet_id}
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
       for it in SubnetId:
         closureScope:  # Needed for inner `proc`; don't lift it out of loop.
           let subnet_id = it
@@ -1592,7 +1592,7 @@ proc startBackfillTask(node: BeaconNode) {.async.} =
 
     await sleepAsync(chronos.seconds(2))
 
-proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
+proc run(node: BeaconNode) {.raises: [CatchableError].} =
   bnStatus = BeaconNodeStatus.Running
 
   if not isNil(node.restServer):
@@ -1651,7 +1651,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   node.stop()
 
 var gPidFile: string
-proc createPidFile(filename: string) {.raises: [Defect, IOError].} =
+proc createPidFile(filename: string) {.raises: [IOError].} =
   writeFile filename, $os.getCurrentProcessId()
   gPidFile = filename
   addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
@@ -1667,7 +1667,7 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
   await node.network.start()
 
-proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
+proc start*(node: BeaconNode) {.raises: [CatchableError].} =
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
@@ -1719,7 +1719,7 @@ func formatGwei(amount: uint64): string =
       result.setLen(result.len - 1)
 
 when not defined(windows):
-  proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
+  proc initStatusBar(node: BeaconNode) {.raises: [ValueError].} =
     if not isatty(stdout): return
     if not node.config.statusBarEnabled: return
 
@@ -1728,7 +1728,7 @@ when not defined(windows):
     except Exception as exc: # TODO Exception
       error "Couldn't enable colors", err = exc.msg
 
-    proc dataResolver(expr: string): string {.raises: [Defect].} =
+    proc dataResolver(expr: string): string {.raises: [].} =
       template justified: untyped = node.dag.head.atEpochStart(
         getStateField(
           node.dag.headState, current_justified_checkpoint).epoch)
@@ -1812,7 +1812,7 @@ when not defined(windows):
       let tmp = defaultChroniclesStream.outputs[0].writer
 
       defaultChroniclesStream.outputs[0].writer =
-        proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [Defect].} =
+        proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [].} =
           try:
             # p.hidePrompt
             erase statusBar
@@ -1835,7 +1835,7 @@ when not defined(windows):
 
     asyncSpawn statusBarUpdatesPollingLoop()
 
-proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [Defect, CatchableError].} =
+proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [CatchableError].} =
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
@@ -1907,7 +1907,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     node.start()
 
 proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
-    raises: [Defect, CatchableError].} =
+    raises: [CatchableError].} =
   case config.recordCmd:
   of RecordCmd.create:
     let netKeys = getPersistentNetKeys(rng, config)
@@ -1935,7 +1935,7 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     echo $config.recordPrint
 
 proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
-    {.raises: [Defect, CatchableError].} =
+    {.raises: [CatchableError].} =
   case config.web3Cmd:
   of Web3Cmd.test:
     let metadata = config.loadEth2Network()
@@ -1944,7 +1944,7 @@ proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
                              metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
                              rng.loadJwtSecret(config, allowCreate = true))
 
-proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
+proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError].}=
   let
     dir = conf.validatorsDir()
     filetrunc = SlashingDbName
@@ -1955,7 +1955,7 @@ proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
   db.exportSlashingInterchange(interchange, conf.exportedValidators)
   echo "Export finished: '", dir/filetrunc & ".sqlite3" , "' into '", interchange, "'"
 
-proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError, Defect].} =
+proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError].} =
   let
     dir = conf.validatorsDir()
     filetrunc = SlashingDbName
@@ -1990,14 +1990,14 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
 
   echo "Import finished: '", interchange, "' into '", dir/filetrunc & ".sqlite3", "'"
 
-proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
+proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [CatchableError].} =
   case conf.slashingdbCmd
   of SlashProtCmd.`export`:
     conf.doSlashingExport()
   of SlashProtCmd.`import`:
     conf.doSlashingImport()
 
-proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableError].} =
+proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
   let rng = HmacDrbgContext.new()

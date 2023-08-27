@@ -1093,39 +1093,39 @@ proc createDumpDirs*(config: BeaconNodeConf) =
         path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
 
 func parseCmdArg*(T: type Eth2Digest, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   Eth2Digest.fromHex(input)
 
 func completeCmdArg*(T: type Eth2Digest, input: string): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type GraffitiBytes, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   GraffitiBytes.init(input)
 
 func completeCmdArg*(T: type GraffitiBytes, input: string): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type BlockHashOrNumber, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   init(BlockHashOrNumber, input)
 
 func completeCmdArg*(T: type BlockHashOrNumber, input: string): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type Uri, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   parseUri(input)
 
 func completeCmdArg*(T: type Uri, input: string): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type PubKey0x, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   PubKey0x(hexToPaddedByteArray[RawPubKeySize](input))
 
 func parseCmdArg*(T: type ValidatorPubKey, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   let res = ValidatorPubKey.fromHex(input)
   if res.isErr(): raise (ref ValueError)(msg: $res.error())
   res.get()
@@ -1134,7 +1134,7 @@ func completeCmdArg*(T: type PubKey0x, input: string): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type Checkpoint, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   let sepIdx = find(input, ':')
   if sepIdx == -1 or sepIdx == input.len - 1:
     raise newException(ValueError,
@@ -1149,7 +1149,7 @@ func completeCmdArg*(T: type Checkpoint, input: string): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type Epoch, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   Epoch parseBiggestUInt(input)
 
 func completeCmdArg*(T: type Epoch, input: string): seq[string] =
@@ -1163,7 +1163,7 @@ func isPrintable(rune: Rune): bool =
   rune == Rune(0x20) or unicodeCategory(rune) notin ctgC+ctgZ
 
 func parseCmdArg*(T: type WalletName, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   if input.len == 0:
     raise newException(ValueError, "The wallet name should not be empty")
   if input[0] == '_':
@@ -1254,31 +1254,31 @@ template raiseUnexpectedValue(r: var TomlReader, msg: string) =
   raise newException(SerializationError, msg)
 
 proc readValue*(r: var TomlReader, value: var Epoch)
-               {.raises: [Defect, SerializationError, IOError].} =
+               {.raises: [SerializationError, IOError].} =
   value = Epoch r.parseInt(uint64)
 
 proc readValue*(r: var TomlReader, value: var GraffitiBytes)
-               {.raises: [Defect, SerializationError, IOError].} =
+               {.raises: [SerializationError, IOError].} =
   try:
     value = GraffitiBytes.init(r.readValue(string))
   except ValueError:
     r.raiseUnexpectedValue("A printable string or 0x-prefixed hex-encoded raw bytes expected")
 
 proc readValue*(r: var TomlReader, val: var NatConfig)
-               {.raises: [Defect, IOError, SerializationError].} =
+               {.raises: [IOError, SerializationError].} =
   val = try: parseCmdArg(NatConfig, r.readValue(string))
         except CatchableError as err:
           raise newException(SerializationError, err.msg)
 
 proc readValue*(r: var TomlReader, a: var Eth2Digest)
-               {.raises: [Defect, IOError, SerializationError].} =
+               {.raises: [IOError, SerializationError].} =
   try:
     a = fromHex(type(a), r.readValue(string))
   except ValueError:
     r.raiseUnexpectedValue("Hex string expected")
 
 proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
-               {.raises: [Defect, IOError, SerializationError].} =
+               {.raises: [IOError, SerializationError].} =
   let keyAsString = try:
     reader.readValue(string)
   except CatchableError:
@@ -1292,21 +1292,21 @@ proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
     raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
 proc readValue*(r: var TomlReader, a: var PubKey0x)
-               {.raises: [Defect, IOError, SerializationError].} =
+               {.raises: [IOError, SerializationError].} =
   try:
     a = parseCmdArg(PubKey0x, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("a 0x-prefixed hex-encoded string expected")
 
 proc readValue*(r: var TomlReader, a: var WalletName)
-               {.raises: [Defect, IOError, SerializationError].} =
+               {.raises: [IOError, SerializationError].} =
   try:
     a = parseCmdArg(WalletName, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 
 proc readValue*(r: var TomlReader, a: var Address)
-               {.raises: [Defect, IOError, SerializationError].} =
+               {.raises: [IOError, SerializationError].} =
   try:
     a = parseCmdArg(Address, r.readValue(string))
   except CatchableError:
@@ -1314,7 +1314,7 @@ proc readValue*(r: var TomlReader, a: var Address)
 
 proc loadEth2Network*(
     eth2Network: Option[string]
-): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+): Eth2NetworkMetadata {.raises: [IOError].} =
   const defaultName =
     when const_preset == "gnosis":
       "gnosis"

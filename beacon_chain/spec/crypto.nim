@@ -456,7 +456,7 @@ template `<`*(x, y: ValidatorPubKey): bool =
 # Serialization
 # ----------------------------------------------------------------------
 
-{.pragma: serializationRaises, raises: [SerializationError, IOError, Defect].}
+{.pragma: serializationRaises, raises: [SerializationError, IOError].}
 
 proc writeValue*(
     writer: var JsonWriter, value: ValidatorPubKey | CookedPubKey
@@ -532,21 +532,21 @@ func shortLog*(x: TrustedSig): string =
 # TODO more specific exceptions? don't raise?
 
 # For confutils
-func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noinit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noinit, raises: [ValueError].} =
   let v = T.fromHex(hex)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noinit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noinit, raises: [ValueError].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit, raises: [ValueError].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)

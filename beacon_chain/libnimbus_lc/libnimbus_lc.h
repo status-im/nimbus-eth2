@@ -149,7 +149,7 @@ typedef struct ETHBeaconState ETHBeaconState;
  *         representation - If successful.
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#beaconstate
@@ -322,7 +322,7 @@ typedef struct ETHLightClientStore ETHLightClientStore;
  *
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/light-client.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/light-client.md
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
  */
 ETH_RESULT_USE_CHECK
@@ -1002,22 +1002,22 @@ const ETHUInt256 *ETHExecutionPayloadHeaderGetBaseFeePerGas(
     const ETHExecutionPayloadHeader *execution);
 
 /**
- * Obtains the data gas used of a given execution payload header.
+ * Obtains the blob gas used of a given execution payload header.
  *
  * @param      execution            Execution payload header.
  *
- * @return Data gas used.
+ * @return Blob gas used.
  */
 ETH_RESULT_USE_CHECK
 int ETHExecutionPayloadHeaderGetBlobGasUsed(
     const ETHExecutionPayloadHeader *execution);
 
 /**
- * Obtains the excess data gas of a given execution payload header.
+ * Obtains the excess blob gas of a given execution payload header.
  *
  * @param      execution            Execution payload header.
  *
- * @return Excess data gas.
+ * @return Excess blob gas.
  */
 ETH_RESULT_USE_CHECK
 int ETHExecutionPayloadHeaderGetExcessBlobGas(
@@ -1034,7 +1034,7 @@ typedef struct ETHExecutionBlockHeader ETHExecutionBlockHeader;
  *
  * - The JSON-RPC `eth_getBlockByHash` with params `[executionHash, false]`
  *   may be used to obtain execution block header data for a given execution
- *   block hash. Pass the response's `result` property to `blockHeaderJson`.
+ *   block hash. Pass the response's `result` property as `blockHeaderJson`.
  *
  * - The execution block header must be destroyed with
  *   `ETHExecutionBlockHeaderDestroy` once no longer needed,
@@ -1091,6 +1091,414 @@ const ETHRoot *ETHExecutionBlockHeaderGetTransactionsRoot(
 ETH_RESULT_USE_CHECK
 const ETHRoot *ETHExecutionBlockHeaderGetWithdrawalsRoot(
     const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Transaction sequence.
+ */
+typedef struct ETHTransactions ETHTransactions;
+
+/**
+ * Verifies that JSON transactions data is valid and that it matches
+ * the given `transactionsRoot`.
+ *
+ * - The JSON-RPC `eth_getBlockByHash` with params `[executionHash, true]`
+ *   may be used to obtain transactions data for a given execution
+ *   block hash. Pass `result.transactions` as `transactionsJson`.
+ *
+ * - The transaction sequence must be destroyed with
+ *   `ETHTransactionsDestroy` once no longer needed,
+ *   to release memory.
+ *
+ * @param      transactionsRoot     Execution transactions root.
+ * @param      transactionsJson     Buffer with JSON transactions list. NULL-terminated.
+ *
+ * @return Pointer to an initialized transaction sequence - If successful.
+ * @return `NULL` - If the given `transactionsJson` is malformed or incompatible.
+ *
+ * @see https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
+ */
+ETH_RESULT_USE_CHECK
+ETHTransactions *ETHTransactionsCreateFromJson(
+    const ETHRoot *transactionsRoot,
+    const char *transactionsJson);
+
+/**
+ * Destroys a transaction sequence.
+ *
+ * - The transaction sequence must no longer be used after destruction.
+ *
+ * @param      transactions         Transaction sequence.
+ */
+void ETHTransactionsDestroy(ETHTransactions *transactions);
+
+/**
+ * Indicates the total number of transactions in a transaction sequence.
+ *
+ * - Individual transactions may be investigated using `ETHTransactionsGet`.
+ *
+ * @param      transactions         Transaction sequence.
+ *
+ * @return Number of available transactions.
+ */
+ETH_RESULT_USE_CHECK
+int ETHTransactionsGetCount(const ETHTransactions *transactions);
+
+/**
+ * Transaction.
+ */
+typedef struct ETHTransaction ETHTransaction;
+
+/**
+ * Obtains an individual transaction by sequential index
+ * in a transaction sequence.
+ *
+ * - The returned value is allocated in the given transaction sequence.
+ *   It must neither be released nor written to, and the transaction
+ *   sequence must not be released while the returned value is in use.
+ *
+ * @param      transactions         Transaction sequence.
+ * @param      transactionIndex     Sequential transaction index.
+ *
+ * @return Transaction.
+ */
+ETH_RESULT_USE_CHECK
+const ETHTransaction *ETHTransactionsGet(
+    const ETHTransactions *transactions,
+    int transactionIndex);
+
+/**
+ * Obtains the transaction hash of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Transaction hash.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHTransactionGetHash(const ETHTransaction *transaction);
+
+/**
+ * Obtains the chain ID of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Chain ID.
+ */
+ETH_RESULT_USE_CHECK
+const ETHUInt256 *ETHTransactionGetChainId(const ETHTransaction *transaction);
+
+/**
+ * Obtains the from address of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return From execution address.
+ */
+ETH_RESULT_USE_CHECK
+const ETHExecutionAddress *ETHTransactionGetFrom(const ETHTransaction *transaction);
+
+/**
+ * Obtains the nonce of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Nonce.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHTransactionGetNonce(const ETHTransaction *transaction);
+
+/**
+ * Obtains the max priority fee per gas of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Max priority fee per gas.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHTransactionGetMaxPriorityFeePerGas(const ETHTransaction *transaction);
+
+/**
+ * Obtains the max fee per gas of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Max fee per gas.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHTransactionGetMaxFeePerGas(const ETHTransaction *transaction);
+
+/**
+ * Obtains the gas of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Gas.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHTransactionGetGas(const ETHTransaction *transaction);
+
+/**
+ * Indicates whether or not a transaction is creating a contract.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Whether or not the transaction is creating a contract.
+ */
+ETH_RESULT_USE_CHECK
+bool ETHTransactionIsCreatingContract(const ETHTransaction *transaction);
+
+/**
+ * Obtains the to address of a transaction.
+ *
+ * - If the transaction is creating a contract, this function returns
+ *   the address of the new contract.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return To execution address.
+ */
+ETH_RESULT_USE_CHECK
+const ETHExecutionAddress *ETHTransactionGetTo(const ETHTransaction *transaction);
+
+/**
+ * Obtains the value of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Value.
+ */
+ETH_RESULT_USE_CHECK
+const ETHUInt256 *ETHTransactionGetValue(const ETHTransaction *transaction);
+
+/**
+ * Obtains the input of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with input.
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHTransactionGetInputBytes(
+    const ETHTransaction *transaction,
+    int *numBytes);
+
+/**
+ * Transaction access list.
+ */
+typedef struct ETHAccessList ETHAccessList;
+
+/**
+ * Obtains the access list of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Transaction access list.
+ */
+ETH_RESULT_USE_CHECK
+const ETHAccessList *ETHTransactionGetAccessList(const ETHTransaction *transaction);
+
+/**
+ * Indicates the total number of access tuples in a transaction access list.
+ *
+ * - Individual access tuples may be investigated using `ETHAccessListGet`.
+ *
+ * @param      accessList           Transaction access list.
+ *
+ * @return Number of available access tuples.
+ */
+ETH_RESULT_USE_CHECK
+int ETHAccessListGetCount(const ETHAccessList *accessList);
+
+/**
+ * Access tuple.
+ */
+typedef struct ETHAccessTuple ETHAccessTuple;
+
+/**
+ * Obtains an individual access tuple by sequential index
+ * in a transaction access list.
+ *
+ * - The returned value is allocated in the given transaction access list.
+ *   It must neither be released nor written to, and the transaction
+ *   access list must not be released while the returned value is in use.
+ *
+ * @param      accessList           Transaction access list.
+ * @param      accessTupleIndex     Sequential access tuple index.
+ *
+ * @return Access tuple.
+ */
+ETH_RESULT_USE_CHECK
+const ETHAccessTuple *ETHAccessListGet(
+    const ETHAccessList *accessList,
+    int accessTupleIndex);
+
+/**
+ * Obtains the address of an access tuple.
+ *
+ * - The returned value is allocated in the given access tuple.
+ *   It must neither be released nor written to, and the access tuple
+ *   must not be released while the returned value is in use.
+ *
+ * @param      accessTuple          Access tuple.
+ *
+ * @return Address.
+ */
+ETH_RESULT_USE_CHECK
+const ETHExecutionAddress *ETHAccessTupleGetAddress(const ETHAccessTuple *accessTuple);
+
+/**
+ * Indicates the total number of storage keys in an access tuple.
+ *
+ * - Individual storage keys may be investigated using
+ *   `ETHAccessTupleGetStorageKey`.
+ *
+ * @param      accessTuple          Access tuple.
+ *
+ * @return Number of available storage keys.
+ */
+ETH_RESULT_USE_CHECK
+int ETHAccessTupleGetNumStorageKeys(const ETHAccessTuple *accessTuple);
+
+/**
+ * Obtains an individual storage key by sequential index
+ * in an access tuple.
+ *
+ * - The returned value is allocated in the given transaction access tuple.
+ *   It must neither be released nor written to, and the transaction
+ *   access tuple must not be released while the returned value is in use.
+ *
+ * @param      accessTuple          Access tuple.
+ * @param      storageKeyIndex      Sequential storage key index.
+ *
+ * @return Storage key.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHAccessTupleGetStorageKey(
+    const ETHAccessTuple *accessTuple,
+    int storageKeyIndex);
+
+/**
+ * Obtains the max fee per blob gas of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Max fee per blob gas.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHTransactionGetMaxFeePerBlobGas(const ETHTransaction *transaction);
+
+/**
+ * Indicates the total number of blob versioned hashes of a transaction.
+ *
+ * - Individual blob versioned hashes may be investigated using
+ *   `ETHTransactionGetBlobVersionedHash`.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Number of available blob versioned hashes.
+ */
+ETH_RESULT_USE_CHECK
+int ETHTransactionGetNumBlobVersionedHashes(const ETHTransaction *transaction);
+
+/**
+ * Obtains an individual blob versioned hash by sequential index
+ * in a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ * @param      versionedHashIndex   Sequential blob versioned hash index.
+ *
+ * @return Blob versioned hash.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHTransactionGetBlobVersionedHash(
+    const ETHTransaction *transaction,
+    int versionedHashIndex);
+
+/**
+ * Obtains the signature of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with signature.
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHTransactionGetSignatureBytes(
+    const ETHTransaction *transaction,
+    int *numBytes);
+
+/**
+ * Obtains the raw byte representation of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with raw transaction data.
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHTransactionGetBytes(
+    const ETHTransaction *transaction,
+    int *numBytes);
 
 #if __has_feature(nullability)
 #pragma clang assume_nonnull end
