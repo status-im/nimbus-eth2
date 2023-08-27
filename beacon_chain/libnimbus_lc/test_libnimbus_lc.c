@@ -413,7 +413,7 @@ int main(void)
     void *sampleReceiptsJson = readEntireFile(
         __DIR__ "/test_files/receipts.json", /* numBytes: */ NULL);
     ETHReceipts *receipts =
-        ETHReceiptsCreateFromJson(&sampleReceiptsRoot, sampleReceiptsJson);
+        ETHReceiptsCreateFromJson(&sampleReceiptsRoot, sampleReceiptsJson, transactions);
     check(receipts);
     free(sampleReceiptsJson);
 

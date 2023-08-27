@@ -870,14 +870,14 @@ const ETHRoot *ETHExecutionPayloadHeaderGetReceiptsRoot(
     const ETHExecutionPayloadHeader *execution);
 
 /**
- * Execution logs bloom.
+ * Execution logs Bloom.
  */
 typedef struct {
     uint8_t bytes[256];
 } ETHLogsBloom;
 
 /**
- * Obtains the logs bloom of a given execution payload header.
+ * Obtains the logs Bloom of a given execution payload header.
  *
  * - The returned value is allocated in the given execution payload header.
  *   It must neither be released nor written to, and the execution payload
@@ -885,7 +885,7 @@ typedef struct {
  *
  * @param      execution            Execution payload header.
  *
- * @return Execution logs bloom.
+ * @return Execution logs Bloom.
  */
 ETH_RESULT_USE_CHECK
 const ETHLogsBloom *ETHExecutionPayloadHeaderGetLogsBloom(
@@ -1501,13 +1501,14 @@ typedef struct ETHReceipts ETHReceipts;
  *   receipts data for a given transaction hash. For verification, it is
  *   necessary to obtain the receipt for _all_ transactions within a block.
  *   Pass a JSON array containing _all_ receipt's `result` as `receiptsJson`.
- *   The receipts need to be in the same order as the transactions.
+ *   The receipts need to be in the same order as the `transactions`.
  *
  * - The receipt sequence must be destroyed with `ETHReceiptsDestroy`
  *   once no longer needed, to release memory.
  *
  * @param      receiptsRoot         Execution receipts root.
  * @param      receiptsJson         Buffer with JSON receipts list. NULL-terminated.
+ * @param      transactions         Transaction sequence.
  *
  * @return Pointer to an initialized receipt sequence - If successful.
  * @return `NULL` - If the given `receiptsJson` is malformed or incompatible.
@@ -1517,7 +1518,8 @@ typedef struct ETHReceipts ETHReceipts;
 ETH_RESULT_USE_CHECK
 ETHReceipts *ETHReceiptsCreateFromJson(
     const ETHRoot *receiptsRoot,
-    const char *receiptsJson);
+    const char *receiptsJson,
+    const ETHTransactions *transactions);
 
 /**
  * Destroys a receipt sequence.
@@ -1620,7 +1622,7 @@ ETH_RESULT_USE_CHECK
 const uint64_t *ETHReceiptGetGasUsed(const ETHReceipt *receipt);
 
 /**
- * Obtains the logs bloom of a receipt.
+ * Obtains the logs Bloom of a receipt.
  *
  * - The returned value is allocated in the given receipt.
  *   It must neither be released nor written to, and the receipt
@@ -1628,7 +1630,7 @@ const uint64_t *ETHReceiptGetGasUsed(const ETHReceipt *receipt);
  *
  * @param      receipt              Receipt.
  *
- * @return Logs bloom.
+ * @return Logs Bloom.
  */
 ETH_RESULT_USE_CHECK
 const ETHLogsBloom *ETHReceiptGetLogsBloom(const ETHReceipt *receipt);

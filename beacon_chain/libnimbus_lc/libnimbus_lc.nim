@@ -1038,7 +1038,7 @@ func ETHExecutionPayloadHeaderGetReceiptsRoot(
 
 func ETHExecutionPayloadHeaderGetLogsBloom(
     execution: ptr ExecutionPayloadHeader): ptr BloomLogs {.exported.} =
-  ## Obtains the logs bloom of a given execution payload header.
+  ## Obtains the logs Bloom of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
   ##   It must neither be released nor written to, and the execution payload
@@ -1048,7 +1048,7 @@ func ETHExecutionPayloadHeaderGetLogsBloom(
   ## * `execution` - Execution payload header.
   ##
   ## Returns:
-  ## * Execution logs bloom.
+  ## * Execution logs Bloom.
   addr execution[].logs_bloom
 
 func ETHExecutionPayloadHeaderGetPrevRandao(
@@ -1988,7 +1988,8 @@ type
 
 proc ETHReceiptsCreateFromJson(
     receiptsRoot: ptr Eth2Digest,
-    receiptsJson: cstring): ptr seq[ETHReceipt] {.exported.} =
+    receiptsJson: cstring,
+    transactions: ptr seq[ETHTransaction]): ptr seq[ETHReceipt] {.exported.} =
   ## Verifies that JSON receipts data is valid and that it matches
   ## the given `receiptsRoot`.
   ##
@@ -1996,7 +1997,7 @@ proc ETHReceiptsCreateFromJson(
   ##   receipts data for a given transaction hash. For verification, it is
   ##   necessary to obtain the receipt for _all_ transactions within a block.
   ##   Pass a JSON array containing _all_ receipt's `result` as `receiptsJson`.
-  ##   The receipts need to be in the same order as the transactions.
+  ##   The receipts need to be in the same order as the `transactions`.
   ##
   ## * The receipt sequence must be destroyed with `ETHReceiptsDestroy`
   ##   once no longer needed, to release memory.
@@ -2004,6 +2005,7 @@ proc ETHReceiptsCreateFromJson(
   ## Parameters:
   ## * `receiptsRoot` - Execution receipts root.
   ## * `receiptsJson` - Buffer with JSON receipts list. NULL-terminated.
+  ## * `transactions` - Transaction sequence.
   ##
   ## Returns:
   ## * Pointer to an initialized receipt sequence - If successful.
@@ -2020,6 +2022,8 @@ proc ETHReceiptsCreateFromJson(
   try:
     fromJson(node, argName = "", datas)
   except KeyError, ValueError:
+    return nil
+  if datas.len != ETHTransactionsGetCount(transactions):
     return nil
 
   var
@@ -2111,7 +2115,7 @@ proc ETHReceiptsCreateFromJson(
           ReceiptStatusType.Status,
       root: rec.hash,
       status: rec.status,
-      gasUsed: distinctBase(data.gasUsed),  # Validated in sanity checks.
+      gasUsed: distinctBase(data.gasUsed),  # Validated during sanity checks.
       logsBloom: BloomLogs(data: rec.bloom),
       logs: rec.logs.mapIt(ETHLog(
         address: ExecutionAddress(data: it.address),
@@ -2242,7 +2246,7 @@ func ETHReceiptGetGasUsed(
 
 func ETHReceiptGetLogsBloom(
     receipt: ptr ETHReceipt): ptr BloomLogs {.exported.} =
-  ## Obtains the logs bloom of a receipt.
+  ## Obtains the logs Bloom of a receipt.
   ##
   ## * The returned value is allocated in the given receipt.
   ##   It must neither be released nor written to, and the receipt
@@ -2252,7 +2256,7 @@ func ETHReceiptGetLogsBloom(
   ## * `receipt` - Receipt.
   ##
   ## Returns:
-  ## * Logs bloom.
+  ## * Logs Bloom.
   addr receipt[].logsBloom
 
 func ETHReceiptGetLogs(
