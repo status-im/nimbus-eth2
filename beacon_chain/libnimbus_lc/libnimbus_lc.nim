@@ -2130,7 +2130,6 @@ proc ETHReceiptsCreateFromJson(
     except RlpError:
       raiseAssert "Unreachable"
   if tr.rootHash() != receiptsRoot[]:
-    echo $tr.rootHash()
     return nil
 
   let receipts = seq[ETHReceipt].new()
