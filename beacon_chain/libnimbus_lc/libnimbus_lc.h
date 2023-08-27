@@ -1489,6 +1489,55 @@ const void *ETHTransactionGetBytes(
     int *numBytes);
 
 /**
+ * Obtains the EIP-6404 transaction root of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return EIP-6404 transaction root.
+ *
+ * @see https://eips.ethereum.org/EIPS/eip-6404
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHTransactionGetEip6404Root(const ETHTransaction *transaction);
+
+/**
+ * Obtains the raw EIP-6404 byte representation of a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with raw EIP-6404 transaction data.
+ *
+ * @see https://eips.ethereum.org/EIPS/eip-6404
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHTransactionGetEip6404Bytes(
+    const ETHTransaction *transaction,
+    int *numBytes);
+
+/**
+ * Obtains the length of the Snappy compressed EIP-6404 byte representation
+ * of a transaction.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Length of Snappy compressed EIP-6404 transaction data.
+ *
+ * @see https://eips.ethereum.org/EIPS/eip-6404
+ */
+ETH_RESULT_USE_CHECK
+int ETHTransactionGetNumEip6404SnappyBytes(
+    const ETHTransaction *transaction);
+
+/**
  * Receipt sequence.
  */
 typedef struct ETHReceipts ETHReceipts;
@@ -1764,6 +1813,39 @@ ETH_RESULT_USE_CHECK
 const void *ETHReceiptGetBytes(
     const ETHReceipt *receipt,
     int *numBytes);
+
+/**
+ * Obtains the raw EIP-6466 byte representation of a receipt.
+ *
+ * - The returned value is allocated in the given receipt.
+ *   It must neither be released nor written to, and the receipt
+ *   must not be released while the returned value is in use.
+ *
+ * @param      receipt              Receipt.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with raw EIP-6466 receipt data.
+ *
+ * @see https://eips.ethereum.org/EIPS/eip-6466
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHReceiptGetEip6466Bytes(
+    const ETHReceipt *receipt,
+    int *numBytes);
+
+/**
+ * Obtains the length of the Snappy compressed EIP-6466 byte representation
+ * of a receipt.
+ *
+ * @param      receipt              Receipt.
+ *
+ * @return Length of Snappy compressed EIP-6466 receipt data.
+ *
+ * @see https://eips.ethereum.org/EIPS/eip-6466
+ */
+ETH_RESULT_USE_CHECK
+int ETHReceiptGetNumEip6466SnappyBytes(
+    const ETHReceipt *receipt);
 
 #if __has_feature(nullability)
 #pragma clang assume_nonnull end

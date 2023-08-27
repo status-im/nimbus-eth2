@@ -524,6 +524,20 @@ int main(void)
         printHexString(transactionBytes, numTransactionBytes);
         printf("\n");
 
+        const ETHRoot *transactionEip6404Root = ETHTransactionGetEip6404Root(transaction);
+        printf("    - eip6404_root: ");
+        printHexString(transactionEip6404Root, sizeof *transactionEip6404Root);
+        printf("\n");
+
+        int numTransactionEip6404Bytes;
+        const void *transactionEip6404Bytes = ETHTransactionGetEip6404Bytes(transaction, &numTransactionEip6404Bytes);
+        printf("    - eip6404_bytes: ");
+        printHexString(transactionEip6404Bytes, numTransactionEip6404Bytes);
+        printf("\n");
+
+        int numTransactionEip6404SnappyBytes = ETHTransactionGetNumEip6404SnappyBytes(transaction);
+        printf("    - num_eip6404_snappy_bytes: %d\n", numTransactionEip6404SnappyBytes);
+
         printf("    - receipt:\n");
 
         bool receiptHasStatus = ETHReceiptHasStatus(receipt);
@@ -577,6 +591,15 @@ int main(void)
         printf("        - bytes: ");
         printHexString(receiptBytes, numReceiptBytes);
         printf("\n");
+
+        int numReceiptEip6466Bytes;
+        const void *receiptEip6466Bytes = ETHReceiptGetEip6466Bytes(receipt, &numReceiptEip6466Bytes);
+        printf("    - eip6466_bytes: ");
+        printHexString(receiptEip6466Bytes, numReceiptEip6466Bytes);
+        printf("\n");
+
+        int numReceiptEip6466SnappyBytes = ETHReceiptGetNumEip6466SnappyBytes(receipt);
+        printf("    - num_eip6466_snappy_bytes: %d\n", numReceiptEip6466SnappyBytes);
     }
 
     ETHReceiptsDestroy(receipts);
