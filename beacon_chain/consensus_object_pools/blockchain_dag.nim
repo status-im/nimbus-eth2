@@ -2426,7 +2426,7 @@ proc updateHead*(
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
-      isOptHead = newHead.executionValid
+      isOptHead = not newHead.executionValid
 
     if not(isNil(dag.onHeadChanged)):
       let

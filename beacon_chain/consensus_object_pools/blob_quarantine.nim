@@ -70,7 +70,7 @@ func removeBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest) =
 func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
      bool =
   let idxs = quarantine.blobIndices(blck.root)
-  if len(blck.message.body.blob_kzg_commitments) < len(idxs):
+  if len(blck.message.body.blob_kzg_commitments) != len(idxs):
     return false
   for i in 0..<len(idxs):
     if idxs[i] != uint64(i):
