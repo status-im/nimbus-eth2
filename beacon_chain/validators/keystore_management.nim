@@ -630,8 +630,13 @@ proc existsKeystore(keystoreDir: string,
 proc queryValidatorsSource*(config: AnyConf): Future[seq[KeystoreData]] {.
      async.} =
   var keystores: seq[KeystoreData]
-  if len(config.validatorsSource) == 0:
+  if config.validatorsSource.isNone() or
+     len(config.validatorsSource.get()) == 0:
     return keystores
+
+  let vsource = config.validatorsSource.get()
+  logScope:
+    validators_source = vsource
 
   let
     httpFlags: HttpClientFlags = {}
@@ -639,15 +644,13 @@ proc queryValidatorsSource*(config: AnyConf): Future[seq[KeystoreData]] {.
     socketFlags = {SocketFlags.TcpNoDelay}
     client =
       block:
-        let res = RestClientRef.new(config.validatorsSource, prestoFlags,
+        let res = RestClientRef.new(vsource, prestoFlags,
                                     httpFlags, socketFlags = socketFlags)
         if res.isErr():
           # TODO keep trying in case of temporary network failure
-          warn "Unable to resolve validator's source distributed signer " &
-               "address", remote_url = config.validatorsSource
+          warn "Unable to resolve validator's source distributed signer address"
           return keystores
-        else:
-          res.get()
+        res.get()
     keys =
       try:
         let response = await getKeysPlain(client)
@@ -681,7 +684,7 @@ proc queryValidatorsSource*(config: AnyConf): Future[seq[KeystoreData]] {.
       handle: FileLockHandle(opened: false),
       pubkey: pubkey,
       remotes: @[RemoteSignerInfo(
-        url: HttpHostUri(parseUri(config.validatorsSource)),
+        url: HttpHostUri(parseUri(vsource)),
         pubkey: pubkey)],
       flags: {RemoteKeystoreFlag.DynamicKeystore},
       remoteType: RemoteSignerType.Web3Signer))

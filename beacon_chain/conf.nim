@@ -163,7 +163,7 @@ type
 
     validatorsSource* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
-      name: "validators-source"}: string
+      name: "validators-source"}: Option[string]
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
@@ -881,7 +881,7 @@ type
 
     validatorsSource* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
-      name: "validators-source"}: string
+      name: "validators-source"}: Option[string]
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
