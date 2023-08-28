@@ -1356,7 +1356,7 @@ type
     eip6404Bytes: seq[byte]
 
 proc ETHTransactionsCreateFromJson(
-    transactionsRoot: ptr Eth2Digest,
+    transactionsRoot #[optional]#: ptr Eth2Digest,
     transactionsJson: cstring): ptr seq[ETHTransaction] {.exported.} =
   ## Verifies that JSON transactions data is valid and that it matches
   ## the given `transactionsRoot`.
@@ -1659,14 +1659,15 @@ proc ETHTransactionsCreateFromJson(
       eip6404Root: eip6404Tx.hash_tree_root(),
       eip6404Bytes: eip6404Bytes)
 
-  var tr = initHexaryTrie(newMemoryDB())
-  for i, transaction in txs:
-    try:
-      tr.put(rlp.encode(i), distinctBase(transaction.bytes))
-    except RlpError:
-      raiseAssert "Unreachable"
-  if tr.rootHash() != transactionsRoot[]:
-    return nil
+  if transactionsRoot != nil:
+    var tr = initHexaryTrie(newMemoryDB())
+    for i, transaction in txs:
+      try:
+        tr.put(rlp.encode(i), distinctBase(transaction.bytes))
+      except RlpError:
+        raiseAssert "Unreachable"
+    if tr.rootHash() != transactionsRoot[]:
+      return nil
 
   let transactions = seq[ETHTransaction].new()
   transactions[] = txs
@@ -2152,7 +2153,7 @@ type
     eip6466Bytes: seq[byte]
 
 proc ETHReceiptsCreateFromJson(
-    receiptsRoot: ptr Eth2Digest,
+    receiptsRoot #[optional]#: ptr Eth2Digest,
     receiptsJson: cstring,
     transactions: ptr seq[ETHTransaction]): ptr seq[ETHReceipt] {.exported.} =
   ## Verifies that JSON receipts data is valid and that it matches
@@ -2345,14 +2346,15 @@ proc ETHReceiptsCreateFromJson(
       bytes: rlpBytes,
       eip6466Bytes: eip6466Bytes)
 
-  var tr = initHexaryTrie(newMemoryDB())
-  for i, rec in recs:
-    try:
-      tr.put(rlp.encode(i), rec.bytes)
-    except RlpError:
-      raiseAssert "Unreachable"
-  if tr.rootHash() != receiptsRoot[]:
-    return nil
+  if receiptsRoot != nil:
+    var tr = initHexaryTrie(newMemoryDB())
+    for i, rec in recs:
+      try:
+        tr.put(rlp.encode(i), rec.bytes)
+      except RlpError:
+        raiseAssert "Unreachable"
+    if tr.rootHash() != receiptsRoot[]:
+      return nil
 
   let receipts = seq[ETHReceipt].new()
   receipts[] = recs
