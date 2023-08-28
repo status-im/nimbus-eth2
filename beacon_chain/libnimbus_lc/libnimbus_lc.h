@@ -1107,7 +1107,7 @@ typedef struct ETHTransactions ETHTransactions;
  */
 ETH_RESULT_USE_CHECK
 ETHTransactions *ETHTransactionsCreateFromJson(
-    const ETHRoot *transactionsRoot,
+    const ETHRoot *_Nullable transactionsRoot,
     const char *transactionsJson);
 
 /**
@@ -1566,7 +1566,7 @@ typedef struct ETHReceipts ETHReceipts;
  */
 ETH_RESULT_USE_CHECK
 ETHReceipts *ETHReceiptsCreateFromJson(
-    const ETHRoot *receiptsRoot,
+    const ETHRoot *_Nullable receiptsRoot,
     const char *receiptsJson,
     const ETHTransactions *transactions);
 
