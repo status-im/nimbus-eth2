@@ -870,14 +870,14 @@ const ETHRoot *ETHExecutionPayloadHeaderGetReceiptsRoot(
     const ETHExecutionPayloadHeader *execution);
 
 /**
- * Execution logs bloom.
+ * Execution logs Bloom.
  */
 typedef struct {
     uint8_t bytes[256];
 } ETHLogsBloom;
 
 /**
- * Obtains the logs bloom of a given execution payload header.
+ * Obtains the logs Bloom of a given execution payload header.
  *
  * - The returned value is allocated in the given execution payload header.
  *   It must neither be released nor written to, and the execution payload
@@ -885,7 +885,7 @@ typedef struct {
  *
  * @param      execution            Execution payload header.
  *
- * @return Execution logs bloom.
+ * @return Execution logs Bloom.
  */
 ETH_RESULT_USE_CHECK
 const ETHLogsBloom *ETHExecutionPayloadHeaderGetLogsBloom(
@@ -957,27 +957,15 @@ int ETHExecutionPayloadHeaderGetTimestamp(
  *   It must neither be released nor written to, and the execution payload
  *   header must not be released while the returned value is in use.
  *
- * - Use `ETHExecutionPayloadHeaderGetNumExtraDataBytes`
- *   to obtain the length of the buffer.
- *
  * @param      execution            Execution payload header.
+ * @param[out] numBytes             Length of buffer.
  *
  * @return Buffer with execution block extra data.
  */
 ETH_RESULT_USE_CHECK
 const void *ETHExecutionPayloadHeaderGetExtraDataBytes(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the extra data buffer's length of a given execution payload header.
- *
- * @param      execution            Execution payload header.
- *
- * @return Length of execution block extra data.
- */
-ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetNumExtraDataBytes(
-    const ETHExecutionPayloadHeader *execution);
+    const ETHExecutionPayloadHeader *execution,
+    int *numBytes);
 
 /**
  * UInt256 (little-endian)
@@ -1498,6 +1486,283 @@ const void *ETHTransactionGetSignatureBytes(
 ETH_RESULT_USE_CHECK
 const void *ETHTransactionGetBytes(
     const ETHTransaction *transaction,
+    int *numBytes);
+
+/**
+ * Receipt sequence.
+ */
+typedef struct ETHReceipts ETHReceipts;
+
+/**
+ * Verifies that JSON receipts data is valid and that it matches
+ * the given `receiptsRoot`.
+ *
+ * - The JSON-RPC `eth_getTransactionReceipt` may be used to obtain
+ *   receipts data for a given transaction hash. For verification, it is
+ *   necessary to obtain the receipt for _all_ transactions within a block.
+ *   Pass a JSON array containing _all_ receipt's `result` as `receiptsJson`.
+ *   The receipts need to be in the same order as the `transactions`.
+ *
+ * - The receipt sequence must be destroyed with `ETHReceiptsDestroy`
+ *   once no longer needed, to release memory.
+ *
+ * @param      receiptsRoot         Execution receipts root.
+ * @param      receiptsJson         Buffer with JSON receipts list. NULL-terminated.
+ * @param      transactions         Transaction sequence.
+ *
+ * @return Pointer to an initialized receipt sequence - If successful.
+ * @return `NULL` - If the given `receiptsJson` is malformed or incompatible.
+ *
+ * @see https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_gettransactionreceipt
+ */
+ETH_RESULT_USE_CHECK
+ETHReceipts *ETHReceiptsCreateFromJson(
+    const ETHRoot *receiptsRoot,
+    const char *receiptsJson,
+    const ETHTransactions *transactions);
+
+/**
+ * Destroys a receipt sequence.
+ *
+ * - The receipt sequence must no longer be used after destruction.
+ *
+ * @param      receipts             Receipt sequence.
+ */
+void ETHReceiptsDestroy(ETHReceipts *receipts);
+
+/**
+ * Indicates the total number of receipts in a receipt sequence.
+ *
+ * - Individual receipts may be investigated using `ETHReceiptsGet`.
+ *
+ * @param      receipts             Receipt sequence.
+ *
+ * @return Number of available receipts.
+ */
+ETH_RESULT_USE_CHECK
+int ETHReceiptsGetCount(const ETHReceipts *receipts);
+
+/**
+ * Receipt.
+ */
+typedef struct ETHReceipt ETHReceipt;
+
+/**
+ * Obtains an individual receipt by sequential index
+ * in a receipt sequence.
+ *
+ * - The returned value is allocated in the given receipt sequence.
+ *   It must neither be released nor written to, and the receipt
+ *   sequence must not be released while the returned value is in use.
+ *
+ * @param      receipts             Receipt sequence.
+ * @param      receiptIndex         Sequential receipt index.
+ *
+ * @return Receipt.
+ */
+ETH_RESULT_USE_CHECK
+const ETHReceipt *ETHReceiptsGet(
+    const ETHReceipts *receipts,
+    int receiptIndex);
+
+/**
+ * Indicates whether or not a receipt has a status code.
+ *
+ * @param      receipt              Receipt.
+ *
+ * @return Whether or not the receipt has a status code.
+ *
+ * @see https://eips.ethereum.org/EIPS/eip-658
+ */
+ETH_RESULT_USE_CHECK
+bool ETHReceiptHasStatus(const ETHReceipt *receipt);
+
+/**
+ * Obtains the intermediate post-state root of a receipt with no status code.
+ *
+ * - If the receipt has a status code, this function returns a zero hash.
+ *
+ * - The returned value is allocated in the given receipt.
+ *   It must neither be released nor written to, and the receipt
+ *   must not be released while the returned value is in use.
+ *
+ * @param      receipt              Receipt.
+ *
+ * @return Intermediate post-state root.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHReceiptGetRoot(const ETHReceipt *receipt);
+
+/**
+ * Obtains the status code of a receipt with a status code.
+ *
+ * - If the receipt has no status code, this function returns true.
+ *
+ * @param      receipt              Receipt.
+ *
+ * @return Status code.
+ *
+ * @see https://eips.ethereum.org/EIPS/eip-658
+ */
+ETH_RESULT_USE_CHECK
+bool ETHReceiptGetStatus(const ETHReceipt *receipt);
+
+/**
+ * Obtains the gas used of a receipt.
+ *
+ * - The returned value is allocated in the given receipt.
+ *   It must neither be released nor written to, and the receipt
+ *   must not be released while the returned value is in use.
+ *
+ * @param      receipt              Receipt.
+ *
+ * @return Gas used.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHReceiptGetGasUsed(const ETHReceipt *receipt);
+
+/**
+ * Obtains the logs Bloom of a receipt.
+ *
+ * - The returned value is allocated in the given receipt.
+ *   It must neither be released nor written to, and the receipt
+ *   must not be released while the returned value is in use.
+ *
+ * @param      receipt              Receipt.
+ *
+ * @return Logs Bloom.
+ */
+ETH_RESULT_USE_CHECK
+const ETHLogsBloom *ETHReceiptGetLogsBloom(const ETHReceipt *receipt);
+
+/**
+ * Log sequence.
+ */
+typedef struct ETHLogs ETHLogs;
+
+/**
+ * Obtains the logs of a receipt.
+ *
+ * - The returned value is allocated in the given receipt.
+ *   It must neither be released nor written to, and the receipt
+ *   must not be released while the returned value is in use.
+ *
+ * @param      receipt              Receipt.
+ *
+ * @return Log sequence.
+ */
+ETH_RESULT_USE_CHECK
+const ETHLogs *ETHReceiptGetLogs(const ETHReceipt *receipt);
+
+/**
+ * Indicates the total number of logs in a log sequence.
+ *
+ * - Individual logs may be investigated using `ETHLogsGet`.
+ *
+ * @param      logs                 Log sequence.
+ *
+ * @return Number of available logs.
+ */
+ETH_RESULT_USE_CHECK
+int ETHLogsGetCount(const ETHLogs *logs);
+
+/**
+ * Log.
+ */
+typedef struct ETHLog ETHLog;
+
+/**
+ * Obtains an individual log by sequential index in a log sequence.
+ *
+ * - The returned value is allocated in the given log sequence.
+ *   It must neither be released nor written to, and the log sequence
+ *   must not be released while the returned value is in use.
+ *
+ * @param      logs                 Log sequence.
+ * @param      logIndex             Sequential log index.
+ *
+ * @return Log.
+ */
+ETH_RESULT_USE_CHECK
+const ETHLog *ETHLogsGet(
+    const ETHLogs *logs,
+    int logIndex);
+
+/**
+ * Obtains the address of a log.
+ *
+ * - The returned value is allocated in the given log.
+ *   It must neither be released nor written to, and the log
+ *   must not be released while the returned value is in use.
+ *
+ * @param      log                  Log.
+ *
+ * @return Address.
+ */
+ETH_RESULT_USE_CHECK
+const ETHExecutionAddress *ETHLogGetAddress(const ETHLog *log);
+
+/**
+ * Indicates the total number of topics in a log.
+ *
+ * - Individual topics may be investigated using `ETHLogGetTopic`.
+ *
+ * @param      log                  Log.
+ *
+ * @return Number of available topics.
+ */
+ETH_RESULT_USE_CHECK
+int ETHLogGetNumTopics(const ETHLog *log);
+
+/**
+ * Obtains an individual topic by sequential index in a log.
+ *
+ * - The returned value is allocated in the given log.
+ *   It must neither be released nor written to, and the log
+ *   must not be released while the returned value is in use.
+ *
+ * @param      log                  Log.
+ * @param      topicIndex           Sequential topic index.
+ *
+ * @return Topic.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHLogGetTopic(
+    const ETHLog *log,
+    int topicIndex);
+
+/**
+ * Obtains the data of a log.
+ *
+ * - The returned value is allocated in the given log.
+ *   It must neither be released nor written to, and the log
+ *   must not be released while the returned value is in use.
+ *
+ * @param      log                  Log.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with data.
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHLogGetDataBytes(
+    const ETHLog *log,
+    int *numBytes);
+
+/**
+ * Obtains the raw byte representation of a receipt.
+ *
+ * - The returned value is allocated in the given receipt.
+ *   It must neither be released nor written to, and the receipt
+ *   must not be released while the returned value is in use.
+ *
+ * @param      receipt              Receipt.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with raw receipt data.
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHReceiptGetBytes(
+    const ETHReceipt *receipt,
     int *numBytes);
 
 #if __has_feature(nullability)
