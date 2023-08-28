@@ -1584,11 +1584,8 @@ proc ETHTransactionsCreateFromJson(
         `from`: ExecutionAddress
         ecdsa_signature: array[65, byte]
 
-        # EIP-155
-        no_replay_protection: Opt[bool]  # Only present in Legacy transactions
-
         # EIP-2718
-        `type`: Opt[uint8]  # Only present in RLP transactions
+        `type`: Opt[uint8]
 
       Eip6404Transaction = object
         payload: PartialContainer[Eip6404TransactionPayload, 32]
@@ -1623,11 +1620,10 @@ proc ETHTransactionsCreateFromJson(
 
     eip6404Tx.signature.`from` = ExecutionAddress(data: fromAddress)
     eip6404Tx.signature.ecdsa_signature = rawSig
-    if tx.txType == TxLegacy:
-      eip6404Tx.signature.no_replay_protection.ok(tx.V in [27'i64, 28'i64])
     case tx.txType
     of TxLegacy:
-      `.`(eip6404Tx.signature, `type`).ok(0x00)
+      if tx.V notin [27'i64, 28'i64]:  # With replay protection
+        `.`(eip6404Tx.signature, `type`).ok(0x00)
     of TxEip2930:
       `.`(eip6404Tx.signature, `type`).ok(0x01)
     of TxEip1559:
