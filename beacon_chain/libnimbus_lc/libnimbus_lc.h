@@ -1122,7 +1122,7 @@ void ETHTransactionsDestroy(ETHTransactions *transactions);
 /**
  * Indicates the total number of transactions in a transaction sequence.
  *
- * - Individual transactions may be investigated using `ETHTransactionsGet`.
+ * - Individual transactions may be inspected using `ETHTransactionsGet`.
  *
  * @param      transactions         Transaction sequence.
  *
@@ -1332,7 +1332,7 @@ const ETHAccessList *ETHTransactionGetAccessList(const ETHTransaction *transacti
 /**
  * Indicates the total number of access tuples in a transaction access list.
  *
- * - Individual access tuples may be investigated using `ETHAccessListGet`.
+ * - Individual access tuples may be inspected using `ETHAccessListGet`.
  *
  * @param      accessList           Transaction access list.
  *
@@ -1381,7 +1381,7 @@ const ETHExecutionAddress *ETHAccessTupleGetAddress(const ETHAccessTuple *access
 /**
  * Indicates the total number of storage keys in an access tuple.
  *
- * - Individual storage keys may be investigated using
+ * - Individual storage keys may be inspected using
  *   `ETHAccessTupleGetStorageKey`.
  *
  * @param      accessTuple          Access tuple.
@@ -1426,7 +1426,7 @@ const uint64_t *ETHTransactionGetMaxFeePerBlobGas(const ETHTransaction *transact
 /**
  * Indicates the total number of blob versioned hashes of a transaction.
  *
- * - Individual blob versioned hashes may be investigated using
+ * - Individual blob versioned hashes may be inspected using
  *   `ETHTransactionGetBlobVersionedHash`.
  *
  * @param      transaction          Transaction.
@@ -1582,7 +1582,7 @@ void ETHReceiptsDestroy(ETHReceipts *receipts);
 /**
  * Indicates the total number of receipts in a receipt sequence.
  *
- * - Individual receipts may be investigated using `ETHReceiptsGet`.
+ * - Individual receipts may be inspected using `ETHReceiptsGet`.
  *
  * @param      receipts             Receipt sequence.
  *
@@ -1706,7 +1706,7 @@ const ETHLogs *ETHReceiptGetLogs(const ETHReceipt *receipt);
 /**
  * Indicates the total number of logs in a log sequence.
  *
- * - Individual logs may be investigated using `ETHLogsGet`.
+ * - Individual logs may be inspected using `ETHLogsGet`.
  *
  * @param      logs                 Log sequence.
  *
@@ -1754,7 +1754,7 @@ const ETHExecutionAddress *ETHLogGetAddress(const ETHLog *log);
 /**
  * Indicates the total number of topics in a log.
  *
- * - Individual topics may be investigated using `ETHLogGetTopic`.
+ * - Individual topics may be inspected using `ETHLogGetTopic`.
  *
  * @param      log                  Log.
  *

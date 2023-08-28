@@ -1686,7 +1686,7 @@ func ETHTransactionsGetCount(
     transactions: ptr seq[ETHTransaction]): cint {.exported.} =
   ## Indicates the total number of transactions in a transaction sequence.
   ##
-  ## * Individual transactions may be investigated using `ETHTransactionsGet`.
+  ## * Individual transactions may be inspected using `ETHTransactionsGet`.
   ##
   ## Parameters:
   ## * `transactions` - Transaction sequence.
@@ -1907,7 +1907,7 @@ func ETHAccessListGetCount(
     accessList: ptr seq[ETHAccessTuple]): cint {.exported.} =
   ## Indicates the total number of access tuples in a transaction access list.
   ##
-  ## * Individual access tuples may be investigated using `ETHAccessListGet`.
+  ## * Individual access tuples may be inspected using `ETHAccessListGet`.
   ##
   ## Parameters:
   ## * `accessList` - Transaction access list.
@@ -1953,7 +1953,7 @@ func ETHAccessTupleGetNumStorageKeys(
     accessTuple: ptr ETHAccessTuple): cint {.exported.} =
   ## Indicates the total number of storage keys in an access tuple.
   ##
-  ## * Individual storage keys may be investigated using
+  ## * Individual storage keys may be inspected using
   ##   `ETHAccessTupleGetStorageKey`.
   ##
   ## Parameters:
@@ -2000,7 +2000,7 @@ func ETHTransactionGetNumBlobVersionedHashes(
     transaction: ptr ETHTransaction): cint {.exported.} =
   ## Indicates the total number of blob versioned hashes of a transaction.
   ##
-  ## * Individual blob versioned hashes may be investigated using
+  ## * Individual blob versioned hashes may be inspected using
   ##   `ETHTransactionGetBlobVersionedHash`.
   ##
   ## Parameters:
@@ -2372,7 +2372,7 @@ func ETHReceiptsGetCount(
     receipts: ptr seq[ETHReceipt]): cint {.exported.} =
   ## Indicates the total number of receipts in a receipt sequence.
   ##
-  ## * Individual receipts may be investigated using `ETHReceiptsGet`.
+  ## * Individual receipts may be inspected using `ETHReceiptsGet`.
   ##
   ## Parameters:
   ## * `receipts` - Receipt sequence.
@@ -2499,7 +2499,7 @@ func ETHLogsGetCount(
     logs: ptr seq[ETHLog]): cint {.exported.} =
   ## Indicates the total number of logs in a log sequence.
   ##
-  ## * Individual logs may be investigated using `ETHLogsGet`.
+  ## * Individual logs may be inspected using `ETHLogsGet`.
   ##
   ## Parameters:
   ## * `logs` - Log sequence.
@@ -2544,7 +2544,7 @@ func ETHLogGetNumTopics(
     log: ptr ETHLog): cint {.exported.} =
   ## Indicates the total number of topics in a log.
   ##
-  ## * Individual topics may be investigated using `ETHLogGetTopic`.
+  ## * Individual topics may be inspected using `ETHLogGetTopic`.
   ##
   ## Parameters:
   ## * `log` - Log.
