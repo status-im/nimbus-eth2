@@ -594,12 +594,12 @@ int main(void)
 
         int numReceiptEip6493Bytes;
         const void *receiptEip6493Bytes = ETHReceiptGetEip6493Bytes(receipt, &numReceiptEip6493Bytes);
-        printf("    - eip6493_bytes: ");
+        printf("        - eip6493_bytes: ");
         printHexString(receiptEip6493Bytes, numReceiptEip6493Bytes);
         printf("\n");
 
         int numReceiptEip6493SnappyBytes = ETHReceiptGetNumEip6493SnappyBytes(receipt);
-        printf("    - num_eip6493_snappy_bytes: %d\n", numReceiptEip6493SnappyBytes);
+        printf("        - num_eip6493_snappy_bytes: %d\n", numReceiptEip6493SnappyBytes);
     }
 
     ETHReceiptsDestroy(receipts);
