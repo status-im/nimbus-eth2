@@ -1430,7 +1430,7 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
     discard connection.trackedRequestWithTimeout(
       "exchangeTransitionConfiguration",
       rpcClient.engine_exchangeTransitionConfigurationV1(ourConf),
-      timeout = 5.seconds)
+      timeout = 1.seconds)
   except CatchableError as err:
     warn "Failed to exchange transition configuration",
           url = connection.engineUrl, err = err.msg
