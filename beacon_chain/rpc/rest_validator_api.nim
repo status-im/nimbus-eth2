@@ -559,12 +559,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, res.error())
       return responseVersioned(res.get().blindedBlckPart, contextFork)
     of ConsensusFork.Bellatrix:
-      let res = await makeBlindedBeaconBlockForHeadAndSlot[
-          bellatrix_mev.BlindedBeaconBlock](
-        node, payloadBuilderClient, qrandao, proposer, qgraffiti, qhead, qslot)
-      if res.isErr():
-        return RestApiResponse.jsonError(Http400, res.error())
-      return responseVersioned(res.get().blindedBlckPart, contextFork)
+      return RestApiResponse.jsonError(Http400, "Pre-Capella builder API unsupported")
     of ConsensusFork.Altair, ConsensusFork.Phase0:
       # Pre-Bellatrix, this endpoint will return a BeaconBlock
       let res = await makeBeaconBlockForHeadAndSlot(

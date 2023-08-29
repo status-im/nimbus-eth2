@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -36,7 +36,7 @@
 # * Throughout, we're affected by the overloading rules that prefer a `var`
 #   overload to a non-var overload - look for `asSeq()` - when the `var`
 #   overload is used, the hash tree cache is cleared, which, aside from being
-#   slow itself, causes additional processing to recalculate the merkle tree.
+#   slow itself, causes additional processing to recalculate the Merkle tree.
 
 {.push raises: [].}
 
@@ -50,6 +50,9 @@ import
     state_transition_block, state_transition_epoch, validator]
 
 export results, extras, phase0, altair, bellatrix
+
+logScope:
+  topics = "state_transition"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
@@ -361,7 +364,7 @@ template partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
@@ -420,7 +423,7 @@ template partialBeaconBlock*(
       sync_aggregate: sync_aggregate,
       execution_payload: execution_payload.executionPayload))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/validator.md#block-proposal
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/validator.md#block-proposal
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var capella.HashedBeaconState,
@@ -537,7 +540,7 @@ proc makeBeaconBlock*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#beaconblockbody
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.

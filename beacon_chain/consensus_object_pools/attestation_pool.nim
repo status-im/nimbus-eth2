@@ -65,7 +65,7 @@ type
     ## "free" attestations with those found in past blocks - these votes
     ## are tracked separately in the fork choice.
 
-    candidates*: array[ATTESTATION_LOOKBACK, AttestationTable] ## \
+    candidates*: array[ATTESTATION_LOOKBACK.int, AttestationTable] ## \
       ## We keep one item per slot such that indexing matches slot number
       ## together with startingSlot
 
@@ -772,7 +772,7 @@ proc getBeaconHead*(
     finalizedExecutionPayloadHash =
       pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/fork_choice/safe-block.md#get_safe_execution_payload_hash
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/fork_choice/safe-block.md#get_safe_execution_payload_hash
     safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionPayloadHash =
@@ -795,7 +795,6 @@ proc getBeaconHead*(
 proc selectOptimisticHead*(
     pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
   ## Trigger fork choice and returns the new head block.
-  # TODO rename this to get_optimistic_head
   let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime)
   if newHeadRoot.isErr:
     error "Couldn't select head", err = newHeadRoot.error

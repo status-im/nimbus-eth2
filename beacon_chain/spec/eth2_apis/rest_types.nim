@@ -18,12 +18,12 @@ import
   stew/base10, web3/ethtypes,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
-  ".."/mev/[bellatrix_mev, capella_mev, deneb_mev]
+  ".."/mev/[capella_mev, deneb_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
 
-export forks, phase0, altair, bellatrix, capella, bellatrix_mev, capella_mev,
-       deneb_mev, tables
+export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
+       tables
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -298,8 +298,8 @@ type
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: Option[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
       ## [New in Capella]
-    data_gas_used*: Option[uint64]   ## [New in Deneb]
-    excess_data_gas*: Option[uint64] ## [New in Deneb]
+    blob_gas_used*: Option[uint64]   ## [New in Deneb]
+    excess_blob_gas*: Option[uint64] ## [New in Deneb]
 
 
   PrepareBeaconProposer* = object
@@ -377,7 +377,7 @@ type
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/altair.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/presets/mainnet/altair.yaml
     INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
@@ -386,7 +386,7 @@ type
     MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     UPDATE_TIMEOUT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/bellatrix.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/presets/mainnet/bellatrix.yaml
     INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
@@ -395,7 +395,7 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/capella.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/presets/mainnet/capella.yaml
     MAX_BLS_TO_EXECUTION_CHANGES*: uint64
     MAX_WITHDRAWALS_PER_PAYLOAD*: uint64
     MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP*: uint64
@@ -475,7 +475,7 @@ type
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
     ATTESTATION_SUBNET_COUNT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#constants
     TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
     SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 
@@ -594,7 +594,9 @@ type
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
-      beaconBlock* {.
+      # https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
+      # https://github.com/Consensys/web3signer/blob/2d956c019663ac70f60640d23196d1d321c1b1fa/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L483-L500
+      beaconBlockHeader* {.
         serializedFieldName: "beacon_block".}: Web3SignerForkedBeaconBlock
       proofs*: Opt[seq[Web3SignerMerkleProof]]
     of Web3SignerRequestKind.Deposit:
@@ -650,7 +652,6 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponseBellatrix* = DataVersionEnclosedObject[bellatrix_mev.SignedBuilderBid]
   GetHeaderResponseCapella* = DataVersionEnclosedObject[capella_mev.SignedBuilderBid]
   GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
@@ -679,7 +680,6 @@ type
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponseBellatrix* = DataEnclosedObject[bellatrix.ExecutionPayload]
   SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
   SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb.ExecutionPayload]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
@@ -825,7 +825,7 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
-    beaconBlock: data
+    beaconBlockHeader: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
@@ -841,7 +841,7 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     )),
     signingRoot: signingRoot,
     proofs: Opt.some(@proofs),
-    beaconBlock: data
+    beaconBlockHeader: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,

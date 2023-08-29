@@ -697,13 +697,13 @@ proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
     reader.raiseUnexpectedValue("Missing URL hostname")
   value = HttpHostUri(res)
 
-proc writeValue*(writer: var JsonWriter, value: HttpHostUri) {.
-     raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: HttpHostUri) {.raises: [IOError].} =
   writer.writeValue($distinctBase(value))
 
 # RemoteKeystore
-proc writeValue*(writer: var JsonWriter, value: RemoteKeystore)
-                {.raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: RemoteKeystore) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("version", value.version)
   writer.writeField("pubkey", "0x" & value.pubkey.toHex())
@@ -905,10 +905,6 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
         provenBlockProperties: provenBlockProperties.get,
         remotes: remotes.get,
         threshold: threshold.get(1))
-
-template writeValue*(w: var JsonWriter,
-                     value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
-  writeJsonHexString(w.stream, distinctBase value)
 
 template bytes(value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv): seq[byte] =
   distinctBase value
@@ -1178,8 +1174,9 @@ proc decryptKeystore*(keystore: JsonString,
                       password: KeystorePass): KsResult[ValidatorPrivKey] =
   decryptKeystore(keystore, password, nil)
 
-proc writeValue*(writer: var JsonWriter, value: lcrypto.PublicKey) {.
-     inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: lcrypto.PublicKey
+) {.inline, raises: [IOError].} =
   writer.writeValue(ncrutils.toHex(value.getBytes().get(),
                                    {HexFlags.LowerCase}))
 
@@ -1366,13 +1363,13 @@ proc createWallet*(kdfKind: KdfKind,
     crypto: crypto,
     nextAccount: nextAccount.get(0))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#bls_withdrawal_prefix
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#bls_withdrawal_prefix
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 

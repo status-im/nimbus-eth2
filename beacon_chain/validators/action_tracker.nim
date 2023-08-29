@@ -139,7 +139,7 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
       res[duty.subnet_id.int] = true
   res
 
-# TODO https://github.com/nim-lang/Nim/issues/22215 keeps from stabilitySubnets
+# TODO https://github.com/nim-lang/Nim/issues/12172 keeps from stabilitySubnets
 const allSubnetBits = block:
   var res: AttnetBits
   for i in 0..<res.len: res[i] = true
@@ -151,8 +151,7 @@ func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
   else:
     var res: AttnetBits
 
-    if  tracker.useOldStabilitySubnets or
-        tracker.stabilitySubnets.len < SUBNETS_PER_NODE.int:
+    if tracker.useOldStabilitySubnets or tracker.stabilitySubnets.len == 0:
       for v in tracker.stabilitySubnets:
         res[v.subnet_id.int] = true
     else:

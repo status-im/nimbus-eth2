@@ -44,7 +44,8 @@ suite "Block pool processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -293,7 +294,8 @@ suite "Block pool altair processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
@@ -369,7 +371,8 @@ suite "chain DAG finalization tests" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -639,7 +642,8 @@ suite "Old database versions" & preset():
         {skipBlsValidation}))
       genBlock = get_initial_beacon_block(genState[])
     var
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
 
   test "pre-1.1.0":
@@ -687,7 +691,8 @@ suite "Diverging hardforks":
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -929,7 +934,7 @@ suite "Backfill":
       taskpool = Taskpool.new()
     var
       cache: StateCache
-      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
 
     let
@@ -1070,7 +1075,8 @@ suite "Latest valid hash" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, runtimeConfig, db, validatorMonitor, {})
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -1139,7 +1145,8 @@ suite "Pruning":
       tmpState = assignClone(dag.headState)
 
     var
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
       cache = StateCache()
       blocks = @[dag.head]
@@ -1196,7 +1203,7 @@ suite "Ancestry":
     type Node = tuple[blck: BlockRef, state: ref phase0.HashedBeaconState]
     template bid(n: Node): BlockId = n.blck.bid
 
-    var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    var verifier = BatchVerifier.init(rng, taskpool)
     proc addBlock(parent: Node, slot: Slot): Node =
       dag.updateHead(parent.blck, quarantine[], [])
 
@@ -1491,7 +1498,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     taskpool = Taskpool.new()
 
   var
-    verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    verifier = BatchVerifier.init(rng, taskpool)
     graffiti: GraffitiBytes
   proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
     inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
@@ -1568,7 +1575,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     ## Check that computed shuffling matches the one from `EpochRef`.
     block:
       let computedShufflingRef = computedShufflingRefParam
-      if computedShufflingRef.isOk:
+      if computedShufflingRef.isSome:
         check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
 
   test "Accelerated shuffling computation":
@@ -1583,6 +1590,14 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       let epochRef = dag.getEpochRef(blck, epoch, true)
       check epochRef.isOk
 
+      let dependentBsi = dag.atSlot(blck.bid, epoch.attester_dependent_slot)
+      check dependentBsi.isSome
+      let
+        memoryMix = dag.computeRandaoMixFromMemory(
+          dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
+        databaseMix = dag.computeRandaoMixFromDatabase(
+          dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
+
       # If shuffling is computable from DAG, check its correctness
       epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
 
@@ -1593,18 +1608,32 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       for state in states:
         withState(state[]):
           let
-            shufflingRef =
-              dag.computeShufflingRefFromState(forkyState, blck, epoch)
             stateEpoch = forkyState.data.get_current_epoch
             blckEpoch = blck.bid.slot.epoch
             minEpoch = min(stateEpoch, blckEpoch)
+            lowSlot = epoch.lowSlotForAttesterShuffling
+            shufflingRef = dag.computeShufflingRef(forkyState, blck, epoch)
+            mix = dag.computeRandaoMix(forkyState,
+              dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
           if compute_activation_exit_epoch(minEpoch) <= epoch or
-              dag.ancestorSlotForAttesterShuffling(
-                forkyState, blck, epoch).isNone:
-            check shufflingRef.isErr
+              dag.ancestorSlot(
+                forkyState, dependentBsi.get.bid,
+                epoch.lowSlotForAttesterShuffling).isNone:
+            check:
+              shufflingRef.isNone
+              mix.isNone
           else:
-            check shufflingRef.isOk
+            check shufflingRef.isSome
             epochRef.checkShuffling shufflingRef
+            check:
+              mix.isSome
+              memoryMix.isNone or mix == memoryMix
+              databaseMix.isNone or mix == databaseMix
+            epochRef.checkShuffling Opt.some ShufflingRef(
+              epoch: epoch,
+              attester_dependent_root: dependentBsi.get.bid.root,
+              shuffled_active_validator_indices: forkyState.data
+                .get_shuffled_active_validator_indices(epoch, mix.get))
 
   test "Accelerated shuffling computation (with epochRefState jump)":
     # Test cases where `epochRefState` is set to a very old block

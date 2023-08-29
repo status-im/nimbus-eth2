@@ -22,6 +22,9 @@ from  ../spec/state_transition_block import validate_blobs
 
 export eth2_processor, eth2_network
 
+logScope:
+  topics = "message_router"
+
 declareCounter beacon_voluntary_exits_sent,
   "Number of beacon voluntary sent by this node"
 
@@ -86,8 +89,7 @@ func shortLog*(v: SignedBlobSidecars): auto =
 type RouteBlockResult = Result[Opt[BlockRef], cstring]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-  blobsOpt: Opt[SignedBlobSidecars]):
-    Future[RouteBlockResult] {.async.} =
+    blobsOpt: Opt[SignedBlobSidecars]): Future[RouteBlockResult] {.async.} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
@@ -149,28 +151,28 @@ proc routeSignedBeaconBlock*(
     var workers = newSeq[Future[SendResult]](signedBlobs.len)
     for i in 0..<signedBlobs.len:
       let subnet_id = compute_subnet_for_blob_sidecar(BlobIndex(i))
-      workers[i] = router[].network.broadcastBlobsidecar(subnet_id, signedBlobs[i])
+      workers[i] = router[].network.broadcastBlobSidecar(subnet_id, signedBlobs[i])
     let allres = await allFinished(workers)
     for i in 0..<allres.len:
       let res = allres[i]
       doAssert res.finished()
       if res.failed():
         notice "Blob not sent",
-         blob = shortLog(signedBlobs[i])
+          blob = shortLog(signedBlobs[i]), error = res.error[]
       else:
-        notice "Blob sent", blob = shortLog(signedBlobs[i]), error = res.error[]
+        notice "Blob sent", blob = shortLog(signedBlobs[i])
     blobs = Opt.some(blobsOpt.get().mapIt(newClone(it.message)))
 
-  let newBlockRef = await router[].blockProcessor.storeBlock(
-    MsgSource.api, sendTime, blck, blobs)
+  let added = await router[].blockProcessor[].addBlock(
+    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobs)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
-  if newBlockRef.isErr():
-    return if newBlockRef.error()[0] != VerifierError.Duplicate:
+  if added.isErr():
+    return if added.error() != VerifierError.Duplicate:
       warn "Unable to add routed block to block pool",
         blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-        signature = shortLog(blck.signature), err = newBlockRef.error()
+        signature = shortLog(blck.signature), err = added.error()
       ok(Opt.none(BlockRef))
     else:
       # If it's duplicate, there's an existing BlockRef to return. The block
@@ -180,10 +182,16 @@ proc routeSignedBeaconBlock*(
       if blockRef.isErr:
         warn "Unable to add routed duplicate block to block pool",
           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-          signature = shortLog(blck.signature), err = newBlockRef.error()
+          signature = shortLog(blck.signature), err = added.error()
       ok(blockRef)
 
-  return ok(Opt.some(newBlockRef.get()))
+
+  let blockRef = router[].dag.getBlockRef(blck.root)
+  if blockRef.isErr:
+    warn "Block finalised while waiting for block processor",
+      blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+      signature = shortLog(blck.signature)
+  ok(blockRef)
 
 proc routeAttestation*(
     router: ref MessageRouter, attestation: Attestation,

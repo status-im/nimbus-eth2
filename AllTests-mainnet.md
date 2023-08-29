@@ -382,8 +382,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Nimbus remote signer/signing test (web3signer)
 ```diff
 + Connection timeout test                                                                    OK
-+ Connections pool stress test                                                               OK
-+ Idle connection test                                                                       OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
 + Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
@@ -401,7 +399,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -586,10 +584,12 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ bestSuccess() API timeout test                                                             OK
++ firstSuccessParallel() API timeout test                                                    OK
 + getAttestationDataScore() test vectors                                                     OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK

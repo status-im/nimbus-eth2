@@ -725,6 +725,9 @@ fi
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 cleanup() {
+  echo "Current port usage:"
+  lsof -i -P | grep LISTEN
+
   echo "Cleaning up"
 
   # Avoid the trap enterring an infinite loop
@@ -930,7 +933,7 @@ if [[ "${LIGHTHOUSE_VC_NODES}" != "0" ]]; then
 fi
 
 dump_logs() {
-  LOG_LINES=20
+  LOG_LINES=50
   for LOG in "${DATA_DIR}"/logs/*; do
     echo "Last ${LOG_LINES} lines of ${LOG}:"
     tail -n ${LOG_LINES} "${LOG}"

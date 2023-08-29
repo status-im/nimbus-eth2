@@ -279,6 +279,12 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
         indices[listIndex[]] = some(ValidatorIndex(validatorIndex))
   indices
 
+proc getBidOptimistic*(node: BeaconNode, bid: BlockId): Option[bool] =
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+    some[bool](node.dag.is_optimistic(bid))
+  else:
+    none[bool]()
+
 proc getShufflingOptimistic*(node: BeaconNode,
                              dependentSlot: Slot,
                              dependentRoot: Eth2Digest): Option[bool] =

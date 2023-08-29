@@ -39,7 +39,7 @@ import
   ../gossip_processing/block_processor,
   ".."/[conf, beacon_clock, beacon_node],
   "."/[slashing_protection, validator_pool, keystore_management],
-  ".."/spec/mev/[rest_bellatrix_mev_calls, rest_capella_mev_calls]
+  ".."/spec/mev/rest_capella_mev_calls
 
 from eth/async_utils import awaitWithTimeout
 
@@ -311,8 +311,8 @@ proc getExecutionPayload(
         else:
           @[]
       payload = await node.elManager.getPayload(
-        PayloadType, executionHead, latestSafe, latestFinalized,
-        timestamp, random, feeRecipient, withdrawals)
+        PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
+        latestFinalized, timestamp, random, feeRecipient, withdrawals)
 
     if payload.isNone:
       error "Failed to obtain execution payload from EL",
@@ -522,8 +522,7 @@ func constructSignableBlindedBlock[T](
   blindedBlock
 
 func constructPlainBlindedBlock[
-    T: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock,
-    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
+    T: capella_mev.BlindedBeaconBlock, EPH: capella.ExecutionPayloadHeader](
     blck: ForkyBeaconBlock, executionPayloadHeader: EPH): T =
   const
     blckFields = getFieldNames(typeof(blck))
@@ -574,8 +573,7 @@ proc blindedBlockCheckSlashingAndSign[T](
   return ok blindedBlock
 
 proc getUnsignedBlindedBeaconBlock[
-    T: bellatrix_mev.SignedBlindedBeaconBlock |
-       capella_mev.SignedBlindedBeaconBlock |
+    T: capella_mev.SignedBlindedBeaconBlock |
        deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
@@ -588,8 +586,6 @@ proc getUnsignedBlindedBeaconBlock[
       return err("getUnsignedBlindedBeaconBlock: Deneb blinded block creation not implemented")
     elif consensusFork >= ConsensusFork.Bellatrix:
       when not (
-          (T is bellatrix_mev.SignedBlindedBeaconBlock and
-           consensusFork == ConsensusFork.Bellatrix) or
           (T is capella_mev.SignedBlindedBeaconBlock and
            consensusFork == ConsensusFork.Capella)):
         return err("getUnsignedBlindedBeaconBlock: mismatched block/payload types")
@@ -675,8 +671,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
      forkedBlck.blck))
 
 proc getBuilderBid[
-    SBBB: bellatrix_mev.SignedBlindedBeaconBlock |
-          capella_mev.SignedBlindedBeaconBlock |
+    SBBB: capella_mev.SignedBlindedBeaconBlock |
           deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     validator: AttachedValidator, slot: Slot, randao: ValidatorSig,
@@ -684,9 +679,7 @@ proc getBuilderBid[
     Future[BlindedBlockResult[SBBB]] {.async.} =
   ## Returns the unsigned blinded block obtained from the Builder API.
   ## Used by the BN's own validators, but not the REST server
-  when SBBB is bellatrix_mev.SignedBlindedBeaconBlock:
-    type EPH = bellatrix.ExecutionPayloadHeader
-  elif SBBB is capella_mev.SignedBlindedBeaconBlock:
+  when SBBB is capella_mev.SignedBlindedBeaconBlock:
     type EPH = capella.ExecutionPayloadHeader
   elif SBBB is deneb_mev.SignedBlindedBeaconBlock:
     type EPH = deneb.ExecutionPayloadHeader
@@ -748,7 +741,7 @@ func isEFMainnet(cfg: RuntimeConfig): bool =
   cfg.DEPOSIT_CHAIN_ID == 1 and cfg.DEPOSIT_NETWORK_ID == 1
 
 proc makeBlindedBeaconBlockForHeadAndSlot*[
-    BBB: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock](
+    BBB: capella_mev.BlindedBeaconBlock](
     node: BeaconNode, payloadBuilderClient: RestClientRef,
     randao_reveal: ValidatorSig, validator_index: ValidatorIndex,
     graffiti: GraffitiBytes, head: BlockRef, slot: Slot):
@@ -759,9 +752,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
   ##
   ## This function is used by the validator client, but not the beacon node for
   ## its own validators.
-  when BBB is bellatrix_mev.BlindedBeaconBlock:
-    type EPH = bellatrix.ExecutionPayloadHeader
-  elif BBB is capella_mev.BlindedBeaconBlock:
+  when BBB is capella_mev.BlindedBeaconBlock:
     type EPH = capella.ExecutionPayloadHeader
   else:
     static: doAssert false
@@ -818,14 +809,11 @@ proc proposeBlockAux(
 
   let payloadBuilderClientMaybe = node.getPayloadBuilderClient(
     validator_index.distinctBase)
-  if payloadBuilderClientMaybe.isErr:
-    warn "Unable to initialize payload builder client while proposing block",
-      err = payloadBuilderClientMaybe.error
-  else:
+  if payloadBuilderClientMaybe.isOk:
     payloadBuilderClient = payloadBuilderClientMaybe.get
 
   let usePayloadBuilder =
-    if node.config.payloadBuilderEnable and payloadBuilderClientMaybe.isOk:
+    if payloadBuilderClientMaybe.isOk:
       withState(node.dag.headState):
         # Head slot, not proposal slot, matters here
         # TODO it might make some sense to allow use of builder API if local
@@ -840,9 +828,15 @@ proc proposeBlockAux(
   let
     payloadBuilderBidFut =
       if usePayloadBuilder:
-        getBuilderBid[SBBB](
-          node, payloadBuilderClient, head, validator, slot, randao,
-          validator_index)
+        when not (EPS is bellatrix.ExecutionPayloadForSigning):
+          getBuilderBid[SBBB](
+            node, payloadBuilderClient, head, validator, slot, randao,
+            validator_index)
+        else:
+          let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
+          fut.complete(BlindedBlockResult[SBBB].err(
+            "Bellatrix Builder API unsupported"))
+          fut
       else:
         let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
         fut.complete(BlindedBlockResult[SBBB].err(
@@ -1083,7 +1077,7 @@ proc proposeBlock(node: BeaconNode,
         capella_mev.SignedBlindedBeaconBlock, capella.ExecutionPayloadForSigning)
     else:
       proposeBlockContinuation(
-        bellatrix_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning)
+        capella_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -1723,7 +1717,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

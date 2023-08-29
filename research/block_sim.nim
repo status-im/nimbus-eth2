@@ -5,38 +5,42 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# `block_sim` is a block and attestation simulator similar to `state_sim` whose
-# task is to run the beacon chain without considering the network or the
-# wall clock. Functionally, it achieves the same as the distributed beacon chain
-# by producing blocks and attestations as if they were created by separate
-# nodes, just like a set of `beacon_node` instances would.
+# `block_sim` is a block, attestation, and sync committee simulator, whose task
+# is to run the beacon chain without considering the network or the wall clock.
 #
-# Similar to `state_sim`, but uses the block and attestation pools along with
-# a database, as if a real node was running.
+# Functionally, it achieves the same as the distributed beacon chain by
+# producing blocks and attestations as if they were created by separate
+# nodes, just like a set of `beacon_node` instances would.
 
 import
   confutils, chronicles, eth/db/kvstore_sqlite3,
   chronos/timer, taskpools,
   ../tests/testblockutil,
   ../beacon_chain/spec/[forks, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, deneb],
-  ../beacon_chain/[beacon_chain_db, beacon_clock],
-  ../beacon_chain/el/el_manager,
+  ../beacon_chain/beacon_chain_db,
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/gossip_processing/[batch_validation, gossip_validation],
-  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine,
-                                          block_clearance, attestation_pool,
-                                          sync_committee_msg_pool],
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_clearance],
   ./simutils
 
-from std/math import E, ln, sqrt
-from std/random import Rand, initRand, rand
+from std/random import Rand, gauss, initRand, rand
 from std/stats import RunningStat
 from std/strformat import `&`
-from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
+from ../beacon_chain/consensus_object_pools/attestation_pool import
+  AttestationPool, addAttestation, addForkChoice, getAttestationsForBlock,
+  init, prune
+from ../beacon_chain/consensus_object_pools/block_quarantine import
+  Quarantine, init
+from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
+  SyncCommitteeMsgPool, addContribution, addSyncCommitteeMessage, init,
+  produceContribution, produceSyncAggregate, pruneData
+from ../beacon_chain/el/el_manager import
+  Eth1Block, Eth1BlockNumber, Eth1BlockTimestamp, Eth1Chain, addBlock,
+  getBlockProposalData, getDepositsRoot, init
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index,
   get_committee_count_per_slot, get_committee_indices
+from ../beacon_chain/spec/state_transition_block import process_block
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
@@ -50,156 +54,11 @@ type Timers = enum
 template seconds(x: uint64): timer.Duration =
   timer.seconds(int(x))
 
-func gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
-  # TODO This is present in Nim 1.4
-  const K = sqrt(2 / E)
-  var
-    a = 0.0
-    b = 0.0
-  while true:
-    a = rand(r, 1.0)
-    b = (2.0 * rand(r, 1.0) - 1.0) * K
-    if  b * b <= -4.0 * a * a * ln(a): break
-  mu + sigma * (b / a)
-
-from ../beacon_chain/spec/state_transition_block import process_block
-
 # TODO The rest of nimbus-eth2 uses only the forked version of these, and in
 # general it's better for the validator_duties caller to use the forkedstate
 # version, so isolate these here pending refactoring of block_sim to prefer,
 # when possible, to also use the forked version. It'll be worth keeping some
 # example of the non-forked version because it enables fork bootstrapping.
-
-proc makeSimulationBlock(
-    cfg: RuntimeConfig,
-    state: var phase0.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayloadForSigning,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[phase0.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[phase0.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
-
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
-
-proc makeSimulationBlock(
-    cfg: RuntimeConfig,
-    state: var altair.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayloadForSigning,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[altair.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[altair.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
-
-  # Signatures are verified elsewhere, so don't duplicate inefficiently here
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
-
-proc makeSimulationBlock(
-    cfg: RuntimeConfig,
-    state: var bellatrix.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayloadForSigning,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[bellatrix.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[bellatrix.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
-
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
-
 proc makeSimulationBlock(
     cfg: RuntimeConfig,
     state: var capella.HashedBeaconState,
@@ -287,8 +146,8 @@ proc makeSimulationBlock(
   ok(blck)
 
 # TODO confutils is an impenetrable black box. how can a help text be added here?
-cli do(slots = SLOTS_PER_EPOCH * 6,
-       validators = SLOTS_PER_EPOCH * 400, # One per shard is minimum
+cli do(slots = SLOTS_PER_EPOCH * 7,
+       validators = SLOTS_PER_EPOCH * 500,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.82,
        syncCommitteeRatio {.desc: "ratio of validators that perform sync committee actions in each round"} = 0.82,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
@@ -296,14 +155,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     (genesisState, depositTreeSnapshot) = loadGenesis(validators, false)
     genesisTime = float getStateField(genesisState[], genesis_time)
-
-  var
-    cfg = defaultRuntimeConfig
-
-  cfg.ALTAIR_FORK_EPOCH = 1.Epoch
-  cfg.BELLATRIX_FORK_EPOCH = 2.Epoch
-  cfg.CAPELLA_FORK_EPOCH = 3.Epoch
-  cfg.DENEB_FORK_EPOCH = 4.Epoch
+  const cfg = getSimulationConfig()
 
   echo "Starting simulation..."
 
@@ -320,12 +172,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     eth1Chain = Eth1Chain.init(cfg, db, 0, default Eth2Digest)
     merkleizer = DepositsMerkleizer.init(depositTreeSnapshot.depositContractState)
     taskpool = Taskpool.new()
-    verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    verifier = BatchVerifier.init(rng, taskpool)
     quarantine = newClone(Quarantine.init())
     attPool = AttestationPool.init(dag, quarantine)
     batchCrypto = BatchCrypto.new(
       rng, eager = func(): bool = true,
-      genesis_validators_root = dag.genesis_validators_root, taskpool)
+      genesis_validators_root = dag.genesis_validators_root,
+      taskpool).expect("working batcher")
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
@@ -483,18 +336,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         finalizedEpochRef.eth1_data,
         finalizedEpochRef.eth1_deposit_index)
       sync_aggregate =
-        when T.toFork >= ConsensusFork.Altair:
-          syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
-        else:
-          SyncAggregate.init()
+        syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
       hashedState =
-        when T is phase0.SignedBeaconBlock:
-          addr state.phase0Data
-        elif T is altair.SignedBeaconBlock:
-          addr state.altairData
-        elif T is bellatrix.SignedBeaconBlock:
-          addr state.bellatrixData
-        elif T is capella.SignedBeaconBlock:
+        when T is capella.SignedBeaconBlock:
           addr state.capellaData
         elif T is deneb.SignedBeaconBlock:
           addr state.denebData
@@ -524,10 +368,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         noRollback,
         cache)
 
-    var
-      newBlock = T(
-        message: message.get()
-      )
+    var newBlock = T(message: message.get())
 
     let blockRoot = withTimerRet(timers[tHashBlock]):
       hash_tree_root(newBlock.message)
@@ -546,72 +387,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   # HTTP server's state function, combine all proposeForkBlock functions into a
   # single generic function. Until https://github.com/nim-lang/Nim/issues/20811
   # is fixed, that generic function must take `blockRatio` as a parameter.
-  proc proposePhase0Block(slot: Slot) =
-    if rand(r, 1.0) > blockRatio:
-      return
-
-    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
-      let
-        newBlock = getNewBlock[phase0.SignedBeaconBlock](updatedState, slot, cache)
-        added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
-            epochRef: EpochRef, unrealized: FinalityCheckpoints):
-          # Callback add to fork choice if valid
-          attPool.addForkChoice(
-            epochRef, blckRef, unrealized, signedBlock.message,
-            blckRef.slot.start_beacon_time)
-
-      dag.updateHead(added[], quarantine[], [])
-      if dag.needStateCachesAndForkChoicePruning():
-        dag.pruneStateCachesDAG()
-        attPool.prune()
-    do:
-      raiseAssert "withUpdatedState failed"
-
-  proc proposeAltairBlock(slot: Slot) =
-    if rand(r, 1.0) > blockRatio:
-      return
-
-    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
-      let
-        newBlock = getNewBlock[altair.SignedBeaconBlock](updatedState, slot, cache)
-        added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: altair.TrustedSignedBeaconBlock,
-            epochRef: EpochRef, unrealized: FinalityCheckpoints):
-          # Callback add to fork choice if valid
-          attPool.addForkChoice(
-            epochRef, blckRef, unrealized, signedBlock.message,
-            blckRef.slot.start_beacon_time)
-
-      dag.updateHead(added[], quarantine[], [])
-      if dag.needStateCachesAndForkChoicePruning():
-        dag.pruneStateCachesDAG()
-        attPool.prune()
-    do:
-      raiseAssert "withUpdatedState failed"
-
-  proc proposeBellatrixBlock(slot: Slot) =
-    if rand(r, 1.0) > blockRatio:
-      return
-
-    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
-      let
-        newBlock = getNewBlock[bellatrix.SignedBeaconBlock](updatedState, slot, cache)
-        added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: bellatrix.TrustedSignedBeaconBlock,
-            epochRef: EpochRef, unrealized: FinalityCheckpoints):
-          # Callback add to fork choice if valid
-          attPool.addForkChoice(
-            epochRef, blckRef, unrealized, signedBlock.message,
-            blckRef.slot.start_beacon_time)
-
-      dag.updateHead(added[], quarantine[], [])
-      if dag.needStateCachesAndForkChoicePruning():
-        dag.pruneStateCachesDAG()
-        attPool.prune()
-    do:
-      raiseAssert "withUpdatedState failed"
-
   proc proposeCapellaBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
@@ -698,9 +473,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         case dag.cfg.consensusForkAtEpoch(slot.epoch)
         of ConsensusFork.Deneb:     proposeDenebBlock(slot)
         of ConsensusFork.Capella:   proposeCapellaBlock(slot)
-        of ConsensusFork.Bellatrix: proposeBellatrixBlock(slot)
-        of ConsensusFork.Altair:    proposeAltairBlock(slot)
-        of ConsensusFork.Phase0:    proposePhase0Block(slot)
+        of ConsensusFork.Bellatrix, ConsensusFork.Altair, ConsensusFork.Phase0:
+          doAssert false
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
         handleAttestations(slot)

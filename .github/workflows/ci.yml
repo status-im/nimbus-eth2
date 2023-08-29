@@ -106,6 +106,8 @@ jobs:
           # Stack usage test and UBSAN on recent enough gcc:
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
             if [[ '${{ github.sha }}' =~ ^7 ]]; then
+              export WITH_UBSAN=1
+              echo "WITH_UBSAN=1" >> $GITHUB_ENV
               export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage --passC:-fsanitize=undefined --passL:-fsanitize=undefined"
             else
               export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
@@ -220,11 +222,11 @@ jobs:
               echo "Submodule '$file': '.gitmodules' lacks 'branch' entry"
               exit 2
             fi
-            if ! error="$(git -C "$file" fetch -q origin "$branch")"; then
+            if ! error="$(git -C "$file" fetch -q origin "+refs/heads/$branch:refs/remotes/origin/$branch")"; then
               echo "Submodule '$file': Failed to fetch '$branch': $error"
               exit 2
             fi
-            if ! git -C "$file" merge-base --is-ancestor "$commit" "origin/$branch"; then
+            if ! git -C "$file" merge-base --is-ancestor "$commit" "refs/remotes/origin/$branch"; then
               echo "Submodule '$file': '$commit' is not on '$branch'"
               exit 2
             fi

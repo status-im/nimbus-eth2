@@ -239,11 +239,11 @@ static void visualizeHeader(const ETHLightClientHeader *header, const ETHConsens
     printGweiString(executionBaseFeePerGas);
     printf(" Gwei\n");
 
-    int executionDataGasUsed = ETHExecutionPayloadHeaderGetDataGasUsed(execution);
-    printf("    - data_gas_used: %d\n", executionDataGasUsed);
+    int executionBlobGasUsed = ETHExecutionPayloadHeaderGetBlobGasUsed(execution);
+    printf("    - blob_gas_used: %d\n", executionBlobGasUsed);
 
-    int executionExcessDataGas = ETHExecutionPayloadHeaderGetExcessDataGas(execution);
-    printf("    - excess_data_gas: %d\n", executionExcessDataGas);
+    int executionExcessBlobGas = ETHExecutionPayloadHeaderGetExcessBlobGas(execution);
+    printf("    - excess_blob_gas: %d\n", executionExcessBlobGas);
 }
 
 ETH_RESULT_USE_CHECK
@@ -344,11 +344,41 @@ int main(void)
     int safetyThreshold = ETHLightClientStoreGetSafetyThreshold(store);
     printf("- safety_threshold: %d\n", safetyThreshold);
 
+    ETHLightClientHeader *copiedHeader =
+        ETHLightClientHeaderCreateCopy(ETHLightClientStoreGetFinalizedHeader(store));
+
     ETHLightClientStoreDestroy(store);
     ETHBeaconClockDestroy(beaconClock);
     ETHForkDigestsDestroy(forkDigests);
     ETHRootDestroy(genesisValRoot);
     ETHConsensusConfigDestroy(cfg);
     ETHRandomNumberDestroy(rng);
+
+    ETHRoot *copiedExecutionHash = ETHLightClientHeaderCopyExecutionHash(copiedHeader, cfg);
+    void *blockHeaderJson = readEntireFile(
+        __DIR__ "/test_files/executionBlockHeader.json", /* numBytes: */ NULL);
+    ETHExecutionBlockHeader *executionBlockHeader =
+        ETHExecutionBlockHeaderCreateFromJson(copiedExecutionHash, blockHeaderJson);
+    check(executionBlockHeader);
+    free(blockHeaderJson);
+    ETHRootDestroy(copiedExecutionHash);
+    ETHLightClientHeaderDestroy(copiedHeader);
+
+    printf("- finalized_header (execution block header):\n");
+
+    const ETHRoot *executionTransactionsRoot =
+        ETHExecutionBlockHeaderGetTransactionsRoot(executionBlockHeader);
+    printf("    - transactions_root: ");
+    printHexString(executionTransactionsRoot, sizeof *executionTransactionsRoot);
+    printf("\n");
+
+    const ETHRoot *executionWithdrawalsRoot =
+        ETHExecutionBlockHeaderGetWithdrawalsRoot(executionBlockHeader);
+    printf("    - withdrawals_root: ");
+    printHexString(executionWithdrawalsRoot, sizeof *executionWithdrawalsRoot);
+    printf("\n");
+
+    ETHExecutionBlockHeaderDestroy(executionBlockHeader);
+
     return 0;
 }

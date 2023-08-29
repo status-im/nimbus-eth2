@@ -351,7 +351,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
   let
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
-  var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+  var verifier = BatchVerifier.init(rng, taskpool)
 
   let steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time

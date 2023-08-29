@@ -130,7 +130,9 @@ template withEth2Hash*(body: untyped): Eth2Digest =
 template hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables
   # digests are already good hashes
-  cast[ptr Hash](unsafeAddr x.data[0])[]
+  var h {.noinit.}: Hash
+  copyMem(addr h, unsafeAddr x.data[0], static(sizeof(Hash)))
+  h
 
 func `==`*(a, b: Eth2Digest): bool =
   when nimvm:
@@ -143,7 +145,7 @@ func `==`*(a, b: Eth2Digest): bool =
 func isZero*(x: Eth2Digest): bool =
   x.isZeroMemory
 
-proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =
+proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a
 
 proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =

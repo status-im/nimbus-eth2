@@ -28,12 +28,29 @@ type
   TaskPoolPtr* = Taskpool
 
   BatchVerifier* = object
-    sigVerifCache*: BatchedBLSVerifierCache ##\
-    ## A cache for batch BLS signature verification contexts
-    rng*: ref HmacDrbgContext  ##\
-    ## A reference to the Nimbus application-wide RNG
-
+    sigVerifCache*: BatchedBLSVerifierCache
+      ## A cache for batch BLS signature verification contexts
+    rng*: ref HmacDrbgContext
+      ## A reference to the Nimbus application-wide RNG
     taskpool*: TaskPoolPtr
+
+proc init*(
+    T: type BatchVerifier, rng: ref HmacDrbgContext,
+    taskpool: TaskPoolPtr): BatchVerifier =
+  BatchVerifier(
+    sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
+    rng: rng,
+    taskpool: taskpool,
+  )
+
+proc new*(
+    T: type BatchVerifier, rng: ref HmacDrbgContext,
+    taskpool: TaskPoolPtr): ref BatchVerifier =
+  (ref BatchVerifier)(
+    sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
+    rng: rng,
+    taskpool: taskpool,
+  )
 
 func `$`*(s: SignatureSet): string =
   "(pubkey: 0x" & s.pubkey.toHex() &
@@ -91,7 +108,7 @@ func aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   var attestersAgg{.noinit.}: AggregatePublicKey
@@ -433,7 +450,5 @@ proc collectSignatureSets*(
 
 proc batchVerify*(verifier: var BatchVerifier, sigs: openArray[SignatureSet]): bool =
   let bytes = verifier.rng[].generate(array[32, byte])
-  try:
-    verifier.taskpool.batchVerify(verifier.sigVerifCache, sigs, bytes)
-  except Exception as exc:
-    raiseAssert exc.msg # Shouldn't happen
+
+  verifier.taskpool.batchVerify(verifier.sigVerifCache, sigs, bytes)
