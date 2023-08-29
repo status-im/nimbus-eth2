@@ -305,7 +305,6 @@ proc processSignedBlobSidecar*(
 
   debug "Blob validated, putting in blob quarantine"
   self.blobQuarantine[].put(newClone(signedBlobSidecar.message))
-  var toAdd: seq[deneb.SignedBeaconBlock]
 
   var skippedBlocks = false
 
