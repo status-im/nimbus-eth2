@@ -1489,7 +1489,7 @@ const void *ETHTransactionGetBytes(
     int *numBytes);
 
 /**
- * Obtains the EIP-6404 transaction root of a transaction.
+ * Obtains the EIP-6493 transaction root of a transaction.
  *
  * - The returned value is allocated in the given transaction.
  *   It must neither be released nor written to, and the transaction
@@ -1497,15 +1497,15 @@ const void *ETHTransactionGetBytes(
  *
  * @param      transaction          Transaction.
  *
- * @return EIP-6404 transaction root.
+ * @return EIP-6493 transaction root.
  *
- * @see https://eips.ethereum.org/EIPS/eip-6404
+ * @see https://eips.ethereum.org/EIPS/eip-6493
  */
 ETH_RESULT_USE_CHECK
-const ETHRoot *ETHTransactionGetEip6404Root(const ETHTransaction *transaction);
+const ETHRoot *ETHTransactionGetEip6493Root(const ETHTransaction *transaction);
 
 /**
- * Obtains the raw EIP-6404 byte representation of a transaction.
+ * Obtains the raw EIP-6493 byte representation of a transaction.
  *
  * - The returned value is allocated in the given transaction.
  *   It must neither be released nor written to, and the transaction
@@ -1514,27 +1514,27 @@ const ETHRoot *ETHTransactionGetEip6404Root(const ETHTransaction *transaction);
  * @param      transaction          Transaction.
  * @param[out] numBytes             Length of buffer.
  *
- * @return Buffer with raw EIP-6404 transaction data.
+ * @return Buffer with raw EIP-6493 transaction data.
  *
- * @see https://eips.ethereum.org/EIPS/eip-6404
+ * @see https://eips.ethereum.org/EIPS/eip-6493
  */
 ETH_RESULT_USE_CHECK
-const void *ETHTransactionGetEip6404Bytes(
+const void *ETHTransactionGetEip6493Bytes(
     const ETHTransaction *transaction,
     int *numBytes);
 
 /**
- * Obtains the length of the Snappy compressed EIP-6404 byte representation
+ * Obtains the length of the Snappy compressed EIP-6493 byte representation
  * of a transaction.
  *
  * @param      transaction          Transaction.
  *
- * @return Length of Snappy compressed EIP-6404 transaction data.
+ * @return Length of Snappy compressed EIP-6493 transaction data.
  *
- * @see https://eips.ethereum.org/EIPS/eip-6404
+ * @see https://eips.ethereum.org/EIPS/eip-6493
  */
 ETH_RESULT_USE_CHECK
-int ETHTransactionGetNumEip6404SnappyBytes(
+int ETHTransactionGetNumEip6493SnappyBytes(
     const ETHTransaction *transaction);
 
 /**
@@ -1815,7 +1815,7 @@ const void *ETHReceiptGetBytes(
     int *numBytes);
 
 /**
- * Obtains the raw EIP-6466 byte representation of a receipt.
+ * Obtains the raw EIP-6493 byte representation of a receipt.
  *
  * - The returned value is allocated in the given receipt.
  *   It must neither be released nor written to, and the receipt
@@ -1824,27 +1824,27 @@ const void *ETHReceiptGetBytes(
  * @param      receipt              Receipt.
  * @param[out] numBytes             Length of buffer.
  *
- * @return Buffer with raw EIP-6466 receipt data.
+ * @return Buffer with raw EIP-6493 receipt data.
  *
- * @see https://eips.ethereum.org/EIPS/eip-6466
+ * @see https://eips.ethereum.org/EIPS/eip-6493
  */
 ETH_RESULT_USE_CHECK
-const void *ETHReceiptGetEip6466Bytes(
+const void *ETHReceiptGetEip6493Bytes(
     const ETHReceipt *receipt,
     int *numBytes);
 
 /**
- * Obtains the length of the Snappy compressed EIP-6466 byte representation
+ * Obtains the length of the Snappy compressed EIP-6493 byte representation
  * of a receipt.
  *
  * @param      receipt              Receipt.
  *
- * @return Length of Snappy compressed EIP-6466 receipt data.
+ * @return Length of Snappy compressed EIP-6493 receipt data.
  *
- * @see https://eips.ethereum.org/EIPS/eip-6466
+ * @see https://eips.ethereum.org/EIPS/eip-6493
  */
 ETH_RESULT_USE_CHECK
-int ETHReceiptGetNumEip6466SnappyBytes(
+int ETHReceiptGetNumEip6493SnappyBytes(
     const ETHReceipt *receipt);
 
 #if __has_feature(nullability)

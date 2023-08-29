@@ -1352,8 +1352,8 @@ type
     blobVersionedHashes: seq[Eth2Digest]
     signature: seq[byte]
     bytes: TypedTransaction
-    eip6404Root: Eth2Digest
-    eip6404Bytes: seq[byte]
+    eip6493Root: Eth2Digest
+    eip6493Bytes: seq[byte]
 
 proc ETHTransactionsCreateFromJson(
     transactionsRoot #[optional]#: ptr Eth2Digest,
@@ -1537,19 +1537,7 @@ proc ETHTransactionsCreateFromJson(
             .data.toOpenArray(12, 31)
           res
 
-    # Compute EIP-6404 tranasaction
-    type
-      Eip6404SignatureType {.pure.} = enum
-        Transaction
-
-      Eip6404SigningDomain = object
-        chain_id: UInt256
-        sig_type: Eip6404SignatureType
-
-      Eip6404SigningData = object
-        object_root: Eth2Digest
-        domain: Eip6404SigningDomain
-
+    # Compute EIP-6493 tranasaction
     const
       MAX_CALLDATA_SIZE = 16_777_216
       MAX_ACCESS_LIST_STORAGE_KEYS = 524_288
@@ -1557,11 +1545,11 @@ proc ETHTransactionsCreateFromJson(
       MAX_BLOB_COMMITMENTS_PER_BLOCK = 4_096
 
     type
-      Eip6404AccessTuple = object
+      Eip6493AccessTuple = object
         address: ExecutionAddress
         storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
 
-      Eip6404TransactionPayload = object
+      Eip6493TransactionPayload = object
         nonce: uint64
         max_fee_per_gas: UInt256
         gas: uint64
@@ -1570,7 +1558,7 @@ proc ETHTransactionsCreateFromJson(
         input: List[byte, Limit MAX_CALLDATA_SIZE]
 
         # EIP-2930
-        access_list: Opt[List[Eip6404AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
+        access_list: Opt[List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
 
         # EIP-1559
         max_priority_fee_per_gas: Opt[UInt256]
@@ -1580,28 +1568,28 @@ proc ETHTransactionsCreateFromJson(
         blob_versioned_hashes:
           Opt[List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
 
-      Eip6404TransactionSignature = object
+      Eip6493TransactionSignature = object
         `from`: ExecutionAddress
         ecdsa_signature: array[65, byte]
 
         # EIP-2718
         `type`: Opt[uint8]
 
-      Eip6404Transaction = object
-        payload: PartialContainer[Eip6404TransactionPayload, 32]
-        signature: PartialContainer[Eip6404TransactionSignature, 16]
+      Eip6493Transaction = object
+        payload: PartialContainer[Eip6493TransactionPayload, 32]
+        signature: PartialContainer[Eip6493TransactionSignature, 16]
 
-    var eip6404Tx: Eip6404Transaction
+    var eip6493Tx: Eip6493Transaction
 
-    eip6404Tx.payload.nonce = tx.nonce
-    eip6404Tx.payload.max_fee_per_gas = tx.maxFee.u256
-    eip6404Tx.payload.gas = tx.gasLimit.uint64
+    eip6493Tx.payload.nonce = tx.nonce
+    eip6493Tx.payload.max_fee_per_gas = tx.maxFee.u256
+    eip6493Tx.payload.gas = tx.gasLimit.uint64
     if tx.to.isSome:
-      eip6404Tx.payload.to.ok(ExecutionAddress(data: tx.to.get))
-    eip6404Tx.payload.value = tx.value
+      eip6493Tx.payload.to.ok(ExecutionAddress(data: tx.to.get))
+    eip6493Tx.payload.value = tx.value
     if tx.payload.len > MAX_CALLDATA_SIZE:
       return nil
-    eip6404Tx.payload.input =
+    eip6493Tx.payload.input =
       List[byte, Limit MAX_CALLDATA_SIZE].init(tx.payload)
     if tx.txType >= TxEip2930:
       if tx.accessList.len > MAX_ACCESS_LIST_SIZE:
@@ -1609,30 +1597,30 @@ proc ETHTransactionsCreateFromJson(
       for it in tx.accessList:
         if it.storageKeys.len > MAX_ACCESS_LIST_STORAGE_KEYS:
           return nil
-      eip6404Tx.payload.access_list.ok(
-        List[Eip6404AccessTuple, Limit MAX_ACCESS_LIST_SIZE]
-          .init(tx.accessList.mapIt(Eip6404AccessTuple(
+      eip6493Tx.payload.access_list.ok(
+        List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]
+          .init(tx.accessList.mapIt(Eip6493AccessTuple(
             address: ExecutionAddress(data: it.address),
             storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
               .init(it.storageKeys.mapIt(Eth2Digest(data: it)))))))
     if tx.txType >= TxEip1559:
-      eip6404Tx.payload.max_priority_fee_per_gas.ok(tx.maxPriorityFee.u256)
+      eip6493Tx.payload.max_priority_fee_per_gas.ok(tx.maxPriorityFee.u256)
 
-    eip6404Tx.signature.`from` = ExecutionAddress(data: fromAddress)
-    eip6404Tx.signature.ecdsa_signature = rawSig
+    eip6493Tx.signature.`from` = ExecutionAddress(data: fromAddress)
+    eip6493Tx.signature.ecdsa_signature = rawSig
     case tx.txType
     of TxLegacy:
       if tx.V notin [27'i64, 28'i64]:  # With replay protection
-        `.`(eip6404Tx.signature, `type`).ok(0x00)
+        `.`(eip6493Tx.signature, `type`).ok(0x00)
     of TxEip2930:
-      `.`(eip6404Tx.signature, `type`).ok(0x01)
+      `.`(eip6493Tx.signature, `type`).ok(0x01)
     of TxEip1559:
-      `.`(eip6404Tx.signature, `type`).ok(0x02)
+      `.`(eip6493Tx.signature, `type`).ok(0x02)
     of TxEip4844:
-      `.`(eip6404Tx.signature, `type`).ok(0x03)
+      `.`(eip6493Tx.signature, `type`).ok(0x03)
 
     # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
-    let eip6404Bytes = SSZ.encode(eip6404Tx)
+    let eip6493Bytes = SSZ.encode(eip6493Tx)
     txs.add ETHTransaction(
       hash: keccakHash(rlpBytes),
       chainId: distinctBase(tx.chainId).u256,
@@ -1652,8 +1640,8 @@ proc ETHTransactionsCreateFromJson(
       blobVersionedHashes: tx.versionedHashes,
       signature: @rawSig,
       bytes: rlpBytes.TypedTransaction,
-      eip6404Root: eip6404Tx.hash_tree_root(),
-      eip6404Bytes: eip6404Bytes)
+      eip6493Root: eip6493Tx.hash_tree_root(),
+      eip6493Bytes: eip6493Bytes)
 
   if transactionsRoot != nil:
     var tr = initHexaryTrie(newMemoryDB())
@@ -2069,9 +2057,9 @@ func ETHTransactionGetBytes(
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](addr distinctBase(transaction[].bytes)[0])
 
-func ETHTransactionGetEip6404Root(
+func ETHTransactionGetEip6493Root(
     transaction: ptr ETHTransaction): ptr Eth2Digest {.exported.} =
-  ## Obtains the EIP-6404 transaction root of a transaction.
+  ## Obtains the EIP-6493 transaction root of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
   ##   It must neither be released nor written to, and the transaction
@@ -2081,16 +2069,16 @@ func ETHTransactionGetEip6404Root(
   ## * `transaction` - Transaction.
   ##
   ## Returns:
-  ## * EIP-6404 transaction root.
+  ## * EIP-6493 transaction root.
   ##
   ## See:
-  ## * https://eips.ethereum.org/EIPS/eip-6404
-  addr transaction[].eip6404Root
+  ## * https://eips.ethereum.org/EIPS/eip-6493
+  addr transaction[].eip6493Root
 
-func ETHTransactionGetEip6404Bytes(
+func ETHTransactionGetEip6493Bytes(
     transaction: ptr ETHTransaction,
     numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
-  ## Obtains the raw EIP-6404 byte representation of a transaction.
+  ## Obtains the raw EIP-6493 byte representation of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
   ##   It must neither be released nor written to, and the transaction
@@ -2101,32 +2089,32 @@ func ETHTransactionGetEip6404Bytes(
   ## * `numBytes` [out] - Length of buffer.
   ##
   ## Returns:
-  ## * Buffer with raw EIP-6404 transaction data.
+  ## * Buffer with raw EIP-6493 transaction data.
   ##
   ## See:
-  ## * https://eips.ethereum.org/EIPS/eip-6404
-  numBytes[] = distinctBase(transaction[].eip6404Bytes).len.cint
-  if distinctBase(transaction[].eip6404Bytes).len == 0:
+  ## * https://eips.ethereum.org/EIPS/eip-6493
+  numBytes[] = distinctBase(transaction[].eip6493Bytes).len.cint
+  if distinctBase(transaction[].eip6493Bytes).len == 0:
     # https://github.com/nim-lang/Nim/issues/22389
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](
-    addr distinctBase(transaction[].eip6404Bytes)[0])
+    addr distinctBase(transaction[].eip6493Bytes)[0])
 
-func ETHTransactionGetNumEip6404SnappyBytes(
+func ETHTransactionGetNumEip6493SnappyBytes(
     transaction: ptr ETHTransaction): cint {.exported.} =
-  ## Obtains the length of the Snappy compressed EIP-6404 byte representation
+  ## Obtains the length of the Snappy compressed EIP-6493 byte representation
   ## of a transaction.
   ##
   ## Parameters:
   ## * `transaction` - Transaction.
   ##
   ## Returns:
-  ## * Length of Snappy compressed EIP-6404 transaction data.
+  ## * Length of Snappy compressed EIP-6493 transaction data.
   ##
   ## See:
-  ## * https://eips.ethereum.org/EIPS/eip-6404
-  snappy.encodeFramed(transaction[].eip6404Bytes).len.cint
+  ## * https://eips.ethereum.org/EIPS/eip-6493
+  snappy.encodeFramed(transaction[].eip6493Bytes).len.cint
 
 type
   ETHLog = object
@@ -2146,7 +2134,7 @@ type
     logsBloom: BloomLogs
     logs: seq[ETHLog]
     bytes: seq[byte]
-    eip6466Bytes: seq[byte]
+    eip6493Bytes: seq[byte]
 
 proc ETHReceiptsCreateFromJson(
     receiptsRoot #[optional]#: ptr Eth2Digest,
@@ -2269,62 +2257,50 @@ proc ETHReceiptsCreateFromJson(
         except RlpError:
           raiseAssert "Unreachable"
 
-    # Compute EIP-6466 receipt
+    # Compute EIP-6493 receipt
     const
       MAX_TOPICS_PER_LOG = 4
       MAX_LOG_DATA_SIZE = 16_777_216
       MAX_LOGS_PER_RECEIPT = 2_097_152
 
     type
-      Eip6466Log = object
+      Eip6493Log = object
         address: ExecutionAddress
         topics: List[Eth2Digest, Limit MAX_TOPICS_PER_LOG]
         data: List[byte, Limit MAX_LOG_DATA_SIZE]
 
-      Eip6466ReceiptPayload = object
+      Eip6493ReceiptPayload = object
         root: Opt[Eth2Digest]
         gas_used: uint64
         contract_address: Opt[ExecutionAddress]
         logs_bloom: BloomLogs
-        logs: List[Eip6466Log, MAX_LOGS_PER_RECEIPT]
+        logs: List[Eip6493Log, MAX_LOGS_PER_RECEIPT]
 
         # EIP-658
         status: Opt[bool]
 
-        # EIP-2718
-        `type`: Opt[uint8]
+      Eip6493Receipt = PartialContainer[Eip6493ReceiptPayload, 32]
 
-      Eip6466Receipt = PartialContainer[Eip6466ReceiptPayload, 32]
-
-    var eip6466Rec: Eip6466Receipt
+    var eip6493Rec: Eip6493Receipt
     let transaction = ETHTransactionsGet(transactions, i.cint)
 
     if rec.isHash:
-      eip6466Rec.root.ok(rec.hash)
-    eip6466Rec.gas_used = distinctBase(data.gasUsed)  # See sanity checks.
+      eip6493Rec.root.ok(rec.hash)
+    eip6493Rec.gas_used = distinctBase(data.gasUsed)  # See sanity checks.
     if ETHTransactionIsCreatingContract(transaction):
-      eip6466Rec.contract_address.ok(ETHTransactionGetTo(transaction)[])
-    eip6466Rec.logs_bloom = BloomLogs(data: rec.bloom)
-    eip6466Rec.logs = List[Eip6466Log, MAX_LOGS_PER_RECEIPT]
-      .init(rec.logs.mapIt(Eip6466Log(
+      eip6493Rec.contract_address.ok(ETHTransactionGetTo(transaction)[])
+    eip6493Rec.logs_bloom = BloomLogs(data: rec.bloom)
+    eip6493Rec.logs = List[Eip6493Log, MAX_LOGS_PER_RECEIPT]
+      .init(rec.logs.mapIt(Eip6493Log(
         address: ExecutionAddress(data: it.address),
         topics: List[Eth2Digest, Limit MAX_TOPICS_PER_LOG]
           .init(it.topics.mapIt(Eth2Digest(data: it))),
         data: List[byte, Limit MAX_LOG_DATA_SIZE].init(it.data))))
     if not rec.isHash:
-      eip6466Rec.status.ok(rec.status)
-    case rec.receiptType
-    of TxLegacy:
-      `.`(eip6466Rec, `type`).ok(0x00)
-    of TxEip2930:
-      `.`(eip6466Rec, `type`).ok(0x01)
-    of TxEip1559:
-      `.`(eip6466Rec, `type`).ok(0x02)
-    of TxEip4844:
-      `.`(eip6466Rec, `type`).ok(0x03)
+      eip6493Rec.status.ok(rec.status)
 
     # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
-    let eip6466Bytes = SSZ.encode(eip6466Rec)
+    let eip6493Bytes = SSZ.encode(eip6493Rec)
     recs.add ETHReceipt(
       statusType:
         if rec.isHash:
@@ -2340,7 +2316,7 @@ proc ETHReceiptsCreateFromJson(
         topics: it.topics.mapIt(Eth2Digest(data: it)),
         data: it.data)),
       bytes: rlpBytes,
-      eip6466Bytes: eip6466Bytes)
+      eip6493Bytes: eip6493Bytes)
 
   if receiptsRoot != nil:
     var tr = initHexaryTrie(newMemoryDB())
@@ -2612,10 +2588,10 @@ func ETHReceiptGetBytes(
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](addr distinctBase(receipt[].bytes)[0])
 
-func ETHReceiptGetEip6466Bytes(
+func ETHReceiptGetEip6493Bytes(
     receipt: ptr ETHReceipt,
     numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
-  ## Obtains the raw EIP-6466 byte representation of a receipt.
+  ## Obtains the raw EIP-6493 byte representation of a receipt.
   ##
   ## * The returned value is allocated in the given receipt.
   ##   It must neither be released nor written to, and the receipt
@@ -2626,29 +2602,29 @@ func ETHReceiptGetEip6466Bytes(
   ## * `numBytes` [out] - Length of buffer.
   ##
   ## Returns:
-  ## * Buffer with raw EIP-6466 receipt data.
+  ## * Buffer with raw EIP-6493 receipt data.
   ##
   ## See:
-  ## * https://eips.ethereum.org/EIPS/eip-6466
-  numBytes[] = distinctBase(receipt[].eip6466Bytes).len.cint
-  if distinctBase(receipt[].eip6466Bytes).len == 0:
+  ## * https://eips.ethereum.org/EIPS/eip-6493
+  numBytes[] = distinctBase(receipt[].eip6493Bytes).len.cint
+  if distinctBase(receipt[].eip6493Bytes).len == 0:
     # https://github.com/nim-lang/Nim/issues/22389
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](
-    addr distinctBase(receipt[].eip6466Bytes)[0])
+    addr distinctBase(receipt[].eip6493Bytes)[0])
 
-func ETHReceiptGetNumEip6466SnappyBytes(
+func ETHReceiptGetNumEip6493SnappyBytes(
     receipt: ptr ETHReceipt): cint {.exported.} =
-  ## Obtains the length of the Snappy compressed EIP-6466 byte representation
+  ## Obtains the length of the Snappy compressed EIP-6493 byte representation
   ## of a receipt.
   ##
   ## Parameters:
   ## * `receipt` - Receipt.
   ##
   ## Returns:
-  ## * Length of Snappy compressed EIP-6466 receipt data.
+  ## * Length of Snappy compressed EIP-6493 receipt data.
   ##
   ## See:
-  ## * https://eips.ethereum.org/EIPS/eip-6466
-  snappy.encodeFramed(receipt[].eip6466Bytes).len.cint
+  ## * https://eips.ethereum.org/EIPS/eip-6493
+  snappy.encodeFramed(receipt[].eip6493Bytes).len.cint
