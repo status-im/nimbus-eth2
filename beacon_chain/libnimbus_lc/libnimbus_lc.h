@@ -1081,6 +1081,26 @@ const ETHRoot *ETHExecutionBlockHeaderGetWithdrawalsRoot(
     const ETHExecutionBlockHeader *executionBlockHeader);
 
 /**
+ * Withdrawal sequence.
+ */
+typedef struct ETHWithdrawals ETHWithdrawals;
+
+/**
+ * Obtains the withdrawal sequence of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Withdrawal sequence.
+ */
+ETH_RESULT_USE_CHECK
+const ETHWithdrawals *ETHExecutionBlockHeaderGetWithdrawals(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
  * Transaction sequence.
  */
 typedef struct ETHTransactions ETHTransactions;
@@ -1763,6 +1783,114 @@ const void *ETHLogGetDataBytes(
 ETH_RESULT_USE_CHECK
 const void *ETHReceiptGetBytes(
     const ETHReceipt *receipt,
+    int *numBytes);
+
+/**
+ * Indicates the total number of withdrawals in a withdrawal sequence.
+ *
+ * - Individual withdrawals may be investigated using `ETHWithdrawalsGet`.
+ *
+ * @param      withdrawals          Withdrawal sequence.
+ *
+ * @return Number of available withdrawals.
+ */
+ETH_RESULT_USE_CHECK
+int ETHWithdrawalsGetCount(const ETHWithdrawals *withdrawals);
+
+/**
+ * Withdrawal.
+ */
+typedef struct ETHWithdrawal ETHWithdrawal;
+
+/**
+ * Obtains an individual withdrawal by sequential index
+ * in a withdrawal sequence.
+ *
+ * - The returned value is allocated in the given withdrawal sequence.
+ *   It must neither be released nor written to, and the withdrawal
+ *   sequence must not be released while the returned value is in use.
+ *
+ * @param      withdrawals          Withdrawal sequence.
+ * @param      withdrawalIndex      Sequential withdrawal index.
+ *
+ * @return Withdrawal.
+ */
+ETH_RESULT_USE_CHECK
+const ETHWithdrawal *ETHWithdrawalsGet(
+    const ETHWithdrawals *withdrawals,
+    int withdrawalIndex);
+
+/**
+ * Obtains the index of a withdrawal.
+ *
+ * - The returned value is allocated in the given withdrawal.
+ *   It must neither be released nor written to, and the withdrawal
+ *   must not be released while the returned value is in use.
+ *
+ * @param      withdrawal           Withdrawal.
+ *
+ * @return Index.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHWithdrawalGetIndex(const ETHWithdrawal *withdrawal);
+
+/**
+ * Obtains the validator index of a withdrawal.
+ *
+ * - The returned value is allocated in the given withdrawal.
+ *   It must neither be released nor written to, and the withdrawal
+ *   must not be released while the returned value is in use.
+ *
+ * @param      withdrawal           Withdrawal.
+ *
+ * @return Validator index.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHWithdrawalGetValidatorIndex(const ETHWithdrawal *withdrawal);
+
+/**
+ * Obtains the address of a withdrawal.
+ *
+ * - The returned value is allocated in the given withdrawal.
+ *   It must neither be released nor written to, and the withdrawal
+ *   must not be released while the returned value is in use.
+ *
+ * @param      withdrawal           Withdrawal.
+ *
+ * @return Address.
+ */
+ETH_RESULT_USE_CHECK
+const ETHExecutionAddress *ETHWithdrawalGetAddress(const ETHWithdrawal *withdrawal);
+
+/**
+ * Obtains the amount of a withdrawal.
+ *
+ * - The returned value is allocated in the given withdrawal.
+ *   It must neither be released nor written to, and the withdrawal
+ *   must not be released while the returned value is in use.
+ *
+ * @param      withdrawal           Withdrawal.
+ *
+ * @return Amount.
+ */
+ETH_RESULT_USE_CHECK
+const uint64_t *ETHWithdrawalGetAmount(const ETHWithdrawal *withdrawal);
+
+/**
+ * Obtains the raw byte representation of a withdrawal.
+ *
+ * - The returned value is allocated in the given withdrawal.
+ *   It must neither be released nor written to, and the withdrawal
+ *   must not be released while the returned value is in use.
+ *
+ * @param      withdrawal           Withdrawal.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with raw withdrawal data.
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHWithdrawalGetBytes(
+    const ETHWithdrawal *withdrawal,
     int *numBytes);
 
 #if __has_feature(nullability)
