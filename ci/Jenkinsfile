@@ -77,7 +77,7 @@ pipeline {
                 sed -n '/Usage/,/Available sub-commands/ { /Available sub-commands/d; p; }' | \\
                 sed 's/\\x1B\\[[0-9;]*[mG]//g' | \\
                 sed 's/[[:space:]]*$//'); then \\
-            echo "Please update 'options.md' to match 'nimbus_beacon_node --version'"; \\
+            echo "Please update 'docs/the_nimbus_book/src/options.md' to match 'COLUMNS=200 nimbus_beacon_node --help'"; \\
             false; \\
           fi
         '''
