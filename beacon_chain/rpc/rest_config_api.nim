@@ -221,11 +221,11 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#constants
           TIMELY_SOURCE_FLAG_INDEX:
-            to0xHex([byte(TIMELY_SOURCE_FLAG_INDEX)]),
+            Base10.toString(uint64(ord(TIMELY_SOURCE_FLAG_INDEX))),
           TIMELY_TARGET_FLAG_INDEX:
-            to0xHex([byte(TIMELY_TARGET_FLAG_INDEX)]),
+            Base10.toString(uint64(ord(TIMELY_TARGET_FLAG_INDEX))),
           TIMELY_HEAD_FLAG_INDEX:
-            to0xHex([byte(TIMELY_HEAD_FLAG_INDEX)]),
+            Base10.toString(uint64(ord(TIMELY_HEAD_FLAG_INDEX))),
           TIMELY_SOURCE_WEIGHT:
             Base10.toString(uint64(TIMELY_SOURCE_WEIGHT)),
           TIMELY_TARGET_WEIGHT:
