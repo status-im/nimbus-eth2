@@ -155,7 +155,7 @@ type LightClientConf* = object
     hidden
     desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
     defaultValue: 0
-    name: "stop-at-epoch" .}: uint64
+    name: "debug-stop-at-epoch" .}: uint64
 
 template databaseDir*(config: LightClientConf): string =
   config.dataDir.databaseDir
