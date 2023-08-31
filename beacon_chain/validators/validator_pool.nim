@@ -146,12 +146,16 @@ proc addRemoteValidator(pool: var ValidatorPool, keystore: KeystoreData,
     activationEpoch: FAR_FUTURE_EPOCH,
   )
   pool.validators[v.pubkey] = v
-  notice "Remote validator attached",
-    pubkey = v.pubkey,
-    validator = shortLog(v),
-    remote_signer = $keystore.remotes,
-    initial_fee_recipient = feeRecipient.toHex(),
-    initial_gas_limit = gasLimit
+  if RemoteKeystoreFlag.DynamicKeystore in keystore.flags:
+    notice "Dynamic remote validator attached", pubkey = v.pubkey,
+           validator = shortLog(v), remote_signer = $keystore.remotes,
+           initial_fee_recipient = feeRecipient.toHex(),
+           initial_gas_limit = gasLimit
+  else:
+    notice "Remote validator attached", pubkey = v.pubkey,
+           validator = shortLog(v), remote_signer = $keystore.remotes,
+           initial_fee_recipient = feeRecipient.toHex(),
+           initial_gas_limit = gasLimit
 
   validators.set(pool.count().int64)
 

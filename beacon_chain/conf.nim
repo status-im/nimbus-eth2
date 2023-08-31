@@ -161,6 +161,10 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
+    validatorsSource* {.
+      desc: "Remote Web3Signer URL that will be used as a source of validators"
+      name: "validators-source"}: Option[string]
+
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" .}: Option[InputDir]
@@ -874,6 +878,10 @@ type
     validatorsDirFlag* {.
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
+
+    validatorsSource* {.
+      desc: "Remote Web3Signer URL that will be used as a source of validators"
+      name: "validators-source"}: Option[string]
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
