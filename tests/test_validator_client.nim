@@ -445,7 +445,7 @@ suite "Validator Client test suite":
         let expect = vector[1] % (hostname)
         check $normalizeUri(parseUri(vector[0] % (hostname))) == expect
 
-  asyncTest "/eth/v1/validator/sync_committee_selections " &
+  asyncTest "/eth/v1/validator/beacon_committee_selections " &
             "serialization/deserialization test":
     var clientRequest: seq[byte]
     proc process(r: RequestFence): Future[HttpResponseRef] {.async.} =

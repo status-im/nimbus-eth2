@@ -595,13 +595,15 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ /eth/v1/validator/beacon_committee_selections serialization/deserialization test           OK
++ /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
 + bestSuccess() API timeout test                                                             OK
 + firstSuccessParallel() API timeout test                                                    OK
 + getAttestationDataScore() test vectors                                                     OK
 + getLiveness() response deserialization test                                                OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -714,4 +716,16 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
+<<<<<<< HEAD
 OK: 403/408 Fail: 0/408 Skip: 5/408
+||||||| parent of f5eaaf9c6 (Fix AllTests.)
+OK: 404/409 Fail: 0/409 Skip: 5/409
+=======
+<<<<<<< HEAD
+OK: 404/409 Fail: 0/409 Skip: 5/409
+||||||| parent of c6d733b89 (Fix AllTests.)
+OK: 398/403 Fail: 0/403 Skip: 5/403
+=======
+OK: 395/400 Fail: 0/400 Skip: 5/400
+>>>>>>> c6d733b89 (Fix AllTests.)
+>>>>>>> f5eaaf9c6 (Fix AllTests.)
