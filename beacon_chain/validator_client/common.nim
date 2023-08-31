@@ -239,7 +239,7 @@ type
 
   ApiFailure* {.pure.} = enum
     Communication, Invalid, NotFound, OptSynced, NotSynced, Internal,
-    UnexpectedCode, UnexpectedResponse, NoError
+    NotImplemented, UnexpectedCode, UnexpectedResponse, NoError
 
   ApiNodeFailure* = object
     node*: BeaconNodeServerRef
@@ -254,22 +254,6 @@ type
   ValidatorClientError* = object of CatchableError
   ValidatorApiError* = object of ValidatorClientError
     data*: seq[ApiNodeFailure]
-
-  FillSignaturesResult* = object
-    signaturesRequested*: int
-    signaturesReceived*: int
-
-  AttestationSlotRequest* = object
-    validator*: AttachedValidator
-    fork*: Fork
-    slot*: Slot
-
-  SyncCommitteeSlotRequest* = object
-    validator*: AttachedValidator
-    fork*: Fork
-    slot*: Slot
-    sync_committee_index*: IndexInSyncCommittee
-    duty*: SyncCommitteeDuty
 
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
@@ -386,6 +370,7 @@ proc `$`*(failure: ApiFailure): string =
   of ApiFailure.NotSynced: "not-synced"
   of ApiFailure.OptSynced: "opt-synced"
   of ApiFailure.Internal: "internal-issue"
+  of ApiFailure.NotImplemented: "not-implemented"
   of ApiFailure.UnexpectedCode: "unexpected-code"
   of ApiFailure.UnexpectedResponse: "unexpected-data"
   of ApiFailure.NoError: "status-update"
