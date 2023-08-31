@@ -1209,7 +1209,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   # Checkpoint the database to clear the WAL file and make sure changes in
   # the database are synced with the filesystem.
+  let beforeCheckpointTick = Moment.now()
   node.db.checkpoint()
+  let checkpointDur = Moment.now() - beforeCheckpointTick
 
   node.syncCommitteeMsgPool[].pruneData(slot)
   if slot.is_epoch:
@@ -1266,7 +1268,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     nextAttestationSlot = formatInt64(nextAttestationSlot),
     nextProposalSlot = formatInt64(nextProposalSlot),
     syncCommitteeDuties = formatSyncCommitteeStatus(),
-    head = shortLog(head)
+    head = shortLog(head),
+    checkpointDur
 
   if nextAttestationSlot != FAR_FUTURE_SLOT:
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
