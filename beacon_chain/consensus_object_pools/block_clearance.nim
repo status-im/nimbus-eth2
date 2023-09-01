@@ -51,6 +51,9 @@ proc addResolvedHeadBlock(
 
   link(parent, blockRef)
 
+  if executionValid:
+    dag.markBlockVerified(blockRef)
+
   dag.forkBlocks.incl(KeyedBlockRef.init(blockRef))
 
   # Resolved blocks should be stored in database

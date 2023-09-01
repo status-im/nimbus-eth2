@@ -218,3 +218,7 @@ func getSyncSubnets*(
     # 3.
     res.setBit(i div (SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT))
   res
+
+iterator blobSidecarTopics*(forkDigest: ForkDigest): string =
+  for i in 0.SubnetId ..< static(BLOB_SIDECAR_SUBNET_COUNT.SubnetId):
+    yield getBlobSidecarTopic(forkDigest, i)

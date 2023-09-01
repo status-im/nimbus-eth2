@@ -14,7 +14,7 @@ import
 
 from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 
-export timer.Duration, Moment, now
+export timer.Duration, Moment, now, beacon_time
 
 type
   BeaconClock* = object
