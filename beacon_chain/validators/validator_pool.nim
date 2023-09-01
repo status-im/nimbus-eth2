@@ -587,7 +587,7 @@ proc getBlobSignature*(v: AttachedValidator, fork: Fork,
     of ValidatorKind.Remote:
       return SignatureResult.err("web3signer not supported for blobs")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               data: AttestationData

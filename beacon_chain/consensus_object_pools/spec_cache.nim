@@ -76,7 +76,7 @@ func get_beacon_committee_len*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
@@ -155,7 +155,7 @@ func get_attesting_indices_one*(shufflingRef: ShufflingRef,
     res = some(validator_index)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(shufflingRef: ShufflingRef,
                             slot: Slot,
                             committee_index: CommitteeIndex,

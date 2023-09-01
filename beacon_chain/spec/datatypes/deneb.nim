@@ -47,9 +47,10 @@ type
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
   VersionedHash* = array[32, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobsidecar
@@ -66,7 +67,7 @@ type
     kzg_proof*: KzgProof
       ## Allows for quick verification of kzg_commitment
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/p2p-interface.md#signedblobsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#signedblobsidecar
   SignedBlobSidecar* = object
     message*: BlobSidecar
     signature*: ValidatorSig
@@ -574,7 +575,7 @@ func shortLog*(v: ExecutionPayload): auto =
 func shortLog*(x: seq[BlobIdentifier]): string =
   "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
@@ -650,7 +651,7 @@ func upgrade_lc_header_to_deneb*(
         excess_blob_gas: 0),  # [New in Deneb:EIP4844]
     execution_branch: pre.execution_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_deneb*(
     pre: capella.LightClientBootstrap): LightClientBootstrap =
   LightClientBootstrap(
@@ -731,7 +732,7 @@ chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/light-client/fork.md#upgrading-the-store
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_deneb*(
     pre: capella.LightClientStore): LightClientStore =
   let best_valid_update =

@@ -10,7 +10,7 @@
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -38,7 +38,7 @@ from ./datatypes/capella import
 
 export extras, phase0, altair
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var ForkyBeaconState, blck: SomeForkyBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
@@ -113,7 +113,7 @@ proc process_randao(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(
     state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody): Result[void, cstring] =
@@ -452,7 +452,7 @@ proc process_operations(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#sync-aggregate-processing
 func get_participant_reward*(total_active_balance: Gwei): Gwei =
   let
     total_active_increments =
@@ -744,7 +744,7 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     res.add versionedHash
   ok res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
     kzg_commitment: KzgCommitment): VersionedHash =
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#blob

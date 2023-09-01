@@ -22,7 +22,7 @@ const
   TOTAL_SIZE = PIVOT_VIEW_SIZE + POSITION_WINDOW_SIZE
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#compute_shuffled_index
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#compute_committee
 # Port of https://github.com/protolambda/zrnt/blob/master/eth2/beacon/shuffle.go
 # Shuffles or unshuffles, depending on the `dir` (true for shuffling, false for unshuffling
 func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
@@ -191,7 +191,7 @@ iterator get_committee_indices*(committee_count_per_slot: uint64): CommitteeInde
     let committee_index = CommitteeIndex.init(idx).expect("value clamped")
     yield committee_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#compute_committee
 func compute_committee_slice*(
     active_validators, index, count: uint64): Slice[int] =
   doAssert active_validators <= ValidatorIndex.high.uint64
