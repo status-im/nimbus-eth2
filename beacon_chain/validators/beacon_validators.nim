@@ -138,7 +138,12 @@ proc addValidators*(node: BeaconNode) =
 
   let dynamicStores =
     try:
-      waitFor(queryValidatorsSource(node.config))
+      let res = waitFor(queryValidatorsSource(node.config))
+      if res.isErr():
+        # Error is already reported via log warning.
+        default(seq[KeystoreData])
+      else:
+        res.get()
     except CatchableError as exc:
       warn "Unexpected error happens while polling validator's source",
            error = $exc.name, reason = $exc.msg
@@ -160,6 +165,48 @@ proc addValidators*(node: BeaconNode) =
       v = node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                  gasLimit)
     v.updateValidator(data)
+
+proc pollForDynamicValidators*(node: BeaconNode) {.async.} =
+  if node.config.validatorsSourceInverval == 0:
+    return
+
+  proc addValidatorProc(keystore: KeystoreData) =
+    let
+      epoch = node.currentSlot().epoch
+      index = Opt.none(ValidatorIndex)
+      feeRecipient =
+        node.consensusManager[].getFeeRecipient(keystore.pubkey, index, epoch)
+      gasLimit =
+        node.consensusManager[].getGasLimit(keystore.pubkey)
+    discard node.attachedValidators[].addValidator(keystore, feeRecipient,
+                                                   gasLimit)
+
+  var
+    timeout = minutes(node.config.validatorsSourceInverval)
+    exitLoop = false
+
+  while not(exitLoop):
+    exitLoop =
+      try:
+        await sleepAsync(timeout)
+        timeout =
+          block:
+            let res = await node.config.queryValidatorsSource()
+            if res.isOk():
+              let keystores = res.get()
+              debug "Validators source has been polled for validators",
+                    keystores_found = len(keystores),
+                    validators_source = node.config.validatorsSource
+              node.attachedValidators.updateDynamicValidators(keystores,
+                                                              addValidatorProc)
+              minutes(node.config.validatorsSourceInverval)
+            else:
+              # In case of error we going to repeat our call with much smaller
+              # interval.
+              seconds(5)
+        false
+      except CancelledError:
+        true
 
 proc getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator] =
   let key = ? node.dag.validatorKey(idx)

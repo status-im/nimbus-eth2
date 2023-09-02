@@ -95,6 +95,8 @@ type
   MultipleKeystoresDecryptor* = object
     previouslyUsedPassword*: string
 
+  QueryResult = Result[seq[KeystoreData], string]
+
 const
   minPasswordLen = 12
   minPasswordEntropy = 60.0
@@ -627,12 +629,11 @@ proc existsKeystore(keystoreDir: string,
       return true
   false
 
-proc queryValidatorsSource*(config: AnyConf): Future[seq[KeystoreData]] {.
-     async.} =
+proc queryValidatorsSource*(config: AnyConf): Future[QueryResult] {.async.} =
   var keystores: seq[KeystoreData]
   if config.validatorsSource.isNone() or
      len(config.validatorsSource.get()) == 0:
-    return keystores
+    return QueryResult.ok(keystores)
 
   let vsource = config.validatorsSource.get()
   logScope:
@@ -647,9 +648,9 @@ proc queryValidatorsSource*(config: AnyConf): Future[seq[KeystoreData]] {.
         let res = RestClientRef.new(vsource, prestoFlags,
                                     httpFlags, socketFlags = socketFlags)
         if res.isErr():
-          # TODO keep trying in case of temporary network failure
-          warn "Unable to resolve validator's source distributed signer address"
-          return keystores
+          warn "Unable to resolve validator's source distributed signer " &
+               "address", reason = $res.error
+          return QueryResult.err($res.error)
         res.get()
     keys =
       try:
@@ -657,26 +658,27 @@ proc queryValidatorsSource*(config: AnyConf): Future[seq[KeystoreData]] {.
         if response.status != 200:
           warn "Remote validator's source responded with error",
                error = response.status
-          return keystores
+          return QueryResult.err(
+            "Remote validator's source responded with error [" &
+              $response.status & "]")
 
         let res = decodeBytes(Web3SignerKeysResponse, response.data,
                               response.contentType)
         if res.isErr():
           warn "Unable to obtain validator's source response",
                reason = res.error
-          return keystores
-
+          return QueryResult.err($res.error)
         res.get()
       except RestError as exc:
         warn "Unable to poll validator's source", reason = $exc.msg
-        return keystores
+        return QueryResult.err($exc.msg)
       except CancelledError as exc:
         debug "The polling of validator's source was interrupted"
         raise exc
       except CatchableError as exc:
         warn "Unexpected error occured while polling validator's source",
              error = $exc.name, reason = $exc.msg
-        return keystores
+        return QueryResult.err($exc.msg)
 
   for pubkey in keys:
     keystores.add(KeystoreData(
@@ -689,7 +691,7 @@ proc queryValidatorsSource*(config: AnyConf): Future[seq[KeystoreData]] {.
       flags: {RemoteKeystoreFlag.DynamicKeystore},
       remoteType: RemoteSignerType.Web3Signer))
 
-  keystores
+  QueryResult.ok(keystores)
 
 iterator listLoadableKeys*(validatorsDir, secretsDir: string,
                            keysMask: set[KeystoreKind]): CookedPubKey =
