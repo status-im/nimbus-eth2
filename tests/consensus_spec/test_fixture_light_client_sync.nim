@@ -122,7 +122,7 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
     else:
       doAssert false, "Unknown test step: " & $step
 
-proc runTest(path: string) =
+proc runTest(suiteName, path: string) =
   test "Light client - Sync - " & path.relativePath(SszTestsDir):
     # Reduce stack size by making this a `proc`
     proc loadTestMeta(): (RuntimeConfig, TestMeta) =
@@ -269,4 +269,4 @@ suite "EF - Light client - Sync" & preset():
       continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
       let combinedPath = basePath/path
-      runTest(basePath/path)
+      runTest(suiteName, basePath/path)
