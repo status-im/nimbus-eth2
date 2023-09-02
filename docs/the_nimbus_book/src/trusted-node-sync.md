@@ -133,13 +133,13 @@ If you have a state file available, you can start the node using the `--finalize
 
 ```sh
 # Obtain a state and a block from a Beacon API - these must be in SSZ format:
-curl -o state.32000.ssz \
+curl -o state.finalized.ssz \
   -H 'Accept: application/octet-stream' \
-  http://localhost:5052/eth/v2/debug/beacon/states/32000
+  http://localhost:5052/eth/v2/debug/beacon/states/finalized
 
 # Start the beacon node using the downloaded state as starting point
 ./run-mainnet-beacon-node.sh \
-  --finalized-checkpoint-state=state.32000.ssz
+  --finalized-checkpoint-state=state.finalized.ssz
 ```
 
 ## Recreate historical state access indices
