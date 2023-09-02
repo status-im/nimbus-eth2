@@ -37,7 +37,8 @@ export
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network, BlockHashOrNumber,
-  confTomlDefs, confTomlNet, confTomlUri
+  confTomlDefs, confTomlNet, confTomlUri,
+  LightClientDataImportMode
 
 declareGauge network_name, "network name", ["name"]
 
@@ -164,6 +165,11 @@ type
     validatorsSource* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
       name: "validators-source"}: Option[string]
+
+    validatorsSourceInverval* {.
+      desc: "Number of minutes between validator list updates"
+      name: "validators-source-interval"
+      defaultValue: 60 .}: Natural
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
@@ -882,6 +888,11 @@ type
     validatorsSource* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
       name: "validators-source"}: Option[string]
+
+    validatorsSourceInverval* {.
+      desc: "Number of minutes between validator list updates"
+      name: "validators-source-interval"
+      defaultValue: 60 .}: Natural
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"

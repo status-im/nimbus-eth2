@@ -87,6 +87,8 @@ type
     slashingProtection*: SlashingProtectionDB
     doppelgangerDetectionEnabled*: bool
 
+  AddValidatorProc* = proc(keystore: KeystoreData) {.gcsafe, raises: [].}
+
 template pubkey*(v: AttachedValidator): ValidatorPubKey =
   v.data.pubkey
 
@@ -221,8 +223,12 @@ proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
     of ValidatorKind.Local:
       notice "Local validator detached", pubkey, validator = shortLog(validator)
     of ValidatorKind.Remote:
-      notice "Remote validator detached", pubkey,
-             validator = shortLog(validator)
+      if RemoteKeystoreFlag.DynamicKeystore in validator.data.flags:
+        notice "Dynamic remote validator detached", pubkey,
+               validator = shortLog(validator)
+      else:
+        notice "Remote validator detached", pubkey,
+               validator = shortLog(validator)
     validators.set(pool.count().int64)
 
 func needsUpdate*(validator: AttachedValidator): bool =
@@ -372,6 +378,46 @@ func triggersDoppelganger*(
     pool: ValidatorPool, pubkey: ValidatorPubKey, epoch: Epoch): bool =
   let v = pool.getValidator(pubkey)
   v.isSome() and v[].triggersDoppelganger(epoch)
+
+proc updateDynamicValidators*(pool: ref ValidatorPool,
+                              keystores: openArray[KeystoreData],
+                              addProc: AddValidatorProc) =
+  var
+    keystoresTable: Table[ValidatorPubKey, Opt[KeystoreData]]
+    deleteValidators: seq[ValidatorPubKey]
+
+  for keystore in keystores:
+    keystoresTable[keystore.pubkey] = Opt.some(keystore)
+
+  # We preserve `Local` and `Remote` keystores which are not from dynamic set,
+  # and also we removing all the dynamic keystores which are not part of new
+  # dynamic set.
+  for validator in pool[].items():
+    if validator.kind == ValidatorKind.Remote:
+      if RemoteKeystoreFlag.DynamicKeystore in validator.data.flags:
+        let keystore = keystoresTable.getOrDefault(validator.pubkey)
+        if keystore.isSome():
+          # Just update validator's `data` field with new data from keystore.
+          validator.data = keystore.get()
+        else:
+          deleteValidators.add(validator.pubkey)
+
+  for pubkey in deleteValidators:
+    pool[].removeValidator(pubkey)
+
+  # Adding new dynamic keystores.
+  for keystore in keystores.items():
+    let res = pool[].getValidator(keystore.pubkey)
+    if res.isSome():
+      let validator = res.get()
+      if validator.kind != ValidatorKind.Remote or
+         RemoteKeystoreFlag.DynamicKeystore notin validator.data.flags:
+        warn "Attempt to replace local validator with dynamic remote validator",
+             pubkey = validator.pubkey, validator = shortLog(validator),
+             remote_signer = $keystore.remotes,
+             local_validator_kind = validator.kind
+    else:
+      addProc(keystore)
 
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]
