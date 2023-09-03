@@ -604,8 +604,10 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 ```diff
 + Doppelganger for genesis validator                                                         OK
 + Doppelganger for validator that activates in same epoch as check                           OK
++ Dynamic validator set: queryValidatorsSource() test                                        OK
++ Dynamic validator set: updateDynamicValidators() test                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -700,4 +702,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 393/398 Fail: 0/398 Skip: 5/398
+OK: 395/400 Fail: 0/400 Skip: 5/400
