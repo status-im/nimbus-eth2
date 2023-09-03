@@ -234,6 +234,9 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
         let capellaForkVersion =
           block:
             var res: Version
+            # CAPELLA_FOR_VERSION has specific format - "0x01000000", so
+            # default empty string is invalid, so `hexToByteArrayStrict`
+            # will raise exception on empty string.
             let s = spec.getOrDefault("CAPELLA_FORK_VERSION", "")
             hexToByteArrayStrict(s, distinctBase(res))
             res
