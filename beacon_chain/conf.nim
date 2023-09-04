@@ -29,6 +29,8 @@ import
   ./el/el_conf,
   ./filepath
 
+from fork_choice/fork_choice_types
+  import ForkChoiceVersion
 from consensus_object_pools/block_pools_types_light_client
   import LightClientDataImportMode
 
@@ -631,6 +633,12 @@ type
         hidden
         desc: "Bandwidth estimate for the node (bits per second)"
         name: "debug-bandwidth-estimate" .}: Option[Natural]
+
+      forkChoiceVersion* {.
+        hidden
+        desc: "Forkchoice version to use. " &
+              "Must be one of: stable"
+        name: "debug-forkchoice-version" .}: Option[ForkChoiceVersion]
 
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
