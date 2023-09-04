@@ -90,6 +90,9 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
   var duplicates: seq[ValidatorPubKey]
   for keystore in listLoadableKeystores(vc.config, vc.keystoreCache):
     vc.addValidator(keystore)
+  let dynamicKeystores = await queryValidatorsSource(vc.config)
+  for keystore in dynamicKeystores:
+    vc.addValidator(keystore)
   return true
 
 proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =

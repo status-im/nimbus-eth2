@@ -24,7 +24,7 @@ type
   TestMeta = object
     updates_count: uint64
 
-proc runTest(path: string, lcDataFork: static LightClientDataFork) =
+proc runTest(suiteName, path: string, lcDataFork: static LightClientDataFork) =
   test "Light client - Update ranking - " & path.relativePath(SszTestsDir):
     let meta = block:
       var s = openFileStream(path/"meta.yaml")
@@ -64,5 +64,5 @@ suite "EF - Light client - Update ranking" & preset():
       withConsensusFork(fork):
         const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
         when lcDataFork > LightClientDataFork.None:
-          runTest(testsPath/path, lcDataFork)
+          runTest(suiteName, testsPath/path, lcDataFork)
         else: raiseAssert "Unreachable"

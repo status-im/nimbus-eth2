@@ -70,13 +70,16 @@ pipeline {
         sh 'make LOG_LEVEL=TRACE'
         /* Check documentation reflects `nimbus_beacon_node --help`. */
         sh '''#!/usr/bin/env bash
-          diff -u \\
-            <(sed -n '/Usage/,/^...$/ { /^...$/d; p; }' \\
-              docs/the_nimbus_book/src/options.md) \\
-            <(COLUMNS=200 build/nimbus_beacon_node --help | \\
-              sed -n '/Usage/,/Available sub-commands/ { /Available sub-commands/d; p; }' | \\
-              sed 's/\\x1B\\[[0-9;]*[mG]//g' | \\
-              sed 's/[[:space:]]*$//')
+          if ! diff -u \\
+              <(sed -n '/Usage/,/^...$/ { /^...$/d; p; }' \\
+                docs/the_nimbus_book/src/options.md) \\
+              <(COLUMNS=200 build/nimbus_beacon_node --help | \\
+                sed -n '/Usage/,/Available sub-commands/ { /Available sub-commands/d; p; }' | \\
+                sed 's/\\x1B\\[[0-9;]*[mG]//g' | \\
+                sed 's/[[:space:]]*$//'); then \\
+            echo "Please update 'docs/the_nimbus_book/src/options.md' to match 'COLUMNS=200 nimbus_beacon_node --help'"; \\
+            false; \\
+          fi
         '''
       } }
     }
