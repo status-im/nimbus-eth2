@@ -1186,11 +1186,13 @@ proc validateContribution*(
   # i.e. contribution.subcommittee_index < SYNC_COMMITTEE_SUBNET_COUNT.
   let subcommitteeIdx = SyncSubcommitteeIndex.init(
       msg.message.contribution.subcommittee_index).valueOr:
+    info "Contribution: subcommittee index too high", msg
     return dag.checkedReject("Contribution: subcommittee index too high")
 
   # [REJECT] The contribution has participants
   # that is, any(contribution.aggregation_bits).
   if msg.message.contribution.aggregation_bits.isZeros:
+    info "Contribution: aggregation bits empty", msg
     return dag.checkedReject("Contribution: aggregation bits empty")
 
   # [REJECT] contribution_and_proof.selection_proof selects the validator
@@ -1198,6 +1200,7 @@ proc validateContribution*(
   # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof)
   # returns True.
   if not is_sync_committee_aggregator(msg.message.selection_proof):
+    info "Contribution: invalid selection_proof", msg
     return dag.checkedReject("Contribution: invalid selection_proof")
 
   # [IGNORE] The sync committee contribution is the first valid
@@ -1216,6 +1219,7 @@ proc validateContribution*(
   let
     aggregator_index =
       ValidatorIndex.init(msg.message.aggregator_index).valueOr:
+        info "Contribution: invalid aggregator index", msg
         return dag.checkedReject("Contribution: invalid aggregator index")
     # TODO we take a copy of the participants to avoid the data going stale
     #      between validation and use - nonetheless, a design that avoids it and
@@ -1223,6 +1227,7 @@ proc validateContribution*(
     participants = dag.syncCommitteeParticipants(
       msg.message.contribution.slot, subcommitteeIdx)
   if aggregator_index notin participants:
+    info "Contribution: aggregator not in subcommittee", msg
     return dag.checkedReject("Contribution: aggregator not in subcommittee")
 
   # [IGNORE] The block being signed
@@ -1235,6 +1240,7 @@ proc validateContribution*(
     blockRoot = msg.message.contribution.beacon_block_root
     blck = dag.getBlockRef(blockRoot).valueOr:
       if blockRoot in quarantine[].unviable:
+        info "Contribution: target invalid", msg
         return dag.checkedReject("Contribution: target invalid")
       quarantine[].addMissing(blockRoot)
       return errIgnore("Contribution: target not found")
@@ -1250,6 +1256,7 @@ proc validateContribution*(
       dag.forkAtEpoch(msg.message.contribution.slot.epoch),
       msg, subcommitteeIdx, dag)
     if deferredCrypto.isErr():
+      info "Contribution: deferredCrypto.error", msg, err = deferredCrypto.error
       return dag.checkedReject(deferredCrypto.error)
 
     let
@@ -1261,6 +1268,7 @@ proc validateContribution*(
       let x = await aggregatorFut
       case x
       of BatchResult.Invalid:
+        info "Contribution: invalid aggregator signature", msg
         return dag.checkedReject(
           "Contribution: invalid aggregator signature")
       of BatchResult.Timeout:
@@ -1278,6 +1286,7 @@ proc validateContribution*(
       let x = await proofFut
       case x
       of BatchResult.Invalid:
+        info "Contribution: invalid proof", msg
         return dag.checkedReject("Contribution: invalid proof")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
@@ -1293,6 +1302,7 @@ proc validateContribution*(
       let x = await contributionFut
       case x
       of BatchResult.Invalid:
+        info "Contribution: invalid contribution signature", msg
         return dag.checkedReject(
           "Contribution: invalid contribution signature")
       of BatchResult.Timeout:
@@ -1304,6 +1314,7 @@ proc validateContribution*(
     sig
   else:
     msg.message.contribution.signature.load().valueOr:
+      info "SyncCommitteeMessage: unable to load signature", msg
       return dag.checkedReject("SyncCommitteeMessage: unable to load signature")
 
   return ok((blck.bid, sig, participants))
