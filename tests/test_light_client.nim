@@ -163,7 +163,7 @@ suite "Light client" & preset():
         var storeRes = newClone(initialize_light_client_store(
           trusted_block_root, forkyBootstrap, cfg))
         check storeRes[].isOk
-        store = newClone(ForkedLightClientStore(kind: lcDataFork))[]
+        store = (ref ForkedLightClientStore)(kind: lcDataFork)[]
         store.forky(lcDataFork) = storeRes[].get
 
     # Sync to latest sync committee period
