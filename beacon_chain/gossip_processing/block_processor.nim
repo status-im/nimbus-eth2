@@ -522,6 +522,8 @@ proc storeBlock(
     else:
       discard
 
+  let newPayloadTick = Moment.now()
+
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
@@ -587,7 +589,7 @@ proc storeBlock(
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
-  let storeBlockTick = Moment.now()
+  let addHeadBlockTick = Moment.now()
 
   # Eagerly update head: the incoming block "should" get selected.
   #
@@ -708,15 +710,20 @@ proc storeBlock(
   let
     updateHeadTick = Moment.now()
     queueDur = startTick - queueTick
-    storeBlockDur = storeBlockTick - startTick
-    updateHeadDur = updateHeadTick - storeBlockTick
+    newPayloadDur = newPayloadTick - startTick
+    addHeadBlockDur = addHeadBlockTick - newPayloadTick
+    updateHeadDur = updateHeadTick - addHeadBlockTick
+
+    # "store block" is the full time it takes to process the block - in the log
+    # we split this into execution and consensus timings
+    storeBlockDur = newPayloadDur + addHeadBlockDur
 
   beacon_store_block_duration_seconds.observe(storeBlockDur.toFloatSeconds())
 
   debug "Block processed",
     head = shortLog(dag.head),
     blck = shortLog(blck.get()),
-    validationDur, queueDur, storeBlockDur, updateHeadDur
+    validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
