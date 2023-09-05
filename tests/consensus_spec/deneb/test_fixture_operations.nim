@@ -146,16 +146,18 @@ suite baseDescription & "Deposit " & preset():
       OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Execution Payload " & preset():
-  for path in walkTests(OpExecutionPayloadDir):
-    proc applyExecutionPayload(
+  proc makeApplyExecutionPayloadCb(path: string): auto =
+    return proc(
         preState: var deneb.BeaconState, body: deneb.BeaconBlockBody):
         Result[void, cstring] =
-      let payloadValid =
-        os_ops.readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
-          contains("execution_valid: true")
+      let payloadValid = os_ops.readFile(
+          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
+        ).contains("execution_valid: true")
       func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
       process_execution_payload(preState, body, executePayload)
 
+  for path in walkTests(OpExecutionPayloadDir):
+    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
     runTest[deneb.BeaconBlockBody, typeof applyExecutionPayload](
       OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
       applyExecutionPayload, path)
