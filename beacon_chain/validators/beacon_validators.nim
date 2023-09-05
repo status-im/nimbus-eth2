@@ -482,11 +482,6 @@ proc makeBeaconBlockForHeadAndSlot*(
     exits = withState(state[]):
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)
-    syncAggregate =
-      if slot.epoch >= node.dag.cfg.ALTAIR_FORK_EPOCH:
-        node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
-      else:
-        SyncAggregate.init()
     payload = (await payloadFut).valueOr:
       beacon_block_production_errors.inc()
       warn "Unable to get execution payload. Skipping block proposal",
@@ -503,7 +498,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       attestations,
       eth1Proposal.deposits,
       exits,
-      syncAggregate,
+      node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot),
       payload,
       noRollback, # Temporary state - no need for rollback
       cache,
@@ -1539,9 +1534,7 @@ proc getValidatorRegistration(
 
 proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   try:
-    if  (not node.config.payloadBuilderEnable) or
-        node.currentSlot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
-      return
+    if not node.config.payloadBuilderEnable: return
 
     const HttpOk = 200
 
