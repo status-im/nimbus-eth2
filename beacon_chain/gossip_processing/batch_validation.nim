@@ -232,6 +232,7 @@ proc spawnBatchVerifyTask(tp: Taskpool, task: ptr BatchTask) =
   # Inlining this `proc` leads to problems on Nim 2.0
   # - Error: cannot generate destructor for generic type: Isolated
   # Workaround: Ensure that `tp.spawn` is not used within an `{.async.}` proc
+  # https://github.com/nim-lang/Nim/issues/22305
   tp.spawn batchVerifyTask(task)
 
 proc batchVerifyAsync*(
