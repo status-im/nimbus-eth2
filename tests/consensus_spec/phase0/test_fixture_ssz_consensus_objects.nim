@@ -14,7 +14,7 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes/phase0,
+  ../../../beacon_chain/spec/datatypes/phase0,
   # Status libraries
   snappy,
   # Test utilities

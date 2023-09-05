@@ -15,9 +15,9 @@ import
   ../testutil
 
 from std/sequtils import toSeq
-from ../../../beacon_chain/spec/forks import
+from ../../beacon_chain/spec/forks import
   ForkedEpochInfo, ForkedHashedBeaconState, fromSszBytes, getStateRoot, new
-from ../../../beacon_chain/spec/presets import
+from ../../beacon_chain/spec/presets import
   const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, parseTest, readSszBytes, toSszType
@@ -92,22 +92,22 @@ template runForkBlockTests(
 runForkBlockTests(
   "phase0", "Phase 0", phase0.BeaconState, phase0.SignedBeaconBlock)
 
-from ../../../beacon_chain/spec/datatypes/altair import
+from ../../beacon_chain/spec/datatypes/altair import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
   "altair", "Altair", altair.BeaconState, altair.SignedBeaconBlock)
 
-from ../../../beacon_chain/spec/datatypes/bellatrix import
+from ../../beacon_chain/spec/datatypes/bellatrix import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
   "bellatrix", "Bellatrix", bellatrix.BeaconState, bellatrix.SignedBeaconBlock)
 
-from ../../../beacon_chain/spec/datatypes/capella import
+from ../../beacon_chain/spec/datatypes/capella import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
   "capella", "Capella", capella.BeaconState, capella.SignedBeaconBlock)
 
-from ../../../beacon_chain/spec/datatypes/deneb import
+from ../../beacon_chain/spec/datatypes/deneb import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
   "deneb", "Deneb", deneb.BeaconState, deneb.SignedBeaconBlock)

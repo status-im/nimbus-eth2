@@ -16,7 +16,7 @@ import
   ../beacon_chain/spec/[forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/[bellatrix, capella],
   # Test utilities
-  ./unittest2, mocking/mock_genesis
+  unittest2, mocking/mock_genesis
 
 suite "Spec helpers":
   test "integer_squareroot":
