@@ -168,12 +168,17 @@ proc addValidators*(node: BeaconNode) =
     v.updateValidator(data)
 
   try:
+    # We use `allFutures` because all failures are already reported as
+    # user-visible warnings in `queryValidatorsSource`.
+    # We don't consider them fatal because the Web3Signer may be experiencing
+    # a temporary hiccup that will be resolved later.
     waitFor allFutures(mapIt(node.config.web3signers,
                              node.addValidatorsFromWeb3Signer(it, epoch)))
   except CatchableError as err:
     # This should never happen because all errors are handled within
-    # `addValidatorsFromWeb3Signer`. Nevertheless, we need it to the
-    # compiler's exception tracking happy.
+    # `addValidatorsFromWeb3Signer`. Furthermore, the code above is
+    # using `allFutures` which is guaranteed to not raise exceptions.
+    # Nevertheless, we need it to make the compiler's exception tracking happy.
     debug "Unexpected error while fetching the list of validators from a remote signer",
            err = err.msg
 

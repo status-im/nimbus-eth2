@@ -401,6 +401,11 @@ proc updateDynamicValidators*(pool: ref ValidatorPool,
           # Just update validator's `data` field with new data from keystore.
           validator.data = keystore.get()
         elif validator.data.remotes[0].url == HttpHostUri(web3signerUrl):
+          # The "dynamic" keystores are guaratneed to not be distributed
+          # so they have a single remote. This code ensures that we are
+          # deleting all previous dynamically obtained keystores which
+          # were associated with a particular Web3Signer when the same
+          # signer no longer serves them.
           deleteValidators.add(validator.pubkey)
 
   for pubkey in deleteValidators:
