@@ -1169,9 +1169,18 @@ func ETHExecutionPayloadHeaderGetExcessBlobGas(
   ## * Excess blob gas.
   execution[].excess_blob_gas.cint
 
-type ETHExecutionBlockHeader = object
-  transactionsRoot: Eth2Digest
-  withdrawalsRoot: Eth2Digest
+type
+  ETHWithdrawal = object
+    index: uint64
+    validatorIndex: uint64
+    address: ExecutionAddress
+    amount: uint64
+    bytes: seq[byte]
+
+  ETHExecutionBlockHeader = object
+    transactionsRoot: Eth2Digest
+    withdrawalsRoot: Eth2Digest
+    withdrawals: seq[ETHWithdrawal]
 
 proc ETHExecutionBlockHeaderCreateFromJson(
     executionHash: ptr Eth2Digest,
@@ -1277,10 +1286,51 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   if rlpHash(blockHeader) != executionHash[]:
     return nil
 
+  # Construct withdrawals
+  var wds: seq[ETHWithdrawal]
+  if data.withdrawals.isSome:
+    doAssert data.withdrawalsRoot.isSome  # Checked above
+
+    wds = newSeqOfCap[ETHWithdrawal](data.withdrawals.get.len)
+    for data in data.withdrawals.get:
+      # Check fork consistency
+      static: doAssert totalSerializedFields(WithdrawalObject) == 4,
+        "Only update this number once code is adjusted to check new fields!"
+
+      # Construct withdrawal
+      let
+        wd = ExecutionWithdrawal(
+          index: distinctBase(data.index),
+          validatorIndex: distinctBase(data.validatorIndex),
+          address: distinctBase(data.address),
+          amount: distinctBase(data.amount))
+        rlpBytes =
+          try:
+            rlp.encode(wd)
+          except RlpError:
+            raiseAssert "Unreachable"
+
+      wds.add ETHWithdrawal(
+        index: wd.index,
+        validatorIndex: wd.validatorIndex,
+        address: ExecutionAddress(data: wd.address),
+        amount: wd.amount,
+        bytes: rlpBytes)
+
+    var tr = initHexaryTrie(newMemoryDB())
+    for i, wd in wds:
+      try:
+        tr.put(rlp.encode(i), wd.bytes)
+      except RlpError:
+        raiseAssert "Unreachable"
+    if tr.rootHash() != data.withdrawalsRoot.get.asEth2Digest:
+      return nil
+
   let executionBlockHeader = ETHExecutionBlockHeader.new()
   executionBlockHeader[] = ETHExecutionBlockHeader(
     transactionsRoot: blockHeader.txRoot,
-    withdrawalsRoot: blockHeader.withdrawalsRoot.get(ZERO_HASH))
+    withdrawalsRoot: blockHeader.withdrawalsRoot.get(ZERO_HASH),
+    withdrawals: wds)
   executionBlockHeader.toUnmanagedPtr()
 
 proc ETHExecutionBlockHeaderDestroy(
@@ -1324,6 +1374,22 @@ func ETHExecutionBlockHeaderGetWithdrawalsRoot(
   ## Returns:
   ## * Execution withdrawals root.
   addr executionBlockHeader[].withdrawalsRoot
+
+func ETHExecutionBlockHeaderGetWithdrawals(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr seq[ETHWithdrawal] {.exported.} =
+  ## Obtains the withdrawal sequence of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Withdrawal sequence.
+  addr executionBlockHeader[].withdrawals
 
 type
   ETHAccessTuple = object
@@ -2391,3 +2457,116 @@ func ETHReceiptGetBytes(
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](addr distinctBase(receipt[].bytes)[0])
+
+func ETHWithdrawalsGetCount(
+    withdrawals: ptr seq[ETHWithdrawal]): cint {.exported.} =
+  ## Indicates the total number of withdrawals in a withdrawal sequence.
+  ##
+  ## * Individual withdrawals may be investigated using `ETHWithdrawalsGet`.
+  ##
+  ## Parameters:
+  ## * `withdrawals` - Withdrawal sequence.
+  ##
+  ## Returns:
+  ## * Number of available withdrawals.
+  withdrawals[].len.cint
+
+func ETHWithdrawalsGet(
+    withdrawals: ptr seq[ETHWithdrawal],
+    withdrawalIndex: cint): ptr ETHWithdrawal {.exported.} =
+  ## Obtains an individual withdrawal by sequential index
+  ## in a withdrawal sequence.
+  ##
+  ## * The returned value is allocated in the given withdrawal sequence.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   sequence must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawals` - Withdrawal sequence.
+  ## * `withdrawalIndex` - Sequential withdrawal index.
+  ##
+  ## Returns:
+  ## * Withdrawal.
+  addr withdrawals[][withdrawalIndex.int]
+
+func ETHWithdrawalGetIndex(
+    withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
+  ## Obtains the index of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ##
+  ## Returns:
+  ## * Index.
+  addr withdrawal[].index
+
+func ETHWithdrawalGetValidatorIndex(
+    withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
+  ## Obtains the validator index of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ##
+  ## Returns:
+  ## * Validator index.
+  addr withdrawal[].validatorIndex
+
+func ETHWithdrawalGetAddress(
+    withdrawal: ptr ETHWithdrawal): ptr ExecutionAddress {.exported.} =
+  ## Obtains the address of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ##
+  ## Returns:
+  ## * Address.
+  addr withdrawal[].address
+
+func ETHWithdrawalGetAmount(
+    withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
+  ## Obtains the amount of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ##
+  ## Returns:
+  ## * Amount.
+  addr withdrawal[].amount
+
+func ETHWithdrawalGetBytes(
+    withdrawal: ptr ETHWithdrawal,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the raw byte representation of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with raw withdrawal data.
+  numBytes[] = distinctBase(withdrawal[].bytes).len.cint
+  if distinctBase(withdrawal[].bytes).len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultBytes: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultBytes)
+  cast[ptr UncheckedArray[byte]](addr distinctBase(withdrawal[].bytes)[0])

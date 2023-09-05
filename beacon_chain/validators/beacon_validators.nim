@@ -138,7 +138,12 @@ proc addValidators*(node: BeaconNode) =
 
   let dynamicStores =
     try:
-      waitFor(queryValidatorsSource(node.config))
+      let res = waitFor(queryValidatorsSource(node.config))
+      if res.isErr():
+        # Error is already reported via log warning.
+        default(seq[KeystoreData])
+      else:
+        res.get()
     except CatchableError as exc:
       warn "Unexpected error happens while polling validator's source",
            error = $exc.name, reason = $exc.msg
@@ -160,6 +165,48 @@ proc addValidators*(node: BeaconNode) =
       v = node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                  gasLimit)
     v.updateValidator(data)
+
+proc pollForDynamicValidators*(node: BeaconNode) {.async.} =
+  if node.config.validatorsSourceInverval == 0:
+    return
+
+  proc addValidatorProc(keystore: KeystoreData) =
+    let
+      epoch = node.currentSlot().epoch
+      index = Opt.none(ValidatorIndex)
+      feeRecipient =
+        node.consensusManager[].getFeeRecipient(keystore.pubkey, index, epoch)
+      gasLimit =
+        node.consensusManager[].getGasLimit(keystore.pubkey)
+    discard node.attachedValidators[].addValidator(keystore, feeRecipient,
+                                                   gasLimit)
+
+  var
+    timeout = minutes(node.config.validatorsSourceInverval)
+    exitLoop = false
+
+  while not(exitLoop):
+    exitLoop =
+      try:
+        await sleepAsync(timeout)
+        timeout =
+          block:
+            let res = await node.config.queryValidatorsSource()
+            if res.isOk():
+              let keystores = res.get()
+              debug "Validators source has been polled for validators",
+                    keystores_found = len(keystores),
+                    validators_source = node.config.validatorsSource
+              node.attachedValidators.updateDynamicValidators(keystores,
+                                                              addValidatorProc)
+              minutes(node.config.validatorsSourceInverval)
+            else:
+              # In case of error we going to repeat our call with much smaller
+              # interval.
+              seconds(5)
+        false
+      except CancelledError:
+        true
 
 proc getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator] =
   let key = ? node.dag.validatorKey(idx)
@@ -435,11 +482,6 @@ proc makeBeaconBlockForHeadAndSlot*(
     exits = withState(state[]):
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)
-    syncAggregate =
-      if slot.epoch >= node.dag.cfg.ALTAIR_FORK_EPOCH:
-        node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
-      else:
-        SyncAggregate.init()
     payload = (await payloadFut).valueOr:
       beacon_block_production_errors.inc()
       warn "Unable to get execution payload. Skipping block proposal",
@@ -456,7 +498,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       attestations,
       eth1Proposal.deposits,
       exits,
-      syncAggregate,
+      node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot),
       payload,
       noRollback, # Temporary state - no need for rollback
       cache,
@@ -1492,9 +1534,7 @@ proc getValidatorRegistration(
 
 proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   try:
-    if  (not node.config.payloadBuilderEnable) or
-        node.currentSlot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
-      return
+    if not node.config.payloadBuilderEnable: return
 
     const HttpOk = 200
 
