@@ -2467,7 +2467,7 @@ proc getValidatorsLiveness*(
        validators: seq[ValidatorIndex]
      ): Future[GetValidatorsLivenessResponse] {.async.} =
   const
-    RequestName = "getValidatorsActivity"
+    RequestName = "getLiveness"
   let resp = vc.onceToAll(RestPlainResponse,
                           SlotDuration,
                           ViableNodeStatus,
