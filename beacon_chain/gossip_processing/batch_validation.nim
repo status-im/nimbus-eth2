@@ -228,6 +228,12 @@ proc batchVerifyTask(task: ptr BatchTask) {.nimcall.} =
 
   discard task[].signal.fireSync()
 
+proc spawnBatchVerifyTask(tp: Taskpool, task: ptr BatchTask) =
+  # Inlining this `proc` leads to problems on Nim 2.0
+  # - Error: cannot generate destructor for generic type: Isolated
+  # Workaround: Ensure that `tp.spawn` is not used within an `{.async.}` proc
+  tp.spawn batchVerifyTask(task)
+
 proc batchVerifyAsync*(
     verifier: ref BatchVerifier, signal: ThreadSignalPtr,
     batch: ref Batch): Future[bool] {.async.} =
@@ -245,7 +251,7 @@ proc batchVerifyAsync*(
   let taskPtr = addr task
   doAssert verifier[].taskpool.numThreads > 1,
     "Must have at least one separate thread or signal will never be fired"
-  verifier[].taskpool.spawn batchVerifyTask(taskPtr)
+  verifier[].taskpool.spawnBatchVerifyTask(taskPtr)
   await signal.wait()
   task.ok.load()
 
