@@ -335,10 +335,9 @@ proc state_transition*(
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
-    state: var phase0.HashedBeaconState,
+    state: var ForkyHashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
@@ -347,13 +346,16 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayloadForSigning):
-    phase0.BeaconBlock =
-  phase0.BeaconBlock(
+    execution_payload: ForkyExecutionPayloadForSigning
+): auto =
+  const consensusFork = typeof(state).kind
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
+  var res = consensusFork.BeaconBlockType(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: state.latest_block_root,
-    body: phase0.BeaconBlockBody(
+    body: consensusFork.BeaconBlockBodyType(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
@@ -363,127 +365,24 @@ template partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#preparing-a-beaconblock
-template partialBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var altair.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayloadForSigning):
-    altair.BeaconBlock =
-  altair.BeaconBlock(
-    slot: state.data.slot,
-    proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root,
-    body: altair.BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits,
-      sync_aggregate: sync_aggregate))
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#preparing-a-beaconblock
+  when consensusFork >= ConsensusFork.Altair:
+    res.body.sync_aggregate = sync_aggregate
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#block-proposal
-template partialBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var bellatrix.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayloadForSigning):
-    bellatrix.BeaconBlock =
-  bellatrix.BeaconBlock(
-    slot: state.data.slot,
-    proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root,
-    body: bellatrix.BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits,
-      sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload.executionPayload))
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#block-proposal
+  when consensusFork >= ConsensusFork.Bellatrix:
+    res.body.execution_payload = execution_payload.executionPayload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/validator.md#block-proposal
-template partialBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var capella.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: capella.ExecutionPayloadForSigning):
-    capella.BeaconBlock =
-  capella.BeaconBlock(
-    slot: state.data.slot,
-    proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root,
-    body: capella.BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits,
-      sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload.executionPayload,
-      bls_to_execution_changes: validator_changes.bls_to_execution_changes))
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/validator.md#block-proposal
+  when consensusFork >= ConsensusFork.Capella:
+    res.body.bls_to_execution_changes =
+      validator_changes.bls_to_execution_changes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
-template partialBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var deneb.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: deneb.ExecutionPayloadForSigning):
-    deneb.BeaconBlock =
-  deneb.BeaconBlock(
-    slot: state.data.slot,
-    proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root,
-    body: deneb.BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits,
-      sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload.executionPayload,
-      bls_to_execution_changes: validator_changes.bls_to_execution_changes,
-      blob_kzg_commitments: execution_payload.kzgs))
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
+  when consensusFork >= ConsensusFork.Deneb:
+    res.body.blob_kzg_commitments = execution_payload.kzgs
+
+  res
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig,
