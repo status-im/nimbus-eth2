@@ -25,9 +25,13 @@ func createLocal(pubkey: ValidatorPubKey): KeystoreData =
 func createRemote(pubkey: ValidatorPubKey): KeystoreData =
   KeystoreData(kind: KeystoreKind.Remote, pubkey: pubkey)
 
-func createDynamic(pubkey: ValidatorPubKey): KeystoreData =
+func createDynamic(url: Uri, pubkey: ValidatorPubKey): KeystoreData =
   KeystoreData(kind: KeystoreKind.Remote, pubkey: pubkey,
+               remotes: @[RemoteSignerInfo(url: HttpHostUri(url))],
                flags: {RemoteKeystoreFlag.DynamicKeystore})
+
+const
+  remoteSignerUrl = parseUri("http://nimbus.team/signer1")
 
 func makeValidatorAndIndex(
     index: ValidatorIndex, activation_epoch: Epoch): Opt[ValidatorAndIndex] =
@@ -159,7 +163,7 @@ suite "Validator pool":
       config =
         try:
           BeaconNodeConf.load(cmdLine =
-            mapIt(["--validators-source=http://" & $serverAddress], it))
+            mapIt(["--web3-signer-url=http://" & $serverAddress], it))
         except Exception as exc:
           raiseAssert exc.msg
 
@@ -167,27 +171,30 @@ suite "Validator pool":
     try:
       block:
         testStage = 0
-        let res = await queryValidatorsSource(config)
+        let res = await queryValidatorsSource(config.web3signers[0])
         check:
           res.isOk()
           checkResponse(
             res.get(),
-            [createDynamic(createPubKey(1)), createDynamic(createPubKey(2))])
+            [
+              createDynamic(remoteSignerUrl, createPubKey(1)),
+              createDynamic(remoteSignerUrl, createPubKey(2))
+            ])
       block:
         testStage = 1
-        let res = await queryValidatorsSource(config)
+        let res = await queryValidatorsSource(config.web3signers[0])
         check:
           res.isOk()
-          checkResponse(res.get(), [createDynamic(createPubKey(1))])
+          checkResponse(res.get(), [createDynamic(remoteSignerUrl, createPubKey(1))])
       block:
         testStage = 2
-        let res = await queryValidatorsSource(config)
+        let res = await queryValidatorsSource(config.web3signers[0])
         check:
           res.isOk()
           len(res.get()) == 0
       block:
         testStage = 3
-        let res = await queryValidatorsSource(config)
+        let res = await queryValidatorsSource(config.web3signers[0])
         check:
           res.isErr()
     finally:
@@ -214,7 +221,7 @@ suite "Validator pool":
     var pool = (ref ValidatorPool)()
     discard pool[].addValidator(createLocal(createPubKey(1)), fee, gas)
     discard pool[].addValidator(createRemote(createPubKey(2)), fee, gas)
-    discard pool[].addValidator(createDynamic(createPubKey(3)), fee, gas)
+    discard pool[].addValidator(createDynamic(remoteSignerUrl, createPubKey(3)), fee, gas)
 
     proc addValidator(data: KeystoreData) {.gcsafe.} =
       discard pool[].addValidator(data, fee, gas)
@@ -225,16 +232,16 @@ suite "Validator pool":
         expected = [
           createLocal(createPubKey(1)),
           createRemote(createPubKey(2)),
-          createDynamic(createPubKey(3)),
-          createDynamic(createPubKey(4)),
-          createDynamic(createPubKey(5))
+          createDynamic(remoteSignerUrl, createPubKey(3)),
+          createDynamic(remoteSignerUrl, createPubKey(4)),
+          createDynamic(remoteSignerUrl, createPubKey(5))
         ]
         keystores = [
-          createDynamic(createPubKey(3)),
-          createDynamic(createPubKey(4)),
-          createDynamic(createPubKey(5))
+          createDynamic(remoteSignerUrl, createPubKey(3)),
+          createDynamic(remoteSignerUrl, createPubKey(4)),
+          createDynamic(remoteSignerUrl, createPubKey(5))
         ]
-      pool.updateDynamicValidators(keystores, addValidator)
+      pool.updateDynamicValidators(remoteSignerUrl, keystores, addValidator)
       pool[].checkPool(expected)
 
     # Removing dynamic keystores.
@@ -243,12 +250,12 @@ suite "Validator pool":
         expected = [
           createLocal(createPubKey(1)),
           createRemote(createPubKey(2)),
-          createDynamic(createPubKey(3))
+          createDynamic(remoteSignerUrl, createPubKey(3))
         ]
         keystores = [
-          createDynamic(createPubKey(3)),
+          createDynamic(remoteSignerUrl, createPubKey(3)),
         ]
-      pool.updateDynamicValidators(keystores, addValidator)
+      pool.updateDynamicValidators(remoteSignerUrl, keystores, addValidator)
       pool[].checkPool(expected)
 
     # Adding and removing keystores at same time.
@@ -257,14 +264,14 @@ suite "Validator pool":
         expected = [
           createLocal(createPubKey(1)),
           createRemote(createPubKey(2)),
-          createDynamic(createPubKey(4)),
-          createDynamic(createPubKey(5))
+          createDynamic(remoteSignerUrl, createPubKey(4)),
+          createDynamic(remoteSignerUrl, createPubKey(5))
         ]
         keystores = [
-          createDynamic(createPubKey(4)),
-          createDynamic(createPubKey(5))
+          createDynamic(remoteSignerUrl, createPubKey(4)),
+          createDynamic(remoteSignerUrl, createPubKey(5))
         ]
-      pool.updateDynamicValidators(keystores, addValidator)
+      pool.updateDynamicValidators(remoteSignerUrl, keystores, addValidator)
       pool[].checkPool(expected)
 
     # Adding dynamic keystores with keys which are static.
@@ -273,14 +280,14 @@ suite "Validator pool":
         expected = [
           createLocal(createPubKey(1)),
           createRemote(createPubKey(2)),
-          createDynamic(createPubKey(3))
+          createDynamic(remoteSignerUrl, createPubKey(3))
         ]
         keystores = [
-          createDynamic(createPubKey(1)),
-          createDynamic(createPubKey(2)),
-          createDynamic(createPubKey(3)),
+          createDynamic(remoteSignerUrl, createPubKey(1)),
+          createDynamic(remoteSignerUrl, createPubKey(2)),
+          createDynamic(remoteSignerUrl, createPubKey(3)),
         ]
-      pool.updateDynamicValidators(keystores, addValidator)
+      pool.updateDynamicValidators(remoteSignerUrl, keystores, addValidator)
       pool[].checkPool(expected)
 
     # Empty response
@@ -291,5 +298,5 @@ suite "Validator pool":
           createRemote(createPubKey(2))
         ]
       var keystores: seq[KeystoreData]
-      pool.updateDynamicValidators(keystores, addValidator)
+      pool.updateDynamicValidators(remoteSignerUrl, keystores, addValidator)
       pool[].checkPool(expected)

@@ -1617,7 +1617,10 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   waitFor node.updateGossipStatus(wallSlot)
 
-  asyncSpawn pollForDynamicValidators(node)
+  for web3signerUrl in node.config.web3signers:
+    asyncSpawn node.pollForDynamicValidators(
+      web3signerUrl, node.config.web3signerUpdateInterval)
+
   asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
   asyncSpawn runOnSecondLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)

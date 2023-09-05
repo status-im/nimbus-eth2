@@ -33,8 +33,8 @@ The following options are available:
      --network                 The Eth2 network to join [=mainnet].
  -d, --data-dir                The directory where nimbus will store all blockchain data.
      --validators-dir          A directory containing validator keystores.
-     --validators-source       Remote Web3Signer URL that will be used as a source of validators.
-     --validators-source-interval  Number of minutes between validator list updates [=60].
+     --web3-signer             Remote Web3Signer URL that will be used as a source of validators.
+     --web3-signer-update-interval  Number of seconds between validator list updates [=60].
      --secrets-dir             A directory containing validator keystore passwords.
      --wallets-dir             A directory containing wallet files.
      --web3-url                One or more execution layer Engine API URLs.

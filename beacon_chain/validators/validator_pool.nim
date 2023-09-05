@@ -380,6 +380,7 @@ func triggersDoppelganger*(
   v.isSome() and v[].triggersDoppelganger(epoch)
 
 proc updateDynamicValidators*(pool: ref ValidatorPool,
+                              web3signerUrl: Uri,
                               keystores: openArray[KeystoreData],
                               addProc: AddValidatorProc) =
   var
@@ -399,7 +400,7 @@ proc updateDynamicValidators*(pool: ref ValidatorPool,
         if keystore.isSome():
           # Just update validator's `data` field with new data from keystore.
           validator.data = keystore.get()
-        else:
+        elif validator.data.remotes[0].url == HttpHostUri(web3signerUrl):
           deleteValidators.add(validator.pubkey)
 
   for pubkey in deleteValidators:
@@ -517,7 +518,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           fork, genesis_validators_root, slot, block_root,
           v.data.privateKey).toValidatorSig())
     of ValidatorKind.Remote:
-      let web3SignerRequest =
+      let web3signerRequest =
         when blck is ForkedBlindedBeaconBlock:
           case blck.kind
           of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
@@ -617,7 +618,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                   data: blck.denebData.toBeaconBlockHeader),
                 proofs)
-      await v.signData(web3SignerRequest)
+      await v.signData(web3signerRequest)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/validator.md#constructing-the-signedblobsidecars
 proc getBlobSignature*(v: AttachedValidator, fork: Fork,
