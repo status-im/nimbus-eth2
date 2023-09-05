@@ -1149,6 +1149,24 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   node.updateBlocksGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
+proc pruneBlobs(node: BeaconNode, slot: Slot) =
+  let blobPruneEpoch = (slot.epoch -
+                        MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
+  if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
+    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
+    var count = 0
+    let startIndex = node.dag.getBlockRange(
+      blobPruneEpoch.start_slot, 1, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
+    for i in startIndex..<SLOTS_PER_EPOCH:
+      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
+      withBlck(blck):
+        when typeof(blck).toFork() < ConsensusFork.Deneb: continue
+        else:
+          for j in 0..len(blck.message.body.blob_kzg_commitments) - 1:
+            if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
+              count = count + 1
+    debug "pruned blobs", count, blobPruneEpoch
+
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
@@ -1177,30 +1195,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # This is the last pruning to do as it clears the "needPruning" condition.
   node.consensusManager[].pruneStateCachesAndForkChoice()
 
-  # prune blobs
-  let blobPruneEpoch = (slot.epoch -
-                        MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-  if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
-    var count = 0
-    let
-      startIndex = node.dag.getBlockRange(blobPruneEpoch.start_slot, 1,
-                          blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
-    for i in startIndex..<SLOTS_PER_EPOCH:
-      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
-      withBlck(blck):
-        when typeof(blck).toFork() < ConsensusFork.Deneb: continue
-        else:
-          for j in 0..len(blck.message.body.blob_kzg_commitments) - 1:
-            if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
-              count = count + 1
-    debug "pruned blobs", count, blobPruneEpoch
-
   if node.config.historyMode == HistoryMode.Prune:
     if not (slot + 1).is_epoch():
       # The epoch slot already is "heavy" due to the epoch processing, leave
       # the pruning for later
       node.dag.pruneHistory()
+      node.pruneBlobs(slot)
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
