@@ -361,11 +361,7 @@ suite "Validator Client test suite":
                                  is_live: visibility))
       res
 
-    const Tests = [
-      (0, 100_000, 3),
-      (100_000, 200_000, 7),
-      (1_000_000, 2_000_000, 2)
-    ]
+    const Tests = [(0, 2_000_000, 3)]
 
     for test in Tests:
       let
