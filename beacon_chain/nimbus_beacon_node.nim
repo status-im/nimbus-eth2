@@ -1617,7 +1617,17 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   waitFor node.updateGossipStatus(wallSlot)
 
-  asyncSpawn pollForDynamicValidators(node)
+  for web3signerUrl in node.config.web3signers:
+    # TODO
+    # The current strategy polls all remote signers independently
+    # from each other which may lead to some race conditions of
+    # validators are migrated from one signer to another
+    # (because the updates to our validator pool are not atomic).
+    # Consider using different strategies that would detect such
+    # race conditions.
+    asyncSpawn node.pollForDynamicValidators(
+      web3signerUrl, node.config.web3signerUpdateInterval)
+
   asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
   asyncSpawn runOnSecondLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)

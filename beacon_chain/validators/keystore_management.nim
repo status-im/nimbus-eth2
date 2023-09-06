@@ -629,15 +629,11 @@ proc existsKeystore(keystoreDir: string,
       return true
   false
 
-proc queryValidatorsSource*(config: AnyConf): Future[QueryResult] {.async.} =
+proc queryValidatorsSource*(web3signerUrl: Uri): Future[QueryResult] {.async.} =
   var keystores: seq[KeystoreData]
-  if config.validatorsSource.isNone() or
-     len(config.validatorsSource.get()) == 0:
-    return QueryResult.ok(keystores)
 
-  let vsource = config.validatorsSource.get()
   logScope:
-    validators_source = vsource
+    web3signer_url = web3signerUrl
 
   let
     httpFlags: HttpClientFlags = {}
@@ -645,7 +641,7 @@ proc queryValidatorsSource*(config: AnyConf): Future[QueryResult] {.async.} =
     socketFlags = {SocketFlags.TcpNoDelay}
     client =
       block:
-        let res = RestClientRef.new(vsource, prestoFlags,
+        let res = RestClientRef.new($web3signerUrl, prestoFlags,
                                     httpFlags, socketFlags = socketFlags)
         if res.isErr():
           warn "Unable to resolve validator's source distributed signer " &
@@ -686,7 +682,7 @@ proc queryValidatorsSource*(config: AnyConf): Future[QueryResult] {.async.} =
       handle: FileLockHandle(opened: false),
       pubkey: pubkey,
       remotes: @[RemoteSignerInfo(
-        url: HttpHostUri(parseUri(vsource)),
+        url: HttpHostUri(web3signerUrl),
         pubkey: pubkey)],
       flags: {RemoteKeystoreFlag.DynamicKeystore},
       remoteType: RemoteSignerType.Web3Signer))

@@ -589,15 +589,17 @@ proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
     await service.pollForValidatorIndices()
     await service.waitForNextSlot()
 
-proc dynamicValidatorsLoop*(service: DutiesServiceRef) {.async.} =
+proc dynamicValidatorsLoop*(service: DutiesServiceRef,
+                            web3signerUrl: Uri,
+                            intervalInSeconds: int) {.async.} =
   let vc = service.client
-  doAssert(vc.config.validatorsSourceInverval > 0)
+  doAssert(intervalInSeconds > 0)
 
   proc addValidatorProc(data: KeystoreData) =
     vc.addValidator(data)
 
   var
-    timeout = minutes(vc.config.validatorsSourceInverval)
+    timeout = seconds(intervalInSeconds)
     exitLoop = false
 
   while not(exitLoop):
@@ -606,15 +608,16 @@ proc dynamicValidatorsLoop*(service: DutiesServiceRef) {.async.} =
         await sleepAsync(timeout)
         timeout =
           block:
-            let res = await vc.config.queryValidatorsSource()
+            let res = await queryValidatorsSource(web3signerUrl)
             if res.isOk():
               let keystores = res.get()
-              debug "Validators source has been polled for validators",
+              debug "Web3Signer has been polled for validators",
                     keystores_found = len(keystores),
-                    validators_source = vc.config.validatorsSource
-              vc.attachedValidators.updateDynamicValidators(keystores,
+                    web3signer_url = web3signerUrl
+              vc.attachedValidators.updateDynamicValidators(web3signerUrl,
+                                                            keystores,
                                                             addValidatorProc)
-              minutes(vc.config.validatorsSourceInverval)
+              seconds(intervalInSeconds)
             else:
               seconds(5)
         false
@@ -694,12 +697,13 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         service.validatorRegisterLoop()
       else:
         nil
-    dynamicFut =
-      if vc.config.validatorsSourceInverval > 0:
-        service.dynamicValidatorsLoop()
+    dynamicFuts =
+      if vc.config.web3signerUpdateInterval > 0:
+        mapIt(vc.config.web3signers,
+              service.dynamicValidatorsLoop(it, vc.config.web3signerUpdateInterval))
       else:
         debug "Dynamic validators update loop disabled"
-        nil
+        @[]
 
   while true:
     # This loop could look much more nicer/better, when
@@ -713,8 +717,9 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
           FutureBase(indicesFut),
           FutureBase(syncFut),
           FutureBase(prepareFut),
-          FutureBase(dynamicFut)
         ]
+        for fut in dynamicFuts:
+          futures.add fut
         if not(isNil(registerFut)): futures.add(FutureBase(registerFut))
         discard await race(futures)
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
@@ -727,9 +732,11 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         if not(isNil(registerFut)):
           checkAndRestart(ValidatorRegisterLoop, registerFut,
                           service.validatorRegisterLoop())
-        if not(isNil(dynamicFut)):
-          checkAndRestart(DynamicValidatorsLoop, dynamicFut,
-                          service.dynamicValidatorsLoop())
+        for i in 0 ..< dynamicFuts.len:
+          checkAndRestart(DynamicValidatorsLoop, dynamicFuts[i],
+                          service.dynamicValidatorsLoop(
+                            vc.config.web3signers[i],
+                            vc.config.web3signerUpdateInterval))
         false
       except CancelledError:
         debug "Service interrupted"
@@ -746,8 +753,9 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
           pending.add(prepareFut.cancelAndWait())
         if not(isNil(registerFut)) and not(registerFut.finished()):
           pending.add(registerFut.cancelAndWait())
-        if not(isNil(dynamicFut)) and not(dynamicFut.finished()):
-          pending.add(dynamicFut.cancelAndWait())
+        for dynamicFut in dynamicFuts:
+          if not dynamicFut.finished():
+            pending.add(dynamicFut.cancelAndWait())
         if not(isNil(service.pollingAttesterDutiesTask)) and
            not(service.pollingAttesterDutiesTask.finished()):
           pending.add(service.pollingAttesterDutiesTask.cancelAndWait())
