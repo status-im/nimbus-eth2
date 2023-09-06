@@ -15,7 +15,7 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../../beacon_chain/spec/helpers,
+  ../../beacon_chain/spec/helpers,
   # Test utilities
   ../testutil,
   ./fixtures_utils, ./os_ops

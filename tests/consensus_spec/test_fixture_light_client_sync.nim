@@ -15,7 +15,7 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[forks, light_client_sync],
+  ../../beacon_chain/spec/[forks, light_client_sync],
   # Test utilities
   ../testutil,
   ./fixtures_utils, ./os_ops
