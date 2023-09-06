@@ -70,7 +70,7 @@ suite "EF - Bellatrix - Sanity - Slots " & preset():
       bellatrixSanitySlotsDir, relative = true, checkDir = true):
     runTest(bellatrix.BeaconState, bellatrixSanitySlotsDir, "Bellatrix", suiteName, path)
 
-from ../../../beacon_chain/spec/datatypes/capella import BeaconState
+from ../../beacon_chain/spec/datatypes/capella import BeaconState
 
 suite "EF - Capella - Sanity - Slots " & preset():
   const capellaSanitySlotsDir = sanitySlotsDir("capella")
@@ -78,7 +78,7 @@ suite "EF - Capella - Sanity - Slots " & preset():
       capellaSanitySlotsDir, relative = true, checkDir = true):
     runTest(capella.BeaconState, capellaSanitySlotsDir, "Capella", suiteName, path)
 
-from ../../../beacon_chain/spec/datatypes/deneb import BeaconState
+from ../../beacon_chain/spec/datatypes/deneb import BeaconState
 
 suite "EF - Deneb - Sanity - Slots " & preset():
   const denebSanitySlotsDir = sanitySlotsDir("deneb")

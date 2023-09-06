@@ -14,13 +14,13 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes/[altair, capella],
+  ../../../beacon_chain/spec/datatypes/[altair, capella],
   # Status libraries
   snappy,
   # Test utilities
   ../../testutil, ../fixtures_utils, ../os_ops
 
-from ../../beacon_chain/spec/datatypes/bellatrix import PowBlock
+from ../../../beacon_chain/spec/datatypes/bellatrix import PowBlock
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 

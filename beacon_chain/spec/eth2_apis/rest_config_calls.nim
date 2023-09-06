@@ -20,10 +20,6 @@ proc getForkSchedulePlain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/config/fork_schedule", meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule
 
-proc getSpec*(): RestResponse[GetSpecResponse] {.
-     rest, endpoint: "/eth/v1/config/spec", meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Config/getSpec
-
 proc getSpecVC*(): RestResponse[GetSpecVCResponse] {.
      rest, endpoint: "/eth/v1/config/spec", meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Config/getSpec

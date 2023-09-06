@@ -10,8 +10,8 @@
 import
   std/[os, random, strutils, times],
   chronos, stew/results, unittest2, chronicles,
-  ../../beacon_chain/beacon_chain_db,
-  ../../beacon_chain/spec/deposit_snapshots
+  ../beacon_chain/beacon_chain_db,
+  ../beacon_chain/spec/deposit_snapshots
 
 from eth/db/kvstore import kvStore
 from nimcrypto import toDigest
