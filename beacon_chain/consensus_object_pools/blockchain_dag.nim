@@ -597,7 +597,7 @@ func init*(
   # checkpoint - we pre-load the balances here to avoid rewinding the justified
   # state later and compress them because not all checkpoints end up being used
   # for fork choice - specially during long periods of non-finalization
-  proc snappyEncode(inp: openArray[byte]): seq[byte] =
+  func snappyEncode(inp: openArray[byte]): seq[byte] =
     try:
       snappy.encode(inp)
     except CatchableError as err:

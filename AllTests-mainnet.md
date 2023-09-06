@@ -683,10 +683,9 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## subnet tracker
 ```diff
-+ should register stability subnets on attester duties                                       OK
 + should register sync committee duties                                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## weak-subjectivity-checkpoint
 ```diff
 + Correct values                                                                             OK
@@ -702,4 +701,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 395/400 Fail: 0/400 Skip: 5/400
+OK: 394/399 Fail: 0/399 Skip: 5/399

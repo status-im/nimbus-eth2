@@ -254,8 +254,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
           RANDOM_SUBNETS_PER_VALIDATOR: "1",
-          EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION:
-            Base10.toString(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION),
           ATTESTATION_SUBNET_COUNT:
             Base10.toString(ATTESTATION_SUBNET_COUNT),
 
