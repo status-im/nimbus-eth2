@@ -215,20 +215,22 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
     update.next_sync_committee_branch !=
-      default(typeof(update.next_sync_committee_branch))
+      static(default(typeof(update.next_sync_committee_branch)))
   else:
     false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#is_finality_update
 template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithFinality:
-    update.finality_branch != default(typeof(update.finality_branch))
+    update.finality_branch !=
+      static(default(typeof(update.finality_branch)))
   else:
     false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
-  store.next_sync_committee != default(typeof(store.next_sync_committee))
+  store.next_sync_committee !=
+    static(default(typeof(store.next_sync_committee)))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#get_safety_threshold
 func get_safety_threshold*(store: ForkyLightClientStore): uint64 =
