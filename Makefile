@@ -223,7 +223,7 @@ local-testnet-minimal:
 		--preset minimal \
 		--nodes 2 \
 		--signer-nodes 1 \
-		--remote-validators-count 1024 \
+		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
 		--capella-fork-epoch 3 \
 		--deneb-fork-epoch 20 \
