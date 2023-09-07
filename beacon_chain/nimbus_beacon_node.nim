@@ -1105,7 +1105,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
           "Getting head EpochRef should never fail")
         node.consensusManager[].actionTracker.updateActions(epochRef)
 
-      # Avoid some empty slot transition overhead and reorg risk
+      # Avoid some empty slot transition overhead and reorg risk, and increase
+      # prediction accuracy by waiting slightly longer.
       if  slot.since_epoch_start >= SLOTS_PER_EPOCH div 4 and
           node.consensusManager[].actionTracker.needsUpdate(
             forkyState, slot.epoch + 1):
@@ -1232,8 +1233,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let head = node.dag.head
   if node.isSynced(head) and head.executionValid:
     withState(node.dag.headState):
-      # Avoid some empty slot transition overhead and reorg risk
-      if  slot mod SLOTS_PER_EPOCH >= SLOTS_PER_EPOCH div 4 and
+      # Avoid some empty slot transition overhead and reorg risk, and increase
+      # prediction accuracy by waiting slightly longer.
+      if  slot.since_epoch_start >= SLOTS_PER_EPOCH div 4 and
           node.consensusManager[].actionTracker.needsUpdate(
             forkyState, slot.epoch + 1):
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
