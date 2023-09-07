@@ -25,8 +25,7 @@
 import
   stew/bitops2, chronicles,
   ../extras,
-  ./datatypes/[phase0, altair, bellatrix],
-  "."/[beaconstate, eth2_merkleization, helpers, validator]
+  "."/[beaconstate, eth2_merkleization, validator]
 
 from std/algorithm import sort
 from std/math import sum, `^`
@@ -667,6 +666,9 @@ func get_active_increments*(
   info.balances.current_epoch div EFFECTIVE_BALANCE_INCREMENT
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#get_flag_index_deltas
+# This version mainly exists for the rewards and state transition epoch
+# consensus-spec tests, which check rewards calculations for individual
+# TimelyFlags.
 iterator get_flag_index_deltas*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState,
@@ -710,7 +712,96 @@ iterator get_flag_index_deltas*(
       else:
         (vidx, RewardDelta(rewards: 0.Gwei, penalties: 0.Gwei))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#get_flag_index_deltas
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# Combines get_flag_index_deltas() and get_inactivity_penalty_deltas()
+iterator get_flag_and_inactivity_deltas(
+    cfg: RuntimeConfig,
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           deneb.BeaconState,
+    base_reward_per_increment: Gwei, info: var altair.EpochInfo,
+    finality_delay: uint64): (ValidatorIndex, Gwei, Gwei) =
+  ## Return the deltas for a given ``flag_index`` by scanning through the
+  ## participation flags.
+  #
+  # This deviates from spec by processing all flags at once, so does not take a
+  # flag_index parameter. Fold get_inactivity_penalty_deltas loop into this one
+  # as well.
+  const INACTIVITY_PENALTY_QUOTIENT =
+    when state is altair.BeaconState:
+      INACTIVITY_PENALTY_QUOTIENT_ALTAIR
+    else:
+      INACTIVITY_PENALTY_QUOTIENT_BELLATRIX
+
+  static: doAssert ord(high(TimelyFlag)) == 2
+
+  let
+    previous_epoch = get_previous_epoch(state)
+    active_increments = get_active_increments(info)
+    penalty_denominator =
+      cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT
+    epoch_participation =
+      if previous_epoch == get_current_epoch(state):
+        unsafeAddr state.current_epoch_participation
+      else:
+        unsafeAddr state.previous_epoch_participation
+    participating_increments = [
+      get_unslashed_participating_increment(info, TIMELY_SOURCE_FLAG_INDEX),
+      get_unslashed_participating_increment(info, TIMELY_TARGET_FLAG_INDEX),
+      get_unslashed_participating_increment(info, TIMELY_HEAD_FLAG_INDEX)]
+
+  for vidx in state.validators.vindices:
+    if not is_eligible_validator(info.validators[vidx]):
+      continue
+
+    let
+      base_reward = get_base_reward_increment(state, vidx, base_reward_per_increment)
+      pflags =
+        if  is_active_validator(state.validators[vidx], previous_epoch) and
+            not state.validators[vidx].slashed:
+          epoch_participation[].item(vidx)
+        else:
+          0
+
+    if has_flag(pflags, TIMELY_SOURCE_FLAG_INDEX):
+      info.validators[vidx].flags.incl ParticipationFlag.timelySourceAttester
+    if has_flag(pflags, TIMELY_TARGET_FLAG_INDEX):
+      info.validators[vidx].flags.incl ParticipationFlag.timelyTargetAttester
+    if has_flag(pflags, TIMELY_HEAD_FLAG_INDEX):
+      info.validators[vidx].flags.incl ParticipationFlag.timelyHeadAttester
+
+    template reward(flag: untyped): untyped =
+      if has_flag(pflags, flag):
+        get_flag_index_reward(
+          state, base_reward, active_increments,
+          participating_increments[ord(flag)],
+          PARTICIPATION_FLAG_WEIGHTS[flag], finality_delay)
+      else:
+        0
+
+    template penalty(flag: untyped): untyped =
+      if not has_flag(pflags, flag):
+        base_reward * PARTICIPATION_FLAG_WEIGHTS[flag] div WEIGHT_DENOMINATOR
+      else:
+        0
+
+    let inactivity_penalty =
+      if has_flag(pflags, TIMELY_TARGET_FLAG_INDEX):
+        0.Gwei
+      else:
+        let penalty_numerator = state.validators[vidx].effective_balance * state.inactivity_scores[vidx]
+        penalty_numerator div penalty_denominator
+
+    yield
+      (vidx,
+       reward(TIMELY_SOURCE_FLAG_INDEX) + reward(TIMELY_TARGET_FLAG_INDEX) +
+         reward(TIMELY_HEAD_FLAG_INDEX),
+       penalty(TIMELY_SOURCE_FLAG_INDEX) + penalty(TIMELY_TARGET_FLAG_INDEX) +
+         inactivity_penalty)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# Exists for consensus-spec tests which probe for specific flag calculations.
 iterator get_inactivity_penalty_deltas*(
     cfg: RuntimeConfig, state: altair.BeaconState, info: altair.EpochInfo):
     (ValidatorIndex, Gwei) =
@@ -733,6 +824,7 @@ iterator get_inactivity_penalty_deltas*(
       yield (vidx, Gwei(penalty_numerator div penalty_denominator))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# Exists for consensus-spec tests which probe for specific flag calculations.
 iterator get_inactivity_penalty_deltas*(
     cfg: RuntimeConfig,
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState,
@@ -795,13 +887,9 @@ func process_rewards_and_penalties*(
     finality_delay = get_finality_delay(state)
 
   doAssert state.validators.len() == info.validators.len()
-  for flag_index in TimelyFlag:
-    for validator_index, delta in get_flag_index_deltas(
-        state, flag_index, base_reward_per_increment, info, finality_delay):
-      info.validators[validator_index].delta.add(delta)
-
-  for validator_index, penalty in get_inactivity_penalty_deltas(
-      cfg, state, info):
+  for validator_index, reward, penalty in get_flag_and_inactivity_deltas(
+      cfg, state, base_reward_per_increment, info, finality_delay):
+    info.validators[validator_index].delta.rewards += reward
     info.validators[validator_index].delta.penalties += penalty
 
   # Here almost all balances are updated (assuming most validators are active) -
