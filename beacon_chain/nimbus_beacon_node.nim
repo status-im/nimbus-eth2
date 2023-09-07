@@ -1106,7 +1106,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         node.consensusManager[].actionTracker.updateActions(epochRef)
 
       # Avoid some empty slot transition overhead and reorg risk
-      if  slot mod SLOTS_PER_EPOCH >= SLOTS_PER_EPOCH div 4 and
+      if  slot.since_epoch_start >= SLOTS_PER_EPOCH div 4 and
           node.consensusManager[].actionTracker.needsUpdate(
             forkyState, slot.epoch + 1):
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
