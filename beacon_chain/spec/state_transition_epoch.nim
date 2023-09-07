@@ -716,12 +716,12 @@ iterator get_flag_index_deltas*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
 # Combines get_flag_index_deltas() and get_inactivity_penalty_deltas()
-iterator get_flag_and_inactivity_deltas(
+func update_flag_and_inactivity_deltas(
     cfg: RuntimeConfig,
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState,
     base_reward_per_increment: Gwei, info: var altair.EpochInfo,
-    finality_delay: uint64): (ValidatorIndex, Gwei, Gwei) =
+    finality_delay: uint64) =
   ## Return the deltas for a given ``flag_index`` by scanning through the
   ## participation flags.
   #
@@ -793,12 +793,12 @@ iterator get_flag_and_inactivity_deltas(
         let penalty_numerator = state.validators[vidx].effective_balance * state.inactivity_scores[vidx]
         penalty_numerator div penalty_denominator
 
-    yield
-      (vidx,
-       reward(TIMELY_SOURCE_FLAG_INDEX) + reward(TIMELY_TARGET_FLAG_INDEX) +
-         reward(TIMELY_HEAD_FLAG_INDEX),
-       penalty(TIMELY_SOURCE_FLAG_INDEX) + penalty(TIMELY_TARGET_FLAG_INDEX) +
-         inactivity_penalty)
+    info.validators[vidx].delta.rewards +=
+      reward(TIMELY_SOURCE_FLAG_INDEX) + reward(TIMELY_TARGET_FLAG_INDEX) +
+        reward(TIMELY_HEAD_FLAG_INDEX)
+    info.validators[vidx].delta.penalties +=
+      penalty(TIMELY_SOURCE_FLAG_INDEX) + penalty(TIMELY_TARGET_FLAG_INDEX) +
+        inactivity_penalty
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 # Exists for consensus-spec tests which probe for specific flag calculations.
@@ -887,10 +887,8 @@ func process_rewards_and_penalties*(
     finality_delay = get_finality_delay(state)
 
   doAssert state.validators.len() == info.validators.len()
-  for validator_index, reward, penalty in get_flag_and_inactivity_deltas(
-      cfg, state, base_reward_per_increment, info, finality_delay):
-    info.validators[validator_index].delta.rewards += reward
-    info.validators[validator_index].delta.penalties += penalty
+  update_flag_and_inactivity_deltas(
+      cfg, state, base_reward_per_increment, info, finality_delay)
 
   # Here almost all balances are updated (assuming most validators are active) -
   # clearing the cache becomes a bottleneck if done item by item because of the
