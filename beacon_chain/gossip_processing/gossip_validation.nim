@@ -1226,9 +1226,15 @@ proc validateContribution*(
     #      stays safe would be nice
     participants = dag.syncCommitteeParticipants(
       msg.message.contribution.slot, subcommitteeIdx)
+    participants2 = dag.syncCommitteeParticipants(
+      msg.message.contribution.slot + 1, subcommitteeIdx)
   if aggregator_index notin participants:
-    info "Contribution: aggregator not in subcommittee", msg
+    info "Contribution: aggregator not in subcommittee", msg,
+      isIn2 = aggregator_index in participants2
     return dag.checkedReject("Contribution: aggregator not in subcommittee")
+  if aggregator_index notin participants2:
+    info "Contribution: aggregator not in subcommittee 2", msg,
+      isIn1 = aggregator_index in participants
 
   # [IGNORE] The block being signed
   # (`contribution_and_proof.contribution.beacon_block_root`) has been seen
