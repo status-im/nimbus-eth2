@@ -320,7 +320,7 @@ elif const_preset == "mainnet":
       vendorDir & "/holesky/custom_config_data",
       some holesky,
       downloadGenesisFrom = some DownloadInfo(
-        url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.8.0/holesky-genesis.ssz.snappy-framed",
+        url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.9.0/holesky-genesis.ssz.sz",
         digest: Eth2Digest.fromHex "0x76631cd0b9ddc5b2c766b496e23f16759ce1181446a4efb40e5540cd15b78a07"))
 
     sepoliaMetadata = loadCompileTimeNetworkMetadata(

@@ -482,6 +482,13 @@ proc init*(T: type BeaconNode,
   except Exception as exc:
     raise newException(Defect, "Failure in taskpool initialization.")
 
+  if metadata.genesis.kind == BakedIn:
+    if config.genesisState.isSome:
+      warn "The --genesis-state option has no effect on networks with built-in genesis state"
+
+    if config.genesisStateUrl.isSome:
+      warn "The --genesis-state-url option has no effect on networks with built-in genesis state"
+
   let
     eventBus = EventBus(
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
@@ -544,17 +551,29 @@ proc init*(T: type BeaconNode,
   var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
   if not ChainDAGRef.isInitialized(db).isOk():
-    let genesisState =
-      if metadata.hasGenesis:
-        let genesisBytes = try:
-          if metadata.genesis.kind == BakedInUrl:
-            info "Obtaining genesis state", sourceUrl = metadata.genesis.url
-          await metadata.genesis.fetchBytes()
-        except CatchableError as err:
-          error "Failed to obtain genesis state",
-                source = metadata.genesis.sourceDesc,
-                err = err.msg
-          quit 1
+    let genesisState = if checkpointState != nil and getStateField(checkpointState[], slot) == 0:
+      checkpointState
+    else:
+      let genesisBytes = block:
+        if metadata.genesis.kind != BakedIn and config.genesisState.isSome:
+          let res = io2.readAllBytes(config.genesisState.get.string)
+          res.valueOr:
+            error "Failed to read genesis state file", err = res.error.ioErrorMsg
+            quit 1
+        elif metadata.hasGenesis:
+          try:
+            if metadata.genesis.kind == BakedInUrl:
+              info "Obtaining genesis state", sourceUrl = metadata.genesis.url
+            await metadata.genesis.fetchBytes(config.genesisStateUrl)
+          except CatchableError as err:
+            error "Failed to obtain genesis state",
+                  source = metadata.genesis.sourceDesc,
+                  err = err.msg
+            quit 1
+        else:
+          @[]
+
+      if genesisBytes.len > 0:
         try:
           newClone readSszForkedHashedBeaconState(cfg, genesisBytes)
         except CatchableError as err:

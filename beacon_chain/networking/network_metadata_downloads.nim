@@ -29,14 +29,15 @@ proc downloadFile(url: Uri): Future[seq[byte]] {.async.} =
       msg: "Unexpected status code " & $response[0] & " when fetching " & $url,
       status: response[0])
 
-proc fetchBytes*(metadata: GenesisMetadata): Future[seq[byte]] {.async.} =
+proc fetchBytes*(metadata: GenesisMetadata,
+                 genesisStateUrlOverride = none(Uri)): Future[seq[byte]] {.async.} =
   case metadata.kind
   of NoGenesis:
     raiseAssert "fetchBytes should be called only when metadata.hasGenesis is true"
   of BakedIn:
     result = @(metadata.bakedBytes)
   of BakedInUrl:
-    result = decodeFramed(await downloadFile(parseUri metadata.url))
+    result = decodeFramed(await downloadFile(genesisStateUrlOverride.get(parseUri metadata.url)))
     if eth2digest(result) != metadata.digest:
       raise (ref DigestMismatchError)(
         msg: "The downloaded genesis state cannot be verified (checksum mismatch)")

@@ -344,6 +344,14 @@ type
         desc: "SSZ file specifying a recent finalized state"
         name: "finalized-checkpoint-state" .}: Option[InputFile]
 
+      genesisState* {.
+        desc: "SSZ file specifying the genesis state of the network (for networks without a built-in genesis state)"
+        name: "genesis-state" .}: Option[InputFile]
+
+      genesisStateUrl* {.
+        desc: "URL for obtaining the genesis state of the network (for networks without a built-in genesis state)"
+        name: "genesis-state-url" .}: Option[Uri]
+
       finalizedDepositTreeSnapshot* {.
         desc: "SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot"
         name: "finalized-deposit-tree-snapshot" .}: Option[InputFile]
