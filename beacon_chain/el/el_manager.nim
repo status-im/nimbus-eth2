@@ -1402,6 +1402,7 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
           of rinkeby: 4.Quantity
           of goerli:  5.Quantity
           of sepolia: 11155111.Quantity   # https://chainid.network/
+          of holesky: 17000.Quantity
       if expectedChain != providerChain:
         warn "The specified EL client is connected to a different chain",
               url = connection.engineUrl,

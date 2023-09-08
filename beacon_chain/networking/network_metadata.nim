@@ -13,7 +13,7 @@ import
   web3/[ethtypes, conversions],
   chronicles,
   eth/common/eth_types_json_serialization,
-  ../spec/eth2_ssz_serialization
+  ../spec/[eth2_ssz_serialization, forks]
 
 # TODO(zah):
 # We can compress the embedded states with snappy before embedding them here.
@@ -45,6 +45,29 @@ type
     rinkeby
     goerli
     sepolia
+    holesky
+
+  GenesisMetadataKind* = enum
+    NoGenesis
+    UserSuppliedFile
+    BakedIn
+    BakedInUrl
+
+  DownloadInfo* = object
+    url: string
+    digest: Eth2Digest
+
+  GenesisMetadata* = object
+    case kind*: GenesisMetadataKind
+    of NoGenesis:
+      discard
+    of UserSuppliedFile:
+      path*: string
+    of BakedIn:
+      networkName*: string
+    of BakedInUrl:
+      url*: string
+      digest*: Eth2Digest
 
   Eth2NetworkMetadata* = object
     case incompatible*: bool
@@ -62,22 +85,13 @@ type
       depositContractBlock*: uint64
       depositContractBlockHash*: Eth2Digest
 
-      # `genesisData` will have `len == 0` for networks with a still
-      # unknown genesis state.
-      when incbinEnabled:
-        genesisData*: seq[byte]
-      else:
-        genesisData*: string
-
+      genesis*: GenesisMetadata
       genesisDepositsSnapshot*: string
     else:
       incompatibilityDesc*: string
 
-template genesisBytes*(metadata: Eth2NetworkMetadata): auto =
-  when incbinEnabled:
-    metadata.genesisData
-  else:
-    metadata.genesisData.toOpenArrayByte(0, metadata.genesisData.high)
+func hasGenesis*(metadata: Eth2NetworkMetadata): bool =
+  metadata.genesis.kind != NoGenesis
 
 proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
@@ -98,7 +112,11 @@ proc readBootEnr*(path: string): seq[string] {.raises: [IOError].} =
     @[]
 
 proc loadEth2NetworkMetadata*(
-    path: string, eth1Network = none(Eth1Network), loadGenesis = true):
+    path: string,
+    eth1Network = none(Eth1Network),
+    isCompileTime = false,
+    downloadGenesisFrom = none(DownloadInfo),
+    useBakedInGenesis = none(string)):
     Eth2NetworkMetadata {.raises: [CatchableError].} =
   # Load data in eth2-networks format
   # https://github.com/eth-clients/eth2-networks
@@ -166,11 +184,6 @@ proc loadEth2NetworkMetadata*(
         readBootstrapNodes(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
-      genesisData = if loadGenesis and fileExists(genesisPath):
-        readFile(genesisPath)
-      else:
-        ""
-
       genesisDepositsSnapshot = if fileExists(genesisDepositsSnapshotPath):
         readFile(genesisDepositsSnapshotPath)
       else:
@@ -183,9 +196,18 @@ proc loadEth2NetworkMetadata*(
       bootstrapNodes: bootstrapNodes,
       depositContractBlock: depositContractBlock,
       depositContractBlockHash: depositContractBlockHash,
-      genesisData:
-        when incbinEnabled: toBytes genesisData
-        else: genesisData,
+      genesis:
+        if downloadGenesisFrom.isSome:
+          GenesisMetadata(kind: BakedInUrl,
+                          url: downloadGenesisFrom.get.url,
+                          digest: downloadGenesisFrom.get.digest)
+        elif useBakedInGenesis.isSome:
+          GenesisMetadata(kind: BakedIn, networkName: useBakedInGenesis.get)
+        elif fileExists(genesisPath) and not isCompileTime:
+          GenesisMetadata(kind: UserSuppliedFile, path: genesisPath)
+        else:
+          GenesisMetadata(kind: NoGenesis)
+        ,
       genesisDepositsSnapshot: genesisDepositsSnapshot)
 
   except PresetIncompatibleError as err:
@@ -195,10 +217,14 @@ proc loadEth2NetworkMetadata*(
 proc loadCompileTimeNetworkMetadata(
     path: string,
     eth1Network = none(Eth1Network),
-    loadGenesis = true): Eth2NetworkMetadata {.raises: [].} =
+    useBakedInGenesis = none(string),
+    downloadGenesisFrom = none(DownloadInfo)): Eth2NetworkMetadata {.raises: [].} =
   if fileExists(path & "/config.yaml"):
     try:
-      result = loadEth2NetworkMetadata(path, eth1Network, loadGenesis)
+      result = loadEth2NetworkMetadata(path, eth1Network,
+                                       isCompileTime = true,
+                                       downloadGenesisFrom = downloadGenesisFrom,
+                                       useBakedInGenesis = useBakedInGenesis)
       if result.incompatible:
         macros.error "The current build is misconfigured. " &
                      "Attempt to load an incompatible network metadata: " &
@@ -209,27 +235,36 @@ proc loadCompileTimeNetworkMetadata(
     macros.error "config.yaml not found for network '" & path
 
 when const_preset == "gnosis":
-  import stew/assign2
-
   when incbinEnabled:
     let
-      gnosisGenesis {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
-      gnosisGenesisSize {.importc: "gnosis_mainnet_genesis_size".}: int
+      gnosisGenesis* {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
+      gnosisGenesisSize* {.importc: "gnosis_mainnet_genesis_size".}: int
 
-      chiadoGenesis {.importc: "gnosis_chiado_genesis".}: ptr UncheckedArray[byte]
-      chiadoGenesisSize {.importc: "gnosis_chiado_genesis_size".}: int
+      chiadoGenesis* {.importc: "gnosis_chiado_genesis".}: ptr UncheckedArray[byte]
+      chiadoGenesisSize* {.importc: "gnosis_chiado_genesis_size".}: int
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & vendorDir.}
     {.compile: "network_metadata_gnosis.S".}
 
+  else:
+    const
+      gnosisGenesis* = slurp(
+        vendorDir & "/gnosis-chain-configs/mainnet/genesis.ssz")
+
+      chiadoGenesis* = slurp(
+        vendorDir & "/gnosis-chain-configs/chiado/genesis.ssz")
+
   const
     gnosisMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/mainnet",
-      none(Eth1Network), not incbinEnabled)
+      none(Eth1Network),
+      useBakedInGenesis = some "gnosis")
+
     chiadoMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/chiado",
-      none(Eth1Network), not incbinEnabled)
+      none(Eth1Network),
+      useBakedInGenesis = some "chiado")
 
   static:
     for network in [gnosisMetadata, chiadoMetadata]:
@@ -242,38 +277,62 @@ when const_preset == "gnosis":
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
-  import stew/assign2
-
   when incbinEnabled:
     # Nim is very inefficent at loading large constants from binary files so we
     # use this trick instead which saves significant amounts of compile time
     let
-      mainnetGenesis {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
-      mainnetGenesisSize {.importc: "eth2_mainnet_genesis_size".}: int
+      mainnetGenesis* {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
+      mainnetGenesisSize* {.importc: "eth2_mainnet_genesis_size".}: int
 
-      praterGenesis {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
-      praterGenesisSize {.importc: "eth2_goerli_genesis_size".}: int
+      praterGenesis* {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
+      praterGenesisSize* {.importc: "eth2_goerli_genesis_size".}: int
 
-      sepoliaGenesis {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
-      sepoliaGenesisSize {.importc: "eth2_sepolia_genesis_size".}: int
+      sepoliaGenesis* {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
+      sepoliaGenesisSize* {.importc: "eth2_sepolia_genesis_size".}: int
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & vendorDir.}
     {.compile: "network_metadata_mainnet.S".}
 
+  else:
+    const
+      mainnetGenesis* = slurp(
+        vendorDir & "/eth2-networks/shared/mainnet/genesis.ssz")
+
+      praterGenesis* = slurp(
+        vendorDir & "/eth2-networks/shared/prater/genesis.ssz")
+
+      sepoliaGenesis* = slurp(
+        vendorDir & "/sepolia/bepolia/genesis.ssz")
+
   const
     mainnetMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/eth2-networks/shared/mainnet", some mainnet, not incbinEnabled)
+      vendorDir & "/eth2-networks/shared/mainnet",
+      some mainnet,
+      useBakedInGenesis = some "mainnet")
+
     praterMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/eth2-networks/shared/prater", some goerli, not incbinEnabled)
+      vendorDir & "/eth2-networks/shared/prater",
+      some goerli,
+      useBakedInGenesis = some "prater")
+
+    holeskyMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/holesky/custom_config_data",
+      some holesky,
+      downloadGenesisFrom = some DownloadInfo(
+        url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.8.0/holesky-genesis.ssz.snappy-framed",
+        digest: Eth2Digest.fromHex "0x76631cd0b9ddc5b2c766b496e23f16759ce1181446a4efb40e5540cd15b78a07"))
+
     sepoliaMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/sepolia/bepolia", some sepolia, not incbinEnabled)
+      vendorDir & "/sepolia/bepolia",
+      some sepolia,
+      useBakedInGenesis = some "sepolia")
 
   static:
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
+    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
       checkForkConsistency(network.cfg)
 
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
+    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
       doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
@@ -295,40 +354,30 @@ proc getMetadataForNetwork*(
   if networkName == "ropsten":
     warn "Ropsten is unsupported; https://blog.ethereum.org/2022/11/30/ropsten-shutdown-announcement suggests migrating to Goerli or Sepolia"
 
-  template withGenesis(metadata, genesis: untyped): untyped =
-    when incbinEnabled:
-      var tmp = metadata
-      case tmp.incompatible
-      of false:
-        assign(tmp.genesisData, genesis.toOpenArray(0, `genesis Size` - 1))
-      of true:
-        raiseAssert "Unreachable"  # `loadCompileTimeNetworkMetadata`
-      tmp
-    else:
-      metadata
-
   let metadata =
     when const_preset == "gnosis":
       case toLowerAscii(networkName)
       of "gnosis":
-        withGenesis(gnosisMetadata, gnosisGenesis)
+        gnosisMetadata
       of "gnosis-chain":
         warn "`--network:gnosis-chain` is deprecated, " &
           "use `--network:gnosis` instead"
-        withGenesis(gnosisMetadata, gnosisGenesis)
+        gnosisMetadata
       of "chiado":
-        withGenesis(chiadoMetadata, chiadoGenesis)
+        chiadoMetadata
       else:
         loadRuntimeMetadata()
 
     elif const_preset == "mainnet":
       case toLowerAscii(networkName)
       of "mainnet":
-        withGenesis(mainnetMetadata, mainnetGenesis)
+        mainnetMetadata
       of "prater", "goerli":
-        withGenesis(praterMetadata, praterGenesis)
+        praterMetadata
+      of "holesky":
+        holeskyMetadata
       of "sepolia":
-        withGenesis(sepoliaMetadata, sepoliaGenesis)
+        sepoliaMetadata
       else:
         loadRuntimeMetadata()
 
@@ -373,3 +422,67 @@ proc getRuntimeConfig*(
     of true:
       # `getMetadataForNetwork` / `loadCompileTimeNetworkMetadata`
       raiseAssert "Unreachable"
+
+template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
+  when incbinEnabled:
+    `networkName Genesis`.toOpenArray(0, `networkName GenesisSize` - 1)
+  else:
+    `networkName Genesis`.toOpenArrayByte(0, `networkName Genesis`.high)
+
+const
+  availableOnlyInMainnetBuild =
+    "Baked-in genesis states for the official Ethereum " &
+    "networks are available only in the mainnet build of Nimbus"
+
+  availableOnlyInGnosisBuild =
+    "Baked-in genesis states for the Gnosis network " &
+    "are available only in the gnosis build of Nimbus"
+
+when const_preset in ["mainnet", "gnosis"]:
+  template bakedBytes*(metadata: GenesisMetadata): auto =
+    case metadata.networkName
+    of "mainnet":
+      when const_preset == "mainnet":
+        bakedInGenesisStateAsBytes mainnet
+      else:
+        raiseAssert availableOnlyInMainnetBuild
+    of "prater":
+      when const_preset == "mainnet":
+        bakedInGenesisStateAsBytes prater
+      else:
+        raiseAssert availableOnlyInMainnetBuild
+    of "sepolia":
+      when const_preset == "mainnet":
+        bakedInGenesisStateAsBytes sepolia
+      else:
+        raiseAssert availableOnlyInMainnetBuild
+    of "gnosis":
+      when const_preset == "gnosis":
+        bakedInGenesisStateAsBytes gnosis
+      else:
+        raiseAssert availableOnlyInGnosisBuild
+    of "chiado":
+      when const_preset == "gnosis":
+        bakedInGenesisStateAsBytes chiado
+      else:
+        raiseAssert availableOnlyInGnosisBuild
+    else:
+      raiseAssert "The baked network metadata should use one of the name above"
+
+  func bakedGenesisValidatorsRoot*(metadata: Eth2NetworkMetadata): Opt[Eth2Digest] =
+    if metadata.genesis.kind == BakedIn:
+      try:
+        let header = SSZ.decode(
+          toOpenArray(metadata.genesis.bakedBytes, 0, sizeof(BeaconStateHeader) - 1),
+          BeaconStateHeader)
+        Opt.some header.genesis_validators_root
+      except SerializationError as err:
+        raiseAssert "Invalid baken-in genesis state"
+    else:
+      Opt.none Eth2Digest
+else:
+  func bakedBytes*(metadata: GenesisMetadata): seq[byte] =
+    raiseAssert "Baked genesis states are not available in the current build mode"
+
+  func bakedGenesisValidatorsRoot*(metadata: Eth2NetworkMetadata): Opt[Eth2Digest] =
+    Opt.none Eth2Digest

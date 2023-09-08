@@ -981,10 +981,10 @@ func getForkSchedule*(cfg: RuntimeConfig): array[5, Fork] =
 
 type
   # The first few fields of a state, shared across all forks
-  BeaconStateHeader = object
-    genesis_time: uint64
-    genesis_validators_root: Eth2Digest
-    slot: Slot
+  BeaconStateHeader* = object
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
 
 func readSszForkedHashedBeaconState*(
     consensusFork: ConsensusFork, data: openArray[byte]):

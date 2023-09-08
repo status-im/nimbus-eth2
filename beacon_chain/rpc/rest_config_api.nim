@@ -138,7 +138,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           TERMINAL_BLOCK_HASH:
             $cfg.TERMINAL_BLOCK_HASH,
           TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH:
-            Base10.toString(uint64(TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH)),
+            Base10.toString(uint64(cfg.TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH)),
           MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
             Base10.toString(cfg.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT),
           MIN_GENESIS_TIME:

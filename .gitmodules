@@ -59,7 +59,7 @@
 	path = vendor/nim-chronos
 	url = https://github.com/status-im/nim-chronos.git
 	ignore = untracked
-	branch = master
+	branch = nimbus-v23.9.0
 [submodule "vendor/nim-chronicles"]
 	path = vendor/nim-chronicles
 	url = https://github.com/status-im/nim-chronicles.git
@@ -220,3 +220,8 @@
 	url = https://github.com/arnetheduck/nim-results.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/holesky"]
+	path = vendor/holesky
+  url = https://github.com/eth-clients/holesky
+  ignore = untracked
+  branch = main
