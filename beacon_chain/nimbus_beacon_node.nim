@@ -546,7 +546,10 @@ proc init*(T: type BeaconNode,
   if not ChainDAGRef.isInitialized(db).isOk():
     let genesisState =
       if metadata.hasGenesis:
-        let genesisBytes = try: await metadata.genesis.fetchBytes()
+        let genesisBytes = try:
+          if metadata.genesis.kind == BakedInUrl:
+            info "Obtaining genesis state", sourceUrl = metadata.genesis.url
+          await metadata.genesis.fetchBytes()
         except CatchableError as err:
           error "Failed to obtain genesis state",
                 source = metadata.genesis.sourceDesc,

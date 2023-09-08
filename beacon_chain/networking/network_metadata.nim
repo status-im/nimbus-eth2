@@ -53,6 +53,10 @@ type
     BakedIn
     BakedInUrl
 
+  DownloadInfo* = object
+    url: string
+    digest: Eth2Digest
+
   GenesisMetadata* = object
     case kind*: GenesisMetadataKind
     of NoGenesis:
@@ -63,6 +67,7 @@ type
       networkName*: string
     of BakedInUrl:
       url*: string
+      digest*: Eth2Digest
 
   Eth2NetworkMetadata* = object
     case incompatible*: bool
@@ -110,8 +115,8 @@ proc loadEth2NetworkMetadata*(
     path: string,
     eth1Network = none(Eth1Network),
     isCompileTime = false,
-    genesisUrl = none(string),
-    bakedInGenesisName = none(string)):
+    downloadGenesisFrom = none(DownloadInfo),
+    useBakedInGenesis = none(string)):
     Eth2NetworkMetadata {.raises: [CatchableError].} =
   # Load data in eth2-networks format
   # https://github.com/eth-clients/eth2-networks
@@ -192,10 +197,12 @@ proc loadEth2NetworkMetadata*(
       depositContractBlock: depositContractBlock,
       depositContractBlockHash: depositContractBlockHash,
       genesis:
-        if genesisUrl.isSome:
-          GenesisMetadata(kind: BakedInUrl, url: genesisUrl.get)
-        elif bakedInGenesisName.isSome:
-          GenesisMetadata(kind: BakedIn, networkName: bakedInGenesisName.get)
+        if downloadGenesisFrom.isSome:
+          GenesisMetadata(kind: BakedInUrl,
+                          url: downloadGenesisFrom.get.url,
+                          digest: downloadGenesisFrom.get.digest)
+        elif useBakedInGenesis.isSome:
+          GenesisMetadata(kind: BakedIn, networkName: useBakedInGenesis.get)
         elif fileExists(genesisPath) and not isCompileTime:
           GenesisMetadata(kind: UserSuppliedFile, path: genesisPath)
         else:
@@ -210,14 +217,14 @@ proc loadEth2NetworkMetadata*(
 proc loadCompileTimeNetworkMetadata(
     path: string,
     eth1Network = none(Eth1Network),
-    bakedInGenesisName = none(string),
-    genesisUrl = none(string)): Eth2NetworkMetadata {.raises: [].} =
+    useBakedInGenesis = none(string),
+    downloadGenesisFrom = none(DownloadInfo)): Eth2NetworkMetadata {.raises: [].} =
   if fileExists(path & "/config.yaml"):
     try:
       result = loadEth2NetworkMetadata(path, eth1Network,
                                        isCompileTime = true,
-                                       genesisUrl = genesisUrl,
-                                       bakedInGenesisName = bakedInGenesisName)
+                                       downloadGenesisFrom = downloadGenesisFrom,
+                                       useBakedInGenesis = useBakedInGenesis)
       if result.incompatible:
         macros.error "The current build is misconfigured. " &
                      "Attempt to load an incompatible network metadata: " &
@@ -228,8 +235,6 @@ proc loadCompileTimeNetworkMetadata(
     macros.error "config.yaml not found for network '" & path
 
 when const_preset == "gnosis":
-  import stew/assign2
-
   when incbinEnabled:
     let
       gnosisGenesis* {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
@@ -254,12 +259,12 @@ when const_preset == "gnosis":
     gnosisMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/mainnet",
       none(Eth1Network),
-      bakedInGenesisName = some "gnosis")
+      useBakedInGenesis = some "gnosis")
 
     chiadoMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/chiado",
       none(Eth1Network),
-      bakedInGenesisName = some "chiado")
+      useBakedInGenesis = some "chiado")
 
   static:
     for network in [gnosisMetadata, chiadoMetadata]:
@@ -272,8 +277,6 @@ when const_preset == "gnosis":
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
-  import stew/assign2
-
   when incbinEnabled:
     # Nim is very inefficent at loading large constants from binary files so we
     # use this trick instead which saves significant amounts of compile time
@@ -306,22 +309,24 @@ elif const_preset == "mainnet":
     mainnetMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/eth2-networks/shared/mainnet",
       some mainnet,
-      bakedInGenesisName = some "mainnet")
+      useBakedInGenesis = some "mainnet")
 
     praterMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/eth2-networks/shared/prater",
       some goerli,
-      bakedInGenesisName = some "prater")
+      useBakedInGenesis = some "prater")
 
     holeskyMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/holesky/custom_config_data",
       some holesky,
-      genesisUrl = some "https://github.com/status-im/nimbus-eth2/releases/download/v23.8.0/holesky-genesis.ssz.snappy-framed")
+      downloadGenesisFrom = some DownloadInfo(
+        url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.8.0/holesky-genesis.ssz.snappy-framed",
+        digest: Eth2Digest.fromHex "0x76631cd0b9ddc5b2c766b496e23f16759ce1181446a4efb40e5540cd15b78a07"))
 
     sepoliaMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/sepolia/bepolia",
       some sepolia,
-      bakedInGenesisName = some "sepolia")
+      useBakedInGenesis = some "sepolia")
 
   static:
     for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
@@ -476,7 +481,7 @@ when const_preset in ["mainnet", "gnosis"]:
     else:
       Opt.none Eth2Digest
 else:
-  template bakedBytes*(metadata: GenesisMetadata): auto =
+  func bakedBytes*(metadata: GenesisMetadata): seq[byte] =
     raiseAssert "Baked genesis states are not available in the current build mode"
 
   func bakedGenesisValidatorsRoot*(metadata: Eth2NetworkMetadata): Opt[Eth2Digest] =

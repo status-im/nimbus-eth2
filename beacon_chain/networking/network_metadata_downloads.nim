@@ -7,9 +7,8 @@
 
 import
   std/uri,
-  stew/io2,
-  chronos, chronos/apps/http/httpclient,
-  snappy
+  stew/io2, chronos, chronos/apps/http/httpclient, snappy,
+  ../spec/digest
 
 import network_metadata
 export network_metadata
@@ -18,18 +17,14 @@ type
   HttpFetchError* = object of CatchableError
     status*: int
 
-# TODO: This import is only needed for the debugging codfe in `downloadFile`
-import stew/byteutils
+  DigestMismatchError* = object of CatchableError
 
 proc downloadFile(url: Uri): Future[seq[byte]] {.async.} =
-  echo "DOWNLOADING URL: ", url
   var httpSession = HttpSessionRef.new()
   let response = await httpSession.fetch(url)
   if response[0] == 200:
     return response[1]
   else:
-    echo "ERROR RESPONSE FROM SERVER"
-    echo string.fromBytes(response[1])
     raise (ref HttpFetchError)(
       msg: "Unexpected status code " & $response[0] & " when fetching " & $url,
       status: response[0])
@@ -39,11 +34,14 @@ proc fetchBytes*(metadata: GenesisMetadata): Future[seq[byte]] {.async.} =
   of NoGenesis:
     raiseAssert "fetchBytes should be called only when metadata.hasGenesis is true"
   of BakedIn:
-    @(metadata.bakedBytes)
+    result = @(metadata.bakedBytes)
   of BakedInUrl:
-    decodeFramed(await downloadFile(parseUri metadata.url))
+    result = decodeFramed(await downloadFile(parseUri metadata.url))
+    if eth2digest(result) != metadata.digest:
+      raise (ref DigestMismatchError)(
+        msg: "The downloaded genesis state cannot be verified (checksum mismatch)")
   of UserSuppliedFile:
-    readAllBytes(metadata.path).tryGet()
+    result = readAllBytes(metadata.path).tryGet()
 
 proc sourceDesc*(metadata: GenesisMetadata): string =
   case metadata.kind
