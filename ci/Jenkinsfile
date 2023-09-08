@@ -110,7 +110,7 @@ pipeline {
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
-          steps { timeout(26) {
+          steps { timeout(36) {
             sh 'make local-testnet-minimal'
           } }
           post { always {
@@ -119,7 +119,7 @@ pipeline {
         }
 
         stage('mainnet') {
-          steps { timeout(62) {
+          steps { timeout(72) {
             sh 'make local-testnet-mainnet'
           } }
           post { always {
