@@ -27,7 +27,6 @@ import
   ../extras,
   "."/[beaconstate, eth2_merkleization, validator]
 
-from std/algorithm import sort
 from std/math import sum, `^`
 from ./datatypes/capella import
   BeaconState, HistoricalSummary, Withdrawal, WithdrawalIndex
@@ -811,7 +810,9 @@ func process_rewards_and_penalties*(
     decrease_balance(balance, info.validators[vidx].delta.penalties)
     state.balances.asSeq()[vidx] = balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#registry-updates
+from std/heapqueue import HeapQueue, `[]`, len, push, replace
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#registry-updates
 func process_registry_updates*(
     cfg: RuntimeConfig, state: var ForkyBeaconState, cache: var StateCache):
     Result[void, cstring] =
@@ -832,6 +833,13 @@ func process_registry_updates*(
   # the current epoch, 1 + MAX_SEED_LOOKAHEAD epochs ahead. Thus caches
   # remain valid for this epoch through though this function along with
   # the rest of the epoch transition.
+  #
+  # This implementation fuses the two loops over all validators in the
+  # spec code.
+
+  ## Queue validators eligible for activation and not dequeued for activation
+  var activation_queue: HeapQueue[(uint64, uint32)]
+  let churn_limit = get_validator_churn_limit(cfg, state, cache)
   for vidx in state.validators.vindices:
     if is_eligible_for_activation_queue(state.validators.item(vidx)):
       state.validators.mitem(vidx).activation_eligibility_epoch =
@@ -841,26 +849,24 @@ func process_registry_updates*(
         state.validators.item(vidx).effective_balance <= cfg.EJECTION_BALANCE:
       ? initiate_validator_exit(cfg, state, vidx, cache)
 
-  ## Queue validators eligible for activation and not dequeued for activation
-  var activation_queue : seq[tuple[a: Epoch, b: ValidatorIndex]] = @[]
-  for vidx in state.validators.vindices:
     let validator = unsafeAddr state.validators.item(vidx)
     if is_eligible_for_activation(state, validator[]):
-      activation_queue.add (
-        validator[].activation_eligibility_epoch, vidx)
-
-  activation_queue.sort(system.cmp)
+      let val_key =
+        (FAR_FUTURE_EPOCH - validator[].activation_eligibility_epoch,
+         high(distinctBase(ValidatorIndex)) - distinctBase(vidx))
+      if activation_queue.len.uint64 < churn_limit:
+        activation_queue.push val_key
+      elif val_key > activation_queue[0]:
+        discard activation_queue.replace val_key
 
   ## Dequeued validators for activation up to churn limit (without resetting
   ## activation epoch)
-  let churn_limit = get_validator_churn_limit(cfg, state, cache)
-  for i, epoch_and_index in activation_queue:
-    if i.uint64 >= churn_limit:
-      break
-    let
-      (_, vidx) = epoch_and_index
-    state.validators.mitem(vidx).activation_epoch =
-      compute_activation_exit_epoch(get_current_epoch(state))
+  doAssert activation_queue.len.uint64 <= churn_limit
+  for i in 0 ..< activation_queue.len:
+    let (_, vidx_complement) = activation_queue[i]
+    state.validators.mitem(
+      high(distinctBase(ValidatorIndex)) - vidx_complement).activation_epoch =
+        compute_activation_exit_epoch(get_current_epoch(state))
 
   ok()
 
