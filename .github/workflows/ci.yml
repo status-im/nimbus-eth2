@@ -31,8 +31,8 @@ jobs:
             cpu: amd64
           - os: macos
             cpu: amd64
-          #- os: windows
-          #  cpu: amd64
+          - os: windows
+            cpu: amd64
         branch: [~, upstream/version-1-6, upstream/version-2-0]
         exclude:
           - target:
@@ -46,7 +46,7 @@ jobs:
             branch: upstream/version-1-6
           - target:
               os: windows
-            branch: upstream/version-2-0
+            branch: ~
         include:
           - branch: upstream/version-1-6
             branch-short: version-1-6
@@ -61,10 +61,10 @@ jobs:
               os: macos
             builder: macos-11
             shell: bash
-          #- target:
-          #    os: windows
-          #  builder: windows-2019
-          #  shell: msys2 {0}
+          - target:
+              os: windows
+            builder: windows-2019
+            shell: msys2 {0}
 
     defaults:
       run:
