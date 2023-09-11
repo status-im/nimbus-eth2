@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.push raises: [].}
-{.pragma: raisesssz, raises: [Defect, MalformedSszError, SszSizeMismatchError].}
+{.pragma: raisesssz, raises: [MalformedSszError, SszSizeMismatchError].}
 
 import
   std/[typetraits],

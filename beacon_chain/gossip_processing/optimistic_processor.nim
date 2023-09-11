@@ -30,7 +30,7 @@ const
 type
   MsgTrustedBlockProcessor* =
     proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock): Future[void] {.
-      gcsafe, raises: [Defect].}
+      gcsafe, raises: [].}
 
   OptimisticProcessor* = ref object
     getBeaconTime: GetBeaconTimeFn

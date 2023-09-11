@@ -102,7 +102,7 @@ DL_GETH="0"
 : ${NIMBUS_ETH2_REVISION:=6c0d756d}
 
 : ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node$EXE_EXTENSION"}
-: ${CAPELLA_FORK_EPOCH:=40}
+: ${CAPELLA_FORK_EPOCH:=0}
 : ${DENEB_FORK_EPOCH:=50}
 #NIMBUS EL VARS
 RUN_NIMBUS_ETH1="0"
@@ -220,7 +220,7 @@ while true; do
       ;;
     --stop-at-epoch)
       STOP_AT_EPOCH=$2
-      STOP_AT_EPOCH_FLAG="--stop-at-epoch=$2"
+      STOP_AT_EPOCH_FLAG="--debug-stop-at-epoch=$2"
       shift 2
       ;;
     --disable-htop)
@@ -725,6 +725,9 @@ fi
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 cleanup() {
+  echo "Current port usage:"
+  lsof -i -P | grep LISTEN
+
   echo "Cleaning up"
 
   # Avoid the trap enterring an infinite loop
@@ -930,7 +933,7 @@ if [[ "${LIGHTHOUSE_VC_NODES}" != "0" ]]; then
 fi
 
 dump_logs() {
-  LOG_LINES=20
+  LOG_LINES=50
   for LOG in "${DATA_DIR}"/logs/*; do
     echo "Last ${LOG_LINES} lines of ${LOG}:"
     tail -n ${LOG_LINES} "${LOG}"

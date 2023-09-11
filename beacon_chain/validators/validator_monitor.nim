@@ -236,7 +236,6 @@ proc addMonitor*(
     self.indices[index.get().uint64] = monitor
 
 template metricId: string =
-  mixin self, id
   if self.totals: total else: id
 
 proc addAutoMonitor*(
@@ -779,7 +778,6 @@ proc registerSyncContribution*(
     participants: openArray[ValidatorIndex]) =
   let
     slot = contribution_and_proof.contribution.slot
-    beacon_block_root = contribution_and_proof.contribution.beacon_block_root
     delay = seen_timestamp - slot.sync_contribution_deadline()
 
   let aggregator_index = contribution_and_proof.aggregator_index

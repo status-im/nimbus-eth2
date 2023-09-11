@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -38,35 +38,32 @@ doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
              OpDepositsDir, OpProposerSlashingDir, OpVoluntaryExitDir])
 
 proc runTest[T, U](
-    testSuiteDir: string, testSuiteName: string, applyFile: string,
+    testSuiteDir, suiteName, opName, applyFile: string,
     applyProc: U, identifier: string) =
   let testDir = testSuiteDir / "pyspec_tests" / identifier
 
-  proc testImpl() =
-    let prefix =
-      if fileExists(testDir/"post.ssz_snappy"):
-        "[Valid]   "
-      else:
-        "[Invalid] "
+  let prefix =
+    if fileExists(testDir/"post.ssz_snappy"):
+      "[Valid]   "
+    else:
+      "[Invalid] "
 
-    test prefix & baseDescription & testSuiteName & " - " & identifier:
-      let preState = newClone(
-        parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
-      let done = applyProc(
-        preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
+  test prefix & baseDescription & suiteName & " - " & identifier:
+    let preState = newClone(
+      parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
+    let done = applyProc(
+      preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
-      if fileExists(testDir/"post.ssz_snappy"):
-        let postState =
-          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, phase0.BeaconState))
+    if fileExists(testDir/"post.ssz_snappy"):
+      let postState =
+        newClone(parseTest(testDir/"post.ssz_snappy", SSZ, phase0.BeaconState))
 
-        check:
-          done.isOk()
-          preState[].hash_tree_root() == postState[].hash_tree_root()
-        reportDiff(preState, postState)
-      else:
-        check: done.isErr() # No post state = processing should fail
-
-  testImpl()
+      check:
+        done.isOk()
+        preState[].hash_tree_root() == postState[].hash_tree_root()
+      reportDiff(preState, postState)
+    else:
+      check: done.isErr() # No post state = processing should fail
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
@@ -77,7 +74,8 @@ suite baseDescription & "Attestation " & preset():
 
   for path in walkTests(OpAttestationsDir):
     runTest[Attestation, typeof applyAttestation](
-      OpAttestationsDir, "Attestation", "attestation", applyAttestation, path)
+      OpAttestationsDir, suiteName, "Attestation", "attestation",
+      applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
@@ -89,7 +87,7 @@ suite baseDescription & "Attester Slashing " & preset():
 
   for path in walkTests(OpAttSlashingDir):
     runTest[AttesterSlashing, typeof applyAttesterSlashing](
-      OpAttSlashingDir, "Attester Slashing", "attester_slashing",
+      OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 
 suite baseDescription & "Block Header " & preset():
@@ -101,7 +99,8 @@ suite baseDescription & "Block Header " & preset():
 
   for path in walkTests(OpBlockHeaderDir):
     runTest[phase0.BeaconBlock, typeof applyBlockHeader](
-      OpBlockHeaderDir, "Block Header", "block", applyBlockHeader, path)
+      OpBlockHeaderDir, suiteName, "Block Header", "block",
+      applyBlockHeader, path)
 
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
@@ -111,7 +110,7 @@ suite baseDescription & "Deposit " & preset():
 
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
-      OpDepositsDir, "Deposit", "deposit", applyDeposit, path)
+      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
@@ -123,7 +122,7 @@ suite baseDescription & "Proposer Slashing " & preset():
 
   for path in walkTests(OpProposerSlashingDir):
     runTest[ProposerSlashing, typeof applyProposerSlashing](
-      OpProposerSlashingDir, "Proposer Slashing", "proposer_slashing",
+      OpProposerSlashingDir, suiteName, "Proposer Slashing", "proposer_slashing",
       applyProposerSlashing, path)
 
 suite baseDescription & "Voluntary Exit " & preset():
@@ -136,5 +135,5 @@ suite baseDescription & "Voluntary Exit " & preset():
 
   for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
-      OpVoluntaryExitDir, "Voluntary Exit", "voluntary_exit",
+      OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",
       applyVoluntaryExit, path)

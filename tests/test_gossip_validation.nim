@@ -43,7 +43,7 @@ suite "Gossip validation " & preset():
         ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
         validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
@@ -51,7 +51,8 @@ suite "Gossip validation " & preset():
       info = ForkedEpochInfo()
       batchCrypto = BatchCrypto.new(
         rng, eager = proc(): bool = false,
-        genesis_validators_root = dag.genesis_validators_root, taskpool)
+        genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+          "working batcher")
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
@@ -190,7 +191,7 @@ suite "Gossip validation - Extra": # Not based on preset config
       quarantine = newClone(Quarantine.init())
       rng = HmacDrbgContext.new()
     var
-      verifier = BatchVerifier(rng: rng, taskpool: Taskpool.new())
+      verifier = BatchVerifier.init(rng, taskpool)
       dag = block:
         let
           validatorMonitor = newClone(ValidatorMonitor.init())
@@ -223,7 +224,8 @@ suite "Gossip validation - Extra": # Not based on preset config
 
     let batchCrypto = BatchCrypto.new(
       rng, eager = proc(): bool = false,
-      genesis_validators_root = dag.genesis_validators_root, taskpool)
+      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+        "working batcher")
 
     var
       state = assignClone(dag.headState.altairData)

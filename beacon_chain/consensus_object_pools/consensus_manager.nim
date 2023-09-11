@@ -172,7 +172,9 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
   # Can't use dag.head here because it hasn't been updated yet
   let (payloadExecutionStatus, latestValidHash) =
     case self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
-    of ConsensusFork.Capella, ConsensusFork.Deneb:
+    of ConsensusFork.Deneb:
+      callForkchoiceUpdated(PayloadAttributesV3)
+    of ConsensusFork.Capella:
       # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
       # Consensus layer client MUST call this method instead of
       # `engine_forkchoiceUpdatedV1` under any of the following conditions:
@@ -256,10 +258,10 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   self.updateHead(newHead.blck)
 
 func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
-  # This is a tweaked version of the validator_duties isSynced. TODO, refactor
+  # This is a tweaked version of the beacon_validators isSynced. TODO, refactor
   # that one so this becomes the default version, with the same information to
   # work with. For the head slot, use the DAG head regardless of what head the
-  # proposer forkchoiceUpdated is using, because by the validator_duties might
+  # proposer forkchoiceUpdated is using, because by the beacon_validators might
   # be ready to actually propose, it's going to do so from the DAG head. Given
   # the defaultSyncHorizon, it will start triggering in time so that potential
   # discrepancies between the head here, and the head the DAG has (which might
@@ -340,11 +342,11 @@ proc getGasLimit*(
 from ../spec/datatypes/bellatrix import PayloadID
 
 proc runProposalForkchoiceUpdated*(
-    self: ref ConsensusManager, wallSlot: Slot) {.async.} =
+    self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async.} =
   let
     nextWallSlot = wallSlot + 1
     (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
-      return
+      return err()
   debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
     nextWallSlot, validatorIndex, nextProposer
 
@@ -353,7 +355,7 @@ proc runProposalForkchoiceUpdated*(
   if nextWallSlot.is_epoch:
     debug "runProposalForkchoiceUpdated: not running early fcU for epoch-aligned proposal slot",
       nextWallSlot, validatorIndex, nextProposer
-    return
+    return err()
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
@@ -382,7 +384,7 @@ proc runProposalForkchoiceUpdated*(
     headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck)
 
   if headBlockHash.isZero:
-    return
+    return err()
 
   try:
     let safeBlockHash = beaconHead.safeExecutionPayloadHash
@@ -396,12 +398,21 @@ proc runProposalForkchoiceUpdated*(
         debug "Fork-choice updated for proposal", status
 
       static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Deneb:
+        callForkchoiceUpdated(PayloadAttributesV3(
+          timestamp: Quantity timestamp,
+          prevRandao: FixedBytes[32] randomData,
+          suggestedFeeRecipient: feeRecipient,
+          withdrawals:
+            toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+          parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
+      elif consensusFork >= ConsensusFork.Capella:
         callForkchoiceUpdated(PayloadAttributesV2(
           timestamp: Quantity timestamp,
           prevRandao: FixedBytes[32] randomData,
           suggestedFeeRecipient: feeRecipient,
-          withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
+          withdrawals:
+            toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
       else:
         callForkchoiceUpdated(PayloadAttributesV1(
           timestamp: Quantity timestamp,
@@ -409,6 +420,8 @@ proc runProposalForkchoiceUpdated*(
           suggestedFeeRecipient: feeRecipient))
   except CatchableError as err:
     error "Engine API fork-choice update failed", err = err.msg
+
+  ok()
 
 proc updateHeadWithExecution*(
     self: ref ConsensusManager, initialNewHead: BeaconHead,
@@ -455,7 +468,7 @@ proc updateHeadWithExecution*(
     # needs while runProposalForkchoiceUpdated requires RANDAO information
     # from the head state corresponding to the `newHead` block, which only
     # self.dag.updateHead(...) sets up.
-    await self.runProposalForkchoiceUpdated(getBeaconTimeFn().slotOrZero)
+    discard await self.runProposalForkchoiceUpdated(getBeaconTimeFn().slotOrZero)
 
     self[].checkExpectedBlock()
   except CatchableError as exc:

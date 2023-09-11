@@ -50,13 +50,13 @@ type
       ## We've seen this value already, can't add again
 
   OnBlockCallback* =
-    proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}
+    proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnHeadCallback* =
-    proc(data: HeadChangeInfoObject) {.gcsafe, raises: [Defect].}
+    proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
   OnReorgCallback* =
-    proc(data: ReorgInfoObject) {.gcsafe, raises: [Defect].}
+    proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
   OnFinalizedCallback* =
-    proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
+    proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
@@ -281,7 +281,7 @@ type
 
   OnBlockAdded[T] = proc(
     blckRef: BlockRef, blck: T, epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
   OnPhase0BlockAdded* = OnBlockAdded[phase0.TrustedSignedBeaconBlock]
   OnAltairBlockAdded* = OnBlockAdded[altair.TrustedSignedBeaconBlock]
   OnBellatrixBlockAdded* = OnBlockAdded[bellatrix.TrustedSignedBeaconBlock]

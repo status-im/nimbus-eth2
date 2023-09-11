@@ -134,10 +134,10 @@ proc getPayloadBuilderClient*(
         return err "Validator index too high"
       forkyState.data.validators.item(validator_index).pubkey
     payloadBuilderAddress =
-      if node.keyManagerHost.isNil:
+      if node.keymanagerHost.isNil:
         defaultPayloadBuilderAddress
       else:
-        node.keyManagerHost[].getBuilderConfig(pubkey).valueOr:
+        node.keymanagerHost[].getBuilderConfig(pubkey).valueOr:
           defaultPayloadBuilderAddress
 
   if payloadBuilderAddress.isNone:

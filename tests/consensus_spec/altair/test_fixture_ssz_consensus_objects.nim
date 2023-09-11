@@ -14,7 +14,7 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes/altair,
+  ../../../beacon_chain/spec/datatypes/altair,
   # Status libraries
   snappy,
   # Test utilities

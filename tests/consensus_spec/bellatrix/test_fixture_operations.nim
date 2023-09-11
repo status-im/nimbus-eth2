@@ -44,36 +44,33 @@ doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
              OpSyncAggregateDir, OpVoluntaryExitDir])
 
 proc runTest[T, U](
-    testSuiteDir: string, testSuiteName: string, applyFile: string,
+    testSuiteDir, suiteName, opName, applyFile: string,
     applyProc: U, identifier: string) =
   let testDir = testSuiteDir / "pyspec_tests" / identifier
 
-  proc testImpl() =
-    let prefix =
-      if fileExists(testDir/"post.ssz_snappy"):
-        "[Valid]   "
-      else:
-        "[Invalid] "
+  let prefix =
+    if fileExists(testDir/"post.ssz_snappy"):
+      "[Valid]   "
+    else:
+      "[Invalid] "
 
-    test prefix & baseDescription & testSuiteName & " - " & identifier:
-      let preState = newClone(
-        parseTest(testDir/"pre.ssz_snappy", SSZ, bellatrix.BeaconState))
-      let done = applyProc(
-        preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
+  test prefix & baseDescription & opName & " - " & identifier:
+    let preState = newClone(
+      parseTest(testDir/"pre.ssz_snappy", SSZ, bellatrix.BeaconState))
+    let done = applyProc(
+      preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
-      if fileExists(testDir/"post.ssz_snappy"):
-        let postState =
-          newClone(parseTest(
-            testDir/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
+    if fileExists(testDir/"post.ssz_snappy"):
+      let postState =
+        newClone(parseTest(
+          testDir/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
 
-        check:
-          done.isOk()
-          preState[].hash_tree_root() == postState[].hash_tree_root()
-        reportDiff(preState, postState)
-      else:
-        check: done.isErr() # No post state = processing should fail
-
-  testImpl()
+      check:
+        done.isOk()
+        preState[].hash_tree_root() == postState[].hash_tree_root()
+      reportDiff(preState, postState)
+    else:
+      check: done.isErr() # No post state = processing should fail
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
@@ -90,7 +87,8 @@ suite baseDescription & "Attestation " & preset():
 
   for path in walkTests(OpAttestationsDir):
     runTest[Attestation, typeof applyAttestation](
-      OpAttestationsDir, "Attestation", "attestation", applyAttestation, path)
+      OpAttestationsDir, suiteName, "Attestation", "attestation",
+      applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
@@ -102,7 +100,7 @@ suite baseDescription & "Attester Slashing " & preset():
 
   for path in walkTests(OpAttSlashingDir):
     runTest[AttesterSlashing, typeof applyAttesterSlashing](
-      OpAttSlashingDir, "Attester Slashing", "attester_slashing",
+      OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 
 suite baseDescription & "Block Header " & preset():
@@ -114,7 +112,8 @@ suite baseDescription & "Block Header " & preset():
 
   for path in walkTests(OpBlockHeaderDir):
     runTest[bellatrix.BeaconBlock, typeof applyBlockHeader](
-      OpBlockHeaderDir, "Block Header", "block", applyBlockHeader, path)
+      OpBlockHeaderDir, suiteName, "Block Header", "block",
+      applyBlockHeader, path)
 
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
@@ -124,22 +123,24 @@ suite baseDescription & "Deposit " & preset():
 
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
-      OpDepositsDir, "Deposit", "deposit", applyDeposit, path)
+      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Execution Payload " & preset():
-  for path in walkTests(OpExecutionPayloadDir):
-    proc applyExecutionPayload(
+  proc makeApplyExecutionPayloadCb(path: string): auto =
+    return proc(
         preState: var bellatrix.BeaconState, body: bellatrix.BeaconBlockBody):
         Result[void, cstring] =
-      let payloadValid =
-        os_ops.readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
-          contains("execution_valid: true")
+      let payloadValid = os_ops.readFile(
+          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
+        ).contains("execution_valid: true")
       func executePayload(_: bellatrix.ExecutionPayload): bool = payloadValid
       process_execution_payload(
         preState, body.execution_payload, executePayload)
 
+  for path in walkTests(OpExecutionPayloadDir):
+    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
     runTest[bellatrix.BeaconBlockBody, typeof applyExecutionPayload](
-      OpExecutionPayloadDir, "Execution Payload", "body",
+      OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
       applyExecutionPayload, path)
 
 suite baseDescription & "Proposer Slashing " & preset():
@@ -152,7 +153,7 @@ suite baseDescription & "Proposer Slashing " & preset():
 
   for path in walkTests(OpProposerSlashingDir):
     runTest[ProposerSlashing, typeof applyProposerSlashing](
-      OpProposerSlashingDir, "Proposer Slashing", "proposer_slashing",
+      OpProposerSlashingDir, suiteName, "Proposer Slashing", "proposer_slashing",
       applyProposerSlashing, path)
 
 suite baseDescription & "Sync Aggregate " & preset():
@@ -166,7 +167,7 @@ suite baseDescription & "Sync Aggregate " & preset():
 
   for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](
-      OpSyncAggregateDir, "Sync Aggregate", "sync_aggregate",
+      OpSyncAggregateDir, suiteName, "Sync Aggregate", "sync_aggregate",
       applySyncAggregate, path)
 
 suite baseDescription & "Voluntary Exit " & preset():
@@ -179,5 +180,5 @@ suite baseDescription & "Voluntary Exit " & preset():
 
   for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
-      OpVoluntaryExitDir, "Voluntary Exit", "voluntary_exit",
+      OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",
       applyVoluntaryExit, path)

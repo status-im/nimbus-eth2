@@ -270,7 +270,7 @@ proc addPreTestRemoteKeystores(validatorsDir: string) =
             err = res.error
       quit 1
 
-proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
+proc startBeaconNode(basePort: int) {.raises: [CatchableError].} =
   let rng = HmacDrbgContext.new()
 
   copyHalfValidators(nodeDataDir, true)
@@ -301,7 +301,7 @@ proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
 
   let
     metadata = loadEth2NetworkMetadata(dataDir)
-    node = BeaconNode.init(rng, runNodeConf, metadata)
+    node = waitFor BeaconNode.init(rng, runNodeConf, metadata)
 
   node.start() # This will run until the node is terminated by
                #  setting its `bnStatus` to `Stopping`.
@@ -339,7 +339,7 @@ const
 
 proc listLocalValidators(validatorsDir,
                          secretsDir: string): seq[ValidatorPubKey] {.
-     raises: [Defect].} =
+     raises: [].} =
   var validators: seq[ValidatorPubKey]
   try:
     for el in listLoadableKeys(validatorsDir, secretsDir,
@@ -352,7 +352,7 @@ proc listLocalValidators(validatorsDir,
 
 proc listRemoteValidators(validatorsDir,
                           secretsDir: string): seq[ValidatorPubKey] {.
-     raises: [Defect].} =
+     raises: [].} =
   var validators: seq[ValidatorPubKey]
   try:
     for el in listLoadableKeys(validatorsDir, secretsDir,
@@ -1491,5 +1491,11 @@ let
     except ValueError as exc:
       fatal "Invalid base port arg", basePort = basePortStr, exc = exc.msg
       quit 1
+
+for topicName in [
+    "libp2p", "gossipsub", "gossip_eth2", "message_router", "batch_validation",
+    "syncpool", "syncman", "fork_choice", "attpool", "val_pool", "consens",
+    "state_transition"]:
+  doAssert setTopicState(topicName, Disabled)
 
 waitFor main(basePort)

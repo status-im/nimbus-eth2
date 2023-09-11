@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 {.push raises: [].}
 
 import
@@ -18,11 +25,6 @@ const
 
   SnappyBeaconBlock* = [byte 0x01, 0x00]
   SnappyBeaconState* = [byte 0x02, 0x00]
-
-  TypeFieldLen = 2
-  LengthFieldLen = 4
-  ReservedFieldLen = 2
-  HeaderFieldLen = TypeFieldLen + LengthFieldLen + ReservedFieldLen
 
   FAR_FUTURE_ERA* = Era(not 0'u64)
 
@@ -148,9 +150,8 @@ proc readHeader(f: IoHandle): Result[Header, string] =
     typ: Type
   discard typ.copyFrom(buf)
 
-  # Cast safe because we had only 4 bytes of length data
-  let
-    len = cast[int64](uint32.fromBytesLE(buf.toOpenArray(2, 5)))
+  # Conversion safe because we had only 4 bytes of length data
+  let len = (uint32.fromBytesLE(buf.toOpenArray(2, 5))).int64
 
   # No point reading these..
   if len > int.high(): return err("header length exceeds int.high")
@@ -165,7 +166,8 @@ proc readRecord*(f: IoHandle, data: var seq[byte]): Result[Header, string] =
   if header.len > 0:
     ? f.checkBytesLeft(header.len)
 
-    data.setLen(header.len)
+    if data.len != header.len:
+      data = newSeqUninitialized[byte](header.len)
 
     ? readFileExact(f, data)
 

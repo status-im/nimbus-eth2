@@ -12,7 +12,7 @@ import
   ./conf
 
 proc doWallets*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
-    raises: [Defect, CatchableError].} =
+    raises: [CatchableError].} =
   case config.walletsCmd:
   of WalletsCmd.create:
     if config.createdWalletNameFlag.isSome:

@@ -26,9 +26,9 @@ type
       ## Like `full`, but import on demand instead of on start.
 
   OnLightClientFinalityUpdateCallback* =
-    proc(data: ForkedLightClientFinalityUpdate) {.gcsafe, raises: [Defect].}
+    proc(data: ForkedLightClientFinalityUpdate) {.gcsafe, raises: [].}
   OnLightClientOptimisticUpdateCallback* =
-    proc(data: ForkedLightClientOptimisticUpdate) {.gcsafe, raises: [Defect].}
+    proc(data: ForkedLightClientOptimisticUpdate) {.gcsafe, raises: [].}
 
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when

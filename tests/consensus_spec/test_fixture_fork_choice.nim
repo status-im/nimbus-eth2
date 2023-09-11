@@ -351,7 +351,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
   let
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
-  var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+  var verifier = BatchVerifier.init(rng, taskpool)
 
   let steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
@@ -392,7 +392,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
     else:
       doAssert false, "Unsupported"
 
-proc runTest(testType: static[string], path: string, fork: ConsensusFork) =
+proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
   const SKIP = [
     # protoArray can handle blocks in the future gracefully
     # spec: https://github.com/ethereum/consensus-specs/blame/v1.1.3/specs/phase0/fork-choice.md#L349
@@ -407,7 +407,7 @@ proc runTest(testType: static[string], path: string, fork: ConsensusFork) =
     "all_valid",
   ]
 
-  test testType & " - " & path.relativePath(SszTestsDir):
+  test suiteName & " - " & path.relativePath(SszTestsDir):
     when defined(windows):
       # Some test files have very long paths
       skip()

@@ -145,12 +145,17 @@ type LightClientConf* = object
     desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
     name: "jwt-secret" .}: Option[InputFile]
 
+  bandwidthEstimate* {.
+    hidden
+    desc: "Bandwidth estimate for the node (bits per second)"
+    name: "debug-bandwidth-estimate" .}: Option[Natural]
+
   # Testing
   stopAtEpoch* {.
     hidden
     desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
     defaultValue: 0
-    name: "stop-at-epoch" .}: uint64
+    name: "debug-stop-at-epoch" .}: uint64
 
 template databaseDir*(config: LightClientConf): string =
   config.dataDir.databaseDir

@@ -29,12 +29,12 @@ type
   Nothing = object
 
   GetTrustedBlockRootCallback* =
-    proc(): Option[Eth2Digest] {.gcsafe, raises: [Defect].}
+    proc(): Option[Eth2Digest] {.gcsafe, raises: [].}
   VoidCallback* =
-    proc() {.gcsafe, raises: [Defect].}
+    proc() {.gcsafe, raises: [].}
 
   ValueObserver[V] =
-    proc(v: V) {.gcsafe, raises: [Defect].}
+    proc(v: V) {.gcsafe, raises: [].}
   BootstrapObserver* =
     ValueObserver[ForkedLightClientBootstrap]
   UpdateObserver* =
@@ -528,7 +528,7 @@ func toValidationError(
       # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -543,7 +543,7 @@ proc processLightClientFinalityUpdate*(
   self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

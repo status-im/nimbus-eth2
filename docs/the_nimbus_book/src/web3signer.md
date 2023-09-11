@@ -3,9 +3,19 @@
 [Web3Signer](https://docs.web3signer.consensys.net/en/latest/) is a remote signing server developed by Consensys.
 It offers a [standardized REST API](https://consensys.github.io/web3signer/web3signer-eth2.html) allowing the Nimbus beacon node or validator client to operate without storing any validator keys locally.
 
-Remote validators can be permanently added to a Nimbus installation (or more precisely to a particular [data directory](./data-dir.md)) either on-the-fly through the [`POST /eth/v1/remotekeys`](https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys) request when the [Keymanager API](./keymanager-api.md) is enabled or by manually creating a remote keystore file within the [validators directory](./data-dir.md#secrets-and-validators) of the client which will be loaded upon the next restart.
+You can instruct Nimbus to connect to a Web3Signer instance by supplying the `--web3-signer-url` command-line option. Since Nimbus obtains the list of validator keys automatically through the [`/api/v1/eth2/publicKeys`](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST) Web3Signer API endpoint, no further configuration is required.
 
-Here is an example `remote_keystore.json` file:
+!!! info
+    By default, the list of validators will be refreshed once per hour. You can change the number of seconds between two updates with the `--web3signer-update-interval` command-line option.
+
+!!! tip
+    You can use multiple Web3Signer instances by specifying the `--web3-signer-url` parameter multiple times.
+
+Alternatively, if you prefer not to depend on the automatic validator discovery mechanism or wish to take advantage of the advanced configurations described below, you have the option to permanently add multiple remote validators to a particular Nimbus data directory. This can be accomplished in two ways:
+
+**On-the-fly Addition**: Utilize the [`POST /eth/v1/remotekeys`](https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys) request when the Keymanager API is enabled. This allows you to dynamically add and remove remote validators as needed.
+
+**Manual Configuration**: You can manually create a remote keystore file within the [validators directory](./data-dir.md#secrets-and-validators) of the client. This configuration will be loaded during the next restart of the client. Here is an example `remote_keystore.json` file:
 
 ```
 {
@@ -30,7 +40,7 @@ The fields have the following semantics:
 5. `remote` - An URL of a remote signing server.
 6. `remotes` - A [distributed keystore](#distributed-keystores) configuration including two or more remote signing servers.
 7. `ignore_ssl_verification` - An optional boolean flag allowing the use of self-signed certificates by the signing server.
-8. `proven_block_properties` - When the `verifying-web3signer` type is used, this is a list of locations withing the SSZ block body for which the block signing requests will contain additional merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the `fee_recipient` value).
+8. `proven_block_properties` - When the `verifying-web3signer` type is used, this is a list of locations withing the SSZ block body for which the block signing requests will contain additional Merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the `fee_recipient` value).
 
 !!! info
     The current version of the remote keystore format is `3` which adds support for the experimental [verifying web3signer setups](#verifying-web3signer).
@@ -125,7 +135,7 @@ If you are already using a threshold signing setup (e.g. based on Vouch and Dirk
 
 The verifying Web3Signer is an experimental extension to the [Web3Signer protocol](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN) which allows the remote signer to verify certain details of the signed blocks before creating a signature (for example, the signer may require the signed block to have a particular fee recipient value).
 
-To enable this use case, the `BLOCK_V2` request type of the `/api/v1/eth2/sign/{identifier}` endpoint is extended with an additional array field named `proofs`. The array consists of objects with the properties `index`, `proof` and `value`, where `index` is an arbitrary [generalized index](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/ssz/merkle-proofs.md#generalized-merkle-tree-index) of any property nested under the block body and `proof` is its corresponding merkle proof against the block body root included in the request. The `value` property is optional and it is included only when the SSZ hash of the field included in the merkle proof doesn't match its value.
+To enable this use case, the `BLOCK_V2` request type of the `/api/v1/eth2/sign/{identifier}` endpoint is extended with an additional array field named `proofs`. The array consists of objects with the properties `index`, `proof` and `value`, where `index` is an arbitrary [generalized index](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/ssz/merkle-proofs.md#generalized-merkle-tree-index) of any property nested under the block body and `proof` is its corresponding Merkle proof against the block body root included in the request. The `value` property is optional and it is included only when the SSZ hash of the field included in the Merkle proof doesn't match its value.
 
 Since the generalized index of a particular field may change in a hard-fork, in the remote keystore format the proven fields are usually specified by their name:
 
@@ -145,4 +155,4 @@ Since the generalized index of a particular field may change in a hard-fork, in 
 ```
 
 Nimbus automatically computes the generalized index depending on the currently active fork.
-The remote signer is expected to verify the incoming merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
+The remote signer is expected to verify the incoming Merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.

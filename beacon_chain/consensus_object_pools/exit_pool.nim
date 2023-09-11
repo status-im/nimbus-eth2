@@ -29,7 +29,7 @@ const
 
 type
   OnVoluntaryExitCallback =
-    proc(data: SignedVoluntaryExit) {.gcsafe, raises: [Defect].}
+    proc(data: SignedVoluntaryExit) {.gcsafe, raises: [].}
 
   ValidatorChangePool* = object
     ## The validator change pool tracks attester slashings, proposer slashings,

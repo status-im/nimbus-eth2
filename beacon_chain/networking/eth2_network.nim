@@ -163,15 +163,15 @@ type
     ServerError
     ResourceUnavailable
 
-  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [Defect].}
-  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [Defect].}
-  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe, raises: [Defect].}
-  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe, raises: [Defect].}
+  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [].}
+  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [].}
+  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe, raises: [].}
+  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe, raises: [].}
   ThunkProc* = LPProtoHandler
-  MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [Defect, CatchableError].}
-  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [Defect].}
+  MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [CatchableError].}
+  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -661,7 +661,7 @@ proc sendErrorResponse(peer: Peer,
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async.} =
   var
-    deadline = sleepAsync RESP_TIMEOUT
+    deadline = sleepAsync RESP_TIMEOUT_DUR
     streamFut = peer.network.openStream(peer, protocolId)
 
   await streamFut or deadline
@@ -682,13 +682,13 @@ proc sendResponseChunkBytesSZ(
     contextBytes: openArray[byte] = []): Future[void] =
   inc response.writtenChunks
   response.stream.writeChunkSZ(
-    some Success, uncompressedLen, payloadSZ, contextBytes)
+    some ResponseCode.Success, uncompressedLen, payloadSZ, contextBytes)
 
 proc sendResponseChunkBytes(
     response: UntypedResponse, payload: openArray[byte],
     contextBytes: openArray[byte] = []): Future[void] =
   inc response.writtenChunks
-  response.stream.writeChunk(some Success, payload, contextBytes)
+  response.stream.writeChunk(some ResponseCode.Success, payload, contextBytes)
 
 proc sendResponseChunk(
     response: UntypedResponse, val: auto,
@@ -698,11 +698,11 @@ proc sendResponseChunk(
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResultFut: Future): untyped =
   let handlerRes = await handlerResultFut
-  writeChunk(stream, some Success, SSZ.encode(handlerRes))
+  writeChunk(stream, some ResponseCode.Success, SSZ.encode(handlerRes))
 
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResult: auto): untyped =
-  writeChunk(stream, some Success, SSZ.encode(handlerResult))
+  writeChunk(stream, some ResponseCode.Success, SSZ.encode(handlerResult))
 
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], cstring]]
@@ -720,7 +720,7 @@ proc uncompressFramedStream(conn: Connection,
     doAssert maxCompressedFrameDataLen >= maxUncompressedFrameDataLen.uint64
 
   var
-    frameData = newSeq[byte](maxCompressedFrameDataLen + 4)
+    frameData = newSeqUninitialized[byte](maxCompressedFrameDataLen + 4)
     output = newSeqUninitialized[byte](expectedSize)
     written = 0
 
@@ -798,17 +798,18 @@ proc uncompressFramedStream(conn: Connection,
 
 func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
+  static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
   when T is ForkySignedBeaconBlock:
     when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock or
          T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock:
-      MAX_CHUNK_SIZE_BELLATRIX
+      MAX_CHUNK_SIZE.uint32
     else:
       {.fatal: "what's the chunk size here?".}
   elif isFixedSize(T):
     uint32 fixedPortionSize(T)
   else:
-    MAX_CHUNK_SIZE_BELLATRIX
+    MAX_CHUNK_SIZE.uint32
 
 from ../spec/datatypes/capella import SignedBeaconBlock
 from ../spec/datatypes/deneb import SignedBeaconBlock
@@ -816,10 +817,10 @@ from ../spec/datatypes/deneb import SignedBeaconBlock
 template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
-      fixedPortionSize(T)
+      fixedPortionSize(T).uint32
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock:
-      GOSSIP_MAX_SIZE_BELLATRIX
+      GOSSIP_MAX_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
@@ -827,10 +828,10 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is Attestation or T is AttesterSlashing or
          T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
-      GOSSIP_MAX_SIZE_BELLATRIX
+      GOSSIP_MAX_SIZE
     else:
       {.fatal: "unknown type " & name(T).}
-  static: doAssert maxSize <= GOSSIP_MAX_SIZE_BELLATRIX
+  static: doAssert maxSize <= GOSSIP_MAX_SIZE
   maxSize.uint32
 
 proc readChunkPayload*(conn: Connection, peer: Peer,
@@ -1110,7 +1111,7 @@ proc handleIncomingStream(network: Eth2Node,
     nbc_reqresp_messages_received.inc(1, [shortProtocolId(protocolId)])
 
     # TODO(zah) The TTFB timeout is not implemented in LibP2P streams back-end
-    let deadline = sleepAsync RESP_TIMEOUT
+    let deadline = sleepAsync RESP_TIMEOUT_DUR
 
     const isEmptyMsg = when MsgRec is object:
       # We need nested `when` statements here, because Nim doesn't properly
@@ -1792,7 +1793,7 @@ proc new(T: type Eth2Node,
          switch: Switch, pubsub: GossipSub,
          ip: Option[ValidIpAddress], tcpPort, udpPort: Option[Port],
          privKey: keys.PrivateKey, discovery: bool,
-         rng: ref HmacDrbgContext): T {.raises: [Defect, CatchableError].} =
+         rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
   when not defined(local_testnet):
     let
       connectTimeout = chronos.minutes(1)
@@ -2255,8 +2256,8 @@ proc getPersistentNetKeys*(
 
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
@@ -2274,7 +2275,7 @@ func gossipId(
 
 proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
                      seckey: PrivateKey, address: MultiAddress,
-                     rng: ref HmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
+                     rng: ref HmacDrbgContext): Switch {.raises: [CatchableError].} =
   var sb =
     if config.enableYamux:
       SwitchBuilder.new().withYamux()
@@ -2301,7 +2302,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
                      forkDigests: ref ForkDigests,
                      getBeaconTime: GetBeaconTimeFn,
                      genesis_validators_root: Eth2Digest): Eth2Node
-                    {.raises: [Defect, CatchableError].} =
+                    {.raises: [CatchableError].} =
   let
     enrForkId = getENRForkID(
       cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
@@ -2336,7 +2337,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     try:
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
-      let decoded = snappy.decode(m.data, GOSSIP_MAX_SIZE_BELLATRIX)
+      let decoded = snappy.decode(m.data, static(GOSSIP_MAX_SIZE.uint32))
       ok(gossipId(decoded, phase0Prefix, topic))
     except CatchableError:
       err(ValidationResult.Reject)
@@ -2384,6 +2385,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
               res.mgetOrPut(peerId, @[]).add(maddress)
               info "Adding priviledged direct peer", peerId, address = maddress
           res
+        ,
+      bandwidthEstimatebps: config.bandwidthEstimate.get(100_000_000)
     )
     pubsub = GossipSub.init(
       switch = switch,
@@ -2393,7 +2396,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       sign = false,
       verifySignature = false,
       anonymize = true,
-      maxMessageSize = GOSSIP_MAX_SIZE_BELLATRIX,
+      maxMessageSize = static(GOSSIP_MAX_SIZE.int),
       parameters = params)
 
   switch.mount(pubsub)
@@ -2435,7 +2438,7 @@ proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult] =
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
-                            ValidationResult {.gcsafe, raises: [Defect].} ) =
+                            ValidationResult {.gcsafe, raises: [].} ) =
   # Message validators run when subscriptions are enabled - they validate the
   # data and return an indication of whether the message should be broadcast
   # or not - validation is `async` but implemented without the macro because
@@ -2470,7 +2473,7 @@ proc addValidator*[MsgType](node: Eth2Node,
 proc addAsyncValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
-                            Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
+                            Future[ValidationResult] {.gcsafe, raises: [].} ) =
   proc execValidator(topic: string, message: GossipMsg):
       Future[ValidationResult] {.raises: [].} =
     inc nbc_gossip_messages_received
@@ -2504,7 +2507,7 @@ proc gossipEncode(msg: auto): seq[byte] =
   let uncompressed = SSZ.encode(msg)
   # This function only for messages we create. A message this large amounts to
   # an internal logic error.
-  doAssert uncompressed.len <= GOSSIP_MAX_SIZE_BELLATRIX
+  doAssert uncompressed.lenu64 <= GOSSIP_MAX_SIZE
 
   snappy.encode(uncompressed)
 
@@ -2538,7 +2541,7 @@ proc subscribeAttestationSubnets*(
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now; we just rely on block and
   # aggregate which are more stable and reliable
 
@@ -2547,14 +2550,14 @@ proc unsubscribeAttestationSubnets*(
       node.unsubscribe(getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
 proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#metadata
   if node.metadata.attnets == attnets:
     return
 
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#attestation-subnet-subscription
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.discovery.updateRecord({
     enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
@@ -2567,7 +2570,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 

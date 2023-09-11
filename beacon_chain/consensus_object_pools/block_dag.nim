@@ -134,7 +134,7 @@ func link*(parent, child: BlockRef) =
 func get_ancestor*(blck: BlockRef, slot: Slot,
     maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
     BlockRef =
-  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
   if isNil(blck): return nil
@@ -154,30 +154,6 @@ func get_ancestor*(blck: BlockRef, slot: Slot,
     depth += 1
 
     blck = blck.parent
-
-func commonAncestor*(a, b: BlockRef, lowSlot: Slot): Opt[BlockRef] =
-  ## Return the common ancestor with highest slot of two non-nil `BlockRef`,
-  ## limited by `lowSlot` (`err` if exceeded).
-  doAssert a != nil
-  doAssert b != nil
-  if a.slot < lowSlot or b.slot < lowSlot:
-    return err()
-
-  var
-    aa = a
-    bb = b
-  while aa != bb:
-    if aa.slot >= bb.slot:
-      aa = aa.parent
-      doAssert aa != nil, "All `BlockRef` lead to `finalizedHead`"
-      if aa.slot < lowSlot:
-        return err()
-    else:
-      bb = bb.parent
-      doAssert bb != nil, "All `BlockRef` lead to `finalizedHead`"
-      if bb.slot < lowSlot:
-        return err()
-  ok aa
 
 func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Return a BlockSlot at a given slot, with the block set to the closest block

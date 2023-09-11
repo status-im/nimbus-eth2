@@ -1,9 +1,139 @@
+2023-09-08 v23.9.0
+==================
+
+Nimbus `v23.9.0` is a `low-urgency` upgrade providing full support for the upcoming [Holešky testnet](https://github.com/eth-clients/holesky) and simplifying the required configuration for using [remote signers](https://nimbus.guide/web3signer.html).
+
+We've been hard at work researching and developing a GossipSub protocol upgrade, designed to vastly improve bandwidth and latency, especially when dealing with the upcoming larger [EIP-4844 blob messages](https://www.eip4844.com/). This release introduces the initial steps towards this upgrade, along with CPU optimizations and enhanced DDoS protection.
+
+### Improvements
+
+* The new `--web3-signer` command-line option can be used to connect Nimbus to one or more remote signers without requiring any remote keystore files to be created. The list of validators attached to each remote signer is obtained automatically through the [`/api/v1/eth2/publicKeys`](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST) Web3Signer API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/5366
+  https://github.com/status-im/nimbus-eth2/pull/5385
+  https://github.com/status-im/nimbus-eth2/pull/5389
+
+* The GossipSub implementation of Nimbus now consumes less bandwidth and CPU cycles, while improving upon the existing DoS protections through better peer scoring:
+  https://github.com/status-im/nimbus-eth2/pull/5229
+
+* Nimbus now supports the upcoming Holešky testnet:
+  https://github.com/status-im/nimbus-eth2/pull/5337
+
+### Fixes
+
+* The `deposits exit` command was failing due to incorrect parsing of certain fields in the response of the `/eth/v1/config/spec` endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/5370
+  https://github.com/status-im/nimbus-eth2/pull/5371
+
+
+2023-08-23 v23.8.0
+==================
+
+Nimbus `v23.8.0` is a `low-urgency` upgrade focusing on performance and stability improvements, aiming to address the increasing number of validators on mainnet and upcoming testnets such as Holesky.
+
+Please note that this version enables the [new attestation subnet subscription logic](https://github.com/ethereum/consensus-specs/pull/3312), proposed in the Ethereum 1.4 consensus spec. This will significantly reduce the CPU usage and the consumed network bandwidth on beacon nodes with many validators, but it will slightly increase them on nodes with a single validator. The `--subscribe-all-subnets` option can still be used on powerful hardware configurations to produce potentially more profitable blocks by processing all attestations directly instead of relying on aggregators.
+
+The upgraded BLST library now identifies your CPU model and selects the most efficient instruction set at run-time which significantly speeds up docker and binary builds. We have tested this on a wide range of hardware, but should the CPU incorrectly advertise extensions it does not have, a downgrade might be necessary while we investigate.
+
+### Improvements
+
+* Optimised algorithms and improved thread scheduling strategy allow Nimbus to process 40% more incoming attestations on typical hardware configurations:
+  https://github.com/status-im/nimbus-eth2/pull/5288
+  https://github.com/status-im/nimbus-eth2/pull/5176
+
+* Faster state replays and lower latency Beacon API responses are now possible due to lower overhead when loading any kind of data from the Nimbus database. This was achieved through more efficient SSZ deserialization routines, the elimination of redundant CRC checks during data decompression and more precise cache invalidation:
+  https://github.com/status-im/nimbus-eth2/pull/5207
+  https://github.com/status-im/nimbus-eth2/pull/5264
+  https://github.com/status-im/nimbus-eth2/pull/5282
+
+* A more optimised SSZ hash tree root implementation brings faster state replays, block processing and other performance-critical operations in Nimbus:
+  https://github.com/status-im/nim-ssz-serialization/pull/53
+  https://github.com/status-im/nimbus-eth2/pull/5292
+
+* Nimbus now performs less memory allocations during state transitions, reducing the risk of delays induced by Nim garbage collection:
+  https://github.com/status-im/nimbus-eth2/pull/5235
+
+* The BLST library has been upgraded to its latest version. Nimbus is now using a more optimal approach to aggregate signature verification:
+  https://github.com/status-im/nimbus-eth2/pull/5272
+  https://github.com/status-im/nimbus-eth2/pull/5268
+
+* Nimbus now supports the Chiado Gnosis testnet:
+  https://github.com/status-im/nimbus-eth2/pull/5208
+
+* BearSSL has been upgraded to version 0.2.1:
+  https://github.com/status-im/nimbus-eth2/pull/5298
+
+### Fixes
+
+* Nimbus was not compliant with the latest Web3Signer specification when requesting block signatures:
+  https://github.com/status-im/nimbus-eth2/pull/5294
+
+* The Nimbus beacon node was frequently crashing immediately after block proposal when using a validator client and an external builder:
+  https://github.com/status-im/nimbus-eth2/pull/5295
+
+* The Nimbus validator client was crashing in certain situations after a request to the beacon node has timed out:
+  https://github.com/status-im/nimbus-eth2/pull/5297
+
+* Nimbus was failing to load a built-in genesis state of a supported network on certain ARM CPUs:
+  https://github.com/status-im/nimbus-eth2/pull/5244
+
+* When optimistically synced, Nimbus was sending unnecessary `forkChoiceUpdated` notifications for already finalized blocks:
+  https://github.com/status-im/nimbus-eth2/pull/5248
+
+### Removed functionality
+
+* The builder API is no longer supported in network simulations and custom testnets, based on the Bellatrix specification:
+  https://github.com/status-im/nimbus-eth2/pull/5162
+  https://github.com/status-im/nimbus-eth2/pull/5203
+  https://github.com/status-im/nimbus-eth2/pull/5251
+  https://github.com/status-im/nimbus-eth2/pull/5262
+  https://github.com/status-im/nimbus-eth2/pull/5272
+
+
+2023-07-19 v23.7.0
+==================
+
+Nimbus `v23.7.0` is a `low-urgency` upgrade, bringing advanced profit optimisation capabilities to the Nimbus validator client and addressing risk factors that can contribute to poorer validator performance.
+
+### Improvements
+
+* The Nimbus validator client now uses a scoring algorithm capable of selecting the most optimal attestation data when working with multiple beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/5101
+
+* The Nimbus validator client now synchronizes its clock with the Nimbus beacon node in order to eliminate any risks for poor validator performance stemming from de-synchronized clocks:
+  https://github.com/status-im/nimbus-eth2/pull/4846
+
+* The `/eth/v1/beacon/states/{state_id}/*` family of REST end-points now support queries by state root as long as the state is within the most recent 8192 slots (approximately 27 hours):
+  https://github.com/status-im/nimbus-eth2/pull/5155
+
+* Improved validation of blocks during syncing allows Nimbus to optimize the initial syncing target of the execution layer node:
+  https://github.com/status-im/nimbus-eth2/pull/5169
+
+* The Nimbus light client is now available a C library for easy reuse and embedding in other software (alpha release):
+  https://github.com/status-im/nimbus-eth2/pull/5122
+
+### Fixes
+
+* Due to multiple reports of slow start-up times on certain hardware configurations, caused by the one-time initial pruning performed by Nimbus v23.6.0 and v23.6.1, this functionality has been temporarily disabled:
+  https://github.com/status-im/nimbus-eth2/pull/5191
+
+* The block monitoring performed by the Nimbus validator client was permanently interrupted in certain situations after a timed out request to the beacon node:
+  https://github.com/status-im/nimbus-eth2/pull/5109
+
+* Nimbus now uses the most up-to-date bootstrap nodes for the Gnosis chain:
+  https://github.com/status-im/nimbus-eth2/pull/5175
+
+* Nimbus has addressed a minor risk for missed block proposals at epoch boundaries due to multiple compounding risk factors:
+  https://github.com/status-im/nimbus-eth2/pull/5195
+  https://github.com/status-im/nimbus-eth2/pull/5196
+  https://github.com/status-im/nimbus-eth2/pull/5194
+
+
 2023-06-26 v23.6.1
 ==================
 
 Nimbus `v23.6.1` is a `low-urgency` point release significantly improving the performance of database pruning on Nimbus instances that have accumulated history prior to April 2021 (Nimbus 1.1.0). Affected users are advised to upgrade as soon as possible in order to reduce the risk of missed attestations and blocks.
 
-Fixes:
+### Fixes
 
 * The legacy Nimbus database is not subjected to pruning due to the high I/O cost of the operations:
   https://github.com/status-im/nimbus-eth2/pull/5116
@@ -12,7 +142,7 @@ Fixes:
 2023-06-20 v23.6.0
 ==================
 
-Nimbus `v23.6.0` is a `medium-priority` upgrade, further improving the efficiency and the standards-compliance of Nimbus while laying out the foundations for the upcoming Deneb hard-fork.
+Nimbus `v23.6.0` is a `medium-urgency` upgrade, further improving the efficiency and the standards-compliance of Nimbus while laying out the foundations for the upcoming Deneb hard-fork.
 
 ### Improvements
 

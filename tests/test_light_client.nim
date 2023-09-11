@@ -96,7 +96,8 @@ suite "Light client" & preset():
       quarantine = newClone(Quarantine.init())
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
-    var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    var
+      verifier = BatchVerifier.init(rng, taskpool)
 
   test "Pre-Altair":
     # Genesis
@@ -159,11 +160,11 @@ suite "Light client" & preset():
     var store {.noinit.}: ForkedLightClientStore
     withForkyBootstrap(bootstrap):
       when lcDataFork > LightClientDataFork.None:
-        var storeRes = initialize_light_client_store(
-          trusted_block_root, forkyBootstrap, cfg)
-        check storeRes.isOk
-        store = ForkedLightClientStore(kind: lcDataFork)
-        store.forky(lcDataFork) = storeRes.get
+        var storeRes = newClone(initialize_light_client_store(
+          trusted_block_root, forkyBootstrap, cfg))
+        check storeRes[].isOk
+        store = (ref ForkedLightClientStore)(kind: lcDataFork)[]
+        store.forky(lcDataFork) = storeRes[].get
 
     # Sync to latest sync committee period
     var numIterations = 0

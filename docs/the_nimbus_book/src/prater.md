@@ -66,6 +66,9 @@ nimbus-eth2/build/nimbus_beacon_node \
     --suggested-fee-recipient=<Enter-eth-address-here>
 ```
 
+!!! tip
+    If you want the syncing process to complete much faster, you can [sync from a trusted node](./trusted-node-sync.md).
+
 One might consider here to [set up a systemd service](./beacon-node-systemd.md) to ensure this runs automatically, including after restarts.
 
 ## Begin validating

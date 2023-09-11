@@ -5,7 +5,7 @@ Nimbus is a client for the Ethereum network that is [lightweight](https://our.st
 Its efficiency and low resource consumption allows it to perform well on all kinds of systems: ranging from Raspberry Pi and mobile devices — where it contributes to low power consumption and security — to powerful servers where it leaves resources free to perform other tasks, such as running an [execution node](./eth1.md).
 
 This book describes the consensus layer client, [`nimbus-eth2`](https://github.com/status-im/nimbus-eth2).
-An execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth2), is also under development.
+An execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth1), is also under development.
 
 
 ## Feature highlights

@@ -10,24 +10,24 @@
 import libp2p/[peerid, multiaddress], json_serialization
 export json_serialization
 
-proc writeValue*(writer: var JsonWriter, value: PeerId) {.
-    raises: [Defect, IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, value: PeerId) {.raises: [IOError].} =
   writer.writeValue $value
 
 proc readValue*(reader: var JsonReader, value: var PeerId) {.
-    raises: [Defect, IOError, SerializationError].} =
+    raises: [IOError, SerializationError].} =
   let res = PeerId.init reader.readValue(string)
   if res.isOk:
     value = res.get()
   else:
     raiseUnexpectedValue(reader, $res.error)
 
-proc writeValue*(writer: var JsonWriter, value: MultiAddress) {.
-    raises: [Defect, IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, value: MultiAddress) {.raises: [IOError].} =
   writer.writeValue $value
 
 proc readValue*(reader: var JsonReader, value: var MultiAddress) {.
-    raises: [Defect, IOError, SerializationError].} =
+    raises: [IOError, SerializationError].} =
   let res = MultiAddress.init reader.readValue(string)
   if res.isOk:
     value = res.value

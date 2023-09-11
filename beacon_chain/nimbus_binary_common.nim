@@ -38,7 +38,7 @@ export
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
                            lastSlot: Slot): Future[bool] {.gcsafe,
-  raises: [Defect].}
+  raises: [].}
 
 # silly chronicles, colors is a compile-time property
 proc stripAnsi(v: string): string =
@@ -76,7 +76,7 @@ proc stripAnsi(v: string): string =
 
   res
 
-proc updateLogLevel*(logLevel: string) {.raises: [Defect, ValueError].} =
+proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
   let directives = logLevel.split(";")
   try:
@@ -201,7 +201,7 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
       version = version, # but a short version string makes more sense...
       copyrightBanner = clientId,
       secondarySources = proc (
-          config: ConfType, sources: auto
+          config: ConfType, sources: ref SecondarySources
       ) {.raises: [ConfigurationError].} =
         if config.configFile.isSome:
           sources.addConfigFile(Toml, config.configFile.get)
@@ -261,6 +261,10 @@ proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
         true
     if exitLoop: break
     cache.pruneExpiredKeys()
+
+proc sleepAsync*(t: TimeDiff): Future[void] =
+  sleepAsync(nanoseconds(
+    if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
 
 proc runSlotLoop*[T](node: T, startTime: BeaconTime,
                      slotProc: SlotStartProc[T]) {.async.} =
@@ -384,7 +388,7 @@ type
 proc initKeymanagerServer*(
     config: AnyConf,
     existingRestServer: RestServerRef = nil): KeymanagerInitResult
-    {.raises: [Defect].} =
+    {.raises: [].} =
 
   var token: string
   let keymanagerServer = if config.keymanagerEnabled:

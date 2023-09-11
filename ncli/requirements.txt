@@ -60,7 +60,7 @@ prompt-toolkit==3.0.24
 ptyprocess==0.7.0
 pure-eval==0.2.1
 pycparser==2.21
-Pygments==2.11.2
+Pygments==2.15.0
 pyparsing==3.0.6
 pypng==0.0.21
 pyrsistent==0.18.1
@@ -70,7 +70,7 @@ pytz==2021.3
 pyzmq==22.3.0
 qtconsole==5.2.2
 QtPy==2.0.0
-scipy==1.7.3
+scipy==1.10.0
 Send2Trash==1.8.0
 six==1.16.0
 snappy-manifolds==1.1.2
@@ -79,7 +79,7 @@ stack-data==0.1.4
 terminado==0.12.1
 testpath==0.5.0
 tomli==1.2.3
-tornado==6.3.2
+tornado==6.3.3
 traitlets==5.1.1
 typing_extensions==4.0.1
 wcwidth==0.2.5

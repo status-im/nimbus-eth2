@@ -288,39 +288,37 @@ proc collectEpochRewardsAndPenalties*(
       total_active_balance)
     finality_delay = get_finality_delay(state)
 
-  for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
-    for validator_index, delta in get_flag_index_deltas(
-        state, flag_index, base_reward_per_increment, info, finality_delay):
-      template rp: untyped = rewardsAndPenalties[validator_index]
+  for validator_index, reward_source, reward_target, reward_head,
+      penalty_source, penalty_target, penalty_inactivity in
+      get_flag_and_inactivity_deltas(
+        cfg, state, base_reward_per_increment, info, finality_delay):
+    template rp: untyped = rewardsAndPenalties[validator_index]
 
-      let
-        base_reward = get_base_reward_increment(
-          state, validator_index, base_reward_per_increment)
-        active_increments = get_active_increments(info)
-        unslashed_participating_increment =
-          get_unslashed_participating_increment(info, flag_index)
-        max_flag_index_reward = get_flag_index_reward(
-          state, base_reward, active_increments,
-          unslashed_participating_increment,
-          PARTICIPATION_FLAG_WEIGHTS[flag_index].uint64,
-          finality_delay)
+    let
+      base_reward = get_base_reward_increment(
+        state, validator_index, base_reward_per_increment)
+      active_increments = get_active_increments(info)
 
-      case flag_index
-      of TIMELY_SOURCE_FLAG_INDEX:
-        rp.source_outcome = delta.getOutcome
-        rp.max_source_reward = max_flag_index_reward
-      of TIMELY_TARGET_FLAG_INDEX:
-        rp.target_outcome = delta.getOutcome
-        rp.max_target_reward = max_flag_index_reward
-      of TIMELY_HEAD_FLAG_INDEX:
-        rp.head_outcome = delta.getOutcome
-        rp.max_head_reward = max_flag_index_reward
-      else:
-        raiseAssert(&"Unknown flag index {flag_index}.")
+    template unslashed_participating_increment(flag_index: untyped): untyped =
+      get_unslashed_participating_increment(info, flag_index)
+    template max_flag_index_reward(flag_index: untyped): untyped =
+      get_flag_index_reward(
+        state, base_reward, active_increments,
+        unslashed_participating_increment(flag_index),
+        PARTICIPATION_FLAG_WEIGHTS[flag_index], finality_delay)
 
-  for validator_index, penalty in get_inactivity_penalty_deltas(
-      cfg, state, info):
-    rewardsAndPenalties[validator_index].inactivity_penalty += penalty
+    rp.source_outcome = reward_source.int64 - penalty_source.int64
+    rp.max_source_reward =
+      max_flag_index_reward(TimelyFlag.TIMELY_SOURCE_FLAG_INDEX)
+    rp.target_outcome = reward_target.int64 - penalty_target.int64
+    rp.max_target_reward =
+      max_flag_index_reward(TimelyFlag.TIMELY_TARGET_FLAG_INDEX)
+    rp.head_outcome = reward_head.int64
+    rp.max_head_reward =
+      max_flag_index_reward(TimelyFlag.TIMELY_HEAD_FLAG_INDEX)
+
+    rewardsAndPenalties[validator_index].inactivity_penalty +=
+      penalty_inactivity
 
   rewardsAndPenalties.collectSlashings(state, info.balances.current_epoch)
 

@@ -11,7 +11,7 @@ import
   eth/db/kvstore_sqlite3,
   ./el/el_manager,
   ./gossip_processing/optimistic_processor,
-  ./networking/[topic_params, network_metadata],
+  ./networking/[topic_params, network_metadata_downloads],
   ./spec/beaconstate,
   ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
@@ -63,9 +63,15 @@ programMain:
   template cfg(): auto = metadata.cfg
 
   let
+    genesisBytes = try: waitFor metadata.genesis.fetchBytes()
+                   except CatchableError as err:
+                     error "Failed to obtain genesis state",
+                            source = metadata.genesis.sourceDesc,
+                            err = err.msg
+                     quit 1
     genesisState =
       try:
-        newClone(readSszForkedHashedBeaconState(cfg, metadata.genesisBytes))
+        newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
 
@@ -137,6 +143,10 @@ programMain:
     lightClient = createLightClient(
       network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Optimistic)
+
+  # Run `exchangeTransitionConfiguration` loop
+  if elManager != nil:
+    elManager.start(syncChain = false)
 
   info "Listening to incoming network requests"
   network.initBeaconSync(cfg, forkDigests, genesisBlockRoot, getBeaconTime)

@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -36,7 +36,7 @@
 # * Throughout, we're affected by the overloading rules that prefer a `var`
 #   overload to a non-var overload - look for `asSeq()` - when the `var`
 #   overload is used, the hash tree cache is cleared, which, aside from being
-#   slow itself, causes additional processing to recalculate the merkle tree.
+#   slow itself, causes additional processing to recalculate the Merkle tree.
 
 {.push raises: [].}
 
@@ -44,12 +44,14 @@ import
   chronicles,
   stew/results,
   ../extras,
-  ./datatypes/[phase0, altair, bellatrix],
   "."/[
     beaconstate, eth2_merkleization, forks, helpers, signatures,
     state_transition_block, state_transition_epoch, validator]
 
-export results, extras, phase0, altair, bellatrix
+export results, extras
+
+logScope:
+  topics = "state_transition"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
@@ -68,7 +70,7 @@ proc verify_block_signature(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
     state: ForkyBeaconState,
     blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
@@ -87,9 +89,9 @@ func verifyStateRoot(
   ok()
 
 type
-  RollbackProc* = proc() {.gcsafe, noSideEffect, raises: [Defect].}
+  RollbackProc* = proc() {.gcsafe, noSideEffect, raises: [].}
   RollbackHashedProc*[T] =
-    proc(state: var T) {.gcsafe, noSideEffect, raises: [Defect].}
+    proc(state: var T) {.gcsafe, noSideEffect, raises: [].}
   RollbackForkedHashedProc* = RollbackHashedProc[ForkedHashedBeaconState]
 
 func noRollback*() =
@@ -333,10 +335,9 @@ proc state_transition*(
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
-    state: var phase0.HashedBeaconState,
+    state: var ForkyHashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
@@ -345,13 +346,16 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayloadForSigning):
-    phase0.BeaconBlock =
-  phase0.BeaconBlock(
+    execution_payload: ForkyExecutionPayloadForSigning
+): auto =
+  const consensusFork = typeof(state).kind
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
+  var res = consensusFork.BeaconBlockType(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: state.latest_block_root,
-    body: phase0.BeaconBlockBody(
+    body: consensusFork.BeaconBlockBodyType(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
@@ -361,127 +365,24 @@ template partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#preparing-a-beaconblock
-template partialBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var altair.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayloadForSigning):
-    altair.BeaconBlock =
-  altair.BeaconBlock(
-    slot: state.data.slot,
-    proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root,
-    body: altair.BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits,
-      sync_aggregate: sync_aggregate))
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#preparing-a-beaconblock
+  when consensusFork >= ConsensusFork.Altair:
+    res.body.sync_aggregate = sync_aggregate
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#block-proposal
-template partialBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var bellatrix.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayloadForSigning):
-    bellatrix.BeaconBlock =
-  bellatrix.BeaconBlock(
-    slot: state.data.slot,
-    proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root,
-    body: bellatrix.BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits,
-      sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload.executionPayload))
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#block-proposal
+  when consensusFork >= ConsensusFork.Bellatrix:
+    res.body.execution_payload = execution_payload.executionPayload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/validator.md#block-proposal
-template partialBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var capella.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: capella.ExecutionPayloadForSigning):
-    capella.BeaconBlock =
-  capella.BeaconBlock(
-    slot: state.data.slot,
-    proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root,
-    body: capella.BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits,
-      sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload.executionPayload,
-      bls_to_execution_changes: validator_changes.bls_to_execution_changes))
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/validator.md#block-proposal
+  when consensusFork >= ConsensusFork.Capella:
+    res.body.bls_to_execution_changes =
+      validator_changes.bls_to_execution_changes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
-template partialBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var deneb.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: deneb.ExecutionPayloadForSigning):
-    deneb.BeaconBlock =
-  deneb.BeaconBlock(
-    slot: state.data.slot,
-    proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root,
-    body: deneb.BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits,
-      sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload.executionPayload,
-      bls_to_execution_changes: validator_changes.bls_to_execution_changes,
-      blob_kzg_commitments: execution_payload.kzgs))
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
+  when consensusFork >= ConsensusFork.Deneb:
+    res.body.blob_kzg_commitments = execution_payload.kzgs
+
+  res
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig,
@@ -530,33 +431,14 @@ proc makeBeaconBlock*(
     # Override for MEV
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
-        when consensusFork < ConsensusFork.Bellatrix:
-          # Vacuously
+        when consensusFork < ConsensusFork.Capella:
+          # Nimbus doesn't support pre-Capella builder API
           discard
-        elif consensusFork == ConsensusFork.Bellatrix:
-          forkyState.data.latest_execution_payload_header.transactions_root =
-            transactions_root.get
-
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#beaconblockbody
-          # Effectively hash_tree_root(ExecutionPayload) with the beacon block
-          # body, with the execution payload replaced by the execution payload
-          # header. htr(payload) == htr(payload header), so substitute.
-          forkyState.data.latest_block_header.body_root = hash_tree_root(
-            [hash_tree_root(randao_reveal),
-             hash_tree_root(eth1_data),
-             hash_tree_root(graffiti),
-             hash_tree_root(validator_changes.proposer_slashings),
-             hash_tree_root(validator_changes.attester_slashings),
-             hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
-             hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
-             hash_tree_root(validator_changes.voluntary_exits),
-             hash_tree_root(sync_aggregate),
-             execution_payload_root.get])
         elif consensusFork == ConsensusFork.Capella:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#beaconblockbody
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
@@ -606,22 +488,17 @@ proc makeBeaconBlock*(
     of ConsensusFork.Phase0:    makeBeaconBlock(phase0)
     of ConsensusFork.Altair:    makeBeaconBlock(altair)
     of ConsensusFork.Bellatrix: makeBeaconBlock(bellatrix)
-    of ConsensusFork.Capella, ConsensusFork.Deneb:
-      raiseAssert "Attempt to use Bellatrix payload with post-Bellatrix state"
+    else: raiseAssert "Attempt to use Bellatrix payload with post-Bellatrix state"
   elif payloadFork == ConsensusFork.Capella:
     case state.kind
-    of  ConsensusFork.Phase0, ConsensusFork.Altair,
-        ConsensusFork.Bellatrix, ConsensusFork.Deneb:
-      raiseAssert "Attempt to use Capella payload with non-Capella state"
     of ConsensusFork.Capella:   makeBeaconBlock(capella)
+    else: raiseAssert "Attempt to use Capella payload with non-Capella state"
   elif payloadFork == ConsensusFork.Deneb:
     case state.kind
-    of  ConsensusFork.Phase0, ConsensusFork.Altair,
-        ConsensusFork.Bellatrix, ConsensusFork.Capella:
-      raiseAssert "Attempt to use Deneb payload with non-Deneb state"
-    of ConsensusFork.Deneb: makeBeaconBlock(deneb)
+    of ConsensusFork.Deneb:     makeBeaconBlock(deneb)
+    else: raiseAssert "Attempt to use Deneb payload with non-Deneb state"
   else:
-    {.error: "You need to add support for the next fork".}
+    {.error: "Unsupported fork".}
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have
 # these be default arguments

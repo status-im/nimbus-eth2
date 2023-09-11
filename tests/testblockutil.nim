@@ -25,13 +25,13 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/tests/core/pyspec/eth2spec/test/helpers/keys.py
-func `[]`*(_: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/tests/core/pyspec/eth2spec/test/helpers/keys.py
+func `[]`*(sk: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
   var bytes = (index.uint64 + 1'u64).toBytesLE()  # Consistent with EF tests
   static: doAssert sizeof(bytes) <= sizeof(result)
   copyMem(addr result, addr bytes, sizeof(bytes))
 
-proc `[]`*(_: MockPubKeysT, index: uint64): ValidatorPubKey =
+proc `[]`*(pk: MockPubKeysT, index: uint64): ValidatorPubKey =
   var cache {.threadvar.}: Table[uint64, ValidatorPubKey]
   cache.withValue(index, key) do:
     return key[]
@@ -40,8 +40,8 @@ proc `[]`*(_: MockPubKeysT, index: uint64): ValidatorPubKey =
     cache[index] = key
     return key
 
-proc `[]`*(_: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
-  _[index.uint64]
+proc `[]`*(pk: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
+  pk[index.uint64]
 
 func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
@@ -110,7 +110,8 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     timestamp: timestamp,
     base_fee_per_gas: EIP1559_INITIAL_BASE_FEE)
 
-  payload.block_hash = rlpHash payloadToBlockHeader(payload)
+  payload.block_hash = rlpHash blockToBlockHeader(bellatrix.BeaconBlock(body:
+    bellatrix.BeaconBlockBody(execution_payload: payload)))
 
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
                                        blockValue: Wei.zero)
@@ -145,7 +146,8 @@ proc build_empty_execution_payload(
     blockValue: Wei.zero)
 
   payload.executionPayload.block_hash =
-    payload.executionPayload.compute_execution_block_hash()
+    bellatrix.BeaconBlock(body: bellatrix.BeaconBlockBody(execution_payload:
+      payload.executionPayload)).compute_execution_block_hash()
 
   payload
 
@@ -266,7 +268,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,
@@ -278,7 +280,7 @@ func makeAttestationData*(
     )
   )
 
-func makeAttestationSig*(
+func makeAttestationSig(
     fork: Fork, genesis_validators_root: Eth2Digest, data: AttestationData,
     committee: openArray[ValidatorIndex],
     bits: CommitteeValidatorsBits): ValidatorSig =
@@ -315,15 +317,11 @@ func makeAttestationData*(
     makeAttestationData(
       forkyState.data, slot, committee_index, beacon_block_root)
 
-func makeAttestation*(
+func makeAttestation(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
     committee: seq[ValidatorIndex], slot: Slot, committee_index: CommitteeIndex,
     validator_index: ValidatorIndex, cache: var StateCache,
     flags: UpdateFlags = {}): Attestation =
-  # Avoids state_sim silliness; as it's responsible for all validators,
-  # transforming, from monotonic enumerable index -> committee index ->
-  # monotonic enumerable index, is wasteful and slow. Most test callers
-  # want ValidatorIndex, so that's supported too.
   let
     index_in_committee = committee.find(validator_index)
     data = makeAttestationData(state, slot, committee_index, beacon_block_root)

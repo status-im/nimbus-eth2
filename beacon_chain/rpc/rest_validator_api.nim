@@ -10,7 +10,7 @@ import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
-       ".."/validators/validator_duties,
+       ".."/validators/beacon_validators,
        ".."/spec/[beaconstate, forks, network],
        ".."/spec/datatypes/[phase0, altair],
        "."/[rest_utils, state_ttl_cache]
@@ -395,14 +395,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res =
           case node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
           of ConsensusFork.Deneb:
-            # TODO
-            # We should return a block with sidecars here
-            # https://github.com/ethereum/beacon-APIs/pull/302/files
-            # The code paths leading to makeBeaconBlockForHeadAndSlot are already
-            # partially refactored to make it possible to return the blobs from
-            # the call, but the signature of the call needs to be changed furhter
-            # to access the blobs here.
-            discard $denebImplementationMissing
             await makeBeaconBlockForHeadAndSlot(
               deneb.ExecutionPayloadForSigning,
               node, qrandao, proposer, qgraffiti, qhead, qslot)
@@ -418,17 +410,43 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400, InvalidSlotValueError)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
-        res.get.blck
+        res.get
     return
-      if contentType == sszMediaType:
-        let headers = [("eth-consensus-version", message.kind.toString())]
-        withBlck(message):
+      withBlck(message.blck):
+        let data =
+          when blck is deneb.BeaconBlock:
+            let bundle = message.blobsBundleOpt.get()
+            let blockRoot = hash_tree_root(blck)
+            var sidecars = newSeqOfCap[BlobSidecar](bundle.blobs.len)
+            for i in 0..<bundle.blobs.len:
+              let sidecar = deneb.BlobSidecar(
+                block_root: blockRoot,
+                index: BlobIndex(i),
+                slot: blck.slot,
+                block_parent_root: blck.parent_root,
+                proposer_index: blck.proposer_index,
+                blob: bundle.blobs[i],
+                kzg_commitment: bundle.kzgs[i],
+                kzg_proof: bundle.proofs[i]
+              )
+              sidecars.add(sidecar)
+
+            DenebBlockContents(
+              `block`: blck,
+              blob_sidecars: List[BlobSidecar,
+                                  Limit MAX_BLOBS_PER_BLOCK].init(sidecars))
+          elif blck is phase0.BeaconBlock or blck is altair.BeaconBlock or
+               blck is bellatrix.BeaconBlock or blck is capella.BeaconBlock:
+            blck
+          else:
+            static: raiseAssert "produceBlockV2 received unexpected version"
+        if contentType == sszMediaType:
+          let headers = [("eth-consensus-version", message.blck.kind.toString())]
           RestApiResponse.sszResponse(blck, headers)
-      elif contentType == jsonMediaType:
-        withBlck(message):
-          RestApiResponse.jsonResponseWVersion(blck, message.kind)
-      else:
-        raiseAssert "preferredContentType() returns invalid content type"
+        elif contentType == jsonMediaType:
+          RestApiResponse.jsonResponseWVersion(blck, message.blck.kind)
+        else:
+          raiseAssert "preferredContentType() returns invalid content type"
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/blinded_block.yaml
@@ -541,12 +559,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, res.error())
       return responseVersioned(res.get().blindedBlckPart, contextFork)
     of ConsensusFork.Bellatrix:
-      let res = await makeBlindedBeaconBlockForHeadAndSlot[
-          bellatrix_mev.BlindedBeaconBlock](
-        node, payloadBuilderClient, qrandao, proposer, qgraffiti, qhead, qslot)
-      if res.isErr():
-        return RestApiResponse.jsonError(Http400, res.error())
-      return responseVersioned(res.get().blindedBlckPart, contextFork)
+      return RestApiResponse.jsonError(Http400, "Pre-Capella builder API unsupported")
     of ConsensusFork.Altair, ConsensusFork.Phase0:
       # Pre-Bellatrix, this endpoint will return a BeaconBlock
       let res = await makeBeaconBlockForHeadAndSlot(
@@ -965,7 +978,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.response("", Http200, "text/plain")
 
-  # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/liveness.yaml
+  # https://ethereum.github.io/beacon-APIs/#/Validator/getLiveness
   router.api(MethodPost, "/eth/v1/validator/liveness/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let

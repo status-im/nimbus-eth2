@@ -1,5 +1,10 @@
 AllTests-mainnet
 ===
+## Ancestry
+```diff
++ ancestorSlot                                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
@@ -100,11 +105,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers
 ```diff
-+ commonAncestor sanity                                                                      OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockSlot and helpers
 ```diff
 + atSlot sanity                                                                              OK
@@ -378,8 +382,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Nimbus remote signer/signing test (web3signer)
 ```diff
 + Connection timeout test                                                                    OK
-+ Connections pool stress test                                                               OK
-+ Idle connection test                                                                       OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
 + Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
@@ -397,7 +399,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -447,8 +449,15 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Shufflings
 ```diff
 + Accelerated shuffling computation                                                          OK
++ Accelerated shuffling computation (with epochRefState jump)                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## Shufflings (merged)
+```diff
++ Accelerated shuffling computation                                                          OK
++ Accelerated shuffling computation (with epochRefState jump)                                OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -575,9 +584,13 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ bestSuccess() API timeout test                                                             OK
++ firstSuccessParallel() API timeout test                                                    OK
++ getAttestationDataScore() test vectors                                                     OK
++ getLiveness() response deserialization test                                                OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -592,8 +605,10 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 ```diff
 + Doppelganger for genesis validator                                                         OK
 + Doppelganger for validator that activates in same epoch as check                           OK
++ Dynamic validator set: queryValidatorsSource() test                                        OK
++ Dynamic validator set: updateDynamicValidators() test                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -688,4 +703,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 389/394 Fail: 0/394 Skip: 5/394
+OK: 396/401 Fail: 0/401 Skip: 5/401

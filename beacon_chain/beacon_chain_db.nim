@@ -108,7 +108,7 @@ type
     immutableValidatorsDb*: DbSeq[ImmutableValidatorDataDb2]
     immutableValidators*: seq[ImmutableValidatorData2]
 
-    checkpoint*: proc() {.gcsafe, raises: [Defect].}
+    checkpoint*: proc() {.gcsafe, raises: [].}
 
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
@@ -202,13 +202,6 @@ type
     ## the BlockRef tree.
     slot*: Slot
     parent_root*: Eth2Digest
-
-const
-  # The largest object we're saving is the BeaconState, and by far, the largest
-  # part of it is the validator - each validator takes up at least 129 bytes
-  # in phase0,  which means 100k validators is >12mb - in addition to this,
-  # there are several MB of hashes.
-  maxDecompressedDbRecordSize = 64*1024*1024
 
 # Subkeys essentially create "tables" within the key-value store by prefixing
 # each entry with a table id
@@ -628,7 +621,7 @@ proc decodeSSZ*[T](data: openArray[byte], output: var T): bool =
 
 proc decodeSnappySSZ[T](data: openArray[byte], output: var T): bool =
   try:
-    let decompressed = snappy.decode(data, maxDecompressedDbRecordSize)
+    let decompressed = snappy.decode(data)
     readSszBytes(decompressed, output, updateRoot = false)
     true
   except SerializationError as e:
@@ -640,7 +633,7 @@ proc decodeSnappySSZ[T](data: openArray[byte], output: var T): bool =
 
 proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
   try:
-    let decompressed = decodeFramed(data)
+    let decompressed = decodeFramed(data, checkIntegrity = false)
     readSszBytes(decompressed, output, updateRoot = false)
     true
   except CatchableError as e:
@@ -801,6 +794,11 @@ proc putBlobSidecar*(
     db: BeaconChainDB,
     value: BlobSidecar) =
   db.blobs.putSZSSZ(blobkey(value.block_root, value.index), value)
+
+proc delBlobSidecar*(
+    db: BeaconChainDB,
+    root: Eth2Digest, index: BlobIndex) : bool =
+  db.blobs.del(blobkey(root, index)).expectDb()
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -989,8 +987,8 @@ proc getPhase0BlockSSZ(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
-    except CatchableError: success = false
+    dataPtr[] = snappy.decode(data)
+    success = dataPtr[].len > 0
   db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
     success
 
@@ -999,9 +997,8 @@ proc getPhase0BlockSZ(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.encodeFramed(
-      snappy.decode(data, maxDecompressedDbRecordSize))
-    except CatchableError: success = false
+    dataPtr[] = snappy.encodeFramed(snappy.decode(data))
+    success = dataPtr[].len > 0
   db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
     success
 
@@ -1012,8 +1009,8 @@ proc getBlockSSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
-    except CatchableError: success = false
+    dataPtr[] = snappy.decode(data)
+    success = dataPtr[].len > 0
   db.blocks[ConsensusFork.Phase0].get(key.data, decode).expectDb() and success or
     db.v0.getPhase0BlockSSZ(key, data)
 
@@ -1023,8 +1020,8 @@ proc getBlockSSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
-    except CatchableError: success = false
+    dataPtr[] = snappy.decode(data)
+    success = dataPtr[].len > 0
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
 proc getBlockSSZ*[
@@ -1034,8 +1031,8 @@ proc getBlockSSZ*[
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = decodeFramed(data)
-    except CatchableError: success = false
+    dataPtr[] = decodeFramed(data, checkIntegrity = false)
+    success = dataPtr[].len > 0
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
 proc getBlockSSZ*(
@@ -1067,9 +1064,8 @@ proc getBlockSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.encodeFramed(
-      snappy.decode(data, maxDecompressedDbRecordSize))
-    except CatchableError: success = false
+    dataPtr[] = snappy.encodeFramed(snappy.decode(data))
+    success = dataPtr[].len > 0
   db.blocks[ConsensusFork.Phase0].get(key.data, decode).expectDb() and success or
     db.v0.getPhase0BlockSZ(key, data)
 
@@ -1079,9 +1075,8 @@ proc getBlockSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.encodeFramed(
-      snappy.decode(data, maxDecompressedDbRecordSize))
-    except CatchableError: success = false
+    dataPtr[] = snappy.encodeFramed(snappy.decode(data))
+    success = dataPtr[].len > 0
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
 proc getBlockSZ*[
@@ -1122,12 +1117,14 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
+  let prevNumValidators = output.validators.len
+
   case store.getSnappySSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in 0 ..< numValidators:
+    for i in prevNumValidators ..< numValidators:
       let
         # Bypass hash cache invalidation
         dstValidator = addr output.validators.data[i]
@@ -1138,8 +1135,7 @@ proc getStateOnlyMutableValidators(
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
-
-    output.validators.resetCache()
+      output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:
@@ -1161,12 +1157,14 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
+  let prevNumValidators = output.validators.len
+
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in 0 ..< numValidators:
+    for i in prevNumValidators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
 
@@ -1174,8 +1172,7 @@ proc getStateOnlyMutableValidators(
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
-
-    output.validators.resetCache()
+      output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:
@@ -1198,17 +1195,18 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
+  let prevNumValidators = output.validators.len
+
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in 0 ..< numValidators:
+    for i in prevNumValidators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
       assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
-
-    output.validators.resetCache()
+      output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:
