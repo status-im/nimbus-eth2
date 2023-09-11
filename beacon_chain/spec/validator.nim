@@ -337,31 +337,43 @@ func compute_shuffled_index*(
   cur_idx_permuted
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#compute_proposer_index
-func compute_proposer_index(state: ForkyBeaconState,
-    indices: seq[ValidatorIndex], seed: Eth2Digest): Opt[ValidatorIndex] =
+template compute_proposer_index(state: ForkyBeaconState,
+    indices: openArray[ValidatorIndex], seed: Eth2Digest,
+    shuffleTransform: untyped): Opt[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
   const MAX_RANDOM_BYTE = 255
 
   if len(indices) == 0:
-    return Opt.none(ValidatorIndex)
+    Opt.none(ValidatorIndex)
+  else:
+    let seq_len {.inject.} = indices.lenu64
 
-  let seq_len = indices.lenu64
+    var
+      i {.inject.} = 0'u64
+      buffer: array[32+8, byte]
+      res: Opt[ValidatorIndex]
+    buffer[0..31] = seed.data
+    while true:
+      buffer[32..39] = uint_to_bytes(i div 32)
+      let
+        candidate_index = indices[shuffleTransform]
+        random_byte = (eth2digest(buffer).data)[i mod 32]
+        effective_balance = state.validators[candidate_index].effective_balance
+      if effective_balance * MAX_RANDOM_BYTE >=
+          MAX_EFFECTIVE_BALANCE * random_byte:
+        res = Opt.some(candidate_index)
+        break
+      i += 1
 
-  var
-    i = 0'u64
-    buffer: array[32+8, byte]
-  buffer[0..31] = seed.data
-  while true:
-    buffer[32..39] = uint_to_bytes(i div 32)
-    let
-      candidate_index =
-        indices[compute_shuffled_index(i mod seq_len, seq_len, seed)]
-      random_byte = (eth2digest(buffer).data)[i mod 32]
-      effective_balance = state.validators[candidate_index].effective_balance
-    if effective_balance * MAX_RANDOM_BYTE >=
-        MAX_EFFECTIVE_BALANCE * random_byte:
-      return Opt.some(candidate_index)
-    i += 1
+    doAssert res.isSome
+    res
+
+func compute_proposer_index(state: ForkyBeaconState,
+    indices: openArray[ValidatorIndex], seed: Eth2Digest):
+    Opt[ValidatorIndex] =
+  ## Return from ``indices`` a random index sampled by effective balance.
+  compute_proposer_index(state, indices, seed) do:
+    compute_shuffled_index(i mod seq_len, seq_len, seed)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
@@ -378,19 +390,16 @@ func get_beacon_proposer_index*(
   cache.beacon_proposer_indices.withValue(slot, proposer) do:
     return proposer[]
   do:
-    # Return the beacon proposer index at the current slot.
+    ## Return the beacon proposer index at the current slot.
 
     var buffer: array[32 + 8, byte]
     buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
 
     # There's exactly one beacon proposer per slot - the same validator may
     # however propose several times in the same epoch (however unlikely)
-    let
-      # active validator indices are kept in cache but sorting them takes
-      # quite a while
-      indices = get_active_validator_indices(state, epoch)
-
+    let indices = get_active_validator_indices(state, epoch)
     var res: Opt[ValidatorIndex]
+
     for epoch_slot in epoch.slots():
       buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
       let seed = eth2digest(buffer)
@@ -402,6 +411,22 @@ func get_beacon_proposer_index*(
     return res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+func get_beacon_proposer_index*(
+    state: ForkyBeaconState, shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
+    seq[Opt[ValidatorIndex]] =
+  ## Return the beacon proposer index at the current slot.
+
+  var buffer: array[32 + 8, byte]
+  buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
+  var res: seq[Opt[ValidatorIndex]]
+
+  for epoch_slot in epoch.slots():
+    buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
+    res.add (compute_proposer_index(state, shuffled_indices, eth2digest(buffer)) do: i)
+
+  res
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):
     Opt[ValidatorIndex] =
   ## Return the beacon proposer index at the current slot.

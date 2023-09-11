@@ -1061,6 +1061,8 @@ proc doppelgangerChecked(node: BeaconNode, epoch: Epoch) =
     for validator in node.attachedValidators[]:
       validator.doppelgangerChecked(epoch - 1)
 
+from ./spec/state_transition_epoch import effective_balance_might_update
+
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating
   ## and unsubscribe from the ones that are no longer relevant.
@@ -1137,6 +1139,28 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
       if node.consensusManager[].actionTracker.needsUpdate(
           forkyState, slot.epoch + 1):
+        let
+          shufflingRef = node.dag.getShufflingRef(node.dag.head, slot.epoch + 1, false).valueOr:
+            # TODO shouldn't fail, but fall back on getEpochRef, why nto
+            default(ShufflingRef) # obvioiusly bad, nil
+          nextEpochProposers = get_beacon_proposer_index(
+            forkyState.data, shufflingRef.shuffled_active_validator_indices,
+            slot.epoch + 1)
+          effectiveBalance =
+            forkyState.data.validators.item(nextEpochProposers[0].get).effective_balance
+          balance =
+            forkyState.data.balances.item(nextEpochProposers[0].get)
+
+        # Enough to capture sync committee misses and attestation misses in
+        # same slots.
+        const MAX_NONSLASHING_DECREASE = 1_000_000.Gwei
+        static: doAssert MAX_EFFECTIVE_BALANCE == 32_000_000_000'u64
+        if  (balance < 1_000_000_000.Gwei) or
+             effectiveBalance < MAX_EFFECTIVE_BALANCE and
+             effective_balance_might_update(
+               balance - MAX_NONSLASHING_DECREASE, effectiveBalance):
+          # Here goes the epochRef fallback
+          discard
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
           "Getting head EpochRef should never fail")
         node.consensusManager[].actionTracker.updateActions(epochRef)
