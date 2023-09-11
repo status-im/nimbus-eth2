@@ -372,13 +372,17 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
     counts[0] = (currentPeriod,
                  await service.pollForSyncCommitteeDuties(currentPeriod))
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#sync-committee-subnet-stability
-    const lookaheadEpochs = SYNC_COMMITTEE_SUBNET_COUNT
-    if (currentEpoch + lookaheadEpochs) >= nextPeriod.start_epoch:
+    const
+      numDelayEpochs = 4  # Chosen empirically
+      numLookaheadEpochs =
+        max(EPOCHS_PER_SYNC_COMMITTEE_PERIOD, numDelayEpochs) -
+        numDelayEpochs + 1
+    if (currentEpoch + numLookaheadEpochs) >= nextPeriod.start_epoch:
       counts[1] = (nextPeriod,
                    await service.pollForSyncCommitteeDuties(nextPeriod))
     else:
-      # Skip fetching `nextPeriod` unless `currentPeriod` is ending soon
+      # Skip fetching `nextPeriod` until sync committees are likely known,
+      # as determined by `numDelayEpochs` from sync committee period start.
       counts[1] = (nextPeriod, 0)
 
     if (counts[0].count == 0) and (counts[1].count == 0):
