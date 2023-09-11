@@ -940,6 +940,9 @@ template unrecognizedFieldWarning =
   trace "JSON field not recognized by the current version of Nimbus. Consider upgrading",
         fieldName, typeName = typetraits.name(typeof value)
 
+template unrecognizedFieldIgnore =
+  discard readValue(reader, JsonString)
+
 ## ForkedBeaconBlock
 template prepareForkedBlockReading(
     reader: var JsonReader[RestJson],
@@ -2767,7 +2770,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Multiple `active` fields found", "RestActivityItem")
       active = some(reader.readValue(bool))
     else:
-      discard
+      unrecognizedFieldIgnore()
 
   if index.isNone():
     reader.raiseUnexpectedValue("Missing or empty `index` value")
@@ -2807,7 +2810,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Multiple `is_live` fields found", "RestLivenessItem")
       isLive = some(reader.readValue(bool))
     else:
-      discard
+      unrecognizedFieldIgnore()
 
   if index.isNone():
     reader.raiseUnexpectedValue("Missing or empty `index` value")
@@ -2935,8 +2938,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestErrorMessage")
       stacktraces = some(reader.readValue(seq[string]))
     else:
-      # We ignore all additional fields.
-      discard reader.readValue(JsonString)
+      unrecognizedFieldIgnore()
 
   if code.isNone():
     reader.raiseUnexpectedValue("Missing or invalid `code` value")
