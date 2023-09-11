@@ -1253,15 +1253,18 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       toGaugeValue(x)
 
   template formatSyncCommitteeStatus(): string =
-    let slotsToNextSyncCommitteePeriod =
-      SLOTS_PER_SYNC_COMMITTEE_PERIOD - since_sync_committee_period_start(slot)
+    let
+      syncCommitteeSlot = slot + 1
+      slotsToNextSyncCommitteePeriod =
+        SLOTS_PER_SYNC_COMMITTEE_PERIOD -
+        since_sync_committee_period_start(syncCommitteeSlot)
 
     # int64 conversion is safe
     doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
 
-    if not node.getCurrentSyncCommiteeSubnets(slot.epoch).isZeros:
+    if not node.getCurrentSyncCommiteeSubnets(syncCommitteeSlot.epoch).isZeros:
       "current"
-    elif not node.getNextSyncCommitteeSubnets(slot.epoch).isZeros:
+    elif not node.getNextSyncCommitteeSubnets(syncCommitteeSlot.epoch).isZeros:
       "in " & toTimeLeftString(
         SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
     else:
