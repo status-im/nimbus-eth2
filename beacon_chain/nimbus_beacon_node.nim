@@ -562,7 +562,8 @@ proc init*(T: type BeaconNode,
         elif metadata.hasGenesis:
           try:
             if metadata.genesis.kind == BakedInUrl:
-              info "Obtaining genesis state", sourceUrl = metadata.genesis.url
+              info "Obtaining genesis state",
+                    sourceUrl = $config.genesisStateUrl.get(parseUri metadata.genesis.url)
             await metadata.genesis.fetchBytes(config.genesisStateUrl)
           except CatchableError as err:
             error "Failed to obtain genesis state",
