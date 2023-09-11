@@ -7,16 +7,19 @@ We've been hard at work researching and developing a GossipSub protocol upgrade,
 
 ### Improvements
 
+* The GossipSub implementation of Nimbus now consumes less bandwidth and CPU cycles, while improving upon the existing DoS protections through better peer scoring:
+  https://github.com/status-im/nimbus-eth2/pull/5229
+
 * The new `--web3-signer` command-line option can be used to connect Nimbus to one or more remote signers without requiring any remote keystore files to be created. The list of validators attached to each remote signer is obtained automatically through the [`/api/v1/eth2/publicKeys`](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST) Web3Signer API endpoint:
   https://github.com/status-im/nimbus-eth2/pull/5366
   https://github.com/status-im/nimbus-eth2/pull/5385
   https://github.com/status-im/nimbus-eth2/pull/5389
 
-* The GossipSub implementation of Nimbus now consumes less bandwidth and CPU cycles, while improving upon the existing DoS protections through better peer scoring:
-  https://github.com/status-im/nimbus-eth2/pull/5229
-
 * Nimbus now supports the upcoming Holešky testnet:
   https://github.com/status-im/nimbus-eth2/pull/5337
+
+* Faster validator registry processing reduces the time spent by Nimbus in state transitions and replays:
+  https://github.com/status-im/nimbus-eth2/pull/5412
 
 ### Fixes
 
