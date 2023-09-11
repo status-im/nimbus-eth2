@@ -978,7 +978,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.response("", Http200, "text/plain")
 
-  # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/liveness.yaml
+  # https://ethereum.github.io/beacon-APIs/#/Validator/getLiveness
   router.api(MethodPost, "/eth/v1/validator/liveness/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let
