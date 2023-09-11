@@ -309,7 +309,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonResponseWOpt(res, optimistic)
     else:
       let res = emptyResponse()
-      return RestApiResponse.jsonResponseWOpt(res, execOpt = some(false))
+      return RestApiResponse.jsonResponseWOpt(res, execOpt = Opt.some(false))
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 

@@ -31,7 +31,7 @@ type
   KeystoresAndSlashingProtection* = object
     keystores*: seq[Keystore]
     passwords*: seq[string]
-    slashing_protection*: Option[SPDIR]
+    slashing_protection*: Opt[SPDIR]
 
   DeleteKeystoresBody* = object
     pubkeys*: seq[ValidatorPubKey]
@@ -64,7 +64,7 @@ type
 
   RemoteKeystoreStatus* = object
     status*: KeystoreStatus
-    message*: Option[string]
+    message*: Opt[string]
 
   DeleteRemoteKeystoresResponse* = object
     data*: seq[RemoteKeystoreStatus]

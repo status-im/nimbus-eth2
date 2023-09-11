@@ -7,8 +7,8 @@
 
 {.push raises: [].}
 
-import std/[options, macros],
-       stew/byteutils, presto,
+import std/macros,
+       stew/[results, byteutils], presto,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization, rest_common],
        ../validators/beacon_validators,
@@ -17,7 +17,7 @@ import std/[options, macros],
        "."/[rest_constants, state_ttl_cache]
 
 export
-  options, eth2_rest_serialization, blockchain_dag, presto, rest_types,
+  results, eth2_rest_serialization, blockchain_dag, presto, rest_types,
   rest_constants, rest_common
 
 type
@@ -256,8 +256,8 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
 func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
                     forkedState: ForkedHashedBeaconState,
                     keys: openArray[ValidatorPubKey]
-                   ): seq[Option[ValidatorIndex]] =
-  var indices = newSeq[Option[ValidatorIndex]](len(keys))
+                   ): seq[Opt[ValidatorIndex]] =
+  var indices = newSeq[Opt[ValidatorIndex]](len(keys))
   let totalValidatorsInState = getStateField(forkedState, validators).lenu64
   var keyset =
     block:
@@ -266,7 +266,7 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
         # Try to search in cache first.
         cacheTable.withValue(pubkey, vindex):
           if uint64(vindex[]) < totalValidatorsInState:
-            indices[inputIndex] = some(vindex[])
+            indices[inputIndex] = Opt.some(vindex[])
         do:
           res[pubkey] = inputIndex
       res
@@ -276,48 +276,48 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
         # Store pair (pubkey, index) into cache table.
         cacheTable[validator.pubkey] = ValidatorIndex(validatorIndex)
         # Fill result sequence.
-        indices[listIndex[]] = some(ValidatorIndex(validatorIndex))
+        indices[listIndex[]] = Opt.some(ValidatorIndex(validatorIndex))
   indices
 
-proc getBidOptimistic*(node: BeaconNode, bid: BlockId): Option[bool] =
+proc getBidOptimistic*(node: BeaconNode, bid: BlockId): Opt[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    some[bool](node.dag.is_optimistic(bid))
+    Opt.some(node.dag.is_optimistic(bid))
   else:
-    none[bool]()
+    Opt.none(bool)
 
 proc getShufflingOptimistic*(node: BeaconNode,
                              dependentSlot: Slot,
-                             dependentRoot: Eth2Digest): Option[bool] =
+                             dependentRoot: Eth2Digest): Opt[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     # `slot` in this `BlockId` may be higher than block's actual slot,
     # this is alright for the purpose of calling `is_optimistic`.
     let bid = BlockId(slot: dependentSlot, root: dependentRoot)
-    some[bool](node.dag.is_optimistic(bid))
+    Opt.some(node.dag.is_optimistic(bid))
   else:
-    none[bool]()
+    Opt.none(bool)
 
 proc getStateOptimistic*(node: BeaconNode,
-                         state: ForkedHashedBeaconState): Option[bool] =
+                         state: ForkedHashedBeaconState): Opt[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     if state.kind >= ConsensusFork.Bellatrix:
       # A state is optimistic iff the block which created it is
       let stateBid = withState(state): forkyState.latest_block_id
-      some[bool](node.dag.is_optimistic(stateBid))
+      Opt.some(node.dag.is_optimistic(stateBid))
     else:
-      some[bool](false)
+      Opt.some(false)
   else:
-    none[bool]()
+    Opt.none(bool)
 
 proc getBlockOptimistic*(node: BeaconNode,
                          blck: ForkedTrustedSignedBeaconBlock |
-                               ForkedSignedBeaconBlock): Option[bool] =
+                               ForkedSignedBeaconBlock): Opt[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     if blck.kind >= ConsensusFork.Bellatrix:
-      some[bool](node.dag.is_optimistic(blck.toBlockId()))
+      Opt.some(node.dag.is_optimistic(blck.toBlockId()))
     else:
-      some[bool](false)
+      Opt.some(false)
   else:
-    none[bool]()
+    Opt.none(bool)
 
 const
   jsonMediaType* = MediaType.init("application/json")
