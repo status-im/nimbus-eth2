@@ -167,9 +167,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          $error)
 
     node.withStateForBlockSlotId(bslot):
-      return RestApiResponse.jsonResponseWOpt(
+      return RestApiResponse.jsonResponseFinalized(
         (root: stateRoot),
-        node.getStateOptimistic(state)
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
       )
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -190,7 +191,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                           $error)
 
     node.withStateForBlockSlotId(bslot):
-      return RestApiResponse.jsonResponseWOpt(
+      return RestApiResponse.jsonResponseFinalized(
         (
           previous_version:
             getStateField(state, fork).previous_version,
@@ -199,7 +200,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           epoch:
             getStateField(state, fork).epoch
         ),
-        node.getStateOptimistic(state)
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
       )
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
@@ -220,7 +222,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          $error)
 
     node.withStateForBlockSlotId(bslot):
-      return RestApiResponse.jsonResponseWOpt(
+      return RestApiResponse.jsonResponseFinalized(
         (
           previous_justified:
             getStateField(state, previous_justified_checkpoint),
@@ -229,7 +231,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           finalized:
             getStateField(state, finalized_checkpoint)
         ),
-        node.getStateOptimistic(state)
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
       )
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
@@ -353,9 +356,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 res.add(RestValidator.init(index, balance, toString(status),
                                            validator))
           res
-      return RestApiResponse.jsonResponseWOpt(
+      return RestApiResponse.jsonResponseFinalized(
         response,
-        node.getStateOptimistic(state)
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
       )
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
@@ -417,9 +421,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                                ValidatorStatusNotFoundError,
                                                $sres.get())
             toString(sres.get())
-      return RestApiResponse.jsonResponseWOpt(
+      return RestApiResponse.jsonResponseFinalized(
         RestValidator.init(vindex, balance, status, validator),
-        node.getStateOptimistic(state)
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
       )
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
@@ -507,9 +512,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               let balance = getStateField(state, balances).item(index)
               res.add(RestValidatorBalance.init(index, balance))
           res
-      return RestApiResponse.jsonResponseWOpt(
+      return RestApiResponse.jsonResponseFinalized(
         response,
-        node.getStateOptimistic(state)
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
       )
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -623,9 +629,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         forSlot(vslot.get(), vindex, res)
 
-      return RestApiResponse.jsonResponseWOpt(
+      return RestApiResponse.jsonResponseFinalized(
         res,
-        node.getStateOptimistic(state)
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
       )
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -703,10 +710,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             offset.inc(length)
           res
 
-      return RestApiResponse.jsonResponseWOpt(
+      return RestApiResponse.jsonResponseFinalized(
         RestEpochSyncCommittee(validators: indices,
                                validator_aggregates: aggregates),
-        node.getStateOptimistic(state)
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
       )
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -762,9 +770,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # Fall back to full state computation
     node.withStateForBlockSlotId(bslot):
       withState(state):
-        return RestApiResponse.jsonResponseWOpt(
+        return RestApiResponse.jsonResponseFinalized(
           RestEpochRandao(randao: get_randao_mix(forkyState.data, qepoch)),
-          node.getStateOptimistic(state)
+          node.getStateOptimistic(state),
+          node.dag.isFinalized(bslot.bid)
         )
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -796,19 +805,20 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return
       withBlck(bdata):
-        RestApiResponse.jsonResponseWOpt(
+        let bid = BlockId(root: blck.root, slot: blck.message.slot)
+        RestApiResponse.jsonResponseFinalized(
           [
             (
               root: forkyBlck.root,
-              canonical: node.dag.isCanonical(
-                BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)),
+              canonical: node.dag.isCanonical(bid),
               header: (
                 message: forkyBlck.toBeaconBlockHeader,
                 signature: forkyBlck.signature
               )
             )
           ],
-          node.getBlockOptimistic(bdata)
+          node.getBlockOptimistic(bdata),
+          node.dag.isFinalized(bid)
         )
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
@@ -824,17 +834,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return
       withBlck(bdata):
-        RestApiResponse.jsonResponseWOpt(
+        let bid = BlockId(root: blck.root, slot: blck.message.slot)
+        RestApiResponse.jsonResponseFinalized(
           (
             root: forkyBlck.root,
-            canonical: node.dag.isCanonical(
-              BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)),
+            canonical: node.dag.isCanonical(bid),
             header: (
               message: forkyBlck.toBeaconBlockHeader,
               signature: forkyBlck.signature
             )
           ),
-          node.getBlockOptimistic(bdata)
+          node.getBlockOptimistic(bdata),
+          node.dag.isFinalized(bid)
         )
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
@@ -1076,7 +1087,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         RestApiResponse.jsonResponseBlock(
           bdata.asSigned(),
-          node.getBlockOptimistic(bdata)
+          node.getBlockOptimistic(bdata),
+          node.dag.isFinalized(bid)
         )
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
@@ -1095,9 +1107,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       bdata = node.dag.getForkedBlock(bid).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-    return RestApiResponse.jsonResponseWOpt(
+    return RestApiResponse.jsonResponseFinalized(
       (root: bid.root),
-      node.getBlockOptimistic(bdata)
+      node.getBlockOptimistic(bdata),
+      node.dag.isFinalized(bid)
     )
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations
@@ -1114,9 +1127,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return
       withBlck(bdata):
-        RestApiResponse.jsonResponseWOpt(
+        RestApiResponse.jsonResponseFinalized(
           forkyBlck.message.body.attestations.asSeq(),
-          node.getBlockOptimistic(bdata)
+          node.getBlockOptimistic(bdata),
+          node.dag.isFinalized(bid)
         )
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
