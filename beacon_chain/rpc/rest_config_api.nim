@@ -253,9 +253,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
-          RANDOM_SUBNETS_PER_VALIDATOR: "1",
-          EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION:
-            Base10.toString(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION),
           ATTESTATION_SUBNET_COUNT:
             Base10.toString(ATTESTATION_SUBNET_COUNT),
 

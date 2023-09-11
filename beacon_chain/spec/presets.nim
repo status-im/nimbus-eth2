@@ -23,7 +23,7 @@ const
 
   # Constants from `validator.md` not covered by config/presets in the spec
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
-  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64 = 256
+  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
 
 type
   Version* = distinct array[4, byte]
