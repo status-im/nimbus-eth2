@@ -1118,15 +1118,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/beacon/blocks/{block_id}/attestations") do (
     block_id: BlockIdent) -> RestApiResponse:
     let
-      bid = block_id.valueOr:
+      blockIdent = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
                                          $error)
-
-      bdata = node.getForkedBlock(bid).valueOr:
+      bdata = node.getForkedBlock(blockIdent).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
     return
       withBlck(bdata):
+        let bid = BlockId(root: blck.root, slot: blck.message.slot)
         RestApiResponse.jsonResponseFinalized(
           forkyBlck.message.body.attestations.asSeq(),
           node.getBlockOptimistic(bdata),
