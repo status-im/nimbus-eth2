@@ -90,6 +90,7 @@ declareGauge attestation_pool_block_attestation_packing_time,
 
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
            quarantine: ref Quarantine,
+           forkChoiceVersion = ForkChoiceVersion.Stable,
            onAttestation: OnAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
@@ -97,7 +98,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
   let finalizedEpochRef = dag.getFinalizedEpochRef()
 
   var forkChoice = ForkChoice.init(
-    finalizedEpochRef, dag.finalizedHead.blck)
+    finalizedEpochRef, dag.finalizedHead.blck, forkChoiceVersion)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it

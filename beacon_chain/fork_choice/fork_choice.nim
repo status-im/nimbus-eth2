@@ -49,11 +49,13 @@ func compute_deltas(
 logScope: topics = "fork_choice"
 
 func init*(
-    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
-  T(proto_array: ProtoArray.init(checkpoints))
+    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints,
+    version: ForkChoiceVersion): T =
+  T(proto_array: ProtoArray.init(checkpoints, version))
 
 proc init*(
-    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
+    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef,
+    version: ForkChoiceVersion): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -65,8 +67,10 @@ proc init*(
     backend: ForkChoiceBackend.init(
       FinalityCheckpoints(
         justified: checkpoint,
-        finalized: checkpoint)),
+        finalized: checkpoint),
+      version),
     checkpoints: Checkpoints(
+      version: version,
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
         balances: epochRef.effective_balances),

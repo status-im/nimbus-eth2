@@ -123,7 +123,8 @@ proc initialLoad(
     dag = ChainDAGRef.init(
       forkedState[].kind.genesisTestRuntimeConfig, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
-      dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
+      dag.getFinalizedEpochRef(), dag.finalizedHead.blck,
+      ForkChoiceVersion.Stable))
 
   (dag, fkChoice)
 

@@ -313,8 +313,8 @@ proc initFullNode(
   let
     quarantine = newClone(
       Quarantine.init())
-    attestationPool = newClone(
-      AttestationPool.init(dag, quarantine, onAttestationReceived))
+    attestationPool = newClone(AttestationPool.init(
+      dag, quarantine, config.forkChoiceVersion.get, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
@@ -1902,6 +1902,8 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
+  if config.forkChoiceVersion.isNone:
+    config.forkChoiceVersion = some(ForkChoiceVersion.Stable)
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =

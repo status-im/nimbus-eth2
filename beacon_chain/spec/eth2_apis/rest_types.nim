@@ -574,7 +574,7 @@ type
     extra_data*: Option[RestNodeExtraData]
 
   RestExtraData* = object
-    discard
+    version*: Option[string]
 
   GetForkChoiceResponse* = object
     justified_checkpoint*: Checkpoint
