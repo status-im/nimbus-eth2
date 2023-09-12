@@ -90,7 +90,8 @@ func nodeLeadsToViableHead(
 # ----------------------------------------------------------------------
 
 func init*(
-    T: type ProtoArray, checkpoints: FinalityCheckpoints): T =
+    T: type ProtoArray, checkpoints: FinalityCheckpoints,
+    version: ForkChoiceVersion): T =
   let node = ProtoNode(
     bid: BlockId(
       slot: checkpoints.finalized.epoch.start_slot,
@@ -102,7 +103,8 @@ func init*(
     bestChild: none(int),
     bestDescendant: none(int))
 
-  T(checkpoints: checkpoints,
+  T(version: version,
+    checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
@@ -541,7 +543,7 @@ func nodeIsViableForHead(
     correctJustified =
       unrealized.justified.epoch >= self.checkpoints.justified.epoch and
       node.checkpoints.justified.epoch + 2 >= self.currentEpoch
-      
+
   return
     if not correctJustified:
       false

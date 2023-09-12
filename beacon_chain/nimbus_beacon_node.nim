@@ -313,8 +313,8 @@ proc initFullNode(
   let
     quarantine = newClone(
       Quarantine.init())
-    attestationPool = newClone(
-      AttestationPool.init(dag, quarantine, onAttestationReceived))
+    attestationPool = newClone(AttestationPool.init(
+      dag, quarantine, config.forkChoiceVersion.get, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
@@ -324,8 +324,7 @@ proc initFullNode(
     blobQuarantine = newClone(BlobQuarantine())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
-      ActionTracker.init(rng, node.network.nodeId, config.subscribeAllSubnets,
-                         config.useOldStabilitySubnets),
+      ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
     blockProcessor = BlockProcessor.new(
@@ -563,7 +562,8 @@ proc init*(T: type BeaconNode,
         elif metadata.hasGenesis:
           try:
             if metadata.genesis.kind == BakedInUrl:
-              info "Obtaining genesis state", sourceUrl = metadata.genesis.url
+              info "Obtaining genesis state",
+                    sourceUrl = $config.genesisStateUrl.get(parseUri metadata.genesis.url)
             await metadata.genesis.fetchBytes(config.genesisStateUrl)
           except CatchableError as err:
             error "Failed to obtain genesis state",
@@ -1281,15 +1281,18 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       toGaugeValue(x)
 
   template formatSyncCommitteeStatus(): string =
-    let slotsToNextSyncCommitteePeriod =
-      SLOTS_PER_SYNC_COMMITTEE_PERIOD - since_sync_committee_period_start(slot)
+    let
+      syncCommitteeSlot = slot + 1
+      slotsToNextSyncCommitteePeriod =
+        SLOTS_PER_SYNC_COMMITTEE_PERIOD -
+        since_sync_committee_period_start(syncCommitteeSlot)
 
     # int64 conversion is safe
     doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
 
-    if not node.getCurrentSyncCommiteeSubnets(slot.epoch).isZeros:
+    if not node.getCurrentSyncCommiteeSubnets(syncCommitteeSlot.epoch).isZeros:
       "current"
-    elif not node.getNextSyncCommitteeSubnets(slot.epoch).isZeros:
+    elif not node.getNextSyncCommitteeSubnets(syncCommitteeSlot.epoch).isZeros:
       "in " & toTimeLeftString(
         SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
     else:
@@ -1899,6 +1902,8 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
+  if config.forkChoiceVersion.isNone:
+    config.forkChoiceVersion = some(ForkChoiceVersion.Stable)
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =
