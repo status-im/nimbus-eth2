@@ -394,14 +394,16 @@ proc runPreGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
       try:
         await sleepAsync(vc.beaconClock.durationToNextSlot())
         false
-      except CancelledError:
+      except CancelledError as exc:
         debug "Pre-genesis waiting loop was interrupted"
-        true
+        raise exc
       except CatchableError as exc:
         error "Pre-genesis waiting loop failed with unexpected error",
               err_name = $exc.name, err_msg = $exc.msg
         true
-  vc.preGenesisEvent.fire()
+
+  if not(breakLoop):
+    vc.preGenesisEvent.fire()
 
 proc runGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
   var breakLoop = false
@@ -419,14 +421,16 @@ proc runGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
       try:
         await sleepAsync(vc.beaconClock.durationToNextSlot())
         false
-      except CancelledError:
+      except CancelledError as exc:
         debug "Genesis waiting loop was interrupted"
-        true
+        raise exc
       except CatchableError as exc:
         error "Genesis waiting loop failed with unexpected error",
               err_name = $exc.name, err_msg = $exc.msg
         true
-  vc.genesisEvent.fire()
+
+  if not(breakLoop):
+    vc.genesisEvent.fire()
 
 proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
@@ -471,9 +475,10 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
 
   debug "Stopping main processing loop"
   var pending: seq[Future[void]]
-  if not(vc.runSlotLoopFut.finished()):
+  if not(isNil(vc.runSlotLoopFut)) and not(vc.runSlotLoopFut.finished()):
     pending.add(vc.runSlotLoopFut.cancelAndWait())
-  if not(vc.runKeystoreCachePruningLoopFut.finished()):
+  if not(isNil(vc.runKeystoreCachePruningLoopFut)) and
+     not(vc.runKeystoreCachePruningLoopFut.finished()):
     pending.add(vc.runKeystoreCachePruningLoopFut.cancelAndWait())
   if not(doppelEventFut.finished()):
     pending.add(doppelEventFut.cancelAndWait())
