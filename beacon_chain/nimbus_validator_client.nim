@@ -85,12 +85,29 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
             dec(counter)
       return melem
 
+proc addValidatorsFromWeb3Signer(vc: ValidatorClientRef, web3signerUrl: Uri) {.async.} =
+  let res = await queryValidatorsSource(web3signerUrl)
+  if res.isOk():
+    let dynamicKeystores = res.get()
+    for keystore in dynamicKeystores:
+      vc.addValidator(keystore)
+
 proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
   info "Loading validators", validatorsDir = vc.config.validatorsDir()
-  var duplicates: seq[ValidatorPubKey]
   for keystore in listLoadableKeystores(vc.config, vc.keystoreCache):
     vc.addValidator(keystore)
-  return true
+
+  let web3signerValidatorsFuts = mapIt(
+    vc.config.web3signers,
+    vc.addValidatorsFromWeb3Signer(it))
+
+  # We use `allFutures` because all failures are already reported as
+  # user-visible warnings in `queryValidatorsSource`.
+  # We don't consider them fatal because the Web3Signer may be experiencing
+  # a temporary hiccup that will be resolved later.
+  await allFutures(web3signerValidatorsFuts)
+
+  true
 
 proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
   # This procedure performs initialization of BeaconClock using current genesis

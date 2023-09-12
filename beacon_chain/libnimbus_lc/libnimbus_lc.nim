@@ -8,11 +8,15 @@
 {.push raises: [].}
 
 import
-  std/[json, times],
+  std/[json, sequtils, times],
   stew/saturation_arith,
-  eth/common/eth_types_rlp,
+  eth/common/[eth_types_rlp, transaction],
+  eth/keys,
   eth/p2p/discoveryv5/random2,
+  eth/rlp,
+  eth/trie/[db, hexary],
   json_rpc/jsonmarshal,
+  secp256k1,
   web3/ethtypes,
   ../el/el_manager,
   ../spec/eth2_apis/[eth2_rest_serialization, rest_light_client_calls],
@@ -1034,7 +1038,7 @@ func ETHExecutionPayloadHeaderGetReceiptsRoot(
 
 func ETHExecutionPayloadHeaderGetLogsBloom(
     execution: ptr ExecutionPayloadHeader): ptr BloomLogs {.exported.} =
-  ## Obtains the logs bloom of a given execution payload header.
+  ## Obtains the logs Bloom of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
   ##   It must neither be released nor written to, and the execution payload
@@ -1044,7 +1048,7 @@ func ETHExecutionPayloadHeaderGetLogsBloom(
   ## * `execution` - Execution payload header.
   ##
   ## Returns:
-  ## * Execution logs bloom.
+  ## * Execution logs Bloom.
   addr execution[].logs_bloom
 
 func ETHExecutionPayloadHeaderGetPrevRandao(
@@ -1107,34 +1111,26 @@ func ETHExecutionPayloadHeaderGetTimestamp(
   execution[].timestamp.cint
 
 func ETHExecutionPayloadHeaderGetExtraDataBytes(
-    execution: ptr ExecutionPayloadHeader
-): ptr UncheckedArray[byte] {.exported.} =
+    execution: ptr ExecutionPayloadHeader,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the extra data buffer of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
   ##   It must neither be released nor written to, and the execution payload
   ##   header must not be released while the returned value is in use.
   ##
-  ## * Use `ETHExecutionPayloadHeaderGetNumExtraDataBytes`
-  ##   to obtain the length of the buffer.
-  ##
   ## Parameters:
   ## * `execution` - Execution payload header.
+  ## * `numBytes` [out] - Length of buffer.
   ##
   ## Returns:
   ## * Buffer with execution block extra data.
+  numBytes[] = execution[].extra_data.len.cint
+  if execution[].extra_data.len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultExtraData: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultExtraData)
   cast[ptr UncheckedArray[byte]](addr execution[].extra_data[0])
-
-func ETHExecutionPayloadHeaderGetNumExtraDataBytes(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the extra data buffer's length of a given execution payload header.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Length of execution block extra data.
-  execution[].extra_data.len.cint
 
 func ETHExecutionPayloadHeaderGetBaseFeePerGas(
     execution: ptr ExecutionPayloadHeader): ptr UInt256 {.exported.} =
@@ -1173,9 +1169,18 @@ func ETHExecutionPayloadHeaderGetExcessBlobGas(
   ## * Excess blob gas.
   execution[].excess_blob_gas.cint
 
-type ETHExecutionBlockHeader = object
-  txRoot: Eth2Digest
-  withdrawalsRoot: Eth2Digest
+type
+  ETHWithdrawal = object
+    index: uint64
+    validatorIndex: uint64
+    address: ExecutionAddress
+    amount: uint64
+    bytes: seq[byte]
+
+  ETHExecutionBlockHeader = object
+    transactionsRoot: Eth2Digest
+    withdrawalsRoot: Eth2Digest
+    withdrawals: seq[ETHWithdrawal]
 
 proc ETHExecutionBlockHeaderCreateFromJson(
     executionHash: ptr Eth2Digest,
@@ -1185,7 +1190,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   ##
   ## * The JSON-RPC `eth_getBlockByHash` with params `[executionHash, false]`
   ##   may be used to obtain execution block header data for a given execution
-  ##   block hash. Pass the response's `result` property to `blockHeaderJson`.
+  ##   block hash. Pass the response's `result` property as `blockHeaderJson`.
   ##
   ## * The execution block header must be destroyed with
   ##   `ETHExecutionBlockHeaderDestroy` once no longer needed,
@@ -1206,87 +1211,126 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       parseJson($blockHeaderJson)
     except Exception:
       return nil
-  var bdata: BlockObject
+  var data: BlockObject
   try:
-    fromJson(node, argName = "", bdata)
+    fromJson(node, argName = "", data)
   except KeyError, ValueError:
     return nil
-  if bdata == nil:
+  if data == nil:
     return nil
 
   # Sanity check
-  if bdata.hash.asEth2Digest != executionHash[]:
+  if data.hash.asEth2Digest != executionHash[]:
     return nil
 
   # Check fork consistency
   static: doAssert totalSerializedFields(BlockObject) == 26,
     "Only update this number once code is adjusted to check new fields!"
-  if bdata.baseFeePerGas.isNone and (
-      bdata.withdrawals.isSome or bdata.withdrawalsRoot.isSome or
-      bdata.blobGasUsed.isSome or bdata.excessBlobGas.isSome):
+  if data.baseFeePerGas.isNone and (
+      data.withdrawals.isSome or data.withdrawalsRoot.isSome or
+      data.blobGasUsed.isSome or data.excessBlobGas.isSome):
     return nil
-  if bdata.withdrawalsRoot.isNone and (
-      bdata.blobGasUsed.isSome or bdata.excessBlobGas.isSome):
+  if data.withdrawalsRoot.isNone and (
+      data.blobGasUsed.isSome or data.excessBlobGas.isSome):
     return nil
-  if bdata.withdrawals.isSome != bdata.withdrawalsRoot.isSome:
+  if data.withdrawals.isSome != data.withdrawalsRoot.isSome:
     return nil
-  if bdata.blobGasUsed.isSome != bdata.excessBlobGas.isSome:
-    return nil
-  if bdata.parentBeaconBlockRoot.isSome != bdata.parentBeaconBlockRoot.isSome:
+  if data.blobGasUsed.isSome != data.excessBlobGas.isSome:
     return nil
 
   # Construct block header
   static:  # `GasInt` is signed. We only use it for hashing.
-    doAssert sizeof(int64) == sizeof(bdata.gasLimit)
-    doAssert sizeof(int64) == sizeof(bdata.gasUsed)
-  if distinctBase(bdata.timestamp) > int64.high.uint64:
+    doAssert sizeof(int64) == sizeof(data.gasLimit)
+    doAssert sizeof(int64) == sizeof(data.gasUsed)
+  if distinctBase(data.timestamp) > int64.high.uint64:
     return nil
-  if bdata.nonce.isNone:
+  if data.nonce.isNone:
     return nil
   let blockHeader = ExecutionBlockHeader(
-    parentHash: bdata.parentHash.asEth2Digest,
-    ommersHash: bdata.sha3Uncles.asEth2Digest,
-    coinbase: distinctBase(bdata.miner),
-    stateRoot: bdata.stateRoot.asEth2Digest,
-    txRoot: bdata.transactionsRoot.asEth2Digest,
-    receiptRoot: bdata.receiptsRoot.asEth2Digest,
-    bloom: distinctBase(bdata.logsBloom),
-    difficulty: bdata.difficulty,
-    blockNumber: distinctBase(bdata.number).u256,
-    gasLimit: cast[int64](bdata.gasLimit),
-    gasUsed: cast[int64](bdata.gasUsed),
-    timestamp: fromUnix(int64.saturate distinctBase(bdata.timestamp)),
-    extraData: distinctBase(bdata.extraData),
-    mixDigest: bdata.mixHash.asEth2Digest,
-    nonce: distinctBase(bdata.nonce.get),
-    fee: bdata.baseFeePerGas,
+    parentHash: data.parentHash.asEth2Digest,
+    ommersHash: data.sha3Uncles.asEth2Digest,
+    coinbase: distinctBase(data.miner),
+    stateRoot: data.stateRoot.asEth2Digest,
+    txRoot: data.transactionsRoot.asEth2Digest,
+    receiptRoot: data.receiptsRoot.asEth2Digest,
+    bloom: distinctBase(data.logsBloom),
+    difficulty: data.difficulty,
+    blockNumber: distinctBase(data.number).u256,
+    gasLimit: cast[int64](data.gasLimit),
+    gasUsed: cast[int64](data.gasUsed),
+    timestamp: fromUnix(int64.saturate distinctBase(data.timestamp)),
+    extraData: distinctBase(data.extraData),
+    mixDigest: data.mixHash.asEth2Digest,
+    nonce: distinctBase(data.nonce.get),
+    fee: data.baseFeePerGas,
     withdrawalsRoot:
-      if bdata.withdrawalsRoot.isSome:
-        some(bdata.withdrawalsRoot.get.asEth2Digest)
+      if data.withdrawalsRoot.isSome:
+        some(data.withdrawalsRoot.get.asEth2Digest)
       else:
         none(ExecutionHash256),
     blobGasUsed:
-      if bdata.blobGasUsed.isSome:
-        some distinctBase(bdata.blobGasUsed.get)
+      if data.blobGasUsed.isSome:
+        some distinctBase(data.blobGasUsed.get)
       else:
         none(uint64),
     excessBlobGas:
-      if bdata.excessBlobGas.isSome:
-        some distinctBase(bdata.excessBlobGas.get)
+      if data.excessBlobGas.isSome:
+        some distinctBase(data.excessBlobGas.get)
       else:
         none(uint64),
     parentBeaconBlockRoot:
-      if bdata.parentBeaconBlockRoot.isSome:
-        some distinctBase(bdata.parentBeaconBlockRoot.get.asEth2Digest)
+      if data.parentBeaconBlockRoot.isSome:
+        some distinctBase(data.parentBeaconBlockRoot.get.asEth2Digest)
       else:
         none(ExecutionHash256))
   if rlpHash(blockHeader) != executionHash[]:
     return nil
 
+  # Construct withdrawals
+  var wds: seq[ETHWithdrawal]
+  if data.withdrawals.isSome:
+    doAssert data.withdrawalsRoot.isSome  # Checked above
+
+    wds = newSeqOfCap[ETHWithdrawal](data.withdrawals.get.len)
+    for data in data.withdrawals.get:
+      # Check fork consistency
+      static: doAssert totalSerializedFields(WithdrawalObject) == 4,
+        "Only update this number once code is adjusted to check new fields!"
+
+      # Construct withdrawal
+      let
+        wd = ExecutionWithdrawal(
+          index: distinctBase(data.index),
+          validatorIndex: distinctBase(data.validatorIndex),
+          address: distinctBase(data.address),
+          amount: distinctBase(data.amount))
+        rlpBytes =
+          try:
+            rlp.encode(wd)
+          except RlpError:
+            raiseAssert "Unreachable"
+
+      wds.add ETHWithdrawal(
+        index: wd.index,
+        validatorIndex: wd.validatorIndex,
+        address: ExecutionAddress(data: wd.address),
+        amount: wd.amount,
+        bytes: rlpBytes)
+
+    var tr = initHexaryTrie(newMemoryDB())
+    for i, wd in wds:
+      try:
+        tr.put(rlp.encode(i), wd.bytes)
+      except RlpError:
+        raiseAssert "Unreachable"
+    if tr.rootHash() != data.withdrawalsRoot.get.asEth2Digest:
+      return nil
+
   let executionBlockHeader = ETHExecutionBlockHeader.new()
   executionBlockHeader[] = ETHExecutionBlockHeader(
-    txRoot: blockHeader.txRoot,
-    withdrawalsRoot: blockHeader.withdrawalsRoot.get(ZERO_HASH))
+    transactionsRoot: blockHeader.txRoot,
+    withdrawalsRoot: blockHeader.withdrawalsRoot.get(ZERO_HASH),
+    withdrawals: wds)
   executionBlockHeader.toUnmanagedPtr()
 
 proc ETHExecutionBlockHeaderDestroy(
@@ -1313,7 +1357,7 @@ func ETHExecutionBlockHeaderGetTransactionsRoot(
   ##
   ## Returns:
   ## * Execution transactions root.
-  addr executionBlockHeader[].txRoot
+  addr executionBlockHeader[].transactionsRoot
 
 func ETHExecutionBlockHeaderGetWithdrawalsRoot(
     executionBlockHeader: ptr ETHExecutionBlockHeader
@@ -1330,3 +1374,1199 @@ func ETHExecutionBlockHeaderGetWithdrawalsRoot(
   ## Returns:
   ## * Execution withdrawals root.
   addr executionBlockHeader[].withdrawalsRoot
+
+func ETHExecutionBlockHeaderGetWithdrawals(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr seq[ETHWithdrawal] {.exported.} =
+  ## Obtains the withdrawal sequence of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Withdrawal sequence.
+  addr executionBlockHeader[].withdrawals
+
+type
+  ETHAccessTuple = object
+    address: ExecutionAddress
+    storageKeys: seq[Eth2Digest]
+
+  DestinationType {.pure.} = enum
+    Regular,
+    Create
+
+  ETHTransaction = object
+    hash: Eth2Digest
+    chainId: UInt256
+    `from`: ExecutionAddress
+    nonce: uint64
+    maxPriorityFeePerGas: uint64
+    maxFeePerGas: uint64
+    gas: uint64
+    destinationType: DestinationType
+    to: ExecutionAddress
+    value: UInt256
+    input: seq[byte]
+    accessList: seq[ETHAccessTuple]
+    maxFeePerBlobGas: uint64
+    blobVersionedHashes: seq[Eth2Digest]
+    signature: seq[byte]
+    bytes: TypedTransaction
+
+proc ETHTransactionsCreateFromJson(
+    transactionsRoot: ptr Eth2Digest,
+    transactionsJson: cstring): ptr seq[ETHTransaction] {.exported.} =
+  ## Verifies that JSON transactions data is valid and that it matches
+  ## the given `transactionsRoot`.
+  ##
+  ## * The JSON-RPC `eth_getBlockByHash` with params `[executionHash, true]`
+  ##   may be used to obtain transactions data for a given execution
+  ##   block hash. Pass `result.transactions` as `transactionsJson`.
+  ##
+  ## * The transaction sequence must be destroyed with
+  ##   `ETHTransactionsDestroy` once no longer needed,
+  ##   to release memory.
+  ##
+  ## Parameters:
+  ## * `transactionsRoot` - Execution transactions root.
+  ## * `transactionsJson` - Buffer with JSON transactions list. NULL-terminated.
+  ##
+  ## Returns:
+  ## * Pointer to an initialized transaction sequence - If successful.
+  ## * `NULL` - If the given `transactionsJson` is malformed or incompatible.
+  ##
+  ## See:
+  ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
+  let node =
+    try:
+      parseJson($transactionsJson)
+    except Exception:
+      return nil
+  var datas: seq[TransactionObject]
+  try:
+    fromJson(node, argName = "", datas)
+  except KeyError, ValueError:
+    return nil
+
+  var txs = newSeqOfCap[ETHTransaction](datas.len)
+  for i, data in datas:
+    # Sanity check
+    if data.transactionIndex.isNone:
+      return nil
+    if distinctBase(data.transactionIndex.get) != i.uint64:
+      return nil
+
+    # Check fork consistency
+    static: doAssert totalSerializedFields(TransactionObject) == 21,
+      "Only update this number once code is adjusted to check new fields!"
+    let txType =
+      case data.`type`.get(0.Quantity):
+      of 0.Quantity:
+        if data.accessList.isSome or
+            data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
+            data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
+          return nil
+        TxLegacy
+      of 1.Quantity:
+        if data.chainId.isNone or data.accessList.isNone:
+          return nil
+        if data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
+            data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
+          return nil
+        TxEip2930
+      of 2.Quantity:
+        if data.chainId.isNone or data.accessList.isNone or
+            data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone:
+          return nil
+        if data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
+          return nil
+        TxEip1559
+      of 3.Quantity:
+        if data.to.isNone or data.chainId.isNone or data.accessList.isNone or
+            data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone or
+            data.maxFeePerBlobGas.isNone or data.blobVersionedHashes.isNone:
+          return nil
+        TxEip4844
+      else:
+        return nil
+
+    # Construct transaction
+    static:
+      doAssert sizeof(uint64) == sizeof(ChainId)
+      doAssert sizeof(int64) == sizeof(data.gasPrice)
+      doAssert sizeof(int64) == sizeof(data.maxPriorityFeePerGas.get)
+      doAssert sizeof(int64) == sizeof(data.maxFeePerBlobGas.get)
+    if data.chainId.get(default(UInt256)) > distinctBase(ChainId.high).u256:
+      return nil
+    if distinctBase(data.gasPrice) > int64.high.uint64:
+      return nil
+    if distinctBase(data.maxFeePerGas.get(0.Quantity)) > int64.high.uint64:
+      return nil
+    if distinctBase(data.maxPriorityFeePerGas.get(0.Quantity)) >
+        int64.high.uint64:
+      return nil
+    if distinctBase(data.maxFeePerBlobGas.get(0.Quantity)) >
+        int64.high.uint64:
+      return nil
+    if distinctBase(data.gas) > int64.high.uint64:
+      return nil
+    if data.v > int64.high.u256:
+      return nil
+    let
+      tx = ExecutionTransaction(
+        txType: txType,
+        chainId: data.chainId.get(default(UInt256)).truncate(uint64).ChainId,
+        nonce: distinctBase(data.nonce),
+        gasPrice: data.gasPrice.GasInt,
+        maxPriorityFee:
+          distinctBase(data.maxPriorityFeePerGas.get(data.gasPrice)).GasInt,
+        maxFee: distinctBase(data.maxFeePerGas.get(data.gasPrice)).GasInt,
+        gasLimit: distinctBase(data.gas).GasInt,
+        to:
+          if data.to.isSome:
+            some(distinctBase(data.to.get))
+          else:
+            none(EthAddress),
+        value: data.value,
+        payload: data.input,
+        accessList:
+          if data.accessList.isSome:
+            data.accessList.get.mapIt(AccessPair(
+              address: distinctBase(it.address),
+              storageKeys: it.storageKeys.mapIt(distinctBase(it))))
+          else:
+            @[],
+        maxFeePerBlobGas:
+          distinctBase(data.maxFeePerBlobGas.get(0.Quantity)).GasInt,
+        versionedHashes:
+          if data.blobVersionedHashes.isSome:
+            data.blobVersionedHashes.get.mapIt(
+              ExecutionHash256(data: distinctBase(it)))
+          else:
+            @[],
+        V: data.v.truncate(uint64).int64,
+        R: data.r,
+        S: data.s)
+      rlpBytes =
+        try:
+          rlp.encode(tx)
+        except RlpError:
+          raiseAssert "Unreachable"
+      hash = keccakHash(rlpBytes)
+    if data.hash.asEth2Digest != hash:
+      return nil
+
+    # Compute from execution address
+    var rawSig {.noinit.}: array[65, byte]
+    rawSig[0 ..< 32] = tx.R.toBytesBE()
+    rawSig[32 ..< 64] = tx.S.toBytesBE()
+    rawSig[64] =
+      if txType != TxLegacy:
+        tx.V.uint8
+      elif tx.V.isEven:
+        1
+      else:
+        0
+    let
+      sig = SkRecoverableSignature.fromRaw(rawSig).valueOr:
+        return nil
+      sigHash = SkMessage.fromBytes(tx.txHashNoSignature().data).valueOr:
+        return nil
+      fromPubkey = sig.recover(sigHash).valueOr:
+        return nil
+      fromAddress = keys.PublicKey(fromPubkey).toCanonicalAddress()
+    if distinctBase(data.`from`) != fromAddress:
+      return nil
+
+    # Compute to execution address
+    let
+      destinationType =
+        if tx.to.isSome:
+          DestinationType.Regular
+        else:
+          DestinationType.Create
+      toAddress =
+        case destinationType
+        of DestinationType.Regular:
+          tx.to.get
+        of DestinationType.Create:
+          var res {.noinit.}: array[20, byte]
+          res[0 ..< 20] = keccakHash(rlp.encodeList(fromAddress, tx.nonce))
+            .data.toOpenArray(12, 31)
+          res
+
+    txs.add ETHTransaction(
+      hash: keccakHash(rlpBytes),
+      chainId: distinctBase(tx.chainId).u256,
+      `from`: ExecutionAddress(data: fromAddress),
+      nonce: tx.nonce,
+      maxPriorityFeePerGas: tx.maxPriorityFee.uint64,
+      maxFeePerGas: tx.maxFee.uint64,
+      gas: tx.gasLimit.uint64,
+      destinationType: destinationType,
+      to: ExecutionAddress(data: toAddress),
+      value: tx.value,
+      input: tx.payload,
+      accessList: tx.accessList.mapIt(ETHAccessTuple(
+        address: ExecutionAddress(data: it.address),
+        storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it)))),
+      maxFeePerBlobGas: tx.maxFeePerBlobGas.uint64,
+      blobVersionedHashes: tx.versionedHashes,
+      signature: @rawSig,
+      bytes: rlpBytes.TypedTransaction)
+
+  var tr = initHexaryTrie(newMemoryDB())
+  for i, transaction in txs:
+    try:
+      tr.put(rlp.encode(i), distinctBase(transaction.bytes))
+    except RlpError:
+      raiseAssert "Unreachable"
+  if tr.rootHash() != transactionsRoot[]:
+    return nil
+
+  let transactions = seq[ETHTransaction].new()
+  transactions[] = txs
+  transactions.toUnmanagedPtr()
+
+proc ETHTransactionsDestroy(
+    transactions: ptr seq[ETHTransaction]) {.exported.} =
+  ## Destroys a transaction sequence.
+  ##
+  ## * The transaction sequence must no longer be used after destruction.
+  ##
+  ## Parameters:
+  ## * `transactions` - Transaction sequence.
+  transactions.destroy()
+
+func ETHTransactionsGetCount(
+    transactions: ptr seq[ETHTransaction]): cint {.exported.} =
+  ## Indicates the total number of transactions in a transaction sequence.
+  ##
+  ## * Individual transactions may be investigated using `ETHTransactionsGet`.
+  ##
+  ## Parameters:
+  ## * `transactions` - Transaction sequence.
+  ##
+  ## Returns:
+  ## * Number of available transactions.
+  transactions[].len.cint
+
+func ETHTransactionsGet(
+    transactions: ptr seq[ETHTransaction],
+    transactionIndex: cint): ptr ETHTransaction {.exported.} =
+  ## Obtains an individual transaction by sequential index
+  ## in a transaction sequence.
+  ##
+  ## * The returned value is allocated in the given transaction sequence.
+  ##   It must neither be released nor written to, and the transaction
+  ##   sequence must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transactions` - Transaction sequence.
+  ## * `transactionIndex` - Sequential transaction index.
+  ##
+  ## Returns:
+  ## * Transaction.
+  addr transactions[][transactionIndex.int]
+
+func ETHTransactionGetHash(
+    transaction: ptr ETHTransaction): ptr Eth2Digest {.exported.} =
+  ## Obtains the transaction hash of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Transaction hash.
+  addr transaction[].hash
+
+func ETHTransactionGetChainId(
+    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
+  ## Obtains the chain ID of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Chain ID.
+  addr transaction[].chainId
+
+func ETHTransactionGetFrom(
+    transaction: ptr ETHTransaction): ptr ExecutionAddress {.exported.} =
+  ## Obtains the from address of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * From execution address.
+  addr transaction[].`from`
+
+func ETHTransactionGetNonce(
+    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+  ## Obtains the nonce of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Nonce.
+  addr transaction[].nonce
+
+func ETHTransactionGetMaxPriorityFeePerGas(
+    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+  ## Obtains the max priority fee per gas of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Max priority fee per gas.
+  addr transaction[].maxPriorityFeePerGas
+
+func ETHTransactionGetMaxFeePerGas(
+    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+  ## Obtains the max fee per gas of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Max fee per gas.
+  addr transaction[].maxFeePerGas
+
+func ETHTransactionGetGas(
+    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+  ## Obtains the gas of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Gas.
+  addr transaction[].gas
+
+func ETHTransactionIsCreatingContract(
+    transaction: ptr ETHTransaction): bool {.exported.} =
+  ## Indicates whether or not a transaction is creating a contract.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Whether or not the transaction is creating a contract.
+  case transaction[].destinationType
+  of DestinationType.Regular:
+    false
+  of DestinationType.Create:
+    true
+
+func ETHTransactionGetTo(
+    transaction: ptr ETHTransaction): ptr ExecutionAddress {.exported.} =
+  ## Obtains the to address of a transaction.
+  ##
+  ## * If the transaction is creating a contract, this function returns
+  ##   the address of the new contract.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * To execution address.
+  addr transaction[].to
+
+func ETHTransactionGetValue(
+    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
+  ## Obtains the value of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Value.
+  addr transaction[].value
+
+func ETHTransactionGetInputBytes(
+    transaction: ptr ETHTransaction,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the input of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with input.
+  numBytes[] = transaction[].input.len.cint
+  if transaction[].input.len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultInput: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultInput)
+  cast[ptr UncheckedArray[byte]](addr transaction[].input[0])
+
+func ETHTransactionGetAccessList(
+    transaction: ptr ETHTransaction): ptr seq[ETHAccessTuple] {.exported.} =
+  ## Obtains the access list of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Transaction access list.
+  addr transaction[].accessList
+
+func ETHAccessListGetCount(
+    accessList: ptr seq[ETHAccessTuple]): cint {.exported.} =
+  ## Indicates the total number of access tuples in a transaction access list.
+  ##
+  ## * Individual access tuples may be investigated using `ETHAccessListGet`.
+  ##
+  ## Parameters:
+  ## * `accessList` - Transaction access list.
+  ##
+  ## Returns:
+  ## * Number of available access tuples.
+  accessList[].len.cint
+
+func ETHAccessListGet(
+    accessList: ptr seq[ETHAccessTuple],
+    accessTupleIndex: cint): ptr ETHAccessTuple {.exported.} =
+  ## Obtains an individual access tuple by sequential index
+  ## in a transaction access list.
+  ##
+  ## * The returned value is allocated in the given transaction access list.
+  ##   It must neither be released nor written to, and the transaction
+  ##   access list must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `accessList` - Transaction access list.
+  ## * `accessTupleIndex` - Sequential access tuple index.
+  ##
+  ## Returns:
+  ## * Access tuple.
+  addr accessList[][accessTupleIndex.int]
+
+func ETHAccessTupleGetAddress(
+    accessTuple: ptr ETHAccessTuple): ptr ExecutionAddress {.exported.} =
+  ## Obtains the address of an access tuple.
+  ##
+  ## * The returned value is allocated in the given access tuple.
+  ##   It must neither be released nor written to, and the access tuple
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `accessTuple` - Access tuple.
+  ##
+  ## Returns:
+  ## * Address.
+  addr accessTuple[].address
+
+func ETHAccessTupleGetNumStorageKeys(
+    accessTuple: ptr ETHAccessTuple): cint {.exported.} =
+  ## Indicates the total number of storage keys in an access tuple.
+  ##
+  ## * Individual storage keys may be investigated using
+  ##   `ETHAccessTupleGetStorageKey`.
+  ##
+  ## Parameters:
+  ## * `accessTuple` - Access tuple.
+  ##
+  ## Returns:
+  ## * Number of available storage keys.
+  accessTuple[].storageKeys.len.cint
+
+func ETHAccessTupleGetStorageKey(
+    accessTuple: ptr ETHAccessTuple,
+    storageKeyIndex: cint): ptr Eth2Digest {.exported.} =
+  ## Obtains an individual storage key by sequential index
+  ## in an access tuple.
+  ##
+  ## * The returned value is allocated in the given transaction access tuple.
+  ##   It must neither be released nor written to, and the transaction
+  ##   access tuple must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `accessTuple` - Access tuple.
+  ## * `storageKeyIndex` - Sequential storage key index.
+  ##
+  ## Returns:
+  ## * Storage key.
+  addr accessTuple[].storageKeys[storageKeyIndex.int]
+
+func ETHTransactionGetMaxFeePerBlobGas(
+    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+  ## Obtains the max fee per blob gas of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Max fee per blob gas.
+  addr transaction[].maxFeePerBlobGas
+
+func ETHTransactionGetNumBlobVersionedHashes(
+    transaction: ptr ETHTransaction): cint {.exported.} =
+  ## Indicates the total number of blob versioned hashes of a transaction.
+  ##
+  ## * Individual blob versioned hashes may be investigated using
+  ##   `ETHTransactionGetBlobVersionedHash`.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Number of available blob versioned hashes.
+  transaction[].blobVersionedHashes.len.cint
+
+func ETHTransactionGetBlobVersionedHash(
+    transaction: ptr ETHTransaction,
+    versionedHashIndex: cint): ptr Eth2Digest {.exported.} =
+  ## Obtains an individual blob versioned hash by sequential index
+  ## in a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ## * `versionedHashIndex` - Sequential blob versioned hash index.
+  ##
+  ## Returns:
+  ## * Blob versioned hash.
+  addr transaction[].blobVersionedHashes[versionedHashIndex.int]
+
+func ETHTransactionGetSignatureBytes(
+    transaction: ptr ETHTransaction,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the signature of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with signature.
+  numBytes[] = distinctBase(transaction[].signature).len.cint
+  if distinctBase(transaction[].signature).len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultBytes: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultBytes)
+  cast[ptr UncheckedArray[byte]](addr distinctBase(transaction[].signature)[0])
+
+func ETHTransactionGetBytes(
+    transaction: ptr ETHTransaction,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the raw byte representation of a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with raw transaction data.
+  numBytes[] = distinctBase(transaction[].bytes).len.cint
+  if distinctBase(transaction[].bytes).len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultBytes: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultBytes)
+  cast[ptr UncheckedArray[byte]](addr distinctBase(transaction[].bytes)[0])
+
+type
+  ETHLog = object
+    address: ExecutionAddress
+    topics: seq[Eth2Digest]
+    data: seq[byte]
+
+  ReceiptStatusType {.pure.} = enum
+    Root,
+    Status  # EIP-658
+
+  ETHReceipt = object
+    statusType: ReceiptStatusType
+    root: Eth2Digest
+    status: bool
+    gasUsed: uint64
+    logsBloom: BloomLogs
+    logs: seq[ETHLog]
+    bytes: seq[byte]
+
+proc ETHReceiptsCreateFromJson(
+    receiptsRoot: ptr Eth2Digest,
+    receiptsJson: cstring,
+    transactions: ptr seq[ETHTransaction]): ptr seq[ETHReceipt] {.exported.} =
+  ## Verifies that JSON receipts data is valid and that it matches
+  ## the given `receiptsRoot`.
+  ##
+  ## * The JSON-RPC `eth_getTransactionReceipt` may be used to obtain
+  ##   receipts data for a given transaction hash. For verification, it is
+  ##   necessary to obtain the receipt for _all_ transactions within a block.
+  ##   Pass a JSON array containing _all_ receipt's `result` as `receiptsJson`.
+  ##   The receipts need to be in the same order as the `transactions`.
+  ##
+  ## * The receipt sequence must be destroyed with `ETHReceiptsDestroy`
+  ##   once no longer needed, to release memory.
+  ##
+  ## Parameters:
+  ## * `receiptsRoot` - Execution receipts root.
+  ## * `receiptsJson` - Buffer with JSON receipts list. NULL-terminated.
+  ## * `transactions` - Transaction sequence.
+  ##
+  ## Returns:
+  ## * Pointer to an initialized receipt sequence - If successful.
+  ## * `NULL` - If the given `receiptsJson` is malformed or incompatible.
+  ##
+  ## See:
+  ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_gettransactionreceipt
+  let node =
+    try:
+      parseJson($receiptsJson)
+    except Exception:
+      return nil
+  var datas: seq[ReceiptObject]
+  try:
+    fromJson(node, argName = "", datas)
+  except KeyError, ValueError:
+    return nil
+  if datas.len != ETHTransactionsGetCount(transactions):
+    return nil
+
+  var
+    recs = newSeqOfCap[ETHReceipt](datas.len)
+    cumulativeGasUsed = 0'u64
+    logIndex = uint64.high
+  for i, data in datas:
+    # Sanity check
+    if distinctBase(data.transactionIndex) != i.uint64:
+      return nil
+
+    # Check fork consistency
+    static: doAssert totalSerializedFields(ReceiptObject) == 15,
+      "Only update this number once code is adjusted to check new fields!"
+    static: doAssert totalSerializedFields(LogObject) == 9,
+      "Only update this number once code is adjusted to check new fields!"
+    let txType =
+      case data.`type`.get(0.Quantity):
+      of 0.Quantity:
+        TxLegacy
+      of 1.Quantity:
+        TxEip2930
+      of 2.Quantity:
+        TxEip1559
+      of 3.Quantity:
+        TxEip4844
+      else:
+        return nil
+    if data.root.isNone and data.status.isNone or
+        data.root.isSome and data.status.isSome:
+      return nil
+    if data.status.isSome and distinctBase(data.status.get) > 1:
+      return nil
+    if distinctBase(data.cumulativeGasUsed) !=
+        cumulativeGasUsed + distinctBase(data.gasUsed):
+      return nil
+    cumulativeGasUsed = distinctBase(data.cumulativeGasUsed)
+    for log in data.logs:
+      if log.removed:
+        return nil
+      if distinctBase(log.logIndex) != logIndex + 1:
+        return nil
+      logIndex = distinctBase(log.logIndex)
+      if log.transactionIndex != data.transactionIndex:
+        return nil
+      if log.transactionHash != data.transactionHash:
+        return nil
+      if log.blockHash != data.blockHash:
+        return nil
+      if log.blockNumber != data.blockNumber:
+        return nil
+      if log.data.len mod 32 != 0:
+        return nil
+      if log.topics.len > 4:
+        return nil
+
+    # Construct receipt
+    static:
+      doAssert sizeof(int64) == sizeof(data.cumulativeGasUsed)
+    if distinctBase(data.cumulativeGasUsed) > int64.high.uint64:
+      return nil
+    let
+      rec = ExecutionReceipt(
+        receiptType: txType,
+        isHash: data.root.isSome,
+        status: distinctBase(data.status.get(1.Quantity)) != 0'u64,
+        hash:
+          if data.root.isSome:
+            ExecutionHash256(data: distinctBase(data.root.get))
+          else:
+            default(ExecutionHash256),
+        cumulativeGasUsed: distinctBase(data.cumulativeGasUsed).GasInt,
+        bloom: distinctBase(data.logsBloom),
+        logs: data.logs.mapIt(Log(
+          address: distinctBase(it.address),
+          topics: it.topics.mapIt(distinctBase(it)),
+          data: it.data)))
+      rlpBytes =
+        try:
+          rlp.encode(rec)
+        except RlpError:
+          raiseAssert "Unreachable"
+
+    recs.add ETHReceipt(
+      statusType:
+        if rec.isHash:
+          ReceiptStatusType.Root
+        else:
+          ReceiptStatusType.Status,
+      root: rec.hash,
+      status: rec.status,
+      gasUsed: distinctBase(data.gasUsed),  # Validated during sanity checks.
+      logsBloom: BloomLogs(data: rec.bloom),
+      logs: rec.logs.mapIt(ETHLog(
+        address: ExecutionAddress(data: it.address),
+        topics: it.topics.mapIt(Eth2Digest(data: it)),
+        data: it.data)),
+      bytes: rlpBytes)
+
+  var tr = initHexaryTrie(newMemoryDB())
+  for i, rec in recs:
+    try:
+      tr.put(rlp.encode(i), rec.bytes)
+    except RlpError:
+      raiseAssert "Unreachable"
+  if tr.rootHash() != receiptsRoot[]:
+    return nil
+
+  let receipts = seq[ETHReceipt].new()
+  receipts[] = recs
+  receipts.toUnmanagedPtr()
+
+proc ETHReceiptsDestroy(
+    receipts: ptr seq[ETHReceipt]) {.exported.} =
+  ## Destroys a receipt sequence.
+  ##
+  ## * The receipt sequence must no longer be used after destruction.
+  ##
+  ## Parameters:
+  ## * `receipts` - Receipt sequence.
+  receipts.destroy()
+
+func ETHReceiptsGetCount(
+    receipts: ptr seq[ETHReceipt]): cint {.exported.} =
+  ## Indicates the total number of receipts in a receipt sequence.
+  ##
+  ## * Individual receipts may be investigated using `ETHReceiptsGet`.
+  ##
+  ## Parameters:
+  ## * `receipts` - Receipt sequence.
+  ##
+  ## Returns:
+  ## * Number of available receipts.
+  receipts[].len.cint
+
+func ETHReceiptsGet(
+    receipts: ptr seq[ETHReceipt],
+    receiptIndex: cint): ptr ETHReceipt {.exported.} =
+  ## Obtains an individual receipt by sequential index
+  ## in a receipt sequence.
+  ##
+  ## * The returned value is allocated in the given receipt sequence.
+  ##   It must neither be released nor written to, and the receipt
+  ##   sequence must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipts` - Receipt sequence.
+  ## * `receiptIndex` - Sequential receipt index.
+  ##
+  ## Returns:
+  ## * Receipt.
+  addr receipts[][receiptIndex.int]
+
+func ETHReceiptHasStatus(
+    receipt: ptr ETHReceipt): bool {.exported.} =
+  ## Indicates whether or not a receipt has a status code.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Whether or not the receipt has a status code.
+  ##
+  ## See:
+  ## * https://eips.ethereum.org/EIPS/eip-658
+  case receipt[].statusType
+  of ReceiptStatusType.Root:
+    false
+  of ReceiptStatusType.Status:
+    true
+
+func ETHReceiptGetRoot(
+    receipt: ptr ETHReceipt): ptr Eth2Digest {.exported.} =
+  ## Obtains the intermediate post-state root of a receipt with no status code.
+  ##
+  ## * If the receipt has a status code, this function returns a zero hash.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Intermediate post-state root.
+  addr receipt[].root
+
+func ETHReceiptGetStatus(
+    receipt: ptr ETHReceipt): bool {.exported.} =
+  ## Obtains the status code of a receipt with a status code.
+  ##
+  ## * If the receipt has no status code, this function returns true.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Status code.
+  ##
+  ## See:
+  ## * https://eips.ethereum.org/EIPS/eip-658
+  receipt[].status
+
+func ETHReceiptGetGasUsed(
+    receipt: ptr ETHReceipt): ptr uint64 {.exported.} =
+  ## Obtains the gas used of a receipt.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Gas used.
+  addr receipt[].gasUsed
+
+func ETHReceiptGetLogsBloom(
+    receipt: ptr ETHReceipt): ptr BloomLogs {.exported.} =
+  ## Obtains the logs Bloom of a receipt.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Logs Bloom.
+  addr receipt[].logsBloom
+
+func ETHReceiptGetLogs(
+    receipt: ptr ETHReceipt): ptr seq[ETHLog] {.exported.} =
+  ## Obtains the logs of a receipt.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Log sequence.
+  addr receipt[].logs
+
+func ETHLogsGetCount(
+    logs: ptr seq[ETHLog]): cint {.exported.} =
+  ## Indicates the total number of logs in a log sequence.
+  ##
+  ## * Individual logs may be investigated using `ETHLogsGet`.
+  ##
+  ## Parameters:
+  ## * `logs` - Log sequence.
+  ##
+  ## Returns:
+  ## * Number of available logs.
+  logs[].len.cint
+
+func ETHLogsGet(
+    logs: ptr seq[ETHLog],
+    logIndex: cint): ptr ETHLog {.exported.} =
+  ## Obtains an individual log by sequential index in a log sequence.
+  ##
+  ## * The returned value is allocated in the given log sequence.
+  ##   It must neither be released nor written to, and the log sequence
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `logs` - Log sequence.
+  ## * `logIndex` - Sequential log index.
+  ##
+  ## Returns:
+  ## * Log.
+  addr logs[][logIndex.int]
+
+func ETHLogGetAddress(
+    log: ptr ETHLog): ptr ExecutionAddress {.exported.} =
+  ## Obtains the address of a log.
+  ##
+  ## * The returned value is allocated in the given log.
+  ##   It must neither be released nor written to, and the log
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `log` - Log.
+  ##
+  ## Returns:
+  ## * Address.
+  addr log[].address
+
+func ETHLogGetNumTopics(
+    log: ptr ETHLog): cint {.exported.} =
+  ## Indicates the total number of topics in a log.
+  ##
+  ## * Individual topics may be investigated using `ETHLogGetTopic`.
+  ##
+  ## Parameters:
+  ## * `log` - Log.
+  ##
+  ## Returns:
+  ## * Number of available topics.
+  log[].topics.len.cint
+
+func ETHLogGetTopic(
+    log: ptr ETHLog,
+    topicIndex: cint): ptr Eth2Digest {.exported.} =
+  ## Obtains an individual topic by sequential index in a log.
+  ##
+  ## * The returned value is allocated in the given log.
+  ##   It must neither be released nor written to, and the log
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `log` - Log.
+  ## * `topicIndex` - Sequential topic index.
+  ##
+  ## Returns:
+  ## * Topic.
+  addr log[].topics[topicIndex.int]
+
+func ETHLogGetDataBytes(
+    log: ptr ETHLog,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the data of a log.
+  ##
+  ## * The returned value is allocated in the given log.
+  ##   It must neither be released nor written to, and the log
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `log` - Log.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with data.
+  numBytes[] = log[].data.len.cint
+  if log[].data.len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultData: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultData)
+  cast[ptr UncheckedArray[byte]](addr log[].data[0])
+
+func ETHReceiptGetBytes(
+    receipt: ptr ETHReceipt,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the raw byte representation of a receipt.
+  ##
+  ## * The returned value is allocated in the given receipt.
+  ##   It must neither be released nor written to, and the receipt
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with raw receipt data.
+  numBytes[] = distinctBase(receipt[].bytes).len.cint
+  if distinctBase(receipt[].bytes).len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultBytes: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultBytes)
+  cast[ptr UncheckedArray[byte]](addr distinctBase(receipt[].bytes)[0])
+
+func ETHWithdrawalsGetCount(
+    withdrawals: ptr seq[ETHWithdrawal]): cint {.exported.} =
+  ## Indicates the total number of withdrawals in a withdrawal sequence.
+  ##
+  ## * Individual withdrawals may be investigated using `ETHWithdrawalsGet`.
+  ##
+  ## Parameters:
+  ## * `withdrawals` - Withdrawal sequence.
+  ##
+  ## Returns:
+  ## * Number of available withdrawals.
+  withdrawals[].len.cint
+
+func ETHWithdrawalsGet(
+    withdrawals: ptr seq[ETHWithdrawal],
+    withdrawalIndex: cint): ptr ETHWithdrawal {.exported.} =
+  ## Obtains an individual withdrawal by sequential index
+  ## in a withdrawal sequence.
+  ##
+  ## * The returned value is allocated in the given withdrawal sequence.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   sequence must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawals` - Withdrawal sequence.
+  ## * `withdrawalIndex` - Sequential withdrawal index.
+  ##
+  ## Returns:
+  ## * Withdrawal.
+  addr withdrawals[][withdrawalIndex.int]
+
+func ETHWithdrawalGetIndex(
+    withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
+  ## Obtains the index of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ##
+  ## Returns:
+  ## * Index.
+  addr withdrawal[].index
+
+func ETHWithdrawalGetValidatorIndex(
+    withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
+  ## Obtains the validator index of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ##
+  ## Returns:
+  ## * Validator index.
+  addr withdrawal[].validatorIndex
+
+func ETHWithdrawalGetAddress(
+    withdrawal: ptr ETHWithdrawal): ptr ExecutionAddress {.exported.} =
+  ## Obtains the address of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ##
+  ## Returns:
+  ## * Address.
+  addr withdrawal[].address
+
+func ETHWithdrawalGetAmount(
+    withdrawal: ptr ETHWithdrawal): ptr uint64 {.exported.} =
+  ## Obtains the amount of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ##
+  ## Returns:
+  ## * Amount.
+  addr withdrawal[].amount
+
+func ETHWithdrawalGetBytes(
+    withdrawal: ptr ETHWithdrawal,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the raw byte representation of a withdrawal.
+  ##
+  ## * The returned value is allocated in the given withdrawal.
+  ##   It must neither be released nor written to, and the withdrawal
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `withdrawal` - Withdrawal.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with raw withdrawal data.
+  numBytes[] = distinctBase(withdrawal[].bytes).len.cint
+  if distinctBase(withdrawal[].bytes).len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultBytes: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultBytes)
+  cast[ptr UncheckedArray[byte]](addr distinctBase(withdrawal[].bytes)[0])

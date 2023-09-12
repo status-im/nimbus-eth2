@@ -92,7 +92,7 @@ proc firstCompleted*[T](futs: varargs[Future[T]]): Future[T] =
     retFuture.fail(subFuture.error)
     return retFuture
 
-  proc cb(udata: pointer) {.gcsafe, raises: [Defect].} =
+  proc cb(udata: pointer) {.gcsafe, raises: [].} =
     let subFuture = cast[Future[FutureBase]](udata)
     if subFuture.completed:
       retFuture.complete(Future[T](subFuture.read).read)

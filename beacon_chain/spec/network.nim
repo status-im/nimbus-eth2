@@ -205,7 +205,7 @@ func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =
 
 func getSyncSubnets*(
     nodeHasPubkey: proc(pubkey: ValidatorPubKey):
-      bool {.noSideEffect, raises: [Defect].},
+      bool {.noSideEffect, raises: [].},
     syncCommittee: SyncCommittee): SyncnetBits =
   var res: SyncnetBits
   for i, pubkey in syncCommittee.pubkeys:

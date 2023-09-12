@@ -32,7 +32,7 @@ type
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
     genesis: Time
 
-  GetBeaconTimeFn* = proc(): BeaconTime {.gcsafe, raises: [Defect].}
+  GetBeaconTimeFn* = proc(): BeaconTime {.gcsafe, raises: [].}
 
 proc init*(T: type BeaconClock, genesis_time: uint64): T =
   # ~290 billion years into the future

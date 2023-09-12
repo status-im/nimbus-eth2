@@ -279,9 +279,6 @@ suite "Block pool processing" & preset():
       tmpState[].latest_block_root == b1Add[].parent.root
       getStateField(tmpState[], slot) == b1Add[].parent.slot
 
-when declared(GC_fullCollect): # i386 test machines seem to run low..
-  GC_fullCollect()
-
 suite "Block pool altair processing" & preset():
   setup:
     let rng = HmacDrbgContext.new()

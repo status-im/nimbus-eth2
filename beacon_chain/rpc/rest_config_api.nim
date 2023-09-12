@@ -138,7 +138,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           TERMINAL_BLOCK_HASH:
             $cfg.TERMINAL_BLOCK_HASH,
           TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH:
-            Base10.toString(uint64(TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH)),
+            Base10.toString(uint64(cfg.TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH)),
           MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
             Base10.toString(cfg.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT),
           MIN_GENESIS_TIME:
@@ -221,11 +221,11 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#constants
           TIMELY_SOURCE_FLAG_INDEX:
-            to0xHex([byte(TIMELY_SOURCE_FLAG_INDEX)]),
+            Base10.toString(uint64(ord(TIMELY_SOURCE_FLAG_INDEX))),
           TIMELY_TARGET_FLAG_INDEX:
-            to0xHex([byte(TIMELY_TARGET_FLAG_INDEX)]),
+            Base10.toString(uint64(ord(TIMELY_TARGET_FLAG_INDEX))),
           TIMELY_HEAD_FLAG_INDEX:
-            to0xHex([byte(TIMELY_HEAD_FLAG_INDEX)]),
+            Base10.toString(uint64(ord(TIMELY_HEAD_FLAG_INDEX))),
           TIMELY_SOURCE_WEIGHT:
             Base10.toString(uint64(TIMELY_SOURCE_WEIGHT)),
           TIMELY_TARGET_WEIGHT:
@@ -253,9 +253,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
-          RANDOM_SUBNETS_PER_VALIDATOR: "1",
-          EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION:
-            Base10.toString(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION),
           ATTESTATION_SUBNET_COUNT:
             Base10.toString(ATTESTATION_SUBNET_COUNT),
 

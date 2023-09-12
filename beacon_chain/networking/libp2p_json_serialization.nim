@@ -15,7 +15,7 @@ proc writeValue*(
   writer.writeValue $value
 
 proc readValue*(reader: var JsonReader, value: var PeerId) {.
-    raises: [Defect, IOError, SerializationError].} =
+    raises: [IOError, SerializationError].} =
   let res = PeerId.init reader.readValue(string)
   if res.isOk:
     value = res.get()
@@ -27,7 +27,7 @@ proc writeValue*(
   writer.writeValue $value
 
 proc readValue*(reader: var JsonReader, value: var MultiAddress) {.
-    raises: [Defect, IOError, SerializationError].} =
+    raises: [IOError, SerializationError].} =
   let res = MultiAddress.init reader.readValue(string)
   if res.isOk:
     value = res.value

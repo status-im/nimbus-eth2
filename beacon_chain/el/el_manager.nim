@@ -224,7 +224,7 @@ type
   CorruptDataProvider* = object of DataProviderFailure
   DataProviderTimeout* = object of DataProviderFailure
 
-  DisconnectHandler* = proc () {.gcsafe, raises: [Defect].}
+  DisconnectHandler* = proc () {.gcsafe, raises: [].}
 
   DepositEventHandler* = proc (
     pubkey: PubKeyBytes,
@@ -232,7 +232,7 @@ type
     amount: Int64LeBytes,
     signature: SignatureBytes,
     merkleTreeIndex: Int64LeBytes,
-    j: JsonNode) {.gcsafe, raises: [Defect].}
+    j: JsonNode) {.gcsafe, raises: [].}
 
   BlockProposalEth1Data* = object
     vote*: Eth1Data
@@ -795,7 +795,7 @@ proc forkchoiceUpdated(rpcClient: RpcClient,
   else:
     static: doAssert false
 
-func computeBlockValue(blk: ExecutionPayloadV1): UInt256 {.raises: [RlpError, Defect].} =
+func computeBlockValue(blk: ExecutionPayloadV1): UInt256 {.raises: [RlpError].} =
   for transactionBytes in blk.transactions:
     var rlp = rlpFromBytes distinctBase(transactionBytes)
     let transaction = rlp.read(eth_types.Transaction)
@@ -1405,6 +1405,7 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
           of rinkeby: 4.Quantity
           of goerli:  5.Quantity
           of sepolia: 11155111.Quantity   # https://chainid.network/
+          of holesky: 17000.Quantity
       if expectedChain != providerChain:
         warn "The specified EL client is connected to a different chain",
               url = connection.engineUrl,
@@ -1476,7 +1477,7 @@ proc fetchTimestamp(connection: ELConnection,
   blk.timestamp = Eth1BlockTimestamp web3block.timestamp
 
 func depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
-    raises: [Defect, CatchableError].} =
+    raises: [CatchableError].} =
   if depositsList.kind != JArray:
     raise newException(CatchableError,
       "Web3 provider didn't return a list of deposit events")

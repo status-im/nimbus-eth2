@@ -301,8 +301,7 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blob_sidecar_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     blobQuarantine: ref BlobQuarantine,sbs: SignedBlobSidecar,
@@ -1036,7 +1035,7 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: ValidatorChangePool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =

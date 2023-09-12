@@ -117,7 +117,7 @@ type
       ## [New in Capella]
 
   ExecutePayload* = proc(
-    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
+    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
   ExecutionBranch* =
     array[log2trunc(EXECUTION_PAYLOAD_INDEX), Eth2Digest]
@@ -299,7 +299,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -356,7 +356,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data

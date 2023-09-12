@@ -114,11 +114,42 @@ proc getValidator*(validators: auto,
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
                                validator: validators[idx])
 
+proc addValidatorsFromWeb3Signer(node: BeaconNode, web3signerUrl: Uri, epoch: Epoch) {.async.} =
+  let dynamicStores =
+    try:
+      let res = await queryValidatorsSource(web3signerUrl)
+      if res.isErr():
+        # Error is already reported via log warning.
+        default(seq[KeystoreData])
+      else:
+        res.get()
+    except CatchableError as exc:
+      warn "Unexpected error happens while polling validator's source",
+           error = $exc.name, reason = $exc.msg
+      default(seq[KeystoreData])
+
+  for keystore in dynamicStores:
+    let
+      data =
+        withState(node.dag.headState):
+          getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+      index =
+        if data.isSome():
+          Opt.some(data.get().index)
+        else:
+          Opt.none(ValidatorIndex)
+      feeRecipient =
+        node.consensusManager[].getFeeRecipient(keystore.pubkey, index, epoch)
+      gasLimit = node.consensusManager[].getGasLimit(keystore.pubkey)
+      v = node.attachedValidators[].addValidator(keystore, feeRecipient,
+                                                 gasLimit)
+    v.updateValidator(data)
+
 proc addValidators*(node: BeaconNode) =
   info "Loading validators", validatorsDir = node.config.validatorsDir(),
                 keystore_cache_available = not(isNil(node.keystoreCache))
-  let
-    epoch = node.currentSlot().epoch
+  let epoch = node.currentSlot().epoch
+
   for keystore in listLoadableKeystores(node.config, node.keystoreCache):
     let
       data = withState(node.dag.headState):
@@ -132,8 +163,69 @@ proc addValidators*(node: BeaconNode) =
         keystore.pubkey, index, epoch)
       gasLimit = node.consensusManager[].getGasLimit(keystore.pubkey)
 
-      v = node.attachedValidators[].addValidator(keystore, feeRecipient, gasLimit)
+      v = node.attachedValidators[].addValidator(keystore, feeRecipient,
+                                                 gasLimit)
     v.updateValidator(data)
+
+  try:
+    # We use `allFutures` because all failures are already reported as
+    # user-visible warnings in `queryValidatorsSource`.
+    # We don't consider them fatal because the Web3Signer may be experiencing
+    # a temporary hiccup that will be resolved later.
+    waitFor allFutures(mapIt(node.config.web3signers,
+                             node.addValidatorsFromWeb3Signer(it, epoch)))
+  except CatchableError as err:
+    # This should never happen because all errors are handled within
+    # `addValidatorsFromWeb3Signer`. Furthermore, the code above is
+    # using `allFutures` which is guaranteed to not raise exceptions.
+    # Nevertheless, we need it to make the compiler's exception tracking happy.
+    debug "Unexpected error while fetching the list of validators from a remote signer",
+           err = err.msg
+
+proc pollForDynamicValidators*(node: BeaconNode,
+                               web3signerUrl: Uri,
+                               intervalInSeconds: int) {.async.} =
+  if intervalInSeconds == 0:
+    return
+
+  proc addValidatorProc(keystore: KeystoreData) =
+    let
+      epoch = node.currentSlot().epoch
+      index = Opt.none(ValidatorIndex)
+      feeRecipient =
+        node.consensusManager[].getFeeRecipient(keystore.pubkey, index, epoch)
+      gasLimit =
+        node.consensusManager[].getGasLimit(keystore.pubkey)
+    discard node.attachedValidators[].addValidator(keystore, feeRecipient,
+                                                   gasLimit)
+
+  var
+    timeout = seconds(intervalInSeconds)
+    exitLoop = false
+
+  while not(exitLoop):
+    exitLoop =
+      try:
+        await sleepAsync(timeout)
+        timeout =
+          block:
+            let res = await queryValidatorsSource(web3signerUrl)
+            if res.isOk():
+              let keystores = res.get()
+              debug "Validators source has been polled for validators",
+                    keystores_found = len(keystores),
+                    web3signer_url = web3signerUrl
+              node.attachedValidators.updateDynamicValidators(web3signerUrl,
+                                                              keystores,
+                                                              addValidatorProc)
+              seconds(intervalInSeconds)
+            else:
+              # In case of error we going to repeat our call with much smaller
+              # interval.
+              seconds(5)
+        false
+      except CancelledError:
+        true
 
 proc getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator] =
   let key = ? node.dag.validatorKey(idx)
@@ -409,11 +501,6 @@ proc makeBeaconBlockForHeadAndSlot*(
     exits = withState(state[]):
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)
-    syncAggregate =
-      if slot.epoch >= node.dag.cfg.ALTAIR_FORK_EPOCH:
-        node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
-      else:
-        SyncAggregate.init()
     payload = (await payloadFut).valueOr:
       beacon_block_production_errors.inc()
       warn "Unable to get execution payload. Skipping block proposal",
@@ -430,7 +517,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       attestations,
       eth1Proposal.deposits,
       exits,
-      syncAggregate,
+      node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot),
       payload,
       noRollback, # Temporary state - no need for rollback
       cache,
@@ -1142,7 +1229,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
@@ -1466,9 +1553,7 @@ proc getValidatorRegistration(
 
 proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   try:
-    if  (not node.config.payloadBuilderEnable) or
-        node.currentSlot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
-      return
+    if not node.config.payloadBuilderEnable: return
 
     const HttpOk = 200
 

@@ -7,18 +7,16 @@
 
 {.push raises: [].}
 
-import
-  std/[sequtils, strutils, tables],
-  ../spec/datatypes/deneb
-
+import ../spec/datatypes/deneb
+from std/sequtils import mapIt
+from std/strutils import join
 
 const
   MaxBlobs = SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK
 
-
 type
   BlobQuarantine* = object
-    blobs*: Table[(Eth2Digest, BlobIndex), ref BlobSidecar]
+    blobs*: OrderedTable[(Eth2Digest, BlobIndex), ref BlobSidecar]
   BlobFetchRecord* = object
     block_root*: Eth2Digest
     indices*: seq[BlobIndex]
@@ -31,7 +29,14 @@ func shortLog*(x: seq[BlobFetchRecord]): string =
 
 func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
   if quarantine.blobs.lenu64 > MaxBlobs:
-    return
+    # FIFO if full. For example, sync manager and request manager can race to
+    # put blobs in at the same time, so one gets blob insert -> block resolve
+    # -> blob insert sequence, which leaves garbage blobs.
+    var oldest_blob_key: (Eth2Digest, BlobIndex)
+    for k in quarantine.blobs.keys:
+      oldest_blob_key = k
+      break
+    quarantine.blobs.del oldest_blob_key
   discard quarantine.blobs.hasKeyOrPut((blobSidecar.block_root,
                                         blobSidecar.index), blobSidecar)
 
@@ -43,7 +48,7 @@ func blobIndices*(quarantine: BlobQuarantine, digest: Eth2Digest):
       r.add(i)
   r
 
-func hasBlob*(quarantine: BlobQuarantine, blobSidecar: BlobSidecar) : bool =
+func hasBlob*(quarantine: BlobQuarantine, blobSidecar: BlobSidecar): bool =
   quarantine.blobs.hasKey((blobSidecar.block_root, blobSidecar.index))
 
 func popBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
@@ -55,22 +60,10 @@ func popBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
       r.add(b)
   r
 
-func peekBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
-     seq[ref BlobSidecar] =
-  var r: seq[ref BlobSidecar] = @[]
-  for i in 0..<MAX_BLOBS_PER_BLOCK:
-    quarantine.blobs.withValue((digest, i), value):
-      r.add(value[])
-  r
-
-func removeBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest) =
-  for i in 0..<MAX_BLOBS_PER_BLOCK:
-    quarantine.blobs.del((digest, i))
-
 func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
      bool =
   let idxs = quarantine.blobIndices(blck.root)
-  if len(blck.message.body.blob_kzg_commitments) < len(idxs):
+  if len(blck.message.body.blob_kzg_commitments) != len(idxs):
     return false
   for i in 0..<len(idxs):
     if idxs[i] != uint64(i):

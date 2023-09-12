@@ -254,6 +254,31 @@ type
     capella*:   ForkDigest
     deneb*:     ForkDigest
 
+template kind*(
+    x: typedesc[
+      phase0.HashedBeaconState]): ConsensusFork =
+  ConsensusFork.Phase0
+
+template kind*(
+    x: typedesc[
+      altair.HashedBeaconState]): ConsensusFork =
+  ConsensusFork.Altair
+
+template kind*(
+    x: typedesc[
+      bellatrix.HashedBeaconState]): ConsensusFork =
+  ConsensusFork.Bellatrix
+
+template kind*(
+    x: typedesc[
+      capella.HashedBeaconState]): ConsensusFork =
+  ConsensusFork.Capella
+
+template kind*(
+    x: typedesc[
+      deneb.HashedBeaconState]): ConsensusFork =
+  ConsensusFork.Deneb
+
 macro getSymbolFromForkModule(fork: static ConsensusFork,
                               symbolName: static string): untyped =
   let moduleName = case fork
@@ -956,14 +981,14 @@ func getForkSchedule*(cfg: RuntimeConfig): array[5, Fork] =
 
 type
   # The first few fields of a state, shared across all forks
-  BeaconStateHeader = object
-    genesis_time: uint64
-    genesis_validators_root: Eth2Digest
-    slot: Slot
+  BeaconStateHeader* = object
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
 
 func readSszForkedHashedBeaconState*(
     consensusFork: ConsensusFork, data: openArray[byte]):
-    ForkedHashedBeaconState {.raises: [Defect, SszError].} =
+    ForkedHashedBeaconState {.raises: [SszError].} =
   # TODO https://github.com/nim-lang/Nim/issues/19357
   result = ForkedHashedBeaconState(kind: consensusFork)
 

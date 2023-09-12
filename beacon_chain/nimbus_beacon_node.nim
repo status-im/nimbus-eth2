@@ -15,7 +15,7 @@ import
   eth/p2p/discoveryv5/[enr, random2],
   ./consensus_object_pools/blob_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
-  ./networking/topic_params,
+  ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
@@ -324,8 +324,7 @@ proc initFullNode(
     blobQuarantine = newClone(BlobQuarantine())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
-      ActionTracker.init(rng, node.network.nodeId, config.subscribeAllSubnets,
-                         config.useOldStabilitySubnets),
+      ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
     blockProcessor = BlockProcessor.new(
@@ -462,8 +461,8 @@ const
 proc init*(T: type BeaconNode,
            rng: ref HmacDrbgContext,
            config: BeaconNodeConf,
-           metadata: Eth2NetworkMetadata): BeaconNode
-          {.raises: [Defect, CatchableError].} =
+           metadata: Eth2NetworkMetadata): Future[BeaconNode]
+          {.async, raises: [CatchableError].} =
   var taskpool: TaskPoolPtr
 
   template cfg: auto = metadata.cfg
@@ -481,6 +480,13 @@ proc init*(T: type BeaconNode,
     info "Threadpool started", numThreads = taskpool.numThreads
   except Exception as exc:
     raise newException(Defect, "Failure in taskpool initialization.")
+
+  if metadata.genesis.kind == BakedIn:
+    if config.genesisState.isSome:
+      warn "The --genesis-state option has no effect on networks with built-in genesis state"
+
+    if config.genesisStateUrl.isSome:
+      warn "The --genesis-state-url option has no effect on networks with built-in genesis state"
 
   let
     eventBus = EventBus(
@@ -541,18 +547,44 @@ proc init*(T: type BeaconNode,
   if engineApiUrls.len == 0:
     notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
 
-  var genesisState =
-    if metadata.genesisData.len > 0:
-      try:
-        newClone readSszForkedHashedBeaconState(cfg, metadata.genesisBytes)
-      except CatchableError as err:
-        raiseAssert "Invalid baked-in state of length " &
-          $metadata.genesisBytes.len & " and eth2digest " &
-          $eth2digest(metadata.genesisBytes) & ": " & err.msg
-    else:
-      nil
+  var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
   if not ChainDAGRef.isInitialized(db).isOk():
+    let genesisState = if checkpointState != nil and getStateField(checkpointState[], slot) == 0:
+      checkpointState
+    else:
+      let genesisBytes = block:
+        if metadata.genesis.kind != BakedIn and config.genesisState.isSome:
+          let res = io2.readAllBytes(config.genesisState.get.string)
+          res.valueOr:
+            error "Failed to read genesis state file", err = res.error.ioErrorMsg
+            quit 1
+        elif metadata.hasGenesis:
+          try:
+            if metadata.genesis.kind == BakedInUrl:
+              info "Obtaining genesis state",
+                    sourceUrl = $config.genesisStateUrl.get(parseUri metadata.genesis.url)
+            await metadata.genesis.fetchBytes(config.genesisStateUrl)
+          except CatchableError as err:
+            error "Failed to obtain genesis state",
+                  source = metadata.genesis.sourceDesc,
+                  err = err.msg
+            quit 1
+        else:
+          @[]
+
+      if genesisBytes.len > 0:
+        try:
+          newClone readSszForkedHashedBeaconState(cfg, genesisBytes)
+        except CatchableError as err:
+          error "Invalid genesis state",
+                size = genesisBytes.len,
+                digest = eth2digest(genesisBytes),
+                err = err.msg
+          quit 1
+      else:
+        nil
+
     if genesisState == nil and checkpointState == nil:
       fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
             "with the network configuration"
@@ -573,6 +605,8 @@ proc init*(T: type BeaconNode,
       # answering genesis queries
       if not genesisState.isNil:
         ChainDAGRef.preInit(db, genesisState[])
+        networkGenesisValidatorsRoot =
+          Opt.some(getStateField(genesisState[], genesis_validators_root))
 
       if not checkpointState.isNil:
         if genesisState.isNil or
@@ -605,12 +639,6 @@ proc init*(T: type BeaconNode,
     validatorMonitor[].addMonitor(key, Opt.none(ValidatorIndex))
 
   let
-    networkGenesisValidatorsRoot =
-      if not genesisState.isNil:
-        Opt.some(getStateField(genesisState[], genesis_validators_root))
-      else:
-        Opt.none(Eth2Digest)
-
     dag = loadChainDag(
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot)
@@ -1149,6 +1177,24 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   node.updateBlocksGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
+proc pruneBlobs(node: BeaconNode, slot: Slot) =
+  let blobPruneEpoch = (slot.epoch -
+                        MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
+  if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
+    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
+    var count = 0
+    let startIndex = node.dag.getBlockRange(
+      blobPruneEpoch.start_slot, 1, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
+    for i in startIndex..<SLOTS_PER_EPOCH:
+      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
+      withBlck(blck):
+        when typeof(blck).toFork() < ConsensusFork.Deneb: continue
+        else:
+          for j in 0..len(blck.message.body.blob_kzg_commitments) - 1:
+            if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
+              count = count + 1
+    debug "pruned blobs", count, blobPruneEpoch
+
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
@@ -1177,30 +1223,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # This is the last pruning to do as it clears the "needPruning" condition.
   node.consensusManager[].pruneStateCachesAndForkChoice()
 
-  # prune blobs
-  let blobPruneEpoch = (slot.epoch -
-                        MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-  if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
-    var count = 0
-    let
-      startIndex = node.dag.getBlockRange(blobPruneEpoch.start_slot, 1,
-                          blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
-    for i in startIndex..<SLOTS_PER_EPOCH:
-      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
-      withBlck(blck):
-        when typeof(blck).toFork() < ConsensusFork.Deneb: continue
-        else:
-          for j in 0..len(blck.message.body.blob_kzg_commitments) - 1:
-            if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
-              count = count + 1
-    debug "pruned blobs", count, blobPruneEpoch
-
   if node.config.historyMode == HistoryMode.Prune:
     if not (slot + 1).is_epoch():
       # The epoch slot already is "heavy" due to the epoch processing, leave
       # the pruning for later
       node.dag.pruneHistory()
+      node.pruneBlobs(slot)
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -1255,15 +1283,18 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       toGaugeValue(x)
 
   template formatSyncCommitteeStatus(): string =
-    let slotsToNextSyncCommitteePeriod =
-      SLOTS_PER_SYNC_COMMITTEE_PERIOD - since_sync_committee_period_start(slot)
+    let
+      syncCommitteeSlot = slot + 1
+      slotsToNextSyncCommitteePeriod =
+        SLOTS_PER_SYNC_COMMITTEE_PERIOD -
+        since_sync_committee_period_start(syncCommitteeSlot)
 
     # int64 conversion is safe
     doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
 
-    if not node.getCurrentSyncCommiteeSubnets(slot.epoch).isZeros:
+    if not node.getCurrentSyncCommiteeSubnets(syncCommitteeSlot.epoch).isZeros:
       "current"
-    elif not node.getNextSyncCommitteeSubnets(slot.epoch).isZeros:
+    elif not node.getNextSyncCommitteeSubnets(syncCommitteeSlot.epoch).isZeros:
       "in " & toTimeLeftString(
         SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
     else:
@@ -1448,7 +1479,7 @@ proc installMessageValidators(node: BeaconNode) =
       let digest = forkDigests[].atConsensusFork(consensusFork)
 
       # beacon_block
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_block
       node.network.addValidator(
         getBeaconBlocksTopic(digest), proc (
           signedBlock: consensusFork.SignedBeaconBlock
@@ -1463,7 +1494,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, signedBlock)))
 
       # beacon_attestation_{subnet_id}
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
       for it in SubnetId:
         closureScope:  # Needed for inner `proc`; don't lift it out of loop.
           let subnet_id = it
@@ -1486,7 +1517,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, signedAggregateAndProof)))
 
       # attester_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attester_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#attester_slashing
       node.network.addValidator(
         getAttesterSlashingsTopic(digest), proc (
           attesterSlashing: AttesterSlashing
@@ -1595,7 +1626,7 @@ proc startBackfillTask(node: BeaconNode) {.async.} =
 
     await sleepAsync(chronos.seconds(2))
 
-proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
+proc run(node: BeaconNode) {.raises: [CatchableError].} =
   bnStatus = BeaconNodeStatus.Running
 
   if not isNil(node.restServer):
@@ -1620,31 +1651,21 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   waitFor node.updateGossipStatus(wallSlot)
 
+  for web3signerUrl in node.config.web3signers:
+    # TODO
+    # The current strategy polls all remote signers independently
+    # from each other which may lead to some race conditions of
+    # validators are migrated from one signer to another
+    # (because the updates to our validator pool are not atomic).
+    # Consider using different strategies that would detect such
+    # race conditions.
+    asyncSpawn node.pollForDynamicValidators(
+      web3signerUrl, node.config.web3signerUpdateInterval)
+
   asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
   asyncSpawn runOnSecondLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
   asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
-
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      try:
-        setupForeignThreadGc()
-      except Exception as exc: raiseAssert exc.msg # shouldn't happen
-    notice "Shutting down after having received SIGINT"
-    bnStatus = BeaconNodeStatus.Stopping
-  try:
-    setControlCHook(controlCHandler)
-  except Exception as exc: # TODO Exception
-    warn "Cannot set ctrl-c handler", msg = exc.msg
-
-  # equivalent SIGTERM handler
-  when defined(posix):
-    proc SIGTERMHandler(signal: cint) {.noconv.} =
-      notice "Shutting down after having received SIGTERM"
-      bnStatus = BeaconNodeStatus.Stopping
-    c_signal(ansi_c.SIGTERM, SIGTERMHandler)
 
   # main event loop
   while bnStatus == BeaconNodeStatus.Running:
@@ -1654,7 +1675,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   node.stop()
 
 var gPidFile: string
-proc createPidFile(filename: string) {.raises: [Defect, IOError].} =
+proc createPidFile(filename: string) {.raises: [IOError].} =
   writeFile filename, $os.getCurrentProcessId()
   gPidFile = filename
   addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
@@ -1670,7 +1691,7 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
   await node.network.start()
 
-proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
+proc start*(node: BeaconNode) {.raises: [CatchableError].} =
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
@@ -1722,7 +1743,7 @@ func formatGwei(amount: uint64): string =
       result.setLen(result.len - 1)
 
 when not defined(windows):
-  proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
+  proc initStatusBar(node: BeaconNode) {.raises: [ValueError].} =
     if not isatty(stdout): return
     if not node.config.statusBarEnabled: return
 
@@ -1731,7 +1752,7 @@ when not defined(windows):
     except Exception as exc: # TODO Exception
       error "Couldn't enable colors", err = exc.msg
 
-    proc dataResolver(expr: string): string {.raises: [Defect].} =
+    proc dataResolver(expr: string): string {.raises: [].} =
       template justified: untyped = node.dag.head.atEpochStart(
         getStateField(
           node.dag.headState, current_justified_checkpoint).epoch)
@@ -1815,7 +1836,7 @@ when not defined(windows):
       let tmp = defaultChroniclesStream.outputs[0].writer
 
       defaultChroniclesStream.outputs[0].writer =
-        proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [Defect].} =
+        proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [].} =
           try:
             # p.hidePrompt
             erase statusBar
@@ -1838,7 +1859,7 @@ when not defined(windows):
 
     asyncSpawn statusBarUpdatesPollingLoop()
 
-proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [Defect, CatchableError].} =
+proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [CatchableError].} =
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
@@ -1885,7 +1906,28 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
 
-  let node = BeaconNode.init(rng, config, metadata)
+  ## Ctrl+C handling
+  proc controlCHandler() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      try:
+        setupForeignThreadGc()
+      except Exception as exc: raiseAssert exc.msg # shouldn't happen
+    notice "Shutting down after having received SIGINT"
+    bnStatus = BeaconNodeStatus.Stopping
+  try:
+    setControlCHook(controlCHandler)
+  except Exception as exc: # TODO Exception
+    warn "Cannot set ctrl-c handler", msg = exc.msg
+
+  # equivalent SIGTERM handler
+  when defined(posix):
+    proc SIGTERMHandler(signal: cint) {.noconv.} =
+      notice "Shutting down after having received SIGTERM"
+      bnStatus = BeaconNodeStatus.Stopping
+    c_signal(ansi_c.SIGTERM, SIGTERMHandler)
+
+  let node = waitFor BeaconNode.init(rng, config, metadata)
 
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
     let res =
@@ -1910,7 +1952,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     node.start()
 
 proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
-    raises: [Defect, CatchableError].} =
+    raises: [CatchableError].} =
   case config.recordCmd:
   of RecordCmd.create:
     let netKeys = getPersistentNetKeys(rng, config)
@@ -1938,7 +1980,7 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     echo $config.recordPrint
 
 proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
-    {.raises: [Defect, CatchableError].} =
+    {.raises: [CatchableError].} =
   case config.web3Cmd:
   of Web3Cmd.test:
     let metadata = config.loadEth2Network()
@@ -1947,7 +1989,7 @@ proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
                              metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
                              rng.loadJwtSecret(config, allowCreate = true))
 
-proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
+proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError].}=
   let
     dir = conf.validatorsDir()
     filetrunc = SlashingDbName
@@ -1958,7 +2000,7 @@ proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
   db.exportSlashingInterchange(interchange, conf.exportedValidators)
   echo "Export finished: '", dir/filetrunc & ".sqlite3" , "' into '", interchange, "'"
 
-proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError, Defect].} =
+proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError].} =
   let
     dir = conf.validatorsDir()
     filetrunc = SlashingDbName
@@ -1993,14 +2035,14 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
 
   echo "Import finished: '", interchange, "' into '", dir/filetrunc & ".sqlite3", "'"
 
-proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
+proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [CatchableError].} =
   case conf.slashingdbCmd
   of SlashProtCmd.`export`:
     conf.doSlashingExport()
   of SlashProtCmd.`import`:
     conf.doSlashingImport()
 
-proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableError].} =
+proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
   let rng = HmacDrbgContext.new()
@@ -2034,8 +2076,14 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
             kind: TrustedNodeSyncKind.StateId,
             stateId: "finalized")
       genesis =
-        if network.genesisData.len > 0:
-          newClone(readSszForkedHashedBeaconState(cfg, network.genesisBytes))
+        if network.hasGenesis:
+          let genesisBytes = try: waitFor network.genesis.fetchBytes()
+          except CatchableError as err:
+            error "Failed to obtain genesis state",
+                  source = network.genesis.sourceDesc,
+                  err = err.msg
+            quit 1
+          newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
         else: nil
 
     if config.blockId.isSome():

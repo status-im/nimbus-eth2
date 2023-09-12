@@ -76,7 +76,7 @@ func get_beacon_committee_len*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
@@ -155,7 +155,7 @@ func get_attesting_indices_one*(shufflingRef: ShufflingRef,
     res = some(validator_index)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(shufflingRef: ShufflingRef,
                             slot: Slot,
                             committee_index: CommitteeIndex,
@@ -181,7 +181,7 @@ func makeAttestationData*(
 
   doAssert current_epoch == epochRef.epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.asUInt64,
@@ -191,7 +191,7 @@ func makeAttestationData*(
       epoch: current_epoch,
       root: epoch_boundary_block.blck.root))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     shufflingRef: ShufflingRef, validator_indices: HashSet[ValidatorIndex]):
     tuple[committee_index: CommitteeIndex,

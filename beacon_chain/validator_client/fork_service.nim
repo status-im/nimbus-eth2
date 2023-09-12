@@ -14,7 +14,7 @@ const
 
 logScope: service = ServiceName
 
-proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [Defect].} =
+proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [].} =
   # Check if `forks` list is linked list.
   var current_version = forks[0].current_version
   for index, item in forks:
@@ -28,7 +28,7 @@ proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [Defect].} =
   true
 
 proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.
-     raises: [Defect].} =
+     raises: [].} =
   proc cmp(x, y: Fork): int {.closure.} =
     if uint64(x.epoch) == uint64(y.epoch): return 0
     if uint64(x.epoch) < uint64(y.epoch): return -1

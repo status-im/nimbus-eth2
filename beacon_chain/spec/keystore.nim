@@ -130,7 +130,7 @@ type
     Local, Remote
 
   RemoteKeystoreFlag* {.pure.} = enum
-    IgnoreSSLVerification
+    IgnoreSSLVerification, DynamicKeystore
 
   HttpHostUri* = distinct Uri
 
@@ -518,13 +518,13 @@ proc shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   ctx.clear()
 
 proc writeJsonHexString(s: OutputStream, data: openArray[byte])
-                       {.raises: [IOError, Defect].} =
+                       {.raises: [IOError].} =
   s.write '"'
   s.write ncrutils.toHex(data, {HexFlags.LowerCase})
   s.write '"'
 
 proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   let s = r.readValue(string)
 
   if s.len == 0 or s.len mod 16 != 0:
@@ -538,7 +538,7 @@ proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
       "The Pbkdf2Salt must be a valid hex string")
 
 proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   let s = r.readValue(string)
 
   if s.len != 32:
@@ -551,7 +551,7 @@ proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
       "The aes-128-ctr IV must be a valid hex string")
 
 proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   value = T ncrutils.fromHex(r.readValue(string))
   if len(seq[byte](value)) == 0:
     r.raiseUnexpectedValue("Valid hex string expected")
@@ -688,7 +688,7 @@ proc readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
 
 # HttpHostUri
 proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = parseUri(svalue)
   if res.scheme != "http" and res.scheme != "https":
@@ -726,7 +726,7 @@ template writeValue*(w: var JsonWriter,
   writeJsonHexString(w.stream, distinctBase value)
 
 proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   var
     version: Option[uint64]
     description: Option[string]
@@ -1181,7 +1181,7 @@ proc writeValue*(
                                    {HexFlags.LowerCase}))
 
 proc readValue*(reader: var JsonReader, value: var lcrypto.PublicKey) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   let res = init(lcrypto.PublicKey, reader.readValue(string))
   if res.isOk():
     value = res.get()

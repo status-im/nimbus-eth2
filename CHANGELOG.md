@@ -1,7 +1,37 @@
+2023-09-08 v23.9.0
+==================
+
+Nimbus `v23.9.0` is a `low-urgency` upgrade providing full support for the upcoming [Holešky testnet](https://github.com/eth-clients/holesky) and simplifying the required configuration for using [remote signers](https://nimbus.guide/web3signer.html).
+
+We've been hard at work researching and developing a GossipSub protocol upgrade, designed to vastly improve bandwidth and latency, especially when dealing with the upcoming larger [EIP-4844 blob messages](https://www.eip4844.com/). This release introduces the initial steps towards this upgrade, along with CPU optimizations and enhanced DDoS protection.
+
+### Improvements
+
+* The GossipSub implementation of Nimbus now consumes less bandwidth and CPU cycles, while improving upon the existing DoS protections through better peer scoring:
+  https://github.com/status-im/nimbus-eth2/pull/5229
+
+* The new `--web3-signer` command-line option can be used to connect Nimbus to one or more remote signers without requiring any remote keystore files to be created. The list of validators attached to each remote signer is obtained automatically through the [`/api/v1/eth2/publicKeys`](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST) Web3Signer API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/5366
+  https://github.com/status-im/nimbus-eth2/pull/5385
+  https://github.com/status-im/nimbus-eth2/pull/5389
+
+* Nimbus now supports the upcoming Holešky testnet:
+  https://github.com/status-im/nimbus-eth2/pull/5337
+
+* Faster validator registry processing reduces the time spent by Nimbus in state transitions and replays:
+  https://github.com/status-im/nimbus-eth2/pull/5412
+
+### Fixes
+
+* The `deposits exit` command was failing due to incorrect parsing of certain fields in the response of the `/eth/v1/config/spec` endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/5370
+  https://github.com/status-im/nimbus-eth2/pull/5371
+
+
 2023-08-23 v23.8.0
 ==================
 
-Nimbus `v23.8.0` is a low-priority upgrade focusing on performance and stability improvements, aiming to address the increasing number of validators on mainnet and upcoming testnets such as Holesky.
+Nimbus `v23.8.0` is a `low-urgency` upgrade focusing on performance and stability improvements, aiming to address the increasing number of validators on mainnet and upcoming testnets such as Holesky.
 
 Please note that this version enables the [new attestation subnet subscription logic](https://github.com/ethereum/consensus-specs/pull/3312), proposed in the Ethereum 1.4 consensus spec. This will significantly reduce the CPU usage and the consumed network bandwidth on beacon nodes with many validators, but it will slightly increase them on nodes with a single validator. The `--subscribe-all-subnets` option can still be used on powerful hardware configurations to produce potentially more profitable blocks by processing all attestations directly instead of relying on aggregators.
 
@@ -115,7 +145,7 @@ Nimbus `v23.6.1` is a `low-urgency` point release significantly improving the pe
 2023-06-20 v23.6.0
 ==================
 
-Nimbus `v23.6.0` is a `medium-priority` upgrade, further improving the efficiency and the standards-compliance of Nimbus while laying out the foundations for the upcoming Deneb hard-fork.
+Nimbus `v23.6.0` is a `medium-urgency` upgrade, further improving the efficiency and the standards-compliance of Nimbus while laying out the foundations for the upcoming Deneb hard-fork.
 
 ### Improvements
 

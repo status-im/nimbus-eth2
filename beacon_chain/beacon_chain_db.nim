@@ -108,7 +108,7 @@ type
     immutableValidatorsDb*: DbSeq[ImmutableValidatorDataDb2]
     immutableValidators*: seq[ImmutableValidatorData2]
 
-    checkpoint*: proc() {.gcsafe, raises: [Defect].}
+    checkpoint*: proc() {.gcsafe, raises: [].}
 
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
@@ -1135,8 +1135,7 @@ proc getStateOnlyMutableValidators(
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
-
-    output.validators.resetCache()
+      output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:
@@ -1173,8 +1172,7 @@ proc getStateOnlyMutableValidators(
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
-
-    output.validators.resetCache()
+      output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:
@@ -1208,8 +1206,7 @@ proc getStateOnlyMutableValidators(
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
       assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
-
-    output.validators.resetCache()
+      output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:

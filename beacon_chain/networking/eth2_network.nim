@@ -163,15 +163,15 @@ type
     ServerError
     ResourceUnavailable
 
-  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [Defect].}
-  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [Defect].}
-  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe, raises: [Defect].}
-  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe, raises: [Defect].}
+  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [].}
+  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [].}
+  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe, raises: [].}
+  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe, raises: [].}
   ThunkProc* = LPProtoHandler
-  MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [Defect, CatchableError].}
-  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [Defect].}
+  MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [CatchableError].}
+  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -1793,7 +1793,7 @@ proc new(T: type Eth2Node,
          switch: Switch, pubsub: GossipSub,
          ip: Option[ValidIpAddress], tcpPort, udpPort: Option[Port],
          privKey: keys.PrivateKey, discovery: bool,
-         rng: ref HmacDrbgContext): T {.raises: [Defect, CatchableError].} =
+         rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
   when not defined(local_testnet):
     let
       connectTimeout = chronos.minutes(1)
@@ -2275,7 +2275,7 @@ func gossipId(
 
 proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
                      seckey: PrivateKey, address: MultiAddress,
-                     rng: ref HmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
+                     rng: ref HmacDrbgContext): Switch {.raises: [CatchableError].} =
   var sb =
     if config.enableYamux:
       SwitchBuilder.new().withYamux()
@@ -2302,7 +2302,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
                      forkDigests: ref ForkDigests,
                      getBeaconTime: GetBeaconTimeFn,
                      genesis_validators_root: Eth2Digest): Eth2Node
-                    {.raises: [Defect, CatchableError].} =
+                    {.raises: [CatchableError].} =
   let
     enrForkId = getENRForkID(
       cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
@@ -2385,6 +2385,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
               res.mgetOrPut(peerId, @[]).add(maddress)
               info "Adding priviledged direct peer", peerId, address = maddress
           res
+        ,
+      bandwidthEstimatebps: config.bandwidthEstimate.get(100_000_000)
     )
     pubsub = GossipSub.init(
       switch = switch,
@@ -2436,7 +2438,7 @@ proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult] =
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
-                            ValidationResult {.gcsafe, raises: [Defect].} ) =
+                            ValidationResult {.gcsafe, raises: [].} ) =
   # Message validators run when subscriptions are enabled - they validate the
   # data and return an indication of whether the message should be broadcast
   # or not - validation is `async` but implemented without the macro because
@@ -2471,7 +2473,7 @@ proc addValidator*[MsgType](node: Eth2Node,
 proc addAsyncValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
-                            Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
+                            Future[ValidationResult] {.gcsafe, raises: [].} ) =
   proc execValidator(topic: string, message: GossipMsg):
       Future[ValidationResult] {.raises: [].} =
     inc nbc_gossip_messages_received
@@ -2548,7 +2550,7 @@ proc unsubscribeAttestationSubnets*(
       node.unsubscribe(getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
 proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#metadata
   if node.metadata.attnets == attnets:
     return
 

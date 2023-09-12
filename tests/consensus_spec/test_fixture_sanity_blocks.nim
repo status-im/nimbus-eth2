@@ -15,53 +15,50 @@ import
   ../testutil
 
 from std/sequtils import toSeq
-from ../../../beacon_chain/spec/forks import
+from ../../beacon_chain/spec/forks import
   ForkedEpochInfo, ForkedHashedBeaconState, fromSszBytes, getStateRoot, new
-from ../../../beacon_chain/spec/presets import
+from ../../beacon_chain/spec/presets import
   const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, parseTest, readSszBytes, toSszType
 
 proc runTest(
-    BS, SBB: type, testName, testDir: static[string], unitTestName: string) =
+    BS, SBB: type, testName, testDir: static[string], suiteName, unitTestName: string) =
   let testPath = testDir / unitTestName
 
-  proc `testImpl _ blck _ testName`() =
-    let
-      hasPostState = fileExists(testPath/"post.ssz_snappy")
-      prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
+  let
+    hasPostState = fileExists(testPath/"post.ssz_snappy")
+    prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
 
-    test prefix & testName & " - " & unitTestName & preset():
-      let preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, BS))
-      var
-        fhPreState = ForkedHashedBeaconState.new(preState[])
-        cache = StateCache()
-        info = ForkedEpochInfo()
+  test prefix & testName & " - " & unitTestName & preset():
+    let preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, BS))
+    var
+      fhPreState = ForkedHashedBeaconState.new(preState[])
+      cache = StateCache()
+      info = ForkedEpochInfo()
 
-      # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
-      # so purely lexicographic sorting wouldn't sort properly.
-      let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
-      for i in 0 ..< numBlocks:
-        let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, SBB)
-
-        if hasPostState:
-          state_transition(
-            defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
-            noRollback).expect("should apply block")
-        else:
-          let res = state_transition(
-            defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
-            noRollback)
-          doAssert (i + 1 < numBlocks) or not res.isOk(),
-            "We didn't expect these invalid blocks to be processed"
+    # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
+    # so purely lexicographic sorting wouldn't sort properly.
+    let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
+    for i in 0 ..< numBlocks:
+      let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, SBB)
 
       if hasPostState:
-        let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, BS))
-        when false:
-          reportDiff(hashedPreState.phase0Data.data, postState)
-        doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
+        state_transition(
+          defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
+          noRollback).expect("should apply block")
+      else:
+        let res = state_transition(
+          defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
+          noRollback)
+        doAssert (i + 1 < numBlocks) or not res.isOk(),
+          "We didn't expect these invalid blocks to be processed"
 
-  `testImpl _ blck _ testName`()
+    if hasPostState:
+      let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, BS))
+      when false:
+        reportDiff(hashedPreState.phase0Data.data, postState)
+      doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
 template runForkBlockTests(
     forkDirName, forkHumanName: static[string], BeaconStateType,
@@ -78,39 +75,39 @@ template runForkBlockTests(
     for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
       runTest(
         BeaconStateType, BeaconBlockType,
-        "EF - " & forkHumanName & " - Sanity - Blocks", SanityBlocksDir, path)
+        "EF - " & forkHumanName & " - Sanity - Blocks", SanityBlocksDir, suiteName, path)
 
   suite "EF - " & forkHumanName & " - Finality " & preset():
     for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
       runTest(
         BeaconStateType, BeaconBlockType,
-        "EF - " & forkHumanName & " - Finality", FinalityDir, path)
+        "EF - " & forkHumanName & " - Finality", FinalityDir, suiteName, path)
 
   suite "EF - " & forkHumanName & " - Random " & preset():
     for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
       runTest(
         BeaconStateType, BeaconBlockType,
-        "EF - " & forkHumanName & " - Random", RandomDir, path)
+        "EF - " & forkHumanName & " - Random", RandomDir, suiteName, path)
 
 runForkBlockTests(
   "phase0", "Phase 0", phase0.BeaconState, phase0.SignedBeaconBlock)
 
-from ../../../beacon_chain/spec/datatypes/altair import
+from ../../beacon_chain/spec/datatypes/altair import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
   "altair", "Altair", altair.BeaconState, altair.SignedBeaconBlock)
 
-from ../../../beacon_chain/spec/datatypes/bellatrix import
+from ../../beacon_chain/spec/datatypes/bellatrix import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
   "bellatrix", "Bellatrix", bellatrix.BeaconState, bellatrix.SignedBeaconBlock)
 
-from ../../../beacon_chain/spec/datatypes/capella import
+from ../../beacon_chain/spec/datatypes/capella import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
   "capella", "Capella", capella.BeaconState, capella.SignedBeaconBlock)
 
-from ../../../beacon_chain/spec/datatypes/deneb import
+from ../../beacon_chain/spec/datatypes/deneb import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
   "deneb", "Deneb", deneb.BeaconState, deneb.SignedBeaconBlock)

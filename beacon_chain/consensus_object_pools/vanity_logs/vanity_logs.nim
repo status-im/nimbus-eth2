@@ -12,7 +12,7 @@ import
   chronicles
 
 type
-  LogProc = proc() {.gcsafe, raises: [Defect].}
+  LogProc = proc() {.gcsafe, raises: [].}
 
   VanityLogs* = object
     # Upon the merge activating, these get displayed, at least once when the

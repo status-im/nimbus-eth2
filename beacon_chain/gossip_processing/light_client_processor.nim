@@ -29,12 +29,12 @@ type
   Nothing = object
 
   GetTrustedBlockRootCallback* =
-    proc(): Option[Eth2Digest] {.gcsafe, raises: [Defect].}
+    proc(): Option[Eth2Digest] {.gcsafe, raises: [].}
   VoidCallback* =
-    proc() {.gcsafe, raises: [Defect].}
+    proc() {.gcsafe, raises: [].}
 
   ValueObserver[V] =
-    proc(v: V) {.gcsafe, raises: [Defect].}
+    proc(v: V) {.gcsafe, raises: [].}
   BootstrapObserver* =
     ValueObserver[ForkedLightClientBootstrap]
   UpdateObserver* =

@@ -578,7 +578,7 @@ proc writeValue*(
   writeValue(w, Base10.toString(value))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint64, svalue)
   if res.isOk():
@@ -592,7 +592,7 @@ proc writeValue*(
   writeValue(w, Base10.toString(value))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint8, svalue)
   if res.isOk():
@@ -607,7 +607,7 @@ proc writeValue*(
   w.writeValue hexOriginal([uint8(value)])
 
 proc readValue*(reader: var JsonReader[RestJson], value: var JustificationBits) {.
-    raises: [IOError, SerializationError, Defect].} =
+    raises: [IOError, SerializationError].} =
   let hex = reader.readValue(string)
   try:
     value = JustificationBits(hexToByteArray(hex, 1)[0])
@@ -621,7 +621,7 @@ proc writeValue*(
   writeValue(w, toString(value))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var UInt256) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   try:
     value = parse(svalue, UInt256, 10)
@@ -635,7 +635,7 @@ proc writeValue*(
   writeValue(writer, Base10.toString(uint64(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var Slot) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint64, svalue)
   if res.isOk():
@@ -649,7 +649,7 @@ proc writeValue*(
   writeValue(writer, Base10.toString(uint64(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var Epoch) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint64, svalue)
   if res.isOk():
@@ -666,7 +666,7 @@ proc writeValue*(
 
 proc readValue*(reader: var JsonReader[RestJson],
                 epochFlags: var EpochParticipationFlags)
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   for e in reader.readArray(string):
     let parsed = try:
       parseBiggestUInt(e)
@@ -689,7 +689,7 @@ proc writeValue*(
   writeValue(writer, Base10.toString(uint64(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndex)
-               {.raises: [IOError, SerializationError, Defect].} =
+               {.raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint64, svalue)
   if res.isOk():
@@ -709,7 +709,7 @@ proc writeValue*(
   writeValue(writer, Base10.toString(distinctBase(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var IndexInSyncCommittee)
-               {.raises: [IOError, SerializationError, Defect].} =
+               {.raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint64, svalue)
   if res.isOk():
@@ -730,7 +730,7 @@ proc writeValue*(
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestValidatorIndex) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint64, svalue)
   if res.isOk():
@@ -746,7 +746,7 @@ proc writeValue*(
   writeValue(writer, value.asUInt64)
 
 proc readValue*(reader: var JsonReader[RestJson], value: var CommitteeIndex) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   var v: uint64
   reader.readValue(v)
 
@@ -763,7 +763,7 @@ proc writeValue*(
   writeValue(writer, hexOriginal(toRaw(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorSig) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let hexValue = reader.readValue(string)
   let res = ValidatorSig.fromHex(hexValue)
   if res.isOk():
@@ -778,7 +778,7 @@ proc writeValue*(
   writeValue(writer, hexOriginal(toRaw(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var TrustedSig) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let hexValue = reader.readValue(string)
   let res = ValidatorSig.fromHex(hexValue)
   if res.isOk():
@@ -793,7 +793,7 @@ proc writeValue*(
   writeValue(writer, hexOriginal(toRaw(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorPubKey) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let hexValue = reader.readValue(string)
   let res = ValidatorPubKey.fromHex(hexValue)
   if res.isOk():
@@ -803,7 +803,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorPubKey) {.
 
 ## BitSeq
 proc readValue*(reader: var JsonReader[RestJson], value: var BitSeq) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   try:
     value = BitSeq hexToSeqByte(reader.readValue(string))
   except ValueError:
@@ -815,7 +815,7 @@ proc writeValue*(
 
 ## BitList
 proc readValue*(reader: var JsonReader[RestJson], value: var BitList) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   type T = type(value)
   value = T readValue(reader, BitSeq)
 
@@ -825,7 +825,7 @@ proc writeValue*(
 
 ## BitArray
 proc readValue*(reader: var JsonReader[RestJson], value: var BitArray) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(readValue(reader, string), value.bytes)
   except ValueError:
@@ -838,7 +838,7 @@ proc writeValue*(
 
 ## BlockHash
 proc readValue*(reader: var JsonReader[RestJson], value: var BlockHash) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value))
   except ValueError:
@@ -851,7 +851,7 @@ proc writeValue*(
 
 ## Eth2Digest
 proc readValue*(reader: var JsonReader[RestJson], value: var Eth2Digest) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), value.data)
   except ValueError:
@@ -864,7 +864,7 @@ proc writeValue*(
 
 ## BloomLogs
 proc readValue*(reader: var JsonReader[RestJson], value: var BloomLogs) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), value.data)
   except ValueError:
@@ -877,7 +877,7 @@ proc writeValue*(
 
 ## HashArray
 proc readValue*(reader: var JsonReader[RestJson], value: var HashArray) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   readValue(reader, value.data)
 
 proc writeValue*(
@@ -886,7 +886,7 @@ proc writeValue*(
 
 ## HashList
 proc readValue*(reader: var JsonReader[RestJson], value: var HashList) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   readValue(reader, value.data)
   value.resetCache()
 
@@ -896,7 +896,7 @@ proc writeValue*(
 
 ## Eth1Address
 proc readValue*(reader: var JsonReader[RestJson], value: var Eth1Address) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value))
   except ValueError:
@@ -915,17 +915,18 @@ proc writeValue*(
   writeValue(writer, hexOriginal(distinctBase(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiBytes): T
-               {.raises: [IOError, SerializationError, Defect].} =
+               {.raises: [IOError, SerializationError].} =
   try:
     init(GraffitiBytes, reader.readValue(string))
   except ValueError as err:
     reader.raiseUnexpectedValue err.msg
 
-## Version | ForkDigest | DomainType | GraffitiBytes
+## Version | ForkDigest | DomainType | GraffitiBytes | RestWithdrawalPrefix
 proc readValue*(
     reader: var JsonReader[RestJson],
-    value: var (Version | ForkDigest | DomainType | GraffitiBytes)) {.
-     raises: [IOError, SerializationError, Defect].} =
+    value: var (Version | ForkDigest | DomainType | GraffitiBytes |
+                RestWithdrawalPrefix)) {.
+     raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value))
   except ValueError:
@@ -980,7 +981,7 @@ template prepareForkedBlockReading(
 
 proc readValue*[BlockType: ForkedBeaconBlock](
     reader: var JsonReader[RestJson],
-    value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
+    value: var BlockType) {.raises: [IOError, SerializationError].} =
   var
     version: Option[ConsensusFork]
     data: Option[JsonString]
@@ -1051,7 +1052,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
 
 proc readValue*[BlockType: ProduceBlockResponseV2](
     reader: var JsonReader[RestJson],
-    value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
+    value: var BlockType) {.raises: [IOError, SerializationError].} =
   var
     version: Option[ConsensusFork]
     data: Option[JsonString]
@@ -1128,7 +1129,7 @@ proc readValue*[BlockType: ProduceBlockResponseV2](
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
        value: var BlockType
-     ) {.raises: [IOError, SerializationError, Defect].} =
+     ) {.raises: [IOError, SerializationError].} =
   var
     version: Option[ConsensusFork]
     data: Option[JsonString]
@@ -1190,7 +1191,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
-    value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
+    value: var BlockType) {.raises: [IOError, SerializationError].} =
   var
     version: Option[ConsensusFork]
     data: Option[JsonString]
@@ -1253,7 +1254,7 @@ proc writeValue*[BlockType: ForkedBeaconBlock](
 ## RestPublishedBeaconBlockBody
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestPublishedBeaconBlockBody) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   var
     randao_reveal: Option[ValidatorSig]
     eth1_data: Option[Eth1Data]
@@ -1490,7 +1491,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestPublishedBeaconBlock) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   var
     slot: Option[Slot]
     proposer_index: Option[uint64]
@@ -1597,7 +1598,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 ## RestPublishedSignedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestPublishedSignedBeaconBlock) {.
-    raises: [IOError, SerializationError, Defect].} =
+    raises: [IOError, SerializationError].} =
   var signature: Option[ValidatorSig]
   var message: Option[RestPublishedBeaconBlock]
   for fieldName in readObjectFields(reader):
@@ -1662,7 +1663,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestPublishedSignedBlockContents) {.
-    raises: [IOError, SerializationError, Defect].} =
+    raises: [IOError, SerializationError].} =
   var signature: Option[ValidatorSig]
   var message: Option[RestPublishedBeaconBlock]
   var signed_message: Option[RestPublishedSignedBeaconBlock]
@@ -1786,7 +1787,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 ## ForkedSignedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var ForkedSignedBeaconBlock) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   var
     version: Option[ConsensusFork]
     data: Option[JsonString]
@@ -1914,7 +1915,7 @@ proc writeValue*(
 # be used, mainly because caching the hash early on is easier to do
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var ForkedHashedBeaconState) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   var
     version: Option[ConsensusFork]
     data: Option[JsonString]
@@ -2037,7 +2038,7 @@ proc writeValue*(
 ## SomeForkedLightClientObject
 proc readValue*[T: SomeForkedLightClientObject](
     reader: var JsonReader[RestJson], value: var T) {.
-    raises: [IOError, SerializationError, Defect].} =
+    raises: [IOError, SerializationError].} =
   var
     version: Opt[ConsensusFork]
     data: Opt[JsonString]
@@ -2180,7 +2181,7 @@ proc writeValue*(
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var Web3SignerRequest) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   var
     requestKind: Option[Web3SignerRequestKind]
     forkInfo: Option[Web3SignerForkInfo]
@@ -2458,7 +2459,7 @@ proc writeValue*(
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RemoteKeystoreStatus) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   var message: Option[string]
   var status: Option[KeystoreStatus]
 
@@ -2501,7 +2502,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 
 ## ScryptSalt
 proc readValue*(reader: var JsonReader[RestJson], value: var ScryptSalt) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   let res = ncrutils.fromHex(reader.readValue(string))
   if len(res) == 0:
     reader.raiseUnexpectedValue("Invalid scrypt salt value")
@@ -2519,7 +2520,7 @@ proc writeValue*(
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson], value: var Pbkdf2Params) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   var
     dklen: Option[uint64]
     c: Option[uint64]
@@ -2580,7 +2581,7 @@ proc writeValue*(
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson], value: var ScryptParams) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   var
     dklen: Option[uint64]
     n, p, r: Option[int]
@@ -2673,7 +2674,7 @@ proc writeValue*(
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var KeystoresAndSlashingProtection) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   var
     strKeystores: seq[string]
     passwords: seq[string]
@@ -2743,7 +2744,7 @@ proc writeValue*(
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestActivityItem) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   var index: Option[ValidatorIndex]
   var epoch: Option[Epoch]
   var active: Option[bool]
@@ -2789,7 +2790,7 @@ proc writeValue*(
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestLivenessItem) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   var index: Option[ValidatorIndex]
   var isLive: Option[bool]
 
@@ -2893,7 +2894,7 @@ proc writeValue*(
 ## RestErrorMessage
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestErrorMessage) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   var
     code: Opt[int]
     message: Opt[string]
@@ -2950,7 +2951,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 ## VCRuntimeConfig
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var VCRuntimeConfig) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   for fieldName in readObjectFields(reader):
     let fieldValue = reader.readValue(string)
     if value.hasKeyOrPut(toUpperAscii(fieldName), fieldValue):

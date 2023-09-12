@@ -23,7 +23,7 @@ const
 
   # Constants from `validator.md` not covered by config/presets in the spec
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
-  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64 = 256
+  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
 
 type
   Version* = distinct array[4, byte]
@@ -76,6 +76,9 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
+    # Not actively used, but part of the spec
+    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch
+
   PresetFile* = object
     values*: Table[string, string]
     missingValues*: seq[string]
@@ -118,6 +121,7 @@ when const_preset == "mainnet":
     # * 'prater' - testnet
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
+    # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "",
 
@@ -221,6 +225,7 @@ elif const_preset == "gnosis":
     # * 'prater' - testnet
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
+    # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "",
 
@@ -319,6 +324,7 @@ elif const_preset == "minimal":
     # * 'prater' - testnet
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
+    # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "minimal",
 
@@ -428,7 +434,7 @@ else:
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 
-func parse(T: type uint64, input: string): T {.raises: [ValueError, Defect].} =
+func parse(T: type uint64, input: string): T {.raises: [ValueError].} =
   var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
     if parseHex(input, res) != input.len:
@@ -443,7 +449,7 @@ template parse(T: type byte, input: string): T =
   byte parse(uint64, input)
 
 func parse(T: type Version, input: string): T
-           {.raises: [ValueError, Defect].} =
+           {.raises: [ValueError].} =
   Version hexToByteArray(input, 4)
 
 template parse(T: type Slot, input: string): T =
@@ -465,12 +471,12 @@ template parse(T: type UInt256, input: string): T =
   parse(input, UInt256, 10)
 
 func parse(T: type DomainType, input: string): T
-           {.raises: [ValueError, Defect].} =
+           {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
 proc readRuntimeConfig*(
     fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
-    raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
+    raises: [IOError, PresetFileError, PresetIncompatibleError].} =
   var
     lineNum = 0
     cfg = defaultRuntimeConfig
@@ -586,9 +592,6 @@ proc readRuntimeConfig*(
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
   checkCompatibility MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
 
-  # Never pervasively implemented, still under discussion
-  checkCompatibility TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH
-
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
 
@@ -612,7 +615,7 @@ proc readRuntimeConfig*(
 
 proc readRuntimeConfig*(
     path: string): (RuntimeConfig, seq[string]) {.
-    raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
+    raises: [IOError, PresetFileError, PresetIncompatibleError].} =
   readRuntimeConfig(readFile(path), path)
 
 template name*(cfg: RuntimeConfig): string =

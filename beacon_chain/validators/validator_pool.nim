@@ -87,6 +87,8 @@ type
     slashingProtection*: SlashingProtectionDB
     doppelgangerDetectionEnabled*: bool
 
+  AddValidatorProc* = proc(keystore: KeystoreData) {.gcsafe, raises: [].}
+
 template pubkey*(v: AttachedValidator): ValidatorPubKey =
   v.data.pubkey
 
@@ -146,12 +148,16 @@ proc addRemoteValidator(pool: var ValidatorPool, keystore: KeystoreData,
     activationEpoch: FAR_FUTURE_EPOCH,
   )
   pool.validators[v.pubkey] = v
-  notice "Remote validator attached",
-    pubkey = v.pubkey,
-    validator = shortLog(v),
-    remote_signer = $keystore.remotes,
-    initial_fee_recipient = feeRecipient.toHex(),
-    initial_gas_limit = gasLimit
+  if RemoteKeystoreFlag.DynamicKeystore in keystore.flags:
+    notice "Dynamic remote validator attached", pubkey = v.pubkey,
+           validator = shortLog(v), remote_signer = $keystore.remotes,
+           initial_fee_recipient = feeRecipient.toHex(),
+           initial_gas_limit = gasLimit
+  else:
+    notice "Remote validator attached", pubkey = v.pubkey,
+           validator = shortLog(v), remote_signer = $keystore.remotes,
+           initial_fee_recipient = feeRecipient.toHex(),
+           initial_gas_limit = gasLimit
 
   validators.set(pool.count().int64)
 
@@ -217,8 +223,12 @@ proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
     of ValidatorKind.Local:
       notice "Local validator detached", pubkey, validator = shortLog(validator)
     of ValidatorKind.Remote:
-      notice "Remote validator detached", pubkey,
-             validator = shortLog(validator)
+      if RemoteKeystoreFlag.DynamicKeystore in validator.data.flags:
+        notice "Dynamic remote validator detached", pubkey,
+               validator = shortLog(validator)
+      else:
+        notice "Remote validator detached", pubkey,
+               validator = shortLog(validator)
     validators.set(pool.count().int64)
 
 func needsUpdate*(validator: AttachedValidator): bool =
@@ -369,6 +379,52 @@ func triggersDoppelganger*(
   let v = pool.getValidator(pubkey)
   v.isSome() and v[].triggersDoppelganger(epoch)
 
+proc updateDynamicValidators*(pool: ref ValidatorPool,
+                              web3signerUrl: Uri,
+                              keystores: openArray[KeystoreData],
+                              addProc: AddValidatorProc) =
+  var
+    keystoresTable: Table[ValidatorPubKey, Opt[KeystoreData]]
+    deleteValidators: seq[ValidatorPubKey]
+
+  for keystore in keystores:
+    keystoresTable[keystore.pubkey] = Opt.some(keystore)
+
+  # We preserve `Local` and `Remote` keystores which are not from dynamic set,
+  # and also we removing all the dynamic keystores which are not part of new
+  # dynamic set.
+  for validator in pool[].items():
+    if validator.kind == ValidatorKind.Remote:
+      if RemoteKeystoreFlag.DynamicKeystore in validator.data.flags:
+        let keystore = keystoresTable.getOrDefault(validator.pubkey)
+        if keystore.isSome():
+          # Just update validator's `data` field with new data from keystore.
+          validator.data = keystore.get()
+        elif validator.data.remotes[0].url == HttpHostUri(web3signerUrl):
+          # The "dynamic" keystores are guaratneed to not be distributed
+          # so they have a single remote. This code ensures that we are
+          # deleting all previous dynamically obtained keystores which
+          # were associated with a particular Web3Signer when the same
+          # signer no longer serves them.
+          deleteValidators.add(validator.pubkey)
+
+  for pubkey in deleteValidators:
+    pool[].removeValidator(pubkey)
+
+  # Adding new dynamic keystores.
+  for keystore in keystores.items():
+    let res = pool[].getValidator(keystore.pubkey)
+    if res.isSome():
+      let validator = res.get()
+      if validator.kind != ValidatorKind.Remote or
+         RemoteKeystoreFlag.DynamicKeystore notin validator.data.flags:
+        warn "Attempt to replace local validator with dynamic remote validator",
+             pubkey = validator.pubkey, validator = shortLog(validator),
+             remote_signer = $keystore.remotes,
+             local_validator_kind = validator.kind
+    else:
+      addProc(keystore)
+
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]
                            {.async.} =
@@ -467,7 +523,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           fork, genesis_validators_root, slot, block_root,
           v.data.privateKey).toValidatorSig())
     of ValidatorKind.Remote:
-      let web3SignerRequest =
+      let web3signerRequest =
         when blck is ForkedBlindedBeaconBlock:
           case blck.kind
           of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
@@ -567,7 +623,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                   data: blck.denebData.toBeaconBlockHeader),
                 proofs)
-      await v.signData(web3SignerRequest)
+      await v.signData(web3signerRequest)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/validator.md#constructing-the-signedblobsidecars
 proc getBlobSignature*(v: AttachedValidator, fork: Fork,
@@ -583,7 +639,7 @@ proc getBlobSignature*(v: AttachedValidator, fork: Fork,
     of ValidatorKind.Remote:
       return SignatureResult.err("web3signer not supported for blobs")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               data: AttestationData

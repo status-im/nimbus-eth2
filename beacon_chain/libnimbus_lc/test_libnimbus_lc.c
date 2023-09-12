@@ -7,6 +7,7 @@
  * at your option. This file may not be copied, modified, or distributed except according to those terms.
  */
 
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,6 +93,15 @@ static void printHexString(const void *bytes, int numBytes)
     const uint8_t *bytes_ = bytes;
     printf("0x");
     for (int i = 0; i < numBytes; i++) {
+        printf("%02x", bytes_[i]);
+    }
+}
+
+static void printHexStringReversed(const void *bytes, int numBytes)
+{
+    const uint8_t *bytes_ = bytes;
+    printf("0x");
+    for (int i = numBytes - 1; i >= 0; i--) {
         printf("%02x", bytes_[i]);
     }
 }
@@ -228,8 +238,9 @@ static void visualizeHeader(const ETHLightClientHeader *header, const ETHConsens
     int executionTimestamp = ETHExecutionPayloadHeaderGetTimestamp(execution);
     printf("    - timestamp: %d\n", executionTimestamp);
 
-    const void *executionExtraDataBytes = ETHExecutionPayloadHeaderGetExtraDataBytes(execution);
-    int numExecutionExtraDataBytes = ETHExecutionPayloadHeaderGetNumExtraDataBytes(execution);
+    int numExecutionExtraDataBytes;
+    const void *executionExtraDataBytes =
+        ETHExecutionPayloadHeaderGetExtraDataBytes(execution, &numExecutionExtraDataBytes);
     printf("    - extra_data: ");
     printHexString(executionExtraDataBytes, numExecutionExtraDataBytes);
     printf("\n");
@@ -364,7 +375,7 @@ int main(void)
     ETHRootDestroy(copiedExecutionHash);
     ETHLightClientHeaderDestroy(copiedHeader);
 
-    printf("- finalized_header (execution block header):\n");
+    printf("\nFinalized_header (execution block header):\n");
 
     const ETHRoot *executionTransactionsRoot =
         ETHExecutionBlockHeaderGetTransactionsRoot(executionBlockHeader);
@@ -378,7 +389,226 @@ int main(void)
     printHexString(executionWithdrawalsRoot, sizeof *executionWithdrawalsRoot);
     printf("\n");
 
+    const ETHWithdrawals *withdrawals =
+        ETHExecutionBlockHeaderGetWithdrawals(executionBlockHeader);
+    int numWithdrawals = ETHWithdrawalsGetCount(withdrawals);
+    printf("    - withdrawals:\n");
+    for (int withdrawalIndex = 0; withdrawalIndex < numWithdrawals; withdrawalIndex++) {
+        const ETHWithdrawal *withdrawal = ETHWithdrawalsGet(withdrawals, withdrawalIndex);
+
+        const uint64_t *index = ETHWithdrawalGetIndex(withdrawal);
+        printf("        - index: %" PRIu64 "\n", *index);
+
+        const uint64_t *validatorIndex = ETHWithdrawalGetValidatorIndex(withdrawal);
+        printf("            - validator_index: %" PRIu64 "\n", *validatorIndex);
+
+        const ETHExecutionAddress *address = ETHWithdrawalGetAddress(withdrawal);
+        printf("            - address: ");
+        printHexString(address, sizeof *address);
+        printf("\n");
+
+        const uint64_t *amount = ETHWithdrawalGetAmount(withdrawal);
+        printf("            - amount: %" PRIu64 "\n", *amount);
+
+        int numBytes;
+        const void *bytes = ETHWithdrawalGetBytes(withdrawal, &numBytes);
+        printf("            - bytes: ");
+        printHexString(bytes, numBytes);
+        printf("\n");
+    }
+
     ETHExecutionBlockHeaderDestroy(executionBlockHeader);
+
+    ETHRoot sampleTransactionsRoot = {{
+        0x73, 0x36, 0x36, 0xe8, 0x0e, 0x47, 0x60, 0x09,
+        0xd1, 0xc8, 0x9f, 0x81, 0xaa, 0x64, 0xe1, 0xfd,
+        0xf7, 0xff, 0x36, 0xd6, 0x04, 0x6e, 0x95, 0x6c,
+        0x39, 0xed, 0xcd, 0x6c, 0x95, 0x2d, 0xce, 0xc2,
+    }};
+    void *sampleTransactionsJson = readEntireFile(
+        __DIR__ "/test_files/transactions.json", /* numBytes: */ NULL);
+    ETHTransactions *transactions =
+        ETHTransactionsCreateFromJson(&sampleTransactionsRoot, sampleTransactionsJson);
+    check(transactions);
+    free(sampleTransactionsJson);
+
+    ETHRoot sampleReceiptsRoot = {{
+        0x51, 0x4d, 0xdf, 0xd7, 0xf8, 0x33, 0xfb, 0x2a,
+        0x4f, 0x60, 0xed, 0x49, 0xdf, 0xc7, 0x9c, 0x07,
+        0xb6, 0x9c, 0x37, 0xef, 0xd1, 0xa5, 0x97, 0xca,
+        0x42, 0x76, 0x23, 0xff, 0xa1, 0x79, 0x49, 0xae,
+    }};
+    void *sampleReceiptsJson = readEntireFile(
+        __DIR__ "/test_files/receipts.json", /* numBytes: */ NULL);
+    ETHReceipts *receipts =
+        ETHReceiptsCreateFromJson(&sampleReceiptsRoot, sampleReceiptsJson, transactions);
+    check(receipts);
+    free(sampleReceiptsJson);
+
+    int numTransactions = ETHTransactionsGetCount(transactions);
+    int numReceipts = ETHReceiptsGetCount(receipts);
+    check(numTransactions == numReceipts);
+    printf("\nSample transactions:\n");
+    for (int transactionIndex = 0; transactionIndex < numTransactions; transactionIndex++) {
+        const ETHTransaction *transaction = ETHTransactionsGet(transactions, transactionIndex);
+        const ETHReceipt *receipt = ETHReceiptsGet(receipts, transactionIndex);
+
+        const ETHRoot *transactionHash = ETHTransactionGetHash(transaction);
+        printf("- ");
+        printHexString(transactionHash, sizeof *transactionHash);
+        printf("\n");
+
+        const ETHUInt256 *transactionChainId = ETHTransactionGetChainId(transaction);
+        printf("    - chain_id: ");
+        printHexStringReversed(transactionChainId, sizeof *transactionChainId);
+        printf("\n");
+
+        const ETHExecutionAddress *transactionFrom = ETHTransactionGetFrom(transaction);
+        printf("    - from: ");
+        printHexString(transactionFrom, sizeof *transactionFrom);
+        printf("\n");
+
+        const uint64_t *transactionNonce = ETHTransactionGetNonce(transaction);
+        printf("    - nonce: %" PRIu64 "\n", *transactionNonce);
+
+        const uint64_t *transactionMaxPriorityFeePerGas =
+            ETHTransactionGetMaxPriorityFeePerGas(transaction);
+        printf("    - max_priority_fee_per_gas: %" PRIu64 "\n", *transactionMaxPriorityFeePerGas);
+
+        const uint64_t *transactionMaxFeePerGas = ETHTransactionGetMaxFeePerGas(transaction);
+        printf("    - max_fee_per_gas: %" PRIu64 "\n", *transactionMaxFeePerGas);
+
+        const uint64_t *transactionGas = ETHTransactionGetGas(transaction);
+        printf("    - gas: %" PRIu64 "\n", *transactionGas);
+
+        bool transactionIsCreatingContract = ETHTransactionIsCreatingContract(transaction);
+        const ETHExecutionAddress *transactionTo = ETHTransactionGetTo(transaction);
+        if (transactionIsCreatingContract) {
+            printf("    - contract_address: ");
+        } else {
+            printf("    - to: ");
+        }
+        printHexString(transactionTo, sizeof *transactionTo);
+        printf("\n");
+
+        const ETHUInt256 *transactionValue = ETHTransactionGetValue(transaction);
+        printf("    - value: ");
+        printGweiString(transactionValue);
+        printf(" Gwei\n");
+
+        int numTransactionInputBytes;
+        const void *transactionInputBytes =
+            ETHTransactionGetInputBytes(transaction, &numTransactionInputBytes);
+        printf("    - input: ");
+        printHexString(transactionInputBytes, numTransactionInputBytes);
+        printf("\n");
+
+        const ETHAccessList *transactionAccessList = ETHTransactionGetAccessList(transaction);
+        printf("    - access_list:\n");
+        int numAccessTuples = ETHAccessListGetCount(transactionAccessList);
+        for (int accessTupleIndex = 0; accessTupleIndex < numAccessTuples; accessTupleIndex++) {
+            const ETHAccessTuple *accessTuple =
+                ETHAccessListGet(transactionAccessList, accessTupleIndex);
+
+            const ETHExecutionAddress *accessTupleAddress = ETHAccessTupleGetAddress(accessTuple);
+            printf("        - ");
+            printHexString(accessTupleAddress, sizeof *accessTupleAddress);
+            printf("\n");
+
+            int numStorageKeys = ETHAccessTupleGetNumStorageKeys(accessTuple);
+            for (int storageKeyIndex = 0; storageKeyIndex < numStorageKeys; storageKeyIndex++) {
+                const ETHRoot *storageKey =
+                    ETHAccessTupleGetStorageKey(accessTuple, storageKeyIndex);
+                printf("            - ");
+                printHexString(storageKey, sizeof *storageKey);
+                printf("\n");
+            }
+        }
+
+        const uint64_t *transactionMaxFeePerBlobGas =
+            ETHTransactionGetMaxFeePerBlobGas(transaction);
+        printf("    - max_fee_per_blob_gas: %" PRIu64 "\n", *transactionMaxFeePerBlobGas);
+
+        printf("    - blob_versioned_hashes:\n");
+        int numBlobVersionedHashes = ETHTransactionGetNumBlobVersionedHashes(transaction);
+        for (int hashIndex = 0; hashIndex < numBlobVersionedHashes; hashIndex++) {
+            const ETHRoot *blobVersionedHash =
+                ETHTransactionGetBlobVersionedHash(transaction, hashIndex);
+            printf("        - ");
+            printHexString(blobVersionedHash, sizeof *blobVersionedHash);
+            printf("\n");
+        }
+
+        int numTransactionSignatureBytes;
+        const void *transactionSignatureBytes =
+            ETHTransactionGetSignatureBytes(transaction, &numTransactionSignatureBytes);
+        printf("    - signature: ");
+        printHexString(transactionSignatureBytes, numTransactionSignatureBytes);
+        printf("\n");
+
+        int numTransactionBytes;
+        const void *transactionBytes = ETHTransactionGetBytes(transaction, &numTransactionBytes);
+        printf("    - bytes: ");
+        printHexString(transactionBytes, numTransactionBytes);
+        printf("\n");
+
+        printf("    - receipt:\n");
+
+        bool receiptHasStatus = ETHReceiptHasStatus(receipt);
+        if (!receiptHasStatus) {
+            const ETHRoot *receiptRoot = ETHReceiptGetRoot(receipt);
+            printf("        - root: ");
+            printHexString(receiptRoot, sizeof *receiptRoot);
+            printf("\n");
+        } else {
+            bool receiptStatus = ETHReceiptGetStatus(receipt);
+            printf("        - status: %d\n", receiptStatus);
+        }
+
+        const uint64_t *receiptGasUsed = ETHReceiptGetGasUsed(receipt);
+        printf("        - gas_used: %" PRIu64 "\n", *receiptGasUsed);
+
+        const ETHLogsBloom *receiptLogsBloom = ETHReceiptGetLogsBloom(receipt);
+        printf("        - logs_bloom: ");
+        printHexString(receiptLogsBloom, sizeof *receiptLogsBloom);
+        printf("\n");
+
+        const ETHLogs *receiptLogs = ETHReceiptGetLogs(receipt);
+        printf("        - logs:\n");
+        int numLogs = ETHLogsGetCount(receiptLogs);
+        for (int logIndex = 0; logIndex < numLogs; logIndex++) {
+            const ETHLog *log = ETHLogsGet(receiptLogs, logIndex);
+
+            const ETHExecutionAddress *logAddress = ETHLogGetAddress(log);
+            printf("            - address: ");
+            printHexString(logAddress, sizeof *logAddress);
+            printf("\n");
+
+            printf("                - topics:\n");
+            int numTopics = ETHLogGetNumTopics(log);
+            for (int topicIndex = 0; topicIndex < numTopics; topicIndex++) {
+                const ETHRoot *topic = ETHLogGetTopic(log, topicIndex);
+                printf("                    - ");
+                printHexString(topic, sizeof *topic);
+                printf("\n");
+            }
+
+            int numLogDataBytes;
+            const void *logDataBytes = ETHLogGetDataBytes(log, &numLogDataBytes);
+            printf("                - data: ");
+            printHexString(logDataBytes, numLogDataBytes);
+            printf("\n");
+        }
+
+        int numReceiptBytes;
+        const void *receiptBytes = ETHReceiptGetBytes(receipt, &numReceiptBytes);
+        printf("        - bytes: ");
+        printHexString(receiptBytes, numReceiptBytes);
+        printf("\n");
+    }
+
+    ETHReceiptsDestroy(receipts);
+    ETHTransactionsDestroy(transactions);
 
     return 0;
 }

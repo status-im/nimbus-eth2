@@ -32,7 +32,9 @@ func toEther*(gwei: Gwei): Ether =
 
 type
   ExecutionHash256* = eth_types.Hash256
-  ExecutionWithdrawal = eth_types.Withdrawal
+  ExecutionTransaction* = eth_types.Transaction
+  ExecutionReceipt* = eth_types.Receipt
+  ExecutionWithdrawal* = eth_types.Withdrawal
   ExecutionBlockHeader* = eth_types.BlockHeader
 
   FinalityCheckpoints* = object
@@ -60,7 +62,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_active_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ## Check if ``validator`` is active.
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
@@ -98,12 +100,12 @@ func get_active_validator_indices_len*(
   withState(state):
     get_active_validator_indices_len(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the current epoch.
   state.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
   withState(state): get_current_epoch(forkyState.data)
@@ -199,7 +201,7 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
     epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
   state.get_seed(epoch, domain_type, mix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#add_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   flags or flag
@@ -213,20 +215,22 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
     update.next_sync_committee_branch !=
-      default(typeof(update.next_sync_committee_branch))
+      static(default(typeof(update.next_sync_committee_branch)))
   else:
     false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#is_finality_update
 template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithFinality:
-    update.finality_branch != default(typeof(update.finality_branch))
+    update.finality_branch !=
+      static(default(typeof(update.finality_branch)))
   else:
     false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
-  store.next_sync_committee != default(typeof(store.next_sync_committee))
+  store.next_sync_committee !=
+    static(default(typeof(store.next_sync_committee)))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#get_safety_threshold
 func get_safety_threshold*(store: ForkyLightClientStore): uint64 =
