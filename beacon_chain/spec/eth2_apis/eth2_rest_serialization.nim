@@ -339,7 +339,8 @@ proc jsonResponseFinalized*(t: typedesc[RestApiResponse], data: auto,
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("execution_optimistic", exec)
+        if exec.isSome():
+          writer.writeField("execution_optimistic", exec.get())
         writer.writeField("finalized", finalized)
         writer.writeField("data", data)
         writer.endRecord()
