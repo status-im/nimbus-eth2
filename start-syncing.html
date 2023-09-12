@@ -250,7 +250,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="hardware.html" class="md-tabs__link">
+      <a href="faq.html" class="md-tabs__link">
         Reference
       </a>
     </li>
@@ -984,6 +984,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="holesky.html" class="md-nav__link">
+        Holešky testnet
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1121,6 +1135,20 @@
   
   
     <li class="md-nav__item">
+      <a href="faq.html" class="md-nav__link">
+        Frequently Asked Questions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="hardware.html" class="md-nav__link">
         System requirements
       </a>
@@ -1138,18 +1166,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_2" type="checkbox" id="__nav_5_2" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_2">
+        <label class="md-nav__link" for="__nav_5_3">
           Advanced options
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Advanced options" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_2">
+        <label class="md-nav__title" for="__nav_5_3">
           <span class="md-nav__icon md-icon"></span>
           Advanced options
         </label>
@@ -1283,18 +1311,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_3">
+        <label class="md-nav__link" for="__nav_5_4">
           REST APIs
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="REST APIs" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_3">
+        <label class="md-nav__title" for="__nav_5_4">
           <span class="md-nav__icon md-icon"></span>
           REST APIs
         </label>
@@ -1344,18 +1372,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_5" type="checkbox" id="__nav_5_5" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_4">
+        <label class="md-nav__link" for="__nav_5_5">
           Storage
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Storage" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_4">
+        <label class="md-nav__title" for="__nav_5_5">
           <span class="md-nav__icon md-icon"></span>
           Storage
         </label>
@@ -1460,20 +1488,6 @@
     <li class="md-nav__item">
       <a href="troubleshooting.html" class="md-nav__link">
         Troubleshooting
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="faq.html" class="md-nav__link">
-        Frequently Asked Questions
       </a>
     </li>
   
@@ -1685,12 +1699,13 @@
 
 <h1 id="sync-your-node">Sync your node</h1>
 <p>Before you can use your node, it needs to sync with the network.
-Syncing starts automatically when you start your node, and may take several days depending on the performance of your hardware.</p>
-<p>If you are planning to become a validator, you should ensure that your beacon node is <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a> before submitting your deposit, or you might miss attestations and proposal duties until it has finished syncing.</p>
+Syncing starts automatically when you start your node, and may take <strong>several hours</strong>, or even days, depending on the performance of your hardware.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>To get started more quickly, you can perform a <a href="trusted-node-sync.html">trusted node sync</a> instead - this requires access to a synced node or a third-party service.</p>
+<p>To get started more quickly, you can perform a <a href="trusted-node-sync.html">trusted node sync</a> instead.
+This requires access to a synced node or a third-party service.</p>
 </div>
+<p>If you are planning to become a validator, you should ensure that your beacon node is <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a> before submitting your deposit; otherwise, you might miss attestations, proposal duties and sync committee duties until it has finished syncing.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>You need need to run an execution client (<strong>web3 provider</strong>) together with the beacon node.
@@ -1699,11 +1714,8 @@ See <a href="eth1.html">here</a> for instructions on how to do so.</p>
 <h2 id="networks">Networks</h2>
 <p>Using Nimbus, you can connect either to a testnet or mainnet.
 Mainnet is the main Ethereum network where real assets are at stake, while testnets are used by users and developers alike to test their node and setup before committing real assets.</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
 <p>If this is the first time you're setting up your node, it is recommended you run it on a testnet first.
 Later, when everything is working, you can easily switch to mainnet.</p>
-</div>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Testnet</label><label for="__tabbed_1_2">Mainnet</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -1735,13 +1747,13 @@ Later, when everything is working, you can easily switch to mainnet.</p>
 </code></pre></div>
 <h2 id="data-directory">Data directory</h2>
 <p>While running, the beacon node will store chain data and other information its data directory, which by default is found in <code>build/data</code>.
-For more information, see the <a href="data-dir.html">data directory</a> guide.</p>
+For more information, see the <a href="data-dir.html">data directory guide</a>.</p>
 <h2 id="command-line-options">Command line options</h2>
 <p>You can add command line options to the startup command.
 For example, to change the port to 9100, use:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./run-prater-beacon-node.sh --tcp-port<span class="o">=</span><span class="m">9100</span> --udp-port<span class="o">=</span><span class="m">9100</span>
 </code></pre></div>
-<p>To see a list of the command line options availabe to you, with descriptions, run:</p>
+<p>To see a list of the command line options available to you, with descriptions, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./build/nimbus_beacon_node --help
 </code></pre></div>
 <p>More information is available from the <a href="options.html">options</a> page.</p>

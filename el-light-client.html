@@ -250,7 +250,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="hardware.html" class="md-tabs__link">
+      <a href="faq.html" class="md-tabs__link">
         Reference
       </a>
     </li>
@@ -1042,6 +1042,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="holesky.html" class="md-nav__link">
+        Holešky testnet
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1179,6 +1193,20 @@
   
   
     <li class="md-nav__item">
+      <a href="faq.html" class="md-nav__link">
+        Frequently Asked Questions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="hardware.html" class="md-nav__link">
         System requirements
       </a>
@@ -1196,18 +1224,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_2" type="checkbox" id="__nav_5_2" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_2">
+        <label class="md-nav__link" for="__nav_5_3">
           Advanced options
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Advanced options" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_2">
+        <label class="md-nav__title" for="__nav_5_3">
           <span class="md-nav__icon md-icon"></span>
           Advanced options
         </label>
@@ -1341,18 +1369,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_3">
+        <label class="md-nav__link" for="__nav_5_4">
           REST APIs
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="REST APIs" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_3">
+        <label class="md-nav__title" for="__nav_5_4">
           <span class="md-nav__icon md-icon"></span>
           REST APIs
         </label>
@@ -1402,18 +1430,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_5" type="checkbox" id="__nav_5_5" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_4">
+        <label class="md-nav__link" for="__nav_5_5">
           Storage
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Storage" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_4">
+        <label class="md-nav__title" for="__nav_5_5">
           <span class="md-nav__icon md-icon"></span>
           Storage
         </label>
@@ -1518,20 +1546,6 @@
     <li class="md-nav__item">
       <a href="troubleshooting.html" class="md-nav__link">
         Troubleshooting
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="faq.html" class="md-nav__link">
-        Frequently Asked Questions
       </a>
     </li>
   
@@ -1922,7 +1936,7 @@ The following sections explain how to do this for certain EL clients.</p>
 </div>
 <h2 id="running-the-light-client">Running the light client</h2>
 <p>The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
+This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
 <h3 id="1-obtaining-a-trusted-block-root">1. Obtaining a trusted block root</h3>
 <p>A block root may be obtained from another trusted beacon node, or from a trusted provider.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Trusted beacon node</label><label for="__tabbed_4_2">Beaconcha.in</label></div>
@@ -2003,7 +2017,7 @@ You should see logs similar to the following:</p>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
+<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
 As this is a new protocol, not all implementations are supporting it yet.
 Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.</p>
 </div>

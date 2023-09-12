@@ -250,7 +250,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="hardware.html" class="md-tabs__link md-tabs__link--active">
+      <a href="faq.html" class="md-tabs__link md-tabs__link--active">
         Reference
       </a>
     </li>
@@ -911,6 +911,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="holesky.html" class="md-nav__link">
+        Holešky testnet
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1048,6 +1062,366 @@
               
   
   
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Frequently Asked Questions
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="faq.html" class="md-nav__link md-nav__link--active">
+        Frequently Asked Questions
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general" class="md-nav__link">
+    General
+  </a>
+  
+    <nav class="md-nav" aria-label="General">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#can-i-run-nimbus-on-my-machine" class="md-nav__link">
+    Can I run Nimbus on my machine?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#im-currently-using-prysm-lighthouse-teku-how-do-i-migrate-to-nimbus" class="md-nav__link">
+    I'm currently using Prysm / Lighthouse / Teku, how do I migrate to Nimbus?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#which-version-of-nimbus-am-i-running" class="md-nav__link">
+    Which version of Nimbus am I running?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-upgrade-nimbus-to-a-newer-version" class="md-nav__link">
+    How to upgrade Nimbus to a newer version?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-are-metrics-not-working" class="md-nav__link">
+    Why are metrics not working?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-is-the-rest-server-not-working" class="md-nav__link">
+    Why is the REST server not working?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-my-validator-miss-two-epochs-of-attestations-after-restarting" class="md-nav__link">
+    Why does my validator miss two epochs of attestations after (re)starting?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-the-best-way-to-stress-test-my-executionconsensus-setup-before-committing-with-real-eth" class="md-nav__link">
+    What is the best way to stress test my execution+consensus setup before committing with real ETH?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-add-an-additional-validator" class="md-nav__link">
+    How do I add an additional validator?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-does-syncedopt-mean-in-the-slot-start-message" class="md-nav__link">
+    What does synced/opt mean, in the "Slot start" message?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#syncing-is-very-slow-can-this-be-sped-up" class="md-nav__link">
+    Syncing is very slow, can this be sped up?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-can-i-automate-running-my-beacon-node" class="md-nav__link">
+    How can I automate running my beacon node?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#folder-permissions" class="md-nav__link">
+    Folder Permissions
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#networking" class="md-nav__link">
+    Networking
+  </a>
+  
+    <nav class="md-nav" aria-label="Networking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-can-i-improve-my-peer-count" class="md-nav__link">
+    How can I improve my peer count?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-fix-the-discovered-new-external-address-warning-log" class="md-nav__link">
+    How do I fix the discovered new external address warning log?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validating" class="md-nav__link">
+    Validating
+  </a>
+  
+    <nav class="md-nav" aria-label="Validating">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-exactly-is-a-validator" class="md-nav__link">
+    What exactly is a validator?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#do-i-need-a-separate-validator-client" class="md-nav__link">
+    Do I need a separate validator client?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-a-deposit-contract" class="md-nav__link">
+    What is a deposit contract?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-do-validators-need-to-have-funds-at-stake" class="md-nav__link">
+    Why do validators need to have funds at stake?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-much-eth-does-a-validator-need-to-stake" class="md-nav__link">
+    How much ETH does a validator need to stake?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is-there-any-advantage-to-having-more-than-32-eth-at-stake" class="md-nav__link">
+    Is there any advantage to having more than 32 ETH at stake?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again" class="md-nav__link">
+    Can I stop my validator for a few days and then start it back up again?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-can-i-keep-track-of-my-validator" class="md-nav__link">
+    How can I keep track of my validator?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed" class="md-nav__link">
+    I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-should-i-top-up-my-validators-balance" class="md-nav__link">
+    When should I top up my validator's balance?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing" class="md-nav__link">
+    When can I withdraw my funds, and what's the difference between exiting and withdrawing?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-are-validators-incentivized-to-stay-active-and-honest" class="md-nav__link">
+    How are validators incentivized to stay active and honest?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-are-rewardspenalties-issued" class="md-nav__link">
+    How are rewards/penalties issued?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-often-are-rewardspenalties-issued" class="md-nav__link">
+    How often are rewards/penalties issued?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-large-are-the-rewardspenalties" class="md-nav__link">
+    How large are the rewards/penalties?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-do-rewards-depend-on-the-total-number-of-validators-in-the-network" class="md-nav__link">
+    Why do rewards depend on the total number of validators in the network?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-badly-will-a-validator-be-penalized-for-being-offline" class="md-nav__link">
+    How badly will a validator be penalized for being offline?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable" class="md-nav__link">
+    How great does an honest validator's uptime need to be for it to be net profitable?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-much-will-a-validator-be-penalized-for-acting-maliciously" class="md-nav__link">
+    How much will a validator be penalized for acting maliciously?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-exactly-is-slashing" class="md-nav__link">
+    What exactly is slashing?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-i-lose-my-signing-key" class="md-nav__link">
+    What happens I lose my signing key?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-i-lose-my-withdrawal-key" class="md-nav__link">
+    What happens if I lose my withdrawal key?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-my-withdrawal-key-is-stolen" class="md-nav__link">
+    What happens if my withdrawal key is stolen?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-two-keys-instead-of-one" class="md-nav__link">
+    Why two keys instead of one?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
   
     <li class="md-nav__item">
       <a href="hardware.html" class="md-nav__link">
@@ -1067,18 +1441,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_2" type="checkbox" id="__nav_5_2" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_2">
+        <label class="md-nav__link" for="__nav_5_3">
           Advanced options
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Advanced options" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_2">
+        <label class="md-nav__title" for="__nav_5_3">
           <span class="md-nav__icon md-icon"></span>
           Advanced options
         </label>
@@ -1212,18 +1586,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_3">
+        <label class="md-nav__link" for="__nav_5_4">
           REST APIs
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="REST APIs" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_3">
+        <label class="md-nav__title" for="__nav_5_4">
           <span class="md-nav__icon md-icon"></span>
           REST APIs
         </label>
@@ -1273,18 +1647,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_5" type="checkbox" id="__nav_5_5" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_4">
+        <label class="md-nav__link" for="__nav_5_5">
           Storage
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Storage" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_4">
+        <label class="md-nav__title" for="__nav_5_5">
           <span class="md-nav__icon md-icon"></span>
           Storage
         </label>
@@ -1390,317 +1764,6 @@
       <a href="troubleshooting.html" class="md-nav__link">
         Troubleshooting
       </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-    
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          Frequently Asked Questions
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="faq.html" class="md-nav__link md-nav__link--active">
-        Frequently Asked Questions
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#general" class="md-nav__link">
-    General
-  </a>
-  
-    <nav class="md-nav" aria-label="General">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#which-version-of-nimbus-am-i-running" class="md-nav__link">
-    Which version of Nimbus am I running?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#why-are-metrics-not-working" class="md-nav__link">
-    Why are metrics not working?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#why-is-the-rest-server-not-working" class="md-nav__link">
-    Why is the REST server not working?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#why-does-my-validator-miss-two-epochs-of-attestations-after-restarting" class="md-nav__link">
-    Why does my validator miss two epochs of attestations after restarting?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#whats-the-best-way-to-stress-test-my-execution-consensus-setup-before-committing-with-real-eth" class="md-nav__link">
-    What's the best way to stress test my execution + consensus setup before committing with real ETH?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-do-i-add-an-additional-validator" class="md-nav__link">
-    How do I add an additional validator?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#what-does-syncedopt-mean-in-the-slot-start-message" class="md-nav__link">
-    What does synced/opt mean, in the "Slot start" message?
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#networking" class="md-nav__link">
-    Networking
-  </a>
-  
-    <nav class="md-nav" aria-label="Networking">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#how-can-i-improve-my-peer-count" class="md-nav__link">
-    How can I improve my peer count?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-do-i-fix-the-discovered-new-external-address-warning-log" class="md-nav__link">
-    How do I fix the discovered new external address warning log?
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#folder-permissions" class="md-nav__link">
-    Folder Permissions
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#validating" class="md-nav__link">
-    Validating
-  </a>
-  
-    <nav class="md-nav" aria-label="Validating">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#what-exactly-is-a-validator" class="md-nav__link">
-    What exactly is a validator?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#what-is-the-deposit-contract" class="md-nav__link">
-    What is the deposit contract?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#why-do-validators-need-to-have-funds-at-stake" class="md-nav__link">
-    Why do validators need to have funds at stake?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-much-eth-does-a-validator-need-to-stake" class="md-nav__link">
-    How much ETH does a validator need to stake?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#is-there-any-advantage-to-having-more-than-32-eth-at-stake" class="md-nav__link">
-    Is there any advantage to having more than 32 ETH at stake?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again" class="md-nav__link">
-    Can I stop my validator for a few days and then start it back up again?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed" class="md-nav__link">
-    I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#when-should-i-top-up-my-validators-balance" class="md-nav__link">
-    When should I top up my validator's balance?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing" class="md-nav__link">
-    When can I withdraw my funds, and what's the difference between exiting and withdrawing?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-are-validators-incentivized-to-stay-active-and-honest" class="md-nav__link">
-    How are validators incentivized to stay active and honest?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-are-rewardspenalties-issued" class="md-nav__link">
-    How are rewards/penalties issued?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-often-are-rewardspenalties-issued" class="md-nav__link">
-    How often are rewards/penalties issued?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-large-are-the-rewardspenalties" class="md-nav__link">
-    How large are the rewards/penalties?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#why-do-rewards-depend-on-the-total-number-of-validators-in-the-network" class="md-nav__link">
-    Why do rewards depend on the total number of validators in the network?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-badly-will-a-validator-be-penalized-for-being-offline" class="md-nav__link">
-    How badly will a validator be penalized for being offline?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable" class="md-nav__link">
-    How great does an honest validator's uptime need to be for it to be net profitable?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-much-will-a-validator-be-penalized-for-acting-maliciously" class="md-nav__link">
-    How much will a validator be penalized for acting maliciously?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#what-exactly-is-slashing" class="md-nav__link">
-    What exactly is slashing?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#what-happens-i-lose-my-signing-key" class="md-nav__link">
-    What happens I lose my signing key?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#what-happens-if-i-lose-my-withdrawal-key" class="md-nav__link">
-    What happens if I lose my withdrawal key?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#what-happens-if-my-withdrawal-key-is-stolen" class="md-nav__link">
-    What happens if my withdrawal key is stolen?
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#why-two-keys-instead-of-one" class="md-nav__link">
-    Why two keys instead of one?
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1865,8 +1928,29 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#can-i-run-nimbus-on-my-machine" class="md-nav__link">
+    Can I run Nimbus on my machine?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#im-currently-using-prysm-lighthouse-teku-how-do-i-migrate-to-nimbus" class="md-nav__link">
+    I'm currently using Prysm / Lighthouse / Teku, how do I migrate to Nimbus?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#which-version-of-nimbus-am-i-running" class="md-nav__link">
     Which version of Nimbus am I running?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-upgrade-nimbus-to-a-newer-version" class="md-nav__link">
+    How to upgrade Nimbus to a newer version?
   </a>
   
 </li>
@@ -1887,14 +1971,14 @@
         
           <li class="md-nav__item">
   <a href="#why-does-my-validator-miss-two-epochs-of-attestations-after-restarting" class="md-nav__link">
-    Why does my validator miss two epochs of attestations after restarting?
+    Why does my validator miss two epochs of attestations after (re)starting?
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#whats-the-best-way-to-stress-test-my-execution-consensus-setup-before-committing-with-real-eth" class="md-nav__link">
-    What's the best way to stress test my execution + consensus setup before committing with real ETH?
+  <a href="#what-is-the-best-way-to-stress-test-my-executionconsensus-setup-before-committing-with-real-eth" class="md-nav__link">
+    What is the best way to stress test my execution+consensus setup before committing with real ETH?
   </a>
   
 </li>
@@ -1909,6 +1993,27 @@
           <li class="md-nav__item">
   <a href="#what-does-syncedopt-mean-in-the-slot-start-message" class="md-nav__link">
     What does synced/opt mean, in the "Slot start" message?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#syncing-is-very-slow-can-this-be-sped-up" class="md-nav__link">
+    Syncing is very slow, can this be sped up?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-can-i-automate-running-my-beacon-node" class="md-nav__link">
+    How can I automate running my beacon node?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#folder-permissions" class="md-nav__link">
+    Folder Permissions
   </a>
   
 </li>
@@ -1946,13 +2051,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#folder-permissions" class="md-nav__link">
-    Folder Permissions
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#validating" class="md-nav__link">
     Validating
   </a>
@@ -1968,8 +2066,15 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#what-is-the-deposit-contract" class="md-nav__link">
-    What is the deposit contract?
+  <a href="#do-i-need-a-separate-validator-client" class="md-nav__link">
+    Do I need a separate validator client?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-a-deposit-contract" class="md-nav__link">
+    What is a deposit contract?
   </a>
   
 </li>
@@ -1998,6 +2103,13 @@
           <li class="md-nav__item">
   <a href="#can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again" class="md-nav__link">
     Can I stop my validator for a few days and then start it back up again?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-can-i-keep-track-of-my-validator" class="md-nav__link">
+    How can I keep track of my validator?
   </a>
   
 </li>
@@ -2139,6 +2251,11 @@
 
 <h1 id="frequently-asked-questions">Frequently Asked Questions</h1>
 <h2 id="general">General</h2>
+<h3 id="can-i-run-nimbus-on-my-machine">Can I run Nimbus on my machine?</h3>
+<p>Check our <a href="hardware.html">system requirements</a> and <a href="install.html">how to prepare your machine</a>.
+Note that it is also possible to <a href="pi-guide.html">run Nimbus on Raspberry Pi</a>.</p>
+<h3 id="im-currently-using-prysm-lighthouse-teku-how-do-i-migrate-to-nimbus">I'm currently using Prysm / Lighthouse / Teku, how do I migrate to Nimbus?</h3>
+<p>See our <a href="migration.html">migration guide</a>.</p>
 <h3 id="which-version-of-nimbus-am-i-running">Which version of Nimbus am I running?</h3>
 <p>You can check the version through a number of methods:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Run the beacon node with the --version flag:</span>
@@ -2150,8 +2267,10 @@
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Query the REST API - requires running with the &#39;--rest&#39; option</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>curl -s http://localhost:9100/eth/v1/node/version
 </code></pre></div>
+<h3 id="how-to-upgrade-nimbus-to-a-newer-version">How to upgrade Nimbus to a newer version?</h3>
+<p>See our <a href="keep-updated.html">upgrading guide</a>.</p>
 <h3 id="why-are-metrics-not-working">Why are metrics not working?</h3>
-<p>The metrics server is disabled by default
+<p>The metrics server is disabled by default.
 Enable it by passing <code>--metrics</code> to the run command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node --metrics ...
 </code></pre></div>
@@ -2160,14 +2279,14 @@ Enable it by passing <code>--metrics</code> to the run command:</p>
 Enable it by passing <code>--rest</code> to the run command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/nimbus_beacon_node --rest ...
 </code></pre></div>
-<h3 id="why-does-my-validator-miss-two-epochs-of-attestations-after-restarting">Why does my validator miss two epochs of attestations after restarting?</h3>
-<p>When a validator is started (or restarted) it prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself.</p>
-<p>In sum, it's a simple way of handling the case where one validator comes online with the same key as another validator that's already online (i.e. one device was started without switching the other off).</p>
-<p>While this strategy requires the client to wait two whole epochs on restart before attesting, a couple of missed attestations is a very minor price to pay in exchange for significantly reducing the risk of an accidental slashing.</p>
-<p>You can think of it as a small penalty that you pay only on first launch and restarts.
+<h3 id="why-does-my-validator-miss-two-epochs-of-attestations-after-restarting">Why does my validator miss two epochs of attestations after (re)starting?</h3>
+<p>When a validator is started (or restarted), it listens for 2 epochs for attestations from a validator with the same public key (a doppelganger), before sending an attestation itself.
+This is a simple way of handling the case where one validator comes online with the same key as another validator that's already online, e.g. one device was started without switching the other off.</p>
+<p>While this strategy requires the client to wait two whole epochs on restart before attesting, a couple of missed attestations is a very minor price to pay in exchange for significantly reducing the risk of an accidental slashing.
+You can think of it as a small penalty that you pay only on first launch and restarts.
 When you take into account the total runtime of your validator, the impact should be minimal.</p>
-<p>While we strongly recommend it, you can disable it with an explicit flag (<code>--doppelganger-detection=false</code>) if you don't plan on moving your setup.</p>
-<h3 id="whats-the-best-way-to-stress-test-my-execution-consensus-setup-before-committing-with-real-eth">What's the best way to stress test my execution + consensus setup before committing with real ETH?</h3>
+<p>While we strongly recommend against it, you can disable doppelganger detection with an explicit flag (<code>--doppelganger-detection=false</code>) if you don't plan on moving your setup.</p>
+<h3 id="what-is-the-best-way-to-stress-test-my-executionconsensus-setup-before-committing-with-real-eth">What is the best way to stress test my execution+consensus setup before committing with real ETH?</h3>
 <p>We recommend running <a href="quick-start.html">a Nimbus beacon node</a> on <a href="prater.html">Prater</a> and a mainnet <a href="eth1.html">execution client</a> on the same machine.
 This will simulate the load of running a mainnet validator.</p>
 <p>To stress test it, add <code>--subscribe-all-subnets</code> to the <a href="options.html">beacon node options</a>.
@@ -2177,6 +2296,23 @@ This simulates the maximum load that the consensus layer will put on the machine
 <h3 id="what-does-syncedopt-mean-in-the-slot-start-message">What does <code>synced/opt</code> mean, in the "Slot start" message?</h3>
 <p>When <code>/opt</code> is present in the "Slot start" message, it means the node is <a href="optimistic-sync.html">optimistically synced</a> and is waiting for the execution client to finish its syncing process.
 Until that happens, validator duties are disabled.</p>
+<h3 id="syncing-is-very-slow-can-this-be-sped-up">Syncing is very slow, can this be sped up?</h3>
+<p>A complete sync might take several hours or even days.
+We recommend you to do a <a href="trusted-node-sync.html">trusted node sync</a>, which takes only few minutes.</p>
+<h3 id="how-can-i-automate-running-my-beacon-node">How can I automate running my beacon node?</h3>
+<p>You can set up a systemd service.
+See <a href="beacon-node-systemd.html">our systemd guide</a>.</p>
+<h3 id="folder-permissions">Folder Permissions</h3>
+<p>To protect against key loss, Nimbus requires that files and directories be owned by the user running the application.
+Furthermore, they should not be readable by others.</p>
+<p>It may happen that the wrong permissions are applied, particularly when creating the directories manually.</p>
+<p>The following errors are a sign of this:</p>
+<ul>
+<li><code>Data folder has insecure ACL</code></li>
+<li><code>Data directory has insecure permissions</code></li>
+<li><code>File has insecure permissions</code></li>
+</ul>
+<p>See the <a href="data-dir.html#permissions">data directory page</a> for instructions on how to fix this.</p>
 <h2 id="networking">Networking</h2>
 <h3 id="how-can-i-improve-my-peer-count">How can I improve my peer count?</h3>
 <p>See <a href="networking.html">the networking guide</a>.</p>
@@ -2187,44 +2323,38 @@ Until that happens, validator duties are disabled.</p>
 <p>The first thing to do it to try relaunching the beacon node with <code>--enr-auto-update</code> (pass it as an option in the command line).</p>
 <p>If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection: you can use <a href="https://www.yougetsignal.com/tools/open-ports/">https://www.yougetsignal.com/tools/open-ports/</a>.
 Note that Nimbus <code>TCP</code> and <code>UDP</code> ports are both set to <code>9000</code> by default.</p>
-<p>See <a href="health.html#set-up-port-forwarding">here</a> for how to set up port forwarding.</p>
-<h2 id="folder-permissions">Folder Permissions</h2>
-<p>To protect against key loss, Nimbus requires that files and directories be owned by the user running the application.
-Furthermore, they should not be readable by others.</p>
-<p>It may happen that the wrong permissions are applied, particularly when creating the directories manually.</p>
-<p>The following errors are a sign of this:</p>
-<ul>
-<li><code>Data folder has insecure ACL</code></li>
-<li><code>Data directory has insecure permissions</code></li>
-<li><code>File has insecure permissions</code></li>
-</ul>
-<p>See the <a href="data-dir.html#permissions">data directory</a> page for instructions on how to fix this</p>
+<p>See <a href="networking.html#set-up-port-forwarding">here</a> for how to set up port forwarding.</p>
 <h2 id="validating">Validating</h2>
 <h3 id="what-exactly-is-a-validator">What exactly is a validator?</h3>
 <p>A validator is an entity that participates in the consensus of the Ethereum protocol, and has staked 32 ETH to do so.</p>
 <p>Or, in plain English, a human running a computer process.
 This process proposes and vouches for new blocks to be added to the blockchain.</p>
-<p>In other words, <strong>you can think of a validator as a voter for new blocks.</strong> The more votes a block gets, the more likely it is to be added to the chain.</p>
+<p>In other words, you can think of a validator as a voter for new blocks.
+The more votes a block gets, the more likely it is to be added to the chain.</p>
 <p>Importantly, a validator's vote is weighted by the amount it has at stake.</p>
-<h3 id="what-is-the-deposit-contract">What is the deposit contract?</h3>
+<h3 id="do-i-need-a-separate-validator-client">Do I need a separate validator client?</h3>
+<p>No, Nimbus doesn't require setting up a separate validator client process — the beacon node can itself perform validator duties.</p>
+<h3 id="what-is-a-deposit-contract">What is a deposit contract?</h3>
 <p>You can think of it as a transfer of funds between Ethereum 1.0 accounts and Ethereum 2.0 validators.</p>
 <p>It specifies who is staking, who is validating, how much is being staked, and who can withdraw the funds.</p>
 <h3 id="why-do-validators-need-to-have-funds-at-stake">Why do validators need to have funds at stake?</h3>
-<p>Validators need to have funds at stake so they can be penalized for behaving dishonestly.</p>
-<p>In other words, to keep them honest, their actions need to have financial consequences.</p>
+<p>Validators need to have funds at stake so they can be penalized for behaving dishonestly.
+In other words: to keep them honest, their actions need to have financial consequences.</p>
 <h3 id="how-much-eth-does-a-validator-need-to-stake">How much ETH does a validator need to stake?</h3>
 <p>Before a validator can start to secure the network, they need to stake <strong>32 ETH</strong>.
 This forms the validator's initial balance.</p>
 <h3 id="is-there-any-advantage-to-having-more-than-32-eth-at-stake">Is there any advantage to having more than 32 ETH at stake?</h3>
-<p>No.
-There is no advantage to having more than 32 ETH staked.</p>
+<p>No, there is no advantage to having more than 32 ETH staked.</p>
 <p>Limiting the maximum stake to 32 ETH encourages decentralization of power as it prevents any single validator from having an excessively large vote on the state of the chain.</p>
 <div class="admonition note">
 <p>Remember that a validator’s vote is weighted by the amount it has at stake.</p>
 </div>
 <h3 id="can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again">Can I stop my validator for a few days and then start it back up again?</h3>
-<p>Yes but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period.
+<p>You can, but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period.
 In other words, if you stood to earn ≈0.01 ETH, you would instead be penalized ≈0.01 ETH.</p>
+<h3 id="how-can-i-keep-track-of-my-validator">How can I keep track of my validator?</h3>
+<p>One way of keeping track is using an online service such as beaconcha.in: <a href="https://beaconcha.in/">Mainnet</a> or <a href="https://prater.beaconcha.in">Prater</a>.</p>
+<p>Another way is to set up <a href="validator-monitor.html">validator monitoring</a> together with a <a href="metrics-pretty-pictures.html">dashboard</a> to keep track of its performance.</p>
 <h3 id="i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed">I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?</h3>
 <p>We recommend waiting 2 epochs (around 15 minutes), before restarting Nimbus on a different machine.</p>
 <h3 id="when-should-i-top-up-my-validators-balance">When should I top up my validator's balance?</h3>
@@ -2235,8 +2365,7 @@ In other words, if you stood to earn ≈0.01 ETH, you would instead be penalized
 <p>After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use <code>0x01</code> withdrawal credentials will have their funds automatically withdrawn.
 Please see our dedicated <a href="withdrawals.html">guide for withdrawals</a> for further information.</p>
 <h3 id="how-are-validators-incentivized-to-stay-active-and-honest">How are validators incentivized to stay active and honest?</h3>
-<p>In addition to being penalized for being offline, validators are penalized for behaving maliciously.
-For example, attesting to invalid or contradicting blocks.</p>
+<p>In addition to being penalized for being offline, validators are penalized for behaving maliciously (for example, attesting to invalid or contradicting blocks).</p>
 <p>On the other hand, they are rewarded for proposing / attesting to blocks that are included in the chain.</p>
 <p>The key concept is the following:</p>
 <ul>
@@ -2259,11 +2388,11 @@ In other words, the total amount of validators.
 Depending on this figure the max annual return rate for a validator can be anywhere between 2 and 20%.</p>
 <p>Given a fixed total number of validators, the rewards/penalties predominantly scale with the balance of the validator: attesting with a higher balance results in larger rewards/penalties whereas attesting with a lower balance results in lower rewards/penalties.</p>
 <p>Note however that this scaling mechanism works in a non-obvious way.
-To understand the precise details of how it works requires understanding a concept called <strong>effective balance</strong>.
+To understand the precise details of how it works requires understanding a concept called <em>effective balance</em>.
 If you're not yet familiar with this concept, we recommend you read through this <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/">excellent post</a>.</p>
 <h3 id="why-do-rewards-depend-on-the-total-number-of-validators-in-the-network">Why do rewards depend on the total number of validators in the network?</h3>
 <p>Block rewards are calculated using a sliding scale based on the total amount of ETH staked on the network.</p>
-<p>In plain english: if the total amount of ETH staked is low, the reward (interest rate) is high, but as the total stake rises, the reward (interest) paid out to each validator starts to fall.</p>
+<p>In plain English: if the total amount of ETH staked is low, the reward (interest rate) is high, but as the total stake rises, the reward (interest) paid out to each validator starts to fall.</p>
 <p>Why a sliding scale?
 While we won't get into the gory details here, the basic intuition is that there needs to be a minimum number of validators (and hence a minimum amount of ETH staked) for the network to function properly.
 So, to incentivize more validators to join, it's important that the interest rate remains high until this minimum number is reached.</p>
@@ -2284,7 +2413,7 @@ After 21 days they are ejected out of the validator pool.
 This ensures that blocks start finalizing again at some point.</p>
 <h3 id="how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable">How great does an honest validator's uptime need to be for it to be net profitable?</h3>
 <p>Overall, validators are expected to be net profitable as long as their uptime is <a href="https://blog.ethereum.org/2020/01/13/validated-staking-on-eth2-1-incentives/">greater than 50%</a>.</p>
-<p>This means that validators need not go to extreme lengths with backup clients or redundant internet connections as the repercussions of being offline are not so severe.</p>
+<p>This means that validators don't need to go to extreme lengths with backup clients or redundant internet connections as the repercussions of being offline are not so severe.</p>
 <h3 id="how-much-will-a-validator-be-penalized-for-acting-maliciously">How much will a validator be penalized for acting maliciously?</h3>
 <p>Again, it depends.
 Behaving maliciously, e.g. attesting to invalid or contradicting blocks, will lead to a validator's stake being slashed.</p>
@@ -2345,7 +2474,7 @@ Since anything online is vulnerable to being hacked, it's not a good idea to use
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="troubleshooting.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Troubleshooting" rel="prev">
+        <a href="distribution_internals.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Binary distribution internals" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -2354,20 +2483,20 @@ Since anything online is vulnerable to being hacked, it's not a good idea to use
               <span class="md-footer__direction">
                 Previous
               </span>
-              Troubleshooting
+              Binary distribution internals
             </div>
           </div>
         </a>
       
       
         
-        <a href="developers.html" class="md-footer__link md-footer__link--next" aria-label="Next: For Developers" rel="next">
+        <a href="hardware.html" class="md-footer__link md-footer__link--next" aria-label="Next: System requirements" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              For Developers
+              System requirements
             </div>
           </div>
           <div class="md-footer__button md-icon">

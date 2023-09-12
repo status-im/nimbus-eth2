@@ -250,7 +250,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="hardware.html" class="md-tabs__link md-tabs__link--active">
+      <a href="faq.html" class="md-tabs__link md-tabs__link--active">
         Reference
       </a>
     </li>
@@ -911,6 +911,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="holesky.html" class="md-nav__link">
+        Holešky testnet
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1050,6 +1064,20 @@
   
   
     <li class="md-nav__item">
+      <a href="faq.html" class="md-nav__link">
+        Frequently Asked Questions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="hardware.html" class="md-nav__link">
         System requirements
       </a>
@@ -1067,18 +1095,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_2" type="checkbox" id="__nav_5_2" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_2">
+        <label class="md-nav__link" for="__nav_5_3">
           Advanced options
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Advanced options" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_2">
+        <label class="md-nav__title" for="__nav_5_3">
           <span class="md-nav__icon md-icon"></span>
           Advanced options
         </label>
@@ -1212,18 +1240,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_3">
+        <label class="md-nav__link" for="__nav_5_4">
           REST APIs
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="REST APIs" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_3">
+        <label class="md-nav__title" for="__nav_5_4">
           <span class="md-nav__icon md-icon"></span>
           REST APIs
         </label>
@@ -1273,18 +1301,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_5" type="checkbox" id="__nav_5_5" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_4">
+        <label class="md-nav__link" for="__nav_5_5">
           Storage
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Storage" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_4">
+        <label class="md-nav__title" for="__nav_5_5">
           <span class="md-nav__icon md-icon"></span>
           Storage
         </label>
@@ -1437,20 +1465,6 @@
     <li class="md-nav__item">
       <a href="troubleshooting.html" class="md-nav__link">
         Troubleshooting
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="faq.html" class="md-nav__link">
-        Frequently Asked Questions
       </a>
     </li>
   
@@ -1642,8 +1656,18 @@
 <h1 id="web3signer">Web3Signer</h1>
 <p><a href="https://docs.web3signer.consensys.net/en/latest/">Web3Signer</a> is a remote signing server developed by Consensys.
 It offers a <a href="https://consensys.github.io/web3signer/web3signer-eth2.html">standardized REST API</a> allowing the Nimbus beacon node or validator client to operate without storing any validator keys locally.</p>
-<p>Remote validators can be permanently added to a Nimbus installation (or more precisely to a particular <a href="data-dir.html">data directory</a>) either on-the-fly through the <a href="https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys"><code>POST /eth/v1/remotekeys</code></a> request when the <a href="keymanager-api.html">Keymanager API</a> is enabled or by manually creating a remote keystore file within the <a href="data-dir.html#secrets-and-validators">validators directory</a> of the client which will be loaded upon the next restart.</p>
-<p>Here is an example <code>remote_keystore.json</code> file:</p>
+<p>You can instruct Nimbus to connect to a Web3Signer instance by supplying the <code>--web3-signer-url</code> command-line option. Since Nimbus obtains the list of validator keys automatically through the <a href="https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST"><code>/api/v1/eth2/publicKeys</code></a> Web3Signer API endpoint, no further configuration is required.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>By default, the list of validators will be refreshed once per hour. You can change the number of seconds between two updates with the <code>--web3signer-update-interval</code> command-line option.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can use multiple Web3Signer instances by specifying the <code>--web3-signer-url</code> parameter multiple times.</p>
+</div>
+<p>Alternatively, if you prefer not to depend on the automatic validator discovery mechanism or wish to take advantage of the advanced configurations described below, you have the option to permanently add multiple remote validators to a particular Nimbus data directory. This can be accomplished in two ways:</p>
+<p><strong>On-the-fly Addition</strong>: Utilize the <a href="https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys"><code>POST /eth/v1/remotekeys</code></a> request when the Keymanager API is enabled. This allows you to dynamically add and remove remote validators as needed.</p>
+<p><strong>Manual Configuration</strong>: You can manually create a remote keystore file within the <a href="data-dir.html#secrets-and-validators">validators directory</a> of the client. This configuration will be loaded during the next restart of the client. Here is an example <code>remote_keystore.json</code> file:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>{
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  &quot;version&quot;: 3,
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  &quot;description&quot;: &quot;This is simple remote keystore file&quot;,
@@ -1665,7 +1689,7 @@ It offers a <a href="https://consensys.github.io/web3signer/web3signer-eth2.html
 <li><code>remote</code> - An URL of a remote signing server.</li>
 <li><code>remotes</code> - A <a href="#distributed-keystores">distributed keystore</a> configuration including two or more remote signing servers.</li>
 <li><code>ignore_ssl_verification</code> - An optional boolean flag allowing the use of self-signed certificates by the signing server.</li>
-<li><code>proven_block_properties</code> - When the <code>verifying-web3signer</code> type is used, this is a list of locations withing the SSZ block body for which the block signing requests will contain additional merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the <code>fee_recipient</code> value).</li>
+<li><code>proven_block_properties</code> - When the <code>verifying-web3signer</code> type is used, this is a list of locations withing the SSZ block body for which the block signing requests will contain additional Merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the <code>fee_recipient</code> value).</li>
 </ol>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
@@ -1747,7 +1771,7 @@ Naturally, this value must be lower than the total number of specified remote si
 The described implementation may be incomplete and is subject to change in future releases.</p>
 </div>
 <p>The verifying Web3Signer is an experimental extension to the <a href="https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN">Web3Signer protocol</a> which allows the remote signer to verify certain details of the signed blocks before creating a signature (for example, the signer may require the signed block to have a particular fee recipient value).</p>
-<p>To enable this use case, the <code>BLOCK_V2</code> request type of the <code>/api/v1/eth2/sign/{identifier}</code> endpoint is extended with an additional array field named <code>proofs</code>. The array consists of objects with the properties <code>index</code>, <code>proof</code> and <code>value</code>, where <code>index</code> is an arbitrary <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/ssz/merkle-proofs.md#generalized-merkle-tree-index">generalized index</a> of any property nested under the block body and <code>proof</code> is its corresponding merkle proof against the block body root included in the request. The <code>value</code> property is optional and it is included only when the SSZ hash of the field included in the merkle proof doesn't match its value.</p>
+<p>To enable this use case, the <code>BLOCK_V2</code> request type of the <code>/api/v1/eth2/sign/{identifier}</code> endpoint is extended with an additional array field named <code>proofs</code>. The array consists of objects with the properties <code>index</code>, <code>proof</code> and <code>value</code>, where <code>index</code> is an arbitrary <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/ssz/merkle-proofs.md#generalized-merkle-tree-index">generalized index</a> of any property nested under the block body and <code>proof</code> is its corresponding Merkle proof against the block body root included in the request. The <code>value</code> property is optional and it is included only when the SSZ hash of the field included in the Merkle proof doesn't match its value.</p>
 <p>Since the generalized index of a particular field may change in a hard-fork, in the remote keystore format the proven fields are usually specified by their name:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>{
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  &quot;version&quot;: 3,
@@ -1763,7 +1787,7 @@ The described implementation may be incomplete and is subject to change in futur
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>}
 </code></pre></div>
 <p>Nimbus automatically computes the generalized index depending on the currently active fork.
-The remote signer is expected to verify the incoming merkle proof through the standardized <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch">is_valid_merkle_branch</a> function by utilizing a similar automatic mapping mechanism for the generalized index.</p>
+The remote signer is expected to verify the incoming Merkle proof through the standardized <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch">is_valid_merkle_branch</a> function by utilizing a similar automatic mapping mechanism for the generalized index.</p>
 
               
             </article>

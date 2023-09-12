@@ -250,7 +250,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="hardware.html" class="md-tabs__link">
+      <a href="faq.html" class="md-tabs__link">
         Reference
       </a>
     </li>
@@ -1018,6 +1018,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="holesky.html" class="md-nav__link">
+        Holešky testnet
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1155,6 +1169,20 @@
   
   
     <li class="md-nav__item">
+      <a href="faq.html" class="md-nav__link">
+        Frequently Asked Questions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="hardware.html" class="md-nav__link">
         System requirements
       </a>
@@ -1172,18 +1200,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_2" type="checkbox" id="__nav_5_2" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_2">
+        <label class="md-nav__link" for="__nav_5_3">
           Advanced options
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Advanced options" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_2">
+        <label class="md-nav__title" for="__nav_5_3">
           <span class="md-nav__icon md-icon"></span>
           Advanced options
         </label>
@@ -1317,18 +1345,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_3">
+        <label class="md-nav__link" for="__nav_5_4">
           REST APIs
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="REST APIs" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_3">
+        <label class="md-nav__title" for="__nav_5_4">
           <span class="md-nav__icon md-icon"></span>
           REST APIs
         </label>
@@ -1378,18 +1406,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_5" type="checkbox" id="__nav_5_5" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_4">
+        <label class="md-nav__link" for="__nav_5_5">
           Storage
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Storage" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_4">
+        <label class="md-nav__title" for="__nav_5_5">
           <span class="md-nav__icon md-icon"></span>
           Storage
         </label>
@@ -1494,20 +1522,6 @@
     <li class="md-nav__item">
       <a href="troubleshooting.html" class="md-nav__link">
         Troubleshooting
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="faq.html" class="md-nav__link">
-        Frequently Asked Questions
       </a>
     </li>
   
@@ -1752,11 +1766,12 @@
 
 
 <h1 id="sync-from-a-trusted-node">Sync from a trusted node</h1>
-<p>When you <a href="quick-start.html">start the beacon node</a> for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take <strong>several hours</strong> or even days.</p>
+<p>When you <a href="quick-start.html">start the beacon node</a> for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take <strong>several hours or even days</strong>.</p>
 <p>Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in <strong>minutes</strong> instead of hours or days.</p>
 <p>To use trusted node sync, you must have access to a node that you trust and that exposes the <a href="rest-api.html">Beacon API</a> (for example, a locally running backup node).
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.</p>
-<p>It is possible to use trusted node sync with a third-party API provider — see <a href="trusted-node-sync.html#verify-you-synced-the-correct-chain">here</a> for how to verify that the chain you are given corresponds to the canonical chain at the time.</p>
+<p>It is possible to use trusted node sync with a third-party API provider.
+See <a href="trusted-node-sync.html#verify-you-synced-the-correct-chain">here</a> for how to verify that the chain you are given corresponds to the canonical chain at the time.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>A list of community-operated checkpoint sync nodes can be found <a href="https://eth-clients.github.io/checkpoint-sync-endpoints/">here</a>.
@@ -1771,7 +1786,7 @@ Which means you would run the commands below with <code>--trusted-node-url=http:
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The path specified for <code>--data-dir</code> must be an empty directory as trusted node sync needs to be started from a fresh database.</p>
+<p>The path specified for <code>--data-dir</code> must be an empty directory, as trusted node sync needs to be started from a fresh database.</p>
 </div>
 <p>To start trusted node sync, run:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label></div>
@@ -1784,9 +1799,10 @@ Which means you would run the commands below with <code>--trusted-node-url=http:
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node trustedNodeSync --network:prater <span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>--data-dir<span class="o">=</span>build/data/shared_prater_0  <span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>--trusted-node-url<span class="o">=</span>http://localhost:5052
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node trustedNodeSync <span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  --network:prater <span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  --data-dir<span class="o">=</span>build/data/shared_prater_0 <span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  --trusted-node-url<span class="o">=</span>http://localhost:5052
 </code></pre></div>
 </div>
 </div>
@@ -1858,13 +1874,13 @@ While you can choose a different sync point using a state hash or a slot number,
 <h3 id="sync-from-checkpoint-files">Sync from checkpoint files</h3>
 <p>If you have a state file available, you can start the node using the <code>--finalized-checkpoint-state</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Obtain a state and a block from a Beacon API - these must be in SSZ format:</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>curl -o state.32000.ssz <span class="se">\</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>curl -o state.finalized.ssz <span class="se">\</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  -H <span class="s1">&#39;Accept: application/octet-stream&#39;</span> <span class="se">\</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  http://localhost:5052/eth/v2/debug/beacon/states/32000
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  http://localhost:5052/eth/v2/debug/beacon/states/finalized
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># Start the beacon node using the downloaded state as starting point</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>./run-mainnet-beacon-node.sh <span class="se">\</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>  --finalized-checkpoint-state<span class="o">=</span>state.32000.ssz
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>  --finalized-checkpoint-state<span class="o">=</span>state.finalized.ssz
 </code></pre></div>
 <h2 id="recreate-historical-state-access-indices">Recreate historical state access indices</h2>
 <p>When performing trusted node sync, the historical state data from the time before the trusted is not available.

@@ -8,14 +8,14 @@
       
       
       
-        <link rel="canonical" href="https://nimbus.guide/suggested-fee-recipient.html">
+        <link rel="canonical" href="https://nimbus.guide/holesky.html">
       
       <link rel="icon" href="assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
     
     
       
-        <title>Set up suggested fee recipient - The Nimbus Guide</title>
+        <title>Holešky testnet - The Nimbus Guide</title>
       
     
     
@@ -66,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#set-up-suggested-fee-recipient" class="md-skip">
+        <a href="#holesky-testnet" class="md-skip">
           Skip to content
         </a>
       
@@ -99,7 +99,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Set up suggested fee recipient
+              Holešky testnet
             
           </span>
         </div>
@@ -592,14 +592,12 @@
               
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_2" type="checkbox" id="__nav_3_2" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_2" type="checkbox" id="__nav_3_2" checked>
       
       
       
@@ -634,66 +632,11 @@
               
   
   
-    
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          Set up suggested fee recipient
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="suggested-fee-recipient.html" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="suggested-fee-recipient.html" class="md-nav__link">
         Set up suggested fee recipient
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#setting-the-fee-recipient" class="md-nav__link">
-    Setting the fee recipient
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#command-line" class="md-nav__link">
-    Command line
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#logs" class="md-nav__link">
-    Logs
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -794,12 +737,14 @@
               
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_3" type="checkbox" id="__nav_3_3" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_3" type="checkbox" id="__nav_3_3" checked>
       
       
       
@@ -974,11 +919,73 @@
               
   
   
+    
   
-    <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Holešky testnet
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="holesky.html" class="md-nav__link md-nav__link--active">
         Holešky testnet
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-preparation" class="md-nav__link">
+    General Preparation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sync-the-beacon-node-and-execution-client" class="md-nav__link">
+    Sync the beacon node and execution client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#obtaining-genesis-file-optional" class="md-nav__link">
+    Obtaining genesis file (optional)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#begin-validating" class="md-nav__link">
+    Begin validating
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1631,22 +1638,29 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#setting-the-fee-recipient" class="md-nav__link">
-    Setting the fee recipient
+  <a href="#general-preparation" class="md-nav__link">
+    General Preparation
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#command-line" class="md-nav__link">
-    Command line
+  <a href="#sync-the-beacon-node-and-execution-client" class="md-nav__link">
+    Sync the beacon node and execution client
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#logs" class="md-nav__link">
-    Logs
+  <a href="#obtaining-genesis-file-optional" class="md-nav__link">
+    Obtaining genesis file (optional)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#begin-validating" class="md-nav__link">
+    Begin validating
   </a>
   
 </li>
@@ -1663,59 +1677,91 @@
             <article class="md-content__inner md-typeset">
               
                 
-  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/suggested-fee-recipient.md" title="Edit this page" class="md-content__button md-icon">
+  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/holesky.md" title="Edit this page" class="md-content__button md-icon">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
   </a>
 
 
 
-<h1 id="set-up-suggested-fee-recipient">Set up suggested fee recipient</h1>
-<p>The fee recipient is an Ethereum address that receives transaction fees from block production, separately from the proposer reward that accrues on the beacon chain.</p>
-<p>The fee recipient is forwarded to the execution client during block production.
-Each validator can have its own fee recipient set or a single recipient may be used.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>The execution client is not required to follow the fee recipient suggestion and may instead send the fees to a different address — only use execution clients you trust!</p>
-</div>
-<h2 id="setting-the-fee-recipient">Setting the fee recipient</h2>
-<p>Nimbus supports setting fee recipient per validator, or using defaults in both the validator client and beacon node.</p>
-<p>Per-validator fee recipients are set using the <a href="keymanager-api.html">keymanager API</a>.</p>
-<p>Any validator without a per-validator recipient set will fall back to the <code>--suggested-fee-recipient</code> option if configured or the withdrawal address of the validator.
-For each validator, it selects from the first available, in the following order:</p>
+<h1 id="holesky-testnet">Holešky testnet</h1>
+<p><code>holesky</code> will be launched on 15h of September to succeed Prater as the main long-running Ethereum testnet.</p>
+<p>It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practice node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups.
+If you come across any issues, please <a href="https://github.com/status-im/nimbus-eth2/issues">report them here</a>.</p>
+<h2 id="general-preparation">General Preparation</h2>
 <ol>
-<li>The keymanager API per-validator suggested fee recipient</li>
-<li><code>--suggested-fee-recipient</code> in the validator client</li>
-<li><code>--suggested-fee-recipient</code> in the beacon node</li>
-<li>If the validator has an associated <a href="withdrawals.html">withdrawal address</a>, it will be used a final fallback option.</li>
+<li>
+<p>Generate the JWT secret with <code>openssl rand -hex 32 | tr -d "\n" &gt; "/opt/jwtsecret"</code>. This file needs to be passed to both the execution client and the consensus client.</p>
+</li>
+<li>
+<p>Choose an Ethereum address to receive transaction fees.
+   This ETH will be immediately available, not part of the staking contract.</p>
+</li>
+<li>
+<p>Download the <a href="binaries.html">latest release</a> and install it by unpacking the archive.</p>
+</li>
+<li>
+<p>Choose one of Nethermind, Besu, Erigon, or Geth as an execution client.
+   Download, install, and <a href="https://notes.ethereum.org/@launchpad/goerli#Run-an-Execution-Layer-Client">run it</a>.</p>
+</li>
 </ol>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If none of the above are present, the transaction fees are sent to the zero address, effectively causing them to be lost.</p>
+<p>For example, Nethermind on Goerli can run via:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span> nethermind/src/Nethermind/Nethermind.Runner
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>dotnet run -c Release -- --config holesky <span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>--JsonRpc.Host<span class="o">=</span><span class="m">0</span>.0.0.0 <span class="se">\</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>--JsonRpc.JwtSecretFile<span class="o">=</span>/opt/jwtsecret
+</code></pre></div></p>
+<p>Erigon can be run using:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./build/bin/erigon --chain<span class="o">=</span>holesky <span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>--datadir goerli-testnet <span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>--authrpc.jwtsecret<span class="o">=</span>/opt/jwtsecret <span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>--http --http.api<span class="o">=</span>engine,net,eth
+</code></pre></div></p>
+<p>and Besu can be run with the command:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/install/besu/bin/besu     <span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  --network<span class="o">=</span>holesky             <span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  --rpc-http-enabled<span class="o">=</span><span class="nb">true</span>       <span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  --rpc-http-host<span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span>     <span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  --rpc-http-cors-origins<span class="o">=</span><span class="s2">&quot;*&quot;</span>   <span class="se">\</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  --sync-mode<span class="o">=</span><span class="s2">&quot;X_SNAP&quot;</span>          <span class="se">\</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>  --data-storage-format<span class="o">=</span><span class="s2">&quot;BONSAI&quot;</span><span class="se">\</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>  --Xmerge-support<span class="o">=</span><span class="nb">true</span>         <span class="se">\</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>  --rpc-ws-host<span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span>       <span class="se">\</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  --host-allowlist<span class="o">=</span><span class="s2">&quot;*&quot;</span>          <span class="se">\</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>  --engine-rpc-enabled<span class="o">=</span><span class="nb">true</span>     <span class="se">\</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>  --engine-host-allowlist<span class="o">=</span><span class="s2">&quot;*&quot;</span>   <span class="se">\</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>  --engine-jwt-enabled<span class="o">=</span><span class="nb">true</span>     <span class="se">\</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>  --engine-jwt-secret<span class="o">=</span>/opt/jwtsecret
+</code></pre></div></p>
+<h2 id="sync-the-beacon-node-and-execution-client">Sync the beacon node and execution client</h2>
+<ol>
+<li><a href="start-syncing.html">Start syncing</a> the node consisting of Nimbus and chosen execution client, for example by running:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>nimbus-eth2/build/nimbus_beacon_node <span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    --network<span class="o">=</span>holesky <span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    --web3-url<span class="o">=</span>http://127.0.0.1:8551 <span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    --rest <span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    --metrics <span class="se">\</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    --jwt-secret<span class="o">=</span><span class="s2">&quot;/opt/jwtsecret&quot;</span> <span class="se">\</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    --suggested-fee-recipient<span class="o">=</span>&lt;Enter-eth-address-here&gt;
+</code></pre></div></li>
+</ol>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you want the syncing process to complete much faster, you can <a href="trusted-node-sync.html">sync from a trusted node</a>.</p>
 </div>
-<p>For example, <code>nimbus_beacon_node --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842</code> suggests to the execution client that <code>0x70E47C843E0F6ab0991A3189c28F2957eb6d3842</code> might be the coinbase.
-If this Nimbus node has two validators, one of which has its own suggested fee recipient via the keymanager API and the other does not, the former would use its own per-validator suggested fee recipient, while the latter would fall back to <code>0x70E47C843E0F6ab0991A3189c28F2957eb6d3842</code>.</p>
-<h2 id="command-line">Command line</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label><label for="__tabbed_1_3">Validator Client</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-mainnet-beacon-node.sh --suggested-fee-recipient<span class="o">=</span>0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./run-prater-beacon-node.sh --suggested-fee-recipient<span class="o">=</span>0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./nimbus_validator_client --suggested-fee-recipient<span class="o">=</span>0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
-</code></pre></div>
-</div>
-</div>
-</div>
-<h2 id="logs">Logs</h2>
-<p>The configured fee recipient for every validator is logged at startup:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>NOT 2022-11-10 08:27:02.530+01:00 Local validator attached ...
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    initial_fee_recipient=70E47C843E0F6ab0991A3189c28F2957eb6d3842
-</code></pre></div>
+<p>One might consider here to <a href="beacon-node-systemd.html">set up a systemd service</a> to ensure this runs automatically, including after restarts.</p>
+<h2 id="obtaining-genesis-file-optional">Obtaining genesis file (optional)</h2>
+<p>By default, Nimbus will automatically download the genesis state of Holešky from Github through the HTTPS protocol. If something prevents you from using this method, you may be able to work-around the issue by either instructing Nimbus to use a different URL by specifying the <code>--genesis-state-url</code> command-line parameter (for example, you can point it to the <code>/eth/v2/debug/beacon/states/genesis</code> endpoint of a trusted beacon node or a checkpoint provider) or by downloading the <code>genesis.ssz</code> file of the network through some other means and then supplying its path through the <code>--genesis-state</code> command-line parameter.</p>
+<h2 id="begin-validating">Begin validating</h2>
+<ol>
+<li>
+<p>Once this Holešky node is <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a>, use the <a href="https://holesky.launchpad.ethereum.org/en/">Holesky launchpad</a> to obtain Holesky validators.
+It might require some time before these enter and are activated on the beacon chain.
+If one does this before the node which will attest and propose using those validators has synced, one might miss attestations and block proposals.</p>
+</li>
+<li>
+<p>Follow our validating guide from <a href="run-a-validator.html#2-import-your-validator-keys">step 2 (import the validator keys) onward</a>.</p>
+</li>
+</ol>
 
               
             </article>
@@ -1738,7 +1784,7 @@ If this Nimbus node has two validators, one of which has its own suggested fee r
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="graffiti.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Set up Graffiti" rel="prev">
+        <a href="prater.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Prater testnet" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -1747,20 +1793,20 @@ If this Nimbus node has two validators, one of which has its own suggested fee r
               <span class="md-footer__direction">
                 Previous
               </span>
-              Set up Graffiti
+              Prater testnet
             </div>
           </div>
         </a>
       
       
         
-        <a href="external-block-builder.html" class="md-footer__link md-footer__link--next" aria-label="Next: Set up block builders / MEV" rel="next">
+        <a href="preparation.html" class="md-footer__link md-footer__link--next" aria-label="Next: Mainnet checklist" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              Set up block builders / MEV
+              Mainnet checklist
             </div>
           </div>
           <div class="md-footer__button md-icon">

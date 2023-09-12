@@ -250,7 +250,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="hardware.html" class="md-tabs__link md-tabs__link--active">
+      <a href="faq.html" class="md-tabs__link md-tabs__link--active">
         Reference
       </a>
     </li>
@@ -911,6 +911,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="holesky.html" class="md-nav__link">
+        Holešky testnet
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1050,6 +1064,20 @@
   
   
     <li class="md-nav__item">
+      <a href="faq.html" class="md-nav__link">
+        Frequently Asked Questions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="hardware.html" class="md-nav__link">
         System requirements
       </a>
@@ -1067,18 +1095,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_2" type="checkbox" id="__nav_5_2" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_2">
+        <label class="md-nav__link" for="__nav_5_3">
           Advanced options
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Advanced options" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_2">
+        <label class="md-nav__title" for="__nav_5_3">
           <span class="md-nav__icon md-icon"></span>
           Advanced options
         </label>
@@ -1212,18 +1240,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_3" type="checkbox" id="__nav_5_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_3">
+        <label class="md-nav__link" for="__nav_5_4">
           REST APIs
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="REST APIs" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_3">
+        <label class="md-nav__title" for="__nav_5_4">
           <span class="md-nav__icon md-icon"></span>
           REST APIs
         </label>
@@ -1273,18 +1301,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_4" type="checkbox" id="__nav_5_4" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_5" type="checkbox" id="__nav_5_5" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_5_4">
+        <label class="md-nav__link" for="__nav_5_5">
           Storage
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Storage" data-md-level="2">
-        <label class="md-nav__title" for="__nav_5_4">
+        <label class="md-nav__title" for="__nav_5_5">
           <span class="md-nav__icon md-icon"></span>
           Storage
         </label>
@@ -1389,20 +1417,6 @@
     <li class="md-nav__item">
       <a href="troubleshooting.html" class="md-nav__link">
         Troubleshooting
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="faq.html" class="md-nav__link">
-        Frequently Asked Questions
       </a>
     </li>
   
@@ -1935,7 +1949,7 @@ This helps ensure that the correct version of Nim is used and that all dependenc
 </li>
 <li>
 <p>build a specific tool:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make state_sim
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make block_sim
 </code></pre></div></p>
 </li>
 <li>
@@ -2035,8 +2049,8 @@ Usually 1 - 100, but can be higher on multi-core CPUs.</p>
 It runs without networking and blocks are processed without slot time delays.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># build the state simulator, then display its help (&quot;-d:release&quot; speeds it</span>
 <a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="c1"># up substantially, allowing the simulation of longer runs in reasonable time)</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span> state_sim
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>build/state_sim --help
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span> block_sim
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>build/block_sim --help
 </code></pre></div>
 <p>Use the output of the <code>help</code> command to pass desired values to the simulator.
 Experiment with changing the number of slots, validators, etc. to get different results.</p>
@@ -2045,10 +2059,9 @@ Experiment with changing the number of slots, validators, etc. to get different 
 <li><code>slots</code>: the number of slots to run the simulation for (default 192)</li>
 <li><code>validators</code>: the number of validators (default 6400)</li>
 <li><code>attesterRatio</code>: the expected fraction of attesters that actually do their work for every slot (default 0.73)</li>
-<li><code>json_interval</code>: how often JSON snapshots of the state are outputted (default every 32 slots -- or once per epoch)</li>
 </ul>
-<p>For example, to run the state simulator for 384 slots, with 20,000 validators, and an average of 66% of attesters doing their work every slot, while outputting snapshots of the state twice per epoch, run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>build/state_sim --slots=384 --validators=20000 --attesterRatio=0.66 --json_interval=16
+<p>For example, to run the block simulator for 384 slots, with 20,000 validators, and an average of 66% of attesters doing their work every slot, run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>build/block_sim --slots=384 --validators=20000 --attesterRatio=0.66
 </code></pre></div>
 
               
@@ -2072,7 +2085,7 @@ Experiment with changing the number of slots, validators, etc. to get different 
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="faq.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Frequently Asked Questions" rel="prev">
+        <a href="troubleshooting.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Troubleshooting" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -2081,7 +2094,7 @@ Experiment with changing the number of slots, validators, etc. to get different 
               <span class="md-footer__direction">
                 Previous
               </span>
-              Frequently Asked Questions
+              Troubleshooting
             </div>
           </div>
         </a>
