@@ -258,7 +258,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidValidatorIdValueError)
         let ires = id.get()
         if len(ires) > ServerMaximumValidatorIds:
-          return RestApiResponse.jsonError(Http400,
+          return RestApiResponse.jsonError(Http414,
                                            MaximumNumberOfValidatorIdsError)
         ires
 
@@ -861,8 +861,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         var
           restBlock = decodeBody(RestPublishedSignedBlockContents, body,
                                  version).valueOr:
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                             $error)
+            return RestApiResponse.jsonError(error)
           forked = ForkedSignedBeaconBlock.init(restBlock)
 
         if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
@@ -923,8 +922,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         var
           restBlock = decodeBodyJsonOrSsz(RestPublishedSignedBlockContents,
                                           body, version).valueOr:
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                             $error)
+            return RestApiResponse.jsonError(error)
           forked = ForkedSignedBeaconBlock.init(restBlock)
 
         # TODO (henridf): handle broadcast_validation flag
@@ -989,19 +987,38 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       version = request.headers.getString("eth-consensus-version")
       body = contentBody.get()
 
-    if  body.contentType == OctetStreamMediaType and
-        currentEpochFork.toString != version:
+    if (body.contentType == OctetStreamMediaType) and
+       (currentEpochFork.toString != version):
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     case currentEpochFork
     of ConsensusFork.Deneb:
-      return RestApiResponse.jsonError(Http500, $denebImplementationMissing)
+      let
+        restBlock = decodeBodyJsonOrSsz(deneb_mev.SignedBlindedBeaconBlock,
+                                        body).valueOr:
+          return RestApiResponse.jsonError(error)
+
+        payloadBuilderClient = node.getPayloadBuilderClient(
+            restBlock.message.proposer_index).valueOr:
+          return RestApiResponse.jsonError(
+            Http400, "Unable to initialize payload builder client: " & $error)
+        res = await node.unblindAndRouteBlockMEV(
+          payloadBuilderClient, restBlock)
+
+      if res.isErr():
+        return RestApiResponse.jsonError(
+          Http503, BeaconNodeInSyncError, $res.error())
+      if res.get().isNone():
+        return RestApiResponse.jsonError(Http202, BlockValidationError)
+
+      return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
     of ConsensusFork.Capella:
       let
-        restBlock = decodeBodyJsonOrSsz(
-            capella_mev.SignedBlindedBeaconBlock, body).valueOr:
-          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                           $error)
+        restBlock =
+          decodeBodyJsonOrSsz(capella_mev.SignedBlindedBeaconBlock,
+                              body).valueOr:
+          return RestApiResponse.jsonError(error)
+
         payloadBuilderClient = node.getPayloadBuilderClient(
             restBlock.message.proposer_index).valueOr:
           return RestApiResponse.jsonError(
@@ -1017,7 +1034,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
     of ConsensusFork.Bellatrix:
-      return RestApiResponse.jsonError(Http400, "FOO")
+      return RestApiResponse.jsonError(Http400,
+                                       "Bellatrix builder API unsupported")
     of ConsensusFork.Altair, ConsensusFork.Phase0:
       # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
       #
@@ -1026,8 +1044,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var
         restBlock = decodeBody(RestPublishedSignedBeaconBlock, body,
                                version).valueOr:
-          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                           $error)
+          return RestApiResponse.jsonError(error)
         forked = ForkedSignedBeaconBlock(restBlock)
 
       if forked.kind != node.dag.cfg.consensusForkAtEpoch(

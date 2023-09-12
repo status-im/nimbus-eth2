@@ -15,7 +15,7 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/ethtypes,
+  stew/base10, web3/ethtypes, httputils,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
   ".."/mev/[capella_mev, deneb_mev]
@@ -23,7 +23,7 @@ import
 from ".."/datatypes/capella import BeaconBlockBody
 
 export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
-       tables
+       tables, httputils
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -864,3 +864,31 @@ func init*(t: typedesc[RestSignedContributionAndProof],
     signature: signature)
 
 func len*(p: RestWithdrawalPrefix): int = sizeof(p)
+
+func init*(t: typedesc[RestErrorMessage], code: int,
+           message: string): RestErrorMessage =
+  RestErrorMessage(code: code, message: message)
+
+func init*(t: typedesc[RestErrorMessage], code: int,
+           message: string, stacktrace: string): RestErrorMessage =
+  RestErrorMessage(code: code, message: message,
+                   stacktraces: Opt.some(@[stacktrace]))
+
+func init*(t: typedesc[RestErrorMessage], code: int,
+           message: string, stacktrace: openArray[string]): RestErrorMessage =
+  RestErrorMessage(code: code, message: message,
+                   stacktraces: Opt.some(@stacktrace))
+
+func init*(t: typedesc[RestErrorMessage], code: HttpCode,
+           message: string): RestErrorMessage =
+  RestErrorMessage(code: code.toInt(), message: message)
+
+func init*(t: typedesc[RestErrorMessage], code: HttpCode,
+           message: string, stacktrace: string): RestErrorMessage =
+  RestErrorMessage(code: code.toInt(), message: message,
+                   stacktraces: Opt.some(@[stacktrace]))
+
+func init*(t: typedesc[RestErrorMessage], code: HttpCode,
+           message: string, stacktrace: openArray[string]): RestErrorMessage =
+  RestErrorMessage(code: code.toInt(), message: message,
+                   stacktraces: Opt.some(@stacktrace))

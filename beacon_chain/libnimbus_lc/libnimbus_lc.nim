@@ -148,7 +148,7 @@ proc ETHBeaconStateCreateFromSsz(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/configs/README.md
   let
-    consensusFork = decodeEthConsensusVersion($consensusVersion).valueOr:
+    consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
     state = ForkedHashedBeaconState.new()
   try:
@@ -328,7 +328,7 @@ proc ETHLightClientStoreCreateFromBootstrap(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
   let
     mediaType = MediaType.init($mediaType)
-    consensusFork = decodeEthConsensusVersion($consensusVersion).valueOr:
+    consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
   var bootstrap =
     try:
@@ -603,7 +603,7 @@ proc ETHLightClientStoreProcessFinalityUpdate(
           finUpdateBytes.toOpenArray(0, numFinUpdateBytes - 1),
           Opt.none(ConsensusFork), cfg[])
       else:
-        let consensusFork = decodeEthConsensusVersion(
+        let consensusFork = ConsensusFork.decodeString(
             $consensusVersion).valueOr:
           return 1
         ForkedLightClientFinalityUpdate.decodeHttpLightClientObject(
@@ -688,7 +688,7 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
           optUpdateBytes.toOpenArray(0, numOptUpdateBytes - 1),
           Opt.none(ConsensusFork), cfg[])
       else:
-        let consensusFork = decodeEthConsensusVersion(
+        let consensusFork = ConsensusFork.decodeString(
             $consensusVersion).valueOr:
           return 1
         ForkedLightClientOptimisticUpdate.decodeHttpLightClientObject(

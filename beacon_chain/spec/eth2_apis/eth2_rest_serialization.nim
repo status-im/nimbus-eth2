@@ -34,14 +34,6 @@ func decodeMediaType*(
     return err("Missing or incorrect Content-Type")
   ok contentType.get.mediaType
 
-func decodeEthConsensusVersion*(
-    value: string): Result[ConsensusFork, string] =
-  let normalizedValue = value.toLowerAscii()
-  for consensusFork in ConsensusFork:
-    if normalizedValue == ($consensusFork).toLowerAscii():
-      return ok consensusFork
-  err("Unsupported Eth-Consensus-Version: " & value)
-
 Json.createFlavor RestJson
 
 ## The RestJson format implements JSON serialization in the way specified
@@ -85,6 +77,9 @@ const
   TextPlainMediaType* = MediaType.init("text/plain")
   OctetStreamMediaType* = MediaType.init("application/octet-stream")
   UrlEncodedMediaType* = MediaType.init("application/x-www-form-urlencoded")
+  UnableDecodeVersionError = "Unable to decode version"
+  UnableDecodeError = "Unable to decode data"
+  UnexpectedDecodeError = "Unexpected decoding error"
 
 type
   EmptyBody* = object
@@ -513,6 +508,27 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
       except IOError:
         default
   RestApiResponse.error(status, data, "application/json")
+
+proc jsonError*(t: typedesc[RestApiResponse],
+                rmsg: RestErrorMessage): RestApiResponse =
+  let data =
+    block:
+      var default: string
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("code", rmsg.code)
+        writer.writeField("message", rmsg.message)
+        if rmsg.stacktraces.isSome():
+          writer.writeField("stacktraces", rmsg.stacktraces)
+        writer.endRecord()
+        stream.getOutput(string)
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.error(rmsg.code.toHttpCode().get(), data, "application/json")
 
 proc jsonErrorList*(t: typedesc[RestApiResponse],
                     status: HttpCode = Http200,
@@ -2074,7 +2090,7 @@ proc readValue*[T: SomeForkedLightClientObject](
       if version.isSome:
         reader.raiseUnexpectedField("Multiple version fields found", T.name)
       let consensusFork =
-        decodeEthConsensusVersion(reader.readValue(string)).valueOr:
+        ConsensusFork.decodeString(reader.readValue(string)).valueOr:
           reader.raiseUnexpectedValue("Incorrect version field value")
       version.ok consensusFork
     of "data":
@@ -3001,7 +3017,7 @@ proc decodeBody*(
        t: typedesc[RestPublishedSignedBeaconBlock],
        body: ContentBody,
        version: string
-     ): Result[RestPublishedSignedBeaconBlock, cstring] =
+     ): Result[RestPublishedSignedBeaconBlock, RestErrorMessage] =
   if body.contentType == ApplicationJsonMediaType:
     let data =
       try:
@@ -3009,69 +3025,84 @@ proc decodeBody*(
                         requireAllFields = true,
                         allowUnknownFields = true)
       except SerializationError as exc:
-        debug "Failed to deserialize REST JSON data",
+        debug "Failed to decode JSON data",
               err = exc.formatMsg("<data>"),
               data = string.fromBytes(body.data)
-        return err("Unable to deserialize data")
-      except CatchableError:
-        return err("Unexpected deserialization error")
+        return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                         [version, exc.formatMsg("<data>")]))
+      except CatchableError as exc:
+        return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                         [version, $exc.msg]))
     ok(data)
   elif body.contentType == OctetStreamMediaType:
-    let consensusFork = ? ConsensusFork.decodeString(version)
+    let consensusFork = ConsensusFork.decodeString(version).valueOr:
+      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                       [version, $error]))
     case consensusFork
     of ConsensusFork.Phase0:
       let blck =
         try:
           SSZ.decode(body.data, phase0.SignedBeaconBlock)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of ConsensusFork.Altair:
       let blck =
         try:
           SSZ.decode(body.data, altair.SignedBeaconBlock)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of ConsensusFork.Bellatrix:
       let blck =
         try:
           SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of ConsensusFork.Capella:
       let blck =
         try:
           SSZ.decode(body.data, capella.SignedBeaconBlock)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of ConsensusFork.Deneb:
       let blck =
         try:
           SSZ.decode(body.data, deneb.SignedBeaconBlock)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
   else:
-    return err("Unsupported or invalid content media type")
+    err(RestErrorMessage.init(Http415, "Invalid content type",
+                              [version, $body.contentType]))
 
 proc decodeBody*(
        t: typedesc[RestPublishedSignedBlockContents],
        body: ContentBody,
        version: string
-     ): Result[RestPublishedSignedBlockContents, string] =
+     ): Result[RestPublishedSignedBlockContents, RestErrorMessage] =
   if body.contentType == ApplicationJsonMediaType:
     let data =
       try:
@@ -3079,70 +3110,83 @@ proc decodeBody*(
                         requireAllFields = true,
                         allowUnknownFields = true)
       except SerializationError as exc:
-        debug "Failed to deserialize REST JSON data",
+        debug "Failed to decode JSON data",
               err = exc.formatMsg("<data>"),
               data = string.fromBytes(body.data)
-        return err("Unable to deserialize data")
-      except CatchableError:
-        return err("Unexpected deserialization error")
+        return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                         [version, exc.formatMsg("<data>")]))
+      except CatchableError as exc:
+        return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                         [version, $exc.msg]))
     ok(data)
   elif body.contentType == OctetStreamMediaType:
-    let consensusFork =
-      decodeEthConsensusVersion(version).valueOr:
-        return err("Invalid or Unsupported consensus version")
+    let consensusFork = ConsensusFork.decodeString(version).valueOr:
+      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                       [version, $error]))
     case consensusFork
     of ConsensusFork.Phase0:
       let blck =
         try:
           SSZ.decode(body.data, phase0.SignedBeaconBlock)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Phase0, phase0Data: blck))
     of ConsensusFork.Altair:
       let blck =
         try:
           SSZ.decode(body.data, altair.SignedBeaconBlock)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Altair, altairData: blck))
     of ConsensusFork.Bellatrix:
       let blck =
         try:
           SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Bellatrix, bellatrixData: blck))
     of ConsensusFork.Capella:
       let blck =
         try:
           SSZ.decode(body.data, capella.SignedBeaconBlock)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Capella, capellaData: blck))
     of ConsensusFork.Deneb:
       let blckContents =
         try:
           SSZ.decode(body.data, DenebSignedBlockContents)
-        except SerializationError:
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb, denebData: blckContents))
   else:
-    return err("Unsupported or invalid content media type")
+    err(RestErrorMessage.init(Http415, "Invalid content type",
+                              [version, $body.contentType]))
 
 proc decodeBody*[T](t: typedesc[T],
                     body: ContentBody): Result[T, cstring] =
@@ -3166,13 +3210,13 @@ proc decodeBodyJsonOrSsz*(
        t: typedesc[RestPublishedSignedBlockContents],
        body: ContentBody,
        version: string
-     ): Result[RestPublishedSignedBlockContents, string] =
+     ): Result[RestPublishedSignedBlockContents, RestErrorMessage] =
   if body.contentType == OctetStreamMediaType:
     decodeBody(RestPublishedSignedBlockContents, body, version)
   elif body.contentType == ApplicationJsonMediaType:
-    let consensusFork =
-      decodeEthConsensusVersion(version).valueOr:
-        return err("Invalid or Unsupported consensus version")
+    let consensusFork = ConsensusFork.decodeString(version).valueOr:
+      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                       [version, $error]))
     case consensusFork
     of ConsensusFork.Phase0:
       let blck =
@@ -3181,13 +3225,16 @@ proc decodeBodyJsonOrSsz*(
                           requireAllFields = true,
                           allowUnknownFields = true)
         except SerializationError as exc:
-          debug "Failed to deserialize REST JSON data",
+          debug "Failed to decode JSON data",
                err = exc.formatMsg("<data>"),
                data = string.fromBytes(body.data)
-          return err("Unable to deserialize JSON for fork " &
-                     version & ": " & exc.formatMsg("<data>"))
+          return err(
+            RestErrorMessage.init(Http400, UnableDecodeError,
+                                  [version, exc.formatMsg("<data>")]))
         except CatchableError as exc:
-          return err("Unexpected JSON deserialization error: " & exc.msg)
+          return err(
+            RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                  [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Phase0, phase0Data: blck))
     of ConsensusFork.Altair:
@@ -3197,12 +3244,16 @@ proc decodeBodyJsonOrSsz*(
                           requireAllFields = true,
                           allowUnknownFields = true)
         except SerializationError as exc:
-          debug "Failed to deserialize REST JSON data",
+          debug "Failed to decode JSON data",
                err = exc.formatMsg("<data>"),
                data = string.fromBytes(body.data)
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+          return err(
+            RestErrorMessage.init(Http400, UnableDecodeError,
+                                  [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(
+            RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                  [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Altair, altairData: blck))
     of ConsensusFork.Bellatrix:
@@ -3212,12 +3263,16 @@ proc decodeBodyJsonOrSsz*(
                           requireAllFields = true,
                           allowUnknownFields = true)
         except SerializationError as exc:
-          debug "Failed to deserialize REST JSON data",
+          debug "Failed to decode JSON data",
                err = exc.formatMsg("<data>"),
                data = string.fromBytes(body.data)
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+          return err(
+            RestErrorMessage.init(Http400, UnableDecodeError,
+                                  [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(
+            RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                  [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Bellatrix, bellatrixData: blck))
     of ConsensusFork.Capella:
@@ -3227,12 +3282,16 @@ proc decodeBodyJsonOrSsz*(
                           requireAllFields = true,
                           allowUnknownFields = true)
         except SerializationError as exc:
-          debug "Failed to deserialize REST JSON data",
+          debug "Failed to decode JSON data",
                err = exc.formatMsg("<data>"),
                data = string.fromBytes(body.data)
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+          return err(
+            RestErrorMessage.init(Http400, UnableDecodeError,
+                                  [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(
+            RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                  [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Capella, capellaData: blck))
     of ConsensusFork.Deneb:
@@ -3242,20 +3301,24 @@ proc decodeBodyJsonOrSsz*(
                           requireAllFields = true,
                           allowUnknownFields = true)
         except SerializationError as exc:
-          debug "Failed to deserialize REST JSON data",
+          debug "Failed to decode JSON data",
                err = exc.formatMsg("<data>"),
                data = string.fromBytes(body.data)
-          return err("Unable to deserialize data")
-        except CatchableError:
-          return err("Unexpected deserialization error")
+          return err(
+            RestErrorMessage.init(Http400, UnableDecodeError,
+                                  [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(
+            RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                  [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb, denebData: blckContents))
   else:
-    return err("Unsupported or invalid content media type")
-
+    err(RestErrorMessage.init(Http415, "Invalid content type",
+                              [version, $body.contentType]))
 
 proc decodeBodyJsonOrSsz*[T](t: typedesc[T],
-                             body: ContentBody): Result[T, cstring] =
+                             body: ContentBody): Result[T, RestErrorMessage] =
   if body.contentType == ApplicationJsonMediaType:
     let data =
       try:
@@ -3263,24 +3326,31 @@ proc decodeBodyJsonOrSsz*[T](t: typedesc[T],
                         requireAllFields = true,
                         allowUnknownFields = true)
       except SerializationError as exc:
-        debug "Failed to deserialize REST JSON data",
+        debug "Failed to decode JSON data",
               err = exc.formatMsg("<data>"),
               data = string.fromBytes(body.data)
-        return err("Unable to deserialize data")
-      except CatchableError:
-        return err("Unexpected deserialization error")
+        return err(
+          RestErrorMessage.init(Http400, UnableDecodeError,
+                                [exc.formatMsg("<data>")]))
+      except CatchableError as exc:
+        return err(
+            RestErrorMessage.init(Http400, UnexpectedDecodeError, [$exc.msg]))
     ok(data)
   elif body.contentType == OctetStreamMediaType:
     let blck =
       try:
         SSZ.decode(body.data, T)
-      except SerializationError:
-        return err("Unable to deserialize data")
-      except CatchableError:
-        return err("Unexpected deserialization error")
+      except SerializationError as exc:
+        return err(
+          RestErrorMessage.init(Http400, UnableDecodeError,
+                                [exc.formatMsg("<data>")]))
+      except CatchableError as exc:
+        return err(
+            RestErrorMessage.init(Http400, UnexpectedDecodeError, [$exc.msg]))
     ok(blck)
   else:
-    return err("Unsupported content type")
+    err(RestErrorMessage.init(Http415, "Invalid content type",
+                              [$body.contentType]))
 
 proc encodeBytes*[T: EncodeTypes](value: T,
                                   contentType: string): RestResult[seq[byte]] =
@@ -3383,7 +3453,7 @@ proc decodeBytes*[T: DecodeConsensysTypes](
       return err("Serialization error")
   elif mediaType == OctetStreamMediaType:
     when t is ProduceBlockResponseV2:
-      let fork = decodeEthConsensusVersion(consensusVersion).valueOr:
+      let fork = ConsensusFork.decodeString(consensusVersion).valueOr:
         return err("Invalid or Unsupported consensus version")
       case fork
       of ConsensusFork.Deneb:
@@ -3407,7 +3477,7 @@ proc decodeBytes*[T: DecodeConsensysTypes](
         ok(ProduceBlockResponseV2(kind: ConsensusFork.Phase0,
                                   phase0Data: blck))
     elif t is ProduceBlindedBlockResponse:
-      let fork = decodeEthConsensusVersion(consensusVersion).valueOr:
+      let fork = ConsensusFork.decodeString(consensusVersion).valueOr:
         return err("Invalid or Unsupported consensus version")
       case fork
       of ConsensusFork.Deneb:
