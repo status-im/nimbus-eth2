@@ -1,4 +1,4 @@
-2023-09-08 v23.9.0
+2023-09-12 v23.9.0
 ==================
 
 Nimbus `v23.9.0` is a `low-urgency` upgrade providing full support for the upcoming [Holešky testnet](https://github.com/eth-clients/holesky) and simplifying the required configuration for using [remote signers](https://nimbus.guide/web3signer.html).
@@ -16,6 +16,7 @@ We've been hard at work researching and developing a GossipSub protocol upgrade,
   https://github.com/status-im/nimbus-eth2/pull/5389
 
 * Nimbus now supports the upcoming Holešky testnet:
+  https://nimbus.guide/holesky.html
   https://github.com/status-im/nimbus-eth2/pull/5337
 
 * Faster validator registry processing reduces the time spent by Nimbus in state transitions and replays:
