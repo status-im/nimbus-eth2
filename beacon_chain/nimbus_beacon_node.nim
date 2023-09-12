@@ -1063,6 +1063,56 @@ proc doppelgangerChecked(node: BeaconNode, epoch: Epoch) =
 
 from ./spec/state_transition_epoch import effective_balance_might_update
 
+proc maybeUpdateActionTrackerNextEpoch(
+    node: BeaconNode, forkyState: ForkyHashedBeaconState, nextEpoch: Epoch) =
+  if node.consensusManager[].actionTracker.needsUpdate(
+      forkyState, nextEpoch):
+    template epochRefFallback() =
+      let epochRef =
+        node.dag.getEpochRef(node.dag.head, nextEpoch, false).expect(
+          "Getting head EpochRef should never fail")
+      node.consensusManager[].actionTracker.updateActions(
+        epochRef.shufflingRef, epochRef.beacon_proposers)
+
+    let
+      shufflingRef = node.dag.getShufflingRef(node.dag.head, nextEpoch, false).valueOr:
+        # epochRefFallback() won't work in this case either
+        return
+      nextEpochProposers = get_beacon_proposer_index(
+        forkyState.data, shufflingRef.shuffled_active_validator_indices,
+        nextEpoch)
+      nextEpochFirstProposer = nextEpochProposers[0].valueOr:
+        # All proposers except the first can be more straightforwardly and
+        # efficiently (re)computed correctly once in that epoch.
+        epochRefFallback()
+        return
+      effectiveBalance =
+        forkyState.data.validators.item(
+          nextEpochFirstProposer).effective_balance
+      balance = forkyState.data.balances.item(nextEpochFirstProposer)
+
+    # Has to account for potential epoch transition TIMELY_SOURCE_FLAG_INDEX,
+    # TIMELY_TARGET_FLAG_INDEX, and inactivity penalties, resulting from spec
+    # functions get_flag_index_deltas() and get_inactivity_penalty_deltas().get_inactivity_penalty_deltas
+    #
+    # TODO check TIMELY_TARGET_FLAG_INDEX because per
+    # get_inactivity_penalty_deltas() that avoids accounting for the inactivity
+    # scores, the key pathological aspect of which is in this context that they
+    # cannot be deterministically bounded, as they accumulate, to intentionally
+    # create a quadratic inactivity leak dynamic. But, TIMELY_TARGET_FLAG_INDEX
+    # being set in state.previous_epoch_participation[vidx] implies there's not
+    # any inactivity penalty for that particular validator (epoch genesis aside
+    # when that's state.current_epoch_participation).
+    let maxEpochPenalties = 1_000_000.Gwei
+
+    if  effectiveBalance < MAX_EFFECTIVE_BALANCE or
+        balance <= maxEpochPenalties or effective_balance_might_update(
+          balance - maxEpochPenalties, effectiveBalance):
+      epochRefFallback()
+    else:
+      node.consensusManager[].actionTracker.updateActions(
+        shufflingRef, nextEpochProposers)
+
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating
   ## and unsubscribe from the ones that are no longer relevant.
@@ -1135,35 +1185,10 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
           forkyState, slot.epoch):
         let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
           "Getting head EpochRef should never fail")
-        node.consensusManager[].actionTracker.updateActions(epochRef)
+        node.consensusManager[].actionTracker.updateActions(
+          epochRef.shufflingRef, epochRef.beacon_proposers)
 
-      if node.consensusManager[].actionTracker.needsUpdate(
-          forkyState, slot.epoch + 1):
-        let
-          shufflingRef = node.dag.getShufflingRef(node.dag.head, slot.epoch + 1, false).valueOr:
-            # TODO shouldn't fail, but fall back on getEpochRef, why nto
-            default(ShufflingRef) # obvioiusly bad, nil
-          nextEpochProposers = get_beacon_proposer_index(
-            forkyState.data, shufflingRef.shuffled_active_validator_indices,
-            slot.epoch + 1)
-          effectiveBalance =
-            forkyState.data.validators.item(nextEpochProposers[0].get).effective_balance
-          balance =
-            forkyState.data.balances.item(nextEpochProposers[0].get)
-
-        # Enough to capture sync committee misses and attestation misses in
-        # same slots.
-        const MAX_NONSLASHING_DECREASE = 1_000_000.Gwei
-        static: doAssert MAX_EFFECTIVE_BALANCE == 32_000_000_000'u64
-        if  (balance < 1_000_000_000.Gwei) or
-             effectiveBalance < MAX_EFFECTIVE_BALANCE and
-             effective_balance_might_update(
-               balance - MAX_NONSLASHING_DECREASE, effectiveBalance):
-          # Here goes the epochRef fallback
-          discard
-        let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
-          "Getting head EpochRef should never fail")
-        node.consensusManager[].actionTracker.updateActions(epochRef)
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot.epoch + 1)
 
   if node.gossipState.card > 0 and targetGossipState.card == 0:
     debug "Disabling topic subscriptions",
@@ -1284,11 +1309,19 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let head = node.dag.head
   if node.isSynced(head) and head.executionValid:
     withState(node.dag.headState):
-      if node.consensusManager[].actionTracker.needsUpdate(
-          forkyState, slot.epoch + 1):
-        let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
-          "Getting head EpochRef should never fail")
-        node.consensusManager[].actionTracker.updateActions(epochRef)
+      # maybeUpdateActionTrackerNextEpoch might not account for balance changes
+      # from the process_rewards_and_penalties() epoch transition but only from
+      # process_block() and other per-slot sources. This mainly matters insofar
+      # as it might trigger process_effective_balance_updates() changes in that
+      # same epoch transition, which function is therefore potentially blind to
+      # but which might then affect beacon proposers.
+      #
+      # Because this runs every slot, it can account naturally for slashings,
+      # which affect balances via slash_validator() when they happen, and any
+      # missed sync committee participation via process_sync_aggregate(), but
+      # attestation penalties for example, need, specific handling.
+      # checked by maybeUpdateActionTrackerNextEpoch.
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot.epoch + 1)
 
   let
     nextAttestationSlot =
