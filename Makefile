@@ -126,9 +126,9 @@ ifeq ($(NIM_PARAMS),)
 # restore it in $(BUILD_SYSTEM_DIR).
 ifeq (, $(shell which git-lfs))
 ifeq ($(shell uname), Darwin)
-	$(error Git LFS not installed. Run 'brew install git-lfs' to set up.)
+$(error Git LFS not installed. Run 'brew install git-lfs' to set up.)
 else
-	$(error Git LFS not installed.)
+$(error Git LFS not installed.)
 endif
 endif
 
