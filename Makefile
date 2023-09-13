@@ -134,8 +134,7 @@ endif
 
 GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 .DEFAULT:
-	+@ if ! which git-lfs >/dev/null; then echo -e $(LFS_MISSING_MSG)'\n'; exit 1; fi; \
-		echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
+	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE) && \
 		git submodule foreach --quiet 'git reset --quiet --hard' && \
 		echo
