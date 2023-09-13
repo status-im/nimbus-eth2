@@ -1170,14 +1170,11 @@ proc validateContribution*(
     checkSignature: bool
 ): Future[Result[
     (BlockId, CookedSig, seq[ValidatorIndex]), ValidationError]] {.async.} =
-  let
-    syncCommitteeSlot = msg.message.contribution.slot
-
-  # [IGNORE] The contribution's slot is for the current slot
-  # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
-  # i.e. contribution.slot == current_slot.
   block:
-    let v = check_slot_exact(syncCommitteeSlot, wallTime)
+    # [IGNORE] The contribution's slot is for the current slot
+    # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
+    # i.e. contribution.slot == current_slot.
+    let v = check_slot_exact(msg.message.contribution.slot, wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 
@@ -1220,7 +1217,7 @@ proc validateContribution*(
     #      between validation and use - nonetheless, a design that avoids it and
     #      stays safe would be nice
     participants = dag.syncCommitteeParticipants(
-      msg.message.contribution.slot, subcommitteeIdx)
+      msg.message.contribution.slot + 1, subcommitteeIdx)
   if aggregator_index notin participants:
     return dag.checkedReject("Contribution: aggregator not in subcommittee")
 

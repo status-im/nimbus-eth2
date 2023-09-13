@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/[typetraits, strutils]
-import stew/[assign2, results, base10, byteutils], presto/common,
+import stew/[assign2, results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization, json_serialization,
        json_serialization/std/[options, net, sets],
        chronicles

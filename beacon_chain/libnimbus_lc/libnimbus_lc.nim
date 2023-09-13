@@ -1561,6 +1561,9 @@ proc ETHTransactionsCreateFromJson(
     if data.hash.asEth2Digest != hash:
       return nil
 
+    template isEven(x: int64): bool =
+      (x and 1) == 0
+
     # Compute from execution address
     var rawSig {.noinit.}: array[65, byte]
     rawSig[0 ..< 32] = tx.R.toBytesBE()
