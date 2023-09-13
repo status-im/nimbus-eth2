@@ -124,10 +124,12 @@ ifeq ($(NIM_PARAMS),)
 # The `git reset ...` will try to fix a `make update` that was interrupted
 # with Ctrl+C after deleting the working copy and before getting a chance to
 # restore it in $(BUILD_SYSTEM_DIR).
+ifeq (, $(shell which git-lfs))
 ifeq ($(shell uname), Darwin)
-	LFS_MISSING_MSG := "Git LFS not installed. Run 'brew install git-lfs' to set up."
+	$(error Git LFS not installed. Run 'brew install git-lfs' to set up.)
 else
-	LFS_MISSING_MSG := "Git LFS not installed."
+	$(error Git LFS not installed.)
+endif
 endif
 
 GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
