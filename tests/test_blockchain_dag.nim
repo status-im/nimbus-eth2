@@ -1502,7 +1502,7 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
         attested = attested, allDeposits = deposits,
         graffiti = graffiti, cfg = cfg):
       let added = withBlck(blck):
-        const nilCallback = consensusFork.OnBlockAddedCallback(nil)
+        const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
         dag.addHeadBlock(verifier, blck, nilCallback)
       check added.isOk()
       dag.updateHead(added[], quarantine[], [])

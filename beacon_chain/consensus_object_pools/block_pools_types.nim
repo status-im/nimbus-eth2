@@ -323,15 +323,15 @@ type
 
 template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Deneb:
-    OnDenebBlockAdded
+    typedesc[OnDenebBlockAdded]
   elif kind == ConsensusFork.Capella:
-    OnCapellaBlockAdded
+    typedesc[OnCapellaBlockAdded]
   elif kind == ConsensusFork.Bellatrix:
-    OnBellatrixBlockAdded
+    typedesc[OnBellatrixBlockAdded]
   elif kind == ConsensusFork.Altair:
-    OnAltairBlockAdded
+    typedesc[OnAltairBlockAdded]
   elif kind == ConsensusFork.Phase0:
-    OnPhase0BlockAdded
+    typedesc[OnPhase0BlockAdded]
   else:
     static: raiseAssert "Unreachable"
 

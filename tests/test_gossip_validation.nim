@@ -194,7 +194,7 @@ suite "Gossip validation - Altair":
         dag.headState, cache, blocks = 1,
         attested = false, cfg = cfg):
       let added = withBlck(blck):
-        const nilCallback = consensusFork.OnBlockAddedCallback(nil)
+        const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
         dag.addHeadBlock(verifier, blck, nilCallback)
       check: added.isOk()
       dag.updateHead(added[], quarantine, [])

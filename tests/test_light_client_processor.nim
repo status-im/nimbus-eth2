@@ -52,7 +52,7 @@ suite "Light client processor" & preset():
         dag.headState, cache, blocks.int, attested = true,
         syncCommitteeRatio = syncCommitteeRatio, cfg = cfg):
       let added = withBlck(blck):
-        const nilCallback = consensusFork.OnBlockAddedCallback(nil)
+        const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
         dag.addHeadBlock(verifier, blck, nilCallback)
       doAssert added.isOk()
       dag.updateHead(added[], quarantine[], [])
