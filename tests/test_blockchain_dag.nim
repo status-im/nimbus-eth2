@@ -1497,11 +1497,11 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     graffiti: GraffitiBytes
   proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
     inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
-    for blck in makeTestBlocks(
+    for forkedBlck in makeTestBlocks(
         dag.headState, cache, blocks.int, eth1_data = eth1Data,
         attested = attested, allDeposits = deposits,
         graffiti = graffiti, cfg = cfg):
-      let added = withBlck(blck):
+      let added = withBlck(forkedBlck):
         const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
         dag.addHeadBlock(verifier, blck, nilCallback)
       check added.isOk()
