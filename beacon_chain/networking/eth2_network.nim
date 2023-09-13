@@ -48,6 +48,8 @@ type
   ErrorMsg = List[byte, 256]
   SendResult* = Result[void, cstring]
 
+  DirectPeers = Table[PeerId, seq[MultiAddress]]
+
   # TODO: This is here only to eradicate a compiler
   # warning about unused import (rpc/messages).
   GossipMsg = messages.Message
@@ -77,6 +79,7 @@ type
     forkDigests*: ref ForkDigests
     rng*: ref HmacDrbgContext
     peers*: Table[PeerId, Peer]
+    directPeers*: DirectPeers
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void]
     peerTrimmerHeartbeatFut: Future[void]
@@ -1509,6 +1512,7 @@ proc trimConnections(node: Eth2Node, count: int) =
   var toKick = count
 
   for peerId in scores.keys:
+    if peerId in node.directPeers: continue
     debug "kicking peer", peerId, score=scores[peerId]
     asyncSpawn node.getPeer(peerId).disconnect(PeerScoreLow)
     dec toKick
@@ -1793,6 +1797,7 @@ proc new(T: type Eth2Node,
          switch: Switch, pubsub: GossipSub,
          ip: Option[ValidIpAddress], tcpPort, udpPort: Option[Port],
          privKey: keys.PrivateKey, discovery: bool,
+         directPeers: DirectPeers,
          rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
   when not defined(local_testnet):
     let
@@ -1835,6 +1840,7 @@ proc new(T: type Eth2Node,
     rng: rng,
     connectTimeout: connectTimeout,
     seenThreshold: seenThreshold,
+    directPeers: directPeers,
     quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
   )
 
@@ -2315,6 +2321,14 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     except CatchableError as exc: raise exc
     except Exception as exc: raiseAssert exc.msg
 
+    directPeers = block:
+      var res: DirectPeers
+      for s in config.directPeers:
+        let (peerId, address) = parseFullAddress(s).tryGet()
+        res.mgetOrPut(peerId, @[]).add(address)
+        info "Adding privileged direct peer", peerId, address
+      res
+
     hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
     announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
@@ -2373,19 +2387,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       behaviourPenaltyWeight: -15.9,
       behaviourPenaltyDecay: 0.986,
       disconnectBadPeers: true,
-      directPeers:
-        block:
-          var res = initTable[PeerId, seq[MultiAddress]]()
-          if config.directPeers.len > 0:
-            for s in config.directPeers:
-              let
-                maddress = MultiAddress.init(s).tryGet()
-                mpeerId = maddress[multiCodec("p2p")].tryGet()
-                peerId = PeerId.init(mpeerId.protoAddress().tryGet()).tryGet()
-              res.mgetOrPut(peerId, @[]).add(maddress)
-              info "Adding priviledged direct peer", peerId, address = maddress
-          res
-        ,
+      directPeers: directPeers,
       bandwidthEstimatebps: config.bandwidthEstimate.get(100_000_000)
     )
     pubsub = GossipSub.init(
@@ -2404,7 +2406,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
-    discovery = config.discv5Enabled, rng = rng)
+    discovery = config.discv5Enabled, directPeers, rng = rng)
 
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [].} =
