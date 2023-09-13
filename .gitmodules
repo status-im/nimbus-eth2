@@ -59,7 +59,7 @@
 	path = vendor/nim-chronos
 	url = https://github.com/status-im/nim-chronos.git
 	ignore = untracked
-	branch = nimbus-v23.9.0
+	branch = master
 [submodule "vendor/nim-chronicles"]
 	path = vendor/nim-chronicles
 	url = https://github.com/status-im/nim-chronicles.git
