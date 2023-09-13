@@ -193,23 +193,9 @@ suite "Gossip validation - Altair":
     for blck in makeTestBlocks(
         dag.headState, cache, blocks = 1,
         attested = false, cfg = cfg):
-      let added =
-        case blck.kind
-        of ConsensusFork.Phase0:
-          const nilCallback = OnPhase0BlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
-        of ConsensusFork.Altair:
-          const nilCallback = OnAltairBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.altairData, nilCallback)
-        of ConsensusFork.Bellatrix:
-          const nilCallback = OnBellatrixBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
-        of ConsensusFork.Capella:
-          const nilCallback = OnCapellaBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
-        of ConsensusFork.Deneb:
-          const nilCallback = OnDenebBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.denebData, nilCallback)
+      let added = withBlck(blck):
+        const nilCallback = consensusFork.OnBlockAddedCallback(nil)
+        dag.addHeadBlock(verifier, blck, nilCallback)
       check: added.isOk()
       dag.updateHead(added[], quarantine, [])
 
