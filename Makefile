@@ -124,6 +124,8 @@ ifeq ($(NIM_PARAMS),)
 # The `git reset ...` will try to fix a `make update` that was interrupted
 # with Ctrl+C after deleting the working copy and before getting a chance to
 # restore it in $(BUILD_SYSTEM_DIR).
+
+# `vendor/holesky` requires Git LFS
 ifeq (, $(shell which git-lfs))
 ifeq ($(shell uname), Darwin)
 $(error Git LFS not installed. Run 'brew install git-lfs' to set up)
