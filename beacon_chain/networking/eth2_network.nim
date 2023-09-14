@@ -2324,7 +2324,17 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     directPeers = block:
       var res: DirectPeers
       for s in config.directPeers:
-        let (peerId, address) = parseFullAddress(s).tryGet()
+        let (peerId, address) =
+          if s.startsWith("enr:"):
+            let
+              typedEnr = parseBootstrapAddress(s).get().toTypedRecord().get()
+              peerAddress = toPeerAddr(typedEnr, tcpProtocol).get()
+            (peerAddress.peerId, peerAddress.addrs[0])
+          elif s.startsWith("/"):
+            parseFullAddress(s).tryGet()
+          else:
+            fatal "direct peers address should start with / (multiaddress) or enr:", conf=s
+            quit 1
         res.mgetOrPut(peerId, @[]).add(address)
         info "Adding privileged direct peer", peerId, address
       res
