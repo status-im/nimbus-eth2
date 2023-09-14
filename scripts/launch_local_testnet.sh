@@ -892,8 +892,6 @@ fi
 
 jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_block_hash.txt"
 
-set -x
-
 for NUM_NODE in $(seq 1 $NUM_NODES); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   rm -rf "${NODE_DATA_DIR}"
