@@ -23,7 +23,11 @@ const
 
   # Constants from `validator.md` not covered by config/presets in the spec
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
+
+  # Not used anywhere; only for network preset checking
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
+  MESSAGE_DOMAIN_INVALID_SNAPPY = 0'u64
+  TTFB_TIMEOUT = 5'u64
 
 type
   Version* = distinct array[4, byte]
@@ -591,6 +595,10 @@ proc readRuntimeConfig*(
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
   checkCompatibility MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+  checkCompatibility RESP_TIMEOUT
+  checkCompatibility TTFB_TIMEOUT
+  checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
+  checkCompatibility MAX_REQUEST_BLOCKS_DENEB
 
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST

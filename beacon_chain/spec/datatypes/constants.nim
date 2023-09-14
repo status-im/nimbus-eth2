@@ -65,11 +65,12 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS* = 1024'u64
-  RESP_TIMEOUT* = 10
+  RESP_TIMEOUT* = 10'u64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#configuration
   GOSSIP_MAX_SIZE* = 10'u64 * 1024 * 1024 # bytes
   MAX_CHUNK_SIZE* = 10'u64 * 1024 * 1024 # bytes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#configuration
-  MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS* = 4096'u64
+  MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS*: uint64 = 4096
+  MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128 # TODO Make use of in request code
