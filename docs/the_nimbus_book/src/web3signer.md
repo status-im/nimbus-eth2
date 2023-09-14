@@ -155,4 +155,4 @@ Since the generalized index of a particular field may change in a hard-fork, in 
 ```
 
 Nimbus automatically computes the generalized index depending on the currently active fork.
-The remote signer is expected to verify the incoming Merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
+The remote signer is expected to verify the incoming Merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
