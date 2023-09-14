@@ -13,7 +13,7 @@ SHELL ["/bin/bash", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive TZ="Etc/UTC"
 RUN \
  apt-get -qq update \
- && apt-get -qq -y install git gnupg software-properties-common lsb cmake &>/dev/null \
+ && apt-get -qq -y install git-lfs gnupg software-properties-common lsb cmake &>/dev/null \
  && apt-get -qq -y install \
     autoconf \
     automake \

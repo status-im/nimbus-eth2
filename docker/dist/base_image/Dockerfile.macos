@@ -12,7 +12,7 @@ SHELL ["/bin/bash", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive TZ="Etc/UTC"
 RUN apt-get -qq update \
- && apt-get -qq -y install build-essential git clang-11 llvm-11-dev cmake curl libssl-dev lzma-dev libxml2-dev &>/dev/null \
+ && apt-get -qq -y install build-essential git-lfs clang-11 llvm-11-dev cmake curl libssl-dev lzma-dev libxml2-dev &>/dev/null \
  && update-alternatives --install /usr/bin/clang clang /usr/bin/clang-11 100 \
  && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-11 100 \
  && apt-get -qq clean \

@@ -12,7 +12,7 @@ SHELL ["/bin/bash", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive TZ="Etc/UTC"
 RUN apt-get -qq update \
- && apt-get -qq -y install build-essential git \
+ && apt-get -qq -y install build-essential git-lfs \
   libc6-armhf-armel-cross libc6-dev-armel-armhf-cross binutils-arm-linux-gnueabihf gcc-arm-linux-gnueabihf &>/dev/null \
  && apt-get -qq clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
