@@ -982,6 +982,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#useful-resources" class="md-nav__link">
+    Useful resources
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1665,6 +1672,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#useful-resources" class="md-nav__link">
+    Useful resources
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1702,21 +1716,23 @@ If you come across any issues, please <a href="https://github.com/status-im/nimb
 <li>
 <p>Choose one of Nethermind, Besu, Erigon, or Geth as an execution client.
    Download, install, and <a href="https://notes.ethereum.org/@launchpad/goerli#Run-an-Execution-Layer-Client">run it</a>.</p>
-</li>
-</ol>
-<p>For example, Nethermind on Goerli can run via:
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Nethermind</label><label for="__tabbed_1_2">Erigon</label><label for="__tabbed_1_3">Besu</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span> nethermind/src/Nethermind/Nethermind.Runner
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>dotnet run -c Release -- --config holesky <span class="se">\</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>--JsonRpc.Host<span class="o">=</span><span class="m">0</span>.0.0.0 <span class="se">\</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>--JsonRpc.JwtSecretFile<span class="o">=</span>/opt/jwtsecret
-</code></pre></div></p>
-<p>Erigon can be run using:
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  --JsonRpc.Host<span class="o">=</span><span class="m">0</span>.0.0.0 <span class="se">\</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  --JsonRpc.JwtSecretFile<span class="o">=</span>/opt/jwtsecret
+</code></pre></div>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./build/bin/erigon --chain<span class="o">=</span>holesky <span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>--datadir goerli-testnet <span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>--authrpc.jwtsecret<span class="o">=</span>/opt/jwtsecret <span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>--http --http.api<span class="o">=</span>engine,net,eth
-</code></pre></div></p>
-<p>and Besu can be run with the command:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  --datadir holesky-testnet <span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  --authrpc.jwtsecret<span class="o">=</span>/opt/jwtsecret <span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  --http --http.api<span class="o">=</span>engine,net,eth
+</code></pre></div>
+</div>
+<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/install/besu/bin/besu     <span class="se">\</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  --network<span class="o">=</span>holesky             <span class="se">\</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  --rpc-http-enabled<span class="o">=</span><span class="nb">true</span>       <span class="se">\</span>
@@ -1731,28 +1747,32 @@ If you come across any issues, please <a href="https://github.com/status-im/nimb
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>  --engine-host-allowlist<span class="o">=</span><span class="s2">&quot;*&quot;</span>   <span class="se">\</span>
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>  --engine-jwt-enabled<span class="o">=</span><span class="nb">true</span>     <span class="se">\</span>
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>  --engine-jwt-secret<span class="o">=</span>/opt/jwtsecret
-</code></pre></div></p>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h2 id="sync-the-beacon-node-and-execution-client">Sync the beacon node and execution client</h2>
-<ol>
-<li><a href="start-syncing.html">Start syncing</a> the node consisting of Nimbus and chosen execution client, for example by running:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>nimbus-eth2/build/nimbus_beacon_node <span class="se">\</span>
+</li>
+<li>
+<p><a href="start-syncing.html">Start syncing</a> the node consisting of Nimbus and chosen execution client, for example by running:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>nimbus-eth2/build/nimbus_beacon_node <span class="se">\</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    --network<span class="o">=</span>holesky <span class="se">\</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    --web3-url<span class="o">=</span>http://127.0.0.1:8551 <span class="se">\</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    --rest <span class="se">\</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    --metrics <span class="se">\</span>
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    --jwt-secret<span class="o">=</span><span class="s2">&quot;/opt/jwtsecret&quot;</span> <span class="se">\</span>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    --suggested-fee-recipient<span class="o">=</span>&lt;Enter-eth-address-here&gt;
-</code></pre></div></li>
-</ol>
+</code></pre></div></p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>If you want the syncing process to complete much faster, you can <a href="trusted-node-sync.html">sync from a trusted node</a>.</p>
 </div>
 <p>One might consider here to <a href="beacon-node-systemd.html">set up a systemd service</a> to ensure this runs automatically, including after restarts.</p>
 <h2 id="obtaining-genesis-file-optional">Obtaining genesis file (optional)</h2>
-<p>By default, Nimbus will automatically download the genesis state of Holešky from Github through the HTTPS protocol. If something prevents you from using this method, you may be able to work-around the issue by either instructing Nimbus to use a different URL by specifying the <code>--genesis-state-url</code> command-line parameter (for example, you can point it to the <code>/eth/v2/debug/beacon/states/genesis</code> endpoint of a trusted beacon node or a checkpoint provider) or by downloading the <code>genesis.ssz</code> file of the network through some other means and then supplying its path through the <code>--genesis-state</code> command-line parameter.</p>
+<p>By default, Nimbus will automatically download the genesis state of Holešky from Github through the HTTPS protocol.
+If something prevents you from using this method, you may be able to work-around the issue by either instructing Nimbus to use a different URL by specifying the <code>--genesis-state-url</code> command-line parameter (for example, you can point it to the <code>/eth/v2/debug/beacon/states/genesis</code> endpoint of a trusted beacon node or a checkpoint provider) or by downloading the <code>genesis.ssz</code> file of the network through some other means and then supplying its path through the <code>--genesis-state</code> command-line parameter.</p>
 <h2 id="begin-validating">Begin validating</h2>
-<ol>
+</li>
 <li>
 <p>Once this Holešky node is <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a>, use the <a href="https://holesky.launchpad.ethereum.org/en/">Holesky launchpad</a> to obtain Holesky validators.
 It might require some time before these enter and are activated on the beacon chain.
@@ -1762,6 +1782,21 @@ If one does this before the node which will attest and propose using those valid
 <p>Follow our validating guide from <a href="run-a-validator.html#2-import-your-validator-keys">step 2 (import the validator keys) onward</a>.</p>
 </li>
 </ol>
+<h2 id="useful-resources">Useful resources</h2>
+<ul>
+<li>
+<p>Holesky <a href="https://holesky.ethpandaops.io">landing page</a>: view block explorers, request funds from the faucet, and connect to a JSON RPC endpoint.</p>
+</li>
+<li>
+<p>Holesky <a href="https://notes.ethereum.org/@launchpad/holesky">EF launchpad notes</a>: how to run a node; contains instructions for how to build Nimbus from source for this purpose</p>
+</li>
+<li>
+<p>Holesky consensus layer <a href="https://holesky.beaconcha.in/">beacon chain explorer</a></p>
+</li>
+<li>
+<p>Holesky execution layer <a href="https://holesky.etherscan.io/">transaction explorer</a></p>
+</li>
+</ul>
 
               
             </article>

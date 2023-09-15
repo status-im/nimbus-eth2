@@ -8,14 +8,14 @@
       
       
       
-        <link rel="canonical" href="https://nimbus.guide/prater.html">
+        <link rel="canonical" href="https://nimbus.guide/holesky_2.html">
       
       <link rel="icon" href="assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
     
     
       
-        <title>Prater testnet - The Nimbus Guide</title>
+        <title>Holesky testnet - The Nimbus Guide</title>
       
     
     
@@ -66,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#prater-testnet" class="md-skip">
+        <a href="#holesky-testnet" class="md-skip">
           Skip to content
         </a>
       
@@ -99,7 +99,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Prater testnet
+              Holesky testnet
             
           </span>
         </div>
@@ -203,8 +203,6 @@
         
   
   
-    
-  
 
 
   
@@ -216,7 +214,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="install.html" class="md-tabs__link md-tabs__link--active">
+      <a href="install.html" class="md-tabs__link">
         How-to
       </a>
     </li>
@@ -461,14 +459,12 @@
 
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
       
       
       
@@ -737,14 +733,12 @@
               
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_3" type="checkbox" id="__nav_3_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_3" type="checkbox" id="__nav_3_3" checked>
       
       
       
@@ -905,73 +899,11 @@
               
   
   
-    
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          Prater testnet
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="prater.html" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="prater.html" class="md-nav__link">
         Prater testnet
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#general-preparation" class="md-nav__link">
-    General Preparation
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sync-the-beacon-node-and-execution-client" class="md-nav__link">
-    Sync the beacon node and execution client
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#begin-validating" class="md-nav__link">
-    Begin validating
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#useful-resources" class="md-nav__link">
-    Useful resources
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1677,30 +1609,22 @@
             <article class="md-content__inner md-typeset">
               
                 
-  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/prater.md" title="Edit this page" class="md-content__button md-icon">
+  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/holesky_2.md" title="Edit this page" class="md-content__button md-icon">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
   </a>
 
 
 
-<h1 id="prater-testnet">Prater testnet</h1>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Prater/Goerli is deprecated as of January 2023.
-It will be supported long term for another 12 months.
-Please consider using <a href="holesky.html">Holesky testnet</a> moving forward.</p>
-</div>
-<p><code>prater</code>, also known as <code>goerli</code>, is the current long-running merge testnet.
-It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practice node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups.
+<h1 id="holesky-testnet">Holesky testnet</h1>
+<p>Holesky is the first long-standing, merged-from-genesis, public Ethereum testnet.
+It replaces Goerli as a staking, infrastructure and protocol-developer testnet in 2023.</p>
+<p>It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practice node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups.
 If you come across any issues, please <a href="https://github.com/status-im/nimbus-eth2/issues">report them here</a>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Post-merge, node runners will need to run both a consensus and execution layer client.</p>
-</div>
 <h2 id="general-preparation">General Preparation</h2>
 <ol>
 <li>
-<p>Generate the JWT secret with <code>openssl rand -hex 32 | tr -d "\n" &gt; "/opt/jwtsecret"</code>. This file needs to be passed to both the execution client and the consensus client.</p>
+<p>Generate the JWT secret with <code>openssl rand -hex 32 | tr -d "\n" &gt; "/opt/jwtsecret"</code>.
+   This file needs to be passed to both the execution client and the consensus client.</p>
 </li>
 <li>
 <p>Choose an Ethereum address to receive transaction fees.
@@ -1710,50 +1634,56 @@ If you come across any issues, please <a href="https://github.com/status-im/nimb
 <p>Download the <a href="binaries.html">latest release</a> and install it by unpacking the archive.</p>
 </li>
 <li>
-<p>Choose one of Nethermind, Besu, Erigon, or Geth as an execution client, using one of the <a href="https://blog.ethereum.org/2022/07/27/goerli-prater-merge-announcement/#execution-layer">compatible versions</a>.
-   Download, install, and <a href="https://notes.ethereum.org/@launchpad/goerli#Run-an-Execution-Layer-Client">run it</a>.</p>
+<p>Choose one of Nethermind, Besu, Erigon, or Geth as an execution client.
+   Download, install, and <a href="https://notes.ethereum.org/@launchpad/holesky#Run-an-Execution-Layer-Client">run it</a>.</p>
 </li>
 </ol>
-<p>For example, Nethermind on Goerli can run via:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span> nethermind/src/Nethermind/Nethermind.Runner
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>dotnet run -c Release -- --config goerli <span class="se">\</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>--JsonRpc.Host<span class="o">=</span><span class="m">0</span>.0.0.0 <span class="se">\</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>--JsonRpc.JwtSecretFile<span class="o">=</span>/opt/jwtsecret
-</code></pre></div></p>
-<p>Erigon can be run using:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./build/bin/erigon --chain<span class="o">=</span>goerli <span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>--datadir goerli-testnet <span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>--authrpc.jwtsecret<span class="o">=</span>/opt/jwtsecret <span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>--http --http.api<span class="o">=</span>engine,net,eth
-</code></pre></div></p>
-<p>and Besu can be run with the command:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/install/besu/bin/besu     <span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  --network<span class="o">=</span>goerli              <span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  --rpc-http-enabled<span class="o">=</span><span class="nb">true</span>       <span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  --rpc-http-host<span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span>     <span class="se">\</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  --rpc-http-cors-origins<span class="o">=</span><span class="s2">&quot;*&quot;</span>   <span class="se">\</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  --sync-mode<span class="o">=</span><span class="s2">&quot;X_SNAP&quot;</span>          <span class="se">\</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>  --data-storage-format<span class="o">=</span><span class="s2">&quot;BONSAI&quot;</span><span class="se">\</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>  --Xmerge-support<span class="o">=</span><span class="nb">true</span>         <span class="se">\</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>  --rpc-ws-host<span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span>       <span class="se">\</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  --host-allowlist<span class="o">=</span><span class="s2">&quot;*&quot;</span>          <span class="se">\</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>  --engine-rpc-enabled<span class="o">=</span><span class="nb">true</span>     <span class="se">\</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>  --engine-host-allowlist<span class="o">=</span><span class="s2">&quot;*&quot;</span>   <span class="se">\</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>  --engine-jwt-enabled<span class="o">=</span><span class="nb">true</span>     <span class="se">\</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>  --engine-jwt-secret<span class="o">=</span>/opt/jwtsecret
-</code></pre></div></p>
+<p>=== "Nethermind"</p>
+<div class="highlight"><pre><span></span><code>   ```sh
+   cd nethermind/src/Nethermind/Nethermind.Runner
+   dotnet run -c Release -- --config holesky \
+   --JsonRpc.Host=0.0.0.0 \
+   --JsonRpc.JwtSecretFile=/opt/jwtsecret
+   ```
+</code></pre></div>
+<p>=== "Erigon"</p>
+<div class="highlight"><pre><span></span><code>   ```sh
+   ./build/bin/erigon --chain=holesky \
+   --datadir holesky-testnet \
+   --authrpc.jwtsecret=/opt/jwtsecret \
+   --http --http.api=engine,net,eth
+   ```
+</code></pre></div>
+<p>=== "Besu"</p>
+<div class="highlight"><pre><span></span><code>   ```sh
+   build/install/besu/bin/besu     \
+     --network=holesky             \
+     --rpc-http-enabled=true       \
+     --rpc-http-host=&quot;0.0.0.0&quot;     \
+     --rpc-http-cors-origins=&quot;*&quot;   \
+     --sync-mode=&quot;X_SNAP&quot;          \
+     --data-storage-format=&quot;BONSAI&quot;\
+     --Xmerge-support=true         \
+     --rpc-ws-host=&quot;0.0.0.0&quot;       \
+     --host-allowlist=&quot;*&quot;          \
+     --engine-rpc-enabled=true     \
+     --engine-host-allowlist=&quot;*&quot;   \
+     --engine-jwt-enabled=true     \
+     --engine-jwt-secret=/opt/jwtsecret
+    ```
+</code></pre></div>
 <h2 id="sync-the-beacon-node-and-execution-client">Sync the beacon node and execution client</h2>
 <ol>
-<li><a href="start-syncing.html">Start syncing</a> the node consisting of Nimbus and chosen execution client, for example by running:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>nimbus-eth2/build/nimbus_beacon_node <span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    --network<span class="o">=</span>goerli <span class="se">\</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    --web3-url<span class="o">=</span>http://127.0.0.1:8551 <span class="se">\</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    --rest <span class="se">\</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    --metrics <span class="se">\</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    --jwt-secret<span class="o">=</span><span class="s2">&quot;/opt/jwtsecret&quot;</span> <span class="se">\</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    --suggested-fee-recipient<span class="o">=</span>&lt;Enter-eth-address-here&gt;
-</code></pre></div></li>
+<li><a href="start-syncing.html">Start syncing</a> the node consisting of Nimbus and chosen execution client, for example by running:</li>
 </ol>
+<p><code>sh
+   nimbus-eth2/build/nimbus_beacon_node \
+       --network=holesky \
+       --web3-url=http://127.0.0.1:8551 \
+       --rest \
+       --metrics \
+       --jwt-secret="/opt/jwtsecret" \
+       --suggested-fee-recipient=&lt;Enter-eth-address-here&gt;</code></p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>If you want the syncing process to complete much faster, you can <a href="trusted-node-sync.html">sync from a trusted node</a>.</p>
@@ -1762,7 +1692,7 @@ If you come across any issues, please <a href="https://github.com/status-im/nimb
 <h2 id="begin-validating">Begin validating</h2>
 <ol>
 <li>
-<p>Once this Goerli/Prater node is <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a>, use the <a href="https://prater.launchpad.ethereum.org/en/">Prater launchpad</a> to obtain Goerli/Prater validators with <a href="goerli-eth.html">Goerli ETH</a>.
+<p>Once this Holesky node is <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a>, use the <a href="https://holesky.faucet.net/">Holesky faucet</a> to obtain Holesky validators with Holesky ETH.
 It might require some time before these enter and are activated on the beacon chain.
 If one does this before the node which will attest and propose using those validators has synced, one might miss attestations and block proposals.</p>
 </li>
@@ -1773,16 +1703,16 @@ If one does this before the node which will attest and propose using those valid
 <h2 id="useful-resources">Useful resources</h2>
 <ul>
 <li>
-<p>Goerli/Prater <a href="https://notes.ethereum.org/@launchpad/goerli">EF launchpad notes</a>: how to run a node; contains instructions for how to build Nimbus from source for this purpose</p>
+<p>Holesky <a href="https://holesky.ethpandaops.io">landing page</a>: view block explorers, request funds from the faucet, and connect to a JSON RPC endpoint.</p>
 </li>
 <li>
-<p>Goerli/Prater consensus layer <a href="https://prater.beaconcha.in/">beacon chain explorer</a></p>
+<p>Holesky <a href="https://notes.ethereum.org/@launchpad/holesky">EF launchpad notes</a>: how to run a node; contains instructions for how to build Nimbus from source for this purpose</p>
 </li>
 <li>
-<p>Goerli/Prater execution layer <a href="https://goerli.etherscan.io/">blockchain explorer</a></p>
+<p>Holesky consensus layer <a href="https://holesky.beaconcha.in/">beacon chain explorer</a></p>
 </li>
 <li>
-<p>Goerli/Prater <a href="https://goerli.net/">landing page</a>: view block explorers, request funds from the faucet, and connect to a JSON RPC endpoint.</p>
+<p>Holesky execution layer <a href="https://holesky.etherscan.io/">transaction explorer</a></p>
 </li>
 </ul>
 
@@ -1802,42 +1732,6 @@ If one does this before the node which will attest and propose using those valid
       </main>
       
         <footer class="md-footer">
-  
-    
-    <nav class="md-footer__inner md-grid" aria-label="Footer" >
-      
-        
-        <a href="health.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Monitor the health of your node" rel="prev">
-          <div class="md-footer__button md-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
-          </div>
-          <div class="md-footer__title">
-            <div class="md-ellipsis">
-              <span class="md-footer__direction">
-                Previous
-              </span>
-              Monitor the health of your node
-            </div>
-          </div>
-        </a>
-      
-      
-        
-        <a href="holesky.html" class="md-footer__link md-footer__link--next" aria-label="Next: Holešky testnet" rel="next">
-          <div class="md-footer__title">
-            <div class="md-ellipsis">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              Holešky testnet
-            </div>
-          </div>
-          <div class="md-footer__button md-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
-          </div>
-        </a>
-      
-    </nav>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
