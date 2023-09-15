@@ -734,7 +734,7 @@ proc runBlockPollMonitor(service: BlockServiceRef,
 proc runBlockMonitor(service: BlockServiceRef) {.async.} =
   let
     vc = service.client
-    blockNodes = vc.filterNodes(AllBeaconNodeStatuses,
+    blockNodes = vc.filterNodes(ResolvedBeaconNodeStatuses,
                                 {BeaconNodeRole.BlockProposalData})
   let pendingTasks =
     case vc.config.monitoringType
