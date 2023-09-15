@@ -112,7 +112,7 @@ The following options are available:
                                connection to. This requires a not random netkey-file. In the multiaddress
                                format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>, or enr format
                                (enr:-xx). Peering agreements are established out of band and must be
-                               reciprocal..
+                               reciprocal.
      --doppelganger-detection  If enabled, the beacon node prudently listens for 2 epochs for attestations from
                                a validator with the same index (a doppelganger), before sending an attestation
                                itself. This protects against slashing (due to double-voting) but means you will
