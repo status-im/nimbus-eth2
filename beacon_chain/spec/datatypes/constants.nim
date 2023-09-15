@@ -66,6 +66,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS* = 1024'u64
   RESP_TIMEOUT* = 10'u64
+  ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64 = 32
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#configuration
   GOSSIP_MAX_SIZE* = 10'u64 * 1024 * 1024 # bytes
