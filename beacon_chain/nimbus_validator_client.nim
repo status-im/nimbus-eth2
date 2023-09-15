@@ -19,8 +19,21 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   var nodes = vc.beaconNodes
   while true:
     var pendingRequests: seq[Future[RestResponse[GetGenesisResponse]]]
-    for node in nodes:
-      debug "Requesting genesis information", endpoint = node
+    let offlineNodes = vc.offlineNodes()
+    if len(offlineNodes) == 0:
+      let sleepDuration = 2.seconds
+      info "Could not resolve beacon nodes, repeating",
+           sleep_time = sleepDuration
+      await sleepAsync(sleepDuration)
+      for node in vc.nonameNodes():
+        let status = checkName(node)
+        node.updateStatus(status, ApiNodeFailure())
+        if status == RestBeaconNodeStatus.Noname:
+          warn "Cannot initialize beacon node", node = node, status = status
+      continue
+
+    for node in offlineNodes:
+      debug "Requesting genesis information", node = node
       pendingRequests.add(node.client.getGenesis())
 
     try:
@@ -240,7 +253,8 @@ proc new*(T: type ValidatorClientRef,
           warn "Unable to initialize remote beacon node",
                 url = $url, error = res.error()
         else:
-          debug "Beacon node was initialized", node = res.get()
+          if res.get().status != RestBeaconNodeStatus.Noname:
+            debug "Beacon node was initialized", node = res.get()
           servers.add(res.get())
       let missingRoles = getMissingRoles(servers)
       if len(missingRoles) != 0:
@@ -296,7 +310,10 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
                                        beacon_nodes_count = len(vc.beaconNodes)
 
   for node in vc.beaconNodes:
-    notice "Beacon node initialized", node = node
+    if node.status == RestBeaconNodeStatus.Offline:
+      notice "Beacon node initialized", node = node
+    else:
+      notice "Cannot initialize beacon node", node = node, status = node.status
 
   vc.beaconGenesis = await vc.initGenesis()
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
