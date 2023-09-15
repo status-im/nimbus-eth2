@@ -24,7 +24,7 @@
 	path = vendor/nim-libp2p
 	url = https://github.com/status-im/nim-libp2p.git
 	ignore = untracked
-	branch = nimbus
+	branch = unstable
 [submodule "vendor/nimbus-build-system"]
 	path = vendor/nimbus-build-system
 	url = https://github.com/status-im/nimbus-build-system.git
