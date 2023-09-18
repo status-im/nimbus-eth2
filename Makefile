@@ -118,6 +118,8 @@ ifneq ($(OS), Windows_NT)
 PLATFORM_SPECIFIC_TARGETS += gnosis-build
 endif
 
+# We don't need the `vendor/holesky/public-keys/all.txt` file but fetching it
+# may trigger 'This repository is over its data quota' from GitHub
 GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt
 
 ifeq ($(NIM_PARAMS),)
