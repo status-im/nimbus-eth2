@@ -222,6 +222,6 @@
 	branch = master
 [submodule "vendor/holesky"]
 	path = vendor/holesky
-  url = https://github.com/eth-clients/holesky
-  ignore = untracked
-  branch = main
+	url = https://github.com/eth-clients/holesky
+	ignore = untracked
+	branch = main
