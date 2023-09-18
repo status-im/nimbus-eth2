@@ -118,6 +118,10 @@ ifneq ($(OS), Windows_NT)
 PLATFORM_SPECIFIC_TARGETS += gnosis-build
 endif
 
+# We don't need the `vendor/holesky/public-keys/all.txt` file but fetching it
+# may trigger 'This repository is over its data quota' from GitHub
+GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt
+
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
 #
@@ -134,11 +138,11 @@ $(error Git LFS not installed)
 endif
 endif
 
-GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
+GIT_SUBMODULE_UPDATE := git $(GIT_SUBMODULE_CONFIG) submodule update --init --recursive
 .DEFAULT:
 	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE) && \
-		git submodule foreach --quiet 'git reset --quiet --hard' && \
+		git submodule foreach --quiet 'git $(GIT_SUBMODULE_CONFIG) reset --quiet --hard' && \
 		echo
 # Now that the included *.mk files appeared, and are newer than this file, Make will restart itself:
 # https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles

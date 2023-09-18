@@ -409,16 +409,21 @@ proc getExecutionPayload(
           get_expected_withdrawals(forkyState.data)
         else:
           @[]
-      payload = await node.elManager.getPayload(
-        PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
-        latestFinalized, timestamp, random, feeRecipient, withdrawals)
 
-    if payload.isNone:
+    info "Requesting engine payload",
+      beaconHead = shortLog(beaconHead.blck),
+      executionHead = shortLog(executionHead),
+      validatorIndex = validator_index,
+      feeRecipient = $feeRecipient
+
+    let payload = (await node.elManager.getPayload(
+        PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
+        latestFinalized, timestamp, random, feeRecipient, withdrawals)).valueOr:
       error "Failed to obtain execution payload from EL",
              executionHeadBlock = executionHead
       return Opt.none(PayloadType)
 
-    return Opt.some payload.get
+    return Opt.some payload
   except CatchableError as err:
     beacon_block_payload_errors.inc()
     error "Error creating non-empty execution payload",
