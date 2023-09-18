@@ -47,6 +47,9 @@ proc unblindAndRouteBlockMEV*(
     node: BeaconNode, payloadBuilderRestClient: RestClientRef,
     blindedBlock: capella_mev.SignedBlindedBeaconBlock):
     Future[Result[Opt[BlockRef], string]] {.async.} =
+  info "Proposing blinded Builder API block",
+    blindedBlock = shortLog(blindedBlock)
+
   # By time submitBlindedBlock is called, must already have done slashing
   # protection check
   let unblindedPayload =

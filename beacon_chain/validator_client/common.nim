@@ -118,6 +118,7 @@ type
 
   BeaconNodeServer* = object
     client*: RestClientRef
+    uri*: Uri
     endpoint*: string
     config*: VCRuntimeConfig
     ident*: Opt[string]
@@ -146,6 +147,8 @@ type
     proofs*: Table[ValidatorPubKey, SyncCommitteeSelectionProof]
 
   RestBeaconNodeStatus* {.pure.} = enum
+    Invalid,            ## BN address is invalid.
+    Noname,             ## BN address could not be resolved yet.
     Offline,            ## BN is offline.
     Online,             ## BN is online, passed checkOnline() check.
     Incompatible,       ## BN configuration is NOT compatible with VC.
@@ -284,6 +287,22 @@ const
     ## are enabled by default.
 
   AllBeaconNodeStatuses* = {
+    RestBeaconNodeStatus.Invalid,
+    RestBeaconNodeStatus.Noname,
+    RestBeaconNodeStatus.Offline,
+    RestBeaconNodeStatus.Online,
+    RestBeaconNodeStatus.Incompatible,
+    RestBeaconNodeStatus.Compatible,
+    RestBeaconNodeStatus.NotSynced,
+    RestBeaconNodeStatus.OptSynced,
+    RestBeaconNodeStatus.Synced,
+    RestBeaconNodeStatus.UnexpectedCode,
+    RestBeaconNodeStatus.UnexpectedResponse,
+    RestBeaconNodeStatus.BrokenClock,
+    RestBeaconNodeStatus.InternalError
+  }
+
+  ResolvedBeaconNodeStatuses* = {
     RestBeaconNodeStatus.Offline,
     RestBeaconNodeStatus.Online,
     RestBeaconNodeStatus.Incompatible,
@@ -341,6 +360,8 @@ proc `$`*(roles: set[BeaconNodeRole]): string =
 
 proc `$`*(status: RestBeaconNodeStatus): string =
   case status
+  of RestBeaconNodeStatus.Invalid: "invalid-address"
+  of RestBeaconNodeStatus.Noname: "dns-error"
   of RestBeaconNodeStatus.Offline: "offline"
   of RestBeaconNodeStatus.Online: "online"
   of RestBeaconNodeStatus.Incompatible: "incompatible"
@@ -548,11 +569,23 @@ proc updateStatus*(node: BeaconNodeServerRef,
     node = node
 
   case status
+  of RestBeaconNodeStatus.Invalid:
+    if node.status != status:
+      warn "Beacon node could not be used"
+      node.status = status
+  of RestBeaconNodeStatus.Noname:
+    if node.status != status:
+      warn "Beacon node address cannot be resolved"
+      node.status = status
   of RestBeaconNodeStatus.Offline:
     if node.status != status:
-      warn "Beacon node down",
-           reason = failure.getFailureReason()
-      node.status = status
+      if node.status in {RestBeaconNodeStatus.Invalid,
+                         RestBeaconNodeStatus.Noname}:
+        notice "Beacon node address has been resolved"
+        node.status = status
+      else:
+        warn "Beacon node down", reason = failure.getFailureReason()
+        node.status = status
   of RestBeaconNodeStatus.Online:
     if node.status != status:
       let version = if node.ident.isSome(): node.ident.get() else: "<missing>"
@@ -717,25 +750,38 @@ proc normalizeUri*(r: Uri): Result[Uri, cstring] =
 
   ok(normalized)
 
+proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
+  let
+    flags = {RestClientFlag.CommaSeparatedArray}
+    socketFlags = {SocketFlags.TcpNoDelay}
+    address = ? getHttpAddress(uri)
+    client = RestClientRef.new(address, flags = flags,
+                               socketFlags = socketFlags)
+  ok(client)
+
 proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
            index: int): Result[BeaconNodeServerRef, string] =
   doAssert(index >= 0)
   let
-    flags = {RestClientFlag.CommaSeparatedArray}
-    socketFlags = {SocketFlags.TcpNoDelay}
     remoteUri = normalizeUri(remote).valueOr:
-      return err($error)
-    client = RestClientRef.new($remoteUri, flags = flags,
-                               socketFlags = socketFlags).valueOr:
       return err($error)
     roles = parseRoles(remoteUri.anchor).valueOr:
       return err($error)
-
-  let server = BeaconNodeServerRef(
-    client: client, endpoint: $remoteUri, index: index, roles: roles,
-    logIdent: $client.address.getUri(),
-    status: RestBeaconNodeStatus.Offline
-  )
+    server =
+      block:
+        let res = initClient(remoteUri)
+        if res.isOk():
+          BeaconNodeServerRef(
+            client: res.get(), endpoint: $remoteUri, index: index,
+            roles: roles, logIdent: $(res.get().address.getUri()),
+            uri: remoteUri, status: RestBeaconNodeStatus.Offline)
+        else:
+          if res.error.isCriticalError():
+            return err(res.error.toString())
+          BeaconNodeServerRef(
+            client: nil, endpoint: $remoteUri, index: index,
+            roles: roles, logIdent: $remoteUri, uri: remoteUri,
+            status: RestBeaconNodeStatus.Noname)
   ok(server)
 
 proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
