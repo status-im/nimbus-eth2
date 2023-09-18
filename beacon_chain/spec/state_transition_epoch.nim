@@ -839,7 +839,11 @@ func process_registry_updates*(
 
   ## Queue validators eligible for activation and not dequeued for activation
   var activation_queue: HeapQueue[(uint64, uint32)]
-  let churn_limit = get_validator_churn_limit(cfg, state, cache)
+  let churn_limit =
+    when typeof(state).toFork >= ConsensusFork.Deneb:
+      get_validator_activation_churn_limit(cfg, state, cache)
+    else:
+      get_validator_churn_limit(cfg, state, cache)
   for vidx in state.validators.vindices:
     if is_eligible_for_activation_queue(state.validators.item(vidx)):
       state.validators.mitem(vidx).activation_eligibility_epoch =
@@ -859,8 +863,8 @@ func process_registry_updates*(
       elif val_key > activation_queue[0]:
         discard activation_queue.replace val_key
 
-  ## Dequeued validators for activation up to churn limit (without resetting
-  ## activation epoch)
+  ## Dequeued validators for activation up to activation churn limit
+  ## (without resetting activation epoch)
   doAssert activation_queue.len.uint64 <= churn_limit
   for i in 0 ..< activation_queue.len:
     let (_, vidx_complement) = activation_queue[i]

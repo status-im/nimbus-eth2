@@ -71,6 +71,7 @@ type
     EJECTION_BALANCE*: uint64
     MIN_PER_EPOCH_CHURN_LIMIT*: uint64
     CHURN_LIMIT_QUOTIENT*: uint64
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT*: uint64
 
     # Fork choice
     # TODO PROPOSER_SCORE_BOOST*: uint64
@@ -194,7 +195,8 @@ when const_preset == "mainnet":
     MIN_PER_EPOCH_CHURN_LIMIT: 4,
     # 2**16 (= 65,536)
     CHURN_LIMIT_QUOTIENT: 65536,
-
+    # [New in Deneb:EIP7514] 2**3 (= 8)
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -299,7 +301,8 @@ elif const_preset == "gnosis":
     MIN_PER_EPOCH_CHURN_LIMIT: 4,
     # 2**16 (= 65,536)
     CHURN_LIMIT_QUOTIENT: 4096,
-
+    # [New in Deneb:EIP7514] 2**3 (= 8)
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -395,10 +398,12 @@ elif const_preset == "minimal":
     INACTIVITY_SCORE_RECOVERY_RATE: 16,
     # 2**4 * 10**9 (= 16,000,000,000) Gwei
     EJECTION_BALANCE: 16000000000'u64,
-    # 2**2 (= 4)
-    MIN_PER_EPOCH_CHURN_LIMIT: 4,
+    # [customized] more easily demonstrate the difference between this value and the activation churn limit
+    MIN_PER_EPOCH_CHURN_LIMIT: 2,
     # [customized] scale queue churn at much lower validator counts for testing
     CHURN_LIMIT_QUOTIENT: 32,
+    # [New in Deneb:EIP7514] [customized]
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 4,
 
 
     # Deposit contract
