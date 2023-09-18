@@ -73,6 +73,7 @@ proc init*(
       version: version,
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
+        total_active_balance: epochRef.total_active_balance,
         balances: epochRef.effective_balances),
       finalized: checkpoint,
       best_justified: checkpoint))
@@ -98,6 +99,7 @@ proc update_justified(
     store = self.justified.checkpoint, state = justified
   self.justified = BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    total_active_balance: epochRef.total_active_balance,
     balances: epochRef.effective_balances)
 
 proc update_justified(
@@ -319,10 +321,11 @@ proc process_block*(self: var ForkChoice,
 
   ok()
 
-func find_head*(
+func find_head(
        self: var ForkChoiceBackend,
        current_epoch: Epoch,
        checkpoints: FinalityCheckpoints,
+       justified_total_active_balance: Gwei,
        justified_state_balances: seq[Gwei],
        proposer_boost_root: Eth2Digest
      ): FcResult[Eth2Digest] =
@@ -341,7 +344,7 @@ func find_head*(
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
     deltas, current_epoch, checkpoints,
-    justified_state_balances, proposer_boost_root)
+    justified_total_active_balance, proposer_boost_root)
 
   self.balances = justified_state_balances
 
@@ -365,6 +368,7 @@ proc get_head*(self: var ForkChoice,
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized),
+    self.checkpoints.justified.total_active_balance,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
 
