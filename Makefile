@@ -134,11 +134,12 @@ $(error Git LFS not installed)
 endif
 endif
 
-GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
+GIT_SUBMODULE_CONFIG := lfs.fetchexclude=/public-keys/all.txt
+GIT_SUBMODULE_UPDATE := git -c $(GIT_SUBMODULE_CONFIG) submodule update --init --recursive
 .DEFAULT:
 	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE) && \
-		git submodule foreach --quiet 'git reset --quiet --hard' && \
+		git submodule foreach --quiet 'git -c $(GIT_SUBMODULE_CONFIG) reset --quiet --hard' && \
 		echo
 # Now that the included *.mk files appeared, and are newer than this file, Make will restart itself:
 # https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles
