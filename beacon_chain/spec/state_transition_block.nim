@@ -791,7 +791,10 @@ proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
   if proofs.len != blobs.len:
     return err("validate_blobs: different proof and blob lengths")
 
-  if verifyProofs(blobs, expected_kzg_commitments, proofs).isErr():
+  let res = verifyProofs(blobs, expected_kzg_commitments, proofs).valueOr:
+    return err("validate_blobs: proof verification error")
+
+  if not res:
     return err("validate_blobs: proof verification failed")
 
   ok()
