@@ -440,10 +440,6 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
     "too_late_for_merge",
     "block_lookup_failed",
     "all_valid",
-
-    # 1.4.0-beta.2: Broken test, misses `tick`
-    # - https://github.com/ethereum/consensus-specs/pull/3463
-    "simple_blob_data",
   ]
 
   test suiteName & " - " & path.relativePath(SszTestsDir):
