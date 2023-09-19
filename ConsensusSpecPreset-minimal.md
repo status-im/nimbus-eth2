@@ -2969,7 +2969,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/discard_equivocations_on_att OK
-- ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/discard_equivocations_slashe Fail
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/discard_equivocations_slashe OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/filtered_block_tree          OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/genesis                      OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
@@ -2984,9 +2984,9 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_update_end_of_ OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_withholding    OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_withholding_re OK
-- ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_always_if_b Fail
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_always_if_b OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_monotonic   OK
-- ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_not_realize Fail
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_not_realize OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justif OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_bl OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
@@ -2996,18 +2996,18 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
   ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost               OK
-- ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_bloc Fail
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_bloc OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/pull_up_on_tick              OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block     OK
 + ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/delayed_justification_current_e OK
 + ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/delayed_justification_previous_ OK
-- ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/include_votes_another_empty_cha Fail
-- ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/include_votes_another_empty_cha Fail
-- ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/include_votes_another_empty_cha Fail
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/include_votes_another_empty_cha OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/include_votes_another_empty_cha OK
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/include_votes_another_empty_cha OK
 + ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_ OK
 + ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_ OK
-- ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_ Fail
++ ForkChoice - minimal/altair/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_ OK
 + ForkChoice - minimal/altair/fork_choice/withholding/pyspec_tests/withholding_attack        OK
 + ForkChoice - minimal/altair/fork_choice/withholding/pyspec_tests/withholding_attack_unviab OK
 + ForkChoice - minimal/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_hone OK
@@ -3015,7 +3015,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla            OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/chain_no_attestations     OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations_on_ OK
-- ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations_sla Fail
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations_sla OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/filtered_block_tree       OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/genesis                   OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_correct_he OK
@@ -3030,9 +3030,9 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_update_end_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_withholding OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_withholding OK
-- ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_always_i Fail
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_always_i OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_monotoni OK
-- ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_not_real Fail
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_not_real OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_jus OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
@@ -3042,7 +3042,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_s OK
   ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_future_block     Skip
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost            OK
-- ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_b Fail
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_b OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/pull_up_on_tick           OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block  OK
@@ -3052,12 +3052,12 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
 + ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/delayed_justification_curren OK
 + ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/delayed_justification_previo OK
-- ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ Fail
-- ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ Fail
-- ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ Fail
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delay OK
 + ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delay OK
-- ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_witho Fail
++ ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_witho OK
 + ForkChoice - minimal/bellatrix/fork_choice/withholding/pyspec_tests/withholding_attack     OK
 + ForkChoice - minimal/bellatrix/fork_choice/withholding/pyspec_tests/withholding_attack_unv OK
 + ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
@@ -3065,7 +3065,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations_on_at OK
-- ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations_slash Fail
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations_slash OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/filtered_block_tree         OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/genesis                     OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
@@ -3080,9 +3080,9 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_update_end_of OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_withholding   OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_withholding_r OK
-- ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_always_if_ Fail
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_always_if_ OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_monotonic  OK
-- ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_not_realiz Fail
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_not_realiz OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_b OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
@@ -3092,18 +3092,18 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
   ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
-- ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_blo Fail
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_blo OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/pull_up_on_tick             OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block    OK
 + ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/delayed_justification_current_ OK
 + ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/delayed_justification_previous OK
-- ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ch Fail
-- ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ch Fail
-- ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ch Fail
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ch OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ch OK
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/include_votes_another_empty_ch OK
 + ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed OK
 + ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed OK
-- ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without Fail
++ ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without OK
 + ForkChoice - minimal/capella/fork_choice/withholding/pyspec_tests/withholding_attack       OK
 + ForkChoice - minimal/capella/fork_choice/withholding/pyspec_tests/withholding_attack_unvia OK
 + ForkChoice - minimal/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
@@ -3111,7 +3111,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations_on_atte OK
-- ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations_slashed Fail
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations_slashed OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/filtered_block_tree           OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/genesis                       OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head   OK
@@ -3130,9 +3130,9 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_update_end_of_e OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding     OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding_rev OK
-- ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_always_if_be Fail
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_always_if_be OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_monotonic    OK
-- ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_not_realized Fail
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_not_realized OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justifi OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_blo OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
@@ -3142,23 +3142,23 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots OK
   ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost                OK
-- ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block Fail
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/pull_up_on_tick               OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block      OK
 - ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              Fail
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/delayed_justification_current_ep OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/delayed_justification_previous_e OK
-- ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai Fail
-- ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai Fail
-- ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai Fail
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
-- ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_e Fail
++ ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_e OK
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack         OK
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack_unviabl OK
 ```
-OK: 148/193 Fail: 37/193 Skip: 8/193
+OK: 180/193 Fail: 5/193 Skip: 8/193
 ## Sync
 ```diff
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
@@ -3168,4 +3168,4 @@ OK: 148/193 Fail: 37/193 Skip: 8/193
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2541/2586 Fail: 37/2586 Skip: 8/2586
+OK: 2573/2586 Fail: 5/2586 Skip: 8/2586
