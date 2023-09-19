@@ -470,5 +470,8 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
           runTest(suiteName, basePath/path, fork)
 
+from ../../beacon_chain/conf import loadKzgTrustedSetup
+doAssert loadKzgTrustedSetup().isOk  # Required for Deneb tests
+
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")
