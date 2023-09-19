@@ -1,9 +1,17 @@
 # Holešky testnet
 
-`holesky` will be launched on 15h of September to succeed Prater as the main long-running Ethereum testnet.
+`holesky` is the main long-running Ethereum staking, infrastructure and protocol-developer testnet.
+For testing decentralized applications, smart contracts, and other EVM functionality, please use Sepolia testnet!
+`holesky` replaces the Prater/Görli network which has been deprecated since early 2023.
+
 
 It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practice node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups.
 If you come across any issues, please [report them here](https://github.com/status-im/nimbus-eth2/issues).
+
+
+
+
+
 
 ## General Preparation
 
