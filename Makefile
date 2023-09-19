@@ -321,7 +321,7 @@ consensus_spec_tests_minimal: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:const_preset=minimal $(TEST_MODULES_FLAGS) && \
+			$(NIM_PARAMS) -d:const_preset=minimal -d:FIELD_ELEMENTS_PER_BLOB=4 $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Tests we only run for the default preset
