@@ -7,6 +7,7 @@
 
 import std/strutils
 import ssz_serialization/[types, bitseqs]
+import stew/endians2
 import nimcrypto/hash
 import "."/common
 
@@ -22,12 +23,19 @@ func perfectScore*(score: float64): bool =
   score == Inf
 
 proc shortScore*(score: float64): string =
-  if score == Inf: "<perfect>" else: formatFloat(score, ffDecimal, 4)
+  if score == Inf:
+    "<perfect>"
+  elif score == -Inf:
+    "<lowest>"
+  else:
+    formatFloat(score, ffDecimal, 4)
 
 func getLexicographicScore(digest: Eth2Digest): float64 =
   # We calculate score on first 8 bytes of digest.
-  let value = uint64.fromBytesBE(digest.data.toOpenArray(0, sizeof(uint64) - 1))
-  float64(value)
+  let
+    dvalue = uint64.fromBytesBE(digest.data.toOpenArray(0, sizeof(uint64) - 1))
+    value = float64(dvalue) / float64(high(uint64))
+  value
 
 proc getAttestationDataScore*(rootsSeen: Table[Eth2Digest, Slot],
                               adata: ProduceAttestationDataResponse): float64 =
@@ -104,7 +112,7 @@ proc getSyncCommitteeMessageDataScore*(
             # Perfect score
             Inf
           else:
-            float64(1) / float64(1) + float64(currentSlot) - float64(slot)
+            float64(1) / (float64(1) + float64(currentSlot) - float64(slot))
         else:
           # Block monitoring is disabled or we missed a block.
           getLexicographicScore(cdata.data.root)

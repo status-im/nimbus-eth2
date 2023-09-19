@@ -11,7 +11,8 @@
 import std/strutils
 import httputils
 import chronos/unittest2/asynctests
-import ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
+import ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
+       ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
 
 const
   HostNames = [
@@ -309,6 +310,12 @@ type
     target: uint64
   ]
 
+  AttestationBitsObject* = object
+    data: CommitteeValidatorsBits
+
+  SyncCommitteeBitsObject* = object
+    data: SyncCommitteeAggregationBits
+
 const
   AttestationDataVectors = [
     # Attestation score with block monitoring enabled (perfect).
@@ -368,6 +375,66 @@ const
      ("00000000", 0'u64), "375197.0000"),
   ]
 
+  AggregatedDataVectors = [
+    ("0xff00000001", "0.2500"),
+    ("0xffff000001", "0.5000"),
+    ("0xffffff0001", "0.7500"),
+    ("0xffffffff01", "<perfect>"),
+    ("0xfffffff701", "0.9688"),
+    ("0xffffefdf01", "0.9375")
+  ]
+
+  ContributionDataVectors = [
+    ("0xffffffffffffffffffffffffffff7f7f", "0.9844"),
+    ("0xffffffffffffffffffffffff7f7f7f7f", "0.9688"),
+    ("0xffffffffffffffffffff7f7f7f7f7f7f", "0.9531"),
+    ("0xffffffffffffffff7f7f7f7f7f7f7f7f", "0.9375"),
+    ("0xffffffffffff7f7f7f7f7f7f7f7f7f7f", "0.9219"),
+    ("0xffffffff7f7f7f7f7f7f7f7f7f7f7f7f", "0.9062"),
+    ("0xffff7f7f7f7f7f7f7f7f7f7f7f7f7f7f", "0.8906"),
+    ("0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f", "0.8750"),
+    ("0xffffffffffffffffffffffffffffffff", "<perfect>")
+  ]
+
+  SyncMessageDataVectors = [
+    # Sync committee messages score with block monitoring enabled (perfect)
+    (6002798'u64, "22242212", "22242212", 6002798'u64, Opt.some(false),
+     "<perfect>"),
+    (6002811'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(false),
+     "<perfect>"),
+    (6002836'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(false),
+     "<perfect>"),
+    (6002859'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(false),
+     "<perfect>"),
+    # Sync committee messages score when beacon node is optimistically synced
+    (6002798'u64, "22242212", "22242212", 6002798'u64, Opt.some(true),
+     "<lowest>"),
+    (6002811'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(true),
+     "<lowest>"),
+    (6002836'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(true),
+     "<lowest>"),
+    (6002859'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(true),
+     "<lowest>"),
+    # Sync committee messages score with block monitoring enabled (not perfect)
+    (6002797'u64, "22242212", "22242212", 6002798'u64, Opt.some(false),
+     "0.5000"),
+    (6002809'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(false),
+     "0.3333"),
+    (6002826'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(false),
+     "0.0909"),
+    (6002819'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(false),
+     "0.0244"),
+    # Sync committee messages score with block monitoring disabled
+    (6002797'u64, "00000000", "22242212", 6002798'u64, Opt.some(false),
+     "0.1334"),
+    (6002809'u64, "00000000", "26ec78d6", 6002811'u64, Opt.some(false),
+     "0.1520"),
+    (6002826'u64, "00000000", "42354ded", 6002836'u64, Opt.some(false),
+     "0.2586"),
+    (6002819'u64, "00000000", "97d8ac69", 6002859'u64, Opt.some(false),
+     "0.5931"),
+  ]
+
 proc init(t: typedesc[Eth2Digest], data: string): Eth2Digest =
   let length = len(data)
   var dst = Eth2Digest()
@@ -378,14 +445,50 @@ proc init(t: typedesc[Eth2Digest], data: string): Eth2Digest =
     discard
   dst
 
-proc init*(t: typedesc[ProduceAttestationDataResponse],
-           ad: AttestationDataTuple): ProduceAttestationDataResponse =
+proc init(t: typedesc[ProduceAttestationDataResponse],
+          ad: AttestationDataTuple): ProduceAttestationDataResponse =
   ProduceAttestationDataResponse(data: AttestationData(
     slot: Slot(ad.slot), index: ad.index,
     beacon_block_root: Eth2Digest.init(ad.beacon_block_root),
     source: Checkpoint(epoch: Epoch(ad.source)),
     target: Checkpoint(epoch: Epoch(ad.target))
   ))
+
+proc init(t: typedesc[GetAggregatedAttestationResponse],
+          bits: string): GetAggregatedAttestationResponse =
+
+  let
+    jdata = "{\"data\":\"" & bits & "\"}"
+    bits =
+      try:
+        RestJson.decode(jdata, AttestationBitsObject)
+      except SerializationError as exc:
+        raiseAssert "Serialization error from [" & $exc.name & "]: " & $exc.msg
+  GetAggregatedAttestationResponse(data: Attestation(
+    aggregation_bits: bits.data
+  ))
+
+proc init(t: typedesc[ProduceSyncCommitteeContributionResponse],
+          bits: string): ProduceSyncCommitteeContributionResponse =
+  let
+    jdata = "{\"data\":\"" & bits & "\"}"
+    bits =
+      try:
+        RestJson.decode(jdata, SyncCommitteeBitsObject)
+      except SerializationError as exc:
+        raiseAssert "Serialization error from [" & $exc.name & "]: " & $exc.msg
+  ProduceSyncCommitteeContributionResponse(data: SyncCommitteeContribution(
+    aggregation_bits: bits.data
+  ))
+
+proc init(t: typedesc[GetBlockRootResponse],
+          optimistic: Opt[bool], root: Eth2Digest): GetBlockRootResponse =
+  let optopt =
+    if optimistic.isNone():
+      none[bool]()
+    else:
+      some(optimistic.get())
+  GetBlockRootResponse(data: RestRoot(root: root), execution_optimistic: optopt)
 
 proc createRootsSeen(
        root: tuple[root: string, slot: uint64]): Table[Eth2Digest, Slot] =
@@ -623,6 +726,31 @@ suite "Validator Client test suite":
         score = shortScore(roots.getAttestationDataScore(adata))
       check score == vector[2]
 
+  test "getAggregatedAttestationDataScore() test vectors":
+    for vector in AggregatedDataVectors:
+      let
+        adata = GetAggregatedAttestationResponse.init(vector[0])
+        score = shortScore(getAggregatedAttestationDataScore(adata))
+      check score == vector[1]
+
+  test "getSyncCommitteeContributionDataScore() test vectors":
+    for vector in ContributionDataVectors:
+      let
+        adata = ProduceSyncCommitteeContributionResponse.init(vector[0])
+        score = shortScore(getSyncCommitteeContributionDataScore(adata))
+      check score == vector[1]
+
+  test "getSyncCommitteeMessageDataScore() test vectors":
+    for vector in SyncMessageDataVectors:
+      let
+        roots = createRootsSeen((vector[1], vector[0]))
+        rdata = GetBlockRootResponse.init(vector[4], Eth2Digest.init(vector[2]))
+        currentSlot = Slot(vector[3])
+        score = shortScore(getSyncCommitteeMessageDataScore(roots, currentSlot,
+                                                            rdata))
+      check:
+        score == vector[5]
+
   asyncTest "firstSuccessParallel() API timeout test":
     let
       uri = parseUri("http://127.0.0.1/")
@@ -707,7 +835,6 @@ suite "Validator Client test suite":
     check:
       response.isErr()
       gotCancellation == true
-
 
   test "getLiveness() response deserialization test":
     proc generateLivenessResponse(T: typedesc[string],
