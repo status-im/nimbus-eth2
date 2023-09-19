@@ -185,7 +185,8 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     for index, item in request.keystores:
       let res = importKeystore(host.validatorPool[], host.rng[],
                                host.validatorsDir, host.secretsDir,
-                               item, request.passwords[index])
+                               item, request.passwords[index],
+                               host.keystoreCache)
       if res.isErr():
         let failure = res.error()
         case failure.status
