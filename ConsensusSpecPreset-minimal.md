@@ -3122,10 +3122,10 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
-- ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_data_unavailable      Fail
-- ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_incorrect_proof       Fail
-- ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_blobs_length    Fail
-- ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_proofs_length   Fail
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_data_unavailable      OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_incorrect_proof       OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_blobs_length    OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_proofs_length   OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_update_beginnin OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_update_end_of_e OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding     OK
@@ -3146,7 +3146,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/pull_up_on_tick               OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block      OK
-- ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              Fail
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/delayed_justification_current_ep OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/delayed_justification_previous_e OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
@@ -3158,7 +3158,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack         OK
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack_unviabl OK
 ```
-OK: 180/193 Fail: 5/193 Skip: 8/193
+OK: 185/193 Fail: 0/193 Skip: 8/193
 ## Sync
 ```diff
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
@@ -3168,4 +3168,4 @@ OK: 180/193 Fail: 5/193 Skip: 8/193
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2573/2586 Fail: 5/2586 Skip: 8/2586
+OK: 2578/2586 Fail: 0/2586 Skip: 8/2586
