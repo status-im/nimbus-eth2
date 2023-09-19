@@ -126,18 +126,15 @@ iterator realizePendingCheckpoints*(
   self.currentEpochTips.clear()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#get_weight
-func calculateProposerBoost(validatorBalances: openArray[Gwei]): uint64 =
-  var total_balance: uint64
-  for balance in validatorBalances:
-    total_balance += balance
-  let committee_weight = total_balance div SLOTS_PER_EPOCH
+func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
+  let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
 func applyScoreChanges*(self: var ProtoArray,
                         deltas: var openArray[Delta],
                         currentEpoch: Epoch,
                         checkpoints: FinalityCheckpoints,
-                        newBalances: openArray[Gwei],
+                        justifiedTotalActiveBalance: Gwei,
                         proposerBoostRoot: Eth2Digest): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
@@ -169,7 +166,7 @@ func applyScoreChanges*(self: var ProtoArray,
     self.nodes.buf[nodePhysicalIdx]
 
   # Default value, if not otherwise set in first node loop
-  var proposerBoostScore: uint64
+  var proposerBoostScore: Gwei
 
   # Iterate backwards through all the indices in `self.nodes`
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
@@ -194,7 +191,7 @@ func applyScoreChanges*(self: var ProtoArray,
     #
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#get_weight
     if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
-      proposerBoostScore = calculateProposerBoost(newBalances)
+      proposerBoostScore = calculateProposerBoost(justifiedTotalActiveBalance)
       if  nodeDelta >= 0 and
           high(Delta) - nodeDelta < proposerBoostScore.int64:
         return err ForkChoiceError(

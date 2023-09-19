@@ -113,6 +113,7 @@ type
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
+    total_active_balance*: Gwei
     balances*: seq[Gwei]
 
   Checkpoints* = object
