@@ -471,7 +471,8 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
           runTest(suiteName, basePath/path, fork)
 
 from ../../beacon_chain/conf import loadKzgTrustedSetup
-doAssert loadKzgTrustedSetup().isOk  # Required for Deneb tests
+let res = loadKzgTrustedSetup()  # Required for Deneb tests
+doAssert res.isOk
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")
