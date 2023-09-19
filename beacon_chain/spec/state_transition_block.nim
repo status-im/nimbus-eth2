@@ -791,6 +791,13 @@ proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
   if proofs.len != blobs.len:
     return err("validate_blobs: different proof and blob lengths")
 
+  const infinityProof = KzgProof([
+    0xc0.byte, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+  if infinityProof in proofs:
+    return err("validate_blobs: proof at infinity is not allowed")
+
   if verifyProofs(blobs, expected_kzg_commitments, proofs).isErr():
     return err("validate_blobs: proof verification failed")
 
