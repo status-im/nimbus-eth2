@@ -530,16 +530,24 @@ func nodeIsViableForHead(
     self.checkpoints.justified.epoch == GENESIS_EPOCH or
     node.checkpoints.justified.epoch == self.checkpoints.justified.epoch
 
-  # If the previous epoch is justified, the block should be pulled-up.
-  # In this case, check that unrealized justification is higher than the store
-  # and that the voting source is not more than two epochs ago
-  if not correctJustified and self.isPreviousEpochJustified and
-      node.bid.slot.epoch == self.currentEpoch:
-    let unrealized =
-      self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
-    correctJustified =
-      unrealized.justified.epoch >= self.checkpoints.justified.epoch and
-      node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+  if not correctJustified:
+    case self.version
+    of ForkChoiceVersion.Stable:
+      # If the previous epoch is justified, the block should be pulled-up.
+      # In this case, check that unrealized justification is higher than the
+      # store and that the voting source is not more than two epochs ago
+      if self.isPreviousEpochJustified and
+          node.bid.slot.epoch == self.currentEpoch:
+        let unrealized =
+          self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
+        correctJustified =
+          unrealized.justified.epoch >= self.checkpoints.justified.epoch and
+          node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+    of ForkChoiceVersion.Pr3431:
+      # The voting source should be either at the same height as the store's
+      # justified checkpoint or not more than two epochs ago
+      correctJustified =
+        node.checkpoints.justified.epoch + 2 >= self.currentEpoch
 
   return
     if not correctJustified:

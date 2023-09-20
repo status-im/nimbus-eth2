@@ -33,6 +33,9 @@ type
     ## Controls which version of fork choice to run.
     Stable = "stable"
       ## Use current version from stable Ethereum consensus specifications
+    Pr3431 = "pr3431"
+      ## https://github.com/ethereum/consensus-specs/pull/3431
+      ## https://github.com/ethereum/consensus-specs/issues/3466
 
   fcKind* = enum
     ## Fork Choice Error Kinds
