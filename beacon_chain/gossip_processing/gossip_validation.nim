@@ -99,9 +99,10 @@ func check_propagation_slot_range(
     # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
     # retransmit attestations on the cusp of being out of spec, and which by
     # the time they reach their destination might be out of spec.
-    const ATTESTATION_PROPAGATION_SLOT_RANGE = 28
-
-    if msgSlot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
+    const TIME_IN_FLIGHT_BUFFER = 4
+    static: doAssert ATTESTATION_PROPAGATION_SLOT_RANGE > TIME_IN_FLIGHT_BUFFER
+    if msgSlot + (ATTESTATION_PROPAGATION_SLOT_RANGE - TIME_IN_FLIGHT_BUFFER) <
+        pastSlot.slot:
       return errIgnore("Attestation slot in the past")
   else:
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id

@@ -8,17 +8,17 @@ You can create an account on [beaconcha.in](https://beaconcha.in/) to set up ema
 
 ### 1. Sign up at [beaconcha.in/register](https://beaconcha.in/register)
 
-### 2. Type your validator's public key into the searchbar
+### 2. Type your validator's public key into the search bar
 
-![](https://i.imgur.com/jHjkySK.png)
+![](./img/email_01.png)
 
 ### 3. Click on the bookmark icon
 
-![](https://i.imgur.com/O7zgE0k.png)
+![](./img/email_02.png)
 
 ### 4. Tick the boxes and select *Add To Watchlist*
 
-![](https://i.imgur.com/7ff4Ta7.png)
+![](./img/email_03.png)
 
 
 

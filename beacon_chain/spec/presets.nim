@@ -604,6 +604,7 @@ proc readRuntimeConfig*(
   checkCompatibility TTFB_TIMEOUT
   checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB
+  checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
 
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
