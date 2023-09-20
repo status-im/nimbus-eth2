@@ -411,7 +411,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
         let status = stepOnBlock(
           stores.dag, stores.fkChoice,
           verifier, state[], stateCache,
-          blck, step.blobData, time, invalidatedRoots)
+          forkyBlck, step.blobData, time, invalidatedRoots)
         doAssert status.isOk == step.valid
     of opOnAttesterSlashing:
       let indices =

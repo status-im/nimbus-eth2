@@ -153,7 +153,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
                 default(FinalityCheckpoints)
           withBlck(blck):
             forkChoice.process_block(
-              dag, epochRef, blckRef, unrealized, blck.message,
+              dag, epochRef, blckRef, unrealized, forkyBlck.message,
               blckRef.slot.start_beacon_time)
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
