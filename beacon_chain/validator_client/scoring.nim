@@ -26,7 +26,7 @@ proc shortScore*(score: float64): string =
   if score == Inf:
     "<perfect>"
   elif score == -Inf:
-    "<lowest>"
+    "<bad>"
   else:
     formatFloat(score, ffDecimal, 4)
 
@@ -108,13 +108,17 @@ proc getSyncCommitteeMessageDataScore*(
         -Inf
       else:
         if slot != FAR_FUTURE_SLOT:
+          # When `slot` has been found score value will be in range of
+          # `(1, 2]` or `Inf`.
           if slot == currentSlot:
             # Perfect score
             Inf
           else:
-            float64(1) / (float64(1) + float64(currentSlot) - float64(slot))
+            float64(1) +
+              float64(1) / (float64(1) + float64(currentSlot) - float64(slot))
         else:
-          # Block monitoring is disabled or we missed a block.
+          # Block monitoring is disabled or we missed a block, in this case
+          # score value will be in range of `(0, 1]`
           getLexicographicScore(cdata.data.root)
 
   debug "Sync committee message score",
