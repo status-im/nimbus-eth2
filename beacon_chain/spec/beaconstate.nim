@@ -82,6 +82,15 @@ func get_validator_churn_limit*(
     count_active_validators(
       state, state.get_current_epoch(), cache) div cfg.CHURN_LIMIT_QUOTIENT)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/beacon-chain.md#new-get_validator_activation_churn_limit
+func get_validator_activation_churn_limit*(
+      cfg: RuntimeConfig, state: deneb.BeaconState, cache: var StateCache):
+    uint64 =
+  ## Return the validator activation churn limit for the current epoch.
+  min(
+    cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT,
+    get_validator_churn_limit(cfg, state, cache))
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,

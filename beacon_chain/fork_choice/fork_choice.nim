@@ -293,7 +293,9 @@ proc process_block*(self: var ForkChoice,
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero
-  if slot == blck.slot and self.checkpoints.time < slot.attestation_deadline:
+  if slot == blck.slot and
+      self.checkpoints.time < slot.attestation_deadline and
+      self.checkpoints.proposer_boost_root == ZERO_HASH:
     self.checkpoints.proposer_boost_root = blckRef.root
 
   # Update checkpoints in store if necessary

@@ -183,6 +183,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.MIN_PER_EPOCH_CHURN_LIMIT),
           CHURN_LIMIT_QUOTIENT:
             Base10.toString(cfg.CHURN_LIMIT_QUOTIENT),
+          MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT:
+            Base10.toString(cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT),
           PROPOSER_SCORE_BOOST:
             Base10.toString(PROPOSER_SCORE_BOOST),
           DEPOSIT_CHAIN_ID:
