@@ -1556,15 +1556,22 @@ proc getValidatorRegistration(
 
   return ok validatorRegistration
 
-proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
+proc registerValidatorsPerBuilder(
+    node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,
+    attachedValidatorPubkeys: seq[ValidatorPubKey]) {.async.} =
+  const HttpOk = 200
+
   try:
-    if not node.config.payloadBuilderEnable: return
-
-    const HttpOk = 200
-
-    let payloadBuilderClient = node.getPayloadBuilderClient(0).valueOr:
+    let payloadBuilderClient =
+        RestClientRef.new(payloadBuilderAddress).valueOr:
       debug "Unable to initialize payload builder client while registering validators",
+        payloadBuilderAddress, epoch,
         err = error
+      return
+
+    if payloadBuilderClient.isNil:
+      debug "registerValidatorsPerBuilder: got nil payload builder REST client reference",
+        payloadBuilderAddress, epoch
       return
 
     let restBuilderStatus = awaitWithTimeout(payloadBuilderClient.checkBuilderStatus(),
@@ -1577,11 +1584,6 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
         builderUrl = node.config.payloadBuilderUrl,
         builderStatus = restBuilderStatus
       return
-
-    # The async aspect of signing the registrations can cause the attached
-    # validators to change during the loop.
-    let attachedValidatorPubkeys =
-      toSeq(node.attachedValidators[].validators.keys)
 
     const emptyNestedSeq = @[newSeq[SignedValidatorRegistrationV1](0)]
     # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#validator-registration
@@ -1682,6 +1684,23 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   except CatchableError as exc:
     warn "registerValidators: exception",
       error = exc.msg
+
+proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
+  if not node.config.payloadBuilderEnable: return
+
+  var builderKeys: Table[string, seq[ValidatorPubKey]]
+  for pubkey in node.attachedValidators[].validators.keys:
+    let payloadBuilderAddress = node.getPayloadBuilderAddress(pubkey).valueOr:
+      continue
+
+    if payloadBuilderAddress in builderKeys:
+      builderKeys[payloadBuilderAddress].add pubkey
+    else:
+      builderKeys[payloadBuilderAddress] = @[pubkey]
+
+  for payloadBuilderAddress in builderKeys.keys:
+    await node.registerValidatorsPerBuilder(
+      payloadBuilderAddress, epoch, builderKeys[payloadBuilderAddress])
 
 proc updateValidators(
     node: BeaconNode, validators: openArray[Validator]) =
