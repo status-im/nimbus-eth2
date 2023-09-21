@@ -281,7 +281,7 @@ proc query[E](
         progressFut.complete()
     except CancelledError as exc:
       if not progressFut.finished:
-        progressFut.cancel()
+        progressFut.cancelSoon()
     except CatchableError as exc:
       discard
     finally:
@@ -311,7 +311,7 @@ proc query[E](
           doneFut.complete()
         break
       if not workers[i].finished:
-        workers[i].cancel()
+        workers[i].cancelSoon()
     while true:
       try:
         await allFutures(workers[0 ..< maxCompleted])
@@ -326,7 +326,7 @@ proc query[E](
         continue
 
   if not progressFut.finished:
-    progressFut.cancel()
+    progressFut.cancelSoon()
   return progressFut.completed
 
 template query[E](

@@ -160,12 +160,6 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # One of the handlers finished, it means that connection has been droped, so
     # we cancelling all other handlers.
     let pending =
-      block:
-        var res: seq[Future[void]]
-        for fut in handlers:
-          if not(fut.finished()):
-            fut.cancel()
-            res.add(fut)
-        res
-    await allFutures(pending)
+      handlers.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
     return

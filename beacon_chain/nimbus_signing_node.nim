@@ -420,7 +420,7 @@ proc asyncRun*(sn: SigningNodeRef) {.async.} =
     pending.add(cancelAndWait(sn.runKeystoreCachePruningLoopFut))
   pending.add(sn.stop())
   pending.add(sn.close())
-  await allFutures(pending)
+  await noCancel allFutures(pending)
 
 template runWithSignals(sn: SigningNodeRef, body: untyped): bool =
   let future = body
@@ -434,7 +434,7 @@ template runWithSignals(sn: SigningNodeRef, body: untyped): bool =
         pending.add(cancelAndWait(sn.sigintHandleFut))
       if not(sn.sigtermHandleFut.finished()):
         pending.add(cancelAndWait(sn.sigtermHandleFut))
-      await allFutures(pending)
+      await noCancel allFutures(pending)
       false
     else:
       true
@@ -446,7 +446,7 @@ template runWithSignals(sn: SigningNodeRef, body: untyped): bool =
       pending.add(cancelAndWait(sn.sigintHandleFut))
     if not(sn.sigtermHandleFut.finished()):
       pending.add(cancelAndWait(sn.sigtermHandleFut))
-    await allFutures(pending)
+    await noCancel allFutures(pending)
     false
 
 proc runSigningNode(config: SigningNodeConf) {.async.} =
