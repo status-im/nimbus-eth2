@@ -82,7 +82,16 @@ func get_validator_churn_limit*(
     count_active_validators(
       state, state.get_current_epoch(), cache) div cfg.CHURN_LIMIT_QUOTIENT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/beacon-chain.md#new-get_validator_activation_churn_limit
+func get_validator_activation_churn_limit*(
+      cfg: RuntimeConfig, state: deneb.BeaconState, cache: var StateCache):
+    uint64 =
+  ## Return the validator activation churn limit for the current epoch.
+  min(
+    cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT,
+    get_validator_churn_limit(cfg, state, cache))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     index: ValidatorIndex, cache: var StateCache): Result[void, cstring] =
@@ -156,8 +165,8 @@ func get_slashing_penalty*(state: ForkyBeaconState,
 func get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): Gwei =
   when state is phase0.BeaconState:
@@ -222,7 +231,7 @@ proc slash_validator*(
 func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#genesis-block
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#genesis-block
 func get_initial_beacon_block*(state: phase0.HashedBeaconState):
     phase0.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
@@ -246,7 +255,7 @@ func get_initial_beacon_block*(state: altair.HashedBeaconState):
   altair.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/beacon-chain.md#testing
 func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
     bellatrix.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted

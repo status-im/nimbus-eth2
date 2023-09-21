@@ -313,8 +313,8 @@ proc initFullNode(
   let
     quarantine = newClone(
       Quarantine.init())
-    attestationPool = newClone(
-      AttestationPool.init(dag, quarantine, onAttestationReceived))
+    attestationPool = newClone(AttestationPool.init(
+      dag, quarantine, config.forkChoiceVersion.get, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
@@ -344,11 +344,11 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       withBlck(signedBlock):
-        when typeof(blck).toFork() >= ConsensusFork.Deneb:
-          if not blobQuarantine[].hasBlobs(blck):
+        when typeof(forkyBlck).toFork() >= ConsensusFork.Deneb:
+          if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
-            if not quarantine[].addBlobless(dag.finalizedHead.slot, blck):
+            if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
               Future.completed(
                 Result[void, VerifierError].err(VerifierError.UnviableFork),
                 "rmanBlockVerifier")
@@ -357,7 +357,7 @@ proc initFullNode(
                 Result[void, VerifierError].err(VerifierError.MissingParent),
                 "rmanBlockVerifier")
           else:
-            let blobs = blobQuarantine[].popBlobs(blck.root)
+            let blobs = blobQuarantine[].popBlobs(forkyBlck.root)
             blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.some(blobs),
                                       maybeFinalized = maybeFinalized)
@@ -562,7 +562,8 @@ proc init*(T: type BeaconNode,
         elif metadata.hasGenesis:
           try:
             if metadata.genesis.kind == BakedInUrl:
-              info "Obtaining genesis state", sourceUrl = metadata.genesis.url
+              info "Obtaining genesis state",
+                    sourceUrl = $config.genesisStateUrl.get(parseUri metadata.genesis.url)
             await metadata.genesis.fetchBytes(config.genesisStateUrl)
           except CatchableError as err:
             error "Failed to obtain genesis state",
@@ -1187,9 +1188,9 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(blck).toFork() < ConsensusFork.Deneb: continue
+        when typeof(forkyBlck).toFork() < ConsensusFork.Deneb: continue
         else:
-          for j in 0..len(blck.message.body.blob_kzg_commitments) - 1:
+          for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
               count = count + 1
     debug "pruned blobs", count, blobPruneEpoch
@@ -1901,6 +1902,13 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
+  if config.forkChoiceVersion.isNone:
+    config.forkChoiceVersion =
+      if metadata.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        # https://github.com/ethereum/pm/issues/844#issuecomment-1673359012
+        some(ForkChoiceVersion.Pr3431)
+      else:
+        some(ForkChoiceVersion.Stable)
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =

@@ -74,7 +74,7 @@ export
   tables, results, json_serialization, timer, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.4.0-beta.1"
+const SPEC_VERSION* = "1.4.0-beta.2-hotfix"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -277,7 +277,7 @@ type
 
     data*: DepositData
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#depositmessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#depositmessage
   DepositMessage* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -293,7 +293,7 @@ type
     signature*: ValidatorSig
       ## Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch
       ## Earliest epoch when voluntary exit can be processed
@@ -365,7 +365,7 @@ type
     epoch*: Epoch
       ## Epoch of latest fork
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#eth1data
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
     deposit_count*: uint64

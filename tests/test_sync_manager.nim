@@ -724,7 +724,7 @@ suite "SyncManager test suite":
         let sblock = await aq.popFirst()
         if sblock.blck.slot == Slot(counter):
           withBlck(sblock.blck):
-            if blck.message.proposer_index == 0xDEADBEAF'u64:
+            if forkyBlck.message.proposer_index == 0xDEADBEAF'u64:
               sblock.fail(VerifierError.MissingParent)
             else:
               inc(counter)
@@ -782,7 +782,7 @@ suite "SyncManager test suite":
 
       var missingSlice = chain.getSlice(startSlot, r13)
       withBlck(missingSlice[0][]):
-        blck.message.proposer_index = 0xDEADBEAF'u64
+        forkyBlck.message.proposer_index = 0xDEADBEAF'u64
       var f13 = queue.push(r13, missingSlice,
                            Opt.none(seq[BlobSidecars]))
       await allFutures(f13, f14)
@@ -897,7 +897,7 @@ suite "SyncManager test suite":
         let sblock = await aq.popFirst()
         if sblock.blck.slot == Slot(counter):
           withBlck(sblock.blck):
-            if blck.message.proposer_index == 0xDEADBEAF'u64:
+            if forkyBlck.message.proposer_index == 0xDEADBEAF'u64:
               sblock.fail(VerifierError.MissingParent)
             else:
               lastSafeSlot = sblock.blck.slot
@@ -954,7 +954,7 @@ suite "SyncManager test suite":
 
       var missingSlice = chain.getSlice(startSlot, r13)
       withBlck(missingSlice[0][]):
-        blck.message.proposer_index = 0xDEADBEAF'u64
+        forkyBlck.message.proposer_index = 0xDEADBEAF'u64
       var f13 = queue.push(r13, missingSlice, Opt.none(seq[BlobSidecars]))
       await allFutures(f13, f14)
       check:

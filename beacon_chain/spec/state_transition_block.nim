@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition - block processing, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#block-processing
@@ -80,7 +80,7 @@ func `xor`[T: array](a, b: T): T =
   for i in 0..<result.len:
     result[i] = a[i] xor b[i]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#randao
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
@@ -192,7 +192,7 @@ proc process_proposer_slashing*(
   ? slash_validator(cfg, state, proposer_index, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -418,7 +418,7 @@ proc process_bls_to_execution_change*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#modified-process_operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
@@ -791,7 +791,10 @@ proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
   if proofs.len != blobs.len:
     return err("validate_blobs: different proof and blob lengths")
 
-  if verifyProofs(blobs, expected_kzg_commitments, proofs).isErr():
+  let res = verifyProofs(blobs, expected_kzg_commitments, proofs).valueOr:
+    return err("validate_blobs: proof verification error")
+
+  if not res:
     return err("validate_blobs: proof verification failed")
 
   ok()
@@ -815,7 +818,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =

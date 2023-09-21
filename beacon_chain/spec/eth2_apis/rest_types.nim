@@ -574,7 +574,7 @@ type
     extra_data*: Option[RestNodeExtraData]
 
   RestExtraData* = object
-    discard
+    version*: Option[string]
 
   GetForkChoiceResponse* = object
     justified_checkpoint*: Checkpoint
@@ -627,7 +627,7 @@ func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
 func init*(t: typedesc[RestBlockInfo],
            v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
   withBlck(v):
-    RestBlockInfo(slot: blck.message.slot, blck: blck.root)
+    RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            balance: uint64, status: string,

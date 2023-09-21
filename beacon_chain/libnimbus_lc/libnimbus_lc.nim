@@ -947,7 +947,7 @@ proc ETHLightClientHeaderCopyExecutionHash(
   ## * Pointer to a copy of the given header's execution block hash.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#executionpayloadheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#executionpayloadheader
   discard cfg  # Future-proof against SSZ execution block header, EIP-6404ff.
   let root = Eth2Digest.new()
   root[] = header[].execution.block_hash
@@ -972,7 +972,7 @@ func ETHLightClientHeaderGetExecution(
   ## * Execution payload header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#executionpayloadheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#executionpayloadheader
   addr header[].execution
 
 func ETHExecutionPayloadHeaderGetParentHash(
@@ -1560,6 +1560,9 @@ proc ETHTransactionsCreateFromJson(
       hash = keccakHash(rlpBytes)
     if data.hash.asEth2Digest != hash:
       return nil
+
+    template isEven(x: int64): bool =
+      (x and 1) == 0
 
     # Compute from execution address
     var rawSig {.noinit.}: array[65, byte]

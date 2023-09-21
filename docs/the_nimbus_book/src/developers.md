@@ -217,7 +217,7 @@ USE_MULTITAIL="yes" make local-testnet-minimal
 
 You’ll get something like this (click for full size):
 
-[![](https://i.imgur.com/Pc99VDO.png)](https://i.imgur.com/Pc99VDO.png)
+[![](./img/developers_01.png)](./img/developers_01.png)
 
 
 You can find out more about the beacon node simulation [here](https://our.status.im/nimbus-development-update-03/#beaconsimulation).

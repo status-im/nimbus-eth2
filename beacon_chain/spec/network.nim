@@ -23,16 +23,16 @@ const
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
 
-  # The spec now includes this as a bare integer as `RESP_TIMEOUT`
-  RESP_TIMEOUT_DUR* = RESP_TIMEOUT.seconds
+const
+  # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
+  RESP_TIMEOUT_DUR* = RESP_TIMEOUT.int64.seconds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#configuration
-  MAX_REQUEST_BLOCKS_DENEB* = 128 # TODO Make use of in request code
-  MAX_REQUEST_BLOB_SIDECARS* = MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
-  # TODO MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+  MAX_REQUEST_BLOB_SIDECARS*: uint64 =
+    MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
 
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
@@ -67,7 +67,7 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
     SubnetId =

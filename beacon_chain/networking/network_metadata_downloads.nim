@@ -37,7 +37,23 @@ proc fetchBytes*(metadata: GenesisMetadata,
   of BakedIn:
     result = @(metadata.bakedBytes)
   of BakedInUrl:
-    result = decodeFramed(await downloadFile(genesisStateUrlOverride.get(parseUri metadata.url)))
+    result = await downloadFile(genesisStateUrlOverride.get(parseUri metadata.url))
+    # Under the built-in default URL, we serve a snappy-encoded BeaconState in order
+    # to reduce the size of the downloaded file with roughly 50% (this precise ratio
+    # depends on the number of validator recors). The user is still free to provide
+    # any URL which may serve an uncompressed state (e.g. a Beacon API endpoint)
+    #
+    # Since a SSZ-encoded BeaconState will start with a LittleEndian genesis time
+    # (64 bits) while a snappy framed stream will always start with a fixed header
+    # that will decoded as a timestamp with the value 5791996851603375871 (year 2153).
+    #
+    # TODO: A more complete solution will implement compression on the HTTP level,
+    #       by relying on the Content-Encoding header to determine the compression
+    #       algorithm. The detection method used here will not interfere with such
+    #       an implementation and it may remain useful when dealing with misconfigured
+    #       HTTP servers.
+    if result.isSnappyFramedStream:
+      result = decodeFramed(result)
     if eth2digest(result) != metadata.digest:
       raise (ref DigestMismatchError)(
         msg: "The downloaded genesis state cannot be verified (checksum mismatch)")

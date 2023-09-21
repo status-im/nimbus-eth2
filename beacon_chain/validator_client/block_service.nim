@@ -114,7 +114,7 @@ proc produceBlindedBlock(
         error "An unexpected error occurred while getting blinded block data",
               error_name = exc.name, error_msg = exc.msg
         return Opt.none(PreparedBlindedBeaconBlock)
-    blockRoot = withBlck(beaconBlock): hash_tree_root(blck)
+    blockRoot = withBlck(beaconBlock): hash_tree_root(forkyBlck)
 
   return Opt.some(
     PreparedBlindedBeaconBlock(blockRoot: blockRoot, data: beaconBlock))
@@ -734,7 +734,7 @@ proc runBlockPollMonitor(service: BlockServiceRef,
 proc runBlockMonitor(service: BlockServiceRef) {.async.} =
   let
     vc = service.client
-    blockNodes = vc.filterNodes(AllBeaconNodeStatuses,
+    blockNodes = vc.filterNodes(ResolvedBeaconNodeStatuses,
                                 {BeaconNodeRole.BlockProposalData})
   let pendingTasks =
     case vc.config.monitoringType

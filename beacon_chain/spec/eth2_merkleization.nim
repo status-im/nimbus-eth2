@@ -10,6 +10,7 @@
 # Import this module to get access to `hash_tree_root` for spec types
 
 import
+  stew/endians2,
   ssz_serialization/[merkleization, proofs],
   ./ssz_codec
 

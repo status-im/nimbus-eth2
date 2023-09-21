@@ -12,7 +12,7 @@ import
   # Status lib
   unittest2,
   chronicles, chronos,
-  stew/byteutils,
+  stew/[byteutils, endians2],
   taskpools,
   # Internal
   ../beacon_chain/gossip_processing/[gossip_validation],

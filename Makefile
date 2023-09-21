@@ -118,17 +118,31 @@ ifneq ($(OS), Windows_NT)
 PLATFORM_SPECIFIC_TARGETS += gnosis-build
 endif
 
+# We don't need the `vendor/holesky/public-keys/all.txt` file but fetching it
+# may trigger 'This repository is over its data quota' from GitHub
+GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt
+
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
 #
 # The `git reset ...` will try to fix a `make update` that was interrupted
 # with Ctrl+C after deleting the working copy and before getting a chance to
 # restore it in $(BUILD_SYSTEM_DIR).
-GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
+
+# `vendor/holesky` requires Git LFS
+ifeq (, $(shell which git-lfs))
+ifeq ($(shell uname), Darwin)
+$(error Git LFS not installed. Run 'brew install git-lfs' to set up)
+else
+$(error Git LFS not installed)
+endif
+endif
+
+GIT_SUBMODULE_UPDATE := git $(GIT_SUBMODULE_CONFIG) submodule update --init --recursive
 .DEFAULT:
 	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE) && \
-		git submodule foreach --quiet 'git reset --quiet --hard' && \
+		git submodule foreach --quiet 'git $(GIT_SUBMODULE_CONFIG) reset --quiet --hard' && \
 		echo
 # Now that the included *.mk files appeared, and are newer than this file, Make will restart itself:
 # https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles
@@ -307,7 +321,7 @@ consensus_spec_tests_minimal: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:const_preset=minimal $(TEST_MODULES_FLAGS) && \
+			$(NIM_PARAMS) -d:const_preset=minimal -d:FIELD_ELEMENTS_PER_BLOB=4 $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Tests we only run for the default preset
@@ -750,6 +764,7 @@ libnimbus_lc.a: | build deps
 
 # `-Wno-maybe-uninitialized` in Linux: https://github.com/nim-lang/Nim/issues/22246
 # `-fsanitize=undefined` in Windows: https://github.com/msys2/MINGW-packages/issues/3163
+# `-Wl,--stack,0x0000000000800000` in Windows: MinGW default of 2 MB leads to `SIGSEGV` in `___chkstk_ms` in Nim 2.0
 test_libnimbus_lc: libnimbus_lc.a
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		EXTRA_FLAGS=() && \
@@ -764,7 +779,7 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				echo "MINGW cannot find -lubsan." && exit 1; \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -Wl,--stack,0x0000000000800000 -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		*) \
 			if (( $${WITH_UBSAN:-0} )); then \

@@ -10,11 +10,11 @@
 import
   std/[deques, strformat, strutils, sequtils, tables, typetraits, uri, json],
   # Nimble packages:
-  chronos, metrics, chronicles/timings, stint/endians2,
+  chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
   web3, web3/ethhexstrings, web3/engine_api,
   eth/common/[eth_types, transaction],
-  eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes],
+  eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes, endians2],
   # Local modules:
   ../spec/[deposit_snapshots, eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix, deneb],
