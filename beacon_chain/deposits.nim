@@ -228,7 +228,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
           block:
             let s = spec.getOrDefault("DENEB_FORK_EPOCH", $FAR_FUTURE_EPOCH)
             Epoch(Base10.decode(uint64, s).get(uint64(FAR_FUTURE_EPOCH)))
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#voluntary-exits
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#voluntary-exits
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
       if currentEpoch >= denebForkEpoch:
         let capellaForkVersion =

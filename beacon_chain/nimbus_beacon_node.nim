@@ -1568,7 +1568,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -1579,7 +1579,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{index}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
         for i in 0 ..< BLOB_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = i
