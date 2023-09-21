@@ -556,5 +556,6 @@ programMain:
     # and avoid using system resources (such as urandom) after that
     rng = HmacDrbgContext.new()
 
+  setupFileLimits()
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   waitFor runValidatorClient(config, rng)

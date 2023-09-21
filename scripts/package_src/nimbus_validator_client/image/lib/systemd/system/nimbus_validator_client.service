@@ -39,6 +39,9 @@ Environment=METRICS_PORT=8108
 # Interaction and monitoring
 Environment=METRICS_ENABLED=Yes
 
+# Apart from sockets and databases, a file descriptor is needed for every local validator
+LimitNOFILE=16384
+
 # Default group = nimbus
 User=nimbus
 WorkingDirectory=/var/lib/nimbus

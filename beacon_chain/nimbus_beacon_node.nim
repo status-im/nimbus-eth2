@@ -2171,6 +2171,7 @@ programMain:
     # permissions are insecure.
     quit QuitFailure
 
+  setupFileLimits()
   setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   ## This Ctrl+C handler exits the program in non-graceful way.
