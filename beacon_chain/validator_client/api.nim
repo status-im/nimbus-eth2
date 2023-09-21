@@ -86,7 +86,7 @@ proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase,
         ApiFailure.Communication, requestName, strategy, node,
         $request.error.msg)
       node.updateStatus(RestBeaconNodeStatus.Offline, failure)
-  except CancelledError as exc:
+  except CancelledError:
     await cancelAndWait(request)
 
 proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
@@ -257,7 +257,7 @@ template firstSuccessParallel*(
           for future in pendingRequests.items():
             if not(future.finished()):
               pendingCancel.add(future.cancelAndWait())
-          await allFutures(pendingCancel)
+          await noCancel allFutures(pendingCancel)
           raise exc
         except CatchableError as exc:
           # This should not be happened, because allFutures() and race() did not
@@ -423,7 +423,7 @@ template bestSuccess*(
                 if not(future.finished()):
                   pendingCancel.add(future.cancelAndWait())
               # Awaiting cancellations.
-              await allFutures(pendingCancel)
+              await noCancel allFutures(pendingCancel)
               raise exc
             except CatchableError as exc:
               # This should not be happened, because allFutures() and race()
@@ -526,7 +526,7 @@ template onceToAll*(
             pendingCancel.add(fut.cancelAndWait())
         if not(isNil(timerFut)) and not(timerFut.finished()):
           pendingCancel.add(timerFut.cancelAndWait())
-        await allFutures(pendingCancel)
+        await noCancel allFutures(pendingCancel)
         raise exc
       except CatchableError:
         # This should not be happened, because allFutures() and race() did not
@@ -664,7 +664,7 @@ template firstSuccessSequential*(
                 pending.add(bodyFut.cancelAndWait())
               if not(isNil(timerFut)) and not(timerFut.finished()):
                 pending.add(timerFut.cancelAndWait())
-              await allFutures(pending)
+              await noCancel allFutures(pending)
               raise exc
             except CatchableError as exc:
               # This case should not happen.

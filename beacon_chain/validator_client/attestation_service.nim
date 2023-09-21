@@ -205,10 +205,9 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
       try:
         await allFutures(pendingAttestations)
       except CancelledError as exc:
-        for fut in pendingAttestations:
-          if not(fut.finished()):
-            fut.cancel()
-        await allFutures(pendingAttestations)
+        let pending = pendingAttestations
+          .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+        await noCancel allFutures(pending)
         raise exc
 
       for future in pendingAttestations:
@@ -300,10 +299,9 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
         try:
           await allFutures(pendingAggregates)
         except CancelledError as exc:
-          for fut in pendingAggregates:
-            if not(fut.finished()):
-              fut.cancel()
-          await allFutures(pendingAggregates)
+          let pending = pendingAggregates
+            .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+          await noCancel allFutures(pending)
           raise exc
 
         for future in pendingAggregates:
@@ -393,7 +391,7 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
   except CancelledError as exc:
     # Cancelling all the pending tasks.
     let pending = tasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-    await allFutures(pending)
+    await noCancel allFutures(pending)
     raise exc
   except CatchableError as exc:
     error "Unexpected error while processing attestation duties",

@@ -1581,10 +1581,9 @@ proc fillSyncCommitteeSelectionProofs*(
     try:
       discard await race(pendingRequests)
     except CancelledError as exc:
-      var pending: seq[Future[void]]
-      for future in pendingRequests:
-        if not(future.finished()): pending.add(future.cancelAndWait())
-      await allFutures(pending)
+      let pending = pendingRequests
+        .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+      await noCancel allFutures(pending)
       raise exc
 
     (requests, pendingRequests) =
@@ -1660,10 +1659,9 @@ proc fillAttestationSelectionProofs*(
     try:
       discard await race(pendingRequests)
     except CancelledError as exc:
-      var pending: seq[Future[void]]
-      for future in pendingRequests:
-        if not(future.finished()): pending.add(future.cancelAndWait())
-      await allFutures(pending)
+      let pending = pendingRequests
+        .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+      await noCancel allFutures(pending)
       raise exc
 
     (requests, pendingRequests) =
