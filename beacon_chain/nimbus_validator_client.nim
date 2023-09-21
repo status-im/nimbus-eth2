@@ -364,9 +364,10 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
     vc.blockService = await BlockServiceRef.init(vc)
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
     vc.keymanagerServer = keymanagerInitResult.server
-    if vc.keymanagerServer != nil:
+    if not(isNil(vc.keymanagerServer)):
       vc.keymanagerHost = newClone KeymanagerHost.init(
         validatorPool,
+        vc.keystoreCache,
         vc.rng,
         keymanagerInitResult.token,
         vc.config.validatorsDir,
@@ -458,8 +459,8 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   vc.blockService.start()
   vc.syncCommitteeService.start()
 
-  if not isNil(vc.keymanagerServer):
-    doAssert vc.keymanagerHost != nil
+  if not(isNil(vc.keymanagerServer)):
+    doAssert not(isNil(vc.keymanagerHost))
     vc.keymanagerServer.router.installKeymanagerHandlers(vc.keymanagerHost[])
     vc.keymanagerServer.start()
 
@@ -556,5 +557,6 @@ programMain:
     # and avoid using system resources (such as urandom) after that
     rng = HmacDrbgContext.new()
 
+  setupFileLimits()
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   waitFor runValidatorClient(config, rng)

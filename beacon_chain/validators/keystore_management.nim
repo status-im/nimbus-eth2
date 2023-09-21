@@ -80,6 +80,7 @@ type
 
   KeymanagerHost* = object
     validatorPool*: ref ValidatorPool
+    keystoreCache*: KeystoreCacheRef
     rng*: ref HmacDrbgContext
     keymanagerToken*: string
     validatorsDir*: string
@@ -111,6 +112,7 @@ func dispose*(decryptor: var MultipleKeystoresDecryptor) =
 
 func init*(T: type KeymanagerHost,
            validatorPool: ref ValidatorPool,
+           keystoreCache: KeystoreCacheRef,
            rng: ref HmacDrbgContext,
            keymanagerToken: string,
            validatorsDir: string,
@@ -123,6 +125,7 @@ func init*(T: type KeymanagerHost,
            getForkFn: GetForkFn,
            getGenesisFn: GetGenesisFn): T =
   T(validatorPool: validatorPool,
+    keystoreCache: keystoreCache,
     rng: rng,
     keymanagerToken: keymanagerToken,
     validatorsDir: validatorsDir,
@@ -1339,18 +1342,13 @@ proc importKeystore*(pool: var ValidatorPool,
                      rng: var HmacDrbgContext,
                      validatorsDir, secretsDir: string,
                      keystore: Keystore,
-                     password: string): ImportResult[KeystoreData] {.
+                     password: string,
+                     cache: KeystoreCacheRef): ImportResult[KeystoreData] {.
      raises: [].} =
-  let keypass = KeystorePass.init(password)
-  let privateKey =
-    block:
-      let res = decryptKeystore(keystore, keypass)
-      if res.isOk():
-        res.get()
-      else:
-        return err(
-          AddValidatorFailure.init(AddValidatorStatus.failed, res.error()))
   let
+    keypass = KeystorePass.init(password)
+    privateKey = decryptKeystore(keystore, keypass, cache).valueOr:
+      return err(AddValidatorFailure.init(AddValidatorStatus.failed, error))
     publicKey = privateKey.toPubKey()
     keyName = publicKey.fsName
     keystoreDir = validatorsDir / keyName

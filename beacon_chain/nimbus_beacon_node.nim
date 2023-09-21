@@ -700,6 +700,7 @@ proc init*(T: type BeaconNode,
     getStateField(dag.headState, genesis_validators_root)
 
   let
+    keystoreCache = KeystoreCacheRef.init()
     slashingProtectionDB =
       SlashingProtectionDB.init(
           getStateField(dag.headState, genesis_validators_root),
@@ -711,6 +712,7 @@ proc init*(T: type BeaconNode,
     keymanagerHost = if keymanagerInitResult.server != nil:
       newClone KeymanagerHost.init(
         validatorPool,
+        keystoreCache,
         rng,
         keymanagerInitResult.token,
         config.validatorsDir,
@@ -749,7 +751,7 @@ proc init*(T: type BeaconNode,
     restServer: restServer,
     keymanagerHost: keymanagerHost,
     keymanagerServer: keymanagerInitResult.server,
-    keystoreCache: KeystoreCacheRef.init(),
+    keystoreCache: keystoreCache,
     eventBus: eventBus,
     gossipState: {},
     blocksGossipState: {},
@@ -1568,7 +1570,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -1579,7 +1581,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{index}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
         for i in 0 ..< BLOB_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = i
@@ -2171,6 +2173,7 @@ programMain:
     # permissions are insecure.
     quit QuitFailure
 
+  setupFileLimits()
   setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   ## This Ctrl+C handler exits the program in non-graceful way.
