@@ -388,10 +388,10 @@ proc enqueueBlock*(
     maybeFinalized = false,
     validationDur = Duration()) =
   withBlck(blck):
-    if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+    if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(blck, blobs)
+      let res = self.storeBackfillBlock(forkyBlck, blobs)
       resfut.complete(res)
       return
 
@@ -732,25 +732,25 @@ proc storeBlock(
       quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      when typeof(blck).toFork() < ConsensusFork.Deneb:
+      when typeof(forkyBlck).toFork() < ConsensusFork.Deneb:
         self[].enqueueBlock(
           MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
       else:
-        if len(blck.message.body.blob_kzg_commitments) == 0:
+        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
             MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
         else:
-          if (let res = checkBloblessSignature(self[], blck); res.isErr):
+          if (let res = checkBloblessSignature(self[], forkyBlck); res.isErr):
             warn "Failed to verify signature of unorphaned blobless block",
-             blck = shortLog(blck),
+             blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.blobQuarantine[].hasBlobs(blck):
-            let blobs = self.blobQuarantine[].popBlobs(blck.root)
+          if self.blobQuarantine[].hasBlobs(forkyBlck):
+            let blobs = self.blobQuarantine[].popBlobs(forkyBlck.root)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
             if not self.consensusManager.quarantine[].addBlobless(
-              dag.finalizedHead.slot, blck):
+              dag.finalizedHead.slot, forkyBlck):
               notice "Block quarantine full (blobless)",
                blockRoot = shortLog(quarantined.root),
                signature = shortLog(quarantined.signature)
@@ -795,7 +795,7 @@ proc processBlock(
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
-      entry.src, wallTime, blck, entry.blobs, entry.maybeFinalized,
+      entry.src, wallTime, forkyBlck, entry.blobs, entry.maybeFinalized,
       entry.queueTick, entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:

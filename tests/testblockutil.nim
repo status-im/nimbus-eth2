@@ -74,7 +74,7 @@ func signBlock(
     fork: Fork, genesis_validators_root: Eth2Digest, forked: ForkedBeaconBlock,
     privKey: ValidatorPrivKey, flags: UpdateFlags = {}): ForkedSignedBeaconBlock =
   let
-    slot = withBlck(forked): blck.slot
+    slot = withBlck(forked): forkyBlck.slot
     root = hash_tree_root(forked)
     signature =
       if skipBlsValidation notin flags:

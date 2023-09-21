@@ -278,7 +278,7 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
           if execOpt.isSome():
             writer.writeField("execution_optimistic", execOpt.get())
           withBlck(data):
-            writer.writeField("data", blck)
+            writer.writeField("data", forkyBlck)
           writer.endRecord()
           stream.getOutput(seq[byte])
         except SerializationError:
@@ -1887,7 +1887,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect deneb block format")
     value = ForkedSignedBeaconBlock.init(res.get())
   withBlck(value):
-    blck.root = hash_tree_root(blck.message)
+    forkyBlck.root = hash_tree_root(forkyBlck.message)
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: ForkedSignedBeaconBlock

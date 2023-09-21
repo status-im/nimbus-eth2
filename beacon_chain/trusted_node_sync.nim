@@ -487,18 +487,18 @@ proc doTrustedNodeSync*(
             of TrustedNodeSyncKind.TrustedBlockRoot:
               # Trust-minimized sync: the server is only trusted for
               # data availability, responses must be verified
-              dag.addBackfillBlock(blck)
+              dag.addBackfillBlock(forkyBlck)
             of TrustedNodeSyncKind.StateId:
               # The server is fully trusted to provide accurate data;
               # it could have provided a malicious state
-              dag.addBackfillBlock(blck.asSigVerified())
+              dag.addBackfillBlock(forkyBlck.asSigVerified())
           if res.isErr():
             case res.error()
             of VerifierError.Invalid,
                 VerifierError.MissingParent,
                 VerifierError.UnviableFork:
               error "Got invalid block from trusted node - is it on the right network?",
-                blck = shortLog(blck), err = res.error()
+                blck = shortLog(forkyBlck), err = res.error()
               quit 1
             of VerifierError.Duplicate:
               discard

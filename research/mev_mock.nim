@@ -48,8 +48,8 @@ proc getParentBlock(restClient: RestClientRef):
   withBlck(resp):
     when consensusFork >= ConsensusFork.Capella:
       return Opt.some ParentHeaderInfo(
-        block_number: blck.message.body.execution_payload.block_number,
-        timestamp: blck.message.body.execution_payload.timestamp)
+        block_number: forkyBlck.message.body.execution_payload.block_number,
+        timestamp: forkyBlck.message.body.execution_payload.timestamp)
     else:
       discard
 
@@ -154,7 +154,7 @@ proc setupEngineAPI*(router: var RestRouter, payloadCache:
       return RestApiResponse.jsonError(Http400, "No parent head hash provided")
     let execution_payload = (await getInfo(parent_hash.get)).valueOr:
       return RestApiResponse.jsonError(Http400, "Error getting parent head information")
-    payloadCache[hash_tree_root(execution_payload)] = execution_payload 
+    payloadCache[hash_tree_root(execution_payload)] = execution_payload
     return RestApiResponse.jsonResponse(
       getExecutionPayloadHeader(execution_payload))
 
@@ -177,7 +177,7 @@ proc setupEngineAPI*(router: var RestRouter, payloadCache:
         restBlock, payloadCache[execution_header_root]))
     else:
       return RestApiResponse.jsonError(Http400, "Unknown execution payload")
-      
+
   router.api(MethodGet, "/eth/v1/builder/status") do () -> RestApiResponse:
     return RestApiResponse.response("", Http200, "text/plain")
 
