@@ -700,6 +700,7 @@ proc init*(T: type BeaconNode,
     getStateField(dag.headState, genesis_validators_root)
 
   let
+    keystoreCache = KeystoreCacheRef.init()
     slashingProtectionDB =
       SlashingProtectionDB.init(
           getStateField(dag.headState, genesis_validators_root),
@@ -711,6 +712,7 @@ proc init*(T: type BeaconNode,
     keymanagerHost = if keymanagerInitResult.server != nil:
       newClone KeymanagerHost.init(
         validatorPool,
+        keystoreCache,
         rng,
         keymanagerInitResult.token,
         config.validatorsDir,
@@ -749,7 +751,7 @@ proc init*(T: type BeaconNode,
     restServer: restServer,
     keymanagerHost: keymanagerHost,
     keymanagerServer: keymanagerInitResult.server,
-    keystoreCache: KeystoreCacheRef.init(),
+    keystoreCache: keystoreCache,
     eventBus: eventBus,
     gossipState: {},
     blocksGossipState: {},
