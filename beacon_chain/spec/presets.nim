@@ -485,7 +485,7 @@ func parse(T: type DomainType, input: string): T
 
 proc readRuntimeConfig*(
     fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
-    raises: [IOError, PresetFileError, PresetIncompatibleError].} =
+    raises: [PresetFileError, PresetIncompatibleError].} =
   var
     lineNum = 0
     cfg = defaultRuntimeConfig
