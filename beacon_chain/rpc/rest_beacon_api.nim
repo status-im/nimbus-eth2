@@ -799,12 +799,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonResponseWOpt(
           [
             (
-              root: blck.root,
+              root: forkyBlck.root,
               canonical: node.dag.isCanonical(
-                BlockId(root: blck.root, slot: blck.message.slot)),
+                BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)),
               header: (
-                message: blck.toBeaconBlockHeader,
-                signature: blck.signature
+                message: forkyBlck.toBeaconBlockHeader,
+                signature: forkyBlck.signature
               )
             )
           ],
@@ -826,12 +826,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       withBlck(bdata):
         RestApiResponse.jsonResponseWOpt(
           (
-            root: blck.root,
+            root: forkyBlck.root,
             canonical: node.dag.isCanonical(
-              BlockId(root: blck.root, slot: blck.message.slot)),
+              BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)),
             header: (
-              message: blck.toBeaconBlockHeader,
-              signature: blck.signature
+              message: forkyBlck.toBeaconBlockHeader,
+              signature: forkyBlck.signature
             )
           ),
           node.getBlockOptimistic(bdata)
@@ -1024,8 +1024,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
       let res = withBlck(forked):
-        blck.root = hash_tree_root(blck.message)
-        await node.router.routeSignedBeaconBlock(blck,
+        forkyBlck.root = hash_tree_root(forkyBlck.message)
+        await node.router.routeSignedBeaconBlock(forkyBlck,
                                                  Opt.none(SignedBlobSidecars))
 
       if res.isErr():
@@ -1115,7 +1115,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       withBlck(bdata):
         RestApiResponse.jsonResponseWOpt(
-          blck.message.body.attestations.asSeq(),
+          forkyBlck.message.body.attestations.asSeq(),
           node.getBlockOptimistic(bdata)
         )
 

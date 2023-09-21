@@ -286,8 +286,8 @@ proc getForkedBlock*(
   let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
   result.ok(ForkedTrustedSignedBeaconBlock(kind: fork))
   withBlck(result.get()):
-    type T = type(blck)
-    blck = getBlock(dag, bid, T).valueOr:
+    type T = type(forkyBlck)
+    forkyBlck = getBlock(dag, bid, T).valueOr:
         getBlock(
             dag.era, getStateField(dag.headState, historical_roots).asSeq,
             dag.headState.historical_summaries().asSeq,
@@ -310,7 +310,7 @@ proc getBlockId*(db: BeaconChainDB, root: Eth2Digest): Opt[BlockId] =
       # Shouldn't happen too often but..
       let
         blck = forked.get()
-        summary = withBlck(blck): blck.message.toBeaconBlockSummary()
+        summary = withBlck(blck): forkyBlck.message.toBeaconBlockSummary()
       debug "Writing summary", blck = shortLog(blck)
       db.putBeaconBlockSummary(root, summary)
       return ok(BlockId(root: root, slot: summary.slot))
@@ -1393,9 +1393,9 @@ proc computeRandaoMix(
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
     when consensusFork >= ConsensusFork.Bellatrix:
-      if blck.message.is_execution_block:
-        var mix = eth2digest(blck.message.body.randao_reveal.toRaw())
-        mix.data.mxor blck.message.body.execution_payload.prev_randao.data
+      if forkyBlck.message.is_execution_block:
+        var mix = eth2digest(forkyBlck.message.body.randao_reveal.toRaw())
+        mix.data.mxor forkyBlck.message.body.execution_payload.prev_randao.data
         return ok mix
   Opt.none(Eth2Digest)
 
@@ -1424,14 +1424,15 @@ proc computeRandaoMix*(
     while bid.slot > ancestorSlot:
       let bdata = ? dag.getForkedBlock(bid)
       withBlck(bdata):  # See `process_randao` / `process_randao_mixes_reset`
-        mix.data.mxor eth2digest(blck.message.body.randao_reveal.toRaw()).data
+        mix.data.mxor eth2digest(
+          forkyBlck.message.body.randao_reveal.toRaw()).data
       bid = ? dag.parent(bid)
     ok()
 
   # Mix in RANDAO from `bid`
   if ancestorSlot < bid.slot:
     withBlck(bdata):
-      mix = eth2digest(blck.message.body.randao_reveal.toRaw())
+      mix = eth2digest(forkyBlck.message.body.randao_reveal.toRaw())
     ? mixToAncestor(? dag.parent(bid))
   else:
     mix.reset()
@@ -2251,7 +2252,7 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
 
   withBlck(blockData):
     when consensusFork >= ConsensusFork.Bellatrix:
-      blck.message.body.execution_payload.block_hash
+      forkyBlck.message.body.execution_payload.block_hash
     else:
       ZERO_HASH
 

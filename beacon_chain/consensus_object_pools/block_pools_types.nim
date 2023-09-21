@@ -448,7 +448,7 @@ func init*(t: typedesc[EventBeaconBlockObject],
            optimistic: Option[bool]): EventBeaconBlockObject =
   withBlck(v):
     EventBeaconBlockObject(
-      slot: blck.message.slot,
-      block_root: blck.root,
+      slot: forkyBlck.message.slot,
+      block_root: forkyBlck.root,
       optimistic: optimistic
     )
