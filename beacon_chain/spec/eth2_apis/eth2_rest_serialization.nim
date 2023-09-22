@@ -3320,10 +3320,10 @@ func readSszResBytes(T: typedesc[RestBlockTypes],
   try:
     readSszBytes(data, res)
     ok(res)
-  except MalformedSszError as exc:
-    err("Invalid SSZ object")
   except SszSizeMismatchError:
     err("Incorrect SSZ object's size")
+  except SszError:
+    err("Invalid SSZ object")
 
 proc decodeBytes*[T: DecodeConsensysTypes](
        t: typedesc[T],
