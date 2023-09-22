@@ -630,18 +630,15 @@ proc toTimeLeftString*(d: Duration): string =
 
 proc syncClose[A, B](man: SyncManager[A, B], guardTaskFut: Future[void],
                      speedTaskFut: Future[void]) {.async.} =
-  guardTaskFut.cancel()
-  speedTaskFut.cancel()
-  await allFutures(guardTaskFut, speedTaskFut)
-  let pendingTasks =
-    block:
-      var res: seq[Future[void]]
-      for worker in man.workers:
-        doAssert(worker.status in {Sleeping, WaitingPeer})
-        worker.future.cancel()
-        res.add(worker.future)
-      res
-  await allFutures(pendingTasks)
+  var pending: seq[FutureBase]
+  if not(guardTaskFut.finished()):
+    pending.add(guardTaskFut.cancelAndWait())
+  if not(speedTaskFut.finished()):
+    pending.add(speedTaskFut.cancelAndWait())
+  for worker in man.workers:
+    doAssert(worker.status in {Sleeping, WaitingPeer})
+    pending.add(worker.future.cancelAndWait())
+  await noCancel allFutures(pending)
 
 proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
   logScope:

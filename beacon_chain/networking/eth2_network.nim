@@ -1317,7 +1317,7 @@ proc dialPeer(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
     await workfut or deadline
     if workfut.finished():
       if not deadline.finished():
-        deadline.cancel()
+        deadline.cancelSoon()
       inc nbc_successful_dials
     else:
       debug "Connection to remote peer timed out"
