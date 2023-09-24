@@ -8,52 +8,49 @@
 {.push raises: [].}
 
 import
-  # Standard libraries
-  std/[tables, sequtils],
   # Status libraries
   metrics,
   chronicles, stew/[byteutils, results],
   # Internal
   ../spec/[
-    beaconstate, eth2_merkleization, forks, helpers,
-    state_transition_epoch, validator],
-  ../spec/datatypes/[phase0, altair, bellatrix],
+    beaconstate, eth2_merkleization, forks, state_transition_epoch, validator],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ../fork_choice/fork_choice,
   ../beacon_clock
 
-from ../spec/datatypes/capella import HashedBeaconState, shortLog
+from std/sequtils import keepItIf, maxIndex
 
-export tables, results, phase0, altair, bellatrix, blockchain_dag, fork_choice
+export results, blockchain_dag, fork_choice
 
 const
-  ATTESTATION_LOOKBACK* =
+  # TODO since deneb, this is looser (whole previous epoch)
+  ATTESTATION_LOOKBACK =
     min(24'u64, SLOTS_PER_EPOCH) + MIN_ATTESTATION_INCLUSION_DELAY
     ## The number of slots we'll keep track of in terms of "free" attestations
     ## that potentially could be added to a newly created block
 
 type
-  OnAttestationCallback* = proc(data: Attestation) {.gcsafe, raises: [].}
+  OnAttestationCallback = proc(data: Attestation) {.gcsafe, raises: [].}
 
-  Validation* = object
+  Validation = object
     ## Validations collect a set of signatures for a distict attestation - in
     ## eth2, a single bit is used to keep track of which signatures have been
     ## added to the aggregate meaning that only non-overlapping aggregates may
     ## be further combined.
-    aggregation_bits*: CommitteeValidatorsBits
-    aggregate_signature*: AggregateSignature
+    aggregation_bits: CommitteeValidatorsBits
+    aggregate_signature: AggregateSignature
 
-  AttestationEntry* = object
+  AttestationEntry = object
     ## Each entry holds the known signatures for a particular, distinct vote
-    data*: AttestationData
-    committee_len*: int
-    singles*: Table[int, CookedSig] ## \
+    data: AttestationData
+    committee_len: int
+    singles: Table[int, CookedSig] ## \
       ## On the attestation subnets, only attestations with a single vote are
       ## allowed - these can be collected separately to top up aggregates with -
       ## here we collect them by mapping index in committee to a vote
-    aggregates*: seq[Validation]
+    aggregates: seq[Validation]
 
-  AttestationTable* = Table[Eth2Digest, AttestationEntry]
+  AttestationTable = Table[Eth2Digest, AttestationEntry]
     ## Depending on the world view of the various validators, they may have
     ## voted on different states - this map keeps track of each vote keyed by
     ## hash_tree_root(AttestationData)
@@ -65,11 +62,11 @@ type
     ## "free" attestations with those found in past blocks - these votes
     ## are tracked separately in the fork choice.
 
-    candidates*: array[ATTESTATION_LOOKBACK.int, AttestationTable] ## \
+    candidates: array[ATTESTATION_LOOKBACK.int, AttestationTable] ## \
       ## We keep one item per slot such that indexing matches slot number
       ## together with startingSlot
 
-    startingSlot*: Slot ## \
+    startingSlot: Slot ## \
     ## Generally, we keep attestations only until a slot has been finalized -
     ## after that, they may no longer affect fork choice.
 
@@ -81,7 +78,7 @@ type
     nextAttestationEpoch*: seq[tuple[subnet: Epoch, aggregate: Epoch]] ## \
     ## sequence based on validator indices
 
-    onAttestationAdded*: OnAttestationCallback
+    onAttestationAdded: OnAttestationCallback
 
 logScope: topics = "attpool"
 
@@ -405,8 +402,6 @@ func covers*(
 
   false
 
-from ../spec/datatypes/deneb import HashedBeaconState, shortLog
-
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
@@ -453,7 +448,7 @@ iterator attestations*(pool: AttestationPool, slot: Opt[Slot],
           yield entry.toAttestation(v)
 
 type
-  AttestationCacheKey* = (Slot, uint64)
+  AttestationCacheKey = (Slot, uint64)
   AttestationCache = Table[AttestationCacheKey, CommitteeValidatorsBits] ##\
     ## Cache for quick lookup during beacon block construction of attestations
     ## which have already been included, and therefore should be skipped.
@@ -472,7 +467,9 @@ func add(
   do:
     attCache[key] = aggregation_bits
 
-func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
+func init(
+    T: type AttestationCache, state: phase0.HashedBeaconState, _: StateCache):
+    T =
   # Load attestations that are scheduled for being given rewards for
   for i in 0..<state.data.previous_epoch_attestations.len():
     result.add(
@@ -564,7 +561,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   let newBlockSlot = state.data.slot.uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
-    return # Too close to genesis
+    return @[] # Too close to genesis
 
   let
     # Attestations produced in a particular slot are added to the block
@@ -575,14 +572,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     candidates: seq[tuple[
       score: int, slot: Slot, entry: ptr AttestationEntry, validation: int]]
-    attCache =
-      when state is phase0.HashedBeaconState:
-        AttestationCache.init(state)
-      elif state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState or
-           state is capella.HashedBeaconState or state is deneb.HashedBeaconState:
-        AttestationCache.init(state, cache)
-      else:
-        static: doAssert false
+    attCache = AttestationCache.init(state, cache)
 
   for i in 0..<ATTESTATION_LOOKBACK:
     if i > maxAttestationSlot: # Around genesis..
@@ -601,8 +591,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       entry.updateAggregates()
 
       for j in 0..<entry.aggregates.len():
-        let
-          attestation = entry.toAttestation(entry.aggregates[j])
+        let attestation = entry.toAttestation(entry.aggregates[j])
 
         # Filter out attestations that were created with a different shuffling.
         # As we don't re-check signatures, this needs to be done separately
@@ -639,16 +628,11 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     prevEpoch = state.data.get_previous_epoch()
     prevEpochSpace =
-      when state is altair.HashedBeaconState or
-           state is bellatrix.HashedBeaconState or
-           state is capella.HashedBeaconState or
-           state is deneb.HashedBeaconState:
+      when not (state is phase0.HashedBeaconState):
         MAX_ATTESTATIONS
-      elif state is phase0.HashedBeaconState:
+      else:
         state.data.previous_epoch_attestations.maxLen -
           state.data.previous_epoch_attestations.len()
-      else:
-        raiseAssert "invalid HashedBeaconState fork"
 
   var res: seq[Attestation]
   let totalCandidates = candidates.len()
