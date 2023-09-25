@@ -805,7 +805,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return
       withBlck(bdata):
-        let bid = BlockId(root: blck.root, slot: blck.message.slot)
+        let bid = BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
         RestApiResponse.jsonResponseFinalized(
           [
             (
@@ -834,7 +834,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return
       withBlck(bdata):
-        let bid = BlockId(root: blck.root, slot: blck.message.slot)
+        let bid = BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
         RestApiResponse.jsonResponseFinalized(
           (
             root: forkyBlck.root,
@@ -1143,7 +1143,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return
       withBlck(bdata):
-        let bid = BlockId(root: blck.root, slot: blck.message.slot)
+        let bid = BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
         RestApiResponse.jsonResponseFinalized(
           forkyBlck.message.body.attestations.asSeq(),
           node.getBlockOptimistic(bdata),
