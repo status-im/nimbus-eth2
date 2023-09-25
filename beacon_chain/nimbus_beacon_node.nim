@@ -564,7 +564,7 @@ proc init*(T: type BeaconNode,
             if metadata.genesis.kind == BakedInUrl:
               info "Obtaining genesis state",
                     sourceUrl = $config.genesisStateUrl.get(parseUri metadata.genesis.url)
-            await metadata.genesis.fetchBytes(config.genesisStateUrl)
+            await metadata.fetchGenesisBytes(config.genesisStateUrl)
           except CatchableError as err:
             error "Failed to obtain genesis state",
                   source = metadata.genesis.sourceDesc,
@@ -2074,7 +2074,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
             stateId: "finalized")
       genesis =
         if network.hasGenesis:
-          let genesisBytes = try: waitFor network.genesis.fetchBytes()
+          let genesisBytes = try: waitFor network.fetchGenesisBytes()
           except CatchableError as err:
             error "Failed to obtain genesis state",
                   source = network.genesis.sourceDesc,

@@ -1,3 +1,8 @@
+2023-09-25 v23.9.1
+==================
+
+Nimbus `v23.9.1` is a `low-urgency` point release that corrects the [Holešky testnet](https://github.com/eth-clients/holesky) metadata after the [failed start](https://twitter.com/parithosh_j/status/1702816780542984504) on 15th of September. If you want to participate in the network, please update your client before the genesis event on 28th of September, 12:00 UTC.
+
 2023-09-08 v23.9.0
 ==================
 
@@ -10,7 +15,7 @@ We've been hard at work researching and developing a GossipSub protocol upgrade,
 * The GossipSub implementation of Nimbus now consumes less bandwidth and CPU cycles, while improving upon the existing DoS protections through better peer scoring:
   https://github.com/status-im/nimbus-eth2/pull/5229
 
-* The new `--web3-signer` command-line option can be used to connect Nimbus to one or more remote signers without requiring any remote keystore files to be created. The list of validators attached to each remote signer is obtained automatically through the [`/api/v1/eth2/publicKeys`](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST) Web3Signer API endpoint:
+* The new `--web3-signer-url` command-line option can be used to connect Nimbus to one or more remote signers without requiring any remote keystore files to be created. The list of validators attached to each remote signer is obtained automatically through the [`/api/v1/eth2/publicKeys`](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST) Web3Signer API endpoint:
   https://github.com/status-im/nimbus-eth2/pull/5366
   https://github.com/status-im/nimbus-eth2/pull/5385
   https://github.com/status-im/nimbus-eth2/pull/5389
