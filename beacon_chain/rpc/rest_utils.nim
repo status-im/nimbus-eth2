@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/macros,
-       stew/[results, byteutils], presto,
+       results, stew/byteutils, presto,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization, rest_common],
        ../validators/beacon_validators,
