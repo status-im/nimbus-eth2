@@ -29,10 +29,10 @@ To make a deposit, you will need to generate keys then submit a deposit transact
     The process of setting up a validator is also documented at the Ethereum launchpad site:
 
     * [Mainnet](https://launchpad.ethereum.org/)
-    * [Goerli/Prater EthStaker Launchpad](https://goerli.launchpad.ethstaker.cc/en/) or [Goerli/Prater EF Launchpad](https://prater.launchpad.ethereum.org/)
+    * [Holesky EthStaker Launchpad](https://holesky.launchpad.ethstaker.cc/en/) or [Holesky EF Launchpad](https://holesky.launchpad.ethereum.org/)
 
 !!! tip
-    Before running your validator on Mainnet, you can (and should) verify that your setup works as expected by running it on the [Prater testnet](./prater.md).
+    Before running your validator on Mainnet, you can (and should) verify that your setup works as expected by running it on the [Holesky testnet](./holesky.md).
 
 
 ### 1. Download the deposit tool
@@ -67,10 +67,10 @@ The deposit tool generates a seed phrase, and uses this to create validator and 
     ./deposit new-mnemonic --chain mainnet
     ```
 
-=== "Prater"
+=== "Holesky"
     ```sh
     # Run the deposit tool and follow the instructions on screen
-    ./deposit new-mnemonic --chain prater
+    ./deposit new-mnemonic --chain holesky
     ```
 
 ### 3. Make the deposit
@@ -116,9 +116,9 @@ We'll import the signing key of each validator to the [data directory](./data-di
     build/nimbus_beacon_node deposits import --data-dir=build/data/shared_mainnet_0
     ```
 
-=== "Prater"
+=== "Holesky"
     ```sh
-    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_prater_0
+    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_holesky_0
     ```
 
 On success, a message will be printed that your keys have been imported:
@@ -146,10 +146,10 @@ If your `validator_keys` folder is stored elsewhere, you can pass its location t
       /path/to/keys
     ```
 
-=== "Prater"
+=== "Holesky"
     ```sh
     build/nimbus_beacon_node deposits import \
-      --data-dir=build/data/shared_prater_0 \
+      --data-dir=build/data/shared_holesky_0 \
       /path/to/keys
     ```
 
@@ -197,9 +197,9 @@ Press `Ctrl-c` to stop the beacon node if it's running, then use the same comman
     ./run-mainnet-beacon-node.sh --web3-url=http://127.0.0.1:8551 --suggested-fee-recipient=0x...
     ```
 
-=== "Prater"
+=== "Holesky"
     ```sh
-    ./run-prater-beacon-node.sh --web3-url=http://127.0.0.1:8551 --suggested-fee-recipient=0x...
+    ./run-holesky-beacon-node.sh --web3-url=http://127.0.0.1:8551 --suggested-fee-recipient=0x...
     ```
 
 ### 3. Check the logs

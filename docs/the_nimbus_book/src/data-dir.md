@@ -3,7 +3,7 @@
 Nimbus stores all the information it needs to run in a data directory.
 In this directory, you'll find a database, your validator keys and secrets, and several other items.
 
-When following the installation guide, the chain data will be stored in `build/data` with separate directories for each chain (mainnet, prater, etc).
+When following the installation guide, the chain data will be stored in `build/data` with separate directories for each chain (mainnet, holesky, etc).
 
 !!! tip "The `--data-dir` option"
     The `--data-dir=/path/to/data` allows picking a specific data directory to store the chain.

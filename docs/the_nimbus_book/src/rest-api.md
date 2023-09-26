@@ -15,7 +15,7 @@ If you wish to expose the beacon node to the public internet, it is recommended 
 
 * `http://testing.mainnet.beacon-api.nimbus.team/`
 * `http://unstable.mainnet.beacon-api.nimbus.team/`
-* `http://unstable.prater.beacon-api.nimbus.team/`
+* `http://unstable.holesky.beacon-api.nimbus.team/`
 
 You can make requests as follows (here we are requesting the version the Nimbus software version of the node in question):
 
@@ -29,9 +29,9 @@ You can make requests as follows (here we are requesting the version the Nimbus 
     curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/version
     ```
 
-=== "Prater unstable branch"
+=== "Holesky unstable branch"
     ```
-    curl -X GET  http://unstable.prater.beacon-api.nimbus.team/eth/v1/node/version
+    curl -X GET  http://unstable.holesky.beacon-api.nimbus.team/eth/v1/node/version
     ```
 
 The test endpoints are part of pre-release testing and run an unstable version of Nimbus.

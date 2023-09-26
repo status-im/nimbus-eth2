@@ -35,11 +35,11 @@ To start trusted node sync, run:
       --trusted-node-url=http://localhost:5052
     ```
 
-=== "Prater"
+=== "Holesky"
     ```sh
     build/nimbus_beacon_node trustedNodeSync \
-      --network:prater \
-      --data-dir=build/data/shared_prater_0 \
+      --network:holesky \
+      --data-dir=build/data/shared_holesky_0 \
       --trusted-node-url=http://localhost:5052
     ```
 
