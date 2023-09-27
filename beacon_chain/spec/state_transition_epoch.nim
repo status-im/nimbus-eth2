@@ -840,7 +840,7 @@ func process_registry_updates*(
   ## Queue validators eligible for activation and not dequeued for activation
   var activation_queue: HeapQueue[(uint64, uint32)]
   let churn_limit =
-    when typeof(state).toFork >= ConsensusFork.Deneb:
+    when typeof(state).kind >= ConsensusFork.Deneb:
       get_validator_activation_churn_limit(cfg, state, cache)
     else:
       get_validator_churn_limit(cfg, state, cache)

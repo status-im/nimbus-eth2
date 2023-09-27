@@ -297,7 +297,7 @@ proc state_transition_block*(
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   let res = withState(state):
-    when consensusFork == type(signedBlock).toFork:
+    when consensusFork == type(signedBlock).kind:
       state_transition_block_aux(cfg, forkyState, signedBlock, cache, flags)
     else:
       err("State/block fork mismatch")
@@ -482,7 +482,7 @@ proc makeBeaconBlock*(
 
     ok(blck)
 
-  const payloadFork = typeof(executionPayload).toFork
+  const payloadFork = typeof(executionPayload).kind
   when payloadFork == ConsensusFork.Bellatrix:
     case state.kind
     of ConsensusFork.Phase0:    makeBeaconBlock(phase0)

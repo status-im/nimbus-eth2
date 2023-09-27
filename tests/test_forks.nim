@@ -14,7 +14,7 @@ template testHashedBeaconState(T: type, s: Slot) =
   forked[] = readSszForkedHashedBeaconState(cfg, bytes)
 
   check:
-    forked.kind == T.toFork()
+    forked.kind == T.kind
 
 template testTrustedSignedBeaconBlock(T: type, s: Slot) =
   let blck = (ref T)()
@@ -26,7 +26,7 @@ template testTrustedSignedBeaconBlock(T: type, s: Slot) =
   forked[] = readSszForkedSignedBeaconBlock(cfg, bytes)
 
   check:
-    forked.kind == T.toFork()
+    forked.kind == T.kind
 
 suite "Type helpers":
   test "BeaconBlockType":
