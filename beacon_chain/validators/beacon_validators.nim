@@ -469,7 +469,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         var modified_execution_payload = execution_payload
         withState(state[]):
           when  consensusFork >= ConsensusFork.Capella and
-                PayloadType.toFork >= ConsensusFork.Capella:
+                PayloadType.kind >= ConsensusFork.Capella:
             let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
               get_expected_withdrawals(forkyState.data))
             if  withdrawals_root.isNone or

@@ -636,7 +636,7 @@ proc check_attestation*(
       data,
       get_committee_count_per_slot(state, epoch, cache))
 
-  ? check_attestation_inclusion((typeof state).toFork, slot, state.slot)
+  ? check_attestation_inclusion((typeof state).kind, slot, state.slot)
 
   let committee_len = get_beacon_committee_len(
     state, slot, committee_index, cache)
@@ -1005,7 +1005,7 @@ proc initialize_beacon_state_from_eth1*(
   # at that point :)
   doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
 
-  const consensusFork = typeof(execution_payload_header).toFork
+  const consensusFork = typeof(execution_payload_header).kind
   let
     forkVersion = cfg.forkVersion(consensusFork)
     fork = Fork(

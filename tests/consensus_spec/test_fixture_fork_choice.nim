@@ -83,7 +83,7 @@ proc initialLoad(
   let
     forkedState = loadForkedState(
       path/"anchor_state.ssz_snappy",
-      StateType.toFork)
+      StateType.kind)
 
     blck = parseTest(
       path/"anchor_block.ssz_snappy",
@@ -246,7 +246,7 @@ proc stepOnBlock(
        invalidatedRoots: Table[Eth2Digest, Eth2Digest]):
        Result[BlockRef, VerifierError] =
   # 1. Validate blobs
-  when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
     if kzgCommits.len > 0 or blobData.isSome:
       if blobData.isNone or kzgCommits.validate_blobs(

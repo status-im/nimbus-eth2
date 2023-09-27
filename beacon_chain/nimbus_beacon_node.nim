@@ -344,7 +344,7 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       withBlck(signedBlock):
-        when typeof(forkyBlck).toFork() >= ConsensusFork.Deneb:
+        when typeof(forkyBlck).kind >= ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
@@ -1190,7 +1190,7 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(forkyBlck).toFork() < ConsensusFork.Deneb: continue
+        when typeof(forkyBlck).kind < ConsensusFork.Deneb: continue
         else:
           for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):

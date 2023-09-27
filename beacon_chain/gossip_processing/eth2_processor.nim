@@ -240,7 +240,7 @@ proc processSignedBeaconBlock*(
     trace "Block validated"
 
     let blobs =
-      when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+      when typeof(signedBlock).kind >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(signedBlock):
           Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root))
         else:

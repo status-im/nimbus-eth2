@@ -349,7 +349,7 @@ func is_merge_transition_complete*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
-  when typeof(blck).toFork >= ConsensusFork.Bellatrix:
+  when typeof(blck).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =
       default(typeof(blck.body.execution_payload))
     blck.body.execution_payload != defaultExecutionPayload
@@ -432,22 +432,22 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
   let
     txRoot = payload.computeTransactionsTrieRoot()
     withdrawalsRoot =
-      when typeof(payload).toFork >= ConsensusFork.Capella:
+      when typeof(payload).kind >= ConsensusFork.Capella:
         some payload.computeWithdrawalsTrieRoot()
       else:
         none(ExecutionHash256)
     blobGasUsed =
-      when typeof(payload).toFork >= ConsensusFork.Deneb:
+      when typeof(payload).kind >= ConsensusFork.Deneb:
         some payload.blob_gas_used
       else:
         none(uint64)
     excessBlobGas =
-      when typeof(payload).toFork >= ConsensusFork.Deneb:
+      when typeof(payload).kind >= ConsensusFork.Deneb:
         some payload.excess_blob_gas
       else:
         none(uint64)
     parentBeaconBlockRoot =
-      when typeof(payload).toFork >= ConsensusFork.Deneb:
+      when typeof(payload).kind >= ConsensusFork.Deneb:
         some ExecutionHash256(data: blck.parent_root.data)
       else:
         none(ExecutionHash256)

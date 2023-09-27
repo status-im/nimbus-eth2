@@ -366,7 +366,7 @@ proc check_voluntary_exit*(
   # Verify signature
   if skipBlsValidation notin flags:
     let exitSignatureFork =
-      when typeof(state).toFork >= ConsensusFork.Deneb:
+      when typeof(state).kind >= ConsensusFork.Deneb:
         Fork(
           previous_version: cfg.CAPELLA_FORK_VERSION,
           current_version: cfg.CAPELLA_FORK_VERSION,
@@ -446,7 +446,7 @@ proc process_operations(cfg: RuntimeConfig,
     ? process_deposit(cfg, state, op, flags)
   for op in body.voluntary_exits:
     ? process_voluntary_exit(cfg, state, op, flags, cache)
-  when typeof(body).toFork >= ConsensusFork.Capella:
+  when typeof(body).kind >= ConsensusFork.Capella:
     for op in body.bls_to_execution_changes:
       ? process_bls_to_execution_change(cfg, state, op)
 

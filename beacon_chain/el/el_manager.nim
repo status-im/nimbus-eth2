@@ -899,13 +899,13 @@ template payload(response: engine_api.GetPayloadV3Response): engine_api.Executio
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
 
-template toFork(T: type ExecutionPayloadV1): ConsensusFork =
+template kind(T: type ExecutionPayloadV1): ConsensusFork =
   ConsensusFork.Bellatrix
 
-template toFork(T: typedesc[ExecutionPayloadV1OrV2|ExecutionPayloadV2]): ConsensusFork =
+template kind(T: typedesc[ExecutionPayloadV1OrV2|ExecutionPayloadV2]): ConsensusFork =
   ConsensusFork.Capella
 
-template toFork(T: type ExecutionPayloadV3): ConsensusFork =
+template kind(T: type ExecutionPayloadV3): ConsensusFork =
   ConsensusFork.Deneb
 
 proc getPayload*(m: ELManager,
@@ -950,7 +950,7 @@ proc getPayload*(m: ELManager,
              url = m.elConnections[idx].engineUrl.url,
              err = req.error.msg
     else:
-      const payloadFork = PayloadType.toFork
+      const payloadFork = PayloadType.kind
       when payloadFork >= ConsensusFork.Capella:
         when payloadFork == ConsensusFork.Capella:
           # TODO: The engine_api module may offer an alternative API where it is guaranteed
