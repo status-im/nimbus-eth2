@@ -123,7 +123,7 @@ proc handleRemoveValidatorReq(host: KeymanagerHost,
         return RemoteKeystoreStatus(status: KeystoreStatus.notFound)
     else:
       return RemoteKeystoreStatus(status: KeystoreStatus.error,
-                                  message: some($res.error()))
+                                  message: Opt.some($res.error()))
 
 proc handleAddRemoteValidatorReq(host: KeymanagerHost,
                                  keystore: RemoteKeystore): RequestItemStatus =

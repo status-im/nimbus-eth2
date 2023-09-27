@@ -209,7 +209,7 @@ proc getLightClientBootstrap*(
   return
     case resp.status
     of 200:
-      let consensusForkRes = decodeEthConsensusVersion(
+      let consensusForkRes = ConsensusFork.decodeString(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
         raiseRestDecodingBytesError(cstring(consensusForkRes.error))
@@ -291,7 +291,7 @@ proc getLightClientFinalityUpdate*(
   return
     case resp.status
     of 200:
-      let consensusForkRes = decodeEthConsensusVersion(
+      let consensusForkRes = ConsensusFork.decodeString(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
         raiseRestDecodingBytesError(cstring(consensusForkRes.error))
@@ -333,7 +333,7 @@ proc getLightClientOptimisticUpdate*(
   return
     case resp.status
     of 200:
-      let consensusForkRes = decodeEthConsensusVersion(
+      let consensusForkRes = ConsensusFork.decodeString(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
         raiseRestDecodingBytesError(cstring(consensusForkRes.error))
