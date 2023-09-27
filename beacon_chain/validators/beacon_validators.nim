@@ -1195,6 +1195,8 @@ proc proposeBlock(node: BeaconNode,
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock, capella.ExecutionPayloadForSigning)
     else:
+      # Bellatrix MEV is not supported; this signals that, because it triggers
+      # intentional SignedBlindedBeaconBlock/ExecutionPayload mismatches.
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning)
 
