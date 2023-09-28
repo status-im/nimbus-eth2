@@ -63,7 +63,7 @@ programMain:
   template cfg(): auto = metadata.cfg
 
   let
-    genesisBytes = try: waitFor metadata.genesis.fetchBytes()
+    genesisBytes = try: waitFor metadata.fetchGenesisBytes()
                    except CatchableError as err:
                      error "Failed to obtain genesis state",
                             source = metadata.genesis.sourceDesc,
