@@ -314,7 +314,7 @@ proc doppelgangerActivity*(validator: AttachedValidator, epoch: Epoch) =
         validator = shortLog(validator), activity, epoch
       return
 
-    if activity - epoch > 1:
+    if epoch - activity > 1:
       # We missed work in some epoch
       debug "Doppelganger stale activity",
         validator = shortLog(validator), activity, epoch
