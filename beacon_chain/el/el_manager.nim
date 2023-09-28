@@ -670,7 +670,7 @@ proc popFirst(chain: var Eth1Chain) =
   chain.blocksByHash.del removed.hash.asBlockHash
   eth1_chain_len.set chain.blocks.len.int64
 
-func getDepositsRoot*(m: DepositsMerkleizer): Eth2Digest =
+func getDepositsRoot*(m: var DepositsMerkleizer): Eth2Digest =
   mixInLength(m.getFinalHash, int m.totalChunks)
 
 proc addBlock*(chain: var Eth1Chain, newBlock: Eth1Block) =
@@ -1783,7 +1783,7 @@ proc getBlockProposalData*(chain: var Eth1Chain,
           deposits.add data
         depositRoots.add hash_tree_root(data)
 
-      var scratchMerkleizer = copy chain.finalizedDepositsMerkleizer
+      var scratchMerkleizer = chain.finalizedDepositsMerkleizer
       if chain.advanceMerkleizer(scratchMerkleizer, stateDepositIdx):
         let proofs = scratchMerkleizer.addChunksAndGenMerkleProofs(depositRoots)
         for i in 0 ..< totalDepositsInNewBlock:
@@ -1844,7 +1844,7 @@ proc init*(T: type Eth1Chain,
     cfg: cfg,
     finalizedBlockHash: finalizedBlockHash,
     finalizedDepositsMerkleizer: m,
-    headMerkleizer: copy m)
+    headMerkleizer: m)
 
 proc new*(T: type ELManager,
           cfg: RuntimeConfig,
@@ -1877,7 +1877,7 @@ proc safeCancel(fut: var Future[void]) =
 func clear(chain: var Eth1Chain) =
   chain.blocks.clear()
   chain.blocksByHash.clear()
-  chain.headMerkleizer = copy chain.finalizedDepositsMerkleizer
+  chain.headMerkleizer = chain.finalizedDepositsMerkleizer
   chain.hasConsensusViolation = false
 
 proc doStop(m: ELManager) {.async.} =

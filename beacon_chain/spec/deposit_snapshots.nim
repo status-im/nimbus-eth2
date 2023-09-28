@@ -35,11 +35,11 @@ template getDepositCountU64*(d: OldDepositContractSnapshot |
 
 func getDepositRoot*(d: OldDepositContractSnapshot |
                         DepositTreeSnapshot): Eth2Digest =
-  let merk = DepositsMerkleizer.init(d.depositContractState)
+  var merk = DepositsMerkleizer.init(d.depositContractState)
   let hash = merk.getFinalHash()
   # TODO: mixInLength should accept unsigned int instead of int as
   # this right now cuts in half the theoretical number of deposits.
-  return mixInLength(hash, int(merk.totalChunks))
+  return mixInLength(hash, int(merk.getChunkCount()))
 
 func isValid*(d: DepositTreeSnapshot, wantedDepositRoot: Eth2Digest): bool =
   ## `isValid` requires the snapshot to be self-consistent and
