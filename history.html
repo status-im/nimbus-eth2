@@ -1692,14 +1692,14 @@ To reclaim space, perform a <a href="trusted-node-sync.html">trusted node sync</
 <p>When switching to <code>archive</code> mode, the node will start keeping history from the most recent prune point, but will not recreate deep history.</p>
 <p>In order to recreate deep history in a pruned node, download the <a href="era-store.html">era archive of deep history</a> and <a href="trusted-node-sync.html#recreate-historical-state-access-indices">reindex the database</a> — this operation may take several hours.</p>
 <h2 id="command-line">Command line</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-mainnet-beacon-node.sh --history<span class="o">=</span>prune ...
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./run-prater-beacon-node.sh --history<span class="o">=</span>prune ...
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./run-holesky-beacon-node.sh --history<span class="o">=</span>prune ...
 </code></pre></div>
 </div>
 </div>

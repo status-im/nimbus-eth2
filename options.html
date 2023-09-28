@@ -1769,28 +1769,29 @@ For example, if you want to launch Nimbus on mainnet with different base ports t
 <a id="__codelineno-2-87" name="__codelineno-2-87" href="#__codelineno-2-87"></a>     --discv5                  Enable Discovery v5 [=true].
 <a id="__codelineno-2-88" name="__codelineno-2-88" href="#__codelineno-2-88"></a>     --dump                    Write SSZ dumps of blocks, attestations and states to data dir [=false].
 <a id="__codelineno-2-89" name="__codelineno-2-89" href="#__codelineno-2-89"></a>     --direct-peer             The list of privileged, secure and known peers to connect and maintain the
-<a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a>                               connection to, this requires a not random netkey-file. In the complete
-<a id="__codelineno-2-91" name="__codelineno-2-91" href="#__codelineno-2-91"></a>                               multiaddress format like: /ip4/&lt;address&gt;/tcp/&lt;port&gt;/p2p/&lt;peerId-public-key&gt;.
-<a id="__codelineno-2-92" name="__codelineno-2-92" href="#__codelineno-2-92"></a>                               Peering agreements are established out of band and must be reciprocal..
-<a id="__codelineno-2-93" name="__codelineno-2-93" href="#__codelineno-2-93"></a>     --doppelganger-detection  If enabled, the beacon node prudently listens for 2 epochs for attestations from
-<a id="__codelineno-2-94" name="__codelineno-2-94" href="#__codelineno-2-94"></a>                               a validator with the same index (a doppelganger), before sending an attestation
-<a id="__codelineno-2-95" name="__codelineno-2-95" href="#__codelineno-2-95"></a>                               itself. This protects against slashing (due to double-voting) but means you will
-<a id="__codelineno-2-96" name="__codelineno-2-96" href="#__codelineno-2-96"></a>                               miss two attestations when restarting. [=true].
-<a id="__codelineno-2-97" name="__codelineno-2-97" href="#__codelineno-2-97"></a>     --validator-monitor-auto  Monitor validator activity automatically for validators active on this beacon
-<a id="__codelineno-2-98" name="__codelineno-2-98" href="#__codelineno-2-98"></a>                               node [=true].
-<a id="__codelineno-2-99" name="__codelineno-2-99" href="#__codelineno-2-99"></a>     --validator-monitor-pubkey  One or more validators to monitor - works best when --subscribe-all-subnets is
-<a id="__codelineno-2-100" name="__codelineno-2-100" href="#__codelineno-2-100"></a>                               enabled.
-<a id="__codelineno-2-101" name="__codelineno-2-101" href="#__codelineno-2-101"></a>     --validator-monitor-details  Publish detailed metrics for each validator individually - may incur significant
-<a id="__codelineno-2-102" name="__codelineno-2-102" href="#__codelineno-2-102"></a>                               overhead with large numbers of validators [=false].
-<a id="__codelineno-2-103" name="__codelineno-2-103" href="#__codelineno-2-103"></a>     --suggested-fee-recipient  Suggested fee recipient.
-<a id="__codelineno-2-104" name="__codelineno-2-104" href="#__codelineno-2-104"></a>     --suggested-gas-limit     Suggested gas limit [=defaultGasLimit].
-<a id="__codelineno-2-105" name="__codelineno-2-105" href="#__codelineno-2-105"></a>     --payload-builder         Enable external payload builder [=false].
-<a id="__codelineno-2-106" name="__codelineno-2-106" href="#__codelineno-2-106"></a>     --payload-builder-url     Payload builder URL.
-<a id="__codelineno-2-107" name="__codelineno-2-107" href="#__codelineno-2-107"></a>     --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
-<a id="__codelineno-2-108" name="__codelineno-2-108" href="#__codelineno-2-108"></a>                               [=0].
-<a id="__codelineno-2-109" name="__codelineno-2-109" href="#__codelineno-2-109"></a>     --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Prune].
-<a id="__codelineno-2-110" name="__codelineno-2-110" href="#__codelineno-2-110"></a>
-<a id="__codelineno-2-111" name="__codelineno-2-111" href="#__codelineno-2-111"></a>...
+<a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a>                               connection to. This requires a not random netkey-file. In the multiaddress
+<a id="__codelineno-2-91" name="__codelineno-2-91" href="#__codelineno-2-91"></a>                               format like: /ip4/&lt;address&gt;/tcp/&lt;port&gt;/p2p/&lt;peerId-public-key&gt;, or enr format
+<a id="__codelineno-2-92" name="__codelineno-2-92" href="#__codelineno-2-92"></a>                               (enr:-xx). Peering agreements are established out of band and must be
+<a id="__codelineno-2-93" name="__codelineno-2-93" href="#__codelineno-2-93"></a>                               reciprocal.
+<a id="__codelineno-2-94" name="__codelineno-2-94" href="#__codelineno-2-94"></a>     --doppelganger-detection  If enabled, the beacon node prudently listens for 2 epochs for attestations from
+<a id="__codelineno-2-95" name="__codelineno-2-95" href="#__codelineno-2-95"></a>                               a validator with the same index (a doppelganger), before sending an attestation
+<a id="__codelineno-2-96" name="__codelineno-2-96" href="#__codelineno-2-96"></a>                               itself. This protects against slashing (due to double-voting) but means you will
+<a id="__codelineno-2-97" name="__codelineno-2-97" href="#__codelineno-2-97"></a>                               miss two attestations when restarting. [=true].
+<a id="__codelineno-2-98" name="__codelineno-2-98" href="#__codelineno-2-98"></a>     --validator-monitor-auto  Monitor validator activity automatically for validators active on this beacon
+<a id="__codelineno-2-99" name="__codelineno-2-99" href="#__codelineno-2-99"></a>                               node [=true].
+<a id="__codelineno-2-100" name="__codelineno-2-100" href="#__codelineno-2-100"></a>     --validator-monitor-pubkey  One or more validators to monitor - works best when --subscribe-all-subnets is
+<a id="__codelineno-2-101" name="__codelineno-2-101" href="#__codelineno-2-101"></a>                               enabled.
+<a id="__codelineno-2-102" name="__codelineno-2-102" href="#__codelineno-2-102"></a>     --validator-monitor-details  Publish detailed metrics for each validator individually - may incur significant
+<a id="__codelineno-2-103" name="__codelineno-2-103" href="#__codelineno-2-103"></a>                               overhead with large numbers of validators [=false].
+<a id="__codelineno-2-104" name="__codelineno-2-104" href="#__codelineno-2-104"></a>     --suggested-fee-recipient  Suggested fee recipient.
+<a id="__codelineno-2-105" name="__codelineno-2-105" href="#__codelineno-2-105"></a>     --suggested-gas-limit     Suggested gas limit [=defaultGasLimit].
+<a id="__codelineno-2-106" name="__codelineno-2-106" href="#__codelineno-2-106"></a>     --payload-builder         Enable external payload builder [=false].
+<a id="__codelineno-2-107" name="__codelineno-2-107" href="#__codelineno-2-107"></a>     --payload-builder-url     Payload builder URL.
+<a id="__codelineno-2-108" name="__codelineno-2-108" href="#__codelineno-2-108"></a>     --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
+<a id="__codelineno-2-109" name="__codelineno-2-109" href="#__codelineno-2-109"></a>                               [=0].
+<a id="__codelineno-2-110" name="__codelineno-2-110" href="#__codelineno-2-110"></a>     --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Prune].
+<a id="__codelineno-2-111" name="__codelineno-2-111" href="#__codelineno-2-111"></a>
+<a id="__codelineno-2-112" name="__codelineno-2-112" href="#__codelineno-2-112"></a>...
 </code></pre></div>
 <p>Any <code>debug</code>-prefixed flags are considered ephemeral and subject to removal without notice.</p>
 <h2 id="configuration-files">Configuration files</h2>

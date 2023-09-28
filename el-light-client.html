@@ -1902,28 +1902,28 @@ The following sections explain how to do this for certain EL clients.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Geth</label><label for="__tabbed_1_2">Nethermind</label><label for="__tabbed_1_3">Others</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Goerli</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>geth --authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>geth --goerli --authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>geth --holesky --authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 </div>
 </div>
 </div>
 </div>
 <div class="tabbed-block">
-<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Goerli</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>nethermind --JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>nethermind --config goerli --JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>nethermind --config holesky --JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 </div>
 </div>
@@ -1936,7 +1936,7 @@ The following sections explain how to do this for certain EL clients.</p>
 </div>
 <h2 id="running-the-light-client">Running the light client</h2>
 <p>The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
+This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
 <h3 id="1-obtaining-a-trusted-block-root">1. Obtaining a trusted block root</h3>
 <p>A block root may be obtained from another trusted beacon node, or from a trusted provider.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Trusted beacon node</label><label for="__tabbed_4_2">Beaconcha.in</label></div>
@@ -1948,7 +1948,7 @@ This trusted block should be somewhat recent (<a href="https://github.com/ethere
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<p>On the <a href="https://beaconcha.in">beaconcha.in</a> website (<a href="https://prater.beaconcha.in">Goerli</a>), navigate to the <code>Epochs</code> section and select a recent <code>Finalized</code> epoch.
+<p>On the <a href="https://beaconcha.in">beaconcha.in</a> website (<a href="https://holesky.beaconcha.in">Holesky</a>), navigate to the <code>Epochs</code> section and select a recent <code>Finalized</code> epoch.
 Then, scroll down to the bottom of the page.
 If the bottom-most slot has a <code>Proposed</code> status, copy its <code>Root Hash</code>.
 Otherwise, for example if the bottom-most slot was <code>Missed</code>, go back and pick a different epoch.</p>
@@ -1963,7 +1963,7 @@ Depending on the EL client, its database must be deleted and sync restarted from
 </div>
 <h3 id="2-starting-the-light-client">2. Starting the light client</h3>
 <p>To start the light client, run the following commands (inserting your own trusted block root):</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Mainnet</label><label for="__tabbed_5_2">Goerli</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Mainnet</label><label for="__tabbed_5_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
@@ -1974,7 +1974,7 @@ Depending on the EL client, its database must be deleted and sync restarted from
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>build/nimbus_light_client --network<span class="o">=</span>goerli <span class="se">\</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>build/nimbus_light_client --network<span class="o">=</span>holesky <span class="se">\</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    --web3-url<span class="o">=</span>http://127.0.0.1:8551 --jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span> <span class="se">\</span>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    --trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
 </code></pre></div>
@@ -2017,7 +2017,7 @@ You should see logs similar to the following:</p>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
+<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
 As this is a new protocol, not all implementations are supporting it yet.
 Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.</p>
 </div>

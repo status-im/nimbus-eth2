@@ -1797,7 +1797,7 @@ The same user can also be used for the execution client.</p>
 <p>The service file contains several options for controlling Nimbus.
 Important options include:</p>
 <ul>
-<li><code>Environment=NETWORK</code>: set this to <code>mainnet</code>, <code>prater</code> or <code>sepolia</code>, depending on which network you want to connect to</li>
+<li><code>Environment=NETWORK</code>: set this to <code>mainnet</code>, <code>holesky</code> or <code>sepolia</code>, depending on which network you want to connect to</li>
 <li><code>Environment=WEB3_URL</code>: point this to your execution client, see the <a href="eth1.html">Execution Client</a> setup guide</li>
 <li><code>Environment=REST_ENABLED</code>: REST is used to interact with the beacon node, in particular when setting up a separate Validator Client, see the <a href="rest-api.html">REST API</a> guide</li>
 <li><code>Environment=METRICS_ENABLED</code>: metrics are used for monitoring the node, see the <a href="metrics-pretty-pictures.html">metrics</a> setup guide</li>
@@ -1857,7 +1857,7 @@ Some guides use <code>--data-dir=/var/lib/nimbus</code> instead.</p>
 </ul>
 <h2 id="further-examples">Further examples</h2>
 <ul>
-<li>A <a href="https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service">service template file</a> by Pawel Bylica which allows you to start two services at the same time, e.g. <code>nimbus@prater.service</code> and <code>nimbus@mainnet.service</code>.</li>
+<li>A <a href="https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service">service template file</a> by Pawel Bylica which allows you to start two services at the same time, e.g. <code>nimbus@holesky.service</code> and <code>nimbus@mainnet.service</code>.</li>
 <li>The <a href="https://github.com/diglos/ethereumonarm/blob/main/fpm-package-builder/nimbus/extras/nimbus.service">EthereumOnARM</a> project maintains a service file as part of their Ethereum installation package repository.</li>
 </ul>
 

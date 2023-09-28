@@ -2287,7 +2287,7 @@ You can think of it as a small penalty that you pay only on first launch and res
 When you take into account the total runtime of your validator, the impact should be minimal.</p>
 <p>While we strongly recommend against it, you can disable doppelganger detection with an explicit flag (<code>--doppelganger-detection=false</code>) if you don't plan on moving your setup.</p>
 <h3 id="what-is-the-best-way-to-stress-test-my-executionconsensus-setup-before-committing-with-real-eth">What is the best way to stress test my execution+consensus setup before committing with real ETH?</h3>
-<p>We recommend running <a href="quick-start.html">a Nimbus beacon node</a> on <a href="prater.html">Prater</a> and a mainnet <a href="eth1.html">execution client</a> on the same machine.
+<p>We recommend running <a href="quick-start.html">a Nimbus beacon node</a> on <a href="holesky.html">Holesky</a> and a mainnet <a href="eth1.html">execution client</a> on the same machine.
 This will simulate the load of running a mainnet validator.</p>
 <p>To stress test it, add <code>--subscribe-all-subnets</code> to the <a href="options.html">beacon node options</a>.
 This simulates the maximum load that the consensus layer will put on the machine should you run 64 validators or more on it.</p>
@@ -2353,7 +2353,7 @@ This forms the validator's initial balance.</p>
 <p>You can, but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period.
 In other words, if you stood to earn ≈0.01 ETH, you would instead be penalized ≈0.01 ETH.</p>
 <h3 id="how-can-i-keep-track-of-my-validator">How can I keep track of my validator?</h3>
-<p>One way of keeping track is using an online service such as beaconcha.in: <a href="https://beaconcha.in/">Mainnet</a> or <a href="https://prater.beaconcha.in">Prater</a>.</p>
+<p>One way of keeping track is using an online service such as beaconcha.in: <a href="https://beaconcha.in/">Mainnet</a> or <a href="https://holesky.beaconcha.in">Holesky</a>.</p>
 <p>Another way is to set up <a href="validator-monitor.html">validator monitoring</a> together with a <a href="metrics-pretty-pictures.html">dashboard</a> to keep track of its performance.</p>
 <h3 id="i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed">I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?</h3>
 <p>We recommend waiting 2 epochs (around 15 minutes), before restarting Nimbus on a different machine.</p>

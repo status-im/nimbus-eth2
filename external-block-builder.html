@@ -1678,14 +1678,14 @@ For further information, check the documentation of the block builder.</p>
 <p>Setting this flag to a non-zero value is recommended due to the additional risk introduced by the usage of an external block builder.</p>
 </div>
 <p>Additionally, the URL of the service exposing the <a href="https://ethereum.github.io/builder-specs/">builder API</a> must be provided to the beacon node:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet Beacon Node</label><label for="__tabbed_1_2">Prater Beacon Node</label><label for="__tabbed_1_3">Validator Client</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet Beacon Node</label><label for="__tabbed_1_2">Holesky Beacon Node</label><label for="__tabbed_1_3">Validator Client</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-mainnet-beacon-node.sh --payload-builder<span class="o">=</span><span class="nb">true</span> --payload-builder-url<span class="o">=</span>https://<span class="si">${</span><span class="nv">HOST</span><span class="si">}</span>:<span class="si">${</span><span class="nv">PORT</span><span class="si">}</span>/
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./run-prater-beacon-node.sh --payload-builder<span class="o">=</span><span class="nb">true</span> --payload-builder-url<span class="o">=</span>https://<span class="si">${</span><span class="nv">HOST</span><span class="si">}</span>:<span class="si">${</span><span class="nv">PORT</span><span class="si">}</span>/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./run-holesky-beacon-node.sh --payload-builder<span class="o">=</span><span class="nb">true</span> --payload-builder-url<span class="o">=</span>https://<span class="si">${</span><span class="nv">HOST</span><span class="si">}</span>:<span class="si">${</span><span class="nv">PORT</span><span class="si">}</span>/
 </code></pre></div>
 </div>
 <div class="tabbed-block">

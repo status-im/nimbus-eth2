@@ -1744,7 +1744,7 @@ You can find more information about Prometheus <a href="https://prometheus.io/do
 You can learn more about Grafana <a href="https://github.com/grafana/grafana">here</a>.</p>
 <h2 id="simple-metrics">Simple metrics</h2>
 <p>To enable the metrics server, run the beacon node  with the <code>--metrics</code> flag:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-prater-beacon-node.sh --metrics
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-holesky-beacon-node.sh --metrics
 </code></pre></div>
 <p>Visit <a href="http://127.0.0.1:8008/metrics">http://127.0.0.1:8008/metrics</a> with a browser or <code>curl</code>.
 You should see a plaintext page that looks something like this:</p>
@@ -1820,32 +1820,32 @@ You need version 7.2 or newer.</p>
 <p>Follow <a href="https://grafana.com/docs/grafana/latest/installation/">the instructions for your platform</a> to install and start Grafana.</p>
 <h4 id="6-configure-login">6. Configure login</h4>
 <p>Go to <a href="http://localhost:3000/">http://localhost:3000/</a>, you should see a Grafana login screen that looks like this:</p>
-<p><img alt="" src="https://i.imgur.com/jcP1qWl.png" /></p>
+<p><img alt="" src="img/metrics_01.png" /></p>
 <p>Type in <code>admin</code> for both the username and password.
 You'll be asked to change the password (and we recommend you do so).</p>
 <h4 id="7-add-a-data-source">7. Add a data source</h4>
 <p>Hover your mouse over the gear icon in the left menu bar, and click on the <code>Data Sources</code> option in the sub-menu that pops up.</p>
-<p><img alt="" src="https://i.imgur.com/0Xsgx61.png" /></p>
+<p><img alt="" src="img/metrics_02.png" /></p>
 <p>Now click on the <code>Add Data Source</code> button in the center of the screen</p>
-<p><img alt="" src="https://i.imgur.com/YRVJjdD.png" /></p>
+<p><img alt="" src="img/metrics_03.png" /></p>
 <p>Select <code>Prometheus</code></p>
-<p><img alt="" src="https://i.imgur.com/YpwThOr.png" /></p>
+<p><img alt="" src="img/metrics_04.png" /></p>
 <p>Enter <code>http://localhost:9090</code> in the URL field</p>
-<p><img alt="" src="https://i.imgur.com/PtVOnur.png" /></p>
+<p><img alt="" src="img/metrics_05.png" /></p>
 <p>Set the "Scrape interval" field to the same value you used in the Prometheus config ("15s" in our example below).</p>
 <p>Scroll to the bottom and click on <code>Save and Test</code></p>
-<p><img alt="" src="https://i.imgur.com/GJVdwaK.png" /></p>
+<p><img alt="" src="img/metrics_06.png" /></p>
 <p>If everything is working correctly you should see a green <code>Data source is working</code> box pop up</p>
-<p><img alt="" src="https://i.imgur.com/vf5ahNA.png" /></p>
+<p><img alt="" src="img/metrics_07.png" /></p>
 <h4 id="8-import-a-dashboard">8. Import a dashboard</h4>
 <p>Now, let's import a dashboard; hover your mouse over the <code>+</code> icon in the left menu bar and select <code>import</code> from the pop-up menu</p>
-<p><img alt="" src="https://i.imgur.com/WnnAcUR.png" /></p>
+<p><img alt="" src="img/metrics_08.png" /></p>
 <p>Click on <code>Upload JSON file</code></p>
-<p><img alt="" src="https://i.imgur.com/l65ICZ2.png" /></p>
+<p><img alt="" src="img/metrics_09.png" /></p>
 <p>Select the <code>beacon_nodes_Grafana_dashboard.json</code>  from the <code>nimbus-eth2/grafana/</code> folder and click on <code>Import</code></p>
-<p><img alt="" src="https://i.imgur.com/SoU5Isz.png" /></p>
+<p><img alt="" src="img/metrics_10.png" /></p>
 <p>You'll be directed to the dashboard where you'll be able to gain insights into the performance of <code>nimbus-eth2</code> and your validators</p>
-<p><img alt="" src="https://i.imgur.com/aIfJ1iT.png" /></p>
+<p><img alt="" src="img/metrics_11.png" /></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The dashboard is very much a work in progress.
@@ -1855,7 +1855,7 @@ But keep an eye out for additional metrics in the near future.</p>
 <p>And voilà! That's all there is to it :)</p>
 <h2 id="community-dashboards">Community dashboards</h2>
 <h3 id="joe-clapis">Joe Clapis</h3>
-<p><img alt="" src="https://i.imgur.com/05eJeBr.png" /></p>
+<p><img alt="" src="img/metrics_12.png" /></p>
 <p>Joe — who’s done some brilliant work <a href="https://our.status.im/rocket-pool-integration/">integrating Nimbus with Rocket Pool</a> — has created a <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md">wonderful guide</a> where he takes you through how to set up a Grafana server on your Pi, using his dashboard as an example.</p>
 <p>In his words:</p>
 <blockquote>
@@ -1863,7 +1863,7 @@ But keep an eye out for additional metrics in the near future.</p>
 </blockquote>
 <p>Whether or not you're running a Pi, we recommend you check out <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md">his guide</a>.</p>
 <h3 id="metanull">Metanull</h3>
-<p><img alt="" src="https://i.imgur.com/OlvNGlq.jpg" /></p>
+<p><img alt="" src="img/metrics_13.png" /></p>
 <p>A dashboard aimed primarily at users rather than developers.</p>
 <p>Note that this dashboard does rely heavily on three prometheus exporter tools: <code>node_exporter</code> for system metrics, <code>json_exporter</code> for ETH price, and <code>blackbox_exporter</code> for ping times.</p>
 <p>The good news is that you don't need to use all these tools, as long as you take care of removing the related panels.</p>

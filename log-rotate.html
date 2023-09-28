@@ -1759,7 +1759,7 @@ The <a href="https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rota
 <h3 id="run">Run</h3>
 <p>The final step is to redirect logs to <code>rotatelogs</code> using a pipe when starting Nimbus:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node <span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  --network:prater <span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  --network:holesky <span class="se">\</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  --web3-url<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$WEB3URL</span><span class="s2">&quot;</span> <span class="se">\</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  --data-dir:<span class="nv">$DATADIR</span> <span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span> <span class="p">|</span> rotatelogs -L <span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/nbc_bn.log&quot;</span> -p <span class="s2">&quot;/path/to/rotatelogs-compress.sh&quot;</span> -D -f -c <span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/log/nbc_bn_%Y%m%d%H%M%S.log&quot;</span> <span class="m">3600</span>
 </code></pre></div>

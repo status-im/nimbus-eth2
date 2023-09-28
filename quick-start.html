@@ -1731,8 +1731,8 @@ Running a beacon node is a <a href="https://vitalik.ca/general/2021/05/23/scalin
 <p>The guide assumes <a href="https://ubuntu.com/download/server">Ubuntu Linux</a> is being used, and therefore some familiarity with <a href="https://ubuntu.com/tutorials/command-line-for-beginners">the Linux command line</a> is needed.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>You can practice running the node safely on the <a href="prater.html">Prater testnet</a>.
-Throughout, we'll provide instructions for both Prater and Mainnet.</p>
+<p>You can practice running the node safely on the <a href="holesky.html">Holesky testnet</a>.
+Throughout, we'll provide instructions for both Holesky and Mainnet.</p>
 </div>
 <h2 id="steps">Steps</h2>
 <h3 id="1-prepare">1. Prepare</h3>
@@ -1763,7 +1763,7 @@ Follow the <a href="build.html">build guide</a>.</p>
 <p>If you have skipped the syncing from a trusted node step, starting the node will initiate the <a href="start-syncing.html">syncing process</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span> nimbus-eth2
 </code></pre></div>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Prater</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Start a mainnet node</span>
@@ -1771,8 +1771,8 @@ Follow the <a href="build.html">build guide</a>.</p>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Start a prater testnet node</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./run-prater-beacon-node.sh --web3-url<span class="o">=</span>http://127.0.0.1:8551 --jwt-secret<span class="o">=</span>/tmp/jwtsecret
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Start a holesky testnet node</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./run-holesky-beacon-node.sh --web3-url<span class="o">=</span>http://127.0.0.1:8551 --jwt-secret<span class="o">=</span>/tmp/jwtsecret
 </code></pre></div>
 </div>
 </div>

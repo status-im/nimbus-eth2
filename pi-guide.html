@@ -611,8 +611,8 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#15-connect-to-prater" class="md-nav__link">
-    15. Connect to Prater
+  <a href="#15-connect-to-holesky" class="md-nav__link">
+    15. Connect to Holesky
   </a>
   
 </li>
@@ -1915,8 +1915,8 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#15-connect-to-prater" class="md-nav__link">
-    15. Connect to Prater
+  <a href="#15-connect-to-holesky" class="md-nav__link">
+    15. Connect to Holesky
   </a>
   
 </li>
@@ -2222,12 +2222,12 @@ It allows you to copy files between computers, say from your Raspberry Pi to you
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Run import command as the `nimbus` user</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>sudo -u nimbus /usr/bin/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>/var/lib/nimbus/shared_prater_0 /path/to/keys
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>sudo -u nimbus /usr/bin/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>/var/lib/nimbus/shared_holesky_0 /path/to/keys
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>build/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>build/data/shared_prater_0 ../validator_keys
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>build/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>build/data/shared_holesky_0 ../validator_keys
 </code></pre></div>
 </div>
 </div>
@@ -2235,41 +2235,41 @@ It allows you to copy files between computers, say from your Raspberry Pi to you
 <p>You'll be asked to enter the password you created to encrypt your keystore(s).
  Don't worry, this is entirely normal.
  Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
-<h3 id="15-connect-to-prater">15. Connect to Prater</h3>
-<p>We're finally ready to connect to the Prater testnet!</p>
+<h3 id="15-connect-to-holesky">15. Connect to Holesky</h3>
+<p>We're finally ready to connect to the Holesky testnet!</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>If you haven't already, we recommend registering for, and running, your own eth1 node in parallel.
 For instructions on how to do so, see the <a href="eth1.html">eth1 page</a>.</p>
 </div>
-<p>To connect to Prater, run:</p>
+<p>To connect to Holesky, run:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Using package manager</label><label for="__tabbed_3_2">Manual installation</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>sudo -u nimbus /usr/bin/nimbus_beacon_node --network<span class="o">=</span>prater --data-dir<span class="o">=</span>/var/lib/nimbus/shared_prater_0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>sudo -u nimbus /usr/bin/nimbus_beacon_node --network<span class="o">=</span>holesky --data-dir<span class="o">=</span>/var/lib/nimbus/shared_holesky_0
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>./run-prater-beacon-node.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>./run-holesky-beacon-node.sh
 </code></pre></div>
 </div>
 </div>
 </div>
 <h3 id="16-check-for-successful-connection">16. Check for successful connection</h3>
 <p>If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>INF 2020-12-01 11:25:33.487+01:00 Launching beacon node
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>INF 2023-10-01 11:25:33.487+01:00 Launching beacon node
 <a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>...
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>INF 2020-12-01 11:25:34.556+01:00 Loading block dag from database            topics=&quot;beacnde&quot; tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_prater_0/db
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>INF 2020-12-01 11:25:35.921+01:00 Block dag initialized
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>INF 2020-12-01 11:25:37.073+01:00 Generating new networking key
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>INF 2023-10-01 11:25:34.556+01:00 Loading block dag from database            topics=&quot;beacnde&quot; tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_holesky_0/db
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>INF 2023-10-01 11:25:35.921+01:00 Block dag initialized
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>INF 2023-10-01 11:25:37.073+01:00 Generating new networking key
 <a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>...
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>NOT 2020-12-01 11:25:45.267+00:00 Local validator attached                   tid=22009 file=validator_pool.nim:33 pubkey=95e3cbe88c71ab2d0e3053b7b12ead329a37e9fb8358bdb4e56251993ab68e46b9f9fa61035fe4cf2abf4c07dfad6c45 validator=95e3cbe8
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>NOT 2023-10-01 11:25:45.267+00:00 Local validator attached                   tid=22009 file=validator_pool.nim:33 pubkey=95e3cbe88c71ab2d0e3053b7b12ead329a37e9fb8358bdb4e56251993ab68e46b9f9fa61035fe4cf2abf4c07dfad6c45 validator=95e3cbe8
 <a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>...
-<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>NOT 2020-12-01 11:25:59.512+00:00 Eth1 sync progress                         topics=&quot;eth1&quot; tid=21914 blockNumber=3836397 depositsProcessed=106147
-<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>NOT 2020-12-01 11:26:02.574+00:00 Eth1 sync progress                         topics=&quot;eth1&quot; tid=21914 blockNumber=3841412 depositsProcessed=106391
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>NOT 2023-10-01 11:25:59.512+00:00 Eth1 sync progress                         topics=&quot;eth1&quot; tid=21914 blockNumber=3836397 depositsProcessed=106147
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>NOT 2023-10-01 11:26:02.574+00:00 Eth1 sync progress                         topics=&quot;eth1&quot; tid=21914 blockNumber=3841412 depositsProcessed=106391
 <a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>...
-<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>INF 2020-12-01 11:26:31.000+00:00 Slot start                                 topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:505 lastSlot=96566 scheduledSlot=96567 beaconTime=1w6d9h53m24s944us774ns peers=7 head=b54486c4:96563 headEpoch=3017 finalized=2f5d12e4:96479 finalizedEpoch=3014
-<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>INF 2020-12-01 11:26:36.285+00:00 Slot end                                   topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>INF 2023-10-01 11:26:31.000+00:00 Slot start                                 topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:505 lastSlot=96566 scheduledSlot=96567 beaconTime=1w6d9h53m24s944us774ns peers=7 head=b54486c4:96563 headEpoch=3017 finalized=2f5d12e4:96479 finalizedEpoch=3014
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>INF 2023-10-01 11:26:36.285+00:00 Slot end                                   topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
 </code></pre></div>
 <p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running.
 You should see something like:</p>
@@ -2278,15 +2278,15 @@ You should see something like:</p>
 <p>Keep an eye on the number of peers you're currently connected to (in the above case that's <code>15</code>), as well as your <a href="keep-an-eye.html#syncing-progress">sync progress</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>15 - 20 peers and an average sync speed of <strong>0.5 - 1.0</strong> blocks per second is normal on <code>Prater</code> with a Pi.
+<p>15 - 20 peers and an average sync speed of <strong>0.5 - 1.0</strong> blocks per second is normal on <code>Holesky</code> with a Pi.
 If your sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter.
 See <a href="https://www.raspberrypi.org/forums/viewtopic.php?f=28&amp;t=245931">this post</a> for a recommended workaround.</p>
 </div>
 <h2 id="mainnet-advice">Mainnet advice</h2>
 <p>Whether or not your Pi is up to the task will depend on a number of factors such as SSD speed, network connectivity, etc.
 As such, it's best to verify performance on a testnet first.</p>
-<p>The best thing you can do is to set your Pi to run Prater.
-If you have no trouble syncing and attesting on Prater, your setup should good enough for mainnet as well.</p>
+<p>The best thing you can do is to set your Pi to run Holesky.
+If you have no trouble syncing and attesting on Holesky, your setup should good enough for mainnet as well.</p>
 <blockquote class="twitter-tweet" data-conversation="none"><p lang="en" dir="ltr">We&#39;ve been running lots of PIs and NanoPCs 24/7 for 3 years and never got a hardware fail. It is easy (and cheap) to get redundancy of components (even spare PIs in different locations, more of this to come).</p>&mdash; Ethereum on ARM (@EthereumOnARM) <a href="https://twitter.com/EthereumOnARM/status/1332772217420177408?ref_src=twsrc%5Etfw">November 28, 2020</a></blockquote>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 

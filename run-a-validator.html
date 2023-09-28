@@ -1865,12 +1865,12 @@ This is a simple, safe and efficient way to get started.</p>
 <p>The process of setting up a validator is also documented at the Ethereum launchpad site:</p>
 <ul>
 <li><a href="https://launchpad.ethereum.org/">Mainnet</a></li>
-<li><a href="https://goerli.launchpad.ethstaker.cc/en/">Goerli/Prater EthStaker Launchpad</a> or <a href="https://prater.launchpad.ethereum.org/">Goerli/Prater EF Launchpad</a></li>
+<li><a href="https://holesky.launchpad.ethstaker.cc/en/">Holesky EthStaker Launchpad</a> or <a href="https://holesky.launchpad.ethereum.org/">Holesky EF Launchpad</a></li>
 </ul>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Before running your validator on Mainnet, you can (and should) verify that your setup works as expected by running it on the <a href="prater.html">Prater testnet</a>.</p>
+<p>Before running your validator on Mainnet, you can (and should) verify that your setup works as expected by running it on the <a href="holesky.html">Holesky testnet</a>.</p>
 </div>
 <h3 id="1-download-the-deposit-tool">1. Download the deposit tool</h3>
 <p>Start by downloading and unpacking the <a href="https://github.com/ethereum/staking-deposit-cli/releases/latest">deposit tool</a> provided by the Ethereum Foundation:</p>
@@ -1894,7 +1894,7 @@ Make sure you <strong>don't</strong> enable Wi-Fi and unplug any Ethernet cables
 <p class="admonition-title">Seed phrase</p>
 <p>If you lose you seed phrase and your withdrawal key, your funds will be lost forever!</p>
 </div>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Run the deposit tool and follow the instructions on screen</span>
@@ -1903,7 +1903,7 @@ Make sure you <strong>don't</strong> enable Wi-Fi and unplug any Ethernet cables
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Run the deposit tool and follow the instructions on screen</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./deposit new-mnemonic --chain prater
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./deposit new-mnemonic --chain holesky
 </code></pre></div>
 </div>
 </div>
@@ -1934,14 +1934,14 @@ The <code>Pending Validators</code> metric on the <a href="https://beaconcha.in/
 <div class="admonition note">
 <p>You'll be asked to enter the password you used when creating your keystore(s).</p>
 </div>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Prater</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>build/data/shared_mainnet_0
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>build/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>build/data/shared_prater_0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>build/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>build/data/shared_holesky_0
 </code></pre></div>
 </div>
 </div>
@@ -1959,7 +1959,7 @@ The <code>Pending Validators</code> metric on the <a href="https://beaconcha.in/
 </div>
 <h3 id="command-line">Command line</h3>
 <p>If your <code>validator_keys</code> folder is stored elsewhere, you can pass its location to the import command:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Prater</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>build/nimbus_beacon_node deposits import <span class="se">\</span>
@@ -1969,7 +1969,7 @@ The <code>Pending Validators</code> metric on the <a href="https://beaconcha.in/
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_beacon_node deposits import <span class="se">\</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  --data-dir<span class="o">=</span>build/data/shared_prater_0 <span class="se">\</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  --data-dir<span class="o">=</span>build/data/shared_holesky_0 <span class="se">\</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  /path/to/keys
 </code></pre></div>
 </div>
@@ -1998,14 +1998,14 @@ Nevertheless, the security parameters used by Ethereum are such that cracking ev
 You can set up a separate address or reuse the address from which you funded your deposits.</p>
 <h3 id="2-restart-the-node">2. (Re)start the node</h3>
 <p>Press <code>Ctrl-c</code> to stop the beacon node if it's running, then use the same command as before to run it again, this time adding the <code>--suggested-fee-recipient</code> option in addition to <code>--web3-url</code>:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Mainnet</label><label for="__tabbed_4_2">Prater</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Mainnet</label><label for="__tabbed_4_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>./run-mainnet-beacon-node.sh --web3-url<span class="o">=</span>http://127.0.0.1:8551 --suggested-fee-recipient<span class="o">=</span>0x...
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>./run-prater-beacon-node.sh --web3-url<span class="o">=</span>http://127.0.0.1:8551 --suggested-fee-recipient<span class="o">=</span>0x...
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>./run-holesky-beacon-node.sh --web3-url<span class="o">=</span>http://127.0.0.1:8551 --suggested-fee-recipient<span class="o">=</span>0x...
 </code></pre></div>
 </div>
 </div>
