@@ -21,7 +21,7 @@ Next, choose a data directory for the validator client and import the keys there
 
 ```sh
 build/nimbus_beacon_node deposits import \
-  --data-dir:build/data/vc_shared_prater_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
+  --data-dir:build/data/vc_shared_holesky_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
 ```
 
 !!! warning
@@ -35,7 +35,7 @@ With the keys imported, you are ready to start validator client:
 
 ```sh
 build/nimbus_validator_client \
-  --data-dir:build/data/vc_shared_prater_0
+  --data-dir:build/data/vc_shared_holesky_0
 ```
 
 # Options

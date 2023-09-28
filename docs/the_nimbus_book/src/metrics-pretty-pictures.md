@@ -14,7 +14,7 @@ You can learn more about Grafana [here](https://github.com/grafana/grafana).
 To enable the metrics server, run the beacon node  with the `--metrics` flag:
 
 ```
-./run-prater-beacon-node.sh --metrics
+./run-holesky-beacon-node.sh --metrics
 ```
 
 Visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) with a browser or `curl`.

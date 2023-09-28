@@ -56,7 +56,7 @@ sudo systemctl edit nimbus_beacon_node.service
 The service file contains several options for controlling Nimbus.
 Important options include:
 
-* `Environment=NETWORK`: set this to `mainnet`, `prater` or `sepolia`, depending on which network you want to connect to
+* `Environment=NETWORK`: set this to `mainnet`, `holesky` or `sepolia`, depending on which network you want to connect to
 * `Environment=WEB3_URL`: point this to your execution client, see the [Execution Client](./eth1.md) setup guide
 * `Environment=REST_ENABLED`: REST is used to interact with the beacon node, in particular when setting up a separate Validator Client, see the [REST API](./rest-api.md) guide
 * `Environment=METRICS_ENABLED`: metrics are used for monitoring the node, see the [metrics](./metrics-pretty-pictures.md) setup guide
@@ -141,5 +141,5 @@ When running multiple beacon nodes, make sure that each service:
 
 ## Further examples
 
-- A [service template file](https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service) by Pawel Bylica which allows you to start two services at the same time, e.g. `nimbus@prater.service` and `nimbus@mainnet.service`.
+- A [service template file](https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service) by Pawel Bylica which allows you to start two services at the same time, e.g. `nimbus@holesky.service` and `nimbus@mainnet.service`.
 - The [EthereumOnARM](https://github.com/diglos/ethereumonarm/blob/main/fpm-package-builder/nimbus/extras/nimbus.service) project maintains a service file as part of their Ethereum installation package repository.

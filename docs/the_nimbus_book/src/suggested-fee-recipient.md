@@ -36,9 +36,9 @@ If this Nimbus node has two validators, one of which has its own suggested fee r
     ./run-mainnet-beacon-node.sh --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
     ```
 
-=== "Prater"
+=== "Holesky"
     ```sh
-    ./run-prater-beacon-node.sh --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
+    ./run-holesky-beacon-node.sh --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
     ```
 
 === "Validator Client"
