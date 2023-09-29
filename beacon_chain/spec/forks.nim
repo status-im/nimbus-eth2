@@ -357,6 +357,34 @@ template BeaconBlockType*(fork: static ConsensusFork): auto =
 template BeaconBlockBodyType*(fork: static ConsensusFork): auto =
   getSymbolFromForkModule(fork, "BeaconBlockBody")
 
+template BeaconState*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[deneb.BeaconState]
+  elif kind == ConsensusFork.Capella:
+    typedesc[capella.BeaconState]
+  elif kind == ConsensusFork.Bellatrix:
+    typedesc[bellatrix.BeaconState]
+  elif kind == ConsensusFork.Altair:
+    typedesc[altair.BeaconState]
+  elif kind == ConsensusFork.Phase0:
+    typedesc[phase0.BeaconState]
+  else:
+    static: raiseAssert "Unreachable"
+
+template BeaconBlock*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[deneb.BeaconBlock]
+  elif kind == ConsensusFork.Capella:
+    typedesc[capella.BeaconBlock]
+  elif kind == ConsensusFork.Bellatrix:
+    typedesc[bellatrix.BeaconBlock]
+  elif kind == ConsensusFork.Altair:
+    typedesc[altair.BeaconBlock]
+  elif kind == ConsensusFork.Phase0:
+    typedesc[phase0.BeaconBlock]
+  else:
+    static: raiseAssert "Unreachable"
+
 template SignedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Deneb:
     typedesc[deneb.SignedBeaconBlock]
@@ -368,6 +396,20 @@ template SignedBeaconBlock*(kind: static ConsensusFork): auto =
     typedesc[altair.SignedBeaconBlock]
   elif kind == ConsensusFork.Phase0:
     typedesc[phase0.SignedBeaconBlock]
+  else:
+    static: raiseAssert "Unreachable"
+
+template TrustedSignedBeaconBlock*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[deneb.TrustedSignedBeaconBlock]
+  elif kind == ConsensusFork.Capella:
+    typedesc[capella.TrustedSignedBeaconBlock]
+  elif kind == ConsensusFork.Bellatrix:
+    typedesc[bellatrix.TrustedSignedBeaconBlock]
+  elif kind == ConsensusFork.Altair:
+    typedesc[altair.TrustedSignedBeaconBlock]
+  elif kind == ConsensusFork.Phase0:
+    typedesc[phase0.TrustedSignedBeaconBlock]
   else:
     static: raiseAssert "Unreachable"
 
