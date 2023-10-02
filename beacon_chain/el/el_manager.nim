@@ -98,8 +98,6 @@ type
   Eth1BlockTimestamp* = uint64
   Eth1BlockHeader = engine_api.BlockHeader
 
-  GenesisStateRef = ref phase0.BeaconState
-
   Eth1Block* = ref object
     hash*: Eth2Digest
     number*: Eth1BlockNumber
