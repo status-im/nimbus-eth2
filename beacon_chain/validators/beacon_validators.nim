@@ -2040,10 +2040,11 @@ proc makeBeaconBlockForHeadAndSlotV3*(
             blindedResult = collectedBids.payloadBuilderBidFut.read()
             blindedBlock = blindedResult.get().blindedBlckPart.message
             payloadValue = blindedResult.get().blockValue
-
-          return Result[ForkedAndBlindedBeaconBlock, string].ok(
-            ForkedAndBlindedBeaconBlock.init(
-              blindedBlock, Opt.some(payloadValue), Opt.none(UInt256)))
+          return Result[ForkedAndBlindedBeaconBlock, string].err(
+                       "Implementation is missing")
+          # return Result[ForkedAndBlindedBeaconBlock, string].ok(
+          #   ForkedAndBlindedBeaconBlock.init(
+          #     blindedBlock, Opt.some(payloadValue), Opt.none(UInt256)))
         else:
           collectedBids.engineBlockFut.read().get()
 
