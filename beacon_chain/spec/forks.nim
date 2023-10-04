@@ -338,25 +338,6 @@ template kind*(
       deneb.TrustedSignedBeaconBlock]): ConsensusFork =
   ConsensusFork.Deneb
 
-macro getSymbolFromForkModule(fork: static ConsensusFork,
-                              symbolName: static string): untyped =
-  let moduleName = case fork
-    of ConsensusFork.Phase0: "phase0"
-    of ConsensusFork.Altair: "altair"
-    of ConsensusFork.Bellatrix: "bellatrix"
-    of ConsensusFork.Capella: "capella"
-    of ConsensusFork.Deneb:   "deneb"
-  newDotExpr(ident moduleName, ident symbolName)
-
-template BeaconStateType*(fork: static ConsensusFork): auto =
-  getSymbolFromForkModule(fork, "BeaconState")
-
-template BeaconBlockType*(fork: static ConsensusFork): auto =
-  getSymbolFromForkModule(fork, "BeaconBlock")
-
-template BeaconBlockBodyType*(fork: static ConsensusFork): auto =
-  getSymbolFromForkModule(fork, "BeaconBlockBody")
-
 template BeaconState*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Deneb:
     typedesc[deneb.BeaconState]
@@ -382,6 +363,20 @@ template BeaconBlock*(kind: static ConsensusFork): auto =
     typedesc[altair.BeaconBlock]
   elif kind == ConsensusFork.Phase0:
     typedesc[phase0.BeaconBlock]
+  else:
+    static: raiseAssert "Unreachable"
+
+template BeaconBlockBody*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[deneb.BeaconBlockBody]
+  elif kind == ConsensusFork.Capella:
+    typedesc[capella.BeaconBlockBody]
+  elif kind == ConsensusFork.Bellatrix:
+    typedesc[bellatrix.BeaconBlockBody]
+  elif kind == ConsensusFork.Altair:
+    typedesc[altair.BeaconBlockBody]
+  elif kind == ConsensusFork.Phase0:
+    typedesc[phase0.BeaconBlockBody]
   else:
     static: raiseAssert "Unreachable"
 
@@ -422,6 +417,25 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
     typedesc[bellatrix.ExecutionPayloadForSigning]
   else:
     static: raiseAssert "Unreachable"
+
+template withAll*(
+    x: typedesc[ConsensusFork], body: untyped): untyped =
+  static: doAssert ConsensusFork.high == ConsensusFork.Deneb
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
+    body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+    body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
+    body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
+    body
 
 template withConsensusFork*(
     x: ConsensusFork, body: untyped): untyped =

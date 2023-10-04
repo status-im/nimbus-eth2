@@ -1013,18 +1013,15 @@ proc initialize_beacon_state_from_eth1*(
       current_version: forkVersion,
       epoch: GENESIS_EPOCH)
 
-  type BeaconState = BeaconStateType(consensusFork)
-
   # TODO https://github.com/nim-lang/Nim/issues/19094
   template state(): untyped = result
-  result = BeaconState(
+  result = consensusFork.BeaconState(
     fork: fork,
     genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
-    eth1_data:
-      Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
-    latest_block_header:
-      BeaconBlockHeader(
-        body_root: hash_tree_root(default BeaconBlockBodyType(consensusFork))))
+    eth1_data: Eth1Data(
+      block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
+    latest_block_header: BeaconBlockHeader(
+      body_root: hash_tree_root(default consensusFork.BeaconBlockBody)))
 
   # Seed RANDAO with Eth1 entropy
   state.randao_mixes.data.fill(eth1_block_hash)
