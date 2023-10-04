@@ -184,7 +184,7 @@ In other words, if you stood to earn ≈0.01 ETH, you would instead be penalized
 
 ### How can I keep track of my validator?
 
-One way of keeping track is using an online service such as beaconcha.in: [Mainnet](https://beaconcha.in/) or [Prater](https://prater.beaconcha.in).
+One way of keeping track is using an online service such as beaconcha.in ([Mainnet](https://beaconcha.in/) and [Prater](https://prater.beaconcha.in)) or [ethstakers.club](https://ethstakers.club/).
 
 Another way is to set up [validator monitoring](./validator-monitor.md) together with a [dashboard](./metrics-pretty-pictures.md) to keep track of its performance.
 
