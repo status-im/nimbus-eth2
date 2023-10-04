@@ -2,7 +2,7 @@
 
 Once your validator has been activated, you can set up [validator monitoring](./validator-monitor.md) together with a [dashboard](./metrics-pretty-pictures.md) to keep track of its performance.
 
-Another way of keeping track is using an online service such as beaconcha.in: [Mainnet](https://beaconcha.in/) or [Prater](https://prater.beaconcha.in).
+Another way of keeping track is using an online service such as beaconcha.in ([Mainnet](https://beaconcha.in/) and [Prater](https://prater.beaconcha.in)) or [ethstakers.club](https://ethstakers.club/).
 
 Both online services and dashboards allow setting up alerts for when the validator is offline.
 
