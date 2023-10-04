@@ -150,7 +150,7 @@ As part of the migration process, you need to stop your existing client and expo
     This will export your history in the correct format to `slashing-protection.json`.
 
 !!! tip
-    To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
+    To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/) or [ethstakers.club](https://ethstakers.club/)).
     Only after that, continue with the next step of this guide.
 
 
