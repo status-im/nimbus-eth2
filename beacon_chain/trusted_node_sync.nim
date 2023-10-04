@@ -220,9 +220,8 @@ proc doTrustedNodeSync*(
           quit 1
         bootstrap.migrateToDataFork(lcDataFork)
 
-        var storeRes =
-          initialize_light_client_store(
-            trustedBlockRoot, bootstrap.forky(lcDataFork), cfg)
+        var storeRes = initialize_light_client_store(
+          trustedBlockRoot, bootstrap.forky(lcDataFork), cfg)
         if storeRes.isErr:
           error "`initialize_light_client_store` failed", err = storeRes.error
           quit 1

@@ -2108,13 +2108,12 @@ proc readValue*[T: SomeForkedLightClientObject](
 
   withLcDataFork(lcDataForkAtConsensusFork(version.get)):
     when lcDataFork > LightClientDataFork.None:
-      value = T(kind: lcDataFork)
       try:
-        value.forky(lcDataFork) = RestJson.decode(
+        value = T.init(RestJson.decode(
           string(data.get()),
           T.Forky(lcDataFork),
           requireAllFields = true,
-          allowUnknownFields = true)
+          allowUnknownFields = true))
       except SerializationError:
         reader.raiseUnexpectedValue("Incorrect format (" & $lcDataFork & ")")
     else:

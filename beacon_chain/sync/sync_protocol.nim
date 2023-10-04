@@ -153,9 +153,7 @@ proc readChunkPayload*(
         if contextFork !=
             peer.network.cfg.consensusForkAtEpoch(res.get.contextEpoch):
           return neterr InvalidContextBytes
-        var obj = ok MsgType(kind: lcDataFork)
-        obj.get.forky(lcDataFork) = res.get
-        return obj
+        return ok MsgType.init(res.get)
       else:
         return err(res.error)
     else:
