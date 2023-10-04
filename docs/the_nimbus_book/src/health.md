@@ -11,7 +11,7 @@ Attestation effectiveness is a metric that directly affects your validator rewar
 The interval between a validator performing its duty and an attestation is called the *inclusion distance* of an attestation.
 As long as your validator is within the allowed inclusion distance, you will get the full reward.
 
-You can verify your validator's effectiveness on the [beaconcha.in](https://beaconcha.in/) website.
+You can verify your validator's effectiveness on the [beaconcha.in](https://beaconcha.in/) or [ethstakers.club](https://ethstakers.club/) website.
 
 ![](https://i.imgur.com/u80Ub2j.png)
 
