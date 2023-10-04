@@ -504,10 +504,8 @@ proc getBestUpdate*(
       withAll(LightClientDataFork):
         when lcDataFork > LightClientDataFork.None:
           if update[0] == ord(lcDataFork).int64:
-            var obj = ForkedLightClientUpdate(kind: lcDataFork)
-            obj.forky(lcDataFork) = SSZ.decode(
-              update[1], lcDataFork.LightClientUpdate)
-            return obj
+            return ForkedLightClientUpdate.init(SSZ.decode(
+              update[1], lcDataFork.LightClientUpdate))
       warn "Unsupported LC data store kind", store = "bestUpdates",
         period, kind = update[0]
       return default(ForkedLightClientUpdate)

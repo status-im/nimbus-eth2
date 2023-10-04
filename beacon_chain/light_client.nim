@@ -56,9 +56,7 @@ func finalizedHeader*(
     lightClient: LightClient): ForkedLightClientHeader =
   withForkyStore(lightClient.store[]):
     when lcDataFork > LightClientDataFork.None:
-      var header = ForkedLightClientHeader(kind: lcDataFork)
-      header.forky(lcDataFork) = forkyStore.finalized_header
-      header
+      ForkedLightClientHeader.init(forkyStore.finalized_header)
     else:
       default(ForkedLightClientHeader)
 
@@ -66,9 +64,7 @@ func optimisticHeader*(
     lightClient: LightClient): ForkedLightClientHeader =
   withForkyStore(lightClient.store[]):
     when lcDataFork > LightClientDataFork.None:
-      var header = ForkedLightClientHeader(kind: lcDataFork)
-      header.forky(lcDataFork) = forkyStore.optimistic_header
-      header
+      ForkedLightClientHeader.init(forkyStore.optimistic_header)
     else:
       default(ForkedLightClientHeader)
 
@@ -294,9 +290,7 @@ proc installMessageValidators*(
         (ValidationResult.Reject, cstring "Invalid context fork"))
       return ValidationResult.Reject
 
-    const lcDataFork = T.kind
-    var obj = T.Forked(kind: lcDataFork)
-    obj.forky(lcDataFork) = msg
+    let obj = T.Forked.init(msg)
 
     var
       ignoreErrors {.noinit.}: array[2, ValidationError]

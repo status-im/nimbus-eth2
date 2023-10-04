@@ -175,8 +175,8 @@ proc updateLightClientFromDag*(node: BeaconNode) =
   withBlck(bdata):
     const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
     when lcDataFork > LightClientDataFork.None:
-      header = ForkedLightClientHeader(kind: lcDataFork)
-      header.forky(lcDataFork) = forkyBlck.toLightClientHeader(lcDataFork)
+      header = ForkedLightClientHeader.init(
+        forkyBlck.toLightClientHeader(lcDataFork))
     else: raiseAssert "Unreachable"
   let current_sync_committee = block:
     let tmpState = assignClone(node.dag.headState)

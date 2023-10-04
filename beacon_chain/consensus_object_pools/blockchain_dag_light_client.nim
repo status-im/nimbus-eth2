@@ -367,15 +367,16 @@ proc initLightClientUpdateForPeriod(
     withStateAndBlck(updatedState, bdata):
       when consensusFork >= ConsensusFork.Altair:
         const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
-        update = ForkedLightClientUpdate(kind: lcDataFork)
-        template forkyUpdate: untyped = update.forky(lcDataFork)
-        forkyUpdate.attested_header = forkyBlck.toLightClientHeader(lcDataFork)
-        forkyUpdate.next_sync_committee = forkyState.data.next_sync_committee
-        forkyUpdate.next_sync_committee_branch =
-          forkyState.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get
-        if finalizedBid.slot != FAR_FUTURE_SLOT:
-          forkyUpdate.finality_branch =
-            forkyState.data.build_proof(altair.FINALIZED_ROOT_INDEX).get
+        update = ForkedLightClientUpdate.init(lcDataFork.LightClientUpdate(
+          attested_header: forkyBlck.toLightClientHeader(lcDataFork),
+          next_sync_committee: forkyState.data.next_sync_committee,
+          next_sync_committee_branch:
+            forkyState.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get,
+          finality_branch:
+            if finalizedBid.slot != FAR_FUTURE_SLOT:
+              forkyState.data.build_proof(altair.FINALIZED_ROOT_INDEX).get
+            else:
+              default(FinalityBranch)))
       else: raiseAssert "Unreachable"
   do:
     dag.handleUnexpectedLightClientError(attestedBid.slot)
@@ -974,18 +975,16 @@ proc getLightClientBootstrap(
 
   # Construct `LightClientBootstrap` from cached data
   const lcDataFork = typeof(header).kind
-  var bootstrap = ForkedLightClientBootstrap(kind: lcDataFork)
-  template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
-  forkyBootstrap.header = header
-  forkyBootstrap.current_sync_committee =
-    dag.lcDataStore.db.getSyncCommittee(period).valueOr:
-      debug "LC bootstrap unavailable: Sync committee not cached", period
-      return default(ForkedLightClientBootstrap)
-  forkyBootstrap.current_sync_committee_branch =
-    dag.lcDataStore.db.getCurrentSyncCommitteeBranch(slot).valueOr:
-      debug "LC bootstrap unavailable: Sync committee branch not cached", slot
-      return default(ForkedLightClientBootstrap)
-  bootstrap
+  ForkedLightClientBootstrap.init(lcDataFork.LightClientBootstrap(
+    header: header,
+    current_sync_committee: (block:
+      dag.lcDataStore.db.getSyncCommittee(period).valueOr:
+        debug "LC bootstrap unavailable: Sync committee not cached", period
+        return default(ForkedLightClientBootstrap)),
+    current_sync_committee_branch: (block:
+      dag.lcDataStore.db.getCurrentSyncCommitteeBranch(slot).valueOr:
+        debug "LC bootstrap unavailable: Committee branch not cached", slot
+        return default(ForkedLightClientBootstrap))))
 
 proc getLightClientBootstrap*(
     dag: ChainDAGRef,
