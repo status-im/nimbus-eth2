@@ -1093,7 +1093,7 @@ proc maybeUpdateActionTrackerNextEpoch(
 
     # Has to account for potential epoch transition TIMELY_SOURCE_FLAG_INDEX,
     # TIMELY_TARGET_FLAG_INDEX, and inactivity penalties, resulting from spec
-    # functions get_flag_index_deltas() and get_inactivity_penalty_deltas().get_inactivity_penalty_deltas
+    # functions get_flag_index_deltas() and get_inactivity_penalty_deltas().
     #
     # TODO check TIMELY_TARGET_FLAG_INDEX because per
     # get_inactivity_penalty_deltas() that avoids accounting for the inactivity
@@ -1103,6 +1103,16 @@ proc maybeUpdateActionTrackerNextEpoch(
     # being set in state.previous_epoch_participation[vidx] implies there's not
     # any inactivity penalty for that particular validator (epoch genesis aside
     # when that's state.current_epoch_participation).
+    #
+    # One set of conditions to check:
+    # - 32 ETH effective balance
+    # - >= 32 ETH balance
+    # - state.inactivity_penalties[idx] is 0
+    # - TIMELY_TARGET_FLAG_INDEX in previous_epoch_participation is set
+    # non-genesis epoch (because otherwise, can't know by beginning of epoch
+    # these ensure, with all currently supported networks, that the
+    # anti-hysterisis filter will prevent effective balance changes.
+
     let maxEpochPenalties = 1_000_000.Gwei
 
     if  effectiveBalance < MAX_EFFECTIVE_BALANCE or
