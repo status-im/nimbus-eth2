@@ -603,16 +603,16 @@ proc removeValidator*(pool: var ValidatorPool,
   pool.removeValidator(publicKey)
   ok(res.value())
 
-func checkKeyName(keyName: string): bool =
+func checkKeyName(keyName: string): Result[void, string] =
   const keyAlphabet = {'a'..'f', 'A'..'F', '0'..'9'}
   if len(keyName) != KeyNameSize:
-    return false
-  if keyName[0] != '0' and keyName[1] != 'x':
-    return false
+    return err("Length should be at least " & $KeyNameSize & " characters")
+  if keyName[0] != '0' or keyName[1] != 'x':
+    return err("Name should be prefixed with '0x' characters")
   for index in 2 ..< len(keyName):
     if keyName[index] notin keyAlphabet:
-      return false
-  true
+      return err("Incorrect characters found in name")
+  ok()
 
 proc existsKeystore(keystoreDir: string, keyKind: KeystoreKind): bool {.
      raises: [].} =
@@ -694,36 +694,46 @@ proc queryValidatorsSource*(web3signerUrl: Uri): Future[QueryResult] {.async.} =
 
 iterator listLoadableKeys*(validatorsDir, secretsDir: string,
                            keysMask: set[KeystoreKind]): CookedPubKey =
+  const IncorrectName = "Incorrect keystore directory name, ignoring"
   try:
+    logScope:
+      keystore_dir = keystoreDir
+
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
         let
           keyName = splitFile(file).name
           keystoreDir = validatorsDir / keyName
+          nameres = checkKeyName(keyName)
 
-        if not(checkKeyName(keyName)):
-          # Skip folders which name do not satisfy "0x[a-fA-F0-9]{96, 96}".
+        if nameres.isErr():
+          notice IncorrectName, reason = nameres.error
           continue
 
         if not(existsKeystore(keystoreDir, keysMask)):
-          # Skip folder which do not satisfy `keysMask`.
+          notice "Incorrect keystore directory, ignoring",
+                 reason = "Missing keystore files ('keystore.json' or " &
+                          "'remote_keystore.json')"
           continue
 
         let kres = ValidatorPubKey.fromHex(keyName)
         if kres.isErr():
-          # Skip folders which could not be decoded to ValidatorPubKey.
+          let reason = "Directory name should be correct validators public key"
+          notice IncorrectName, reason = reason
           continue
+
         let publicKey = kres.get()
 
         let cres = publicKey.load().valueOr:
-          # Skip folders which has invalid ValidatorPubKey
-          # (point is not on curve).
+          let reason = "Directory name should be correct validators public " &
+                       "key (point is not in curve)"
+          notice IncorrectName, reason = reason
           continue
 
         yield cres
 
   except OSError as err:
-    error "Validator keystores directory not accessible",
+    error "Validator keystores directory is not accessible",
           path = validatorsDir, err = err.msg
     quit 1
 
@@ -731,20 +741,26 @@ iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
                                 nonInteractive: bool,
                                 keysMask: set[KeystoreKind],
                                 cache: KeystoreCacheRef): KeystoreData =
+  const IncorrectName = "Incorrect keystore directory name, ignoring"
   try:
+    logScope:
+      keystore_dir = keystoreDir
+
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
-
         let
           keyName = splitFile(file).name
           keystoreDir = validatorsDir / keyName
+          nameres = checkKeyName(keyName)
 
-        if not(checkKeyName(keyName)):
-          # Skip folders which name do not satisfy "0x[a-fA-F0-9]{96, 96}".
+        if nameres.isErr():
+          notice IncorrectName, reason = nameres.error
           continue
 
         if not(existsKeystore(keystoreDir, keysMask)):
-          # Skip folders which do not have keystore file inside.
+          notice "Incorrect keystore directory, ignoring",
+                 reason = "Missing keystore files ('keystore.json' or " &
+                          "'remote_keystore.json')"
           continue
 
         let
@@ -756,7 +772,7 @@ iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
         yield keystore
 
   except OSError as err:
-    error "Validator keystores directory not accessible",
+    error "Validator keystores directory is not accessible",
           path = validatorsDir, err = err.msg
     quit 1
 
