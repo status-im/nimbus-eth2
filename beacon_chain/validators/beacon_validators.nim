@@ -2016,7 +2016,7 @@ proc makeBeaconBlockForHeadAndSlotV3*(
             nil
         localBlockValueBoost = node.config.localBlockValueBoost
 
-      template getBlockResult(SBBB: typedesc, EPS: typedesc) =
+      template getBlockResult(SBBB: typedesc, EPS: typedesc): untyped =
         let
           collectedBids =
             await collectBidFutures(SBBB, EPS, node,
@@ -2054,9 +2054,10 @@ proc makeBeaconBlockForHeadAndSlotV3*(
         getBlockResult(capella_mev.SignedBlindedBeaconBlock,
                        capella.ExecutionPayloadForSigning)
       elif slot.epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-        await makeBeaconBlockForHeadAndSlot(
+        (await makeBeaconBlockForHeadAndSlot(
           bellatrix.ExecutionPayloadForSigning, node, randao_reveal, proposer,
-          graffiti, head, slot)
+          graffiti, head, slot)).valueOr:
+          return Result[ForkedAndBlindedBeaconBlock, string].err(error)
       else:
         raiseAssert("Slot from invalid epoch")
 
