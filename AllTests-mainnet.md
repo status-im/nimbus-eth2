@@ -580,7 +580,7 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 24/24 Fail: 0/24 Skip: 0/24
 ## Type helpers
 ```diff
-+ BeaconBlockType                                                                            OK
++ BeaconBlock                                                                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite

@@ -36,18 +36,18 @@ template testTrustedSignedBeaconBlock(T: type, s: Slot) =
     forked.kind == T.kind
 
 suite "Type helpers":
-  test "BeaconBlockType":
+  test "BeaconBlock":
     check:
-      BeaconBlockType(ConsensusFork.Phase0) is phase0.BeaconBlock
-      BeaconBlockType(ConsensusFork.Altair) is altair.BeaconBlock
-      BeaconBlockType(ConsensusFork.Bellatrix) is bellatrix.BeaconBlock
-      BeaconBlockType(ConsensusFork.Capella) is capella.BeaconBlock
-      BeaconBlockType(ConsensusFork.Deneb) is deneb.BeaconBlock
-      BeaconBlockBodyType(ConsensusFork.Phase0) is phase0.BeaconBlockBody
-      BeaconBlockBodyType(ConsensusFork.Altair) is altair.BeaconBlockBody
-      BeaconBlockBodyType(ConsensusFork.Bellatrix) is bellatrix.BeaconBlockBody
-      BeaconBlockBodyType(ConsensusFork.Capella) is capella.BeaconBlockBody
-      BeaconBlockBodyType(ConsensusFork.Deneb) is deneb.BeaconBlockBody
+      ConsensusFork.Phase0.BeaconBlock is phase0.BeaconBlock
+      ConsensusFork.Altair.BeaconBlock is altair.BeaconBlock
+      ConsensusFork.Bellatrix.BeaconBlock is bellatrix.BeaconBlock
+      ConsensusFork.Capella.BeaconBlock is capella.BeaconBlock
+      ConsensusFork.Deneb.BeaconBlock is deneb.BeaconBlock
+      ConsensusFork.Phase0.BeaconBlockBody is phase0.BeaconBlockBody
+      ConsensusFork.Altair.BeaconBlockBody is altair.BeaconBlockBody
+      ConsensusFork.Bellatrix.BeaconBlockBody is bellatrix.BeaconBlockBody
+      ConsensusFork.Capella.BeaconBlockBody is capella.BeaconBlockBody
+      ConsensusFork.Deneb.BeaconBlockBody is deneb.BeaconBlockBody
 
 suite "Forked SSZ readers":
   let cfg = block:

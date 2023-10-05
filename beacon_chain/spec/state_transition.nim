@@ -335,7 +335,7 @@ proc state_transition*(
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
-template partialBeaconBlock*(
+func partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var ForkyHashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -351,11 +351,11 @@ template partialBeaconBlock*(
   const consensusFork = typeof(state).kind
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
-  var res = consensusFork.BeaconBlockType(
+  var res = consensusFork.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: state.latest_block_root,
-    body: consensusFork.BeaconBlockBodyType(
+    body: consensusFork.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,

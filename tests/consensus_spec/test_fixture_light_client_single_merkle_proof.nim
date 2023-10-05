@@ -69,8 +69,8 @@ suite "EF - Light client - Single merkle proof" & preset():
         for kind, path in walkDir(suitePath, relative = true, checkDir = true):
           case objName
           of "BeaconBlockBody":
-            runTest(suiteName, suitePath/path, BeaconBlockBodyType(consensusFork))
+            runTest(suiteName, suitePath/path, consensusFork.BeaconBlockBody)
           of "BeaconState":
-            runTest(suiteName, suitePath/path, BeaconStateType(consensusFork))
+            runTest(suiteName, suitePath/path, consensusFork.BeaconState)
           else:
             raiseAssert "Unknown test object: " & suitePath/path
