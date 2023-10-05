@@ -51,8 +51,7 @@ type
   ConsensusBlindedFork* {.pure.} = enum
     Phase0,
     Altair,
-    BellatrixNormal,
-    BellatrixBlinded,
+    Bellatrix,
     CapellaNormal,
     CapellaBlinded,
     DenebNormal,
@@ -161,10 +160,8 @@ type
       phase0Data*: phase0.BeaconBlock
     of ConsensusBlindedFork.Altair:
       altairData*: altair.BeaconBlock
-    of ConsensusBlindedFork.BellatrixNormal:
+    of ConsensusBlindedFork.Bellatrix:
       bellatrixData*: bellatrix.BeaconBlock
-    of ConsensusBlindedFork.BellatrixBlinded:
-      bellatrixBlinded*: bellatrix_mev.BlindedBeaconBlock
     of ConsensusBlindedFork.CapellaNormal:
       capellaData*: capella.BeaconBlock
     of ConsensusBlindedFork.CapellaBlinded:
@@ -1163,7 +1160,7 @@ func historical_summaries*(state: ForkedHashedBeaconState):
 template init*(T: type ForkedAndBlindedBeaconBlock,
                blck: bellatrix.BeaconBlock,
                evalue: Opt[Uint256], cvalue: Opt[Uint256]): T =
-  ForkedAndBlindedBeaconBlock(kind: ConsensusBlindedFork.BellatrixNormal,
+  ForkedAndBlindedBeaconBlock(kind: ConsensusBlindedFork.Bellatrix,
                               bellatrixData: blck, consensusValue: cvalue,
                               executionValue: evalue)
 
