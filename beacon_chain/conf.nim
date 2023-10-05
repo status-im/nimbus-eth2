@@ -1111,16 +1111,22 @@ func dumpDirOutgoing*(config: AnyConf): string =
   config.dumpDir / "outgoing" # things we produced
 
 proc createDumpDirs*(config: BeaconNodeConf) =
-  if config.dumpEnabled:
-    if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
-      warn "Could not create dump directory",
-        path = config.dumpDirInvalid, err = ioErrorMsg(res.error)
-    if (let res = secureCreatePath(config.dumpDirIncoming); res.isErr):
-      warn "Could not create dump directory",
-        path = config.dumpDirIncoming, err = ioErrorMsg(res.error)
-    if (let res = secureCreatePath(config.dumpDirOutgoing); res.isErr):
-      warn "Could not create dump directory",
-        path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
+  proc fail {.noreturn.} =
+    raiseAssert "createDumpDirs should be used only in the right context"
+
+  case config.cmd
+  of BNStartUpCmd.noCommand:
+    if config.dumpEnabled:
+      if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
+        warn "Could not create dump directory",
+          path = config.dumpDirInvalid, err = ioErrorMsg(res.error)
+      if (let res = secureCreatePath(config.dumpDirIncoming); res.isErr):
+        warn "Could not create dump directory",
+          path = config.dumpDirIncoming, err = ioErrorMsg(res.error)
+      if (let res = secureCreatePath(config.dumpDirOutgoing); res.isErr):
+        warn "Could not create dump directory",
+          path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
+  else: fail()
 
 func parseCmdArg*(T: type Eth2Digest, input: string): T
                  {.raises: [ValueError].} =
@@ -1230,6 +1236,7 @@ func eraDir*(config: BeaconNodeConf): string =
   # The era directory should be shared between networks of the same type..
   string config.eraDirFlag.get(InputDir(config.dataDir / "era"))
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
   proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
@@ -1246,10 +1253,12 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     else: fail()
   else:
     fail()
+{.pop.}
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   proc fail {.noreturn.} =
-    raiseAssert "outWalletName should be used only in the right context"
+    raiseAssert "outWalletFile should be used only in the right context"
 
   case config.cmd
   of wallets:
@@ -1263,6 +1272,7 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
     else: fail()
   else:
     fail()
+{.pop.}
 
 func databaseDir*(dataDir: OutDir): string =
   dataDir / "db"
@@ -1271,7 +1281,11 @@ template databaseDir*(config: AnyConf): string =
   config.dataDir.databaseDir
 
 func runAsService*(config: BeaconNodeConf): bool =
-  config.cmd == noCommand and config.runAsServiceFlag
+  case config.cmd
+  of noCommand:
+    config.runAsServiceFlag
+  else:
+    false
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
@@ -1295,7 +1309,7 @@ proc readValue*(r: var TomlReader, value: var GraffitiBytes)
     r.raiseUnexpectedValue("A printable string or 0x-prefixed hex-encoded raw bytes expected")
 
 proc readValue*(r: var TomlReader, val: var NatConfig)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   val = try: parseCmdArg(NatConfig, r.readValue(string))
         except CatchableError as err:
           raise newException(SerializationError, err.msg)
@@ -1308,7 +1322,7 @@ proc readValue*(r: var TomlReader, a: var Eth2Digest)
     r.raiseUnexpectedValue("Hex string expected")
 
 proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   let keyAsString = try:
     reader.readValue(string)
   except CatchableError:
@@ -1322,21 +1336,21 @@ proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
     raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
 proc readValue*(r: var TomlReader, a: var PubKey0x)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   try:
     a = parseCmdArg(PubKey0x, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("a 0x-prefixed hex-encoded string expected")
 
 proc readValue*(r: var TomlReader, a: var WalletName)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   try:
     a = parseCmdArg(WalletName, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 
 proc readValue*(r: var TomlReader, a: var Address)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   try:
     a = parseCmdArg(Address, r.readValue(string))
   except CatchableError:
