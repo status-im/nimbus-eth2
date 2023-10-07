@@ -1074,54 +1074,69 @@ proc maybeUpdateActionTrackerNextEpoch(
       node.consensusManager[].actionTracker.updateActions(
         epochRef.shufflingRef, epochRef.beacon_proposers)
 
-    let
-      shufflingRef = node.dag.getShufflingRef(node.dag.head, nextEpoch, false).valueOr:
-        # epochRefFallback() won't work in this case either
-        return
-      nextEpochProposers = get_beacon_proposer_index(
-        forkyState.data, shufflingRef.shuffled_active_validator_indices,
-        nextEpoch)
-      nextEpochFirstProposer = nextEpochProposers[0].valueOr:
-        # All proposers except the first can be more straightforwardly and
-        # efficiently (re)computed correctly once in that epoch.
-        epochRefFallback()
-        return
-      effectiveBalance =
-        forkyState.data.validators.item(
-          nextEpochFirstProposer).effective_balance
-      balance = forkyState.data.balances.item(nextEpochFirstProposer)
-
-    # Has to account for potential epoch transition TIMELY_SOURCE_FLAG_INDEX,
-    # TIMELY_TARGET_FLAG_INDEX, and inactivity penalties, resulting from spec
-    # functions get_flag_index_deltas() and get_inactivity_penalty_deltas().
-    #
-    # TODO check TIMELY_TARGET_FLAG_INDEX because per
-    # get_inactivity_penalty_deltas() that avoids accounting for the inactivity
-    # scores, the key pathological aspect of which is in this context that they
-    # cannot be deterministically bounded, as they accumulate, to intentionally
-    # create a quadratic inactivity leak dynamic. But, TIMELY_TARGET_FLAG_INDEX
-    # being set in state.previous_epoch_participation[vidx] implies there's not
-    # any inactivity penalty for that particular validator (epoch genesis aside
-    # when that's state.current_epoch_participation).
-    #
-    # One set of conditions to check:
-    # - 32 ETH effective balance
-    # - >= 32 ETH balance
-    # - state.inactivity_penalties[idx] is 0
-    # - TIMELY_TARGET_FLAG_INDEX in previous_epoch_participation is set
-    # non-genesis epoch (because otherwise, can't know by beginning of epoch
-    # these ensure, with all currently supported networks, that the
-    # anti-hysterisis filter will prevent effective balance changes.
-
-    let maxEpochPenalties = 1_000_000.Gwei
-
-    if  effectiveBalance < MAX_EFFECTIVE_BALANCE or
-        balance <= maxEpochPenalties or effective_balance_might_update(
-          balance - maxEpochPenalties, effectiveBalance):
+    when forkyState is phase0.HashedBeaconState:
+      # The previous_epoch_participation-based logic requires Altair or newer
       epochRefFallback()
     else:
-      node.consensusManager[].actionTracker.updateActions(
-        shufflingRef, nextEpochProposers)
+      let
+        shufflingRef = node.dag.getShufflingRef(node.dag.head, nextEpoch, false).valueOr:
+          # epochRefFallback() won't work in this case either
+          return
+        nextEpochProposers = get_beacon_proposer_index(
+          forkyState.data, shufflingRef.shuffled_active_validator_indices,
+          nextEpoch)
+        nextEpochFirstProposer = nextEpochProposers[0].valueOr:
+          # All proposers except the first can be more straightforwardly and
+          # efficiently (re)computed correctly once in that epoch.
+          epochRefFallback()
+          return
+
+      # Has to account for potential epoch transition TIMELY_SOURCE_FLAG_INDEX,
+      # TIMELY_TARGET_FLAG_INDEX, and inactivity penalties, resulting from spec
+      # functions get_flag_index_deltas() and get_inactivity_penalty_deltas().
+      #
+      # There are no penalties associated with TIMELY_HEAD_FLAG_INDEX, but a
+      # reward exists. effective_balance == MAX_EFFECTIVE_BALANCE ensures if
+      # even so, then the effective balanace cannot change as a result.
+      #
+      # It's not truly necessary to avoid all rewards and penalties, but only
+      # to bound them to ensure they won't unexpected alter effective balance
+      # during the upcoming epoch transition.
+      #
+      # During genesis epoch, the check for epoch participation is against current,
+      # not previous, epoch, and therefore there's a possibility of checking for if
+      # a validator has participated in an epoch before it will happen.
+      #
+      # Because process_rewards_and_penalties() in epoch processing happens
+      # before the current/previous participation swap, previous is correct
+      # even here, and consistent with what the epoch transition uses.
+      #
+      # Whilst slashing, proposal, and sync committee rewards and penalties do
+      # update the balances as they occur, they don't update effective_balance
+      # until the end of epoch, so detect those cases.
+      #
+      # On EF mainnet epoch 233906, this matches 99.5% of active validators;
+      # with Holesky epoch 2041, 83% of validators.
+      let
+        participation_flags =
+          forkyState.data.previous_epoch_participation.item(
+            nextEpochFirstProposer)
+        effective_balance = forkyState.data.validators.item(
+          nextEpochFirstProposer).effective_balance
+
+      if  participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
+          participation_flags.has_flag(TIMELY_TARGET_FLAG_INDEX) and
+          effective_balance == MAX_EFFECTIVE_BALANCE and
+          forkyState.data.slot.epoch != GENESIS_EPOCH and
+          forkyState.data.inactivity_scores.item(
+            nextEpochFirstProposer) == 0 and
+          not effective_balance_might_update(
+            forkyState.data.balances.item(nextEpochFirstProposer),
+            effective_balance):
+        node.consensusManager[].actionTracker.updateActions(
+          shufflingRef, nextEpochProposers)
+      else:
+        epochRefFallback()
 
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating
