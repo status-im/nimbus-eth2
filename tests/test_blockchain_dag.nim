@@ -186,8 +186,18 @@ suite "Block pool processing" & preset():
       nextEpochSlot = nextEpoch.start_slot()
       parentBsi = dag.head.parent.atSlot(nextEpochSlot).toBlockSlotId().get()
       stateCheckpoint = dag.stateCheckpoint(parentBsi)
+      shufflingRef = dag.getShufflingRef(dag.head, nextEpoch, false).valueOr:
+        raiseAssert "false"
+      nextEpochProposers = withState(dag.headState):
+        get_beacon_proposer_indices(
+          forkyState.data, shufflingRef.shuffled_active_validator_indices,
+          nextEpoch)
 
     check:
+      # get_beacon_proposer_indices based on ShufflingRef matches EpochRef
+      nextEpochProposers == dag.getEpochRef(
+        dag.head, nextEpoch, true).get.beacon_proposers
+
       parentBsi.bid == dag.head.parent.bid
       parentBsi.slot == nextEpochSlot
       # Pre-heated caches
@@ -200,6 +210,7 @@ suite "Block pool processing" & preset():
       # this is required for the test to work - it's not a "public"
       # post-condition of getEpochRef
       getStateField(dag.epochRefState, slot) == nextEpochSlot
+
     assign(state[], dag.epochRefState)
 
     let

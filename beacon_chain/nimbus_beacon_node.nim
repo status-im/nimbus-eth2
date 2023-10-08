@@ -1082,7 +1082,7 @@ proc maybeUpdateActionTrackerNextEpoch(
         shufflingRef = node.dag.getShufflingRef(node.dag.head, nextEpoch, false).valueOr:
           # epochRefFallback() won't work in this case either
           return
-        nextEpochProposers = get_beacon_proposer_index(
+        nextEpochProposers = get_beacon_proposer_indices(
           forkyState.data, shufflingRef.shuffled_active_validator_indices,
           nextEpoch)
         nextEpochFirstProposer = nextEpochProposers[0].valueOr:
@@ -1090,6 +1090,13 @@ proc maybeUpdateActionTrackerNextEpoch(
           # efficiently (re)computed correctly once in that epoch.
           epochRefFallback()
           return
+
+      let epochRef =
+        node.dag.getEpochRef(node.dag.head, nextEpoch, false).expect(
+          "Getting head EpochRef should never fail")
+
+      if forkyState.data.slot.epoch != GENESIS_EPOCH:
+        doAssert epochRef.beacon_proposers == nextEpochProposers
 
       # Has to account for potential epoch transition TIMELY_SOURCE_FLAG_INDEX,
       # TIMELY_TARGET_FLAG_INDEX, and inactivity penalties, resulting from spec
@@ -1113,10 +1120,10 @@ proc maybeUpdateActionTrackerNextEpoch(
       #
       # Whilst slashing, proposal, and sync committee rewards and penalties do
       # update the balances as they occur, they don't update effective_balance
-      # until the end of epoch, so detect those cases.
+      # until the end of epoch, so detect via effective_balance_might_update.
       #
       # On EF mainnet epoch 233906, this matches 99.5% of active validators;
-      # with Holesky epoch 2041, 83% of validators.
+      # with Holesky epoch 2041, 83% of active validators.
       let
         participation_flags =
           forkyState.data.previous_epoch_participation.item(

@@ -261,13 +261,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
++ Index shuffling and unshuffling invert                                                     OK
 + Liveness failsafe conditions                                                               OK
 + Mainnet attestation topics                                                                 OK
 + Stability subnets                                                                          OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## ImportKeystores requests [Beacon Node] [Preset: mainnet]
 ```diff
 + ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
@@ -704,4 +705,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 397/402 Fail: 0/402 Skip: 5/402
+OK: 398/403 Fail: 0/403 Skip: 5/403

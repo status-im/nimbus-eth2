@@ -357,7 +357,7 @@ func partialBeaconBlock*(
     parent_root: state.latest_block_root,
     body: consensusFork.BeaconBlockBody(
       randao_reveal: randao_reveal,
-      eth1_data: eth1data,
+      eth1_data: eth1_data,
       graffiti: graffiti,
       proposer_slashings: validator_changes.proposer_slashings,
       attester_slashings: validator_changes.attester_slashings,
