@@ -1091,13 +1091,6 @@ proc maybeUpdateActionTrackerNextEpoch(
           epochRefFallback()
           return
 
-      let epochRef =
-        node.dag.getEpochRef(node.dag.head, nextEpoch, false).expect(
-          "Getting head EpochRef should never fail")
-
-      if forkyState.data.slot.epoch != GENESIS_EPOCH:
-        doAssert epochRef.beacon_proposers == nextEpochProposers
-
       # Has to account for potential epoch transition TIMELY_SOURCE_FLAG_INDEX,
       # TIMELY_TARGET_FLAG_INDEX, and inactivity penalties, resulting from spec
       # functions get_flag_index_deltas() and get_inactivity_penalty_deltas().
