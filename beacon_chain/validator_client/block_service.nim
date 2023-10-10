@@ -143,7 +143,9 @@ proc getSignature(item: RandaoCacheItem, slot: Slot,
 proc getRandaoReveal(vc: ValidatorClientRef,
                      proposerKey: ValidatorPubKey,
                      slot: Slot): Future[ValidatorSig] {.async.} =
+  const LogMessage = "Randao signature obtained"
   let
+    start = Moment.now()
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     epoch = slot.epoch()
     fork = vc.forkAtEpoch(epoch)
@@ -153,6 +155,9 @@ proc getRandaoReveal(vc: ValidatorClientRef,
   if item.fork == fork:
     let rsig = item.getSignature(slot, proposerKey)
     if rsig.isSome():
+      let timeElapsed = Moment.now() - start
+      debug LogMessage, epoch = epoch, validator = shortLog(proposerKey),
+                        elapsed_time = timeElapsed
       return rsig.get()
 
   let
@@ -175,6 +180,9 @@ proc getRandaoReveal(vc: ValidatorClientRef,
 
   vc.randaoCache.withValue(epoch, signatures):
     signatures[].setSignature(slot, validator.pubkey, signature)
+  let timeElapsed = Moment.now() - start
+  debug LogMessage, epoch = epoch, validator = shortLog(proposerKey),
+                    elapsed_time = timeElapsed
   signature
 
 proc getRandao(vc: ValidatorClientRef, slot: Slot,
