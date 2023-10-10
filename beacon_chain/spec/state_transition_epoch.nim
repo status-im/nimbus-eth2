@@ -937,19 +937,23 @@ func process_eth1_data_reset*(state: var ForkyBeaconState) =
     state.eth1_data_votes = default(type state.eth1_data_votes)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#effective-balances-updates
+template effective_balance_might_update*(
+    balance: Gwei, effective_balance: Gwei): bool =
+  const
+    HYSTERESIS_INCREMENT = EFFECTIVE_BALANCE_INCREMENT div HYSTERESIS_QUOTIENT
+    DOWNWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_DOWNWARD_MULTIPLIER
+    UPWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_UPWARD_MULTIPLIER
+  balance + DOWNWARD_THRESHOLD < effective_balance or
+    effective_balance + UPWARD_THRESHOLD < balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#effective-balances-updates
 func process_effective_balance_updates*(state: var ForkyBeaconState) =
   # Update effective balances with hysteresis
   for vidx in state.validators.vindices:
-    let balance = state.balances.item(vidx)
-    const
-      HYSTERESIS_INCREMENT =
-        EFFECTIVE_BALANCE_INCREMENT div HYSTERESIS_QUOTIENT
-      DOWNWARD_THRESHOLD =
-        HYSTERESIS_INCREMENT * HYSTERESIS_DOWNWARD_MULTIPLIER
-      UPWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_UPWARD_MULTIPLIER
-    let effective_balance = state.validators.item(vidx).effective_balance
-    if balance + DOWNWARD_THRESHOLD < effective_balance or
-        effective_balance + UPWARD_THRESHOLD < balance:
+    let
+      balance = state.balances.item(vidx)
+      effective_balance = state.validators.item(vidx).effective_balance
+    if effective_balance_might_update(balance, effective_balance):
       let new_effective_balance =
         min(
           balance - balance mod EFFECTIVE_BALANCE_INCREMENT,

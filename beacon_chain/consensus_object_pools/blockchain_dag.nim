@@ -544,11 +544,8 @@ func putEpochRef(dag: ChainDAGRef, epochRef: EpochRef) =
 func init*(
     T: type ShufflingRef, state: ForkedHashedBeaconState,
     cache: var StateCache, epoch: Epoch): T =
-  let
-    dependent_epoch =
-      if epoch < 1: Epoch(0) else: epoch - 1
-    attester_dependent_root =
-      withState(state): forkyState.dependent_root(dependent_epoch)
+  let attester_dependent_root =
+    withState(state): forkyState.dependent_root(epoch.get_previous_epoch)
 
   ShufflingRef(
     epoch: epoch,
