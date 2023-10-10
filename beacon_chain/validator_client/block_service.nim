@@ -140,9 +140,9 @@ proc getSignature(item: RandaoCacheItem, slot: Slot,
   else:
     Opt.none(ValidatorSig)
 
-proc getRandaoReveal(vc: ValidatorClientRef,
-                     proposerKey: ValidatorPubKey,
-                     slot: Slot): Future[ValidatorSig] {.async.} =
+proc getRandaoReveal(vc: ValidatorClientRef, proposerKey: ValidatorPubKey,
+                     slot: Slot,
+                     deadline: BeaconTime): Future[ValidatorSig] {.async.} =
   const LogMessage = "Randao signature obtained"
   let
     start = Moment.now()
@@ -157,7 +157,8 @@ proc getRandaoReveal(vc: ValidatorClientRef,
     if rsig.isSome():
       let timeElapsed = Moment.now() - start
       debug LogMessage, epoch = epoch, validator = shortLog(proposerKey),
-                        elapsed_time = timeElapsed
+                        source = "cache", elapsed_time = timeElapsed,
+                        delay = vc.getDelay(deadline)
       return rsig.get()
 
   let
@@ -182,7 +183,8 @@ proc getRandaoReveal(vc: ValidatorClientRef,
     signatures[].setSignature(slot, validator.pubkey, signature)
   let timeElapsed = Moment.now() - start
   debug LogMessage, epoch = epoch, validator = shortLog(proposerKey),
-                    elapsed_time = timeElapsed
+                    source = "signature", elapsed_time = timeElapsed,
+                    delay = vc.getDelay(deadline)
   signature
 
 proc getRandao(vc: ValidatorClientRef, slot: Slot,
@@ -193,8 +195,10 @@ proc getRandao(vc: ValidatorClientRef, slot: Slot,
   let
     destSlot = slot - 1'u64
     destOffset = TimeDiff(
-      nanoseconds: NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT) # 4s
-    # We going to wait to T - 8s, where T is proposer's duty slot.
+      nanoseconds: NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
+    deadline = destSlot.start_beacon_time() + destOffset
+    # We going to wait to T - 2 * INTERVALS_PER_SLOT, where T is proposer's
+    # duty slot.
     currentSlot = (await vc.checkedWaitForSlot(destSlot, destOffset,
                    false)).valueOr:
       debug "Unable to perform randao caching because of system time"
@@ -202,7 +206,7 @@ proc getRandao(vc: ValidatorClientRef, slot: Slot,
 
   if currentSlot <= destSlot:
     # We do not need result, because we want it to be cached.
-    discard await vc.getRandaoReveal(proposerKey, slot)
+    discard await vc.getRandaoReveal(proposerKey, slot, deadline)
 
 proc spawnProposalTask(vc: ValidatorClientRef,
                        duty: RestProposerDuty): ProposerTask =
@@ -233,7 +237,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
   debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
                             genesis_root = genesisRoot,
                             graffiti = graffiti, fork = fork
-  let randaoReveal = await vc.getRandaoReveal(validator.pubkey, slot)
+  let randaoReveal = await vc.getRandaoReveal(validator.pubkey, slot,
+                                              slot.start_beacon_time())
   var beaconBlocks =
     block:
       let blindedBlockFut =
