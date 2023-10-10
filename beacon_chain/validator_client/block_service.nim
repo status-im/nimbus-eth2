@@ -32,6 +32,9 @@ type
     blockRoot*: Eth2Digest
     data*: ForkedBlindedBeaconBlock
 
+proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
+                  proposerKey: ValidatorPubKey) {.async.}
+
 proc produceBlock(
        vc: ValidatorClientRef,
        currentSlot, slot: Slot,
@@ -86,7 +89,6 @@ proc produceBlock(
                                         data: ForkedBeaconBlock.init(blck),
                                         blobsOpt: Opt.some(blobs)))
 
-
 proc produceBlindedBlock(
        vc: ValidatorClientRef,
        currentSlot, slot: Slot,
@@ -125,6 +127,83 @@ proc lazyWait[T](fut: Future[T]) {.async.} =
   except CatchableError:
     discard
 
+proc setSignature(item: var RandaoCacheItem, slot: Slot, key: ValidatorPubKey,
+                  signature: ValidatorSig) =
+  item.data[int(slot.since_epoch_start())] =
+    RandaoPair(pubkey: key, signature: signature)
+
+proc getSignature(item: RandaoCacheItem, slot: Slot,
+                  key: ValidatorPubKey): Opt[ValidatorSig] =
+  let pitem = item.data[int(slot.since_epoch_start())]
+  if pitem.pubkey == key:
+    Opt.some(pitem.signature)
+  else:
+    Opt.none(ValidatorSig)
+
+proc getRandaoReveal(vc: ValidatorClientRef,
+                     proposerKey: ValidatorPubKey,
+                     slot: Slot): Future[ValidatorSig] {.async.} =
+  let
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    epoch = slot.epoch()
+    fork = vc.forkAtEpoch(epoch)
+    initialCacheItem = RandaoCacheItem(fork: fork)
+    item = vc.randaoCache.mgetOrPut(epoch, initialCacheItem)
+
+  if item.fork == fork:
+    let rsig = item.getSignature(slot, proposerKey)
+    if rsig.isSome():
+      return rsig.get()
+
+  let
+    validator = vc.getValidatorForDuties(proposerKey, slot).valueOr: return
+    signature =
+      try:
+        let res = await validator.getEpochSignature(fork, genesisRoot, epoch)
+        if res.isErr():
+          warn "Unable to generate randao reveal using remote signer",
+               reason = res.error()
+          return
+        res.get()
+      except CancelledError as exc:
+        debug "Randao reveal production has been interrupted"
+        raise exc
+      except CatchableError as exc:
+        error "An unexpected error occurred while receiving randao data",
+              error_name = exc.name, error_msg = exc.msg
+        return
+
+  vc.randaoCache.withValue(epoch, signatures):
+    signatures[].setSignature(slot, validator.pubkey, signature)
+  signature
+
+proc getRandao(vc: ValidatorClientRef, slot: Slot,
+               proposerKey: ValidatorPubKey) {.async.} =
+  if slot == Slot(0'u64):
+    return
+
+  let
+    destSlot = slot - 1'u64
+    destOffset = TimeDiff(
+      nanoseconds: NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT) # 4s
+    # We going to wait to T - 8s, where T is proposer's duty slot.
+    currentSlot = (await vc.checkedWaitForSlot(destSlot, destOffset,
+                   false)).valueOr:
+      debug "Unable to perform randao caching because of system time"
+      return
+
+  if currentSlot <= destSlot:
+    # We do not need result, because we want it to be cached.
+    discard await vc.getRandaoReveal(proposerKey, slot)
+
+proc spawnProposalTask(vc: ValidatorClientRef,
+                       duty: RestProposerDuty): ProposerTask =
+  ProposerTask(
+    randaoFut: getRandao(vc, duty.slot, duty.pubkey),
+    proposeFut: proposeBlock(vc, duty.slot, duty.pubkey),
+    duty: duty
+  )
+
 proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   validator: AttachedValidator) {.async.} =
   let
@@ -146,22 +225,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
   debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
                             genesis_root = genesisRoot,
                             graffiti = graffiti, fork = fork
-  let randaoReveal =
-    try:
-      let res = await validator.getEpochSignature(fork, genesisRoot, slot.epoch)
-      if res.isErr():
-        warn "Unable to generate randao reveal using remote signer",
-             reason = res.error()
-        return
-      res.get()
-    except CancelledError as exc:
-      debug "Randao reveal production has been interrupted"
-      raise exc
-    except CatchableError as exc:
-      error "An unexpected error occurred while receiving randao data",
-            error_name = exc.name, error_msg = exc.msg
-      return
-
+  let randaoReveal = await vc.getRandaoReveal(validator.pubkey, slot)
   var beaconBlocks =
     block:
       let blindedBlockFut =
@@ -408,11 +472,6 @@ proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
     error "Unexpected error encountered while proposing block",
           slot = slot, validator = shortLog(validator)
 
-proc spawnProposalTask(vc: ValidatorClientRef,
-                       duty: RestProposerDuty): ProposerTask =
-  let future = proposeBlock(vc, duty.slot, duty.pubkey)
-  ProposerTask(future: future, duty: duty)
-
 proc contains(data: openArray[RestProposerDuty], task: ProposerTask): bool =
   for item in data:
     if (item.pubkey == task.duty.pubkey) and (item.slot == task.duty.slot):
@@ -462,13 +521,14 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
           for task in epochDuties.duties:
             if task notin duties:
               # Task is no more relevant, so cancel it.
-              debug "Cancelling running proposal duty task",
+              debug "Cancelling running proposal/randao duty tasks",
                     slot = task.duty.slot,
                     validator = shortLog(task.duty.pubkey)
-              task.future.cancelSoon()
+              task.proposeFut.cancelSoon()
+              task.randaoFut.cancelSoon()
             else:
               # If task is already running for proper slot, we keep it alive.
-              debug "Keep running previous proposal duty task",
+              debug "Keep running previous proposal/randao duty tasks",
                     slot = task.duty.slot,
                     validator = shortLog(task.duty.pubkey)
               res.add(task)
@@ -783,8 +843,10 @@ proc mainLoop(service: BlockServiceRef) {.async.} =
   var res: seq[FutureBase]
   for epoch, data in vc.proposers.pairs():
     for duty in data.duties.items():
-      if not(duty.future.finished()):
-        res.add(duty.future.cancelAndWait())
+      if not(duty.proposeFut.finished()):
+        res.add(duty.proposeFut.cancelAndWait())
+      if not(duty.randaoFut.finished()):
+        res.add(duty.randaoFut.cancelAndWait())
   await noCancel allFutures(res)
 
 proc init*(t: typedesc[BlockServiceRef],

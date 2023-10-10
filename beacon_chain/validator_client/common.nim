@@ -52,6 +52,14 @@ type
     Cached, IncorrectTime, MissingIndex, MissingFee, MissingGasLimit,
     ErrorSignature, NoSignature
 
+  RandaoPair* = object
+    pubkey*: ValidatorPubKey
+    signature*: ValidatorSig
+
+  RandaoCacheItem* = object
+    data*: array[SLOTS_PER_EPOCH, RandaoPair]
+    fork*: Fork
+
   PendingValidatorRegistration* = object
     registration*: SignedValidatorRegistrationV1
     future*: Future[SignatureResult]
@@ -95,7 +103,8 @@ type
 
   ProposerTask* = object
     duty*: RestProposerDuty
-    future*: Future[void]
+    proposeFut*: Future[void]
+    randaoFut*: Future[void]
 
   ProposedData* = object
     epoch*: Epoch
@@ -227,6 +236,7 @@ type
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     blocksSeen*: Table[Slot, BlockDataItem]
     rootsSeen*: Table[Eth2Digest, Slot]
+    randaoCache*: Table[Epoch, RandaoCacheItem]
     processingDelay*: Opt[Duration]
     rng*: ref HmacDrbgContext
 
@@ -1331,6 +1341,13 @@ proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
           "[" & item.blocks.mapIt(shortLog(it)).join(", ") & "]"
       debug "Block data has been pruned", slot = slot, blocks = blockRoot
   vc.blocksSeen = blocksSeen
+
+proc pruneRandaoCache*(vc: ValidatorClientRef, epoch: Epoch) =
+  var randaoCache: Table[Epoch, RandaoCacheItem]
+  for tepoch, titem in vc.randaoCache.pairs():
+    if (tepoch + HISTORICAL_DUTIES_EPOCHS) >= epoch:
+      randaoCache[tepoch] = titem
+  vc.randaoCache = randaoCache
 
 proc waitForBlock*(
        vc: ValidatorClientRef,
