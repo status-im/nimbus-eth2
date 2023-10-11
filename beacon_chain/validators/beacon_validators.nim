@@ -15,7 +15,7 @@
 
 import
   # Standard library
-  std/[os, tables, sequtils],
+  std/[os, tables],
 
   # Nimble packages
   stew/[assign2, byteutils],
@@ -41,8 +41,9 @@ import
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     keystore_management, slashing_protection, validator_duties, validator_pool],
-  ".."/spec/mev/rest_capella_mev_calls
+  ".."/spec/mev/[rest_capella_mev_calls, rest_deneb_mev_calls]
 
+from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
 
 const
@@ -563,25 +564,20 @@ proc makeBeaconBlockForHeadAndSlot*(
     withdrawals_root = Opt.none(Eth2Digest))
 
 proc getBlindedExecutionPayload[
-    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader |
-    deneb.ExecutionPayloadHeader](
+    EPH: capella.ExecutionPayloadHeader | deneb.ExecutionPayloadHeader](
     node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
     executionBlockRoot: Eth2Digest, pubkey: ValidatorPubKey):
     Future[BlindedBlockResult[EPH]] {.async.} =
   when EPH is deneb.ExecutionPayloadHeader:
-    let blindedHeader = default(RestResponse[GetHeaderResponseDeneb])
-    debugRaiseAssert $denebImplementationMissing &
-      ": makeBlindedBeaconBlockForHeadAndSlot"
+    let blindedHeader = awaitWithTimeout(
+      payloadBuilderClient.getHeaderDeneb(slot, executionBlockRoot, pubkey),
+      BUILDER_PROPOSAL_DELAY_TOLERANCE):
+        return err "Timeout obtaining Deneb blinded header from builder"
   elif EPH is capella.ExecutionPayloadHeader:
     let blindedHeader = awaitWithTimeout(
       payloadBuilderClient.getHeaderCapella(slot, executionBlockRoot, pubkey),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
         return err "Timeout obtaining Capella blinded header from builder"
-  elif EPH is bellatrix.ExecutionPayloadHeader:
-    let blindedHeader = awaitWithTimeout(
-      payloadBuilderClient.getHeaderBellatrix(slot, executionBlockRoot, pubkey),
-      BUILDER_PROPOSAL_DELAY_TOLERANCE):
-        return err "Timeout obtaining Bellatrix blinded header from builder"
   else:
     static: doAssert false
 
@@ -636,7 +632,7 @@ func constructPlainBlindedBlock[
 
   blindedBlock
 
-proc blindedBlockCheckSlashingAndSign[T](
+proc blindedBlockCheckSlashingAndSign[T: capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
     Future[Result[T, string]] {.async.} =
@@ -671,19 +667,25 @@ proc blindedBlockCheckSlashingAndSign[T](
 
   return ok blindedBlock
 
+proc blindedBlockCheckSlashingAndSign[
+    T: deneb_mev.SignedBlindedBeaconBlockContents](
+    node: BeaconNode, slot: Slot, validator: AttachedValidator,
+    validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
+    Future[Result[T, string]] {.async.} =
+  debugRaiseAssert $denebImplementationMissing
+
 proc getUnsignedBlindedBeaconBlock[
     T: capella_mev.SignedBlindedBeaconBlock |
        deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: bellatrix.ExecutionPayloadHeader |
-                            capella.ExecutionPayloadHeader |
+    executionPayloadHeader: capella.ExecutionPayloadHeader |
                             deneb.ExecutionPayloadHeader): Result[T, string] =
   withBlck(forkedBlock):
     when consensusFork >= ConsensusFork.Deneb:
       debugRaiseAssert $denebImplementationMissing & ": getUnsignedBlindedBeaconBlock"
       return err("getUnsignedBlindedBeaconBlock: Deneb blinded block creation not implemented")
-    elif consensusFork >= ConsensusFork.Bellatrix:
+    elif consensusFork >= ConsensusFork.Capella:
       when not (
           (T is capella_mev.SignedBlindedBeaconBlock and
            consensusFork == ConsensusFork.Capella)):
@@ -692,7 +694,7 @@ proc getUnsignedBlindedBeaconBlock[
         return ok constructSignableBlindedBlock[T](
           forkyBlck, executionPayloadHeader)
     else:
-      return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Bellatrix blinded block")
+      return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Capella blinded block")
 
 proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
@@ -772,7 +774,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
 
 proc getBuilderBid[
     SBBB: capella_mev.SignedBlindedBeaconBlock |
-          deneb_mev.SignedBlindedBeaconBlock](
+          deneb_mev.SignedBlindedBeaconBlockContents](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     validator: AttachedValidator, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex):
@@ -781,7 +783,7 @@ proc getBuilderBid[
   ## Used by the BN's own validators, but not the REST server
   when SBBB is capella_mev.SignedBlindedBeaconBlock:
     type EPH = capella.ExecutionPayloadHeader
-  elif SBBB is deneb_mev.SignedBlindedBeaconBlock:
+  elif SBBB is deneb_mev.SignedBlindedBeaconBlockContents:
     type EPH = deneb.ExecutionPayloadHeader
   else:
     static: doAssert false
@@ -884,11 +886,9 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
 
   let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
   withBlck(forkedBlck):
-    when consensusFork >= ConsensusFork.Deneb:
-      debugRaiseAssert $denebImplementationMissing & ": makeBlindedBeaconBlockForHeadAndSlot"
-    elif consensusFork >= ConsensusFork.Bellatrix:
-      when ((consensusFork == ConsensusFork.Bellatrix and
-             EPH is bellatrix.ExecutionPayloadHeader) or
+    when consensusFork >= ConsensusFork.Capella:
+      when ((consensusFork == ConsensusFork.Deneb and
+             EPH is deneb.ExecutionPayloadHeader) or
             (consensusFork == ConsensusFork.Capella and
              EPH is capella.ExecutionPayloadHeader)):
         return ok (constructPlainBlindedBlock[BBB, EPH](
@@ -896,7 +896,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
       else:
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
     else:
-      return err("Attempt to create pre-Bellatrix blinded block")
+      return err("Attempt to create pre-Capella blinded block")
 
 proc collectBidFutures(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
@@ -1190,7 +1190,8 @@ proc proposeBlock(node: BeaconNode,
   return
     if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
       proposeBlockContinuation(
-        deneb_mev.SignedBlindedBeaconBlock, deneb.ExecutionPayloadForSigning)
+        deneb_mev.SignedBlindedBeaconBlockContents,
+        deneb.ExecutionPayloadForSigning)
     elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock, capella.ExecutionPayloadForSigning)

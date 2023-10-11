@@ -994,16 +994,16 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     case currentEpochFork
     of ConsensusFork.Deneb:
       let
-        restBlock = decodeBodyJsonOrSsz(deneb_mev.SignedBlindedBeaconBlock,
-                                        body).valueOr:
+        restBlockContents = decodeBodyJsonOrSsz(deneb_mev.SignedBlindedBeaconBlockContents,
+                                                body).valueOr:
           return RestApiResponse.jsonError(error)
 
         payloadBuilderClient = node.getPayloadBuilderClient(
-            restBlock.message.proposer_index).valueOr:
+            restBlockContents.signed_blinded_block.message.proposer_index).valueOr:
           return RestApiResponse.jsonError(
             Http400, "Unable to initialize payload builder client: " & $error)
         res = await node.unblindAndRouteBlockMEV(
-          payloadBuilderClient, restBlock)
+          payloadBuilderClient, restBlockContents)
 
       if res.isErr():
         return RestApiResponse.jsonError(
