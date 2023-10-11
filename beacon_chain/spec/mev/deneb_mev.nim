@@ -119,3 +119,10 @@ func shortLog*(v: SignedBlindedBeaconBlock): auto =
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
   )
+
+# needs to match SignedBlindedBeaconBlock
+func shortLog*(v: SignedBlindedBeaconBlockContents): auto =
+  (
+    blck: shortLog(v.signed_blinded_block.message),
+    signature: shortLog(v.signed_blinded_block.signature)
+  )
