@@ -55,7 +55,7 @@ jobs:
             nimflags-extra: --mm:refc
           - target:
               os: linux
-            builder: ['self-hosted','ubuntu-22.04']
+            builder: ubuntu-22.04
             shell: bash
           - target:
               os: macos
