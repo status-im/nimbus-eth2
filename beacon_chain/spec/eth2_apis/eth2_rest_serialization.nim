@@ -97,6 +97,7 @@ type
     SetGasLimitRequest |
     bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock |
+    deneb_mev.SignedBlindedBeaconBlockContents |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |

@@ -134,6 +134,12 @@ type
     blob_gas_used*: uint64   # [New in Deneb:EIP4844]
     excess_blob_gas*: uint64 # [New in Deneb:EIP4844]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/validator.md#blobsbundle
+  BlobsBundle* = object
+    commitments*: seq[KZGCommitment]
+    proofs*: seq[KZGProof]
+    blobs*: seq[Blob]
+
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 

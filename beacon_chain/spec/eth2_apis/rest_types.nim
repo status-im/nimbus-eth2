@@ -21,6 +21,7 @@ import
   ".."/mev/[capella_mev, deneb_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
+from ".."/mev/deneb_mev import ExecutionPayloadAndBlobsBundle
 
 export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
        tables, httputils
@@ -545,7 +546,7 @@ type
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
-  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb.ExecutionPayload]
+  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
 
