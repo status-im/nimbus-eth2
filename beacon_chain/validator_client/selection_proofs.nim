@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/[algorithm, sequtils]
-import chronicles, chronos
+import chronicles, chronos, metrics
 import common, api
 
 {.push raises: [].}
@@ -112,7 +112,7 @@ proc fillAttestationSelectionProofs*(
         var pending: seq[Future[void]]
         for future in pendingRequests:
           if not(future.finished()): pending.add(future.cancelAndWait())
-        await allFutures(pending)
+        await noCancel allFutures(pending)
         raise exc
 
       pendingRequests =
@@ -381,7 +381,7 @@ proc fillSyncCommitteeSelectionProofs*(
         var pending: seq[Future[void]]
         for future in pendingRequests:
           if not(future.finished()): pending.add(future.cancelAndWait())
-        await allFutures(pending)
+        await noCancel allFutures(pending)
         raise exc
 
       pendingRequests =
