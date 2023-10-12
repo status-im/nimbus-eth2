@@ -730,10 +730,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
   # processing does not work directly using blinded blocks, fix up transactions
   # root after running the state transition function on an otherwise equivalent
   # non-blinded block without transactions.
-  when EPH is bellatrix.ExecutionPayloadHeader:
-    type PayloadType = bellatrix.ExecutionPayloadForSigning
-    let withdrawals_root = Opt.none Eth2Digest
-  elif EPH is capella.ExecutionPayloadHeader:
+  when EPH is capella.ExecutionPayloadHeader:
     type PayloadType = capella.ExecutionPayloadForSigning
     let withdrawals_root =
       Opt.some executionPayloadHeader.get.blindedBlckPart.withdrawals_root
@@ -810,7 +807,9 @@ proc getBuilderBid[
   return ok (unsignedBlindedBlock.get, bidValue)
 
 proc proposeBlockMEV(
-    node: BeaconNode, payloadBuilderClient: RestClientRef, blindedBlock: auto):
+    node: BeaconNode, payloadBuilderClient: RestClientRef,
+    blindedBlock: capella_mev.SignedBlindedBeaconBlock |
+                  deneb_mev.SignedBlindedBeaconBlockContents):
     Future[Result[BlockRef, string]] {.async.} =
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
     payloadBuilderClient, blindedBlock)
