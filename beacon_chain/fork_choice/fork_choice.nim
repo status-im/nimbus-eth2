@@ -113,7 +113,7 @@ proc update_justified(
   self.update_justified(dag, blck, justified.epoch)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#update_checkpoints
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var Checkpoints, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints): FcResult[void] =

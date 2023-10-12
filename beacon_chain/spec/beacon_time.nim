@@ -142,7 +142,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#prepare-sync-committee-message
   syncCommitteeMessageSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/validator.md#broadcast-sync-committee-contribution
   syncContributionSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#sync-committee

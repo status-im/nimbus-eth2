@@ -79,7 +79,7 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
 type
   ### New types
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
 
   EpochParticipationFlags* =
@@ -116,7 +116,7 @@ type
     signature*: ValidatorSig
       ## Signature by the validator over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#synccommitteecontribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/validator.md#synccommitteecontribution
   SyncCommitteeAggregationBits* =
     BitArray[SYNC_SUBCOMMITTEE_SIZE]
 
@@ -261,7 +261,7 @@ type
 
   InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
