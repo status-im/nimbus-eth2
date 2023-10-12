@@ -245,6 +245,12 @@ proc publishBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock):
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
 
+proc publishBlindedBlock*(body: deneb_mev.SignedBlindedBeaconBlockContents):
+       RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
 proc publishSszBlindedBlock*(
        client: RestClientRef,
        blck: ForkySignedBeaconBlock
