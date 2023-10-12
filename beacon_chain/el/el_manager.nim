@@ -1715,7 +1715,7 @@ template trackFinalizedState*(m: ELManager,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,

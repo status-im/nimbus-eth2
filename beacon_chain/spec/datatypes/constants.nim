@@ -10,7 +10,7 @@ type
   Epoch* = distinct uint64
   SyncCommitteePeriod* = distinct uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/beacon-chain.md#custom-types
   WithdrawalIndex* = uint64
 
   DomainType* = distinct array[4, byte]

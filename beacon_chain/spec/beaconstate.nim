@@ -267,7 +267,7 @@ func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
   bellatrix.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/beacon-chain.md#testing
 func get_initial_beacon_block*(state: capella.HashedBeaconState):
     capella.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
@@ -324,7 +324,7 @@ func get_block_root*(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
   withState(state):
     get_block_root(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
     state: ForkyBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.
@@ -546,7 +546,7 @@ func get_attestation_participation_flag_indices(
 
   participation_flag_indices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#modified-get_attestation_participation_flag_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: deneb.BeaconState,
     data: AttestationData, inclusion_delay: uint64): set[TimelyFlag] =
@@ -811,7 +811,7 @@ func is_fully_withdrawable_validator(
   has_eth1_withdrawal_credential(validator) and
     validator.withdrawable_epoch <= epoch and balance > 0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
 func is_partially_withdrawable_validator(
     validator: Validator, balance: Gwei): bool =
   ## Check if ``validator`` is partially withdrawable.
@@ -979,7 +979,7 @@ proc initialize_hashed_beacon_state_from_eth1*(
       cfg, eth1_block_hash, eth1_timestamp, deposits, flags))
   result.root = hash_tree_root(result.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/bellatrix/beacon-chain.md#testing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#testing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#testing
 proc initialize_beacon_state_from_eth1*(

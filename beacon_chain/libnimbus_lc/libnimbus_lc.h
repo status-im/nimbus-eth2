@@ -149,11 +149,11 @@ typedef struct ETHBeaconState ETHBeaconState;
  *         representation - If successful.
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/configs/README.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/bellatrix/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/configs/README.md
  */
 ETH_RESULT_USE_CHECK
 ETHBeaconState *ETHBeaconStateCreateFromSsz(
@@ -198,7 +198,7 @@ ETHRoot *ETHBeaconStateCopyGenesisValidatorsRoot(const ETHBeaconState *state);
  *
  * @param      root                 Merkle root.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#custom-types
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#custom-types
  */
 void ETHRootDestroy(ETHRoot *root);
 
@@ -576,7 +576,7 @@ typedef struct ETHLightClientHeader ETHLightClientHeader;
  *
  * @return Latest finalized header.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
  */
 ETH_RESULT_USE_CHECK
 const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(

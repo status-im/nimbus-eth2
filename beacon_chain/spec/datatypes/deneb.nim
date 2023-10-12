@@ -33,7 +33,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/beacon-chain.md#blob
   BLOB_TX_TYPE* = 0x03'u8
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/polynomial-commitments.md#constants
@@ -72,7 +72,7 @@ type
     message*: BlobSidecar
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobidentifier
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object
     block_root*: Eth2Digest
     index*: BlobIndex
