@@ -72,9 +72,8 @@ proc unblindAndRouteBlockMEV*(
     if  hash_tree_root(
           blindedBlock.message.body.execution_payload_header) !=
         hash_tree_root(unblindedPayload.data.data):
-      debug "unblindAndRouteBlockMEV: unblinded payload doesn't match blinded payload",
-        blindedPayload =
-          blindedBlock.message.body.execution_payload_header
+      return err("unblinded payload doesn't match blinded payload header: " &
+        $blindedBlock.message.body.execution_payload_header)
     else:
       # Signature provided is consistent with unblinded execution payload,
       # so construct full beacon block
@@ -110,8 +109,8 @@ proc unblindAndRouteBlockMEV*(
 
       return ok newBlockRef
   else:
-    debug "unblindAndRouteBlockMEV: submitBlindedBlock failed",
-      blindedBlock, payloadStatus = unblindedPayload.status
+    return err("submitBlindedBlock failed with HTTP error code" &
+      $unblindedPayload.status & ": " & $shortLog(blindedBlock))
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#proposer-slashing
   # This means if a validator publishes a signature for a
@@ -151,9 +150,8 @@ proc unblindAndRouteBlockMEV*(
     if  hash_tree_root(
           blindedBlock.message.body.execution_payload_header) !=
         hash_tree_root(unblindedPayload.data.data.execution_payload):
-      debug "unblindAndRouteBlockMEV: unblinded payload doesn't match blinded payload",
-        blindedPayload =
-          blindedBlock.message.body.execution_payload_header
+      return err("unblinded payload doesn't match blinded payload header: " &
+        $blindedBlock.message.body.execution_payload_header)
     else:
       # Signature provided is consistent with unblinded execution payload,
       # so construct full beacon block
@@ -193,8 +191,8 @@ proc unblindAndRouteBlockMEV*(
 
       return ok newBlockRef
   else:
-    debug "unblindAndRouteBlockMEV: submitBlindedBlock failed",
-      blindedBlock, payloadStatus = unblindedPayload.status
+    return err("submitBlindedBlock failed with HTTP error code" &
+      $unblindedPayload.status & ": " & $shortLog(blindedBlock))
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#proposer-slashing
   # This means if a validator publishes a signature for a

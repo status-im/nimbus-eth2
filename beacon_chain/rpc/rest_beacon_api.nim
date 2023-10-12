@@ -1007,7 +1007,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       if res.isErr():
         return RestApiResponse.jsonError(
-          Http503, BeaconNodeInSyncError, $res.error())
+          Http500, InternalServerError, $res.error())
       if res.get().isNone():
         return RestApiResponse.jsonError(Http202, BlockValidationError)
 
@@ -1028,7 +1028,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       if res.isErr():
         return RestApiResponse.jsonError(
-          Http503, BeaconNodeInSyncError, $res.error())
+          Http500, InternalServerError, $res.error())
       if res.get().isNone():
         return RestApiResponse.jsonError(Http202, BlockValidationError)
 
