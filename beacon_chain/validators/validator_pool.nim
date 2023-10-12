@@ -17,7 +17,7 @@ import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/[rest_types, eth2_rest_serialization,
                      rest_remote_signer_calls],
-  ../filepath,
+  ../filepath, ../conf,
   ./slashing_protection
 
 export
@@ -380,7 +380,7 @@ func triggersDoppelganger*(
   v.isSome() and v[].triggersDoppelganger(epoch)
 
 proc updateDynamicValidators*(pool: ref ValidatorPool,
-                              web3signerUrl: Uri,
+                              web3signerUrl: Web3SignerUrl,
                               keystores: openArray[KeystoreData],
                               addProc: AddValidatorProc) =
   var
@@ -400,7 +400,7 @@ proc updateDynamicValidators*(pool: ref ValidatorPool,
         if keystore.isSome():
           # Just update validator's `data` field with new data from keystore.
           validator.data = keystore.get()
-        elif validator.data.remotes[0].url == HttpHostUri(web3signerUrl):
+        elif validator.data.remotes[0].url == HttpHostUri(web3signerUrl.url):
           # The "dynamic" keystores are guaratneed to not be distributed
           # so they have a single remote. This code ensures that we are
           # deleting all previous dynamically obtained keystores which

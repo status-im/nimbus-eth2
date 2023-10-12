@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, unicode],
+  std/[os, unicode, sequtils],
   chronicles, chronos, json_serialization,
   bearssl/rand,
   serialization, blscurve, eth/common/eth_types, confutils,
@@ -28,7 +28,7 @@ from std/wordwrap import wrapWords
 from zxcvbn import passwordEntropy
 
 export
-  keystore, validator_pool, crypto, rand
+  keystore, validator_pool, crypto, rand, Web3SignerUrl
 
 when defined(windows):
   import stew/[windows/acl]
@@ -632,11 +632,11 @@ proc existsKeystore(keystoreDir: string,
       return true
   false
 
-proc queryValidatorsSource*(web3signerUrl: Uri): Future[QueryResult] {.async.} =
+proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl): Future[QueryResult] {.async.} =
   var keystores: seq[KeystoreData]
 
   logScope:
-    web3signer_url = web3signerUrl
+    web3signer_url = web3signerUrl.url
 
   let
     httpFlags: HttpClientFlags = {}
@@ -644,7 +644,7 @@ proc queryValidatorsSource*(web3signerUrl: Uri): Future[QueryResult] {.async.} =
     socketFlags = {SocketFlags.TcpNoDelay}
     client =
       block:
-        let res = RestClientRef.new($web3signerUrl, prestoFlags,
+        let res = RestClientRef.new($web3signerUrl.url, prestoFlags,
                                     httpFlags, socketFlags = socketFlags)
         if res.isErr():
           warn "Unable to resolve validator's source distributed signer " &
@@ -679,16 +679,29 @@ proc queryValidatorsSource*(web3signerUrl: Uri): Future[QueryResult] {.async.} =
              error = $exc.name, reason = $exc.msg
         return QueryResult.err($exc.msg)
 
+    remoteType = if web3signerUrl.provenBlockProperties.len == 0:
+      RemoteSignerType.Web3Signer
+    else:
+      RemoteSignerType.VerifyingWeb3Signer
+
+    provenBlockProperties = mapIt(web3signerUrl.provenBlockProperties,
+                                  block:
+                                    parseProvenBlockProperty(it).valueOr:
+                                      return QueryResult.err(error))
+
   for pubkey in keys:
     keystores.add(KeystoreData(
       kind: KeystoreKind.Remote,
       handle: FileLockHandle(opened: false),
       pubkey: pubkey,
       remotes: @[RemoteSignerInfo(
-        url: HttpHostUri(web3signerUrl),
+        url: HttpHostUri(web3signerUrl.url),
         pubkey: pubkey)],
       flags: {RemoteKeystoreFlag.DynamicKeystore},
-      remoteType: RemoteSignerType.Web3Signer))
+      remoteType: remoteType))
+
+    if provenBlockProperties.len > 0:
+      keystores[^1].provenBlockProperties = provenBlockProperties
 
   QueryResult.ok(keystores)
 
