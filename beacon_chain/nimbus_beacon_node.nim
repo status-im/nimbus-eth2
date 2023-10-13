@@ -1732,7 +1732,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   waitFor node.updateGossipStatus(wallSlot)
 
-  for web3signerUrl in node.config.web3signers:
+  for web3signerUrl in node.config.web3SignerUrls:
     # TODO
     # The current strategy polls all remote signers independently
     # from each other which may lead to some race conditions of

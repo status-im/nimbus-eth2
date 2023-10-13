@@ -127,6 +127,10 @@ type
     Poll = "poll"
     Event = "event"
 
+  Web3SignerUrl* = object
+    url*: Uri
+    provenBlockProperties*: seq[string] # empty if this is not a verifying Web3Signer
+
   BeaconNodeConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"
@@ -164,7 +168,15 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
-    web3signers* {.
+    verifyingWeb3Signers* {.
+      desc: "Remote Web3Signer URL that will be used as a source of validators"
+      name: "verifying-web3-signer-url" .}: seq[Uri]
+
+    provenBlockProperties* {.
+      desc: "The field path of a block property that will be sent for verification to the verifying Web3Signer (for example \".execution_payload.fee_recipient\")"
+      name: "proven-block-property" .}: seq[string]
+
+    web3Signers* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
       name: "web3-signer-url" .}: seq[Uri]
 
@@ -896,14 +908,22 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
-    web3signers* {.
+    verifyingWeb3Signers* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
-      name: "web3-signer-url" .}: seq[Uri]
+      name: "verifying-web3-signer-url" .}: seq[Uri]
+
+    provenBlockProperties* {.
+      desc: "The field path of a block property that will be sent for verification to the verifying Web3Signer (for example \".execution_payload.fee_recipient\")"
+      name: "proven-block-property" .}: seq[string]
 
     web3signerUpdateInterval* {.
       desc: "Number of seconds between validator list updates"
       name: "web3-signer-update-interval"
       defaultValue: 3600 .}: Natural
+
+    web3Signers* {.
+      desc: "Remote Web3Signer URL that will be used as a source of validators"
+      name: "web3-signer-url" .}: seq[Uri]
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
@@ -1286,6 +1306,14 @@ func runAsService*(config: BeaconNodeConf): bool =
     config.runAsServiceFlag
   else:
     false
+
+func web3SignerUrls*(conf: AnyConf): seq[Web3SignerUrl] =
+  for url in conf.web3signers:
+    result.add Web3SignerUrl(url: url)
+
+  for url in conf.verifyingWeb3signers:
+    result.add Web3SignerUrl(url: url,
+                             provenBlockProperties: conf.provenBlockProperties)
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =

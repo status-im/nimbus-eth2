@@ -98,7 +98,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
             dec(counter)
       return melem
 
-proc addValidatorsFromWeb3Signer(vc: ValidatorClientRef, web3signerUrl: Uri) {.async.} =
+proc addValidatorsFromWeb3Signer(vc: ValidatorClientRef, web3signerUrl: Web3SignerUrl) {.async.} =
   let res = await queryValidatorsSource(web3signerUrl)
   if res.isOk():
     let dynamicKeystores = res.get()
@@ -111,7 +111,7 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
     vc.addValidator(keystore)
 
   let web3signerValidatorsFuts = mapIt(
-    vc.config.web3signers,
+    vc.config.web3SignerUrls,
     vc.addValidatorsFromWeb3Signer(it))
 
   # We use `allFutures` because all failures are already reported as

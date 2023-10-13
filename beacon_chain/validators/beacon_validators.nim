@@ -115,7 +115,7 @@ proc getValidator*(validators: auto,
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
                                validator: validators[idx])
 
-proc addValidatorsFromWeb3Signer(node: BeaconNode, web3signerUrl: Uri, epoch: Epoch) {.async.} =
+proc addValidatorsFromWeb3Signer(node: BeaconNode, web3signerUrl: Web3SignerUrl, epoch: Epoch) {.async.} =
   let dynamicStores =
     try:
       let res = await queryValidatorsSource(web3signerUrl)
@@ -173,7 +173,7 @@ proc addValidators*(node: BeaconNode) =
     # user-visible warnings in `queryValidatorsSource`.
     # We don't consider them fatal because the Web3Signer may be experiencing
     # a temporary hiccup that will be resolved later.
-    waitFor allFutures(mapIt(node.config.web3signers,
+    waitFor allFutures(mapIt(node.config.web3SignerUrls,
                              node.addValidatorsFromWeb3Signer(it, epoch)))
   except CatchableError as err:
     # This should never happen because all errors are handled within
@@ -184,7 +184,7 @@ proc addValidators*(node: BeaconNode) =
            err = err.msg
 
 proc pollForDynamicValidators*(node: BeaconNode,
-                               web3signerUrl: Uri,
+                               web3signerUrl: Web3SignerUrl,
                                intervalInSeconds: int) {.async.} =
   if intervalInSeconds == 0:
     return
@@ -215,7 +215,7 @@ proc pollForDynamicValidators*(node: BeaconNode,
               let keystores = res.get()
               debug "Validators source has been polled for validators",
                     keystores_found = len(keystores),
-                    web3signer_url = web3signerUrl
+                    web3signer_url = web3signerUrl.url
               node.attachedValidators.updateDynamicValidators(web3signerUrl,
                                                               keystores,
                                                               addValidatorProc)
