@@ -57,7 +57,7 @@ type
     signature*: ValidatorSig
 
   RandaoCacheItem* = object
-    data*: array[SLOTS_PER_EPOCH, RandaoPair]
+    data*: array[int(SLOTS_PER_EPOCH), RandaoPair]
     fork*: Fork
 
   PendingValidatorRegistration* = object

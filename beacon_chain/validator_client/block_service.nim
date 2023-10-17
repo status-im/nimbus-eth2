@@ -143,7 +143,7 @@ proc getSignature(item: RandaoCacheItem, slot: Slot,
 proc getRandaoReveal(vc: ValidatorClientRef, proposerKey: ValidatorPubKey,
                      slot: Slot,
                      deadline: BeaconTime): Future[ValidatorSig] {.async.} =
-  const LogMessage = "Randao signature obtained"
+  const LogMessage = "RANDAO signature obtained"
   let
     start = Moment.now()
     genesisRoot = vc.beaconGenesis.genesis_validators_root
@@ -165,17 +165,15 @@ proc getRandaoReveal(vc: ValidatorClientRef, proposerKey: ValidatorPubKey,
     validator = vc.getValidatorForDuties(proposerKey, slot).valueOr: return
     signature =
       try:
-        let res = await validator.getEpochSignature(fork, genesisRoot, epoch)
-        if res.isErr():
-          warn "Unable to generate randao reveal using remote signer",
-               reason = res.error()
+        (await validator.getEpochSignature(fork, genesisRoot, epoch)).valueOr:
+          warn "Unable to generate RANDAO reveal using remote signer",
+               reason = error
           return
-        res.get()
       except CancelledError as exc:
-        debug "Randao reveal production has been interrupted"
+        debug "RANDAO reveal production has been interrupted"
         raise exc
       except CatchableError as exc:
-        error "An unexpected error occurred while receiving randao data",
+        error "An unexpected error occurred while receiving RANDAO data",
               error_name = exc.name, error_msg = exc.msg
         return
 
@@ -189,19 +187,18 @@ proc getRandaoReveal(vc: ValidatorClientRef, proposerKey: ValidatorPubKey,
 
 proc getRandao(vc: ValidatorClientRef, slot: Slot,
                proposerKey: ValidatorPubKey) {.async.} =
-  if slot == Slot(0'u64):
+  if slot == GENESIS_SLOT:
     return
 
   let
     destSlot = slot - 1'u64
-    destOffset = TimeDiff(
-      nanoseconds: NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
+    destOffset = TimeDiff(nanoseconds: NANOSECONDS_PER_SLOT.int64 div 2)
     deadline = destSlot.start_beacon_time() + destOffset
-    # We going to wait to T - 2 * INTERVALS_PER_SLOT, where T is proposer's
+    # We going to wait to T - (T / 4 * 2), where T is proposer's
     # duty slot.
     currentSlot = (await vc.checkedWaitForSlot(destSlot, destOffset,
                    false)).valueOr:
-      debug "Unable to perform randao caching because of system time"
+      debug "Unable to perform RANDAO caching because of system time"
       return
 
   if currentSlot <= destSlot:
@@ -534,14 +531,14 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
           for task in epochDuties.duties:
             if task notin duties:
               # Task is no more relevant, so cancel it.
-              debug "Cancelling running proposal/randao duty tasks",
+              debug "Cancelling running proposal duty tasks",
                     slot = task.duty.slot,
                     validator = shortLog(task.duty.pubkey)
               task.proposeFut.cancelSoon()
               task.randaoFut.cancelSoon()
             else:
               # If task is already running for proper slot, we keep it alive.
-              debug "Keep running previous proposal/randao duty tasks",
+              debug "Keep running previous proposal duty tasks",
                     slot = task.duty.slot,
                     validator = shortLog(task.duty.pubkey)
               res.add(task)
