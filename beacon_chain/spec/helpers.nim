@@ -464,7 +464,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     blockNumber           : payload.block_number.u256,
     gasLimit              : cast[GasInt](payload.gas_limit),
     gasUsed               : cast[GasInt](payload.gas_used),
-    timestamp             : fromUnix(int64.saturate payload.timestamp),
+    timestamp             : EthTime(int64.saturate payload.timestamp),
     extraData             : payload.extra_data.asSeq,
     mixDigest             : payload.prev_randao, # EIP-4399 `mixDigest` -> `prevRandao`
     nonce                 : default(BlockNonce),

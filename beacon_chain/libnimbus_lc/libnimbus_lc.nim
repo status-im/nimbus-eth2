@@ -1258,7 +1258,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     blockNumber: distinctBase(data.number).u256,
     gasLimit: cast[int64](data.gasLimit),
     gasUsed: cast[int64](data.gasUsed),
-    timestamp: fromUnix(int64.saturate distinctBase(data.timestamp)),
+    timestamp: EthTime(int64.saturate distinctBase(data.timestamp)),
     extraData: distinctBase(data.extraData),
     mixDigest: data.mixHash.asEth2Digest,
     nonce: distinctBase(data.nonce.get),
@@ -1413,7 +1413,7 @@ type
     value: UInt256
     input: seq[byte]
     accessList: seq[ETHAccessTuple]
-    maxFeePerBlobGas: uint64
+    maxFeePerBlobGas: UInt256
     blobVersionedHashes: seq[Eth2Digest]
     signature: seq[byte]
     bytes: TypedTransaction
@@ -1500,7 +1500,7 @@ proc ETHTransactionsCreateFromJson(
       doAssert sizeof(uint64) == sizeof(ChainId)
       doAssert sizeof(int64) == sizeof(data.gasPrice)
       doAssert sizeof(int64) == sizeof(data.maxPriorityFeePerGas.get)
-      doAssert sizeof(int64) == sizeof(data.maxFeePerBlobGas.get)
+      doAssert sizeof(UInt256) == sizeof(data.maxFeePerBlobGas.get)
     if data.chainId.get(default(UInt256)) > distinctBase(ChainId.high).u256:
       return nil
     if distinctBase(data.gasPrice) > int64.high.uint64:
@@ -1510,8 +1510,8 @@ proc ETHTransactionsCreateFromJson(
     if distinctBase(data.maxPriorityFeePerGas.get(0.Quantity)) >
         int64.high.uint64:
       return nil
-    if distinctBase(data.maxFeePerBlobGas.get(0.Quantity)) >
-        int64.high.uint64:
+    if data.maxFeePerBlobGas.get(0.u256) >
+        uint64.high.u256:
       return nil
     if distinctBase(data.gas) > int64.high.uint64:
       return nil
@@ -1542,7 +1542,7 @@ proc ETHTransactionsCreateFromJson(
           else:
             @[],
         maxFeePerBlobGas:
-          distinctBase(data.maxFeePerBlobGas.get(0.Quantity)).GasInt,
+          data.maxFeePerBlobGas.get(0.u256),
         versionedHashes:
           if data.blobVersionedHashes.isSome:
             data.blobVersionedHashes.get.mapIt(
@@ -1618,7 +1618,7 @@ proc ETHTransactionsCreateFromJson(
       accessList: tx.accessList.mapIt(ETHAccessTuple(
         address: ExecutionAddress(data: it.address),
         storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it)))),
-      maxFeePerBlobGas: tx.maxFeePerBlobGas.uint64,
+      maxFeePerBlobGas: tx.maxFeePerBlobGas,
       blobVersionedHashes: tx.versionedHashes,
       signature: @rawSig,
       bytes: rlpBytes.TypedTransaction)
@@ -1946,7 +1946,7 @@ func ETHAccessTupleGetStorageKey(
   addr accessTuple[].storageKeys[storageKeyIndex.int]
 
 func ETHTransactionGetMaxFeePerBlobGas(
-    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
   ## Obtains the max fee per blob gas of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
