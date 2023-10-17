@@ -10,7 +10,7 @@
 import std/[typetraits, strutils]
 import stew/[assign2, results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization, json_serialization,
-       json_serialization/std/[net, sets],
+       json_serialization/std/[net, sets], stint,
        chronicles
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/../consensus_object_pools/block_pools_types,
@@ -110,7 +110,8 @@ type
     bellatrix.SignedBeaconBlock |
     capella.SignedBeaconBlock |
     phase0.SignedBeaconBlock |
-    DenebSignedBlockContents
+    DenebSignedBlockContents |
+    ForkedAndBlindedBeaconBlock
 
   EncodeArrays* =
     seq[Attestation] |
@@ -166,6 +167,91 @@ type
                     bellatrix.BeaconBlock | capella.BeaconBlock |
                     DenebBlockContents | capella_mev.BlindedBeaconBlock |
                     deneb_mev.BlindedBeaconBlock
+
+func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
+  ## Converts an hex char to an int
+  const
+    lowerLastChar = chr(ord('a') + radix - 11'u8)
+    capitalLastChar = chr(ord('A') + radix - 11'u8)
+  case c
+  of '0' .. '9': ok(int8 ord(c) - ord('0'))
+  of 'a' .. lowerLastChar: ok(int8 ord(c) - ord('a') + 10)
+  of 'A' .. capitalLastChar: ok(int8 ord(c) - ord('A') + 10)
+  else: err("Invalid hexadecimal character encountered!")
+
+func readStrictDecChar(c: char, radix: static[uint8]): Result[int8, cstring] =
+  const lastChar = char(ord('0') + radix - 1'u8)
+  case c
+  of '0' .. lastChar: ok(int8 ord(c) - ord('0'))
+  else: err("Invalid decimal character encountered!")
+
+func skipPrefixes(str: string,
+                  radix: range[2..16]): Result[int, cstring] =
+  ## Returns the index of the first meaningful char in `hexStr` by skipping
+  ## "0x" prefix
+  if len(str) < 2:
+    return ok(0)
+
+  return
+    if str[0] == '0':
+      if str[1] in {'x', 'X'}:
+        if radix != 16:
+          return err("Parsing mismatch, 0x prefix is only valid for a " &
+                     "hexadecimal number (base 16)")
+        ok(2)
+      elif str[1] in {'o', 'O'}:
+        if radix != 8:
+          return err("Parsing mismatch, 0o prefix is only valid for an " &
+                     "octal number (base 8)")
+        ok(2)
+      elif str[1] in {'b', 'B'}:
+        if radix == 2:
+          ok(2)
+        elif radix == 16:
+          # allow something like "0bcdef12345" which is a valid hex
+          ok(0)
+        else:
+          err("Parsing mismatch, 0b prefix is only valid for a binary number " &
+              "(base 2), or hex number")
+      else:
+        ok(0)
+    else:
+      ok(0)
+
+func strictParse*[bits: static[int]](input: string,
+                                     T: typedesc[StUint[bits]],
+                                     radix: static[uint8] = 10
+                                    ): Result[T, cstring] {.raises: [].} =
+  var res: T
+  static: doAssert (radix >= 2) and (radix <= 16),
+            "Only base from 2..16 are supported"
+
+  const
+    base = radix.uint8.stuint(bits)
+    zero = 0.uint8.stuint(256)
+
+  var currentIndex =
+    block:
+      let res = skipPrefixes(input, radix)
+      if res.isErr():
+        return err(res.error)
+      res.get()
+
+  while currentIndex < len(input):
+    let value =
+      when radix <= 10:
+        ? readStrictDecChar(input[currentIndex], radix)
+      else:
+        ? readStrictHexChar(input[currentIndex], radix)
+    let mres = res * base
+    if (res != zero) and (mres div base != res):
+      return err("Overflow error")
+    let ares = mres + value.stuint(bits)
+    if ares < mres:
+      return err("Overflow error")
+    res = ares
+    inc(currentIndex)
+  ok(res)
 
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
@@ -3049,6 +3135,187 @@ proc readValue*(reader: var JsonReader[RestJson],
     if value.hasKeyOrPut(toUpperAscii(fieldName), fieldValue):
       let msg = "Multiple `" & fieldName & "` fields found"
       reader.raiseUnexpectedField(msg, "VCRuntimeConfig")
+
+## ForkedAndBlindedBeaconBlock
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: ForkedAndBlindedBeaconBlock) {.raises: [IOError].} =
+  template writeConsensusValue() =
+    if value.consensusValue.isSome():
+      writer.writeField("consensus_block_value",
+                        $(value.consensusValue.get()))
+  template writeExecutionValue() =
+    if value.executionValue.isSome():
+      writer.writeField("execution_payload_value",
+                        $(value.executionValue.get()))
+  template writeForkVersion() =
+    writer.writeField("version", value.kind.toString())
+
+  writer.beginRecord()
+  case value.kind
+  of ConsensusBlindedFork.Phase0:
+    writeForkVersion()
+    writer.writeField("execution_payload_blinded", "false")
+    writeExecutionValue()
+    writeConsensusValue()
+    writer.writeField("data", value.phase0Data)
+  of ConsensusBlindedFork.Altair:
+    writeForkVersion()
+    writer.writeField("execution_payload_blinded", "false")
+    writeExecutionValue()
+    writeConsensusValue()
+    writer.writeField("data", value.altairData)
+  of ConsensusBlindedFork.Bellatrix:
+    writeForkVersion()
+    writer.writeField("execution_payload_blinded", "false")
+    writeExecutionValue()
+    writeConsensusValue()
+    writer.writeField("data", value.bellatrixData)
+  of ConsensusBlindedFork.Capella:
+    writeForkVersion()
+    writer.writeField("execution_payload_blinded", "false")
+    writeExecutionValue()
+    writeConsensusValue()
+    writer.writeField("data", value.capellaData)
+  of ConsensusBlindedFork.CapellaBlinded:
+    writeForkVersion()
+    writer.writeField("execution_payload_blinded", "true")
+    writeExecutionValue()
+    writeConsensusValue()
+    writer.writeField("data", value.capellaData)
+  of ConsensusBlindedFork.Deneb:
+    writeForkVersion()
+    writer.writeField("execution_payload_blinded", "false")
+    writeExecutionValue()
+    writeConsensusValue()
+    block:
+      writer.writeFieldName("data")
+      writer.beginRecord()
+      writer.writeField("block", value.denebData)
+      writer.writeField("blob_sidecars", value.denebBlob)
+      writer.endRecord()
+  of ConsensusBlindedFork.DenebBlinded:
+    writeForkVersion()
+    writer.writeField("execution_payload_blinded", "true")
+    writeExecutionValue()
+    writeConsensusValue()
+    block:
+      writer.writeFieldName("data")
+      writer.beginRecord()
+      writer.writeField("blinded_block", value.denebBlinded)
+      writer.writeField("blinded_blob_sidecars", value.denebBlindedBlob)
+      writer.endRecord()
+  writer.endRecord()
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ForkedAndBlindedBeaconBlock) {.
+     raises: [SerializationError, IOError].} =
+  var
+    version: Opt[ConsensusBlindedFork]
+    blinded: Opt[bool]
+    executionValue: Opt[UInt256]
+    consensusValue: Opt[UInt256]
+    data: Opt[JsonString]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple `version` fields found",
+                                    "ForkedAndBlindedBeaconBlock")
+      let res = reader.readValue(string)
+      case res
+      of "phase0":
+        version = Opt.some(ConsensusBlindedFork.Phase0)
+      of "altair":
+        version = Opt.some(ConsensusBlindedFork.Altair)
+      of "bellatrix":
+        version = Opt.some(ConsensusBlindedFork.Bellatrix)
+      of "capella":
+        version = Opt.some(ConsensusBlindedFork.Capella)
+      of "deneb":
+        version = Opt.some(ConsensusBlindedFork.Deneb)
+      else:
+        reader.raiseUnexpectedValue("Incorrect `version` field value")
+    of "execution_payload_blinded":
+      if blinded.isSome():
+        reader.raiseUnexpectedField("Multiple `execution_payload_blinded`" &
+                                    "fields found",
+                                    "ForkedAndBlindedBeaconBlock")
+      blinded = Opt.some(reader.readValue(bool))
+    of "execution_payload_value":
+      if executionValue.isSome():
+        reader.raiseUnexpectedField("Multiple `execution_payload_value`" &
+                                    "fields found",
+                                    "ForkedAndBlindedBeaconBlock")
+      let res = strictParse(reader.readValue(string), UInt256, 10)
+      if res.isErr():
+        reader.raiseUnexpectedValue(res.error)
+      executionValue = Opt.some(res.get())
+    of "consensus_block_value":
+      if consensusValue.isSome():
+        reader.raiseUnexpectedField("Multiple `consensus_block_value`" &
+                                    "fields found",
+                                    "ForkedAndBlindedBeaconBlock")
+      let res = strictParse(reader.readValue(string), UInt256, 10)
+      if res.isErr():
+        reader.raiseUnexpectedValue(res.error)
+      consensusValue = Opt.some(res.get())
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField("Multiple `data` fields found",
+                                    "ForkedAndBlindedBeaconBlock")
+      data = Opt.some(reader.readValue(JsonString))
+    else:
+      unrecognizedFieldWarning()
+
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field `version` is missing")
+  if blinded.isNone():
+    reader.raiseUnexpectedValue("Field `execution_payload_blinded` is missing")
+  if executionValue.isNone():
+    reader.raiseUnexpectedValue("Field `execution_payload_value` is missing")
+  # TODO (cheatfate): At some point we should add check for missing
+  # `consensus_block_value` too
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field `data` is missing")
+
+  let blindedFork =
+    if blinded.get():
+      case version.get()
+      of ConsensusBlindedFork.Capella:
+        ConsensusBlindedFork.CapellaBlinded
+      of ConsensusBlindedFork.Deneb:
+        ConsensusBlindedFork.DenebBlinded
+      else:
+        version.get()
+    else:
+      version.get()
+
+  case blindedFork
+  of ConsensusBlindedFork.Phase0:
+    value = ForkedAndBlindedBeaconBlock.init()
+  of ConsensusBlindedFork.Altair:
+  of ConsensusBlindedFork.Bellatrix:
+  of ConsensusBlindedFork.Capella:
+  of ConsensusBlindedFork.CapellaBlinded:
+  of ConsensusBlindedFork.Deneb:
+  of ConsensusBlindedFork.DenebBlinded:
+
+    let res =
+      try:
+        Opt.some(RestJson.decode(string(data.get()),
+                                 phase0.BeaconBlock,
+                                 requireAllFields = true,
+                                 allowUnknownFields = true))
+      except SerializationError:
+        Opt.none(phase0.BeaconBlock)
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect phase0 block format")
+    value = ForkedBeaconBlock.init(res.get()).BlockType
+
+
+
+  execution_payload_value
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

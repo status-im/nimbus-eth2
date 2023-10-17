@@ -89,6 +89,11 @@ type
     signed_blinded_blob_sidecars*:
       List[SignedBlindedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
 
+  BlindedBeaconBlockContents* = object
+    blinded_block*: BlindedBeaconBlock
+    blinded_blob_sidecars*:
+      List[BlindedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+
   # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#executionpayloadandblobsbundle
   ExecutionPayloadAndBlobsBundle* = object
     execution_payload*: deneb.ExecutionPayload

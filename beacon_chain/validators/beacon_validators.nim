@@ -1041,9 +1041,8 @@ proc collectBidFutures(
     payloadBuilderBidFut =
       if usePayloadBuilder:
         when not (EPS is bellatrix.ExecutionPayloadForSigning):
-          getBuilderBid[SBBB](
-            node, payloadBuilderClient, head, validator_pubkey, slot, randao,
-            validator_index)
+          getBuilderBid[SBBB](node, payloadBuilderClient, head,
+                              validator_pubkey, slot, randao, validator_index)
         else:
           let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
           fut.complete(BlindedBlockResult[SBBB].err(
@@ -2038,17 +2037,25 @@ proc makeBeaconBlockForHeadAndSlotV3*(
         if useBuilderBlock:
           let
             blindedResult = collectedBids.payloadBuilderBidFut.read()
-            blindedBlock = blindedResult.get().blindedBlckPart.message
             payloadValue = blindedResult.get().blockValue
 
           return Result[ForkedAndBlindedBeaconBlock, string].ok(
-            ForkedAndBlindedBeaconBlock.init(
-              blindedBlock, Opt.some(payloadValue), Opt.none(UInt256)))
+            when SBBB is capella_mev.SignedBlindedBeaconBlock:
+              let blck = blindedResult.get().blindedBlckPart.message
+              ForkedAndBlindedBeaconBlock.init(
+                blck, Opt.some(payloadValue), Opt.none(UInt256))
+            elif SBBB is deneb_mev.SignedBlindedBeaconBlockContents:
+              ForkedAndBlindedBeaconBlock.init(
+                blindedResult.get().blindedBlckPart, Opt.some(payloadValue),
+                Opt.none(UInt256))
+            else:
+              static: doAssert false
+          )
 
         collectedBids.engineBlockFut.read().get()
 
       if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-        getBlockResult(deneb_mev.SignedBlindedBeaconBlock,
+        getBlockResult(deneb_mev.SignedBlindedBeaconBlockContents,
                        deneb.ExecutionPayloadForSigning)
       elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
         getBlockResult(capella_mev.SignedBlindedBeaconBlock,

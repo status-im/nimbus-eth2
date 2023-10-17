@@ -52,9 +52,9 @@ type
     Phase0,
     Altair,
     Bellatrix,
-    CapellaNormal,
+    Capella,
     CapellaBlinded,
-    DenebNormal,
+    Deneb,
     DenebBlinded
 
   ForkyBeaconState* =
@@ -162,15 +162,16 @@ type
       altairData*: altair.BeaconBlock
     of ConsensusBlindedFork.Bellatrix:
       bellatrixData*: bellatrix.BeaconBlock
-    of ConsensusBlindedFork.CapellaNormal:
+    of ConsensusBlindedFork.Capella:
       capellaData*: capella.BeaconBlock
     of ConsensusBlindedFork.CapellaBlinded:
       capellaBlinded*: capella_mev.BlindedBeaconBlock
-    of ConsensusBlindedFork.DenebNormal:
+    of ConsensusBlindedFork.Deneb:
       denebData*: deneb.BeaconBlock
       denebBlob*: seq[BlobSidecar]
     of ConsensusBlindedFork.DenebBlinded:
       denebBlinded*: deneb_mev.BlindedBeaconBlock
+      denebBlindedBlob*: seq[deneb_mev.BlindedBlobSidecar]
     consensusValue*: Opt[Uint256]
     executionValue*: Opt[Uint256]
 
@@ -627,6 +628,19 @@ template toString*(kind: ConsensusFork): string =
   of ConsensusFork.Capella:
     "capella"
   of ConsensusFork.Deneb:
+    "deneb"
+
+template toString*(kind: ConsensusBlindedFork): string =
+  case kind
+  of ConsensusBlindedFork.Phase0:
+    "phase0"
+  of ConsensusBlindedFork.Altair:
+    "altair"
+  of ConsensusBlindedFork.Bellatrix:
+    "bellatrix"
+  of ConsensusBlindedFork.Capella, ConsensusBlindedFork.CapellaBlinded:
+    "capella"
+  of ConsensusBlindedFork.Deneb, ConsensusBlindedFork.DenebBlinded:
     "deneb"
 
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
@@ -1167,7 +1181,7 @@ template init*(T: type ForkedAndBlindedBeaconBlock,
 template init*(T: type ForkedAndBlindedBeaconBlock,
                blck: capella.BeaconBlock,
                evalue: Opt[Uint256], cvalue: Opt[Uint256]): T =
-  ForkedAndBlindedBeaconBlock(kind: ConsensusBlindedFork.CapellaNormal,
+  ForkedAndBlindedBeaconBlock(kind: ConsensusBlindedFork.Capella,
                               capellaData: blck, consensusValue: cvalue,
                               executionValue: evalue)
 
@@ -1181,13 +1195,21 @@ template init*(T: type ForkedAndBlindedBeaconBlock,
 template init*(T: type ForkedAndBlindedBeaconBlock,
                blck: deneb.BeaconBlock, blob: seq[BlobSidecar],
                evalue: Opt[Uint256], cvalue: Opt[Uint256]): T =
-  ForkedAndBlindedBeaconBlock(kind: ConsensusBlindedFork.DenebNormal,
+  ForkedAndBlindedBeaconBlock(kind: ConsensusBlindedFork.Deneb,
                               denebData: blck, denebBlob: blob,
                               consensusValue: cvalue, executionValue: evalue)
 
-template init*(T: type ForkedAndBlindedBeaconBlock,
-               blck: deneb_mev.BlindedBeaconBlock,
-               evalue: Opt[Uint256], cvalue: Opt[Uint256]): T =
-  ForkedAndBlindedBeaconBlock(kind: ConsensusBlindedFork.DenebBlinded,
-                              denebBlinded: blck, consensusValue: cvalue,
-                              executionValue: evalue)
+proc init*(T: type ForkedAndBlindedBeaconBlock,
+           contents: deneb_mev.SignedBlindedBeaconBlockContents,
+           evalue: Opt[Uint256], cvalue: Opt[Uint256]): T =
+  var res: seq[BlindedBlobSidecar]
+
+  for i in 0 ..< len(contents.signed_blinded_blob_sidecars):
+    res.add(contents.signed_blinded_blob_sidecars[i].message)
+
+  ForkedAndBlindedBeaconBlock(
+    kind: ConsensusBlindedFork.DenebBlinded,
+    denebBlinded: contents.signed_blinded_block.message,
+    denebBlindedBlob: res,
+    consensusValue: cvalue, executionValue: evalue
+  )

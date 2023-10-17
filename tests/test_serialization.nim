@@ -147,3 +147,127 @@ suite "Serialization/deserialization test suite":
         """{"code":500,"message":"data","stacktraces":["s1","s2"]}"""
       jsonErrorList(RestApiResponse, Http408, "data", ["s1", "s2"]) ==
         """{"code":408,"message":"data","failures":["s1","s2"]}"""
+
+  test "strictParse(Stuint) tests":
+    const
+      GoodVectors16 = [
+        ("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+           "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ("0x123456789ABCDEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+           "123456789abcdefffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ("123456789ABCDEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+         "123456789abcdefffffffffffffffffffffffffffffffffffffffffffffffff")
+      ]
+      GoodVectors10 = [
+        ("115792089237316195423570985008687907853269984665640564039457584007913129639935",
+         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ("0", "0"),
+      ]
+      GoodVectors8 = [
+        ("0o17777777777777777777777777777777777777777777777777777777777777777777777777777777777777",
+         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+      ]
+      GoodVectors2 = [
+        ("0b1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+      ]
+      OverflowVectors16 = [
+        "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0",
+        "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE",
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0",
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE"
+      ]
+      OverflowVectors10 = [
+        "1157920892373161954235709850086879078532699846656405640394575840079131296399350",
+        "1157920892373161954235709850086879078532699846656405640394575840079131296399351"
+      ]
+      OverflowVectors8 = [
+        "0o177777777777777777777777777777777777777777777777777777777777777777777777777777777777770",
+        "0o177777777777777777777777777777777777777777777777777777777777777777777777777777777777777"
+      ]
+      OverflowVectors2 = [
+        "0b11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111110",
+        "0b11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+      ]
+      InvalidCharsVectors16 = [
+        "GFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+        "0xGFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+        "0x0123456789ABCDEFZFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+        "0123456789ABCDEFXFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+      ]
+      InvalidCharsVectors10 = [
+        "11579208923731619542357098500868790785326998466564056403945758400791312963993A",
+        "K"
+      ]
+      InvalidCharsVectors8 = [
+        "0o17777777777777777777777777777777777777777777777777777777777777777777777777777777777778"
+      ]
+      InvalidCharsVectors2 = [
+        "0b1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111112"
+      ]
+
+    for vector in GoodVectors16:
+      let res = strictParse(vector[0], UInt256, 16)
+      check:
+        res.isOk()
+        res.get().toHex() == vector[1]
+
+    for vector in GoodVectors10:
+      let res = strictParse(vector[0], UInt256, 10)
+      check:
+        res.isOk()
+        res.get().toHex() == vector[1]
+
+    for vector in GoodVectors8:
+      let res = strictParse(vector[0], UInt256, 8)
+      check:
+        res.isOk()
+        res.get().toHex() == vector[1]
+
+    for vector in GoodVectors2:
+      let res = strictParse(vector[0], UInt256, 2)
+      check:
+        res.isOk()
+        res.get().toHex() == vector[1]
+
+    for vector in OverflowVectors16:
+      let res = strictParse(vector, UInt256, 16)
+      check:
+        res.isErr()
+        res.error == "Overflow error"
+
+    for vector in OverflowVectors10:
+      let res = strictParse(vector, UInt256, 10)
+      check:
+        res.isErr()
+        res.error == "Overflow error"
+
+    for vector in OverflowVectors8:
+      let res = strictParse(vector, UInt256, 8)
+      check:
+        res.isErr()
+        res.error == "Overflow error"
+
+    for vector in OverflowVectors2:
+      let res = strictParse(vector, UInt256, 2)
+      check:
+        res.isErr()
+        res.error == "Overflow error"
+
+    for vector in InvalidCharsVectors16:
+      let res = strictParse(vector, UInt256, 16)
+      check res.isErr()
+
+    for vector in InvalidCharsVectors10:
+      let res = strictParse(vector, UInt256, 10)
+      check res.isErr()
+
+    for vector in InvalidCharsVectors8:
+      let res = strictParse(vector, UInt256, 8)
+      check res.isErr()
+
+    for vector in InvalidCharsVectors2:
+      let res = strictParse(vector, UInt256, 2)
+      check res.isErr()
