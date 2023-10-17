@@ -89,7 +89,7 @@ type
     signed_blinded_blob_sidecars*:
       List[SignedBlindedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
 
-  BlindedBeaconBlockContents* = object
+  BlindedBlockContents* = object
     blinded_block*: BlindedBeaconBlock
     blinded_blob_sidecars*:
       List[BlindedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]

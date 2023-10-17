@@ -506,6 +506,11 @@ type
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
 
+  BlockContents* = object
+    `block`*: BeaconBlock
+    blob_sidecars*:
+      List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)

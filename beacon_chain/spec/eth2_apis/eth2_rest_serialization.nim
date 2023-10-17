@@ -499,6 +499,22 @@ proc jsonResponsePlain*(t: typedesc[RestApiResponse],
         default
   RestApiResponse.response(res, Http200, "application/json")
 
+proc jsonResponsePlain*(t: typedesc[RestApiResponse],
+                        data: auto, headers: HttpTable): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.writeValue(data)
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
 proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
                         data: auto, meta: auto): RestApiResponse =
   let res =
@@ -673,6 +689,23 @@ proc sszResponsePlain*(t: typedesc[RestApiResponse], res: seq[byte],
 proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
                   headers: openArray[RestKeyValueTuple] = []
                  ): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = SszWriter.init(stream)
+        writer.writeValue(data)
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/octet-stream",
+                           headers = headers)
+
+proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
+                  headers: HttpTable): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -3190,8 +3223,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     block:
       writer.writeFieldName("data")
       writer.beginRecord()
-      writer.writeField("block", value.denebData)
-      writer.writeField("blob_sidecars", value.denebBlob)
+      writer.writeField("block", value.denebData.`block`)
+      writer.writeField("blob_sidecars", value.denebData.blob_sidecars)
       writer.endRecord()
   of ConsensusBlindedFork.DenebBlinded:
     writeForkVersion()
@@ -3201,8 +3234,9 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     block:
       writer.writeFieldName("data")
       writer.beginRecord()
-      writer.writeField("blinded_block", value.denebBlinded)
-      writer.writeField("blinded_blob_sidecars", value.denebBlindedBlob)
+      writer.writeField("blinded_block", value.denebBlinded.blinded_block)
+      writer.writeField("blinded_blob_sidecars",
+                        value.denebBlinded.blinded_blob_sidecars)
       writer.endRecord()
   writer.endRecord()
 
@@ -3249,7 +3283,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedAndBlindedBeaconBlock")
       let res = strictParse(reader.readValue(string), UInt256, 10)
       if res.isErr():
-        reader.raiseUnexpectedValue(res.error)
+        reader.raiseUnexpectedValue($res.error)
       executionValue = Opt.some(res.get())
     of "consensus_block_value":
       if consensusValue.isSome():
@@ -3258,7 +3292,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedAndBlindedBeaconBlock")
       let res = strictParse(reader.readValue(string), UInt256, 10)
       if res.isErr():
-        reader.raiseUnexpectedValue(res.error)
+        reader.raiseUnexpectedValue($res.error)
       consensusValue = Opt.some(res.get())
     of "data":
       if data.isSome():
@@ -3293,29 +3327,38 @@ proc readValue*(reader: var JsonReader[RestJson],
 
   case blindedFork
   of ConsensusBlindedFork.Phase0:
-    value = ForkedAndBlindedBeaconBlock.init()
+    value = ForkedAndBlindedBeaconBlock.init(
+      RestJson.decode(string(data.get()), phase0.BeaconBlock,
+                      requireAllFields = true, allowUnknownFields = true))
   of ConsensusBlindedFork.Altair:
+    value = ForkedAndBlindedBeaconBlock.init(
+      RestJson.decode(string(data.get()), altair.BeaconBlock,
+                      requireAllFields = true, allowUnknownFields = true))
   of ConsensusBlindedFork.Bellatrix:
+    value = ForkedAndBlindedBeaconBlock.init(
+      RestJson.decode(string(data.get()), bellatrix.BeaconBlock,
+                      requireAllFields = true, allowUnknownFields = true),
+      executionValue, consensusValue)
   of ConsensusBlindedFork.Capella:
+    value = ForkedAndBlindedBeaconBlock.init(
+      RestJson.decode(string(data.get()), capella.BeaconBlock,
+                      requireAllFields = true, allowUnknownFields = true),
+      executionValue, consensusValue)
   of ConsensusBlindedFork.CapellaBlinded:
+    value = ForkedAndBlindedBeaconBlock.init(
+      RestJson.decode(string(data.get()), capella_mev.BlindedBeaconBlock,
+                      requireAllFields = true, allowUnknownFields = true),
+      executionValue, consensusValue)
   of ConsensusBlindedFork.Deneb:
+    value = ForkedAndBlindedBeaconBlock.init(
+      RestJson.decode(string(data.get()), deneb.BlockContents,
+                      requireAllFields = true, allowUnknownFields = true),
+      executionValue, consensusValue)
   of ConsensusBlindedFork.DenebBlinded:
-
-    let res =
-      try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 phase0.BeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
-      except SerializationError:
-        Opt.none(phase0.BeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = ForkedBeaconBlock.init(res.get()).BlockType
-
-
-
-  execution_payload_value
+    value = ForkedAndBlindedBeaconBlock.init(
+      RestJson.decode(string(data.get()), deneb_mev.BlindedBlockContents,
+                      requireAllFields = true, allowUnknownFields = true),
+      executionValue, consensusValue)
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

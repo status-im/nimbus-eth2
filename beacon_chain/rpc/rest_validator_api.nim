@@ -572,6 +572,123 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       withBlck(res.get().blck):
         return responseVersioned(forkyBlck, contextFork)
 
+  func getHeaders(forked: ForkedAndBlindedBeaconBlock): HttpTable =
+    var res = HttpTable.init()
+    let blinded =
+      if forked.kind in {ConsensusBlindedFork.CapellaBlinded,
+                         ConsensusBlindedFork.DenebBlinded}:
+        "true"
+      else:
+        "false"
+    res.add("eth-consensus-version", toString(forked.kind))
+    res.add("eth-execution-payload-blinded", blinded)
+    if forked.executionValue.isSome():
+      res.add("eth-execution-payload-value", $(forked.executionValue.get()))
+    if forked.consensusValue.isSome():
+      res.add("eth-consensus-payload-value", $(forked.consensusValue.get()))
+    res
+
+  # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV3
+  router.api(MethodGet, "/eth/v3/validator/blocks/{slot}") do (
+      slot: Slot, randao_reveal: Option[ValidatorSig],
+      graffiti: Option[GraffitiBytes],
+      skip_randao_verification: Option[string]) -> RestApiResponse:
+    let
+      contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+    let message =
+      block:
+        let
+          qslot =
+            block:
+              if slot.isErr():
+                return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                                  $slot.error())
+              let res = slot.get()
+
+              if res <= node.dag.finalizedHead.slot:
+                return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                                 "Slot already finalized")
+              let wallTime =
+                node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+              if res > wallTime.slotOrZero:
+                return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                                 "Slot cannot be in the future")
+              res
+          qskip_randao_verification =
+            if skip_randao_verification.isNone():
+              false
+            else:
+              let res = skip_randao_verification.get()
+              if res.isErr() or res.get() != "":
+                return RestApiResponse.jsonError(
+                  Http400, InvalidSkipRandaoVerificationValue)
+              true
+          qrandao =
+            if randao_reveal.isNone():
+              return RestApiResponse.jsonError(Http400,
+                                               MissingRandaoRevealValue)
+            else:
+              let res = randao_reveal.get()
+              if res.isErr():
+                return RestApiResponse.jsonError(Http400,
+                                                 InvalidRandaoRevealValue,
+                                                 $res.error())
+              res.get()
+          qgraffiti =
+            if graffiti.isNone():
+              defaultGraffitiBytes()
+            else:
+              let res = graffiti.get()
+              if res.isErr():
+                return RestApiResponse.jsonError(Http400,
+                                                 InvalidGraffitiBytesValue,
+                                                 $res.error())
+              res.get()
+          qhead =
+            block:
+              let res = node.getSyncedHead(qslot)
+              if res.isErr():
+                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                                 $res.error())
+              let tres = res.get()
+              if not tres.executionValid:
+                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+              tres
+          proposer = node.dag.getProposer(qhead, qslot).valueOr:
+            return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
+
+        if not node.verifyRandao(
+            qslot, proposer, qrandao, qskip_randao_verification):
+          return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
+
+        (await node.makeBeaconBlockForHeadAndSlotV3(qrandao, qgraffiti, qhead,
+                                                    qslot)).valueOr:
+          # HTTP 400 error is only for incorrect parameters.
+          return RestApiResponse.jsonError(Http500, error)
+
+    let headers = message.getHeaders()
+    if contentType == sszMediaType:
+      case message.kind
+      of ConsensusBlindedFork.Phase0:
+        RestApiResponse.sszResponse(message.phase0Data, headers)
+      of ConsensusBlindedFork.Altair:
+        RestApiResponse.sszResponse(message.altairData, headers)
+      of ConsensusBlindedFork.Bellatrix:
+        RestApiResponse.sszResponse(message.bellatrixData, headers)
+      of ConsensusBlindedFork.Capella:
+        RestApiResponse.sszResponse(message.capellaData, headers)
+      of ConsensusBlindedFork.CapellaBlinded:
+        RestApiResponse.sszResponse(message.capellaBlinded, headers)
+      of ConsensusBlindedFork.Deneb:
+        RestApiResponse.sszResponse(message.denebData, headers)
+      of ConsensusBlindedFork.DenebBlinded:
+        RestApiResponse.sszResponse(message.denebBlinded, headers)
+    elif contentType == jsonMediaType:
+      RestApiResponse.jsonResponsePlain(message, headers)
+    else:
+      raiseAssert "preferredContentType() returns invalid content type"
+
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],
