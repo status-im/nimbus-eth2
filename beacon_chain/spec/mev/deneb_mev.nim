@@ -7,8 +7,10 @@
 
 {.push raises: [].}
 
-import ".."/datatypes/[altair, capella, deneb]
+import ".."/datatypes/[altair, deneb]
+
 from stew/byteutils import to0xHex
+from ".."/datatypes/capella import SignedBLSToExecutionChange
 
 type
   # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#blindedblobsbundle
@@ -43,8 +45,7 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
-    execution_payload_header*:
-      capella.ExecutionPayloadHeader
+    execution_payload_header*: deneb.ExecutionPayloadHeader
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange,
         Limit MAX_BLS_TO_EXECUTION_CHANGES]
@@ -84,7 +85,7 @@ type
 
   # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#signedblindedblockcontents
   SignedBlindedBeaconBlockContents* = object
-    signed_blinded_block*: SignedBlindedBeaconBlock
+    signed_blinded_block*: deneb_mev.SignedBlindedBeaconBlock
     signed_blinded_blob_sidecars*:
       List[SignedBlindedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
 
@@ -92,6 +93,11 @@ type
   ExecutionPayloadAndBlobsBundle* = object
     execution_payload*: deneb.ExecutionPayload
     blobs_bundle*: BlobsBundle
+
+  # Not spec, but suggested by spec
+  ExecutionPayloadHeaderAndBlindedBlobsBundle* = object
+    execution_payload_header*: deneb.ExecutionPayloadHeader
+    blinded_blobs_bundle*: BlindedBlobsBundle
 
 func shortLog*(v: BlindedBeaconBlock): auto =
   (
