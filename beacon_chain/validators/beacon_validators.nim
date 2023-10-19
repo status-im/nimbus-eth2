@@ -786,7 +786,7 @@ proc blindedBlockCheckSlashingAndSign[
 proc getUnsignedBlindedBeaconBlock[
     T: capella_mev.SignedBlindedBeaconBlock |
        deneb_mev.SignedBlindedBeaconBlockContents](
-    node: BeaconNode, slot: Slot, validator: AttachedValidator,
+    node: BeaconNode, slot: Slot,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: capella.ExecutionPayloadHeader |
                             deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle):
