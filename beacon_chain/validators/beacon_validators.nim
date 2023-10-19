@@ -599,11 +599,17 @@ proc getBlindedExecutionPayload[
         blindedBlckPart: blindedHeader.data.data.message.header,
         blockValue: blindedHeader.data.data.message.value))
     elif EPH is deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle:
+      template bbb: untyped = blindedHeader.data.data.message.blinded_blobs_bundle
+
+      if  bbb.proofs.len != bbb.blob_roots.len or
+          bbb.proofs.len != bbb.commitments.len:
+        return err("getBlindedExecutionPayload: mismatched blob_roots, commitments, and proofs lengths: " &
+          $bbb.blob_roots.len & ", " & $bbb.commitments.len & ", and" & $bbb.proofs.len)
+
       return ok((
         blindedBlckPart: ExecutionPayloadHeaderAndBlindedBlobsBundle(
           execution_payload_header: blindedHeader.data.data.message.header,
-          blinded_blobs_bundle:
-            blindedHeader.data.data.message.blinded_blobs_bundle),
+          blinded_blobs_bundle: bbb),
         blockValue: blindedHeader.data.data.message.value))
     else:
       static: doAssert false
@@ -628,10 +634,12 @@ func constructSignableBlindedBlock[T: capella_mev.SignedBlindedBeaconBlock](
 
   blindedBlock
 
-func constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlockContents](
+proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlockContents](
     blck: deneb.BeaconBlock,
-    executionPayloadHeader: deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle):
+    executionPayloadHeaderContents:
+      deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle):
     T =
+  # Leaves signature field default, to be filled in by caller
   const
     blckFields = getFieldNames(typeof(blck))
     blckBodyFields = getFieldNames(typeof(blck.body))
@@ -644,9 +652,30 @@ func constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlockContents
   copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
   assign(
     blindedBlock.message.body.execution_payload_header,
-    executionPayloadHeader.execution_payload_header)
+    executionPayloadHeaderContents.execution_payload_header)
 
-  debugRaiseAssert $denebImplementationMissing & ": handle blinded blobs"
+  template bbb: untyped = executionPayloadHeaderContents.blinded_blobs_bundle
+
+  # Checked in getBlindedExecutionPayload, so it's a logic error here
+  doAssert bbb.proofs.len == bbb.blob_roots.len
+  doAssert bbb.proofs.len == bbb.commitments.len
+
+  if blindedBlockContents.signed_blinded_blob_sidecars.setLen(bbb.proofs.len):
+    for i in 0 ..< blindedBlockContents.signed_blinded_blob_sidecars.lenu64:
+      assign(
+        blindedBlockContents.signed_blinded_blob_sidecars[i],
+        deneb_mev.SignedBlindedBlobSidecar(message: deneb_mev.BlindedBlobSidecar(
+          block_root: hash_tree_root(blck),
+          index: i,
+          slot: distinctBase(blck.slot),
+          block_parent_root: blck.parent_root,
+          proposer_index: blck.proposer_index,
+          blob_root: bbb.blob_roots[i],
+          kzg_commitment: bbb.commitments[i],
+          kzg_proof: bbb.proofs[i])))
+  else:
+    debug "constructSignableBlindedBlock: unable to set blinded blob sidecar length",
+      blobs_len = bbb.proofs.len
 
   blindedBlockContents
 
@@ -735,8 +764,6 @@ proc blindedBlockCheckSlashingAndSign[
     if res.isErr():
       return err("Unable to sign block: " & res.error())
     res.get()
-
-  debugRaiseAssert $denebImplementationMissing & ": sign the blinded blobs"
 
   return ok blindedBlockContents
 
@@ -837,8 +864,6 @@ proc getBlindedBlockParts[
     return err(newBlock.error)  # already logged elsewhere!
 
   let forkedBlck = newBlock.get()
-
-  debugRaiseAssert $denebImplementationMissing & ": handle blobs"
 
   return ok(
     (executionPayloadHeader.get.blindedBlckPart,
