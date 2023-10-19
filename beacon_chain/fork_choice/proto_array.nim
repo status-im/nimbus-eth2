@@ -125,7 +125,7 @@ iterator realizePendingCheckpoints*(
   # Reset tip tracking for new epoch
   self.currentEpochTips.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/fork-choice.md#get_weight
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
 func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
   let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
@@ -189,7 +189,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # If we find the node matching the current proposer boost root, increase
     # the delta by the new score amount.
     #
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/fork-choice.md#get_weight
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
     if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
       proposerBoostScore = calculateProposerBoost(justifiedTotalActiveBalance)
       if  nodeDelta >= 0 and

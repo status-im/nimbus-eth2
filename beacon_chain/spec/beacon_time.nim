@@ -142,13 +142,13 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#prepare-sync-committee-message
   syncCommitteeMessageSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/validator.md#broadcast-sync-committee-contribution
   syncContributionSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#sync-committee
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientFinalityUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#sync-committee
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientOptimisticUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 
@@ -196,14 +196,14 @@ func since_epoch_start*(slot: Slot): uint64 = # aka compute_slots_since_epoch_st
 template is_epoch*(slot: Slot): bool =
   slot.since_epoch_start == 0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func start_slot*(epoch: Epoch): Slot = # aka compute_start_slot_at_epoch
   ## Return the start slot of ``epoch``.
   const maxEpoch = Epoch(FAR_FUTURE_SLOT div SLOTS_PER_EPOCH)
   if epoch >= maxEpoch: FAR_FUTURE_SLOT
   else: Slot(epoch * SLOTS_PER_EPOCH)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(current_epoch: Epoch): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   if current_epoch == GENESIS_EPOCH:
