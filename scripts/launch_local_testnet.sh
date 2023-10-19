@@ -710,7 +710,7 @@ done
 
 if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
   log "Rebuilding binaries ${BINARIES}"
-  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET} -d:web3_consensus_const_preset=mainnet -d:FIELD_ELEMENTS_PER_BLOB=4096" ${BINARIES}
+  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET} -d:FIELD_ELEMENTS_PER_BLOB=4096" ${BINARIES}
 fi
 
 if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
