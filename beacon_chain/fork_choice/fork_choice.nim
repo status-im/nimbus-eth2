@@ -113,7 +113,7 @@ proc update_justified(
   self.update_justified(dag, blck, justified.epoch)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/fork-choice.md#update_checkpoints
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var Checkpoints, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints): FcResult[void] =
@@ -377,7 +377,7 @@ proc get_head*(self: var ForkChoice,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/fork_choice/safe-block.md#get_safe_beacon_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   # Use most recent justified block as a stopgap
   self.checkpoints.justified.checkpoint.root

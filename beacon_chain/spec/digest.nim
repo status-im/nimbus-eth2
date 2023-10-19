@@ -7,7 +7,7 @@
 
 # Consensus hash function / digest
 #
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#hash
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
