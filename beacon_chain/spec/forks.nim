@@ -155,7 +155,7 @@ type
     of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix_mev.BlindedBeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella_mev.BlindedBeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     capella_mev.BlindedBeaconBlock
+    of ConsensusFork.Deneb:     denebData*:     deneb_mev.BlindedBeaconBlock
 
   ForkedTrustedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -191,7 +191,7 @@ type
     of ConsensusFork.Altair:    altairData*:    altair.SignedBeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix_mev.SignedBlindedBeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella_mev.SignedBlindedBeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     capella_mev.SignedBlindedBeaconBlock
+    of ConsensusFork.Deneb:     denebData*:     deneb_mev.SignedBlindedBeaconBlock
 
   ForkySigVerifiedSignedBeaconBlock* =
     phase0.SigVerifiedSignedBeaconBlock |
@@ -562,8 +562,8 @@ func init*(T: type ForkedSignedBlindedBeaconBlock,
                                                         signature: signature))
   of ConsensusFork.Deneb:
     T(kind: ConsensusFork.Deneb,
-      denebData: capella_mev.SignedBlindedBeaconBlock(message: forked.denebData,
-                                                      signature: signature))
+      denebData: deneb_mev.SignedBlindedBeaconBlock(message: forked.denebData,
+                                                    signature: signature))
 
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: phase0.MsgTrustedSignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0,    phase0Data: blck)
