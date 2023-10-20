@@ -228,7 +228,8 @@ proc slash_validator*(
 
   ok()
 
-func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
+func genesis_time_from_eth1_timestamp(
+    cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#genesis-block
@@ -319,7 +320,7 @@ func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, epoch.start_slot())
 
-func get_block_root*(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
+func get_block_root(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   withState(state):
     get_block_root(forkyState.data, epoch)
@@ -433,7 +434,7 @@ func get_attesting_indices*(state: ForkedHashedBeaconState;
       idxBuf.add vidx
   idxBuf
 
-proc is_valid_indexed_attestation*(
+proc is_valid_indexed_attestation(
     state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   # This is a variation on `is_valid_indexed_attestation` that works directly
@@ -506,7 +507,7 @@ func check_attestation_index*(
     Result[CommitteeIndex, cstring] =
   CommitteeIndex.init(index, committees_per_slot)
 
-func check_attestation_index*(
+func check_attestation_index(
     data: AttestationData, committees_per_slot: uint64):
     Result[CommitteeIndex, cstring] =
   check_attestation_index(data.index, committees_per_slot)
@@ -601,7 +602,7 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
     return tab
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/beacon-chain.md#get_base_reward_per_increment
-func get_base_reward_per_increment_sqrt*(
+func get_base_reward_per_increment_sqrt(
     total_active_balance_sqrt: uint64): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div total_active_balance_sqrt
 
@@ -878,7 +879,7 @@ func get_next_sync_committee*(
   res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#genesis
-proc initialize_beacon_state_from_eth1*(
+proc initialize_beacon_state_from_eth1(
     cfg: RuntimeConfig,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
@@ -1101,7 +1102,7 @@ proc initialize_beacon_state_from_eth1*(
   # TODO https://github.com/nim-lang/Nim/issues/19094
   # state
 
-proc initialize_hashed_beacon_state_from_eth1*(
+proc initialize_hashed_beacon_state_from_eth1(
     cfg: RuntimeConfig,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
@@ -1426,10 +1427,8 @@ func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
     historical_summaries: pre.historical_summaries
   )
 
-template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =
-  idx.uint64 < state.validators.lenu64
-
-func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest): Eth2Digest =
+func latest_block_root(state: ForkyBeaconState, state_root: Eth2Digest):
+    Eth2Digest =
   # The root of the last block that was successfully applied to this state -
   # normally, when a block is applied, the data from the header is stored in
   # the state without the state root - on the next process_slot, the state root
@@ -1525,7 +1524,7 @@ func latest_block_id*(state: ForkedHashedBeaconState): BlockId =
   ## Block id of the latest block applied to this state
   withState(state): forkyState.latest_block_id()
 
-func matches_block*(
+func matches_block(
     state: ForkyHashedBeaconState, block_root: Eth2Digest): bool =
   ## Return true iff the latest block applied to this state matches the given
   ## `block_root`
@@ -1535,7 +1534,7 @@ func matches_block*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest): bool =
   withState(state): forkyState.matches_block(block_root)
 
-func matches_block_slot*(
+func matches_block_slot(
     state: ForkyHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
   ## Return true iff the latest block applied to this state matches the given
   ## `block_root` and the state slot has been advanced to the given slot
@@ -1544,7 +1543,7 @@ func matches_block_slot*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
   withState(state): forkyState.matches_block_slot(block_root, slot)
 
-func can_advance_slots*(
+func can_advance_slots(
     state: ForkyHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
   ## Return true iff we can reach the given block/slot combination simply by
   ## advancing 0 or more slots
