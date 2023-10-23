@@ -179,78 +179,244 @@ suite "Gossip validation " & preset():
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
         fut_1_1.waitFor().isOk()
 
-suite "Gossip validation - Extra": # Not based on preset config
-  test "validateSyncCommitteeMessage":
-    const num_validators = SLOTS_PER_EPOCH
+suite "Gossip validation - Altair":
+  let cfg = block:
+    var res = defaultRuntimeConfig
+    res.ALTAIR_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 2).Epoch
+    res
+
+  proc addBlock(
+      dag: ChainDAGRef,
+      cache: var StateCache,
+      verifier: var BatchVerifier,
+      quarantine: var Quarantine) =
+    for blck in makeTestBlocks(
+        dag.headState, cache, blocks = 1,
+        attested = false, cfg = cfg):
+      let added = withBlck(blck):
+        const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+        dag.addHeadBlock(verifier, forkyBlck, nilCallback)
+      check: added.isOk()
+      dag.updateHead(added[], quarantine, [])
+
+  proc getFirstAggregator(dag: ChainDAGRef, signatureSlot: Slot): tuple[
+    subcommitteeIdx: SyncSubcommitteeIndex,
+    indexInSubcommittee: int
+  ] =
+    const indicesPerSubcommittee =
+      SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT
+    for i, index in dag.syncCommitteeParticipants(signatureSlot):
+      if (signatureSlot + 1).is_sync_committee_period:
+        var isAlsoInNextCommittee = false
+        for other in dag.syncCommitteeParticipants(signatureSlot + 1):
+          if other == index:
+            isAlsoInNextCommittee = true
+            break
+        if isAlsoInNextCommittee:
+          continue
+      let
+        subcommitteeIndex = SyncSubcommitteeIndex(i div indicesPerSubcommittee)
+        pubkey = getStateField(dag.headState, validators).item(index).pubkey
+        keystoreData = KeystoreData(
+          kind: KeystoreKind.Local,
+          pubkey: pubkey,
+          privateKey: MockPrivKeys[index])
+        validator = AttachedValidator(
+          kind: ValidatorKind.Local, data: keystoreData, index: Opt.some index)
+        proofFut = validator.getSyncCommitteeSelectionProof(
+          getStateField(dag.headState, fork),
+          getStateField(dag.headState, genesis_validators_root),
+          getStateField(dag.headState, slot),
+          subcommitteeIndex)
+      check proofFut.completed  # Local signatures complete synchronously
+      let proof = proofFut.value
+      check proof.isOk
+      if is_sync_committee_aggregator(proof.get):
+        return (
+          subcommitteeIdx: subcommitteeIndex,
+          indexInSubcommittee: i mod indicesPerSubcommittee)
+    raiseAssert "No sync aggregator found who's not also part of next committee"
+
+  proc getSyncCommitteeMessage(
+      dag: ChainDAGRef,
+      msgSlot: Slot,
+      subcommitteeIdx: SyncSubcommitteeIndex,
+      indexInSubcommittee: int,
+      signatureSlot = Opt.none(Slot)
+  ): tuple[
+      validator: AttachedValidator,
+      numPresent: int,
+      msg: SyncCommitteeMessage
+  ] =
     let
-      cfg = block:
-        var cfg = defaultRuntimeConfig
-        cfg.ALTAIR_FORK_EPOCH = (GENESIS_EPOCH + 1).Epoch
-        cfg
-      taskpool = Taskpool.new()
-      quarantine = newClone(Quarantine.init())
-      rng = HmacDrbgContext.new()
-    var
-      verifier = BatchVerifier.init(rng, taskpool)
-      dag = block:
-        let
-          validatorMonitor = newClone(ValidatorMonitor.init())
-          dag = ChainDAGRef.init(
-            cfg, makeTestDB(num_validators), validatorMonitor, {})
-        var cache = StateCache()
-        for blck in makeTestBlocks(
-            dag.headState, cache, int(SLOTS_PER_EPOCH),
-            attested = false, cfg = cfg):
-          let added =
-            case blck.kind
-            of ConsensusFork.Phase0:
-              const nilCallback = OnPhase0BlockAdded(nil)
-              dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
-            of ConsensusFork.Altair:
-              const nilCallback = OnAltairBlockAdded(nil)
-              dag.addHeadBlock(verifier, blck.altairData, nilCallback)
-            of ConsensusFork.Bellatrix:
-              const nilCallback = OnBellatrixBlockAdded(nil)
-              dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
-            of ConsensusFork.Capella:
-              const nilCallback = OnCapellaBlockAdded(nil)
-              dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
-            of ConsensusFork.Deneb:
-              const nilCallback = OnDenebBlockAdded(nil)
-              dag.addHeadBlock(verifier, blck.denebData, nilCallback)
-          check: added.isOk()
-          dag.updateHead(added[], quarantine[], [])
-        dag
-
-    let batchCrypto = BatchCrypto.new(
-      rng, eager = proc(): bool = false,
-      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
-        "working batcher")
-
-    var
-      state = assignClone(dag.headState.altairData)
-      slot = state[].data.slot
-
-      subcommitteeIdx = 0.SyncSubcommitteeIndex
-      syncCommittee = @(dag.syncCommitteeParticipants(slot))
+      signatureSlot = signatureSlot.get(msgSlot + 1)
+      syncCommittee = @(dag.syncCommitteeParticipants(signatureSlot))
       subcommittee = toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx))
-      index = subcommittee[0]
-      expectedCount = subcommittee.count(index)
-      pubkey = state[].data.validators.item(index).pubkey
-      keystoreData = KeystoreData(kind: KeystoreKind.Local,
-                                  pubkey: pubkey,
-                                  privateKey: MockPrivKeys[index])
+      index = subcommittee[indexInSubcommittee]
+      numPresent = subcommittee.count(index)
+      pubkey = getStateField(dag.headState, validators).item(index).pubkey
+      keystoreData = KeystoreData(
+        kind: KeystoreKind.Local,
+        pubkey: pubkey,
+        privateKey: MockPrivKeys[index])
       validator = AttachedValidator(
         kind: ValidatorKind.Local, data: keystoreData, index: Opt.some index)
-      resMsg = waitFor getSyncCommitteeMessage(
-        validator, state[].data.fork, state[].data.genesis_validators_root,
-        slot, state[].latest_block_root)
-      msg = resMsg.get()
+      msgFut = validator.getSyncCommitteeMessage(
+        getStateField(dag.headState, fork),
+        getStateField(dag.headState, genesis_validators_root),
+        msgSlot, dag.headState.latest_block_root)
+    check msgFut.completed  # Local signatures complete synchronously
+    let msg = msgFut.value
+    check msg.isOk
+    (validator: validator, numPresent: numPresent, msg: msg.get)
 
+  setup:
+    let
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      quarantine = newClone(Quarantine.init())
+      rng = HmacDrbgContext.new()
       syncCommitteePool = newClone(SyncCommitteeMsgPool.init(rng, cfg))
+    var
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
+
+  template prepare(numValidators: Natural): untyped {.dirty.} =
+    let
+      dag = ChainDAGRef.init(
+        cfg, makeTestDB(numValidators, cfg = cfg), validatorMonitor, {})
+      batchCrypto = BatchCrypto.new(
+        rng, eager = proc(): bool = false,
+        genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+          "working batcher")
+    var
+      cache: StateCache
+      info: ForkedEpochInfo
+    doAssert process_slots(
+      cfg, dag.headState,
+      (cfg.ALTAIR_FORK_EPOCH - 1).start_slot(),
+      cache, info, flags = {}).isOk
+    for i in 0 ..< SLOTS_PER_EPOCH:
+      dag.addBlock(cache, verifier, quarantine[])
+
+  teardown:
+    taskpool.shutdown()
+
+  test "Period boundary":
+    prepare(numValidators = SYNC_COMMITTEE_SIZE * 2)
+
+    # Advance to the last slot before period 2.
+    # The first two periods share the same sync committee,
+    # so are not suitable for the test
+    for i in 0 ..< SLOTS_PER_EPOCH:
+      dag.addBlock(cache, verifier, quarantine[])
+    doAssert process_slots(
+      cfg, dag.headState,
+      (2.SyncCommitteePeriod.start_epoch() - 1).start_slot(),
+      cache, info, flags = {}).isOk
+    for i in 0 ..< SLOTS_PER_EPOCH - 1:
+      dag.addBlock(cache, verifier, quarantine[])
+    let slot = getStateField(dag.headState, slot)
+
+    # The following slots determine what the sync committee signs:
+    # 1. `state.latest_block_header.slot` --> ConsensusFork of signed block
+    # 2. `state.slot` --> ForkDigest of signature
+    # 3. `state.slot + 1` --> Sync committee
+    proc checkWithSignatureSlot(
+        signatureSlot: Slot, expectValid: bool) =
+      warn "checkWithSignatureSlot", signatureSlot, expectValid
+
+      let
+        (subcommitteeIdx, indexInSubcommittee) =
+          dag.getFirstAggregator(signatureSlot)
+        (validator, expectedCount, msg) = dag.getSyncCommitteeMessage(
+          slot, subcommitteeIdx, indexInSubcommittee,
+          signatureSlot = Opt.some(signatureSlot))
+        msgVerdict = waitFor dag.validateSyncCommitteeMessage(
+          quarantine, batchCrypto, syncCommitteePool,
+          msg, subcommitteeIdx, slot.start_beacon_time(),
+          checkSignature = true)
+      check msgVerdict.isOk == expectValid
+
+      let (bid, cookedSig, positions) =
+        if msgVerdict.isOk:
+          msgVerdict.get
+        else:
+          let
+            blockRoot = msg.beacon_block_root
+            blck = dag.getBlockRef(blockRoot).expect("Block present")
+            sig = msg.signature.load().expect("Signature OK")
+            positionsInSubcommittee = dag.getSubcommitteePositions(
+              signatureSlot, subcommitteeIdx, msg.validator_index)
+          (blck.bid, sig, positionsInSubcommittee)
+
+      syncCommitteePool[] = SyncCommitteeMsgPool.init(rng, cfg)
+      syncCommitteePool[].addSyncCommitteeMessage(
+        msg.slot,
+        bid,
+        msg.validator_index,
+        cookedSig,
+        subcommitteeIdx,
+        positions)
+      let contrib = block:
+        let contrib = (ref SignedContributionAndProof)(
+          message: ContributionAndProof(
+            aggregator_index: distinctBase(validator.index.get),
+            selection_proof: validator.getSyncCommitteeSelectionProof(
+              getStateField(dag.headState, fork),
+              getStateField(dag.headState, genesis_validators_root),
+              getStateField(dag.headState, slot),
+              subcommitteeIdx).value.get))
+        check syncCommitteePool[].produceContribution(
+          slot, bid, subcommitteeIdx,
+          contrib.message.contribution)
+        syncCommitteePool[].addContribution(
+          contrib[], bid, contrib.message.contribution.signature.load.get)
+        let signRes = waitFor validator.getContributionAndProofSignature(
+          getStateField(dag.headState, fork),
+          getStateField(dag.headState, genesis_validators_root),
+          contrib[].message)
+        doAssert(signRes.isOk())
+        contrib[].signature = signRes.get()
+        contrib
+      syncCommitteePool[] = SyncCommitteeMsgPool.init(rng, cfg)
+      let contribVerdict = waitFor dag.validateContribution(
+        quarantine, batchCrypto, syncCommitteePool,
+        contrib[], slot.start_beacon_time(),
+        checkSignature = true)
+      check contribVerdict.isOk == expectValid
+
+    # We are at the last slot of a sync committee period:
+    check slot == (slot.sync_committee_period + 1).start_slot() - 1
+
+    # Therefore, messages from `current_sync_committee` are no longer allowed
+    checkWithSignatureSlot(
+      signatureSlot = slot,
+      expectValid = false)
+
+    # Messages signed from `next_sync_committee` are accepted
+    checkWithSignatureSlot(
+      signatureSlot = slot + 1,
+      expectValid = true)
+
+  test "validateSyncCommitteeMessage - Duplicate pubkey":
+    prepare(numValidators = SLOTS_PER_EPOCH)
+
+    for i in 0 ..< SLOTS_PER_EPOCH:
+      dag.addBlock(cache, verifier, quarantine[])
+
+    const
+      subcommitteeIdx = 0.SyncSubcommitteeIndex
+      indexInSubcommittee = 0
+    let
+      state = assignClone(dag.headState.altairData)
+      slot = state[].data.slot
+      (validator, expectedCount, msg) = dag.getSyncCommitteeMessage(
+        slot, subcommitteeIdx, indexInSubcommittee)
+
       res = waitFor validateSyncCommitteeMessage(
         dag, quarantine, batchCrypto, syncCommitteePool,
-        msg, subcommitteeIdx, slot.start_beacon_time(), true)
+        msg, subcommitteeIdx, slot.start_beacon_time(),
+        checkSignature = true)
       (bid, cookedSig, positions) = res.get()
 
     syncCommitteePool[].addSyncCommitteeMessage(

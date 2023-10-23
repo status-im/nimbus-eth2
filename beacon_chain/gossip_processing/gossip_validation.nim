@@ -99,18 +99,19 @@ func check_propagation_slot_range(
     # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
     # retransmit attestations on the cusp of being out of spec, and which by
     # the time they reach their destination might be out of spec.
-    const ATTESTATION_PROPAGATION_SLOT_RANGE = 28
-
-    if msgSlot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
+    const TIME_IN_FLIGHT_BUFFER = 4
+    static: doAssert ATTESTATION_PROPAGATION_SLOT_RANGE > TIME_IN_FLIGHT_BUFFER
+    if msgSlot + (ATTESTATION_PROPAGATION_SLOT_RANGE - TIME_IN_FLIGHT_BUFFER) <
+        pastSlot.slot:
       return errIgnore("Attestation slot in the past")
   else:
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
     # "[IGNORE] the epoch of attestation.data.slot is either the current or
     # previous epoch (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
     # compute_epoch_at_slot(attestation.data.slot) in
     # (get_previous_epoch(state), get_current_epoch(state))"
     #
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
     # "[IGNORE] the epoch of aggregate.data.slot is either the current or
     # previous epoch (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
     # compute_epoch_at_slot(aggregate.data.slot) in
@@ -301,7 +302,7 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     blobQuarantine: ref BlobQuarantine,sbs: SignedBlobSidecar,
@@ -560,7 +561,7 @@ proc validateBeaconBlock*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -590,7 +591,7 @@ proc validateAttestation*(
   # >= attestation.data.slot (a client MAY queue future attestations for
   # processing at the appropriate slot).
   #
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
   # modifies this for Deneb and newer forks.
   block:
     let v = check_propagation_slot_range(
@@ -731,7 +732,7 @@ proc validateAttestation*(
   return ok((validator_index, sig))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -762,7 +763,7 @@ proc validateAggregate*(
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
   #
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
   # modifies this for Deneb and newer forks.
   block:
     let v = check_propagation_slot_range(
@@ -1170,14 +1171,11 @@ proc validateContribution*(
     checkSignature: bool
 ): Future[Result[
     (BlockId, CookedSig, seq[ValidatorIndex]), ValidationError]] {.async.} =
-  let
-    syncCommitteeSlot = msg.message.contribution.slot
-
-  # [IGNORE] The contribution's slot is for the current slot
-  # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
-  # i.e. contribution.slot == current_slot.
   block:
-    let v = check_slot_exact(syncCommitteeSlot, wallTime)
+    # [IGNORE] The contribution's slot is for the current slot
+    # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
+    # i.e. contribution.slot == current_slot.
+    let v = check_slot_exact(msg.message.contribution.slot, wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
 
@@ -1224,16 +1222,10 @@ proc validateContribution*(
     #      between validation and use - nonetheless, a design that avoids it and
     #      stays safe would be nice
     participants = dag.syncCommitteeParticipants(
-      msg.message.contribution.slot, subcommitteeIdx)
-    participants2 = dag.syncCommitteeParticipants(
       msg.message.contribution.slot + 1, subcommitteeIdx)
   if aggregator_index notin participants:
-    info "Contribution: aggregator not in subcommittee", msg,
-      isIn2 = aggregator_index in participants2
+    info "Contribution: aggregator not in subcommittee", msg
     return dag.checkedReject("Contribution: aggregator not in subcommittee")
-  if aggregator_index notin participants2:
-    info "Contribution: aggregator not in subcommittee 2", msg,
-      isIn1 = aggregator_index in participants
 
   # [IGNORE] The block being signed
   # (`contribution_and_proof.contribution.beacon_block_root`) has been seen
@@ -1324,7 +1316,7 @@ proc validateContribution*(
 
   return ok((blck.bid, sig, participants))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     finality_update: ForkedLightClientFinalityUpdate,
@@ -1360,7 +1352,7 @@ proc validateLightClientFinalityUpdate*(
   pool.latestForwardedFinalitySlot = finalized_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 proc validateLightClientOptimisticUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     optimistic_update: ForkedLightClientOptimisticUpdate,

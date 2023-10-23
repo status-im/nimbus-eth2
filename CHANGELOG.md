@@ -1,3 +1,65 @@
+2023-10-17 v23.10.0
+===================
+
+Nimbus `v23.10.0` is a `low-urgency` upgrade focusing on stability and performance improvements. The performance improvements will be most impactful on networks with a large number of validators such as the [Holešky testnet](https://github.com/eth-clients/holesky).
+
+### Improvements
+
+* Faster attestation packing algorithm reduces the risk of orphaned block proposals:
+  https://github.com/status-im/nimbus-eth2/pull/5471
+
+* Nimbus now adjusts its own the file descriptor limits on start-up in order to reduce the risk of running out of file descriptors:
+  https://github.com/status-im/nimbus-eth2/pull/5436
+
+* The Keymanager API now imports keystores faster when they are encrypted with the same password and salt (this is typical for keystores produced by the `staking-deposit-cli` tool):
+  https://github.com/status-im/nimbus-eth2/pull/5443
+
+* The Beacon API now emits the spec-mandated `finalized` field on all relevant endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/5422
+
+* Faster SSZ hashing speed reduces the overall CPU usage of the client:
+  https://github.com/status-im/nimbus-eth2/pull/5463
+
+* The list of mainnet bootstrap nodes has been expanded:
+  https://github.com/status-im/nimbus-eth2/pull/5472
+
+* A more efficient algorithm for calculating the list of block proposers during the epoch reduces the rist of missed validator duties during the first slot of the epoch:
+  https://github.com/status-im/nimbus-eth2/pull/5414
+
+* Nimbus now produces more detailed error messages when it fails to load validator keystores:
+  https://github.com/status-im/nimbus-eth2/pull/5480
+
+* The options `--verifying-web3-signer-url` and `--proven-block-property` can be used in place of `--web3-signer-url` to leverage the support for the experimental Verifying Web3Signer protocol extension:
+  https://nimbus.guide/web3signer.html#verifying-web3signer
+  https://github.com/status-im/nimbus-eth2/pull/5504
+
+### Fixes
+
+* A rarely occurring file descriptor leak was degrading the performance of Nimbus over time in certain environments:
+  https://github.com/status-im/nimbus-eth2/pull/5394
+
+* Nimbus was not properly maintaining connectivity to peers specified through the `--direct-peer` option. Besides the format `/ip4/<address>/tcp/<port>/p2p/<peerId-public-key>`, the option now also accepts ENR addresses:
+  https://github.com/status-im/nimbus-eth2/pull/5427
+
+* Nimbus was rejecting some valid sync committee contributions during the first slot of every sync committee period (once per 27 hours):
+  https://github.com/status-im/nimbus-eth2/pull/5408
+
+* The Nimbus validator client will no longer crash when the indicated beacon node hostname cannot be resolved:
+  https://github.com/status-im/nimbus-eth2/pull/5388
+
+* The fork-choice algorithm was performing certain computations multiple times:
+  https://github.com/status-im/nimbus-eth2/pull/5437
+
+* Nimbus was sending unnecessary validator registrations to the builders when configured with multiple per-validator builder preferences:
+  https://github.com/status-im/nimbus-eth2/pull/5431
+
+* The Nimbus validator client was not able to process responses from a Teku beacon node replying to the `/eth/v1/validator/liveness/{epoch}` endpoint, due to the presence of additional non-standardized fields:
+  https://github.com/status-im/nimbus-eth2/pull/5418
+
+* The Beacon API was using non-compliant HTTP status codes in case of invalid requests to certain endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/5422
+
+
 2023-09-25 v23.9.1
 ==================
 
@@ -21,6 +83,7 @@ We've been hard at work researching and developing a GossipSub protocol upgrade,
   https://github.com/status-im/nimbus-eth2/pull/5389
 
 * Nimbus now supports the upcoming Holešky testnet:
+  https://nimbus.guide/holesky.html
   https://github.com/status-im/nimbus-eth2/pull/5337
 
 * Faster validator registry processing reduces the time spent by Nimbus in state transitions and replays:

@@ -2503,15 +2503,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## EF - Phase 0 - Finality  [Preset: mainnet]
-```diff
-+ [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
-+ [Valid]   EF - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]                      OK
-+ [Valid]   EF - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]                      OK
-+ [Valid]   EF - Phase 0 - Finality - finality_rule_3 [Preset: mainnet]                      OK
-+ [Valid]   EF - Phase 0 - Finality - finality_rule_4 [Preset: mainnet]                      OK
-```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Phase 0 - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: ma OK
@@ -2654,26 +2645,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
-## EF - Phase 0 - Random  [Preset: mainnet]
-```diff
-+ [Valid]   EF - Phase 0 - Random - randomized_0 [Preset: mainnet]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_1 [Preset: mainnet]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_10 [Preset: mainnet]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_11 [Preset: mainnet]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_12 [Preset: mainnet]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_13 [Preset: mainnet]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_14 [Preset: mainnet]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_15 [Preset: mainnet]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_2 [Preset: mainnet]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_3 [Preset: mainnet]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_4 [Preset: mainnet]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_5 [Preset: mainnet]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_6 [Preset: mainnet]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_7 [Preset: mainnet]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_8 [Preset: mainnet]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_9 [Preset: mainnet]                           OK
-```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Phase 0 - Rewards  [Preset: mainnet]
 ```diff
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
@@ -2758,50 +2729,6 @@ OK: 49/49 Fail: 0/49 Skip: 0/49
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 27/27 Fail: 0/27 Skip: 0/27
-## EF - Phase 0 - Sanity - Blocks  [Preset: mainnet]
-```diff
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]        OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_incorrect_block_sig [Preset: mainnet]   OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]  OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: ma OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet] OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mai OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_proposal_for_genesis_slot [Preset: main OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mai OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]     OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - attestation [Preset: mainnet]                   OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - attester_slashing [Preset: mainnet]             OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - balance_driven_status_transitions [Preset: main OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainn OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - empty_block_transition [Preset: mainnet]        OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]        OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]      OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]      OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]      OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]      OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - high_proposer_index [Preset: mainnet]           OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - historical_batch [Preset: mainnet]              OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet] OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]        OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - proposer_slashing [Preset: mainnet]             OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
-```
-OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Phase 0 - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Phase 0 - Slots - double_empty_epoch [Preset: mainnet]                                OK
@@ -2812,6 +2739,79 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + EF - Phase 0 - Slots - slots_2 [Preset: mainnet]                                           OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Phase0 - Finality  [Preset: mainnet]
+```diff
++ [Valid]   EF - Phase0 - Finality - finality_no_updates_at_genesis [Preset: mainnet]        OK
++ [Valid]   EF - Phase0 - Finality - finality_rule_1 [Preset: mainnet]                       OK
++ [Valid]   EF - Phase0 - Finality - finality_rule_2 [Preset: mainnet]                       OK
++ [Valid]   EF - Phase0 - Finality - finality_rule_3 [Preset: mainnet]                       OK
++ [Valid]   EF - Phase0 - Finality - finality_rule_4 [Preset: mainnet]                       OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Phase0 - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - Phase0 - Random - randomized_0 [Preset: mainnet]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_1 [Preset: mainnet]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_10 [Preset: mainnet]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_11 [Preset: mainnet]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_12 [Preset: mainnet]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_13 [Preset: mainnet]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_14 [Preset: mainnet]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_15 [Preset: mainnet]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_2 [Preset: mainnet]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_3 [Preset: mainnet]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_4 [Preset: mainnet]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_5 [Preset: mainnet]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_6 [Preset: mainnet]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_7 [Preset: mainnet]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_8 [Preset: mainnet]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_9 [Preset: mainnet]                            OK
+```
+OK: 16/16 Fail: 0/16 Skip: 0/16
+## EF - Phase0 - Sanity - Blocks  [Preset: mainnet]
+```diff
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]         OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: ma OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_block_sig [Preset: mainnet]    OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]   OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mai OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]  OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: main OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_proposal_for_genesis_slot [Preset: mainn OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: main OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]      OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - attestation [Preset: mainnet]                    OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - attester_slashing [Preset: mainnet]              OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - balance_driven_status_transitions [Preset: mainn OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - deposit_in_block [Preset: mainnet]               OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - deposit_top_up [Preset: mainnet]                 OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainne OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - empty_block_transition [Preset: mainnet]         OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]         OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]       OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]       OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]       OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]       OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - high_proposer_index [Preset: mainnet]            OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - historical_batch [Preset: mainnet]               OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]  OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]         OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_slashing [Preset: mainnet]              OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - skipped_slots [Preset: mainnet]                  OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]      OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                 OK
+```
+OK: 40/40 Fail: 0/40 Skip: 0/40
 ## ForkChoice
 ```diff
 + ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_great OK
@@ -2829,6 +2829,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
   ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/proposer_boost               OK
++ ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_bloc OK
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 + ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_gr OK
 + ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boos OK
@@ -2845,6 +2846,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
   ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_future_block     Skip
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost            OK
++ ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_b OK
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_ OK
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/all_valid           Skip
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
@@ -2865,6 +2867,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
   ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
++ ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_blo OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greate OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_no OK
@@ -2878,12 +2881,18 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_data_unavailable      OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_incorrect_proof       OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_blobs_length    OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_proofs_length   OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
   ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost                OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              OK
 ```
-OK: 60/68 Fail: 0/68 Skip: 8/68
+OK: 69/77 Fail: 0/77 Skip: 8/77
 ## Sync
 ```diff
 + Sync - mainnet/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
@@ -2893,4 +2902,4 @@ OK: 60/68 Fail: 0/68 Skip: 8/68
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2327/2335 Fail: 0/2335 Skip: 8/2335
+OK: 2336/2344 Fail: 0/2344 Skip: 8/2344

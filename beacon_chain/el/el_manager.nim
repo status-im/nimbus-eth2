@@ -10,11 +10,11 @@
 import
   std/[deques, strformat, strutils, sequtils, tables, typetraits, uri, json],
   # Nimble packages:
-  chronos, metrics, chronicles/timings, stint/endians2,
+  chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
   web3, web3/ethhexstrings, web3/engine_api,
   eth/common/[eth_types, transaction],
-  eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes],
+  eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes, endians2],
   # Local modules:
   ../spec/[deposit_snapshots, eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix, deneb],
@@ -97,8 +97,6 @@ type
   Eth1BlockNumber* = uint64
   Eth1BlockTimestamp* = uint64
   Eth1BlockHeader = engine_api.BlockHeader
-
-  GenesisStateRef = ref phase0.BeaconState
 
   Eth1Block* = ref object
     hash*: Eth2Digest
@@ -353,7 +351,7 @@ proc trackEngineApiRequest(connection: ELConnection,
 
   deadline.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
     if not request.finished:
-      request.cancel()
+      request.cancelSoon()
       engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
       if not failureAllowed:
         connection.setDegradedState(requestName, 0, "Request timed out")
@@ -670,7 +668,7 @@ proc popFirst(chain: var Eth1Chain) =
   chain.blocksByHash.del removed.hash.asBlockHash
   eth1_chain_len.set chain.blocks.len.int64
 
-func getDepositsRoot*(m: DepositsMerkleizer): Eth2Digest =
+func getDepositsRoot*(m: var DepositsMerkleizer): Eth2Digest =
   mixInLength(m.getFinalHash, int m.totalChunks)
 
 proc addBlock*(chain: var Eth1Chain, newBlock: Eth1Block) =
@@ -899,13 +897,13 @@ template payload(response: engine_api.GetPayloadV3Response): engine_api.Executio
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
 
-template toFork(T: type ExecutionPayloadV1): ConsensusFork =
+template kind(T: type ExecutionPayloadV1): ConsensusFork =
   ConsensusFork.Bellatrix
 
-template toFork(T: typedesc[ExecutionPayloadV1OrV2|ExecutionPayloadV2]): ConsensusFork =
+template kind(T: typedesc[ExecutionPayloadV1OrV2|ExecutionPayloadV2]): ConsensusFork =
   ConsensusFork.Capella
 
-template toFork(T: type ExecutionPayloadV3): ConsensusFork =
+template kind(T: type ExecutionPayloadV3): ConsensusFork =
   ConsensusFork.Deneb
 
 proc getPayload*(m: ELManager,
@@ -947,13 +945,13 @@ proc getPayload*(m: ELManager,
     if not req.finished:
       error "Timed out getting execution payload from EL",
              url = m.elConnections[idx].engineUrl.url
-      req.cancel()
+      req.cancelSoon()
     elif req.failed:
       error "Failed to get execution payload from EL",
              url = m.elConnections[idx].engineUrl.url,
              err = req.error.msg
     else:
-      const payloadFork = PayloadType.toFork
+      const payloadFork = PayloadType.kind
       when payloadFork >= ConsensusFork.Capella:
         when payloadFork == ConsensusFork.Capella:
           # TODO: The engine_api module may offer an alternative API where it is guaranteed
@@ -1062,12 +1060,12 @@ proc selectConnectionForChainSyncing(m: ELManager): Future[ELConnection] {.async
     await firstCompletedFuture(connectionsFuts)
   except CancelledError as err:
     for future in connectionsFuts:
-      future.cancel()
+      future.cancelSoon()
     raise err
 
   for future in connectionsFuts:
     if future != firstConnected:
-      future.cancel()
+      future.cancelSoon()
 
   return m.elConnections[find(connectionsFuts, firstConnected)]
 
@@ -1450,7 +1448,7 @@ proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
   var cancelled = 0
   for idx, req in requests:
     if not req.finished:
-      req.cancel()
+      req.cancelSoon()
       inc cancelled
 
   if cancelled == requests.len:
@@ -1720,7 +1718,7 @@ template trackFinalizedState*(m: ELManager,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,
@@ -1786,7 +1784,7 @@ proc getBlockProposalData*(chain: var Eth1Chain,
           deposits.add data
         depositRoots.add hash_tree_root(data)
 
-      var scratchMerkleizer = copy chain.finalizedDepositsMerkleizer
+      var scratchMerkleizer = chain.finalizedDepositsMerkleizer
       if chain.advanceMerkleizer(scratchMerkleizer, stateDepositIdx):
         let proofs = scratchMerkleizer.addChunksAndGenMerkleProofs(depositRoots)
         for i in 0 ..< totalDepositsInNewBlock:
@@ -1847,7 +1845,7 @@ proc init*(T: type Eth1Chain,
     cfg: cfg,
     finalizedBlockHash: finalizedBlockHash,
     finalizedDepositsMerkleizer: m,
-    headMerkleizer: copy m)
+    headMerkleizer: m)
 
 proc new*(T: type ELManager,
           cfg: RuntimeConfig,
@@ -1874,13 +1872,13 @@ proc new*(T: type ELManager,
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
-    fut.cancel()
+    fut.cancelSoon()
   fut = nil
 
 func clear(chain: var Eth1Chain) =
   chain.blocks.clear()
   chain.blocksByHash.clear()
-  chain.headMerkleizer = copy chain.finalizedDepositsMerkleizer
+  chain.headMerkleizer = chain.finalizedDepositsMerkleizer
   chain.hasConsensusViolation = false
 
 proc doStop(m: ELManager) {.async.} =

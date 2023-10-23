@@ -39,7 +39,7 @@ In order to recreate deep history in a pruned node, download the [era archive of
     ./run-mainnet-beacon-node.sh --history=prune ...
     ```
 
-=== "Prater"
+=== "Holesky"
     ```sh
-    ./run-prater-beacon-node.sh --history=prune ...
+    ./run-holesky-beacon-node.sh --history=prune ...
     ```

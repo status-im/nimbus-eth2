@@ -113,10 +113,9 @@ proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
       try:
         await allFutures(pendingSyncCommitteeMessages)
       except CancelledError as exc:
-        for fut in pendingSyncCommitteeMessages:
-          if not(fut.finished()):
-            fut.cancel()
-        await allFutures(pendingSyncCommitteeMessages)
+        let pending = pendingSyncCommitteeMessages
+          .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+        await noCancel allFutures(pending)
         raise exc
 
       for future in pendingSyncCommitteeMessages:
@@ -253,10 +252,9 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
             try:
               discard await race(pendingFutures)
             except CancelledError as exc:
-              var pending: seq[Future[void]]
-              for future in pendingFutures:
-                if not(future.finished()): pending.add(future.cancelAndWait())
-              await allFutures(pending)
+              let pending = pendingFutures
+                .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+              await noCancel allFutures(pending)
               raise exc
 
             var completed: seq[int]
@@ -308,12 +306,11 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
           var errored, succeed, failed = 0
           try:
             await allFutures(pendingAggregates)
-          except CancelledError as err:
-            for fut in pendingAggregates:
-              if not(fut.finished()):
-                fut.cancel()
-            await allFutures(pendingAggregates)
-            raise err
+          except CancelledError as exc:
+            let pending = pendingAggregates
+              .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+            await noCancel allFutures(pending)
+            raise exc
 
           for future in pendingAggregates:
             if future.completed():

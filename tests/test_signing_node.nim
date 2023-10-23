@@ -804,7 +804,7 @@ block:
     asyncTest "Signing BeaconBlock (getBlockSignature(bellatrix))":
       let
         forked = getBlock(ConsensusFork.Bellatrix)
-        blockRoot = withBlck(forked): hash_tree_root(blck)
+        blockRoot = withBlck(forked): hash_tree_root(forkyBlck)
 
         sres1 =
           await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
@@ -839,7 +839,7 @@ block:
     asyncTest "Signing BeaconBlock (getBlockSignature(capella))":
       let
         forked = getBlock(ConsensusFork.Capella)
-        blockRoot = withBlck(forked): hash_tree_root(blck)
+        blockRoot = withBlck(forked): hash_tree_root(forkyBlck)
 
         sres1 =
           await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
@@ -874,7 +874,7 @@ block:
     asyncTest "Signing BeaconBlock (getBlockSignature(deneb))":
       let
         forked = getBlock(ConsensusFork.Deneb)
-        blockRoot = withBlck(forked): hash_tree_root(blck)
+        blockRoot = withBlck(forked): hash_tree_root(forkyBlck)
 
         sres1 =
           await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
@@ -1042,9 +1042,9 @@ block:
       let
         fork = ConsensusFork.Bellatrix
         forked1 = getBlock(fork)
-        blockRoot1 = withBlck(forked1): hash_tree_root(blck)
+        blockRoot1 = withBlck(forked1): hash_tree_root(forkyBlck)
         forked2 = getBlock(fork, SigningOtherFeeRecipient)
-        blockRoot2 = withBlck(forked2): hash_tree_root(blck)
+        blockRoot2 = withBlck(forked2): hash_tree_root(forkyBlck)
         request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
           Web3SignerForkedBeaconBlock.init(forked1))
         request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
@@ -1131,9 +1131,9 @@ block:
       let
         fork = ConsensusFork.Capella
         forked1 = getBlock(fork)
-        blockRoot1 = withBlck(forked1): hash_tree_root(blck)
+        blockRoot1 = withBlck(forked1): hash_tree_root(forkyBlck)
         forked2 = getBlock(fork, SigningOtherFeeRecipient)
-        blockRoot2 = withBlck(forked2): hash_tree_root(blck)
+        blockRoot2 = withBlck(forked2): hash_tree_root(forkyBlck)
         request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
           Web3SignerForkedBeaconBlock.init(forked1))
         request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
@@ -1220,9 +1220,9 @@ block:
       let
         fork = ConsensusFork.Deneb
         forked1 = getBlock(fork)
-        blockRoot1 = withBlck(forked1): hash_tree_root(blck)
+        blockRoot1 = withBlck(forked1): hash_tree_root(forkyBlck)
         forked2 = getBlock(fork, SigningOtherFeeRecipient)
-        blockRoot2 = withBlck(forked2): hash_tree_root(blck)
+        blockRoot2 = withBlck(forked2): hash_tree_root(forkyBlck)
         request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
           Web3SignerForkedBeaconBlock.init(forked1))
         request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,

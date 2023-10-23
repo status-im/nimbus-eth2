@@ -309,7 +309,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonResponseWOpt(res, optimistic)
     else:
       let res = emptyResponse()
-      return RestApiResponse.jsonResponseWOpt(res, execOpt = some(false))
+      return RestApiResponse.jsonResponseWOpt(res, execOpt = Opt.some(false))
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
@@ -414,17 +414,17 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       withBlck(message.blck):
         let data =
-          when blck is deneb.BeaconBlock:
+          when forkyBlck is deneb.BeaconBlock:
             let bundle = message.blobsBundleOpt.get()
-            let blockRoot = hash_tree_root(blck)
+            let blockRoot = hash_tree_root(forkyBlck)
             var sidecars = newSeqOfCap[BlobSidecar](bundle.blobs.len)
             for i in 0..<bundle.blobs.len:
               let sidecar = deneb.BlobSidecar(
                 block_root: blockRoot,
                 index: BlobIndex(i),
-                slot: blck.slot,
-                block_parent_root: blck.parent_root,
-                proposer_index: blck.proposer_index,
+                slot: forkyBlck.slot,
+                block_parent_root: forkyBlck.parent_root,
+                proposer_index: forkyBlck.proposer_index,
                 blob: bundle.blobs[i],
                 kzg_commitment: bundle.kzgs[i],
                 kzg_proof: bundle.proofs[i]
@@ -432,19 +432,21 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               sidecars.add(sidecar)
 
             DenebBlockContents(
-              `block`: blck,
+              `block`: forkyBlck,
               blob_sidecars: List[BlobSidecar,
                                   Limit MAX_BLOBS_PER_BLOCK].init(sidecars))
-          elif blck is phase0.BeaconBlock or blck is altair.BeaconBlock or
-               blck is bellatrix.BeaconBlock or blck is capella.BeaconBlock:
-            blck
+          elif forkyBlck is phase0.BeaconBlock or
+               forkyBlck is altair.BeaconBlock or
+               forkyBlck is bellatrix.BeaconBlock or
+               forkyBlck is capella.BeaconBlock:
+            forkyBlck
           else:
             static: raiseAssert "produceBlockV2 received unexpected version"
         if contentType == sszMediaType:
           let headers = [("eth-consensus-version", message.blck.kind.toString())]
-          RestApiResponse.sszResponse(blck, headers)
+          RestApiResponse.sszResponse(forkyBlck, headers)
         elif contentType == jsonMediaType:
-          RestApiResponse.jsonResponseWVersion(blck, message.blck.kind)
+          RestApiResponse.jsonResponseWVersion(forkyBlck, message.blck.kind)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
 
@@ -568,7 +570,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
       withBlck(res.get().blck):
-        return responseVersioned(blck, contextFork)
+        return responseVersioned(forkyBlck, contextFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/eth/v1/validator/attestation_data") do (

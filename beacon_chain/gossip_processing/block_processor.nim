@@ -183,7 +183,7 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   var blobsOk = true
-  when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -245,7 +245,7 @@ proc expectValidForkchoiceUpdated(
       finalizedBlockHash = finalizedBlockHash,
       payloadAttributes = none headBlockPayloadAttributesType)
     receivedExecutionBlockHash =
-      when typeof(receivedBlock).toFork >= ConsensusFork.Bellatrix:
+      when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
       else:
         # https://github.com/nim-lang/Nim/issues/19802
@@ -388,10 +388,10 @@ proc enqueueBlock*(
     maybeFinalized = false,
     validationDur = Duration()) =
   withBlck(blck):
-    if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+    if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(blck, blobs)
+      let res = self.storeBackfillBlock(forkyBlck, blobs)
       resfut.complete(res)
       return
 
@@ -487,7 +487,7 @@ proc storeBlock(
         # progress in its own sync.
         NewPayloadStatus.noResponse
       else:
-        when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
+        when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
           await self.consensusManager.elManager.getExecutionValidity(signedBlock)
         else:
           NewPayloadStatus.valid # vacuously
@@ -508,7 +508,7 @@ proc storeBlock(
     # Client software MUST validate `blockHash` value as being equivalent to
     # `Keccak256(RLP(ExecutionBlockHeader))`
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification
-    when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
+    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
           payload.block_hash !=
@@ -527,7 +527,7 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -732,25 +732,25 @@ proc storeBlock(
       quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      when typeof(blck).toFork() < ConsensusFork.Deneb:
+      when typeof(forkyBlck).kind < ConsensusFork.Deneb:
         self[].enqueueBlock(
           MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
       else:
-        if len(blck.message.body.blob_kzg_commitments) == 0:
+        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
             MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
         else:
-          if (let res = checkBloblessSignature(self[], blck); res.isErr):
+          if (let res = checkBloblessSignature(self[], forkyBlck); res.isErr):
             warn "Failed to verify signature of unorphaned blobless block",
-             blck = shortLog(blck),
+             blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.blobQuarantine[].hasBlobs(blck):
-            let blobs = self.blobQuarantine[].popBlobs(blck.root)
+          if self.blobQuarantine[].hasBlobs(forkyBlck):
+            let blobs = self.blobQuarantine[].popBlobs(forkyBlck.root)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
             if not self.consensusManager.quarantine[].addBlobless(
-              dag.finalizedHead.slot, blck):
+              dag.finalizedHead.slot, forkyBlck):
               notice "Block quarantine full (blobless)",
                blockRoot = shortLog(quarantined.root),
                signature = shortLog(quarantined.signature)
@@ -795,7 +795,7 @@ proc processBlock(
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
-      entry.src, wallTime, blck, entry.blobs, entry.maybeFinalized,
+      entry.src, wallTime, forkyBlck, entry.blobs, entry.maybeFinalized,
       entry.queueTick, entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
@@ -804,7 +804,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,

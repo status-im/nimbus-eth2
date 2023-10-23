@@ -43,7 +43,7 @@ proc makeTestDB*(
       forkyState.data.fork.previous_version =
         forkyState.data.fork.current_version
       forkyState.data.latest_block_header.body_root =
-        hash_tree_root(default(BeaconBlockBodyType(consensusFork)))
+        hash_tree_root(default(BeaconBlockBody(consensusFork)))
       forkyState.root = hash_tree_root(forkyState.data)
 
   result = BeaconChainDB.new("", cfg = cfg, inMemory = true)

@@ -70,25 +70,21 @@ type
       digest*: Eth2Digest
 
   Eth2NetworkMetadata* = object
-    case incompatible*: bool
-    of false:
-      # If the eth1Network is specified, the ELManager will perform some
-      # additional checks to ensure we are connecting to a web3 provider
-      # serving data for the same network. The value can be set to `None`
-      # for custom networks and testing purposes.
-      eth1Network*: Option[Eth1Network]
-      cfg*: RuntimeConfig
+    # If the eth1Network is specified, the ELManager will perform some
+    # additional checks to ensure we are connecting to a web3 provider
+    # serving data for the same network. The value can be set to `None`
+    # for custom networks and testing purposes.
+    eth1Network*: Option[Eth1Network]
+    cfg*: RuntimeConfig
 
-      # Parsing `enr.Records` is still not possible at compile-time
-      bootstrapNodes*: seq[string]
+    # Parsing `enr.Records` is still not possible at compile-time
+    bootstrapNodes*: seq[string]
 
-      depositContractBlock*: uint64
-      depositContractBlockHash*: Eth2Digest
+    depositContractBlock*: uint64
+    depositContractBlockHash*: Eth2Digest
 
-      genesis*: GenesisMetadata
-      genesisDepositsSnapshot*: string
-    else:
-      incompatibilityDesc*: string
+    genesis*: GenesisMetadata
+    genesisDepositsSnapshot*: string
 
 func hasGenesis*(metadata: Eth2NetworkMetadata): bool =
   metadata.genesis.kind != NoGenesis
@@ -116,8 +112,8 @@ proc loadEth2NetworkMetadata*(
     eth1Network = none(Eth1Network),
     isCompileTime = false,
     downloadGenesisFrom = none(DownloadInfo),
-    useBakedInGenesis = none(string)):
-    Eth2NetworkMetadata {.raises: [CatchableError].} =
+    useBakedInGenesis = none(string)
+): Result[Eth2NetworkMetadata, string] {.raises: [IOError, PresetFileError].} =
   # Load data in eth2-networks format
   # https://github.com/eth-clients/eth2-networks
 
@@ -189,8 +185,7 @@ proc loadEth2NetworkMetadata*(
       else:
         ""
 
-    Eth2NetworkMetadata(
-      incompatible: false,
+    ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
@@ -206,31 +201,37 @@ proc loadEth2NetworkMetadata*(
         elif fileExists(genesisPath) and not isCompileTime:
           GenesisMetadata(kind: UserSuppliedFile, path: genesisPath)
         else:
-          GenesisMetadata(kind: NoGenesis)
-        ,
+          GenesisMetadata(kind: NoGenesis),
       genesisDepositsSnapshot: genesisDepositsSnapshot)
 
   except PresetIncompatibleError as err:
-    Eth2NetworkMetadata(incompatible: true,
-                        incompatibilityDesc: err.msg)
+    err err.msg
+
+  except ValueError as err:
+    raise (ref PresetFileError)(msg: err.msg)
 
 proc loadCompileTimeNetworkMetadata(
     path: string,
     eth1Network = none(Eth1Network),
     useBakedInGenesis = none(string),
-    downloadGenesisFrom = none(DownloadInfo)): Eth2NetworkMetadata {.raises: [].} =
+    downloadGenesisFrom = none(DownloadInfo)): Eth2NetworkMetadata =
   if fileExists(path & "/config.yaml"):
     try:
-      result = loadEth2NetworkMetadata(path, eth1Network,
-                                       isCompileTime = true,
-                                       downloadGenesisFrom = downloadGenesisFrom,
-                                       useBakedInGenesis = useBakedInGenesis)
-      if result.incompatible:
+      let res = loadEth2NetworkMetadata(
+        path, eth1Network, isCompileTime = true,
+        downloadGenesisFrom = downloadGenesisFrom,
+        useBakedInGenesis = useBakedInGenesis)
+      if res.isErr:
         macros.error "The current build is misconfigured. " &
                      "Attempt to load an incompatible network metadata: " &
-                     result.incompatibilityDesc
-    except CatchableError as err:
-      macros.error "Failed to load network metadata at '" & path & "': " & err.msg
+                     res.error
+      return res.get
+    except IOError as err:
+      macros.error "Failed to load network metadata at '" & path & "': " &
+                   "IOError - " & err.msg
+    except PresetFileError as err:
+      macros.error "Failed to load network metadata at '" & path & "': " &
+                   "PresetFileError - " & err.msg
   else:
     macros.error "config.yaml not found for network '" & path
 
@@ -280,6 +281,7 @@ elif const_preset == "mainnet":
   when incbinEnabled:
     # Nim is very inefficent at loading large constants from binary files so we
     # use this trick instead which saves significant amounts of compile time
+    {.push hint[GlobalVar]:off.}
     let
       mainnetGenesis* {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
       mainnetGenesisSize* {.importc: "eth2_mainnet_genesis_size".}: int
@@ -289,6 +291,7 @@ elif const_preset == "mainnet":
 
       sepoliaGenesis* {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
       sepoliaGenesisSize* {.importc: "eth2_sepolia_genesis_size".}: int
+    {.pop.}
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & vendorDir.}
@@ -338,14 +341,20 @@ elif const_preset == "mainnet":
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
-proc getMetadataForNetwork*(
-    networkName: string): Eth2NetworkMetadata {.raises: [IOError].} =
+proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
   template loadRuntimeMetadata(): auto =
     if fileExists(networkName / "config.yaml"):
       try:
-        loadEth2NetworkMetadata(networkName)
-      except CatchableError as exc:
-        fatal "Cannot load network", msg = exc.msg, networkName
+        let res = loadEth2NetworkMetadata(networkName)
+        res.valueOr:
+          fatal "The selected network is not compatible with the current build",
+            reason = res.error
+          quit 1
+      except IOError as exc:
+        fatal "Cannot load network: IOError", msg = exc.msg, networkName
+        quit 1
+      except PresetFileError as exc:
+        fatal "Cannot load network: PresetFileError", msg = exc.msg, networkName
         quit 1
     else:
       fatal "config.yaml not found for network", networkName
@@ -384,15 +393,9 @@ proc getMetadataForNetwork*(
     else:
       loadRuntimeMetadata()
 
-  if metadata.incompatible:
-    fatal "The selected network is not compatible with the current build",
-            reason = metadata.incompatibilityDesc
-    quit 1
-
   metadata
 
-proc getRuntimeConfig*(
-    eth2Network: Option[string]): RuntimeConfig {.raises: [IOError].} =
+proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig =
   ## Returns the run-time config for a network specified on the command line
   ## If the network is not explicitly specified, the function will act as the
   ## regular Nimbus binary, returning the mainnet config.
@@ -415,13 +418,7 @@ proc getRuntimeConfig*(
         # default config:
         return defaultRuntimeConfig
 
-  return
-    case metadata.incompatible
-    of false:
-      metadata.cfg
-    of true:
-      # `getMetadataForNetwork` / `loadCompileTimeNetworkMetadata`
-      raiseAssert "Unreachable"
+  metadata.cfg
 
 template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
   when incbinEnabled:
@@ -470,7 +467,8 @@ when const_preset in ["mainnet", "gnosis"]:
       raiseAssert "The baked network metadata should use one of the name above"
 
   func bakedGenesisValidatorsRoot*(metadata: Eth2NetworkMetadata): Opt[Eth2Digest] =
-    if metadata.genesis.kind == BakedIn:
+    case metadata.genesis.kind
+    of BakedIn:
       try:
         let header = SSZ.decode(
           toOpenArray(metadata.genesis.bakedBytes, 0, sizeof(BeaconStateHeader) - 1),

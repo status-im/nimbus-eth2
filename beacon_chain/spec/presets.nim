@@ -17,13 +17,17 @@ export constants
 export stint, ethtypes.toHex, ethtypes.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
   # Constants from `validator.md` not covered by config/presets in the spec
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
+
+  # Not used anywhere; only for network preset checking
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
+  MESSAGE_DOMAIN_INVALID_SNAPPY = 0'u64
+  TTFB_TIMEOUT = 5'u64
 
 type
   Version* = distinct array[4, byte]
@@ -67,6 +71,7 @@ type
     EJECTION_BALANCE*: uint64
     MIN_PER_EPOCH_CHURN_LIMIT*: uint64
     CHURN_LIMIT_QUOTIENT*: uint64
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT*: uint64
 
     # Fork choice
     # TODO PROPOSER_SCORE_BOOST*: uint64
@@ -190,7 +195,8 @@ when const_preset == "mainnet":
     MIN_PER_EPOCH_CHURN_LIMIT: 4,
     # 2**16 (= 65,536)
     CHURN_LIMIT_QUOTIENT: 65536,
-
+    # [New in Deneb:EIP7514] 2**3 (= 8)
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -295,7 +301,8 @@ elif const_preset == "gnosis":
     MIN_PER_EPOCH_CHURN_LIMIT: 4,
     # 2**16 (= 65,536)
     CHURN_LIMIT_QUOTIENT: 4096,
-
+    # [New in Deneb:EIP7514] 2**3 (= 8)
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -391,10 +398,12 @@ elif const_preset == "minimal":
     INACTIVITY_SCORE_RECOVERY_RATE: 16,
     # 2**4 * 10**9 (= 16,000,000,000) Gwei
     EJECTION_BALANCE: 16000000000'u64,
-    # 2**2 (= 4)
-    MIN_PER_EPOCH_CHURN_LIMIT: 4,
+    # [customized] more easily demonstrate the difference between this value and the activation churn limit
+    MIN_PER_EPOCH_CHURN_LIMIT: 2,
     # [customized] scale queue churn at much lower validator counts for testing
     CHURN_LIMIT_QUOTIENT: 32,
+    # [New in Deneb:EIP7514] [customized]
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 4,
 
 
     # Deposit contract
@@ -476,7 +485,7 @@ func parse(T: type DomainType, input: string): T
 
 proc readRuntimeConfig*(
     fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
-    raises: [IOError, PresetFileError, PresetIncompatibleError].} =
+    raises: [PresetFileError, PresetIncompatibleError].} =
   var
     lineNum = 0
     cfg = defaultRuntimeConfig
@@ -591,6 +600,11 @@ proc readRuntimeConfig*(
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
   checkCompatibility MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+  checkCompatibility RESP_TIMEOUT
+  checkCompatibility TTFB_TIMEOUT
+  checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
+  checkCompatibility MAX_REQUEST_BLOCKS_DENEB
+  checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
 
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST

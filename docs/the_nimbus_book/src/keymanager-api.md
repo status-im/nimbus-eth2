@@ -8,7 +8,7 @@ By default, we disable the Keymanager API.
 To enable it, start the beacon node with the `--keymanager` option enabled:
 
 ```
-./run-prater-beacon-node.sh --keymanager
+./run-holesky-beacon-node.sh --keymanager
 ```
 
 Once the node is running, you'll be able to access the API from [http://localhost:5052/](http://localhost:5052/).

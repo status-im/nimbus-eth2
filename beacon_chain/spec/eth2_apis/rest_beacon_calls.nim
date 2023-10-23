@@ -178,7 +178,7 @@ proc publishSszBlock*(
      ): Future[RestPlainResponse] {.async.} =
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
   let
-    consensus = typeof(blck).toFork.toString()
+    consensus = typeof(blck).kind.toString()
     resp = await client.publishBlock(
       blck, restContentType = $OctetStreamMediaType,
       extraHeaders = @[("eth-consensus-version", consensus)])
@@ -216,7 +216,7 @@ proc publishBlockV2*(
        deneb.SignedBeaconBlock
      ): Future[RestPlainResponse] {.async} =
   let
-    consensus = typeof(blck).toFork.toString()
+    consensus = typeof(blck).kind.toString()
     resp = await client.publishBlockV2Plain(
       blck, extraHeaders = @[
         ("eth-consensus-version", consensus),
@@ -245,13 +245,19 @@ proc publishBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock):
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
 
+proc publishBlindedBlock*(body: deneb_mev.SignedBlindedBeaconBlockContents):
+       RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
 proc publishSszBlindedBlock*(
        client: RestClientRef,
        blck: ForkySignedBeaconBlock
      ): Future[RestPlainResponse] {.async.} =
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
   let
-    consensus = typeof(blck).toFork.toString()
+    consensus = typeof(blck).kind.toString()
     resp = await client.publishBlindedBlock(
       blck, restContentType = $OctetStreamMediaType,
       extraHeaders = @[("eth-consensus-version", consensus)])

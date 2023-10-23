@@ -1,3 +1,11 @@
+/* beacon_chain
+ * Copyright (c) 2022-2023 Status Research & Development GmbH
+ * Licensed and distributed under either of
+ *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+ *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+ * at your option. This file may not be copied, modified, or distributed except according to those terms.
+ */
+
 // https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
 // We should only abort older jobs in PR branches, so we have a nice CI history in "master" and "devel".
 if (env.BRANCH_NAME != "master" && env.BRANCH_NAME != "devel") {
@@ -15,7 +23,7 @@ node("metal") {
 				/* source code checkout */
 				checkout scm
 				/* we need to update the submodules before caching kicks in */
-				sh "git submodule update --init --recursive"
+				sh "git -c lfs.fetchexclude=/public-keys/all.txt submodule update --init --recursive"
 			}
 
 			stage("Build") {
@@ -42,4 +50,3 @@ node("metal") {
 		}
 	}
 }
-

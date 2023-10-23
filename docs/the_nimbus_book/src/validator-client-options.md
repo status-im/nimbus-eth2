@@ -58,7 +58,7 @@ Examples:
 - `http://127.0.0.1:5054/#roles=all`
 - `http://127.0.0.1:5055/` also means `all` roles.
 
-Before usage all the roles are got stripped from BN URLs.
+Before usage, all the roles are stripped from beacon node URLs.
 
 ## Advanced topologies
 

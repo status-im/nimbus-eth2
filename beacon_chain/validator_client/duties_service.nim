@@ -371,8 +371,19 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
     var counts: array[2, tuple[period: SyncCommitteePeriod, count: int]]
     counts[0] = (currentPeriod,
                  await service.pollForSyncCommitteeDuties(currentPeriod))
-    counts[1] = (nextPeriod,
-                 await service.pollForSyncCommitteeDuties(nextPeriod))
+
+    const
+      numDelayEpochs = 4  # Chosen empirically
+      numLookaheadEpochs =
+        max(EPOCHS_PER_SYNC_COMMITTEE_PERIOD, numDelayEpochs) -
+        numDelayEpochs + 1
+    if (currentEpoch + numLookaheadEpochs) >= nextPeriod.start_epoch:
+      counts[1] = (nextPeriod,
+                   await service.pollForSyncCommitteeDuties(nextPeriod))
+    else:
+      # Skip fetching `nextPeriod` until sync committees are likely known,
+      # as determined by `numDelayEpochs` from sync committee period start.
+      counts[1] = (nextPeriod, 0)
 
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new sync committee duties received", slot = currentSlot
@@ -590,7 +601,7 @@ proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
     await service.waitForNextSlot()
 
 proc dynamicValidatorsLoop*(service: DutiesServiceRef,
-                            web3signerUrl: Uri,
+                            web3signerUrl: Web3SignerUrl,
                             intervalInSeconds: int) {.async.} =
   let vc = service.client
   doAssert(intervalInSeconds > 0)
@@ -613,7 +624,7 @@ proc dynamicValidatorsLoop*(service: DutiesServiceRef,
               let keystores = res.get()
               debug "Web3Signer has been polled for validators",
                     keystores_found = len(keystores),
-                    web3signer_url = web3signerUrl
+                    web3signer_url = web3signerUrl.url
               vc.attachedValidators.updateDynamicValidators(web3signerUrl,
                                                             keystores,
                                                             addValidatorProc)
@@ -699,11 +710,12 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         nil
     dynamicFuts =
       if vc.config.web3signerUpdateInterval > 0:
-        mapIt(vc.config.web3signers,
+        mapIt(vc.config.web3SignerUrls,
               service.dynamicValidatorsLoop(it, vc.config.web3signerUpdateInterval))
       else:
         debug "Dynamic validators update loop disabled"
         @[]
+    web3SignerUrls = vc.config.web3SignerUrls
 
   while true:
     # This loop could look much more nicer/better, when
@@ -735,7 +747,7 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         for i in 0 ..< dynamicFuts.len:
           checkAndRestart(DynamicValidatorsLoop, dynamicFuts[i],
                           service.dynamicValidatorsLoop(
-                            vc.config.web3signers[i],
+                            web3SignerUrls[i],
                             vc.config.web3signerUpdateInterval))
         false
       except CancelledError:
