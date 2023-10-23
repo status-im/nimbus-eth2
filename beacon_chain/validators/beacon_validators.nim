@@ -50,7 +50,6 @@ const
   delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
                   0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
-  BUILDER_STATUS_DELAY_TOLERANCE = 3.seconds
   BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
 # Metrics for tracking attestation and beacon block loss
@@ -1680,17 +1679,6 @@ proc registerValidatorsPerBuilder(
     if payloadBuilderClient.isNil:
       debug "registerValidatorsPerBuilder: got nil payload builder REST client reference",
         payloadBuilderAddress, epoch
-      return
-
-    let restBuilderStatus = awaitWithTimeout(payloadBuilderClient.checkBuilderStatus(),
-                                             BUILDER_STATUS_DELAY_TOLERANCE):
-      debug "Timeout when obtaining builder status"
-      return
-
-    if restBuilderStatus.status != HttpOk:
-      warn "registerValidators: specified builder or relay not available",
-        builderUrl = node.config.payloadBuilderUrl,
-        builderStatus = restBuilderStatus
       return
 
     const emptyNestedSeq = @[newSeq[SignedValidatorRegistrationV1](0)]
