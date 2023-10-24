@@ -1379,7 +1379,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlockBody")
       bls_to_execution_changes = Opt.some(
         reader.readValue(SignedBLSToExecutionChangeList))
-    of "blob_kzg_commitments_changes":
+    of "blob_kzg_commitments":
       if blob_kzg_commitments.isSome():
         reader.raiseUnexpectedField("Multiple `blob_kzg_commitments` fields found",
                                     "RestPublishedBeaconBlockBody")
@@ -1750,6 +1750,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           Opt.none(RestPublishedSignedBeaconBlock)
       if signed_message.isNone():
         reader.raiseUnexpectedValue("Incorrect signed_block format")
+
+      # Only needed to signal fork to the blck.kind case selection
       let blck = ForkedSignedBeaconBlock(signed_message.get())
       message = Opt.some(RestPublishedBeaconBlock(
         case blck.kind
@@ -1759,9 +1761,6 @@ proc readValue*(reader: var JsonReader[RestJson],
         of ConsensusFork.Deneb:
           ForkedBeaconBlock.init(blck.denebData.message)
       ))
-
-      signature = Opt.some(forks.signature(
-        ForkedSignedBeaconBlock(signed_message.get())))
     of "signed_blob_sidecars":
       if signed_blob_sidecars.isSome():
         reader.raiseUnexpectedField(
@@ -1769,7 +1768,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           "RestPublishedSignedBlockContents")
       if signature.isSome():
         reader.raiseUnexpectedField(
-          "Found `signed_block` field alongside message or signature fields",
+          "Found `signed_blob_sidecars` field alongside signature field",
           "RestPublishedSignedBlockContents")
       signed_blob_sidecars = Opt.some(reader.readValue(
         List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
@@ -1777,10 +1776,12 @@ proc readValue*(reader: var JsonReader[RestJson],
     else:
       unrecognizedFieldWarning()
 
-  if signature.isNone():
-    reader.raiseUnexpectedValue("Field `signature` is missing")
-  if message.isNone():
-    reader.raiseUnexpectedValue("Field `message` is missing")
+  if signed_message.isNone():
+    # Pre-Deneb; conditions for when signed_message.isSome checked in case body
+    if signature.isNone():
+      reader.raiseUnexpectedValue("Field `signature` is missing")
+    if message.isNone():
+      reader.raiseUnexpectedValue("Field `message` is missing")
 
   let blck = ForkedBeaconBlock(message.get())
   case blck.kind
@@ -1820,10 +1821,8 @@ proc readValue*(reader: var JsonReader[RestJson],
       value = RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb,
         denebData: DenebSignedBlockContents(
-          signed_block: deneb.SignedBeaconBlock(
-            message: blck.denebData,
-            signature: signature.get()
-          ),
+          # Constructed to be interally consistent
+          signed_block: signed_message.get().distinctBase.denebData,
           signed_blob_sidecars: signed_blob_sidecars.get()
         )
       )

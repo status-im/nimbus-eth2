@@ -21,7 +21,6 @@ import
   ".."/mev/[capella_mev, deneb_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
-from ".."/mev/deneb_mev import ExecutionPayloadAndBlobsBundle
 
 export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
        tables, httputils
