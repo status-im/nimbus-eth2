@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,9 +13,10 @@
 
 import
   unittest2,
-  ../beacon_chain/spec/datatypes/phase0,
-  ../beacon_chain/spec/[beaconstate, state_transition],
+  ../beacon_chain/spec/beaconstate,
   ./testutil, ./testblockutil
+
+from ../beacon_chain/spec/state_transition import process_slots
 
 suite "Beacon state" & preset():
   setup:
@@ -23,7 +24,8 @@ suite "Beacon state" & preset():
 
   test "Smoke test initialize_beacon_state_from_eth1" & preset():
     let state = newClone(initialize_beacon_state_from_eth1(
-      cfg, ZERO_HASH, 0, makeInitialDeposits(SLOTS_PER_EPOCH, {}), {}))
+      cfg, ZERO_HASH, 0, makeInitialDeposits(SLOTS_PER_EPOCH, {}),
+      default(bellatrix.ExecutionPayloadHeader), {}))
     check: state.validators.lenu64 == SLOTS_PER_EPOCH
 
   test "process_slots":
