@@ -1048,30 +1048,6 @@ proc readValue*[BlockType: ForkedBeaconBlock](
   prepareForkedBlockReading(reader, version, data, "ForkedBeaconBlock")
 
   case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 phase0.BeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
-      except SerializationError:
-        Opt.none(phase0.BeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = ForkedBeaconBlock.init(res.get()).BlockType
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 altair.BeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
-      except SerializationError:
-        Opt.none(altair.BeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect altair block format")
-    value = ForkedBeaconBlock.init(res.get()).BlockType
   of ConsensusFork.Bellatrix:
     let res =
       try:
@@ -1108,6 +1084,8 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect deneb block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
+  else:
+    reader.raiseUnexpectedValue("Unsupported REST JSON block reading fork")
 
 proc readValue*[BlockType: ProduceBlockResponseV2](
     reader: var JsonReader[RestJson],
@@ -1119,32 +1097,6 @@ proc readValue*[BlockType: ProduceBlockResponseV2](
   prepareForkedBlockReading(reader, version, data, "ProduceBlockResponseV2")
 
   case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 phase0.BeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
-      except SerializationError:
-        Opt.none(phase0.BeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Phase0,
-                                   phase0Data: res.get())
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 altair.BeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
-      except SerializationError:
-        Opt.none(altair.BeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect altair block format")
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Altair,
-                                   altairData: res.get())
   of ConsensusFork.Bellatrix:
     let res =
       try:
@@ -1184,6 +1136,8 @@ proc readValue*[BlockType: ProduceBlockResponseV2](
       reader.raiseUnexpectedValue("Incorrect deneb block format")
     value = ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
                                    denebData: res.get())
+  else:
+    reader.raiseUnexpectedValue("Unsupported REST JSON block reading fork")
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
@@ -1197,32 +1151,6 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
                             "ForkedBlindedBeaconBlock")
 
   case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        phase0.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect phase0 block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Phase0,
-                                     phase0Data: res)
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        altair.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect altair block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Altair,
-                                     altairData: res)
-  of ConsensusFork.Bellatrix:
-    reader.raiseUnexpectedValue("Bellatrix blinded block format unsupported")
   of ConsensusFork.Capella:
     let res =
       try:
@@ -1247,6 +1175,8 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
                                     exc.formatMsg("BlindedBlock") & "]")
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Deneb,
                                      denebData: res)
+  else:
+    reader.raiseUnexpectedValue("Unsupported REST JSON blinded block fork")
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -1429,8 +1359,6 @@ proc readValue*(reader: var JsonReader[RestJson],
         bls_to_execution_changes.isSome() and
         sync_aggregate.isSome():
       ConsensusFork.Capella
-    elif execution_payload.isSome() and sync_aggregate.isSome():
-      ConsensusFork.Bellatrix
     elif execution_payload.isNone() and sync_aggregate.isSome():
       ConsensusFork.Altair
     else:
@@ -1454,35 +1382,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     assign(ep_dst.transactions, ep_src.transactions)
 
   case bodyKind
-  of ConsensusFork.Phase0:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Phase0,
-      phase0Body: phase0.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get()
-      )
-    )
-  of ConsensusFork.Altair:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Altair,
-      altairBody: altair.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get()
-      )
-    )
+  of ConsensusFork.Phase0, ConsensusFork.Altair:
+    reader.raiseUnexpectedValue("Unsupported REST JSON block reading fork")
   of ConsensusFork.Bellatrix:
     value = RestPublishedBeaconBlockBody(
       kind: ConsensusFork.Bellatrix,
@@ -1602,26 +1503,6 @@ proc readValue*(reader: var JsonReader[RestJson],
   let body = blockBody.get()
   value = RestPublishedBeaconBlock(
     case body.kind
-    of ConsensusFork.Phase0:
-      ForkedBeaconBlock.init(
-        phase0.BeaconBlock(
-          slot: slot.get(),
-          proposer_index: proposer_index.get(),
-          parent_root: parent_root.get(),
-          state_root: state_root.get(),
-          body: body.phase0Body
-        )
-      )
-    of ConsensusFork.Altair:
-      ForkedBeaconBlock.init(
-        altair.BeaconBlock(
-          slot: slot.get(),
-          proposer_index: proposer_index.get(),
-          parent_root: parent_root.get(),
-          state_root: state_root.get(),
-          body: body.altairBody
-        )
-      )
     of ConsensusFork.Bellatrix:
       ForkedBeaconBlock.init(
         bellatrix.BeaconBlock(
@@ -1652,6 +1533,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.denebBody
         )
       )
+    else:
+      reader.raiseUnexpectedValue("Unsupported REST JSON block reading fork")
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -1683,20 +1566,6 @@ proc readValue*(reader: var JsonReader[RestJson],
   let blck = ForkedBeaconBlock(message.get())
   value = RestPublishedSignedBeaconBlock(
     case blck.kind
-    of ConsensusFork.Phase0:
-      ForkedSignedBeaconBlock.init(
-        phase0.SignedBeaconBlock(
-          message: blck.phase0Data,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Altair:
-      ForkedSignedBeaconBlock.init(
-        altair.SignedBeaconBlock(
-          message: blck.altairData,
-          signature: signature.get()
-        )
-      )
     of ConsensusFork.Bellatrix:
       ForkedSignedBeaconBlock.init(
         bellatrix.SignedBeaconBlock(
@@ -1718,6 +1587,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           signature: signature.get()
         )
       )
+    else:
+      reader.raiseUnexpectedValue("Unsupported REST JSON block reading fork")
   )
 
 proc readValue*(reader: var JsonReader[RestJson],
@@ -1800,22 +1671,6 @@ proc readValue*(reader: var JsonReader[RestJson],
 
   let blck = ForkedBeaconBlock(message.get())
   case blck.kind
-    of ConsensusFork.Phase0:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Phase0,
-        phase0Data: phase0.SignedBeaconBlock(
-          message: blck.phase0Data,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Altair:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Altair,
-        altairData: altair.SignedBeaconBlock(
-          message: blck.altairData,
-          signature: signature.get()
-        )
-      )
     of ConsensusFork.Bellatrix:
       value = RestPublishedSignedBlockContents(
         kind: ConsensusFork.Bellatrix,
@@ -1841,6 +1696,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           signed_blob_sidecars: signed_blob_sidecars.get()
         )
       )
+    else:
+      reader.raiseUnexpectedValue("Unsupported REST JSON block reading fork")
 
 ## ForkedSignedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -1884,30 +1741,6 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field data is missing")
 
   case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 phase0.SignedBeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
-      except SerializationError:
-        Opt.none(phase0.SignedBeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = ForkedSignedBeaconBlock.init(res.get())
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 altair.SignedBeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
-      except SerializationError:
-        Opt.none(altair.SignedBeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect altair block format")
-    value = ForkedSignedBeaconBlock.init(res.get())
   of ConsensusFork.Bellatrix:
     let res =
       try:
@@ -1944,6 +1777,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect deneb block format")
     value = ForkedSignedBeaconBlock.init(res.get())
+  else:
+    reader.raiseUnexpectedValue("Unsupported REST JSON block reading fork")
   withBlck(value):
     forkyBlck.root = hash_tree_root(forkyBlck.message)
 
@@ -3055,28 +2890,6 @@ proc decodeBody*(
       return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
                                        [version, $error]))
     case consensusFork
-    of ConsensusFork.Phase0:
-      let blck =
-        try:
-          SSZ.decode(body.data, phase0.SignedBeaconBlock)
-        except SerializationError as exc:
-          return err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                           [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                           [version, $exc.msg]))
-      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
-    of ConsensusFork.Altair:
-      let blck =
-        try:
-          SSZ.decode(body.data, altair.SignedBeaconBlock)
-        except SerializationError as exc:
-          return err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                           [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                           [version, $exc.msg]))
-      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of ConsensusFork.Bellatrix:
       let blck =
         try:
@@ -3110,6 +2923,8 @@ proc decodeBody*(
           return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
                                            [version, $exc.msg]))
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
+    else:
+      return err(RestErrorMessage.init(Http400, UnableDecodeError, [version]))
   else:
     err(RestErrorMessage.init(Http415, "Invalid content type",
                               [version, $body.contentType]))
@@ -3140,30 +2955,6 @@ proc decodeBody*(
       return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
                                        [version, $error]))
     case consensusFork
-    of ConsensusFork.Phase0:
-      let blck =
-        try:
-          SSZ.decode(body.data, phase0.SignedBeaconBlock)
-        except SerializationError as exc:
-          return err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                           [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                           [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Phase0, phase0Data: blck))
-    of ConsensusFork.Altair:
-      let blck =
-        try:
-          SSZ.decode(body.data, altair.SignedBeaconBlock)
-        except SerializationError as exc:
-          return err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                           [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                           [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Altair, altairData: blck))
     of ConsensusFork.Bellatrix:
       let blck =
         try:
@@ -3200,6 +2991,10 @@ proc decodeBody*(
                                            [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb, denebData: blckContents))
+    else:
+      return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                       [version]))
+
   else:
     err(RestErrorMessage.init(Http415, "Invalid content type",
                               [version, $body.contentType]))
@@ -3234,44 +3029,6 @@ proc decodeBodyJsonOrSsz*(
       return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
                                        [version, $error]))
     case consensusFork
-    of ConsensusFork.Phase0:
-      let blck =
-        try:
-          RestJson.decode(body.data, phase0.SignedBeaconBlock,
-                          requireAllFields = true,
-                          allowUnknownFields = true)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-               err = exc.formatMsg("<data>"),
-               data = string.fromBytes(body.data)
-          return err(
-            RestErrorMessage.init(Http400, UnableDecodeError,
-                                  [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(
-            RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                  [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Phase0, phase0Data: blck))
-    of ConsensusFork.Altair:
-      let blck =
-        try:
-          RestJson.decode(body.data, altair.SignedBeaconBlock,
-                          requireAllFields = true,
-                          allowUnknownFields = true)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-               err = exc.formatMsg("<data>"),
-               data = string.fromBytes(body.data)
-          return err(
-            RestErrorMessage.init(Http400, UnableDecodeError,
-                                  [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(
-            RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                  [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Altair, altairData: blck))
     of ConsensusFork.Bellatrix:
       let blck =
         try:
@@ -3329,6 +3086,9 @@ proc decodeBodyJsonOrSsz*(
                                   [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb, denebData: blckContents))
+    else:
+      return err(
+        RestErrorMessage.init(Http400, UnableDecodeError, [version]))
   else:
     err(RestErrorMessage.init(Http415, "Invalid content type",
                               [version, $body.contentType]))
@@ -3484,14 +3244,8 @@ proc decodeBytes*[T: DecodeConsensysTypes](
         let blck = ? readSszResBytes(bellatrix.BeaconBlock, value)
         ok(ProduceBlockResponseV2(kind: ConsensusFork.Bellatrix,
                                   bellatrixData: blck))
-      of ConsensusFork.Altair:
-        let blck = ? readSszResBytes(altair.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Altair,
-                                  altairData: blck))
-      of ConsensusFork.Phase0:
-        let blck = ? readSszResBytes(phase0.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Phase0,
-                                  phase0Data: blck))
+      else:
+        return err("Unsupported consensus version")
     elif t is ProduceBlindedBlockResponse:
       let fork = ConsensusFork.decodeString(consensusVersion).valueOr:
         return err("Invalid or Unsupported consensus version")
