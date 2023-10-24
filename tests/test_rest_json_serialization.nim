@@ -203,7 +203,16 @@ const denebSignedContents = """
 }
 """
 
-suite "REST JSON decoding":
+# Can't be in same namespace as some other KZG-related fromHex overloads due to
+# https://github.com/nim-lang/Nim/issues/22861
+from stew/byteutils import hexToByteArray
+func fromHex(T: typedesc[KzgCommitment], s: string): T {.
+     raises: [ValueError].} =
+  var res: T
+  hexToByteArray(s, res)
+  res
+
+suite "REST JSON encoding and decoding":
   test "DenebSignedBlockContents":
     check: hash_tree_root(RestJson.decode(
       denebSignedContents, DenebSignedBlockContents, requireAllFields = true,
@@ -216,3 +225,33 @@ suite "REST JSON decoding":
       requireAllFields = true, allowUnknownFields = true).denebData) ==
         Eth2Digest.fromHex(
           "0x6b9fce0e35ee7af9b061f244706c4eda43c16e9dcc5b1cc817ed0671f49d16a8")
+
+  test "KzgCommitment":
+    let
+      zeroString =
+        "\"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\""
+      randString =
+        "\"0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb\""
+      zeroKzgCommitment = KzgCommitment.fromHex(
+        "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+      randKzgCommitment = KzgCommitment.fromHex(
+        "0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb")
+
+    check:
+      RestJson.decode(
+        zeroString, KzgCommitment, requireAllFields = true,
+          allowUnknownFields = true) == zeroKzgCommitment
+      RestJson.decode(
+        zeroString, KzgCommitment, requireAllFields = true,
+          allowUnknownFields = true) != randKzgCommitment
+      RestJson.decode(
+        randString, KzgCommitment, requireAllFields = true,
+          allowUnknownFields = true) != zeroKzgCommitment
+      RestJson.decode(
+        randString, KzgCommitment, requireAllFields = true,
+          allowUnknownFields = true) == randKzgCommitment
+
+      RestJson.encode(zeroKzgCommitment) == zeroString
+      RestJson.encode(zeroKzgCommitment) != randString
+      RestJson.encode(randKzgCommitment) != zeroString
+      RestJson.encode(randKzgCommitment) == randString
