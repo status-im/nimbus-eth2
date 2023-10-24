@@ -39,6 +39,7 @@ import # Unit test
   ./test_network_metadata,
   ./test_peer_pool,
   ./test_remote_keystore,
+  ./test_rest_json_serialization,
   ./test_serialization,
   ./test_spec,
   ./test_statediff,
