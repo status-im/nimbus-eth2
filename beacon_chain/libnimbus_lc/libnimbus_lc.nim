@@ -1557,6 +1557,9 @@ proc ETHTransactionsCreateFromJson(
         value: UInt256
         input: List[byte, Limit MAX_CALLDATA_SIZE]
 
+        # EIP-2718
+        `type`: Opt[uint8]
+
         # EIP-2930
         access_list: Opt[List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
 
@@ -1571,9 +1574,6 @@ proc ETHTransactionsCreateFromJson(
       Eip6493TransactionSignature = object
         `from`: ExecutionAddress
         ecdsa_signature: array[65, byte]
-
-        # EIP-2718
-        `type`: Opt[uint8]
 
       Eip6493Transaction = object
         payload: PartialContainer[Eip6493TransactionPayload, 32]
@@ -1591,6 +1591,16 @@ proc ETHTransactionsCreateFromJson(
       return nil
     eip6493Tx.payload.input =
       List[byte, Limit MAX_CALLDATA_SIZE].init(tx.payload)
+    case tx.txType
+    of TxLegacy:
+      if tx.V notin [27'i64, 28'i64]:  # With replay protection
+        `.`(eip6493Tx.payload, `type`).ok(0x00)
+    of TxEip2930:
+      `.`(eip6493Tx.payload, `type`).ok(0x01)
+    of TxEip1559:
+      `.`(eip6493Tx.payload, `type`).ok(0x02)
+    of TxEip4844:
+      `.`(eip6493Tx.payload, `type`).ok(0x03)
     if tx.txType >= TxEip2930:
       if tx.accessList.len > MAX_ACCESS_LIST_SIZE:
         return nil
@@ -1608,16 +1618,6 @@ proc ETHTransactionsCreateFromJson(
 
     eip6493Tx.signature.`from` = ExecutionAddress(data: fromAddress)
     eip6493Tx.signature.ecdsa_signature = rawSig
-    case tx.txType
-    of TxLegacy:
-      if tx.V notin [27'i64, 28'i64]:  # With replay protection
-        `.`(eip6493Tx.signature, `type`).ok(0x00)
-    of TxEip2930:
-      `.`(eip6493Tx.signature, `type`).ok(0x01)
-    of TxEip1559:
-      `.`(eip6493Tx.signature, `type`).ok(0x02)
-    of TxEip4844:
-      `.`(eip6493Tx.signature, `type`).ok(0x03)
 
     # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
     let eip6493Bytes = SSZ.encode(eip6493Tx)
