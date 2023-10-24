@@ -950,6 +950,21 @@ proc writeValue*(
 ) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
+## KzgCommitment
+# https://github.com/ethereum/beacon-APIs/blob/d934a03187729635bef06ca7f3c067645c3eab15/types/primitive.yaml#L135-L140
+proc readValue*(reader: var JsonReader[RestJson], value: var KzgCommitment) {.
+     raises: [IOError, SerializationError].} =
+  try:
+    hexToByteArray(reader.readValue(string), distinctBase(value))
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "KzgCommitment value should be a valid hex string")
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: KzgCommitment
+) {.raises: [IOError].} =
+  writeValue(writer, hexOriginal(distinctBase(value)))
+
 ## GraffitiBytes
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: GraffitiBytes
@@ -1821,7 +1836,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       value = RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb,
         denebData: DenebSignedBlockContents(
-          # Constructed to be interally consistent
+          # Constructed to be internally consistent
           signed_block: signed_message.get().distinctBase.denebData,
           signed_blob_sidecars: signed_blob_sidecars.get()
         )

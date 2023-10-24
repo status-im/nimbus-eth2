@@ -428,12 +428,13 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + prune states                                                                               OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## REST JSON decoding
+## REST JSON encoding and decoding
 ```diff
 + DenebSignedBlockContents                                                                   OK
++ KzgCommitment                                                                              OK
 + RestPublishedSignedBlockContents                                                           OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Remove keystore testing suite
 ```diff
 + Many remotes                                                                               OK
@@ -711,4 +712,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 400/405 Fail: 0/405 Skip: 5/405
+OK: 401/406 Fail: 0/406 Skip: 5/406
