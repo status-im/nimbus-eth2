@@ -162,14 +162,14 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
-    validatorsSource* {.
+    web3signers* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
-      name: "validators-source"}: Option[string]
+      name: "web3-signer-url" .}: seq[Uri]
 
-    validatorsSourceInverval* {.
-      desc: "Number of minutes between validator list updates"
-      name: "validators-source-interval"
-      defaultValue: 60 .}: Natural
+    web3signerUpdateInterval* {.
+      desc: "Number of seconds between validator list updates"
+      name: "web3-signer-update-interval"
+      defaultValue: 3600 .}: Natural
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
@@ -247,11 +247,6 @@ type
       defaultValue: 0,
       desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
       name: "num-threads" .}: int
-
-    useOldStabilitySubnets* {.
-      hidden
-      defaultValue: false
-      name: "debug-use-old-attestation-stability-subnets" .}: bool
 
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#key-distribution
     jwtSecret* {.
@@ -343,6 +338,14 @@ type
       finalizedCheckpointState* {.
         desc: "SSZ file specifying a recent finalized state"
         name: "finalized-checkpoint-state" .}: Option[InputFile]
+
+      genesisState* {.
+        desc: "SSZ file specifying the genesis state of the network (for networks without a built-in genesis state)"
+        name: "genesis-state" .}: Option[InputFile]
+
+      genesisStateUrl* {.
+        desc: "URL for obtaining the genesis state of the network (for networks without a built-in genesis state)"
+        name: "genesis-state-url" .}: Option[Uri]
 
       finalizedDepositTreeSnapshot* {.
         desc: "SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot"
@@ -885,14 +888,14 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
-    validatorsSource* {.
+    web3signers* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
-      name: "validators-source"}: Option[string]
+      name: "web3-signer-url" .}: seq[Uri]
 
-    validatorsSourceInverval* {.
-      desc: "Number of minutes between validator list updates"
-      name: "validators-source-interval"
-      defaultValue: 60 .}: Natural
+    web3signerUpdateInterval* {.
+      desc: "Number of seconds between validator list updates"
+      name: "web3-signer-update-interval"
+      defaultValue: 3600 .}: Natural
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"

@@ -9,6 +9,7 @@
 {.used.}
 
 import std/strutils
+import httputils
 import chronos/unittest2/asynctests
 import ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
 
@@ -335,3 +336,43 @@ suite "Validator Client test suite":
     check:
       response.isErr()
       gotCancellation == true
+
+
+  test "getLiveness() response deserialization test":
+    proc generateLivenessResponse(T: typedesc[string],
+                                  start, count, modv: int): string =
+      var res: seq[string]
+      for index in start ..< (start + count):
+        let
+          validator = Base10.toString(uint64(index))
+          visibility = if index mod modv == 0: "true" else: "false"
+        res.add("{\"index\":\"" & validator & "\",\"is_live\":" &
+                visibility & "}")
+      "{\"data\":[" & res.join(",") & "]}"
+
+    proc generateLivenessResponse(
+      T: typedesc[RestLivenessItem],
+      start, count, modv: int
+    ): seq[RestLivenessItem] =
+      var res: seq[RestLivenessItem]
+      for index in start ..< (start + count):
+        let visibility = if index mod modv == 0: true else: false
+        res.add(RestLivenessItem(index: ValidatorIndex(uint64(index)),
+                                 is_live: visibility))
+      res
+
+    const Tests = [(0, 2_000_000, 3)]
+
+    for test in Tests:
+      let
+        datastr = string.generateLivenessResponse(
+          test[0], test[1], test[2])
+        data = stringToBytes(datastr)
+        contentType = getContentType("application/json").get()
+        res = decodeBytes(GetValidatorsLivenessResponse,
+                          data, Opt.some(contentType))
+        expect = RestLivenessItem.generateLivenessResponse(
+          test[0], test[1], test[2])
+      check:
+        res.isOk()
+        res.get().data == expect

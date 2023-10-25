@@ -223,9 +223,9 @@ local-testnet-minimal:
 		--preset minimal \
 		--nodes 2 \
 		--signer-nodes 1 \
-		--remote-validators-count 1024 \
+		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--capella-fork-epoch 3 \
+		--capella-fork-epoch 0 \
 		--deneb-fork-epoch 20 \
 		--stop-at-epoch 6 \
 		--disable-htop \
@@ -255,7 +255,7 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--capella-fork-epoch 3 \
+		--capella-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
@@ -750,6 +750,7 @@ libnimbus_lc.a: | build deps
 
 # `-Wno-maybe-uninitialized` in Linux: https://github.com/nim-lang/Nim/issues/22246
 # `-fsanitize=undefined` in Windows: https://github.com/msys2/MINGW-packages/issues/3163
+# `-Wl,--stack,0x0000000000800000` in Windows: MinGW default of 2 MB leads to `SIGSEGV` in `___chkstk_ms` in Nim 2.0
 test_libnimbus_lc: libnimbus_lc.a
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		EXTRA_FLAGS=() && \
@@ -764,7 +765,7 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				echo "MINGW cannot find -lubsan." && exit 1; \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -Wl,--stack,0x0000000000800000 -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		*) \
 			if (( $${WITH_UBSAN:-0} )); then \

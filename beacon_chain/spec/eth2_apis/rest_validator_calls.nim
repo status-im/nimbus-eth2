@@ -167,3 +167,4 @@ proc getValidatorsLiveness*(epoch: Epoch,
                            ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/liveness/{epoch}",
      meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/getLiveness

@@ -31,10 +31,28 @@ jobs:
             cpu: amd64
           - os: macos
             cpu: amd64
-          - os: windows
-            cpu: amd64
-        branch: [~, upstream/version-1-6]
+          #- os: windows
+          #  cpu: amd64
+        branch: [~, upstream/version-1-6, upstream/version-2-0]
+        exclude:
+          - target:
+              os: macos
+            branch: upstream/version-1-6
+          - target:
+              os: macos
+            branch: upstream/version-2-0
+          - target:
+              os: windows
+            branch: upstream/version-1-6
+          - target:
+              os: windows
+            branch: upstream/version-2-0
         include:
+          - branch: upstream/version-1-6
+            branch-short: version-1-6
+          - branch: upstream/version-2-0
+            branch-short: version-2-0
+            nimflags-extra: --mm:refc
           - target:
               os: linux
             builder: ubuntu-22.04
@@ -43,16 +61,16 @@ jobs:
               os: macos
             builder: macos-11
             shell: bash
-          - target:
-              os: windows
-            builder: windows-2019
-            shell: msys2 {0}
+          #- target:
+          #    os: windows
+          #  builder: windows-2019
+          #  shell: msys2 {0}
 
     defaults:
       run:
         shell: ${{ matrix.shell }}
 
-    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ matrix.branch }}${{ matrix.branch != '' && ')' || '' }}
+    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ matrix.branch-short }}${{ matrix.branch != '' && ')' || '' }}
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Checkout
@@ -112,8 +130,10 @@ jobs:
             else
               export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
             fi
-            echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
           fi
+
+          export NIMFLAGS="${NIMFLAGS} ${{ matrix.nimflags-extra }}"
+          echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
 
           ncpu=""
           make_cmd="make"
@@ -152,7 +172,7 @@ jobs:
 
       - name: Build binaries (with trace logging enabled)
         run: |
-          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none"
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${{ matrix.nimflags-extra }}"
           # The Windows image runs out of disk space, so make some room
           rm -rf build nimcache
 
@@ -225,15 +245,20 @@ jobs:
             fi
             # Without the `--depth=1` fetch, may run into 'error processing shallow info: 4'
             if ! error="$(git -C "$file" fetch -q --depth=1 origin "+refs/heads/${branch}:refs/remotes/origin/${branch}")"; then
-              echo "Submodule '$file': Failed to fetch '$branch': $error"
+              echo "Submodule '$file': Failed to fetch '$branch': $error (1)"
+              exit 2
+            fi
+            branch_commit_date=$(git -C "$file" show -s --format='%ci' "refs/remotes/origin/${branch}")
+            if [[ "${commit_date}" > "${branch_commit_date}" ]]; then
+              echo "Submodule '$file': '$commit' ($commit_date) is more recent than latest '$branch' ($branch_commit_date) (branch config: '.gitmodules')"
               exit 2
             fi
             if ! error="$(git -C "$file" fetch -q --shallow-since="$commit_date" origin "+refs/heads/${branch}:refs/remotes/origin/${branch}")"; then
-              echo "Submodule '$file': Failed to fetch '$branch': $error"
+              echo "Submodule '$file': Failed to fetch '$branch': $error (2)"
               exit 2
             fi
             if ! git -C "$file" merge-base --is-ancestor "$commit" "refs/remotes/origin/$branch"; then
-              echo "Submodule '$file': '$commit' is not on '$branch' as of '$commit_date' (branch config: '.gitmodules')"
+              echo "Submodule '$file': '$commit' is not on '$branch' as of $commit_date (branch config: '.gitmodules')"
               exit 2
             fi
           done < <(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep -f <(git config --file .gitmodules --get-regexp path | awk '{ print $2 }') || true)

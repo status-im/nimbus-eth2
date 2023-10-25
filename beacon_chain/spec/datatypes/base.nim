@@ -669,12 +669,14 @@ template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
 
 iterator vindices*(
     a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
-  for i in 0..<a.len():
+  static: doAssert distinctBase(ValidatorIndex) is uint32
+  for i in 0..<a.len.uint32:
     yield i.ValidatorIndex
 
 iterator vindices*(
     a: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
-  for i in 0..<a.len():
+  static: doAssert distinctBase(ValidatorIndex) is uint32
+  for i in 0..<a.len.uint32:
     yield i.ValidatorIndex
 
 template `==`*(x, y: JustificationBits): bool =

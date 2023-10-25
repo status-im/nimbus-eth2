@@ -2467,7 +2467,7 @@ proc getValidatorsLiveness*(
        validators: seq[ValidatorIndex]
      ): Future[GetValidatorsLivenessResponse] {.async.} =
   const
-    RequestName = "getValidatorsActivity"
+    RequestName = "getLiveness"
   let resp = vc.onceToAll(RestPlainResponse,
                           SlotDuration,
                           ViableNodeStatus,
@@ -2524,36 +2524,36 @@ proc getValidatorsLiveness*(
             let failure = ApiNodeFailure.init(
               ApiFailure.UnexpectedResponse, RequestName,
               apiResponse.node, response.status, $res.error)
-            apiResponse.node.updateStatus(
-              RestBeaconNodeStatus.UnexpectedResponse, failure)
+            # We do not update beacon node's status anymore because of
+            # issue #5377.
             continue
         of 400:
           let failure = ApiNodeFailure.init(
             ApiFailure.Invalid, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
-          apiResponse.node.updateStatus(
-            RestBeaconNodeStatus.Incompatible, failure)
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
           continue
         of 500:
           let failure = ApiNodeFailure.init(
             ApiFailure.Internal, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
-          apiResponse.node.updateStatus(
-            RestBeaconNodeStatus.InternalError, failure)
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
           continue
         of 503:
           let failure = ApiNodeFailure.init(
             ApiFailure.NotSynced, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
-          apiResponse.node.updateStatus(
-            RestBeaconNodeStatus.NotSynced, failure)
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
           continue
         else:
           let failure = ApiNodeFailure.init(
             ApiFailure.UnexpectedCode, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
-          apiResponse.node.updateStatus(
-            RestBeaconNodeStatus.UnexpectedCode, failure)
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
           continue
 
     var response =

@@ -33,8 +33,8 @@ The following options are available:
      --network                 The Eth2 network to join [=mainnet].
  -d, --data-dir                The directory where nimbus will store all blockchain data.
      --validators-dir          A directory containing validator keystores.
-     --validators-source       Remote Web3Signer URL that will be used as a source of validators.
-     --validators-source-interval  Number of minutes between validator list updates [=60].
+     --web3-signer-url         Remote Web3Signer URL that will be used as a source of validators.
+     --web3-signer-update-interval  Number of seconds between validator list updates [=3600].
      --secrets-dir             A directory containing validator keystore passwords.
      --wallets-dir             A directory containing wallet files.
      --web3-url                One or more execution layer Engine API URLs.
@@ -65,6 +65,10 @@ The following options are available:
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
      --sync-light-client       Accelerate execution layer sync using light client [=true].
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
+     --genesis-state           SSZ file specifying the genesis state of the network (for networks without a
+                               built-in genesis state).
+     --genesis-state-url       URL for obtaining the genesis state of the network (for networks without a
+                               built-in genesis state).
      --finalized-deposit-tree-snapshot  SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
                                persistent automatically generated ID will be selected for each --data-dir

@@ -3,9 +3,19 @@
 [Web3Signer](https://docs.web3signer.consensys.net/en/latest/) is a remote signing server developed by Consensys.
 It offers a [standardized REST API](https://consensys.github.io/web3signer/web3signer-eth2.html) allowing the Nimbus beacon node or validator client to operate without storing any validator keys locally.
 
-Remote validators can be permanently added to a Nimbus installation (or more precisely to a particular [data directory](./data-dir.md)) either on-the-fly through the [`POST /eth/v1/remotekeys`](https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys) request when the [Keymanager API](./keymanager-api.md) is enabled or by manually creating a remote keystore file within the [validators directory](./data-dir.md#secrets-and-validators) of the client which will be loaded upon the next restart.
+You can instruct Nimbus to connect to a Web3Signer instance by supplying the `--web3-signer-url` command-line option. Since Nimbus obtains the list of validator keys automatically through the [`/api/v1/eth2/publicKeys`](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST) Web3Signer API endpoint, no further configuration is required.
 
-Here is an example `remote_keystore.json` file:
+!!! info
+    By default, the list of validators will be refreshed once per hour. You can change the number of seconds between two updates with the `--web3signer-update-interval` command-line option.
+
+!!! tip
+    You can use multiple Web3Signer instances by specifying the `--web3-signer-url` parameter multiple times.
+
+Alternatively, if you prefer not to depend on the automatic validator discovery mechanism or wish to take advantage of the advanced configurations described below, you have the option to permanently add multiple remote validators to a particular Nimbus data directory. This can be accomplished in two ways:
+
+**On-the-fly Addition**: Utilize the [`POST /eth/v1/remotekeys`](https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys) request when the Keymanager API is enabled. This allows you to dynamically add and remove remote validators as needed.
+
+**Manual Configuration**: You can manually create a remote keystore file within the [validators directory](./data-dir.md#secrets-and-validators) of the client. This configuration will be loaded during the next restart of the client. Here is an example `remote_keystore.json` file:
 
 ```
 {
