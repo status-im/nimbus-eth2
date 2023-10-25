@@ -779,7 +779,7 @@ proc putBlock*(
     db: BeaconChainDB,
     value: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock) =
   db.withManyWrites:
-    db.blocks[type(value).toFork].putSnappySSZ(value.root.data, value)
+    db.blocks[type(value).kind].putSnappySSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc putBlock*(
@@ -787,7 +787,7 @@ proc putBlock*(
     value: bellatrix.TrustedSignedBeaconBlock |
            capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock) =
   db.withManyWrites:
-    db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
+    db.blocks[type(value).kind].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc putBlobSidecar*(
@@ -838,14 +838,14 @@ proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: phase0.BeaconState | altair.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
-  db.statesNoVal[type(value).toFork()].putSnappySSZ(
+  db.statesNoVal[type(value).kind].putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
-  db.statesNoVal[type(value).toFork()].putSZSSZ(
+  db.statesNoVal[type(value).kind].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
 proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
@@ -951,7 +951,7 @@ proc getBlock*(
     T: type phase0.TrustedSignedBeaconBlock): Opt[T] =
   # We only store blocks that we trust in the database
   result.ok(default(T))
-  if db.blocks[T.toFork].getSnappySSZ(key.data, result.get) != GetResult.found:
+  if db.blocks[T.kind].getSnappySSZ(key.data, result.get) != GetResult.found:
     # During the initial releases phase0, we stored blocks in a different table
     result = db.v0.getPhase0Block(key)
   else:
@@ -963,7 +963,7 @@ proc getBlock*(
     T: type altair.TrustedSignedBeaconBlock): Opt[T] =
   # We only store blocks that we trust in the database
   result.ok(default(T))
-  if db.blocks[T.toFork].getSnappySSZ(key.data, result.get) == GetResult.found:
+  if db.blocks[T.kind].getSnappySSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
@@ -976,7 +976,7 @@ proc getBlock*[
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
   result.ok(default(T))
-  if db.blocks[T.toFork].getSZSSZ(key.data, result.get) == GetResult.found:
+  if db.blocks[T.kind].getSZSSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
@@ -1022,7 +1022,7 @@ proc getBlockSSZ*(
   func decode(data: openArray[byte]) =
     dataPtr[] = snappy.decode(data)
     success = dataPtr[].len > 0
-  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+  db.blocks[T.kind].get(key.data, decode).expectDb() and success
 
 proc getBlockSSZ*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
@@ -1033,22 +1033,13 @@ proc getBlockSSZ*[
   func decode(data: openArray[byte]) =
     dataPtr[] = decodeFramed(data, checkIntegrity = false)
     success = dataPtr[].len > 0
-  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+  db.blocks[T.kind].get(key.data, decode).expectDb() and success
 
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     fork: ConsensusFork): bool =
-  case fork
-  of ConsensusFork.Phase0:
-    getBlockSSZ(db, key, data, phase0.TrustedSignedBeaconBlock)
-  of ConsensusFork.Altair:
-    getBlockSSZ(db, key, data, altair.TrustedSignedBeaconBlock)
-  of ConsensusFork.Bellatrix:
-    getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
-  of ConsensusFork.Capella:
-    getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.Deneb:
-    getBlockSSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
+  withConsensusFork(fork):
+    getBlockSSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
 
 proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
                        data: var seq[byte]):
@@ -1077,7 +1068,7 @@ proc getBlockSZ*(
   func decode(data: openArray[byte]) =
     dataPtr[] = snappy.encodeFramed(snappy.decode(data))
     success = dataPtr[].len > 0
-  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+  db.blocks[T.kind].get(key.data, decode).expectDb() and success
 
 proc getBlockSZ*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
@@ -1086,22 +1077,13 @@ proc getBlockSZ*[
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
-  db.blocks[T.toFork].get(key.data, decode).expectDb()
+  db.blocks[T.kind].get(key.data, decode).expectDb()
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     fork: ConsensusFork): bool =
-  case fork
-  of ConsensusFork.Phase0:
-    getBlockSZ(db, key, data, phase0.TrustedSignedBeaconBlock)
-  of ConsensusFork.Altair:
-    getBlockSZ(db, key, data, altair.TrustedSignedBeaconBlock)
-  of ConsensusFork.Bellatrix:
-    getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
-  of ConsensusFork.Capella:
-    getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.Deneb:
-    getBlockSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
+  withConsensusFork(fork):
+    getBlockSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -1258,7 +1240,7 @@ proc getState*(
   type T = type(output)
 
   if not getStateOnlyMutableValidators(
-      db.immutableValidators, db.statesNoVal[T.toFork], key.data, output, rollback):
+      db.immutableValidators, db.statesNoVal[T.kind], key.data, output, rollback):
     db.v0.getState(db.immutableValidators, key, output, rollback)
   else:
     true
@@ -1278,7 +1260,7 @@ proc getState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   type T = type(output)
   getStateOnlyMutableValidators(
-    db.immutableValidators, db.statesNoVal[T.toFork], key.data, output,
+    db.immutableValidators, db.statesNoVal[T.kind], key.data, output,
     rollback)
 
 proc getState*(
@@ -1340,14 +1322,14 @@ proc containsBlock*(db: BeaconChainDBV0, key: Eth2Digest): bool =
 proc containsBlock*(
     db: BeaconChainDB, key: Eth2Digest,
     T: type phase0.TrustedSignedBeaconBlock): bool =
-  db.blocks[T.toFork].contains(key.data).expectDb() or
+  db.blocks[T.kind].contains(key.data).expectDb() or
     db.v0.containsBlock(key)
 
 proc containsBlock*[
     X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
        capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
-  db.blocks[X.toFork].contains(key.data).expectDb()
+  db.blocks[X.kind].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: ConsensusFork): bool =
   case fork

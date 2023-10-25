@@ -339,10 +339,16 @@ proc getForkedBlock*(
     dag.db.getForkedBlock(root)
 
 func isCanonical*(dag: ChainDAGRef, bid: BlockId): bool =
-  ## Return true iff the given `bid` is part of the history selected by `dag.head`
+  ## Returns `true` if the given `bid` is part of the history selected by
+  ## `dag.head`.
   let current = dag.getBlockIdAtSlot(bid.slot).valueOr:
     return false # We don't know, so ..
   return current.bid == bid
+
+func isFinalized*(dag: ChainDAGRef, bid: BlockId): bool =
+  ## Returns `true` if the given `bid` is part of the finalized history
+  ## selected by `dag.finalizedHead`.
+  dag.isCanonical(bid) and (bid.slot <= dag.finalizedHead.slot)
 
 func parent*(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
   if bid.slot == 0:
@@ -538,11 +544,8 @@ func putEpochRef(dag: ChainDAGRef, epochRef: EpochRef) =
 func init*(
     T: type ShufflingRef, state: ForkedHashedBeaconState,
     cache: var StateCache, epoch: Epoch): T =
-  let
-    dependent_epoch =
-      if epoch < 1: Epoch(0) else: epoch - 1
-    attester_dependent_root =
-      withState(state): forkyState.dependent_root(dependent_epoch)
+  let attester_dependent_root =
+    withState(state): forkyState.dependent_root(epoch.get_previous_epoch)
 
   ShufflingRef(
     epoch: epoch,
@@ -1129,7 +1132,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # should have `previous_version` set to `current_version` while
   # this doesn't happen to be the case in network that go through
   # regular hard-fork upgrades. See for example:
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/bellatrix/beacon-chain.md#testing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
@@ -1932,7 +1935,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/sync/optimistic.md#helpers
 template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:

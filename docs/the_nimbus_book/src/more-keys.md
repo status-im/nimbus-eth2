@@ -37,12 +37,12 @@ Run the following command from the directory which contains the `deposit` execut
     --chain mainnet
     ```
 
-=== "Prater"
+=== "Holesky"
     ```sh
     ./deposit existing-mnemonic \
     --validator_start_index 0 \
     --num_validators 1 \
-    --chain prater
+    --chain holesky
     ```
 
 You'll be prompted to enter your mnemonic, and a new password for your keystore.
@@ -70,12 +70,12 @@ Run the following command from the directory which contains the `deposit` execut
     --chain mainnet
     ```
 
-=== "Prater"
+=== "Holesky"
     ```
     ./deposit existing-mnemonic \
     --validator_start_index 1 \
     --num_validators 1 \
-    --chain prater
+    --chain holesky
     ```
 
 You'll be prompted to enter your mnemonic and a new password for your keystore.

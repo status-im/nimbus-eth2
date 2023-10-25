@@ -80,9 +80,9 @@ The following sections explain how to do this for certain EL clients.
         geth --authrpc.jwtsecret="$HOME/jwtsecret"
         ```
 
-    === "Goerli"
+    === "Holesky"
         ```sh
-        geth --goerli --authrpc.jwtsecret="$HOME/jwtsecret"
+        geth --holesky --authrpc.jwtsecret="$HOME/jwtsecret"
         ```
 
 === "Nethermind"
@@ -92,9 +92,9 @@ The following sections explain how to do this for certain EL clients.
         nethermind --JsonRpc.JwtSecretFile="$HOME/jwtsecret"
         ```
 
-    === "Goerli"
+    === "Holesky"
         ```sh
-        nethermind --config goerli --JsonRpc.JwtSecretFile="$HOME/jwtsecret"
+        nethermind --config holesky --JsonRpc.JwtSecretFile="$HOME/jwtsecret"
         ```
 
 === "Others"
@@ -104,7 +104,7 @@ The following sections explain how to do this for certain EL clients.
 ## Running the light client
 
 The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
+This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
 
 ### 1. Obtaining a trusted block root
 
@@ -119,7 +119,7 @@ A block root may be obtained from another trusted beacon node, or from a trusted
     ```
 
 === "Beaconcha.in"
-    On the [beaconcha.in](https://beaconcha.in) website ([Goerli](https://prater.beaconcha.in)), navigate to the `Epochs` section and select a recent `Finalized` epoch.
+    On the [beaconcha.in](https://beaconcha.in) website ([Holesky](https://holesky.beaconcha.in)), navigate to the `Epochs` section and select a recent `Finalized` epoch.
     Then, scroll down to the bottom of the page.
     If the bottom-most slot has a `Proposed` status, copy its `Root Hash`.
     Otherwise, for example if the bottom-most slot was `Missed`, go back and pick a different epoch.
@@ -141,10 +141,10 @@ To start the light client, run the following commands (inserting your own truste
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 
-=== "Goerli"
+=== "Holesky"
     ```sh
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
-    build/nimbus_light_client --network=goerli \
+    build/nimbus_light_client --network=holesky \
         --web3-url=http://127.0.0.1:8551 --jwt-secret="$HOME/jwtsecret" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
@@ -188,7 +188,7 @@ NOT 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt
 ```
 
 !!! note
-    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
+    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
     As this is a new protocol, not all implementations are supporting it yet.
     Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
 

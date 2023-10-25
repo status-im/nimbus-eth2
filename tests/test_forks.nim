@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 {.used.}
 
 import
@@ -14,7 +21,7 @@ template testHashedBeaconState(T: type, s: Slot) =
   forked[] = readSszForkedHashedBeaconState(cfg, bytes)
 
   check:
-    forked.kind == T.toFork()
+    forked.kind == T.kind
 
 template testTrustedSignedBeaconBlock(T: type, s: Slot) =
   let blck = (ref T)()
@@ -26,21 +33,21 @@ template testTrustedSignedBeaconBlock(T: type, s: Slot) =
   forked[] = readSszForkedSignedBeaconBlock(cfg, bytes)
 
   check:
-    forked.kind == T.toFork()
+    forked.kind == T.kind
 
 suite "Type helpers":
-  test "BeaconBlockType":
+  test "BeaconBlock":
     check:
-      BeaconBlockType(ConsensusFork.Phase0) is phase0.BeaconBlock
-      BeaconBlockType(ConsensusFork.Altair) is altair.BeaconBlock
-      BeaconBlockType(ConsensusFork.Bellatrix) is bellatrix.BeaconBlock
-      BeaconBlockType(ConsensusFork.Capella) is capella.BeaconBlock
-      BeaconBlockType(ConsensusFork.Deneb) is deneb.BeaconBlock
-      BeaconBlockBodyType(ConsensusFork.Phase0) is phase0.BeaconBlockBody
-      BeaconBlockBodyType(ConsensusFork.Altair) is altair.BeaconBlockBody
-      BeaconBlockBodyType(ConsensusFork.Bellatrix) is bellatrix.BeaconBlockBody
-      BeaconBlockBodyType(ConsensusFork.Capella) is capella.BeaconBlockBody
-      BeaconBlockBodyType(ConsensusFork.Deneb) is deneb.BeaconBlockBody
+      ConsensusFork.Phase0.BeaconBlock is phase0.BeaconBlock
+      ConsensusFork.Altair.BeaconBlock is altair.BeaconBlock
+      ConsensusFork.Bellatrix.BeaconBlock is bellatrix.BeaconBlock
+      ConsensusFork.Capella.BeaconBlock is capella.BeaconBlock
+      ConsensusFork.Deneb.BeaconBlock is deneb.BeaconBlock
+      ConsensusFork.Phase0.BeaconBlockBody is phase0.BeaconBlockBody
+      ConsensusFork.Altair.BeaconBlockBody is altair.BeaconBlockBody
+      ConsensusFork.Bellatrix.BeaconBlockBody is bellatrix.BeaconBlockBody
+      ConsensusFork.Capella.BeaconBlockBody is capella.BeaconBlockBody
+      ConsensusFork.Deneb.BeaconBlockBody is deneb.BeaconBlockBody
 
 suite "Forked SSZ readers":
   let cfg = block:

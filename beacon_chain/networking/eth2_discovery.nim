@@ -8,10 +8,12 @@
 {.push raises: [].}
 
 import
-  std/[os, strutils],
   chronicles, stew/shims/net, stew/results,
   eth/p2p/discoveryv5/[enr, protocol, node],
   ".."/[conf, conf_light_client]
+
+from std/os import splitFile
+from std/strutils import cmpIgnoreCase, split, startsWith, strip, toLowerAscii
 
 export protocol
 
@@ -23,11 +25,8 @@ export
   Eth2DiscoveryProtocol, open, start, close, closeWait, queryRandom,
     updateRecord, results
 
-proc parseBootstrapAddress*(address: string):
+func parseBootstrapAddress*(address: string):
     Result[enr.Record, cstring] =
-  logScope:
-    address = string(address)
-
   let lowerCaseAddress = toLowerAscii(string address)
   if lowerCaseAddress.startsWith("enr:"):
     var enrRec: enr.Record
@@ -54,7 +53,9 @@ proc addBootstrapNode*(bootstrapAddr: string,
   if bootstrapAddr.len == 0 or bootstrapAddr[0] == '#':
     return
 
-  let enrRes = parseBootstrapAddress(bootstrapAddr)
+  # Ignore comments in
+  # https://github.com/eth-clients/eth2-networks/blob/063f826a03676c33c95a66306916f18b690d35eb/shared/mainnet/bootstrap_nodes.txt
+  let enrRes = parseBootstrapAddress(bootstrapAddr.split(" # ")[0])
   if enrRes.isOk:
     bootstrapEnrs.add enrRes.value
   else:

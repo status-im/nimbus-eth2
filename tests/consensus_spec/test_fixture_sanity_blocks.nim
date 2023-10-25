@@ -9,21 +9,21 @@
 
 import
   chronicles,
-  ../../beacon_chain/spec/datatypes/phase0,
+  ../../beacon_chain/spec/forks,
   ../../beacon_chain/spec/state_transition,
   ./os_ops,
   ../testutil
 
 from std/sequtils import toSeq
-from ../../beacon_chain/spec/forks import
-  ForkedEpochInfo, ForkedHashedBeaconState, fromSszBytes, getStateRoot, new
+from std/strutils import toLowerAscii
 from ../../beacon_chain/spec/presets import
   const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, parseTest, readSszBytes, toSszType
 
 proc runTest(
-    BS, SBB: type, testName, testDir: static[string], suiteName, unitTestName: string) =
+    consensusFork: static ConsensusFork,
+    testName, testDir: static[string], suiteName, unitTestName: string) =
   let testPath = testDir / unitTestName
 
   let
@@ -31,7 +31,8 @@ proc runTest(
     prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
 
   test prefix & testName & " - " & unitTestName & preset():
-    let preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, BS))
+    let preState = newClone(parseTest(testPath/"pre.ssz_snappy",
+      SSZ, consensusFork.BeaconState))
     var
       fhPreState = ForkedHashedBeaconState.new(preState[])
       cache = StateCache()
@@ -41,7 +42,8 @@ proc runTest(
     # so purely lexicographic sorting wouldn't sort properly.
     let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
     for i in 0 ..< numBlocks:
-      let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, SBB)
+      let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy",
+        SSZ, consensusFork.SignedBeaconBlock)
 
       if hasPostState:
         state_transition(
@@ -55,15 +57,16 @@ proc runTest(
           "We didn't expect these invalid blocks to be processed"
 
     if hasPostState:
-      let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, BS))
+      let postState = newClone(parseTest(testPath/"post.ssz_snappy",
+        SSZ, consensusFork.BeaconState))
       when false:
         reportDiff(hashedPreState.phase0Data.data, postState)
       doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
-template runForkBlockTests(
-    forkDirName, forkHumanName: static[string], BeaconStateType,
-    BeaconBlockType: untyped) =
+template runForkBlockTests(consensusFork: static ConsensusFork) =
   const
+    forkHumanName = $consensusFork
+    forkDirName = forkHumanName.toLowerAscii()
     FinalityDir =
       SszTestsDir/const_preset/forkDirName/"finality"/"finality"/"pyspec_tests"
     RandomDir =
@@ -73,41 +76,21 @@ template runForkBlockTests(
 
   suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
     for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-      runTest(
-        BeaconStateType, BeaconBlockType,
-        "EF - " & forkHumanName & " - Sanity - Blocks", SanityBlocksDir, suiteName, path)
+      consensusFork.runTest(
+        "EF - " & forkHumanName & " - Sanity - Blocks",
+        SanityBlocksDir, suiteName, path)
 
   suite "EF - " & forkHumanName & " - Finality " & preset():
     for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
-      runTest(
-        BeaconStateType, BeaconBlockType,
-        "EF - " & forkHumanName & " - Finality", FinalityDir, suiteName, path)
+      consensusFork.runTest(
+        "EF - " & forkHumanName & " - Finality",
+        FinalityDir, suiteName, path)
 
   suite "EF - " & forkHumanName & " - Random " & preset():
     for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
-      runTest(
-        BeaconStateType, BeaconBlockType,
-        "EF - " & forkHumanName & " - Random", RandomDir, suiteName, path)
+      consensusFork.runTest(
+        "EF - " & forkHumanName & " - Random",
+        RandomDir, suiteName, path)
 
-runForkBlockTests(
-  "phase0", "Phase 0", phase0.BeaconState, phase0.SignedBeaconBlock)
-
-from ../../beacon_chain/spec/datatypes/altair import
-  BeaconState, SignedBeaconBlock
-runForkBlockTests(
-  "altair", "Altair", altair.BeaconState, altair.SignedBeaconBlock)
-
-from ../../beacon_chain/spec/datatypes/bellatrix import
-  BeaconState, SignedBeaconBlock
-runForkBlockTests(
-  "bellatrix", "Bellatrix", bellatrix.BeaconState, bellatrix.SignedBeaconBlock)
-
-from ../../beacon_chain/spec/datatypes/capella import
-  BeaconState, SignedBeaconBlock
-runForkBlockTests(
-  "capella", "Capella", capella.BeaconState, capella.SignedBeaconBlock)
-
-from ../../beacon_chain/spec/datatypes/deneb import
-  BeaconState, SignedBeaconBlock
-runForkBlockTests(
-  "deneb", "Deneb", deneb.BeaconState, deneb.SignedBeaconBlock)
+withAll(ConsensusFork):
+  runForkBlockTests(consensusFork)

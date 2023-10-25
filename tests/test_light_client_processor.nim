@@ -284,8 +284,8 @@ suite "Light client processor" & preset():
       var oldFinalized {.noinit.}: ForkedLightClientHeader
       withForkyStore(store[]):
         when lcDataFork > LightClientDataFork.None:
-          oldFinalized = ForkedLightClientHeader(kind: lcDataFork)
-          oldFinalized.forky(lcDataFork) = forkyStore.finalized_header
+          oldFinalized = ForkedLightClientHeader.init(
+            forkyStore.finalized_header)
         else: raiseAssert "Unreachable"
       let finalityUpdate = dag.getLightClientFinalityUpdate()
       check finalityUpdate.kind > LightClientDataFork.None

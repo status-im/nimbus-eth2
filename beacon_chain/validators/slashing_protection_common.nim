@@ -141,6 +141,7 @@ type
     of BadProposalKind.DatabaseError:
       message*: string
 
+{.push warning[ProveField]:off.}
 func `==`*(a, b: BadVote): bool =
   ## Comparison operator.
   ## Used implictily by Result when comparing the
@@ -167,6 +168,7 @@ func `==`*(a, b: BadVote): bool =
         (a.candidateTarget == b.candidateTarget)
     of BadVoteKind.DatabaseError:
       true
+{.pop.}
 
 template `==`*(a, b: PubKey0x): bool =
   PubKeyBytes(a) == PubKeyBytes(b)
@@ -177,6 +179,7 @@ template `<`*(a, b: PubKey0x): bool =
 template cmp*(a, b: PubKey0x): bool =
   cmp(PubKeyBytes(a), PubKeyBytes(b))
 
+{.push warning[ProveField]:off.}
 func `==`*(a, b: BadProposal): bool =
   ## Comparison operator.
   ## Used implictily by Result when comparing the
@@ -192,6 +195,7 @@ func `==`*(a, b: BadProposal): bool =
       a.candidateSlot == b.candidateSlot
   else: # Unreachable
     false
+{.pop.}
 
 # Serialization
 # --------------------------------------------

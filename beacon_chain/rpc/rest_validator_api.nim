@@ -309,7 +309,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonResponseWOpt(res, optimistic)
     else:
       let res = emptyResponse()
-      return RestApiResponse.jsonResponseWOpt(res, execOpt = some(false))
+      return RestApiResponse.jsonResponseWOpt(res, execOpt = Opt.some(false))
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
@@ -444,9 +444,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             static: raiseAssert "produceBlockV2 received unexpected version"
         if contentType == sszMediaType:
           let headers = [("eth-consensus-version", message.blck.kind.toString())]
-          RestApiResponse.sszResponse(forkyBlck, headers)
+          RestApiResponse.sszResponse(data, headers)
         elif contentType == jsonMediaType:
-          RestApiResponse.jsonResponseWVersion(forkyBlck, message.blck.kind)
+          RestApiResponse.jsonResponseWVersion(data, message.blck.kind)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
 

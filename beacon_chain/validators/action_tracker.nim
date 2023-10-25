@@ -10,8 +10,9 @@ import
   ../spec/forks
 
 from ../spec/validator import compute_subscribed_subnets
+from ../consensus_object_pools/block_pools_types import ShufflingRef
 from ../consensus_object_pools/spec_cache import
-  EpochRef, epoch, get_committee_assignments
+  epoch, get_committee_assignments
 
 export forks, tables, sets
 
@@ -214,19 +215,19 @@ func needsUpdate*(
 from std/sequtils import toSeq
 
 func updateActions*(
-    tracker: var ActionTracker, epochRef: EpochRef) =
-  # Updates the schedule for upcoming attestation and proposal work
-  let
-    epoch = epochRef.epoch
+    tracker: var ActionTracker, shufflingRef: ShufflingRef,
+    beaconProposers: openArray[Opt[ValidatorIndex]]) =
+  let epoch = shufflingRef.epoch
 
-  tracker.attesterDepRoot = epochRef.shufflingRef.attester_dependent_root
+  # Updates the schedule for upcoming attestation and proposal work
+  tracker.attesterDepRoot = shufflingRef.attester_dependent_root
   tracker.lastCalculatedEpoch = epoch
 
   let validatorIndices = toHashSet(toSeq(tracker.knownValidators.keys()))
 
   # Update proposals
   tracker.proposingSlots[epoch mod 2] = 0
-  for i, proposer in epochRef.beacon_proposers:
+  for i, proposer in beacon_proposers:
     if proposer.isSome and proposer.get() in validatorIndices:
       tracker.proposingSlots[epoch mod 2] =
         tracker.proposingSlots[epoch mod 2] or (1'u32 shl i)
@@ -237,8 +238,7 @@ func updateActions*(
   static: doAssert SLOTS_PER_EPOCH <= 32
 
   for (committeeIndex, subnet_id, slot) in
-      get_committee_assignments(epochRef.shufflingRef, validatorIndices):
-
+      get_committee_assignments(shufflingRef, validatorIndices):
     doAssert epoch(slot) == epoch
 
     # Each get_committee_assignments() call here is on the next epoch. At any

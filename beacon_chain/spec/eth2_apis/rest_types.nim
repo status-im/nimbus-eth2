@@ -15,7 +15,7 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/ethtypes,
+  stew/base10, web3/ethtypes, httputils,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
   ".."/mev/[capella_mev, deneb_mev]
@@ -23,7 +23,7 @@ import
 from ".."/datatypes/capella import BeaconBlockBody
 
 export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
-       tables
+       tables, httputils
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -189,7 +189,7 @@ type
     ## https://github.com/ethereum/beacon-APIs/blob/v2.4.0/types/http.yaml#L130
     code*: int
     message*: string
-    stacktraces*: Option[seq[string]]
+    stacktraces*: Opt[seq[string]]
 
   RestIndexedErrorMessage* = object
     ## https://github.com/ethereum/beacon-APIs/blob/v2.4.0/types/http.yaml#L145
@@ -447,8 +447,8 @@ type
     ValidatorRegistration
 
   Web3SignerRequest* = object
-    signingRoot*: Option[Eth2Digest]
-    forkInfo* {.serializedFieldName: "fork_info".}: Option[Web3SignerForkInfo]
+    signingRoot*: Opt[Eth2Digest]
+    forkInfo* {.serializedFieldName: "fork_info".}: Opt[Web3SignerForkInfo]
     case kind* {.dontSerialize.}: Web3SignerRequestKind
     of Web3SignerRequestKind.AggregationSlot:
       aggregationSlot* {.
@@ -545,7 +545,7 @@ type
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
-  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb.ExecutionPayload]
+  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
 
@@ -641,11 +641,11 @@ func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: Slot,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.AggregationSlot,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -654,11 +654,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: AggregateAndProof,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.AggregateAndProof,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -667,11 +667,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: AttestationData,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.Attestation,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -681,11 +681,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: Web3SignerForkedBeaconBlock,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.BlockV2,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -696,11 +696,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: Web3SignerForkedBeaconBlock,
            proofs: openArray[Web3SignerMerkleProof],
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.BlockV2,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -710,7 +710,7 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,
            data: DepositMessage,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.Deposit,
@@ -725,11 +725,11 @@ func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: Epoch,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.RandaoReveal,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -738,11 +738,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: VoluntaryExit,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.VoluntaryExit,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -751,11 +751,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, blockRoot: Eth2Digest,
-           slot: Slot, signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           slot: Slot, signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeMessage,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -767,11 +767,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: SyncAggregatorSelectionData,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeSelectionProof,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -781,11 +781,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: ContributionAndProof,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -797,11 +797,11 @@ from stew/byteutils import to0xHex
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: ValidatorRegistrationV1,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.ValidatorRegistration,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -864,3 +864,31 @@ func init*(t: typedesc[RestSignedContributionAndProof],
     signature: signature)
 
 func len*(p: RestWithdrawalPrefix): int = sizeof(p)
+
+func init*(t: typedesc[RestErrorMessage], code: int,
+           message: string): RestErrorMessage =
+  RestErrorMessage(code: code, message: message)
+
+func init*(t: typedesc[RestErrorMessage], code: int,
+           message: string, stacktrace: string): RestErrorMessage =
+  RestErrorMessage(code: code, message: message,
+                   stacktraces: Opt.some(@[stacktrace]))
+
+func init*(t: typedesc[RestErrorMessage], code: int,
+           message: string, stacktrace: openArray[string]): RestErrorMessage =
+  RestErrorMessage(code: code, message: message,
+                   stacktraces: Opt.some(@stacktrace))
+
+func init*(t: typedesc[RestErrorMessage], code: HttpCode,
+           message: string): RestErrorMessage =
+  RestErrorMessage(code: code.toInt(), message: message)
+
+func init*(t: typedesc[RestErrorMessage], code: HttpCode,
+           message: string, stacktrace: string): RestErrorMessage =
+  RestErrorMessage(code: code.toInt(), message: message,
+                   stacktraces: Opt.some(@[stacktrace]))
+
+func init*(t: typedesc[RestErrorMessage], code: HttpCode,
+           message: string, stacktrace: openArray[string]): RestErrorMessage =
+  RestErrorMessage(code: code.toInt(), message: message,
+                   stacktraces: Opt.some(@stacktrace))

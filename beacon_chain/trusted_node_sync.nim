@@ -181,7 +181,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
@@ -220,9 +220,8 @@ proc doTrustedNodeSync*(
           quit 1
         bootstrap.migrateToDataFork(lcDataFork)
 
-        var storeRes =
-          initialize_light_client_store(
-            trustedBlockRoot, bootstrap.forky(lcDataFork), cfg)
+        var storeRes = initialize_light_client_store(
+          trustedBlockRoot, bootstrap.forky(lcDataFork), cfg)
         if storeRes.isErr:
           error "`initialize_light_client_store` failed", err = storeRes.error
           quit 1

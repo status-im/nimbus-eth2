@@ -23,7 +23,7 @@ If you come across any issues, please [report them here](https://github.com/stat
 3. Download the [latest release](./binaries.md) and install it by unpacking the archive.
 
 4. Choose one of Nethermind, Besu, Erigon, or Geth as an execution client.
-   Download, install, and [run it](https://notes.ethereum.org/@launchpad/goerli#Run-an-Execution-Layer-Client).
+   Download, install, and [run it](https://notes.ethereum.org/@launchpad/holesky#Run-an-Execution-Layer-Client).
 
     === "Nethermind"
 

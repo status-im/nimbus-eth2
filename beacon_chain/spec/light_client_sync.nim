@@ -15,7 +15,7 @@ import
 from ../consensus_object_pools/block_pools_types import VerifierError
 export block_pools_types.VerifierError
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store*(
     trusted_block_root: Eth2Digest,
     bootstrap: ForkyLightClientBootstrap,
@@ -42,7 +42,7 @@ func initialize_light_client_store*(
     current_sync_committee: bootstrap.current_sync_committee,
     optimistic_header: bootstrap.header))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(
     store: ForkyLightClientStore,
     update: SomeForkyLightClientUpdate,
@@ -158,7 +158,7 @@ proc validate_light_client_update*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#apply_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
     store: var ForkyLightClientStore,
     update: SomeForkyLightClientUpdate): bool =
@@ -189,7 +189,7 @@ func apply_light_client_update(
     didProgress = true
   didProgress
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#process_light_client_store_force_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/sync-protocol.md#process_light_client_store_force_update
 type
   ForceUpdateResult* = enum
     NoUpdate,
@@ -222,7 +222,7 @@ func process_light_client_store_force_update*(
     store.best_valid_update.reset()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#process_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/sync-protocol.md#process_light_client_update
 proc process_light_client_update*(
     store: var ForkyLightClientStore,
     update: SomeForkyLightClientUpdate,

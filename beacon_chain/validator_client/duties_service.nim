@@ -601,7 +601,7 @@ proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
     await service.waitForNextSlot()
 
 proc dynamicValidatorsLoop*(service: DutiesServiceRef,
-                            web3signerUrl: Uri,
+                            web3signerUrl: Web3SignerUrl,
                             intervalInSeconds: int) {.async.} =
   let vc = service.client
   doAssert(intervalInSeconds > 0)
@@ -624,7 +624,7 @@ proc dynamicValidatorsLoop*(service: DutiesServiceRef,
               let keystores = res.get()
               debug "Web3Signer has been polled for validators",
                     keystores_found = len(keystores),
-                    web3signer_url = web3signerUrl
+                    web3signer_url = web3signerUrl.url
               vc.attachedValidators.updateDynamicValidators(web3signerUrl,
                                                             keystores,
                                                             addValidatorProc)
@@ -710,11 +710,12 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         nil
     dynamicFuts =
       if vc.config.web3signerUpdateInterval > 0:
-        mapIt(vc.config.web3signers,
+        mapIt(vc.config.web3SignerUrls,
               service.dynamicValidatorsLoop(it, vc.config.web3signerUpdateInterval))
       else:
         debug "Dynamic validators update loop disabled"
         @[]
+    web3SignerUrls = vc.config.web3SignerUrls
 
   while true:
     # This loop could look much more nicer/better, when
@@ -746,7 +747,7 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         for i in 0 ..< dynamicFuts.len:
           checkAndRestart(DynamicValidatorsLoop, dynamicFuts[i],
                           service.dynamicValidatorsLoop(
-                            vc.config.web3signers[i],
+                            web3SignerUrls[i],
                             vc.config.web3signerUpdateInterval))
         false
       except CancelledError:

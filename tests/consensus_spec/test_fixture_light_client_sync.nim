@@ -94,10 +94,9 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
       var update {.noinit.}: ForkedLightClientUpdate
       withLcDataFork(lcDataForkAtConsensusFork(update_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
-          update = ForkedLightClientUpdate(kind: lcDataFork)
-          update.forky(lcDataFork) = parseTest(
+          update = ForkedLightClientUpdate.init(parseTest(
             path/update_filename & ".ssz_snappy", SSZ,
-            lcDataFork.LightClientUpdate)
+            lcDataFork.LightClientUpdate))
         else: raiseAssert "Unreachable update fork " & $update_fork_digest
 
       result.add TestStep(
@@ -177,10 +176,9 @@ proc runTest(suiteName, path: string) =
       var bootstrap {.noinit.}: ForkedLightClientBootstrap
       withLcDataFork(lcDataForkAtConsensusFork(bootstrap_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
-          bootstrap = ForkedLightClientBootstrap(kind: lcDataFork)
-          bootstrap.forky(lcDataFork) = parseTest(
+          bootstrap = ForkedLightClientBootstrap.init(parseTest(
             path/"bootstrap.ssz_snappy", SSZ,
-            lcDataFork.LightClientBootstrap)
+            lcDataFork.LightClientBootstrap))
         else:
           raiseAssert "Unknown bootstrap fork " & $meta.bootstrap_fork_digest
       bootstrap
@@ -194,10 +192,9 @@ proc runTest(suiteName, path: string) =
       var store {.noinit.}: ForkedLightClientStore
       withLcDataFork(lcDataForkAtConsensusFork(store_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
-          store = ForkedLightClientStore(kind: lcDataFork)
           bootstrap[].migrateToDataFork(lcDataFork)
-          store.forky(lcDataFork) = initialize_light_client_store(
-            meta.trusted_block_root, bootstrap[].forky(lcDataFork), cfg).get
+          store = ForkedLightClientStore.init(initialize_light_client_store(
+            meta.trusted_block_root, bootstrap[].forky(lcDataFork), cfg).get)
         else: raiseAssert "Unreachable store fork " & $meta.store_fork_digest
       store
 

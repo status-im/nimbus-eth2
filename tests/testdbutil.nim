@@ -7,19 +7,21 @@
 
 import
   chronicles,
-  ../beacon_chain/[beacon_chain_db],
+  ../beacon_chain/beacon_chain_db,
   ../beacon_chain/consensus_object_pools/blockchain_dag,
-  ../beacon_chain/spec/datatypes/phase0,
-  ../beacon_chain/spec/[beaconstate, forks, state_transition],
+  ../beacon_chain/spec/[forks, state_transition],
   eth/db/[kvstore, kvstore_sqlite3],
   ./testblockutil
+
+from ../beacon_chain/spec/beaconstate import
+  initialize_hashed_beacon_state_from_eth1
 
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(
     validators: Natural,
     eth1Data = Opt.none(Eth1Data),
-    flags: UpdateFlags = {skipBlsValidation},
+    flags: UpdateFlags = {},
     cfg = defaultRuntimeConfig): BeaconChainDB =
   var genState = (ref ForkedHashedBeaconState)(
     kind: ConsensusFork.Phase0,
@@ -43,7 +45,7 @@ proc makeTestDB*(
       forkyState.data.fork.previous_version =
         forkyState.data.fork.current_version
       forkyState.data.latest_block_header.body_root =
-        hash_tree_root(default(BeaconBlockBodyType(consensusFork)))
+        hash_tree_root(default(BeaconBlockBody(consensusFork)))
       forkyState.root = hash_tree_root(forkyState.data)
 
   result = BeaconChainDB.new("", cfg = cfg, inMemory = true)

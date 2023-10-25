@@ -46,8 +46,7 @@ func decodeSszLightClientObject[T: SomeForkedLightClientObject](
   try:
     withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
       when lcDataFork > LightClientDataFork.None:
-        var obj = T(kind: lcDataFork)
-        obj.forky(lcDataFork) = SSZ.decode(data, T.Forky(lcDataFork))
+        var obj = T.init(SSZ.decode(data, T.Forky(lcDataFork)))
         obj.checkForkConsistency(cfg, consensusFork)
         obj
       else:
@@ -136,10 +135,9 @@ proc decodeSszLightClientObjects[S: seq[SomeForkedLightClientObject]](
       withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
         when lcDataFork > LightClientDataFork.None:
           type T = typeof(res[0])
-          var obj = T(kind: lcDataFork)
-          obj.forky(lcDataFork) = SSZ.decode(
+          var obj = T.init(SSZ.decode(
             data.toOpenArray(begin + contextLen, after - 1),
-            T.Forky(lcDataFork))
+            T.Forky(lcDataFork)))
           obj.checkForkConsistency(cfg, consensusFork)
           res.add obj
         else:
@@ -209,7 +207,7 @@ proc getLightClientBootstrap*(
   return
     case resp.status
     of 200:
-      let consensusForkRes = decodeEthConsensusVersion(
+      let consensusForkRes = ConsensusFork.decodeString(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
         raiseRestDecodingBytesError(cstring(consensusForkRes.error))
@@ -291,7 +289,7 @@ proc getLightClientFinalityUpdate*(
   return
     case resp.status
     of 200:
-      let consensusForkRes = decodeEthConsensusVersion(
+      let consensusForkRes = ConsensusFork.decodeString(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
         raiseRestDecodingBytesError(cstring(consensusForkRes.error))
@@ -333,7 +331,7 @@ proc getLightClientOptimisticUpdate*(
   return
     case resp.status
     of 200:
-      let consensusForkRes = decodeEthConsensusVersion(
+      let consensusForkRes = ConsensusFork.decodeString(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
         raiseRestDecodingBytesError(cstring(consensusForkRes.error))
