@@ -322,7 +322,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
         else:
           hadErrors = true
           let responseError = try:
-            Json.decode(response.data, RestErrorMessage)
+            RestJson.decode(response.data, RestErrorMessage)
           except CatchableError as exc:
             error "Failed to decode invalid error server response on " &
                   "`submitPoolVoluntaryExit` request", reason = exc.msg

@@ -256,27 +256,86 @@ type
 
 template kind*(
     x: typedesc[
-      phase0.HashedBeaconState]): ConsensusFork =
+      phase0.BeaconState |
+      phase0.HashedBeaconState |
+      phase0.BeaconBlock |
+      phase0.SignedBeaconBlock |
+      phase0.TrustedBeaconBlock |
+      phase0.BeaconBlockBody |
+      phase0.SigVerifiedBeaconBlockBody |
+      phase0.TrustedBeaconBlockBody |
+      phase0.SigVerifiedSignedBeaconBlock |
+      phase0.MsgTrustedSignedBeaconBlock |
+      phase0.TrustedSignedBeaconBlock]): ConsensusFork =
   ConsensusFork.Phase0
 
 template kind*(
     x: typedesc[
-      altair.HashedBeaconState]): ConsensusFork =
+      altair.BeaconState |
+      altair.HashedBeaconState |
+      altair.BeaconBlock |
+      altair.SignedBeaconBlock |
+      altair.TrustedBeaconBlock |
+      altair.BeaconBlockBody |
+      altair.SigVerifiedBeaconBlockBody |
+      altair.TrustedBeaconBlockBody |
+      altair.SigVerifiedSignedBeaconBlock |
+      altair.MsgTrustedSignedBeaconBlock |
+      altair.TrustedSignedBeaconBlock]): ConsensusFork =
   ConsensusFork.Altair
 
 template kind*(
     x: typedesc[
-      bellatrix.HashedBeaconState]): ConsensusFork =
+      bellatrix.BeaconState |
+      bellatrix.HashedBeaconState |
+      bellatrix.ExecutionPayload |
+      bellatrix.ExecutionPayloadForSigning |
+      bellatrix.ExecutionPayloadHeader |
+      bellatrix.BeaconBlock |
+      bellatrix.SignedBeaconBlock |
+      bellatrix.TrustedBeaconBlock |
+      bellatrix.BeaconBlockBody |
+      bellatrix.SigVerifiedBeaconBlockBody |
+      bellatrix.TrustedBeaconBlockBody |
+      bellatrix.SigVerifiedSignedBeaconBlock |
+      bellatrix.MsgTrustedSignedBeaconBlock |
+      bellatrix.TrustedSignedBeaconBlock]): ConsensusFork =
   ConsensusFork.Bellatrix
 
 template kind*(
     x: typedesc[
-      capella.HashedBeaconState]): ConsensusFork =
+      capella.BeaconState |
+      capella.HashedBeaconState |
+      capella.ExecutionPayload |
+      capella.ExecutionPayloadForSigning |
+      capella.ExecutionPayloadHeader |
+      capella.BeaconBlock |
+      capella.SignedBeaconBlock |
+      capella.TrustedBeaconBlock |
+      capella.BeaconBlockBody |
+      capella.SigVerifiedBeaconBlockBody |
+      capella.TrustedBeaconBlockBody |
+      capella.SigVerifiedSignedBeaconBlock |
+      capella.MsgTrustedSignedBeaconBlock |
+      capella.TrustedSignedBeaconBlock]): ConsensusFork =
   ConsensusFork.Capella
 
 template kind*(
     x: typedesc[
-      deneb.HashedBeaconState]): ConsensusFork =
+      deneb.BeaconState |
+      deneb.HashedBeaconState |
+      deneb.ExecutionPayload |
+      deneb.ExecutionPayloadForSigning |
+      deneb.ExecutionPayloadHeader |
+      deneb.BeaconBlock |
+      deneb.SignedBeaconBlock |
+      deneb.TrustedBeaconBlock |
+      deneb.BeaconBlockBody |
+      deneb.SigVerifiedBeaconBlockBody |
+      deneb.TrustedBeaconBlockBody |
+      deneb.SigVerifiedSignedBeaconBlock |
+      deneb.MsgTrustedSignedBeaconBlock |
+      deneb.TrustedSignedBeaconBlock]): ConsensusFork =
   ConsensusFork.Deneb
 
 macro getSymbolFromForkModule(fork: static ConsensusFork,
@@ -484,90 +543,6 @@ template toString*(kind: ConsensusFork): string =
     "capella"
   of ConsensusFork.Deneb:
     "deneb"
-
-template toFork*[T:
-    phase0.BeaconState |
-    phase0.HashedBeaconState |
-    phase0.BeaconBlock |
-    phase0.SignedBeaconBlock |
-    phase0.TrustedBeaconBlock |
-    phase0.BeaconBlockBody |
-    phase0.SigVerifiedBeaconBlockBody |
-    phase0.TrustedBeaconBlockBody |
-    phase0.SigVerifiedSignedBeaconBlock |
-    phase0.MsgTrustedSignedBeaconBlock |
-    phase0.TrustedSignedBeaconBlock](
-    t: type T): ConsensusFork =
-  ConsensusFork.Phase0
-
-template toFork*[T:
-    altair.BeaconState |
-    altair.HashedBeaconState |
-    altair.BeaconBlock |
-    altair.SignedBeaconBlock |
-    altair.TrustedBeaconBlock |
-    altair.BeaconBlockBody |
-    altair.SigVerifiedBeaconBlockBody |
-    altair.TrustedBeaconBlockBody |
-    altair.SigVerifiedSignedBeaconBlock |
-    altair.MsgTrustedSignedBeaconBlock |
-    altair.TrustedSignedBeaconBlock](
-    t: type T): ConsensusFork =
-  ConsensusFork.Altair
-
-template toFork*[T:
-    bellatrix.BeaconState |
-    bellatrix.HashedBeaconState |
-    bellatrix.ExecutionPayload |
-    bellatrix.ExecutionPayloadForSigning |
-    bellatrix.ExecutionPayloadHeader |
-    bellatrix.BeaconBlock |
-    bellatrix.SignedBeaconBlock |
-    bellatrix.TrustedBeaconBlock |
-    bellatrix.BeaconBlockBody |
-    bellatrix.SigVerifiedBeaconBlockBody |
-    bellatrix.TrustedBeaconBlockBody |
-    bellatrix.SigVerifiedSignedBeaconBlock |
-    bellatrix.MsgTrustedSignedBeaconBlock |
-    bellatrix.TrustedSignedBeaconBlock](
-    t: type T): ConsensusFork =
-  ConsensusFork.Bellatrix
-
-template toFork*[T:
-    capella.BeaconState |
-    capella.HashedBeaconState |
-    capella.ExecutionPayload |
-    capella.ExecutionPayloadForSigning |
-    capella.ExecutionPayloadHeader |
-    capella.BeaconBlock |
-    capella.SignedBeaconBlock |
-    capella.TrustedBeaconBlock |
-    capella.BeaconBlockBody |
-    capella.SigVerifiedBeaconBlockBody |
-    capella.TrustedBeaconBlockBody |
-    capella.SigVerifiedSignedBeaconBlock |
-    capella.MsgTrustedSignedBeaconBlock |
-    capella.TrustedSignedBeaconBlock](
-    t: type T): ConsensusFork =
-  ConsensusFork.Capella
-
-template toFork*[T:
-    deneb.BeaconState |
-    deneb.HashedBeaconState |
-    deneb.ExecutionPayload |
-    deneb.ExecutionPayloadForSigning |
-    deneb.ExecutionPayloadHeader |
-    deneb.BeaconBlock |
-    deneb.SignedBeaconBlock |
-    deneb.TrustedBeaconBlock |
-    deneb.BeaconBlockBody |
-    deneb.SigVerifiedBeaconBlockBody |
-    deneb.TrustedBeaconBlockBody |
-    deneb.SigVerifiedSignedBeaconBlock |
-    deneb.MsgTrustedSignedBeaconBlock |
-    deneb.TrustedSignedBeaconBlock](
-    t: type T): ConsensusFork =
-  ConsensusFork.Deneb
 
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)

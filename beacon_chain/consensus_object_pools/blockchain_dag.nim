@@ -339,10 +339,16 @@ proc getForkedBlock*(
     dag.db.getForkedBlock(root)
 
 func isCanonical*(dag: ChainDAGRef, bid: BlockId): bool =
-  ## Return true iff the given `bid` is part of the history selected by `dag.head`
+  ## Returns `true` if the given `bid` is part of the history selected by
+  ## `dag.head`.
   let current = dag.getBlockIdAtSlot(bid.slot).valueOr:
     return false # We don't know, so ..
   return current.bid == bid
+
+func isFinalized*(dag: ChainDAGRef, bid: BlockId): bool =
+  ## Returns `true` if the given `bid` is part of the finalized history
+  ## selected by `dag.finalizedHead`.
+  dag.isCanonical(bid) and (bid.slot <= dag.finalizedHead.slot)
 
 func parent*(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
   if bid.slot == 0:

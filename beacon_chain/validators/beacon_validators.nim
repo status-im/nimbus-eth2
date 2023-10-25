@@ -469,7 +469,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         var modified_execution_payload = execution_payload
         withState(state[]):
           when  consensusFork >= ConsensusFork.Capella and
-                PayloadType.toFork >= ConsensusFork.Capella:
+                PayloadType.kind >= ConsensusFork.Capella:
             let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
               get_expected_withdrawals(forkyState.data))
             if  withdrawals_root.isNone or
@@ -1195,6 +1195,8 @@ proc proposeBlock(node: BeaconNode,
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock, capella.ExecutionPayloadForSigning)
     else:
+      # Bellatrix MEV is not supported; this signals that, because it triggers
+      # intentional SignedBlindedBeaconBlock/ExecutionPayload mismatches.
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning)
 

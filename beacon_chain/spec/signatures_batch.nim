@@ -427,7 +427,7 @@ proc collectSignatureSets*(
 
   block:
     # 8. BLS to execution changes
-    when typeof(signed_block).toFork() >= ConsensusFork.Capella:
+    when typeof(signed_block).kind >= ConsensusFork.Capella:
       withState(state):
         when consensusFork >= ConsensusFork.Capella:
           for bls_change in signed_block.message.body.bls_to_execution_changes:

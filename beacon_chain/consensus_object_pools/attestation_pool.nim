@@ -10,7 +10,7 @@
 import
   # Status libraries
   metrics,
-  chronicles, stew/[byteutils, results],
+  chronicles, stew/byteutils,
   # Internal
   ../spec/[
     beaconstate, eth2_merkleization, forks, state_transition_epoch, validator],
@@ -20,7 +20,7 @@ import
 
 from std/sequtils import keepItIf, maxIndex
 
-export results, blockchain_dag, fork_choice
+export blockchain_dag, fork_choice
 
 const
   # TODO since deneb, this is looser (whole previous epoch)
@@ -621,10 +621,16 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   # Using a greedy algorithm, select as many attestations as possible that will
   # fit in the block.
   #
+  # Effectively https://en.wikipedia.org/wiki/Maximum_coverage_problem which
+  # therefore has inapproximability results of greedy algorithm optimality.
+  #
+  # Some research, also, has been done showing that one can tweak this and do
+  # a kind of k-greedy version where each greedy step tries all possible two,
+  # three, or higher-order tuples of next elements. These seem promising, but
+  # also expensive.
+  #
   # For each round, we'll look for the best attestation and add it to the result
   # then re-score the other candidates.
-  #
-  # A possible improvement here would be to use a maximum cover algorithm.
   var
     prevEpoch = state.data.get_previous_epoch()
     prevEpochSpace =

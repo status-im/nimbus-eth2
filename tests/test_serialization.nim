@@ -15,20 +15,6 @@ import
 
 suite "Serialization/deserialization test suite":
   test "RestErrorMessage parser tests":
-    proc init(t: typedesc[RestErrorMessage], status: int,
-              message: string): RestErrorMessage =
-      RestErrorMessage(
-        code: status, message: message,
-        stacktraces: none[seq[string]]()
-      )
-    proc init(t: typedesc[RestErrorMessage], status: int,
-              message: string,
-              stacktraces: openArray[string]): RestErrorMessage =
-      RestErrorMessage(
-        code: status, message: message,
-        stacktraces: some(@stacktraces)
-      )
-
     const GoodTestVectors = [
       (
         """{"code": 500, "message": "block not found"}""",
@@ -138,6 +124,7 @@ suite "Serialization/deserialization test suite":
         Opt.some(contentType))
       checkpoint test
       check res.isErr()
+
   test "RestErrorMessage writer tests":
     proc `==`(a: RestApiResponse, b: string): bool =
       case a.kind

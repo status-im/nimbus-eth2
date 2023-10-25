@@ -8,7 +8,7 @@
 import
   std/uri,
   stew/io2, chronos, chronos/apps/http/httpclient, snappy,
-  ../spec/digest
+  ../spec/[digest, forks], ../spec/datatypes/base
 
 import network_metadata
 export network_metadata
@@ -29,15 +29,16 @@ proc downloadFile(url: Uri): Future[seq[byte]] {.async.} =
       msg: "Unexpected status code " & $response[0] & " when fetching " & $url,
       status: response[0])
 
-proc fetchBytes*(metadata: GenesisMetadata,
-                 genesisStateUrlOverride = none(Uri)): Future[seq[byte]] {.async.} =
-  case metadata.kind
+proc fetchGenesisBytes*(
+    metadata: Eth2NetworkMetadata,
+    genesisStateUrlOverride = none(Uri)): Future[seq[byte]] {.async.} =
+  case metadata.genesis.kind
   of NoGenesis:
-    raiseAssert "fetchBytes should be called only when metadata.hasGenesis is true"
+    raiseAssert "fetchGenesisBytes should be called only when metadata.hasGenesis is true"
   of BakedIn:
-    result = @(metadata.bakedBytes)
+    result = @(metadata.genesis.bakedBytes)
   of BakedInUrl:
-    result = await downloadFile(genesisStateUrlOverride.get(parseUri metadata.url))
+    result = await downloadFile(genesisStateUrlOverride.get(parseUri metadata.genesis.url))
     # Under the built-in default URL, we serve a snappy-encoded BeaconState in order
     # to reduce the size of the downloaded file with roughly 50% (this precise ratio
     # depends on the number of validator recors). The user is still free to provide
@@ -54,11 +55,13 @@ proc fetchBytes*(metadata: GenesisMetadata,
     #       HTTP servers.
     if result.isSnappyFramedStream:
       result = decodeFramed(result)
-    if eth2digest(result) != metadata.digest:
-      raise (ref DigestMismatchError)(
-        msg: "The downloaded genesis state cannot be verified (checksum mismatch)")
+    let state = newClone(readSszForkedHashedBeaconState(metadata.cfg, result))
+    withState(state[]):
+      if forkyState.root != metadata.genesis.digest:
+        raise (ref DigestMismatchError)(
+          msg: "The downloaded genesis state cannot be verified (checksum mismatch)")
   of UserSuppliedFile:
-    result = readAllBytes(metadata.path).tryGet()
+    result = readAllBytes(metadata.genesis.path).tryGet()
 
 proc sourceDesc*(metadata: GenesisMetadata): string =
   case metadata.kind
@@ -75,5 +78,5 @@ when isMainModule:
   let holeskyMetadata = getMetadataForNetwork("holesky")
   io2.writeFile(
     "holesky-genesis.ssz",
-    waitFor holeskyMetadata.genesis.fetchBytes()
+    waitFor holeskyMetadata.fetchGenesisBytes()
   ).expect("success")

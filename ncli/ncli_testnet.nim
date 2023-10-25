@@ -467,7 +467,7 @@ proc doCreateTestnet*(config: CliConfig,
     let outSszGenesis = outGenesis.changeFileExt "ssz"
     SSZ.saveFile(outSszGenesis, initialState[])
     info "SSZ genesis file written",
-          path = outSszGenesis, fork = toFork(typeof initialState[])
+          path = outSszGenesis, fork = kind(typeof initialState[])
 
     SSZ.saveFile(
       config.outputDepositTreeSnapshot.string,
