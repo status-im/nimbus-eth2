@@ -19,8 +19,21 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   var nodes = vc.beaconNodes
   while true:
     var pendingRequests: seq[Future[RestResponse[GetGenesisResponse]]]
-    for node in nodes:
-      debug "Requesting genesis information", endpoint = node
+    let offlineNodes = vc.offlineNodes()
+    if len(offlineNodes) == 0:
+      let sleepDuration = 2.seconds
+      info "Could not resolve beacon nodes, repeating",
+           sleep_time = sleepDuration
+      await sleepAsync(sleepDuration)
+      for node in vc.nonameNodes():
+        let status = checkName(node)
+        node.updateStatus(status, ApiNodeFailure())
+        if status == RestBeaconNodeStatus.Noname:
+          warn "Cannot initialize beacon node", node = node, status = status
+      continue
+
+    for node in offlineNodes:
+      debug "Requesting genesis information", node = node
       pendingRequests.add(node.client.getGenesis())
 
     try:
@@ -85,7 +98,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
             dec(counter)
       return melem
 
-proc addValidatorsFromWeb3Signer(vc: ValidatorClientRef, web3signerUrl: Uri) {.async.} =
+proc addValidatorsFromWeb3Signer(vc: ValidatorClientRef, web3signerUrl: Web3SignerUrl) {.async.} =
   let res = await queryValidatorsSource(web3signerUrl)
   if res.isOk():
     let dynamicKeystores = res.get()
@@ -98,7 +111,7 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
     vc.addValidator(keystore)
 
   let web3signerValidatorsFuts = mapIt(
-    vc.config.web3signers,
+    vc.config.web3SignerUrls,
     vc.addValidatorsFromWeb3Signer(it))
 
   # We use `allFutures` because all failures are already reported as
@@ -240,7 +253,8 @@ proc new*(T: type ValidatorClientRef,
           warn "Unable to initialize remote beacon node",
                 url = $url, error = res.error()
         else:
-          debug "Beacon node was initialized", node = res.get()
+          if res.get().status != RestBeaconNodeStatus.Noname:
+            debug "Beacon node was initialized", node = res.get()
           servers.add(res.get())
       let missingRoles = getMissingRoles(servers)
       if len(missingRoles) != 0:
@@ -296,7 +310,10 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
                                        beacon_nodes_count = len(vc.beaconNodes)
 
   for node in vc.beaconNodes:
-    notice "Beacon node initialized", node = node
+    if node.status == RestBeaconNodeStatus.Offline:
+      notice "Beacon node initialized", node = node
+    else:
+      notice "Cannot initialize beacon node", node = node, status = node.status
 
   vc.beaconGenesis = await vc.initGenesis()
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
@@ -347,9 +364,10 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
     vc.blockService = await BlockServiceRef.init(vc)
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
     vc.keymanagerServer = keymanagerInitResult.server
-    if vc.keymanagerServer != nil:
+    if not(isNil(vc.keymanagerServer)):
       vc.keymanagerHost = newClone KeymanagerHost.init(
         validatorPool,
+        vc.keystoreCache,
         vc.rng,
         keymanagerInitResult.token,
         vc.config.validatorsDir,
@@ -394,14 +412,16 @@ proc runPreGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
       try:
         await sleepAsync(vc.beaconClock.durationToNextSlot())
         false
-      except CancelledError:
+      except CancelledError as exc:
         debug "Pre-genesis waiting loop was interrupted"
-        true
+        raise exc
       except CatchableError as exc:
         error "Pre-genesis waiting loop failed with unexpected error",
               err_name = $exc.name, err_msg = $exc.msg
         true
-  vc.preGenesisEvent.fire()
+
+  if not(breakLoop):
+    vc.preGenesisEvent.fire()
 
 proc runGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
   var breakLoop = false
@@ -419,14 +439,16 @@ proc runGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
       try:
         await sleepAsync(vc.beaconClock.durationToNextSlot())
         false
-      except CancelledError:
+      except CancelledError as exc:
         debug "Genesis waiting loop was interrupted"
-        true
+        raise exc
       except CatchableError as exc:
         error "Genesis waiting loop failed with unexpected error",
               err_name = $exc.name, err_msg = $exc.msg
         true
-  vc.genesisEvent.fire()
+
+  if not(breakLoop):
+    vc.genesisEvent.fire()
 
 proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
@@ -437,8 +459,8 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   vc.blockService.start()
   vc.syncCommitteeService.start()
 
-  if not isNil(vc.keymanagerServer):
-    doAssert vc.keymanagerHost != nil
+  if not(isNil(vc.keymanagerServer)):
+    doAssert not(isNil(vc.keymanagerHost))
     vc.keymanagerServer.router.installKeymanagerHandlers(vc.keymanagerHost[])
     vc.keymanagerServer.start()
 
@@ -471,9 +493,10 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
 
   debug "Stopping main processing loop"
   var pending: seq[Future[void]]
-  if not(vc.runSlotLoopFut.finished()):
+  if not(isNil(vc.runSlotLoopFut)) and not(vc.runSlotLoopFut.finished()):
     pending.add(vc.runSlotLoopFut.cancelAndWait())
-  if not(vc.runKeystoreCachePruningLoopFut.finished()):
+  if not(isNil(vc.runKeystoreCachePruningLoopFut)) and
+     not(vc.runKeystoreCachePruningLoopFut.finished()):
     pending.add(vc.runKeystoreCachePruningLoopFut.cancelAndWait())
   if not(doppelEventFut.finished()):
     pending.add(doppelEventFut.cancelAndWait())
@@ -534,5 +557,6 @@ programMain:
     # and avoid using system resources (such as urandom) after that
     rng = HmacDrbgContext.new()
 
+  setupFileLimits()
   setupLogging(config.logLevel, config.logStdout, config.logFile)
   waitFor runValidatorClient(config, rng)

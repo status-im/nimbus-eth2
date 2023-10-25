@@ -725,6 +725,26 @@ template writeValue*(w: var JsonWriter,
                      value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
   writeJsonHexString(w.stream, distinctBase value)
 
+func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, string] =
+  if propertyPath == ".execution_payload.fee_recipient":
+    ok ProvenProperty(
+      path: propertyPath,
+      bellatrixIndex: some GeneralizedIndex(401),
+      capellaIndex: some GeneralizedIndex(401),
+      denebIndex: some GeneralizedIndex(801))
+  elif propertyPath == ".graffiti":
+    ok ProvenProperty(
+      path: propertyPath,
+      # TODO: graffiti is present since genesis, so the correct index in the early
+      #       forks can be supplied here
+      bellatrixIndex: some GeneralizedIndex(18),
+      capellaIndex: some GeneralizedIndex(18),
+      denebIndex: some GeneralizedIndex(18))
+  else:
+    err("Keystores with proven properties different than " &
+        "`.execution_payload.fee_recipient` and `.graffiti` " &
+        "require a more recent version of Nimbus")
+
 proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
                {.raises: [SerializationError, IOError].} =
   var
@@ -830,6 +850,8 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
           prop.capellaIndex = some GeneralizedIndex(401)
           prop.denebIndex = some GeneralizedIndex(801)
         elif prop.path == ".graffiti":
+          # TODO: graffiti is present since genesis, so the correct index in the early
+          #       forks can be supplied here
           prop.bellatrixIndex = some GeneralizedIndex(18)
           prop.capellaIndex = some GeneralizedIndex(18)
           prop.denebIndex = some GeneralizedIndex(18)
@@ -1369,7 +1391,7 @@ func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 

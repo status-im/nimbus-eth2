@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
+
 from stew/objects import isZeroMemory
 
 import ./eth2_merkleization
@@ -35,11 +44,11 @@ template getDepositCountU64*(d: OldDepositContractSnapshot |
 
 func getDepositRoot*(d: OldDepositContractSnapshot |
                         DepositTreeSnapshot): Eth2Digest =
-  let merk = DepositsMerkleizer.init(d.depositContractState)
+  var merk = DepositsMerkleizer.init(d.depositContractState)
   let hash = merk.getFinalHash()
   # TODO: mixInLength should accept unsigned int instead of int as
   # this right now cuts in half the theoretical number of deposits.
-  return mixInLength(hash, int(merk.totalChunks))
+  return mixInLength(hash, int(merk.getChunkCount()))
 
 func isValid*(d: DepositTreeSnapshot, wantedDepositRoot: Eth2Digest): bool =
   ## `isValid` requires the snapshot to be self-consistent and

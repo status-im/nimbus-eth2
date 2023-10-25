@@ -1873,6 +1873,9 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Deneb - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
++ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
++ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
++ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
 + Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
 + Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
@@ -1889,7 +1892,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
+OK: 18/18 Fail: 0/18 Skip: 0/18
 ## EF - Deneb - Epoch Processing - Rewards and penalties [Preset: minimal]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
@@ -2644,15 +2647,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## EF - Phase 0 - Finality  [Preset: minimal]
-```diff
-+ [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
-+ [Valid]   EF - Phase 0 - Finality - finality_rule_1 [Preset: minimal]                      OK
-+ [Valid]   EF - Phase 0 - Finality - finality_rule_2 [Preset: minimal]                      OK
-+ [Valid]   EF - Phase 0 - Finality - finality_rule_3 [Preset: minimal]                      OK
-+ [Valid]   EF - Phase 0 - Finality - finality_rule_4 [Preset: minimal]                      OK
-```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Phase 0 - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: mi OK
@@ -2796,26 +2790,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 ```
 OK: 10/10 Fail: 0/10 Skip: 0/10
-## EF - Phase 0 - Random  [Preset: minimal]
-```diff
-+ [Valid]   EF - Phase 0 - Random - randomized_0 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_1 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_10 [Preset: minimal]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_11 [Preset: minimal]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_12 [Preset: minimal]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_13 [Preset: minimal]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_14 [Preset: minimal]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_15 [Preset: minimal]                          OK
-+ [Valid]   EF - Phase 0 - Random - randomized_2 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_3 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_4 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_5 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_6 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_7 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_8 [Preset: minimal]                           OK
-+ [Valid]   EF - Phase 0 - Random - randomized_9 [Preset: minimal]                           OK
-```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Phase 0 - Rewards  [Preset: minimal]
 ```diff
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
@@ -2900,55 +2874,6 @@ OK: 49/49 Fail: 0/49 Skip: 0/49
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 27/27 Fail: 0/27 Skip: 0/27
-## EF - Phase 0 - Sanity - Blocks  [Preset: minimal]
-```diff
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]   OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]  OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mi OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal] OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_proposal_for_genesis_slot [Preset: mini OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: min OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - attestation [Preset: minimal]                   OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - historical_batch [Preset: minimal]              OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
-+ [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
-```
-OK: 45/45 Fail: 0/45 Skip: 0/45
 ## EF - Phase 0 - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Phase 0 - Slots - double_empty_epoch [Preset: minimal]                                OK
@@ -2959,6 +2884,84 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + EF - Phase 0 - Slots - slots_2 [Preset: minimal]                                           OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Phase0 - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - Phase0 - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
++ [Valid]   EF - Phase0 - Finality - finality_rule_1 [Preset: minimal]                       OK
++ [Valid]   EF - Phase0 - Finality - finality_rule_2 [Preset: minimal]                       OK
++ [Valid]   EF - Phase0 - Finality - finality_rule_3 [Preset: minimal]                       OK
++ [Valid]   EF - Phase0 - Finality - finality_rule_4 [Preset: minimal]                       OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Phase0 - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - Phase0 - Random - randomized_0 [Preset: minimal]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_1 [Preset: minimal]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_10 [Preset: minimal]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_11 [Preset: minimal]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_12 [Preset: minimal]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_13 [Preset: minimal]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_14 [Preset: minimal]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_15 [Preset: minimal]                           OK
++ [Valid]   EF - Phase0 - Random - randomized_2 [Preset: minimal]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_3 [Preset: minimal]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_4 [Preset: minimal]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_5 [Preset: minimal]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_6 [Preset: minimal]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_7 [Preset: minimal]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_8 [Preset: minimal]                            OK
++ [Valid]   EF - Phase0 - Random - randomized_9 [Preset: minimal]                            OK
+```
+OK: 16/16 Fail: 0/16 Skip: 0/16
+## EF - Phase0 - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]    OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expect OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propos OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]   OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: min OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]  OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mini OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_proposal_for_genesis_slot [Preset: minim OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mini OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
++ [Invalid] EF - Phase0 - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - attestation [Preset: minimal]                    OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - attester_slashing [Preset: minimal]              OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pres OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: m OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]      OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]   OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_0 [Preset: minimal]       OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_1 [Preset: minimal]       OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_2 [Preset: minimal]       OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - full_random_operations_3 [Preset: minimal]       OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - high_proposer_index [Preset: minimal]            OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - historical_batch [Preset: minimal]               OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset:  OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pre OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]  OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_self_slashing [Preset: minimal]         OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - proposer_slashing [Preset: minimal]              OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
++ [Valid]   EF - Phase0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
+```
+OK: 45/45 Fail: 0/45 Skip: 0/45
 ## ForkChoice
 ```diff
 + ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
@@ -2993,6 +2996,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
   ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost               OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_bloc OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/pull_up_on_tick              OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block     OK
@@ -3038,6 +3042,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_s OK
   ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_future_block     Skip
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost            OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_b OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/pull_up_on_tick           OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block  OK
@@ -3087,6 +3092,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
   ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_blo OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/pull_up_on_tick             OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block    OK
@@ -3116,6 +3122,10 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_data_unavailable      OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_incorrect_proof       OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_blobs_length    OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_proofs_length   OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_update_beginnin OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_update_end_of_e OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding     OK
@@ -3132,9 +3142,11 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots OK
   ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost                OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/pull_up_on_tick               OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block      OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/delayed_justification_current_ep OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/delayed_justification_previous_e OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
@@ -3146,7 +3158,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack         OK
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack_unviabl OK
 ```
-OK: 176/184 Fail: 0/184 Skip: 8/184
+OK: 185/193 Fail: 0/193 Skip: 8/193
 ## Sync
 ```diff
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
@@ -3156,4 +3168,4 @@ OK: 176/184 Fail: 0/184 Skip: 8/184
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2566/2574 Fail: 0/2574 Skip: 8/2574
+OK: 2578/2586 Fail: 0/2586 Skip: 8/2586

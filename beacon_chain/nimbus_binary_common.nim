@@ -106,6 +106,17 @@ when defaultChroniclesStream.outputs.type.arity == 2:
   from std/os import splitFile
   from "."/filepath import secureCreatePath
 
+proc setupFileLimits*() =
+  when not defined(windows):
+    # In addition to databases and sockets, we need a file descriptor for every
+    # validator - setting it to 16k should provide sufficient margin
+    let
+      limit = getMaxOpenFiles2().valueOr(16384)
+
+    if limit < 16384:
+      setMaxOpenFiles2(16384).isOkOr:
+        warn "Cannot increase open file limit", err = osErrorMsg(error)
+
 proc setupLogging*(
     logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
   # In the cfg file for nimbus, we create two formats: textlines and json.

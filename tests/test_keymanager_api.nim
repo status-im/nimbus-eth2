@@ -295,12 +295,13 @@ proc startBeaconNode(basePort: int) {.raises: [CatchableError].} =
     "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
     "--keymanager-token-file=" & tokenFilePath,
     "--suggested-fee-recipient=" & $defaultFeeRecipient,
-    "--doppelganger-detection=off"], it))
+    "--doppelganger-detection=off",
+    "--debug-forkchoice-version=stable"], it))
   except Exception as exc: # TODO fix confutils exceptions
     raiseAssert exc.msg
 
   let
-    metadata = loadEth2NetworkMetadata(dataDir)
+    metadata = loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
     node = waitFor BeaconNode.init(rng, runNodeConf, metadata)
 
   node.start() # This will run until the node is terminated by

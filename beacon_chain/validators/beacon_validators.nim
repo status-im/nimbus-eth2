@@ -15,7 +15,7 @@
 
 import
   # Standard library
-  std/[os, tables, sequtils],
+  std/[os, tables],
 
   # Nimble packages
   stew/[assign2, byteutils],
@@ -41,8 +41,9 @@ import
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     keystore_management, slashing_protection, validator_duties, validator_pool],
-  ".."/spec/mev/rest_capella_mev_calls
+  ".."/spec/mev/[rest_capella_mev_calls, rest_deneb_mev_calls]
 
+from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
 
 const
@@ -114,7 +115,7 @@ proc getValidator*(validators: auto,
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
                                validator: validators[idx])
 
-proc addValidatorsFromWeb3Signer(node: BeaconNode, web3signerUrl: Uri, epoch: Epoch) {.async.} =
+proc addValidatorsFromWeb3Signer(node: BeaconNode, web3signerUrl: Web3SignerUrl, epoch: Epoch) {.async.} =
   let dynamicStores =
     try:
       let res = await queryValidatorsSource(web3signerUrl)
@@ -172,7 +173,7 @@ proc addValidators*(node: BeaconNode) =
     # user-visible warnings in `queryValidatorsSource`.
     # We don't consider them fatal because the Web3Signer may be experiencing
     # a temporary hiccup that will be resolved later.
-    waitFor allFutures(mapIt(node.config.web3signers,
+    waitFor allFutures(mapIt(node.config.web3SignerUrls,
                              node.addValidatorsFromWeb3Signer(it, epoch)))
   except CatchableError as err:
     # This should never happen because all errors are handled within
@@ -183,7 +184,7 @@ proc addValidators*(node: BeaconNode) =
            err = err.msg
 
 proc pollForDynamicValidators*(node: BeaconNode,
-                               web3signerUrl: Uri,
+                               web3signerUrl: Web3SignerUrl,
                                intervalInSeconds: int) {.async.} =
   if intervalInSeconds == 0:
     return
@@ -214,7 +215,7 @@ proc pollForDynamicValidators*(node: BeaconNode,
               let keystores = res.get()
               debug "Validators source has been polled for validators",
                     keystores_found = len(keystores),
-                    web3signer_url = web3signerUrl
+                    web3signer_url = web3signerUrl.url
               node.attachedValidators.updateDynamicValidators(web3signerUrl,
                                                               keystores,
                                                               addValidatorProc)
@@ -409,16 +410,21 @@ proc getExecutionPayload(
           get_expected_withdrawals(forkyState.data)
         else:
           @[]
-      payload = await node.elManager.getPayload(
-        PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
-        latestFinalized, timestamp, random, feeRecipient, withdrawals)
 
-    if payload.isNone:
+    info "Requesting engine payload",
+      beaconHead = shortLog(beaconHead.blck),
+      executionHead = shortLog(executionHead),
+      validatorIndex = validator_index,
+      feeRecipient = $feeRecipient
+
+    let payload = (await node.elManager.getPayload(
+        PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
+        latestFinalized, timestamp, random, feeRecipient, withdrawals)).valueOr:
       error "Failed to obtain execution payload from EL",
              executionHeadBlock = executionHead
       return Opt.none(PayloadType)
 
-    return Opt.some payload.get
+    return Opt.some payload
   except CatchableError as err:
     beacon_block_payload_errors.inc()
     error "Error creating non-empty execution payload",
@@ -464,7 +470,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         var modified_execution_payload = execution_payload
         withState(state[]):
           when  consensusFork >= ConsensusFork.Capella and
-                PayloadType.toFork >= ConsensusFork.Capella:
+                PayloadType.kind >= ConsensusFork.Capella:
             let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
               get_expected_withdrawals(forkyState.data))
             if  withdrawals_root.isNone or
@@ -558,25 +564,20 @@ proc makeBeaconBlockForHeadAndSlot*(
     withdrawals_root = Opt.none(Eth2Digest))
 
 proc getBlindedExecutionPayload[
-    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader |
-    deneb.ExecutionPayloadHeader](
+    EPH: capella.ExecutionPayloadHeader | deneb.ExecutionPayloadHeader](
     node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
     executionBlockRoot: Eth2Digest, pubkey: ValidatorPubKey):
     Future[BlindedBlockResult[EPH]] {.async.} =
   when EPH is deneb.ExecutionPayloadHeader:
-    let blindedHeader = default(RestResponse[GetHeaderResponseDeneb])
-    debugRaiseAssert $denebImplementationMissing &
-      ": makeBlindedBeaconBlockForHeadAndSlot"
+    let blindedHeader = awaitWithTimeout(
+      payloadBuilderClient.getHeaderDeneb(slot, executionBlockRoot, pubkey),
+      BUILDER_PROPOSAL_DELAY_TOLERANCE):
+        return err "Timeout obtaining Deneb blinded header from builder"
   elif EPH is capella.ExecutionPayloadHeader:
     let blindedHeader = awaitWithTimeout(
       payloadBuilderClient.getHeaderCapella(slot, executionBlockRoot, pubkey),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
         return err "Timeout obtaining Capella blinded header from builder"
-  elif EPH is bellatrix.ExecutionPayloadHeader:
-    let blindedHeader = awaitWithTimeout(
-      payloadBuilderClient.getHeaderBellatrix(slot, executionBlockRoot, pubkey),
-      BUILDER_PROPOSAL_DELAY_TOLERANCE):
-        return err "Timeout obtaining Bellatrix blinded header from builder"
   else:
     static: doAssert false
 
@@ -631,7 +632,7 @@ func constructPlainBlindedBlock[
 
   blindedBlock
 
-proc blindedBlockCheckSlashingAndSign[T](
+proc blindedBlockCheckSlashingAndSign[T: capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
     Future[Result[T, string]] {.async.} =
@@ -666,27 +667,34 @@ proc blindedBlockCheckSlashingAndSign[T](
 
   return ok blindedBlock
 
+proc blindedBlockCheckSlashingAndSign[
+    T: deneb_mev.SignedBlindedBeaconBlockContents](
+    node: BeaconNode, slot: Slot, validator: AttachedValidator,
+    validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
+    Future[Result[T, string]] {.async.} =
+  debugRaiseAssert $denebImplementationMissing
+
 proc getUnsignedBlindedBeaconBlock[
     T: capella_mev.SignedBlindedBeaconBlock |
        deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: bellatrix.ExecutionPayloadHeader |
-                            capella.ExecutionPayloadHeader |
+    executionPayloadHeader: capella.ExecutionPayloadHeader |
                             deneb.ExecutionPayloadHeader): Result[T, string] =
   withBlck(forkedBlock):
     when consensusFork >= ConsensusFork.Deneb:
       debugRaiseAssert $denebImplementationMissing & ": getUnsignedBlindedBeaconBlock"
       return err("getUnsignedBlindedBeaconBlock: Deneb blinded block creation not implemented")
-    elif consensusFork >= ConsensusFork.Bellatrix:
+    elif consensusFork >= ConsensusFork.Capella:
       when not (
           (T is capella_mev.SignedBlindedBeaconBlock and
            consensusFork == ConsensusFork.Capella)):
         return err("getUnsignedBlindedBeaconBlock: mismatched block/payload types")
       else:
-        return ok constructSignableBlindedBlock[T](blck, executionPayloadHeader)
+        return ok constructSignableBlindedBlock[T](
+          forkyBlck, executionPayloadHeader)
     else:
-      return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Bellatrix blinded block")
+      return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Capella blinded block")
 
 proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
@@ -722,10 +730,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
   # processing does not work directly using blinded blocks, fix up transactions
   # root after running the state transition function on an otherwise equivalent
   # non-blinded block without transactions.
-  when EPH is bellatrix.ExecutionPayloadHeader:
-    type PayloadType = bellatrix.ExecutionPayloadForSigning
-    let withdrawals_root = Opt.none Eth2Digest
-  elif EPH is capella.ExecutionPayloadHeader:
+  when EPH is capella.ExecutionPayloadHeader:
     type PayloadType = capella.ExecutionPayloadForSigning
     let withdrawals_root =
       Opt.some executionPayloadHeader.get.blindedBlckPart.withdrawals_root
@@ -766,7 +771,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
 
 proc getBuilderBid[
     SBBB: capella_mev.SignedBlindedBeaconBlock |
-          deneb_mev.SignedBlindedBeaconBlock](
+          deneb_mev.SignedBlindedBeaconBlockContents](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     validator: AttachedValidator, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex):
@@ -775,7 +780,7 @@ proc getBuilderBid[
   ## Used by the BN's own validators, but not the REST server
   when SBBB is capella_mev.SignedBlindedBeaconBlock:
     type EPH = capella.ExecutionPayloadHeader
-  elif SBBB is deneb_mev.SignedBlindedBeaconBlock:
+  elif SBBB is deneb_mev.SignedBlindedBeaconBlockContents:
     type EPH = deneb.ExecutionPayloadHeader
   else:
     static: doAssert false
@@ -802,7 +807,9 @@ proc getBuilderBid[
   return ok (unsignedBlindedBlock.get, bidValue)
 
 proc proposeBlockMEV(
-    node: BeaconNode, payloadBuilderClient: RestClientRef, blindedBlock: auto):
+    node: BeaconNode, payloadBuilderClient: RestClientRef,
+    blindedBlock: capella_mev.SignedBlindedBeaconBlock |
+                  deneb_mev.SignedBlindedBeaconBlockContents):
     Future[Result[BlockRef, string]] {.async.} =
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
     payloadBuilderClient, blindedBlock)
@@ -878,19 +885,17 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
 
   let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
   withBlck(forkedBlck):
-    when consensusFork >= ConsensusFork.Deneb:
-      debugRaiseAssert $denebImplementationMissing & ": makeBlindedBeaconBlockForHeadAndSlot"
-    elif consensusFork >= ConsensusFork.Bellatrix:
-      when ((consensusFork == ConsensusFork.Bellatrix and
-             EPH is bellatrix.ExecutionPayloadHeader) or
+    when consensusFork >= ConsensusFork.Capella:
+      when ((consensusFork == ConsensusFork.Deneb and
+             EPH is deneb.ExecutionPayloadHeader) or
             (consensusFork == ConsensusFork.Capella and
              EPH is capella.ExecutionPayloadHeader)):
         return ok (constructPlainBlindedBlock[BBB, EPH](
-          blck, executionPayloadHeader), bidValue)
+          forkyBlck, executionPayloadHeader), bidValue)
       else:
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
     else:
-      return err("Attempt to create pre-Bellatrix blinded block")
+      return err("Attempt to create pre-Capella blinded block")
 
 proc collectBidFutures(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
@@ -1040,7 +1045,7 @@ proc proposeBlockAux(
 
   withBlck(forkedBlck):
     let
-      blockRoot = hash_tree_root(blck)
+      blockRoot = hash_tree_root(forkyBlck)
       signingRoot = compute_block_signing_root(
         fork, genesis_validators_root, slot, blockRoot)
 
@@ -1049,7 +1054,7 @@ proc proposeBlockAux(
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
     let blobSidecarsOpt =
-      when blck is deneb.BeaconBlock:
+      when forkyBlck is deneb.BeaconBlock:
         var sidecars: seq[BlobSidecar]
         let bundle = collectedBids.engineBlockFut.read.get().blobsBundleOpt.get
         let (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
@@ -1058,23 +1063,25 @@ proc proposeBlockAux(
             block_root: blockRoot,
             index: BlobIndex(i),
             slot: slot,
-            block_parent_root: blck.parent_root,
-            proposer_index: blck.proposer_index,
+            block_parent_root: forkyBlck.parent_root,
+            proposer_index: forkyBlck.proposer_index,
             blob: blobs[i],
             kzg_commitment: kzgs[i],
             kzg_proof: proofs[i]
           )
           sidecars.add(sidecar)
         Opt.some(sidecars)
-      elif blck is phase0.BeaconBlock or blck is altair.BeaconBlock or
-           blck is bellatrix.BeaconBlock or  blck is capella.BeaconBlock:
+      elif forkyBlck is phase0.BeaconBlock or
+           forkyBlck is altair.BeaconBlock or
+           forkyBlck is bellatrix.BeaconBlock or
+           forkyBlck is capella.BeaconBlock:
         Opt.none(seq[BlobSidecar])
       else:
         static: doAssert "Unknown BeaconBlock type"
 
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",
-        blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+        blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
         signingRoot = shortLog(signingRoot),
         validator = validator.pubkey,
         slot = slot,
@@ -1092,28 +1099,30 @@ proc proposeBlockAux(
             return head
           res.get()
       signedBlock =
-        when blck is phase0.BeaconBlock:
+        when forkyBlck is phase0.BeaconBlock:
           phase0.SignedBeaconBlock(
-            message: blck, signature: signature, root: blockRoot)
-        elif blck is altair.BeaconBlock:
+            message: forkyBlck, signature: signature, root: blockRoot)
+        elif forkyBlck is altair.BeaconBlock:
           altair.SignedBeaconBlock(
-            message: blck, signature: signature, root: blockRoot)
-        elif blck is bellatrix.BeaconBlock:
+            message: forkyBlck, signature: signature, root: blockRoot)
+        elif forkyBlck is bellatrix.BeaconBlock:
           bellatrix.SignedBeaconBlock(
-            message: blck, signature: signature, root: blockRoot)
-        elif blck is capella.BeaconBlock:
+            message: forkyBlck, signature: signature, root: blockRoot)
+        elif forkyBlck is capella.BeaconBlock:
           capella.SignedBeaconBlock(
-            message: blck, signature: signature, root: blockRoot)
-        elif blck is deneb.BeaconBlock:
+            message: forkyBlck, signature: signature, root: blockRoot)
+        elif forkyBlck is deneb.BeaconBlock:
           deneb.SignedBeaconBlock(
-            message: blck, signature: signature, root: blockRoot)
+            message: forkyBlck, signature: signature, root: blockRoot)
         else:
           static: doAssert "Unknown SignedBeaconBlock type"
       signedBlobs =
-        when blck is phase0.BeaconBlock or blck is altair.BeaconBlock or
-             blck is bellatrix.BeaconBlock or blck is capella.BeaconBlock:
+        when forkyBlck is phase0.BeaconBlock or
+             forkyBlck is altair.BeaconBlock or
+             forkyBlck is bellatrix.BeaconBlock or
+             forkyBlck is capella.BeaconBlock:
           Opt.none(SignedBlobSidecars)
-        elif blck is deneb.BeaconBlock:
+        elif forkyBlck is deneb.BeaconBlock:
           var signed: seq[SignedBlobSidecar]
           let blobSidecars = blobSidecarsOpt.get()
           for i in 0..<blobs.len:
@@ -1139,7 +1148,7 @@ proc proposeBlockAux(
       return head # Validation errors logged in router
 
     notice "Block proposed",
-      blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+      blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
       signature = shortLog(signature), validator = shortLog(validator)
 
     beacon_blocks_proposed.inc()
@@ -1180,11 +1189,14 @@ proc proposeBlock(node: BeaconNode,
   return
     if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
       proposeBlockContinuation(
-        deneb_mev.SignedBlindedBeaconBlock, deneb.ExecutionPayloadForSigning)
+        deneb_mev.SignedBlindedBeaconBlockContents,
+        deneb.ExecutionPayloadForSigning)
     elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock, capella.ExecutionPayloadForSigning)
     else:
+      # Bellatrix MEV is not supported; this signals that, because it triggers
+      # intentional SignedBlindedBeaconBlock/ExecutionPayload mismatches.
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning)
 
@@ -1551,15 +1563,22 @@ proc getValidatorRegistration(
 
   return ok validatorRegistration
 
-proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
+proc registerValidatorsPerBuilder(
+    node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,
+    attachedValidatorPubkeys: seq[ValidatorPubKey]) {.async.} =
+  const HttpOk = 200
+
   try:
-    if not node.config.payloadBuilderEnable: return
-
-    const HttpOk = 200
-
-    let payloadBuilderClient = node.getPayloadBuilderClient(0).valueOr:
+    let payloadBuilderClient =
+        RestClientRef.new(payloadBuilderAddress).valueOr:
       debug "Unable to initialize payload builder client while registering validators",
+        payloadBuilderAddress, epoch,
         err = error
+      return
+
+    if payloadBuilderClient.isNil:
+      debug "registerValidatorsPerBuilder: got nil payload builder REST client reference",
+        payloadBuilderAddress, epoch
       return
 
     let restBuilderStatus = awaitWithTimeout(payloadBuilderClient.checkBuilderStatus(),
@@ -1572,11 +1591,6 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
         builderUrl = node.config.payloadBuilderUrl,
         builderStatus = restBuilderStatus
       return
-
-    # The async aspect of signing the registrations can cause the attached
-    # validators to change during the loop.
-    let attachedValidatorPubkeys =
-      toSeq(node.attachedValidators[].validators.keys)
 
     const emptyNestedSeq = @[newSeq[SignedValidatorRegistrationV1](0)]
     # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#validator-registration
@@ -1677,6 +1691,23 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   except CatchableError as exc:
     warn "registerValidators: exception",
       error = exc.msg
+
+proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
+  if not node.config.payloadBuilderEnable: return
+
+  var builderKeys: Table[string, seq[ValidatorPubKey]]
+  for pubkey in node.attachedValidators[].validators.keys:
+    let payloadBuilderAddress = node.getPayloadBuilderAddress(pubkey).valueOr:
+      continue
+
+    if payloadBuilderAddress in builderKeys:
+      builderKeys[payloadBuilderAddress].add pubkey
+    else:
+      builderKeys[payloadBuilderAddress] = @[pubkey]
+
+  for payloadBuilderAddress in builderKeys.keys:
+    await node.registerValidatorsPerBuilder(
+      payloadBuilderAddress, epoch, builderKeys[payloadBuilderAddress])
 
 proc updateValidators(
     node: BeaconNode, validators: openArray[Validator]) =

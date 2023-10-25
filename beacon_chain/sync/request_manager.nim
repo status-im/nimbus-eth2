@@ -353,7 +353,7 @@ proc start*(rman: var RequestManager) =
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
   if not(isNil(rman.blockLoopFuture)):
-    rman.blockLoopFuture.cancel()
+    rman.blockLoopFuture.cancelSoon()
   if not(isNil(rman.blobLoopFuture)):
-    rman.blobLoopFuture.cancel()
+    rman.blobLoopFuture.cancelSoon()
 

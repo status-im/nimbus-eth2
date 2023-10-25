@@ -186,8 +186,18 @@ suite "Block pool processing" & preset():
       nextEpochSlot = nextEpoch.start_slot()
       parentBsi = dag.head.parent.atSlot(nextEpochSlot).toBlockSlotId().get()
       stateCheckpoint = dag.stateCheckpoint(parentBsi)
+      shufflingRef = dag.getShufflingRef(dag.head, nextEpoch, false).valueOr:
+        raiseAssert "false"
+      nextEpochProposers = withState(dag.headState):
+        get_beacon_proposer_indices(
+          forkyState.data, shufflingRef.shuffled_active_validator_indices,
+          nextEpoch)
 
     check:
+      # get_beacon_proposer_indices based on ShufflingRef matches EpochRef
+      nextEpochProposers == dag.getEpochRef(
+        dag.head, nextEpoch, true).get.beacon_proposers
+
       parentBsi.bid == dag.head.parent.bid
       parentBsi.slot == nextEpochSlot
       # Pre-heated caches
@@ -200,6 +210,7 @@ suite "Block pool processing" & preset():
       # this is required for the test to work - it's not a "public"
       # post-condition of getEpochRef
       getStateField(dag.epochRefState, slot) == nextEpochSlot
+
     assign(state[], dag.epochRefState)
 
     let
@@ -1212,9 +1223,7 @@ suite "Ancestry":
 
       let
         blck = dag.headState.addTestBlock(cache, nextSlot = false, cfg = cfg)
-        added = block:
-          const nilCallback = OnPhase0BlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
+        added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
       check added.isOk()
       dag.updateHead(added[], quarantine[], [])
       (blck: dag.head, state: newClone(dag.headState.phase0Data))
@@ -1499,27 +1508,13 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     graffiti: GraffitiBytes
   proc addBlocks(blocks: uint64, attested: bool, cache: var StateCache) =
     inc distinctBase(graffiti)[0]  # Avoid duplicate blocks across branches
-    for blck in makeTestBlocks(
+    for forkedBlck in makeTestBlocks(
         dag.headState, cache, blocks.int, eth1_data = eth1Data,
         attested = attested, allDeposits = deposits,
         graffiti = graffiti, cfg = cfg):
-      let added =
-        case blck.kind
-        of ConsensusFork.Phase0:
-          const nilCallback = OnPhase0BlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
-        of ConsensusFork.Altair:
-          const nilCallback = OnAltairBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.altairData, nilCallback)
-        of ConsensusFork.Bellatrix:
-          const nilCallback = OnBellatrixBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
-        of ConsensusFork.Capella:
-          const nilCallback = OnCapellaBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
-        of ConsensusFork.Deneb:
-          const nilCallback = OnDenebBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.denebData, nilCallback)
+      let added = withBlck(forkedBlck):
+        const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+        dag.addHeadBlock(verifier, forkyBlck, nilCallback)
       check added.isOk()
       dag.updateHead(added[], quarantine[], [])
 

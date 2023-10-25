@@ -33,9 +33,9 @@ Additionally, the URL of the service exposing the [builder API](https://ethereum
     ./run-mainnet-beacon-node.sh --payload-builder=true --payload-builder-url=https://${HOST}:${PORT}/
     ```
 
-=== "Prater Beacon Node"
+=== "Holesky Beacon Node"
     ```sh
-    ./run-prater-beacon-node.sh --payload-builder=true --payload-builder-url=https://${HOST}:${PORT}/
+    ./run-holesky-beacon-node.sh --payload-builder=true --payload-builder-url=https://${HOST}:${PORT}/
     ```
 
 === "Validator Client"

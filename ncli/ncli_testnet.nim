@@ -32,6 +32,7 @@ type
   StartUpCommand {.pure.} = enum
     generateDeposits
     createTestnet
+    createTestnetEnr
     run
     sendDeposits
     analyzeLogs
@@ -164,6 +165,36 @@ type
       outputBootstrapFile* {.
         desc: "Output file with list of bootstrap nodes for the network"
         name: "output-bootstrap-file" .}: OutFile
+
+    of StartUpCommand.createTestnetEnr:
+      inputBootstrapEnr* {.
+        desc: "Path to the bootstrap ENR"
+        name: "bootstrap-enr" .}: InputFile
+
+      enrDataDir* {.
+        desc: "Nimbus data directory where the keys of the node will be placed"
+        name: "data-dir" .}: OutDir
+
+      enrNetKeyFile* {.
+        desc: "Source of network (secp256k1) private key file"
+        name: "enr-netkey-file" .}: OutFile
+
+      enrNetKeyInsecurePassword* {.
+        desc: "Use pre-generated INSECURE password for network private key file"
+        defaultValue: false,
+        name: "insecure-netkey-password" .}: bool
+
+      enrAddress* {.
+        desc: "The public IP address of that ENR"
+        defaultValue: init(ValidIpAddress, defaultAdminListenAddress)
+        defaultValueDesc: $defaultAdminListenAddressDesc
+        name: "enr-address" .}: ValidIpAddress
+
+      enrPort* {.
+        desc: "The TCP/UDP port of that ENR"
+        defaultValue: defaultEth2TcpPort
+        defaultValueDesc: $defaultEth2TcpPortDesc
+        name: "enr-port" .}: Port
 
     of StartUpCommand.sendDeposits:
       depositsFile* {.
@@ -320,6 +351,46 @@ proc createDepositTreeSnapshot(deposits: seq[DepositData],
     depositContractState: merkleizer.toDepositContractState,
     blockHeight: blockHeight)
 
+proc createEnr(rng: var HmacDrbgContext,
+               dataDir: string,
+               netKeyFile: string,
+               netKeyInsecurePassword: bool,
+               cfg: RuntimeConfig,
+               forkId: seq[byte],
+               address: ValidIpAddress,
+               port: Port): enr.Record
+               {.raises: [CatchableError].} =
+  type MetaData = altair.MetaData
+  let
+    networkKeys = rng.getPersistentNetKeys(
+      dataDir, netKeyFile, netKeyInsecurePassword, allowLoadExisting = false)
+
+    netMetadata = MetaData()
+    bootstrapEnr = enr.Record.init(
+      1, # sequence number
+      networkKeys.seckey.asEthKey,
+      some(address),
+      some(port),
+      some(port),
+      [
+        toFieldPair(enrForkIdField, forkId),
+        toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
+      ])
+  bootstrapEnr.tryGet()
+
+proc doCreateTestnetEnr*(config: CliConfig,
+                         rng: var HmacDrbgContext)
+                        {.raises: [CatchableError].} =
+  let
+    cfg = getRuntimeConfig(config.eth2Network)
+    bootstrapEnr = parseBootstrapAddress(toSeq(lines(string config.inputBootstrapEnr))[0]).get()
+    forkIdField = bootstrapEnr.tryGet(enrForkIdField, seq[byte]).get()
+    enr =
+      createEnr(rng, string config.enrDataDir, string config.enrNetKeyFile,
+        config.enrNetKeyInsecurePassword, cfg, forkIdField,
+        config.enrAddress, config.enrPort)
+  stderr.writeLine(enr.toURI)
+
 proc doCreateTestnet*(config: CliConfig,
                       rng: var HmacDrbgContext)
                      {.raises: [CatchableError].} =
@@ -396,7 +467,7 @@ proc doCreateTestnet*(config: CliConfig,
     let outSszGenesis = outGenesis.changeFileExt "ssz"
     SSZ.saveFile(outSszGenesis, initialState[])
     info "SSZ genesis file written",
-          path = outSszGenesis, fork = toFork(typeof initialState[])
+          path = outSszGenesis, fork = kind(typeof initialState[])
 
     SSZ.saveFile(
       config.outputDepositTreeSnapshot.string,
@@ -417,29 +488,16 @@ proc doCreateTestnet*(config: CliConfig,
 
   let bootstrapFile = string config.outputBootstrapFile
   if bootstrapFile.len > 0:
-    type MetaData = altair.MetaData
     let
-      networkKeys = rng.getPersistentNetKeys(
-        string config.dataDir, string config.netKeyFile,
-        config.netKeyInsecurePassword, allowLoadExisting = false)
-
-      netMetadata = MetaData()
       forkId = getENRForkID(
         cfg,
         Epoch(0),
         genesisValidatorsRoot)
-      bootstrapEnr = enr.Record.init(
-        1, # sequence number
-        networkKeys.seckey.asEthKey,
-        some(config.bootstrapAddress),
-        some(config.bootstrapPort),
-        some(config.bootstrapPort),
-        [
-          toFieldPair(enrForkIdField, SSZ.encode(forkId)),
-          toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
-        ])
-
-    writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
+      enr =
+        createEnr(rng, string config.dataDir, string config.netKeyFile,
+          config.netKeyInsecurePassword, cfg, SSZ.encode(forkId),
+          config.bootstrapAddress, config.bootstrapPort)
+    writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
 proc deployContract*(web3: Web3, code: string): Future[ReceiptObject] {.async.} =
@@ -592,6 +650,10 @@ proc main() {.async.} =
   of StartUpCommand.createTestnet:
     let rng = HmacDrbgContext.new()
     doCreateTestnet(conf, rng[])
+
+  of StartUpCommand.createTestnetEnr:
+    let rng = HmacDrbgContext.new()
+    doCreateTestnetEnr(conf, rng[])
 
   of StartUpCommand.deployDepositContract:
     let web3 = await initWeb3(conf.web3Url, conf.privateKey)

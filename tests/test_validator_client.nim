@@ -376,3 +376,15 @@ suite "Validator Client test suite":
       check:
         res.isOk()
         res.get().data == expect
+
+    let vector = stringToBytes(
+      "{\"data\":[{\"index\":\"100000\",\"epoch\":\"202919\",\"is_live\":true}]}")
+
+    let contentType = getContentType("application/json").tryGet()
+    let res = decodeBytes(
+      GetValidatorsLivenessResponse, vector, Opt.some(contentType))
+    check:
+      res.isOk()
+      len(res.get().data) == 1
+      res.get().data[0].index == 100000
+      res.get().data[0].is_live == true

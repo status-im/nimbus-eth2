@@ -181,7 +181,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
@@ -220,9 +220,8 @@ proc doTrustedNodeSync*(
           quit 1
         bootstrap.migrateToDataFork(lcDataFork)
 
-        var storeRes =
-          initialize_light_client_store(
-            trustedBlockRoot, bootstrap.forky(lcDataFork), cfg)
+        var storeRes = initialize_light_client_store(
+          trustedBlockRoot, bootstrap.forky(lcDataFork), cfg)
         if storeRes.isErr:
           error "`initialize_light_client_store` failed", err = storeRes.error
           quit 1
@@ -487,18 +486,18 @@ proc doTrustedNodeSync*(
             of TrustedNodeSyncKind.TrustedBlockRoot:
               # Trust-minimized sync: the server is only trusted for
               # data availability, responses must be verified
-              dag.addBackfillBlock(blck)
+              dag.addBackfillBlock(forkyBlck)
             of TrustedNodeSyncKind.StateId:
               # The server is fully trusted to provide accurate data;
               # it could have provided a malicious state
-              dag.addBackfillBlock(blck.asSigVerified())
+              dag.addBackfillBlock(forkyBlck.asSigVerified())
           if res.isErr():
             case res.error()
             of VerifierError.Invalid,
                 VerifierError.MissingParent,
                 VerifierError.UnviableFork:
               error "Got invalid block from trusted node - is it on the right network?",
-                blck = shortLog(blck), err = res.error()
+                blck = shortLog(forkyBlck), err = res.error()
               quit 1
             of VerifierError.Duplicate:
               discard

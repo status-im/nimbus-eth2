@@ -431,13 +431,13 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
         cfg, readAllBytes(file).tryGet())
 
     withBlck(blck.asTrusted()):
-      db.putBlock(blck)
+      db.putBlock(forkyBlck)
       if conf.setHead:
-        db.putHeadBlock(blck.root)
+        db.putHeadBlock(forkyBlck.root)
       if conf.setTail:
-        db.putTailBlock(blck.root)
+        db.putTailBlock(forkyBlck.root)
       if conf.setGenesis:
-        db.putGenesisBlock(blck.root)
+        db.putGenesisBlock(forkyBlck.root)
 
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
@@ -628,7 +628,7 @@ proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
             continue
 
           withBlck(blck.asTrusted()):
-            db.putBlock(blck)
+            db.putBlock(forkyBlck)
         blocks += 1
       elif header.typ == SnappyBeaconState:
         info "Skipping beacon state (use reindexing to recreate state snapshots)"
@@ -1058,13 +1058,13 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   for bi in 0 ..< blockRefs.len:
     let forkedBlock = dag.getForkedBlock(blockRefs[blockRefs.len - bi - 1]).get()
     withBlck(forkedBlock):
-      processSlots(blck.message.slot, {skipLastStateRootCalculation})
+      processSlots(forkyBlck.message.slot, {skipLastStateRootCalculation})
 
       rewardsAndPenalties.collectBlockRewardsAndPenalties(
         tmpState[], forkedBlock, auxiliaryState, cache, cfg)
 
       let res = state_transition_block(
-        cfg, tmpState[], blck, cache, {}, noRollback)
+        cfg, tmpState[], forkyBlck, cache, {}, noRollback)
       if res.isErr:
         fatal "State transition failed (!)"
         quit QuitFailure

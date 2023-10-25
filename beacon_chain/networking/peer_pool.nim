@@ -114,19 +114,21 @@ proc waitForEvent[A, B](pool: PeerPool[A, B], eventType: EventType,
     var fut2 = outgoingEvent(eventType).wait()
     try:
       discard await one(fut1, fut2)
-      if fut1.finished:
-        if not(fut2.finished):
-          fut2.cancel()
+      if fut1.finished():
+        if not(fut2.finished()):
+          await fut2.cancelAndWait()
         incomingEvent(eventType).clear()
       else:
-        if not(fut1.finished):
-          fut1.cancel()
+        if not(fut1.finished()):
+          await fut1.cancelAndWait()
         outgoingEvent(eventType).clear()
     except CancelledError as exc:
-      if not(fut1.finished):
-        fut1.cancel()
-      if not(fut2.finished):
-        fut2.cancel()
+      var pending: seq[FutureBase]
+      if not(fut1.finished()):
+        pending.add(fut1.cancelAndWait())
+      if not(fut2.finished()):
+        pending.add(fut2.cancelAndWait())
+      await noCancel allFutures(pending)
       raise exc
   elif PeerType.Incoming in filter:
     await incomingEvent(eventType).wait()

@@ -230,8 +230,7 @@ proc processObject(
               if initRes.isErr:
                 err(initRes.error)
               else:
-                self.store[] = ForkedLightClientStore(kind: lcDataFork)
-                self.store[].forky(lcDataFork) = initRes.get
+                self.store[] = ForkedLightClientStore.init(initRes.get)
                 ok()
         elif forkyObject is SomeForkyLightClientUpdate:
           if self.store[].kind == LightClientDataFork.None:
@@ -306,16 +305,12 @@ template withReportedProgress(
     var
       oldFinalized = withForkyStore(self.store[]):
         when lcDataFork > LightClientDataFork.None:
-          var header = ForkedLightClientHeader(kind: lcDataFork)
-          header.forky(lcDataFork) = forkyStore.finalized_header
-          header
+          ForkedLightClientHeader.init(forkyStore.finalized_header)
         else:
           default(ForkedLightClientHeader)
       oldOptimistic = withForkyStore(self.store[]):
         when lcDataFork > LightClientDataFork.None:
-          var header = ForkedLightClientHeader(kind: lcDataFork)
-          header.forky(lcDataFork) = forkyStore.optimistic_header
-          header
+          ForkedLightClientHeader.init(forkyStore.optimistic_header)
         else:
           default(ForkedLightClientHeader)
 
@@ -424,12 +419,11 @@ proc resetToFinalizedHeader*(
   discard withReportedProgress:
     withForkyHeader(header):
       when lcDataFork > LightClientDataFork.None:
-        self.store[] = ForkedLightClientStore(kind: lcDataFork)
-        template forkyStore: untyped = self.store[].forky(lcDataFork)
-        forkyStore = lcDataFork.LightClientStore(
+        self.store[] = ForkedLightClientStore.init(lcDataFork.LightClientStore(
           finalized_header: forkyHeader,
           current_sync_committee: current_sync_committee,
-          optimistic_header: forkyHeader)
+          optimistic_header: forkyHeader))
+        template forkyStore: untyped = self.store[].forky(lcDataFork)
         debug "LC reset to finalized header",
           finalizedSlot = forkyStore.finalized_header.beacon.slot,
           optimisticSlot = forkyStore.optimistic_header.beacon.slot
@@ -528,7 +522,7 @@ func toValidationError(
       # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -543,7 +537,7 @@ proc processLightClientFinalityUpdate*(
   self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

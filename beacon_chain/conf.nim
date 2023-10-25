@@ -29,6 +29,8 @@ import
   ./el/el_conf,
   ./filepath
 
+from fork_choice/fork_choice_types
+  import ForkChoiceVersion
 from consensus_object_pools/block_pools_types_light_client
   import LightClientDataImportMode
 
@@ -125,6 +127,10 @@ type
     Poll = "poll"
     Event = "event"
 
+  Web3SignerUrl* = object
+    url*: Uri
+    provenBlockProperties*: seq[string] # empty if this is not a verifying Web3Signer
+
   BeaconNodeConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"
@@ -162,7 +168,15 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
-    web3signers* {.
+    verifyingWeb3Signers* {.
+      desc: "Remote Web3Signer URL that will be used as a source of validators"
+      name: "verifying-web3-signer-url" .}: seq[Uri]
+
+    provenBlockProperties* {.
+      desc: "The field path of a block property that will be sent for verification to the verifying Web3Signer (for example \".execution_payload.fee_recipient\")"
+      name: "proven-block-property" .}: seq[string]
+
+    web3Signers* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
       name: "web3-signer-url" .}: seq[Uri]
 
@@ -549,7 +563,7 @@ type
         name: "dump" .}: bool
 
       directPeers* {.
-        desc: "The list of privileged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering agreements are established out of band and must be reciprocal."
+        desc: "The list of privileged, secure and known peers to connect and maintain the connection to. This requires a not random netkey-file. In the multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>, or enr format (enr:-xx). Peering agreements are established out of band and must be reciprocal"
         name: "direct-peer" .}: seq[string]
 
       doppelgangerDetection* {.
@@ -640,6 +654,12 @@ type
         hidden
         desc: "Bandwidth estimate for the node (bits per second)"
         name: "debug-bandwidth-estimate" .}: Option[Natural]
+
+      forkChoiceVersion* {.
+        hidden
+        desc: "Forkchoice version to use. " &
+              "Must be one of: stable"
+        name: "debug-forkchoice-version" .}: Option[ForkChoiceVersion]
 
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
@@ -888,14 +908,22 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
-    web3signers* {.
+    verifyingWeb3Signers* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
-      name: "web3-signer-url" .}: seq[Uri]
+      name: "verifying-web3-signer-url" .}: seq[Uri]
+
+    provenBlockProperties* {.
+      desc: "The field path of a block property that will be sent for verification to the verifying Web3Signer (for example \".execution_payload.fee_recipient\")"
+      name: "proven-block-property" .}: seq[string]
 
     web3signerUpdateInterval* {.
       desc: "Number of seconds between validator list updates"
       name: "web3-signer-update-interval"
       defaultValue: 3600 .}: Natural
+
+    web3Signers* {.
+      desc: "Remote Web3Signer URL that will be used as a source of validators"
+      name: "web3-signer-url" .}: seq[Uri]
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
@@ -1103,16 +1131,22 @@ func dumpDirOutgoing*(config: AnyConf): string =
   config.dumpDir / "outgoing" # things we produced
 
 proc createDumpDirs*(config: BeaconNodeConf) =
-  if config.dumpEnabled:
-    if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
-      warn "Could not create dump directory",
-        path = config.dumpDirInvalid, err = ioErrorMsg(res.error)
-    if (let res = secureCreatePath(config.dumpDirIncoming); res.isErr):
-      warn "Could not create dump directory",
-        path = config.dumpDirIncoming, err = ioErrorMsg(res.error)
-    if (let res = secureCreatePath(config.dumpDirOutgoing); res.isErr):
-      warn "Could not create dump directory",
-        path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
+  proc fail {.noreturn.} =
+    raiseAssert "createDumpDirs should be used only in the right context"
+
+  case config.cmd
+  of BNStartUpCmd.noCommand:
+    if config.dumpEnabled:
+      if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
+        warn "Could not create dump directory",
+          path = config.dumpDirInvalid, err = ioErrorMsg(res.error)
+      if (let res = secureCreatePath(config.dumpDirIncoming); res.isErr):
+        warn "Could not create dump directory",
+          path = config.dumpDirIncoming, err = ioErrorMsg(res.error)
+      if (let res = secureCreatePath(config.dumpDirOutgoing); res.isErr):
+        warn "Could not create dump directory",
+          path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
+  else: fail()
 
 func parseCmdArg*(T: type Eth2Digest, input: string): T
                  {.raises: [ValueError].} =
@@ -1222,6 +1256,7 @@ func eraDir*(config: BeaconNodeConf): string =
   # The era directory should be shared between networks of the same type..
   string config.eraDirFlag.get(InputDir(config.dataDir / "era"))
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
   proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
@@ -1238,10 +1273,12 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     else: fail()
   else:
     fail()
+{.pop.}
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   proc fail {.noreturn.} =
-    raiseAssert "outWalletName should be used only in the right context"
+    raiseAssert "outWalletFile should be used only in the right context"
 
   case config.cmd
   of wallets:
@@ -1255,6 +1292,7 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
     else: fail()
   else:
     fail()
+{.pop.}
 
 func databaseDir*(dataDir: OutDir): string =
   dataDir / "db"
@@ -1263,7 +1301,19 @@ template databaseDir*(config: AnyConf): string =
   config.dataDir.databaseDir
 
 func runAsService*(config: BeaconNodeConf): bool =
-  config.cmd == noCommand and config.runAsServiceFlag
+  case config.cmd
+  of noCommand:
+    config.runAsServiceFlag
+  else:
+    false
+
+func web3SignerUrls*(conf: AnyConf): seq[Web3SignerUrl] =
+  for url in conf.web3signers:
+    result.add Web3SignerUrl(url: url)
+
+  for url in conf.verifyingWeb3signers:
+    result.add Web3SignerUrl(url: url,
+                             provenBlockProperties: conf.provenBlockProperties)
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
@@ -1287,7 +1337,7 @@ proc readValue*(r: var TomlReader, value: var GraffitiBytes)
     r.raiseUnexpectedValue("A printable string or 0x-prefixed hex-encoded raw bytes expected")
 
 proc readValue*(r: var TomlReader, val: var NatConfig)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   val = try: parseCmdArg(NatConfig, r.readValue(string))
         except CatchableError as err:
           raise newException(SerializationError, err.msg)
@@ -1300,7 +1350,7 @@ proc readValue*(r: var TomlReader, a: var Eth2Digest)
     r.raiseUnexpectedValue("Hex string expected")
 
 proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   let keyAsString = try:
     reader.readValue(string)
   except CatchableError:
@@ -1314,29 +1364,27 @@ proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
     raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
 proc readValue*(r: var TomlReader, a: var PubKey0x)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   try:
     a = parseCmdArg(PubKey0x, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("a 0x-prefixed hex-encoded string expected")
 
 proc readValue*(r: var TomlReader, a: var WalletName)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   try:
     a = parseCmdArg(WalletName, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 
 proc readValue*(r: var TomlReader, a: var Address)
-               {.raises: [IOError, SerializationError].} =
+               {.raises: [SerializationError].} =
   try:
     a = parseCmdArg(Address, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 
-proc loadEth2Network*(
-    eth2Network: Option[string]
-): Eth2NetworkMetadata {.raises: [IOError].} =
+proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
   const defaultName =
     when const_preset == "gnosis":
       "gnosis"

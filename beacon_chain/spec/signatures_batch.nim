@@ -82,7 +82,7 @@ func aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   let
@@ -108,7 +108,7 @@ func aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   var attestersAgg{.noinit.}: AggregatePublicKey
@@ -427,7 +427,7 @@ proc collectSignatureSets*(
 
   block:
     # 8. BLS to execution changes
-    when typeof(signed_block).toFork() >= ConsensusFork.Capella:
+    when typeof(signed_block).kind >= ConsensusFork.Capella:
       withState(state):
         when consensusFork >= ConsensusFork.Capella:
           for bls_change in signed_block.message.body.bls_to_execution_changes:

@@ -3,7 +3,7 @@
 
 The best way to do this is to use `.backup` sqlite command:
 
-1. Navigate to either `build/data/shared_mainnet_0/db/` (if you're running Prater: `shared_prater_0`) or the directory you supplied to the `--data-dir` argument when you launched Nimbus.
+1. Navigate to either `build/data/shared_mainnet_0/db/` (if you're running Holesky: `shared_holesky_0`) or the directory you supplied to the `--data-dir` argument when you launched Nimbus.
 
 2. Run the following command:
   ```

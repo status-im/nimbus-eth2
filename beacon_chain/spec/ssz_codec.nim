@@ -6,7 +6,6 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.push raises: [].}
-{.pragma: raisesssz, raises: [MalformedSszError, SszSizeMismatchError].}
 
 import
   std/[typetraits],
@@ -27,7 +26,8 @@ template toSszType*(v: Version): auto = distinctBase(v)
 template toSszType*(v: JustificationBits): auto = distinctBase(v)
 template toSszType*(v: EpochParticipationFlags): auto = asList v
 
-func fromSszBytes*(T: type GraffitiBytes, data: openArray[byte]): T {.raisesssz.} =
+func fromSszBytes*(
+    T: type GraffitiBytes, data: openArray[byte]): T {.raises: [SszError].} =
   if data.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr data[0], sizeof(result))
@@ -41,22 +41,28 @@ template fromSszBytes*(T: type Epoch, bytes: openArray[byte]): T =
 template fromSszBytes*(T: type SyncCommitteePeriod, bytes: openArray[byte]): T =
   T fromSszBytes(uint64, bytes)
 
-func fromSszBytes*(T: type ForkDigest, bytes: openArray[byte]): T {.raisesssz.} =
+func fromSszBytes*(
+    T: type ForkDigest, bytes: openArray[byte]): T {.raises: [SszError].} =
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
-func fromSszBytes*(T: type Version, bytes: openArray[byte]): T {.raisesssz.} =
+func fromSszBytes*(
+    T: type Version, bytes: openArray[byte]): T {.raises: [SszError].} =
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
-func fromSszBytes*(T: type JustificationBits, bytes: openArray[byte]): T {.raisesssz.} =
+func fromSszBytes*(
+    T: type JustificationBits, bytes: openArray[byte]
+): T {.raises: [SszError].} =
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
-func fromSszBytes*(T: type EpochParticipationFlags, bytes: openArray[byte]): T {.raisesssz.} =
+func fromSszBytes*(
+    T: type EpochParticipationFlags, bytes: openArray[byte]
+): T {.raises: [SszError].} =
   # TODO https://github.com/nim-lang/Nim/issues/21123
   let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr result)
   readSszValue(bytes, tmp[])

@@ -115,22 +115,22 @@ programMain:
           # `engine_forkchoiceUpdatedV1` under any of the following conditions:
           # `headBlockHash` references a block which `timestamp` is greater or
           # equal to the Shanghai timestamp
-          if blck.message.is_execution_block:
-            template payload(): auto = blck.message.body.execution_payload
+          if forkyBlck.message.is_execution_block:
+            template payload(): auto = forkyBlck.message.body.execution_payload
 
             if elManager != nil and not payload.block_hash.isZero:
-              discard await elManager.newExecutionPayload(blck.message)
+              discard await elManager.newExecutionPayload(forkyBlck.message)
               discard await elManager.forkchoiceUpdated(
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value
                 finalizedBlockHash = ZERO_HASH,
                 payloadAttributes = none PayloadAttributesV2)
         elif consensusFork >= ConsensusFork.Bellatrix:
-          if blck.message.is_execution_block:
-            template payload(): auto = blck.message.body.execution_payload
+          if forkyBlck.message.is_execution_block:
+            template payload(): auto = forkyBlck.message.body.execution_payload
 
             if elManager != nil and not payload.block_hash.isZero:
-              discard await elManager.newExecutionPayload(blck.message)
+              discard await elManager.newExecutionPayload(forkyBlck.message)
               discard await elManager.forkchoiceUpdated(
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value
