@@ -292,7 +292,7 @@ suite "REST JSON encoding and decoding":
     let
       zeroBlob = new Blob
       nonzeroBlob = new Blob
-      blobLen = distinctBase(nonzeroBlob[]).len
+      blobLen = distinctBase(nonzeroBlob[]).lenu64
 
     for i in 0 ..< blobLen:
       nonzeroBlob[i] = 17.byte
@@ -314,9 +314,9 @@ suite "REST JSON encoding and decoding":
       zeroString[].startsWith "\"0x0000000000000000000000000000000000000000000000000"
       nonzeroString[].startsWith "\"0x111111111111111111111111111111111111111111111111"
       zeroString[].endsWith "0000000000000000000000000000000000000000000000\""
-      nonZeroString[].endsWith "1111111111111111111111111111111111111111111111\""
-      zeroString[].len == 2*blobLen + 4   # quotation marks and 0x prefix
-      nonzeroString[].len == 2*blobLen + 4   # quotation marks and 0x prefix
+      nonzeroString[].endsWith "1111111111111111111111111111111111111111111111\""
+      zeroString[].lenu64 == 2*blobLen + 4   # quotation marks and 0x prefix
+      nonzeroString[].lenu64 == 2*blobLen + 4   # quotation marks and 0x prefix
       zeroBlob[] == zeroBlobRoundTrip[]
       nonzeroBlob[] == nonzeroBlobRoundTrip[]
       zeroBlob[] != nonzeroBlob[]
