@@ -130,7 +130,7 @@ type
     Local, Remote
 
   RemoteKeystoreFlag* {.pure.} = enum
-    IgnoreSSLVerification
+    IgnoreSSLVerification, DynamicKeystore
 
   HttpHostUri* = distinct Uri
 

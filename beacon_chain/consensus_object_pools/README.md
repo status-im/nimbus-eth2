@@ -9,7 +9,7 @@ to specs:
 - unaggregated attestation: https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 - voluntary exits: https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/p2p-interface.md#voluntary_exit
 - Attester slashings: https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attester_slashing
-- Proposer slashings: https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/phase0/p2p-interface.md#proposer_slashing
+- Proposer slashings: https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#proposer_slashing
 
 After "gossip validation" the consensus objects can be rebroadcasted as they are optimistically good, however for internal processing further verification is needed.
 For blocks, this means verifying state transition and all contained cryptographic signatures (instead of just the proposer signature).

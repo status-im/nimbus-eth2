@@ -146,12 +146,16 @@ proc addRemoteValidator(pool: var ValidatorPool, keystore: KeystoreData,
     activationEpoch: FAR_FUTURE_EPOCH,
   )
   pool.validators[v.pubkey] = v
-  notice "Remote validator attached",
-    pubkey = v.pubkey,
-    validator = shortLog(v),
-    remote_signer = $keystore.remotes,
-    initial_fee_recipient = feeRecipient.toHex(),
-    initial_gas_limit = gasLimit
+  if RemoteKeystoreFlag.DynamicKeystore in keystore.flags:
+    notice "Dynamic remote validator attached", pubkey = v.pubkey,
+           validator = shortLog(v), remote_signer = $keystore.remotes,
+           initial_fee_recipient = feeRecipient.toHex(),
+           initial_gas_limit = gasLimit
+  else:
+    notice "Remote validator attached", pubkey = v.pubkey,
+           validator = shortLog(v), remote_signer = $keystore.remotes,
+           initial_fee_recipient = feeRecipient.toHex(),
+           initial_gas_limit = gasLimit
 
   validators.set(pool.count().int64)
 
@@ -583,7 +587,7 @@ proc getBlobSignature*(v: AttachedValidator, fork: Fork,
     of ValidatorKind.Remote:
       return SignatureResult.err("web3signer not supported for blobs")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               data: AttestationData

@@ -150,8 +150,8 @@ typedef struct ETHBeaconState ETHBeaconState;
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/bellatrix/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/configs/README.md
  */
@@ -218,7 +218,7 @@ typedef struct ETHForkDigests ETHForkDigests;
  *
  * @return Pointer to an initialized fork digests cache based on the beacon state.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#compute_fork_digest
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#compute_fork_digest
  */
 ETH_RESULT_USE_CHECK
 ETHForkDigests *ETHForkDigestsCreateFromState(
@@ -594,7 +594,7 @@ const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(
  *
  * @return Whether or not the next sync committee is currently known.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/light-client.md
  */
 ETH_RESULT_USE_CHECK
@@ -631,7 +631,7 @@ const ETHLightClientHeader *ETHLightClientStoreGetOptimisticHeader(
  *
  * @return Light client store safety threshold.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#get_safety_threshold
  */
 ETH_RESULT_USE_CHECK
 int ETHLightClientStoreGetSafetyThreshold(const ETHLightClientStore *store);

@@ -921,10 +921,11 @@ proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiBytes): T
   except ValueError as err:
     reader.raiseUnexpectedValue err.msg
 
-## Version | ForkDigest | DomainType | GraffitiBytes
+## Version | ForkDigest | DomainType | GraffitiBytes | RestWithdrawalPrefix
 proc readValue*(
     reader: var JsonReader[RestJson],
-    value: var (Version | ForkDigest | DomainType | GraffitiBytes)) {.
+    value: var (Version | ForkDigest | DomainType | GraffitiBytes |
+                RestWithdrawalPrefix)) {.
      raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value))

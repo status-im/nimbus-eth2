@@ -273,6 +273,8 @@ type
     index*: ValidatorIndex
     is_live*: bool
 
+  RestWithdrawalPrefix* = distinct array[1, byte]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#executionpayload
   RestExecutionPayload* = object
     # Execution block header fields
@@ -441,8 +443,8 @@ type
     # DEPOSIT_CONTRACT_TREE_DEPTH
     # JUSTIFICATION_BITS_LENGTH
     # ENDIANNESS
-    BLS_WITHDRAWAL_PREFIX*: byte
-    ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte
+    BLS_WITHDRAWAL_PREFIX*: RestWithdrawalPrefix
+    ETH1_ADDRESS_WITHDRAWAL_PREFIX*: RestWithdrawalPrefix
     DOMAIN_BEACON_PROPOSER*: DomainType
     DOMAIN_BEACON_ATTESTER*: DomainType
     DOMAIN_RANDAO*: DomainType
@@ -998,3 +1000,5 @@ func init*(t: typedesc[RestSignedContributionAndProof],
       message.contribution
     ),
     signature: signature)
+
+func len*(p: RestWithdrawalPrefix): int = sizeof(p)

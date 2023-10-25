@@ -161,6 +161,10 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
+    validatorsSource* {.
+      desc: "Remote Web3Signer URL that will be used as a source of validators"
+      name: "validators-source"}: Option[string]
+
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" .}: Option[InputDir]
@@ -364,7 +368,7 @@ type
         hidden
         desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
         defaultValue: 0
-        name: "stop-at-epoch" .}: uint64
+        name: "debug-stop-at-epoch" .}: uint64
 
       stopAtSyncedEpoch* {.
         hidden
@@ -875,6 +879,10 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" .}: Option[InputDir]
 
+    validatorsSource* {.
+      desc: "Remote Web3Signer URL that will be used as a source of validators"
+      name: "validators-source"}: Option[string]
+
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" .}: Option[InputDir]
@@ -959,7 +967,7 @@ type
     stopAtEpoch* {.
       desc: "A positive epoch selects the epoch at which to stop"
       defaultValue: 0
-      name: "stop-at-epoch" .}: uint64
+      name: "debug-stop-at-epoch" .}: uint64
 
     payloadBuilderEnable* {.
       desc: "Enable usage of beacon node with external payload builder (BETA)"

@@ -78,6 +78,11 @@ proc getKeys*(): RestResponse[Web3SignerKeysResponse] {.
      meth: MethodGet, accept: "application/json" .}
   ## https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key
 
+proc getKeysPlain*(): RestPlainResponse {.
+     rest, endpoint: "/api/v1/eth2/publicKeys",
+     meth: MethodGet, accept: "application/json" .}
+  ## https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key
+
 proc signDataPlain*(identifier: ValidatorPubKey,
                     body: Web3SignerRequest): RestPlainResponse {.
      rest, endpoint: "/api/v1/eth2/sign/{identifier}",
