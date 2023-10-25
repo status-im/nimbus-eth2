@@ -353,7 +353,7 @@ Depending on your installation method, run these commands to import your signing
 
     ```sh
     # Run import command as the `nimbus` user
-    sudo -u nimbus /usr/bin/nimbus_beacon_node deposits import --data-dir=/var/lib/nimbus/shared_prater_0 /path/to/keys
+    sudo -u nimbus /usr/bin/nimbus_beacon_node deposits import --data-dir=/var/lib/nimbus/shared_holesky_0 /path/to/keys
     ```
 
 === "Manual installation"
@@ -361,7 +361,7 @@ Depending on your installation method, run these commands to import your signing
     To import your signing key into Nimbus, from the `nimbus-eth2` directory run.
 
     ```sh
-    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_prater_0 ../validator_keys
+    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_holesky_0 ../validator_keys
     ```
 
  You'll be asked to enter the password you created to encrypt your keystore(s).
@@ -369,26 +369,26 @@ Depending on your installation method, run these commands to import your signing
  Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
 
-### 15. Connect to Prater
+### 15. Connect to Holesky
 
-We're finally ready to connect to the Prater testnet!
+We're finally ready to connect to the Holesky testnet!
 
 !!! note
     If you haven't already, we recommend registering for, and running, your own eth1 node in parallel.
     For instructions on how to do so, see the [eth1 page](./eth1.md).
 
-To connect to Prater, run:
+To connect to Holesky, run:
 
 === "Using package manager"
 
     ```sh
-    sudo -u nimbus /usr/bin/nimbus_beacon_node --network=prater --data-dir=/var/lib/nimbus/shared_prater_0
+    sudo -u nimbus /usr/bin/nimbus_beacon_node --network=holesky --data-dir=/var/lib/nimbus/shared_holesky_0
     ```
 
 === "Manual installation"
 
     ```sh
-    ./run-prater-beacon-node.sh
+    ./run-holesky-beacon-node.sh
     ```
 
 
@@ -397,19 +397,19 @@ To connect to Prater, run:
 If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:
 
 ```
-INF 2020-12-01 11:25:33.487+01:00 Launching beacon node
+INF 2023-10-01 11:25:33.487+01:00 Launching beacon node
 ...
-INF 2020-12-01 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_prater_0/db
-INF 2020-12-01 11:25:35.921+01:00 Block dag initialized
-INF 2020-12-01 11:25:37.073+01:00 Generating new networking key
+INF 2023-10-01 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_holesky_0/db
+INF 2023-10-01 11:25:35.921+01:00 Block dag initialized
+INF 2023-10-01 11:25:37.073+01:00 Generating new networking key
 ...
-NOT 2020-12-01 11:25:45.267+00:00 Local validator attached                   tid=22009 file=validator_pool.nim:33 pubkey=95e3cbe88c71ab2d0e3053b7b12ead329a37e9fb8358bdb4e56251993ab68e46b9f9fa61035fe4cf2abf4c07dfad6c45 validator=95e3cbe8
+NOT 2023-10-01 11:25:45.267+00:00 Local validator attached                   tid=22009 file=validator_pool.nim:33 pubkey=95e3cbe88c71ab2d0e3053b7b12ead329a37e9fb8358bdb4e56251993ab68e46b9f9fa61035fe4cf2abf4c07dfad6c45 validator=95e3cbe8
 ...
-NOT 2020-12-01 11:25:59.512+00:00 Eth1 sync progress                         topics="eth1" tid=21914 blockNumber=3836397 depositsProcessed=106147
-NOT 2020-12-01 11:26:02.574+00:00 Eth1 sync progress                         topics="eth1" tid=21914 blockNumber=3841412 depositsProcessed=106391
+NOT 2023-10-01 11:25:59.512+00:00 Eth1 sync progress                         topics="eth1" tid=21914 blockNumber=3836397 depositsProcessed=106147
+NOT 2023-10-01 11:26:02.574+00:00 Eth1 sync progress                         topics="eth1" tid=21914 blockNumber=3841412 depositsProcessed=106391
 ...
-INF 2020-12-01 11:26:31.000+00:00 Slot start                                 topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:505 lastSlot=96566 scheduledSlot=96567 beaconTime=1w6d9h53m24s944us774ns peers=7 head=b54486c4:96563 headEpoch=3017 finalized=2f5d12e4:96479 finalizedEpoch=3014
-INF 2020-12-01 11:26:36.285+00:00 Slot end                                   topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
+INF 2023-10-01 11:26:31.000+00:00 Slot start                                 topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:505 lastSlot=96566 scheduledSlot=96567 beaconTime=1w6d9h53m24s944us774ns peers=7 head=b54486c4:96563 headEpoch=3017 finalized=2f5d12e4:96479 finalizedEpoch=3014
+INF 2023-10-01 11:26:36.285+00:00 Slot end                                   topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
 ```
 
 To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running.
@@ -422,7 +422,7 @@ peers: 15 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:
 Keep an eye on the number of peers you're currently connected to (in the above case that's `15`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
 
 !!! note
-    15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Prater` with a Pi.
+    15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Holesky` with a Pi.
     If your sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter.
     See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
 
@@ -432,8 +432,8 @@ Keep an eye on the number of peers you're currently connected to (in the above c
 Whether or not your Pi is up to the task will depend on a number of factors such as SSD speed, network connectivity, etc.
 As such, it's best to verify performance on a testnet first.
 
-The best thing you can do is to set your Pi to run Prater.
-If you have no trouble syncing and attesting on Prater, your setup should good enough for mainnet as well.
+The best thing you can do is to set your Pi to run Holesky.
+If you have no trouble syncing and attesting on Holesky, your setup should good enough for mainnet as well.
 
 <blockquote class="twitter-tweet" data-conversation="none"><p lang="en" dir="ltr">We&#39;ve been running lots of PIs and NanoPCs 24/7 for 3 years and never got a hardware fail. It is easy (and cheap) to get redundancy of components (even spare PIs in different locations, more of this to come).</p>&mdash; Ethereum on ARM (@EthereumOnARM) <a href="https://twitter.com/EthereumOnARM/status/1332772217420177408?ref_src=twsrc%5Etfw">November 28, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
