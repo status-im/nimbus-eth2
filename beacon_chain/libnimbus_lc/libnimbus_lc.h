@@ -1607,7 +1607,7 @@ typedef struct ETHReceipt ETHReceipt;
  * @param      receipts             Receipt sequence.
  * @param      receiptIndex         Sequential receipt index.
  *
- * @return Receipt
+ * @return Receipt.
  */
 ETH_RESULT_USE_CHECK
 const ETHReceipt *ETHReceiptsGet(
