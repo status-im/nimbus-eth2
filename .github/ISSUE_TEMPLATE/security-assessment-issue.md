@@ -2,7 +2,7 @@
 name: Security-assessment-issue
 about: File a Nimbus Security Assessment issue
 title: "[SEC]"
-labels: nbc-audit-2020-review :passport_control:, status:reviewed
+labels: ''
 assignees: ''
 
 ---
