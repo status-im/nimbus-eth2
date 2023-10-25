@@ -35,48 +35,45 @@ proc getTransitionInfo(testPath: string): TransitionInfo =
 proc runTest(
     AnteBeaconState, PostBeaconState, AnteBeaconBlock, PostBeaconBlock: type,
     cfg: RuntimeConfig, testName, testDir: static[string],
-    unitTestName: string, fork_block: int) =
+    suiteName, unitTestName: string, fork_block: int) =
   let testPath = testDir / unitTestName
 
-  proc `testImpl _ blck _ testName`() =
-    test testName & " - " & unitTestName & preset():
-      let preState =
-        newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, AnteBeaconState))
-      var
-        fhPreState = ForkedHashedBeaconState.new(preState[])
-        cache = StateCache()
-        info = ForkedEpochInfo()
+  test testName & " - " & unitTestName & preset():
+    let preState =
+      newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, AnteBeaconState))
+    var
+      fhPreState = ForkedHashedBeaconState.new(preState[])
+      cache = StateCache()
+      info = ForkedEpochInfo()
 
-      # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
-      # so purely lexicographic sorting wouldn't sort properly.
-      let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
-      for i in 0 ..< numBlocks:
-        if i <= fork_block:
-          let
-            blck = parseTest(
-              testPath/"blocks_" & $i & ".ssz_snappy", SSZ, AnteBeaconBlock)
-            res = state_transition(
-              cfg, fhPreState[], blck, cache, info,
-              flags = {skipStateRootValidation}, noRollback)
+    # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
+    # so purely lexicographic sorting wouldn't sort properly.
+    let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
+    for i in 0 ..< numBlocks:
+      if i <= fork_block:
+        let
+          blck = parseTest(
+            testPath/"blocks_" & $i & ".ssz_snappy", SSZ, AnteBeaconBlock)
+          res = state_transition(
+            cfg, fhPreState[], blck, cache, info,
+            flags = {skipStateRootValidation}, noRollback)
 
-          res.expect("no failure when applying block " & $i)
-        else:
-          let
-            blck = parseTest(
-              testPath/"blocks_" & $i & ".ssz_snappy", SSZ, PostBeaconBlock)
-            res = state_transition(
-              cfg, fhPreState[], blck, cache, info,
-              flags = {skipStateRootValidation}, noRollback)
+        res.expect("no failure when applying block " & $i)
+      else:
+        let
+          blck = parseTest(
+            testPath/"blocks_" & $i & ".ssz_snappy", SSZ, PostBeaconBlock)
+          res = state_transition(
+            cfg, fhPreState[], blck, cache, info,
+            flags = {skipStateRootValidation}, noRollback)
 
-          res.expect("no failure when applying block " & $i)
+        res.expect("no failure when applying block " & $i)
 
-      let postState = newClone(
-        parseTest(testPath/"post.ssz_snappy", SSZ, PostBeaconState))
-      when false:
-        reportDiff(fhPreState.data, postState)
-      doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
-
-  `testImpl _ blck _ testName`()
+    let postState = newClone(
+      parseTest(testPath/"post.ssz_snappy", SSZ, PostBeaconState))
+    when false:
+      reportDiff(fhPreState.data, postState)
+    doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
 from ../../beacon_chain/spec/datatypes/phase0 import
   BeaconState, SignedBeaconBlock
@@ -94,7 +91,7 @@ suite "EF - Altair - Transition " & preset():
     runTest(
       phase0.BeaconState, altair.BeaconState, phase0.SignedBeaconBlock,
       altair.SignedBeaconBlock, cfg, "EF - Altair - Transition", TransitionDir,
-      path, transitionInfo.fork_block)
+      suiteName, path, transitionInfo.fork_block)
 
 from ../../beacon_chain/spec/datatypes/bellatrix import
   BeaconState, SignedBeaconBlock
@@ -110,7 +107,7 @@ suite "EF - Bellatrix - Transition " & preset():
     runTest(
       altair.BeaconState, bellatrix.BeaconState, altair.SignedBeaconBlock,
       bellatrix.SignedBeaconBlock, cfg, "EF - Bellatrix - Transition",
-      TransitionDir, path, transitionInfo.fork_block)
+      TransitionDir, suiteName, path, transitionInfo.fork_block)
 
 from ../../beacon_chain/spec/datatypes/capella import
   BeaconState, SignedBeaconBlock
@@ -126,7 +123,7 @@ suite "EF - Capella - Transition " & preset():
     runTest(
       bellatrix.BeaconState, capella.BeaconState, bellatrix.SignedBeaconBlock,
       capella.SignedBeaconBlock, cfg, "EF - Capella - Transition",
-      TransitionDir, path, transitionInfo.fork_block)
+      TransitionDir, suiteName, path, transitionInfo.fork_block)
 
 from ../../beacon_chain/spec/datatypes/deneb import
   BeaconState, SignedBeaconBlock
@@ -142,4 +139,4 @@ suite "EF - Deneb - Transition " & preset():
     runTest(
       capella.BeaconState, deneb.BeaconState, capella.SignedBeaconBlock,
       deneb.SignedBeaconBlock, cfg, "EF - Deneb - Transition",
-      TransitionDir, path, transitionInfo.fork_block)
+      TransitionDir, suiteName, path, transitionInfo.fork_block)

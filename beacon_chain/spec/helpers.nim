@@ -34,7 +34,7 @@ type
   ExecutionHash256* = eth_types.Hash256
   ExecutionTransaction* = eth_types.Transaction
   ExecutionReceipt* = eth_types.Receipt
-  ExecutionWithdrawal = eth_types.Withdrawal
+  ExecutionWithdrawal* = eth_types.Withdrawal
   ExecutionBlockHeader* = eth_types.BlockHeader
 
   FinalityCheckpoints* = object

@@ -375,7 +375,7 @@ int main(void)
     ETHRootDestroy(copiedExecutionHash);
     ETHLightClientHeaderDestroy(copiedHeader);
 
-    printf("- finalized_header (execution block header):\n");
+    printf("\nFinalized_header (execution block header):\n");
 
     const ETHRoot *executionTransactionsRoot =
         ETHExecutionBlockHeaderGetTransactionsRoot(executionBlockHeader);
@@ -388,6 +388,34 @@ int main(void)
     printf("    - withdrawals_root: ");
     printHexString(executionWithdrawalsRoot, sizeof *executionWithdrawalsRoot);
     printf("\n");
+
+    const ETHWithdrawals *withdrawals =
+        ETHExecutionBlockHeaderGetWithdrawals(executionBlockHeader);
+    int numWithdrawals = ETHWithdrawalsGetCount(withdrawals);
+    printf("    - withdrawals:\n");
+    for (int withdrawalIndex = 0; withdrawalIndex < numWithdrawals; withdrawalIndex++) {
+        const ETHWithdrawal *withdrawal = ETHWithdrawalsGet(withdrawals, withdrawalIndex);
+
+        const uint64_t *index = ETHWithdrawalGetIndex(withdrawal);
+        printf("        - index: %" PRIu64 "\n", *index);
+
+        const uint64_t *validatorIndex = ETHWithdrawalGetValidatorIndex(withdrawal);
+        printf("            - validator_index: %" PRIu64 "\n", *validatorIndex);
+
+        const ETHExecutionAddress *address = ETHWithdrawalGetAddress(withdrawal);
+        printf("            - address: ");
+        printHexString(address, sizeof *address);
+        printf("\n");
+
+        const uint64_t *amount = ETHWithdrawalGetAmount(withdrawal);
+        printf("            - amount: %" PRIu64 "\n", *amount);
+
+        int numBytes;
+        const void *bytes = ETHWithdrawalGetBytes(withdrawal, &numBytes);
+        printf("            - bytes: ");
+        printHexString(bytes, numBytes);
+        printf("\n");
+    }
 
     ETHExecutionBlockHeaderDestroy(executionBlockHeader);
 
