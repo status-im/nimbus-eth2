@@ -281,6 +281,7 @@ elif const_preset == "mainnet":
   when incbinEnabled:
     # Nim is very inefficent at loading large constants from binary files so we
     # use this trick instead which saves significant amounts of compile time
+    {.push hint[GlobalVar]:off.}
     let
       mainnetGenesis* {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
       mainnetGenesisSize* {.importc: "eth2_mainnet_genesis_size".}: int
@@ -290,6 +291,7 @@ elif const_preset == "mainnet":
 
       sepoliaGenesis* {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
       sepoliaGenesisSize* {.importc: "eth2_sepolia_genesis_size".}: int
+    {.pop.}
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & vendorDir.}
@@ -465,7 +467,8 @@ when const_preset in ["mainnet", "gnosis"]:
       raiseAssert "The baked network metadata should use one of the name above"
 
   func bakedGenesisValidatorsRoot*(metadata: Eth2NetworkMetadata): Opt[Eth2Digest] =
-    if metadata.genesis.kind == BakedIn:
+    case metadata.genesis.kind
+    of BakedIn:
       try:
         let header = SSZ.decode(
           toOpenArray(metadata.genesis.bakedBytes, 0, sizeof(BeaconStateHeader) - 1),

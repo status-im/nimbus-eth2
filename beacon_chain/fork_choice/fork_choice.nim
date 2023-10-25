@@ -174,10 +174,11 @@ func process_attestation(
       validator_index = validator_index,
       new_vote = shortLog(vote)
 
-func process_attestation_queue(self: var ForkChoice, slot: Slot) =
+proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
   # Spec:
   # Attestations can only affect the fork choice of subsequent slots.
   # Delay consideration in the fork choice until their slot is in the past.
+  let startTick = Moment.now()
   self.queuedAttestations.keepItIf:
     if it.slot < slot:
       for validator_index in it.attesting_indices:
@@ -186,6 +187,8 @@ func process_attestation_queue(self: var ForkChoice, slot: Slot) =
       false
     else:
       true
+  let endTick = Moment.now()
+  debug "Processed attestation queue", processDur = endTick - startTick
 
 func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
