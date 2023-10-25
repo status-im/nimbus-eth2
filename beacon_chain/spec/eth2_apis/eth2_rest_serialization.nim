@@ -950,9 +950,26 @@ proc writeValue*(
 ) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
-## KzgCommitment
-# https://github.com/ethereum/beacon-APIs/blob/d934a03187729635bef06ca7f3c067645c3eab15/types/primitive.yaml#L135-L140
-proc readValue*(reader: var JsonReader[RestJson], value: var KzgCommitment) {.
+## Blob
+## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L129-L133
+proc readValue*(reader: var JsonReader[RestJson], value: var Blob) {.
+     raises: [IOError, SerializationError].} =
+  try:
+    hexToByteArray(reader.readValue(string), distinctBase(value))
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "Blob value should be a valid hex string")
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: Blob
+) {.raises: [IOError].} =
+  writeValue(writer, hexOriginal(distinctBase(value)))
+
+## KzgCommitment and KzgProof; both are the same type, but this makes it
+## explicit.
+## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L135-L146
+proc readValue*(reader: var JsonReader[RestJson],
+     value: var (KzgCommitment|KzgProof)) {.
      raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value))
@@ -961,7 +978,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var KzgCommitment) {.
                          "KzgCommitment value should be a valid hex string")
 
 proc writeValue*(
-    writer: var JsonWriter[RestJson], value: KzgCommitment
+    writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof
 ) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
