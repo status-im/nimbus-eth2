@@ -9,8 +9,8 @@
 
 import
   # Beacon chain internals
-  ../../beacon_chain/spec/[beaconstate, validator, helpers, state_transition_epoch],
-  ../../beacon_chain/spec/datatypes/[altair, bellatrix],
+  ../../../beacon_chain/spec/[beaconstate, validator, helpers, state_transition_epoch],
+  ../../../beacon_chain/spec/datatypes/[altair, bellatrix],
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops

@@ -10,8 +10,8 @@
 import
   # Standard library
   # Beacon chain internals
-  ../../beacon_chain/spec/[validator, helpers, state_transition_epoch],
-  ../../beacon_chain/spec/datatypes/phase0,
+  ../../../beacon_chain/spec/[validator, helpers, state_transition_epoch],
+  ../../../beacon_chain/spec/datatypes/phase0,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops

@@ -1617,6 +1617,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   waitFor node.updateGossipStatus(wallSlot)
 
+  asyncSpawn pollForDynamicValidators(node)
   asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
   asyncSpawn runOnSecondLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
