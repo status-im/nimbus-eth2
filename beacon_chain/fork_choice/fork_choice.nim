@@ -49,11 +49,13 @@ func compute_deltas(
 logScope: topics = "fork_choice"
 
 func init*(
-    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
-  T(proto_array: ProtoArray.init(checkpoints))
+    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints,
+    version: ForkChoiceVersion): T =
+  T(proto_array: ProtoArray.init(checkpoints, version))
 
 proc init*(
-    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
+    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef,
+    version: ForkChoiceVersion): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -65,10 +67,13 @@ proc init*(
     backend: ForkChoiceBackend.init(
       FinalityCheckpoints(
         justified: checkpoint,
-        finalized: checkpoint)),
+        finalized: checkpoint),
+      version),
     checkpoints: Checkpoints(
+      version: version,
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
+        total_active_balance: epochRef.total_active_balance,
         balances: epochRef.effective_balances),
       finalized: checkpoint,
       best_justified: checkpoint))
@@ -94,6 +99,7 @@ proc update_justified(
     store = self.justified.checkpoint, state = justified
   self.justified = BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    total_active_balance: epochRef.total_active_balance,
     balances: epochRef.effective_balances)
 
 proc update_justified(
@@ -287,7 +293,9 @@ proc process_block*(self: var ForkChoice,
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero
-  if slot == blck.slot and self.checkpoints.time < slot.attestation_deadline:
+  if slot == blck.slot and
+      self.checkpoints.time < slot.attestation_deadline and
+      self.checkpoints.proposer_boost_root == ZERO_HASH:
     self.checkpoints.proposer_boost_root = blckRef.root
 
   # Update checkpoints in store if necessary
@@ -315,10 +323,11 @@ proc process_block*(self: var ForkChoice,
 
   ok()
 
-func find_head*(
+func find_head(
        self: var ForkChoiceBackend,
        current_epoch: Epoch,
        checkpoints: FinalityCheckpoints,
+       justified_total_active_balance: Gwei,
        justified_state_balances: seq[Gwei],
        proposer_boost_root: Eth2Digest
      ): FcResult[Eth2Digest] =
@@ -337,7 +346,7 @@ func find_head*(
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
     deltas, current_epoch, checkpoints,
-    justified_state_balances, proposer_boost_root)
+    justified_total_active_balance, proposer_boost_root)
 
   self.balances = justified_state_balances
 
@@ -361,10 +370,11 @@ proc get_head*(self: var ForkChoice,
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized),
+    self.checkpoints.justified.total_active_balance,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/fork_choice/safe-block.md#get_safe_beacon_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   # Use most recent justified block as a stopgap
   self.checkpoints.justified.checkpoint.root

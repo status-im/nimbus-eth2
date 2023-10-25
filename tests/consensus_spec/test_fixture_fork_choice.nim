@@ -9,7 +9,7 @@
 
 import
   # Status libraries
-  stew/results, chronicles,
+  stew/[byteutils, results], chronicles,
   taskpools,
   # Internals
   ../../beacon_chain/spec/[helpers, forks, state_transition_block],
@@ -28,7 +28,7 @@ import
 
 from std/json import
   JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
-from std/sequtils import toSeq
+from std/sequtils import mapIt, toSeq
 from std/strutils import contains
 
 # Test format described at https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/fork_choice
@@ -45,6 +45,10 @@ type
     opInvalidateRoot
     opChecks
 
+  BlobData = object
+    blobs: seq[KzgBlob]
+    proofs: seq[KzgProof]
+
   Operation = object
     valid: bool
     # variant specific fields
@@ -55,6 +59,7 @@ type
       att: Attestation
     of opOnBlock:
       blck: ForkedSignedBeaconBlock
+      blobData: Opt[BlobData]
     of opOnMergeBlock:
       powBlock: PowBlock
     of opOnAttesterSlashing:
@@ -69,7 +74,7 @@ from ../../beacon_chain/spec/datatypes/capella import
   BeaconBlock, BeaconState, SignedBeaconBlock
 
 from ../../beacon_chain/spec/datatypes/deneb import
-  BeaconBlock, BeaconState, SignedBeaconBlock
+  KzgBlob, KzgProof, BeaconBlock, BeaconState, SignedBeaconBlock
 
 proc initialLoad(
     path: string, db: BeaconChainDB,
@@ -123,7 +128,8 @@ proc initialLoad(
     dag = ChainDAGRef.init(
       forkedState[].kind.genesisTestRuntimeConfig, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
-      dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
+      dag.getFinalizedEpochRef(), dag.finalizedHead.blck,
+      ForkChoiceVersion.Stable))
 
   (dag, fkChoice)
 
@@ -133,6 +139,8 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
 
   result = @[]
   for step in steps[0]:
+    var numExtraFields = 0
+
     if step.hasKey"tick":
       result.add Operation(kind: opOnTick,
         tick: step["tick"].getInt())
@@ -146,12 +154,14 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
         att: att)
     elif step.hasKey"block":
       let filename = step["block"].getStr()
+      doAssert step.hasKey"blobs" == step.hasKey"proofs"
       case fork
       of ConsensusFork.Phase0:
         let blck = parseTest(
           path/filename & ".ssz_snappy",
           SSZ, phase0.SignedBeaconBlock
         )
+        doAssert not step.hasKey"blobs"
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
       of ConsensusFork.Altair:
@@ -159,6 +169,7 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
           path/filename & ".ssz_snappy",
           SSZ, altair.SignedBeaconBlock
         )
+        doAssert not step.hasKey"blobs"
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
       of ConsensusFork.Bellatrix:
@@ -166,6 +177,7 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
           path/filename & ".ssz_snappy",
           SSZ, bellatrix.SignedBeaconBlock
         )
+        doAssert not step.hasKey"blobs"
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
       of ConsensusFork.Capella:
@@ -173,15 +185,27 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
           path/filename & ".ssz_snappy",
           SSZ, capella.SignedBeaconBlock
         )
+        doAssert not step.hasKey"blobs"
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
       of ConsensusFork.Deneb:
-        let blck = parseTest(
-          path/filename & ".ssz_snappy",
-          SSZ, deneb.SignedBeaconBlock
-        )
+        let
+          blck = parseTest(
+            path/filename & ".ssz_snappy",
+            SSZ, deneb.SignedBeaconBlock)
+          blobData =
+            if step.hasKey"blobs":
+              numExtraFields += 2
+              Opt.some BlobData(
+                blobs: distinctBase(parseTest(
+                  path/(step["blobs"].getStr()) & ".ssz_snappy",
+                  SSZ, List[KzgBlob, Limit MAX_BLOBS_PER_BLOCK])),
+                proofs: step["proofs"].mapIt(KzgProof.fromHex(it.getStr())))
+            else:
+              Opt.none(BlobData)
         result.add Operation(kind: opOnBlock,
-          blck: ForkedSignedBeaconBlock.init(blck))
+          blck: ForkedSignedBeaconBlock.init(blck),
+          blobData: blobData)
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
@@ -204,10 +228,10 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
       doAssert false, "Unknown test step: " & $step
 
     if step.hasKey"valid":
-      doAssert step.len == 2
+      doAssert step.len == 2 + numExtraFields
       result[^1].valid = step["valid"].getBool()
     elif not step.hasKey"checks" and not step.hasKey"payload_status":
-      doAssert step.len == 1
+      doAssert step.len == 1 + numExtraFields
       result[^1].valid = true
 
 proc stepOnBlock(
@@ -217,10 +241,21 @@ proc stepOnBlock(
        state: var ForkedHashedBeaconState,
        stateCache: var StateCache,
        signedBlock: ForkySignedBeaconBlock,
+       blobData: Opt[BlobData],
        time: BeaconTime,
        invalidatedRoots: Table[Eth2Digest, Eth2Digest]):
        Result[BlockRef, VerifierError] =
-  # 1. Move state to proper slot.
+  # 1. Validate blobs
+  when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+    if kzgCommits.len > 0 or blobData.isSome:
+      if blobData.isNone or kzgCommits.validate_blobs(
+          blobData.get.blobs, blobData.get.proofs).isErr:
+        return err(VerifierError.Invalid)
+  else:
+    doAssert blobData.isNone, "Pre-Deneb test with specified blob data"
+
+  # 2. Move state to proper slot
   doAssert dag.updateState(
     state,
     dag.getBlockIdAtSlot(time.slotOrZero).expect("block exists"),
@@ -228,7 +263,7 @@ proc stepOnBlock(
     stateCache
   )
 
-  # 2. Add block to DAG
+  # 3. Add block to DAG
   when signedBlock is phase0.SignedBeaconBlock:
     type TrustedBlock = phase0.TrustedSignedBeaconBlock
   elif signedBlock is altair.SignedBeaconBlock:
@@ -271,12 +306,12 @@ proc stepOnBlock(
       blckRef: BlockRef, signedBlock: TrustedBlock,
       epochRef: EpochRef, unrealized: FinalityCheckpoints):
 
-    # 3. Update fork choice if valid
+    # 4. Update fork choice if valid
     let status = fkChoice[].process_block(
       dag, epochRef, blckRef, unrealized, signedBlock.message, time)
     doAssert status.isOk()
 
-    # 4. Update DAG with new head
+    # 5. Update DAG with new head
     var quarantine = Quarantine.init()
     let newHead = fkChoice[].get_head(dag, time).get()
     dag.updateHead(dag.getBlockRef(newHead).get(), quarantine, [])
@@ -376,7 +411,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
         let status = stepOnBlock(
           stores.dag, stores.fkChoice,
           verifier, state[], stateCache,
-          blck, time, invalidatedRoots)
+          forkyBlck, step.blobData, time, invalidatedRoots)
         doAssert status.isOk == step.valid
     of opOnAttesterSlashing:
       let indices =
@@ -434,6 +469,9 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
           runTest(suiteName, basePath/path, fork)
+
+from ../../beacon_chain/conf import loadKzgTrustedSetup
+discard loadKzgTrustedSetup()  # Required for Deneb tests
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")

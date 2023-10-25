@@ -1,5 +1,11 @@
 # Prater testnet
 
+!!! note
+    Prater/Goerli is deprecated as of January 2023.
+    It will be supported long term for another 12 months.
+    Please consider using [Holesky testnet](./holesky.md) moving forward.
+
+
 `prater`, also known as `goerli`, is the current long-running merge testnet.
 It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practice node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups.
 If you come across any issues, please [report them here](https://github.com/status-im/nimbus-eth2/issues).

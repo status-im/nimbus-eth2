@@ -371,8 +371,19 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
     var counts: array[2, tuple[period: SyncCommitteePeriod, count: int]]
     counts[0] = (currentPeriod,
                  await service.pollForSyncCommitteeDuties(currentPeriod))
-    counts[1] = (nextPeriod,
-                 await service.pollForSyncCommitteeDuties(nextPeriod))
+
+    const
+      numDelayEpochs = 4  # Chosen empirically
+      numLookaheadEpochs =
+        max(EPOCHS_PER_SYNC_COMMITTEE_PERIOD, numDelayEpochs) -
+        numDelayEpochs + 1
+    if (currentEpoch + numLookaheadEpochs) >= nextPeriod.start_epoch:
+      counts[1] = (nextPeriod,
+                   await service.pollForSyncCommitteeDuties(nextPeriod))
+    else:
+      # Skip fetching `nextPeriod` until sync committees are likely known,
+      # as determined by `numDelayEpochs` from sync committee period start.
+      counts[1] = (nextPeriod, 0)
 
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new sync committee duties received", slot = currentSlot

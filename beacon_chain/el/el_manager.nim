@@ -10,11 +10,11 @@
 import
   std/[deques, strformat, strutils, sequtils, tables, typetraits, uri, json],
   # Nimble packages:
-  chronos, metrics, chronicles/timings, stint/endians2,
+  chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
   web3, web3/ethhexstrings, web3/engine_api,
   eth/common/[eth_types, transaction],
-  eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes],
+  eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes, endians2],
   # Local modules:
   ../spec/[deposit_snapshots, eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix, deneb],
@@ -353,7 +353,7 @@ proc trackEngineApiRequest(connection: ELConnection,
 
   deadline.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
     if not request.finished:
-      request.cancel()
+      request.cancelSoon()
       engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
       if not failureAllowed:
         connection.setDegradedState(requestName, 0, "Request timed out")
@@ -944,7 +944,7 @@ proc getPayload*(m: ELManager,
   var bestPayloadIdx = none int
   for idx, req in requests:
     if not req.finished:
-      req.cancel()
+      req.cancelSoon()
     elif req.failed:
       error "Failed to get execution payload from EL",
              url = m.elConnections[idx].engineUrl.url,
@@ -1059,12 +1059,12 @@ proc selectConnectionForChainSyncing(m: ELManager): Future[ELConnection] {.async
     await firstCompletedFuture(connectionsFuts)
   except CancelledError as err:
     for future in connectionsFuts:
-      future.cancel()
+      future.cancelSoon()
     raise err
 
   for future in connectionsFuts:
     if future != firstConnected:
-      future.cancel()
+      future.cancelSoon()
 
   return m.elConnections[find(connectionsFuts, firstConnected)]
 
@@ -1447,7 +1447,7 @@ proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
   var cancelled = 0
   for idx, req in requests:
     if not req.finished:
-      req.cancel()
+      req.cancelSoon()
       inc cancelled
 
   if cancelled == requests.len:
@@ -1871,7 +1871,7 @@ proc new*(T: type ELManager,
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
-    fut.cancel()
+    fut.cancelSoon()
   fut = nil
 
 func clear(chain: var Eth1Chain) =

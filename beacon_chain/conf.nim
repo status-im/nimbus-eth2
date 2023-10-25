@@ -29,6 +29,8 @@ import
   ./el/el_conf,
   ./filepath
 
+from fork_choice/fork_choice_types
+  import ForkChoiceVersion
 from consensus_object_pools/block_pools_types_light_client
   import LightClientDataImportMode
 
@@ -549,7 +551,7 @@ type
         name: "dump" .}: bool
 
       directPeers* {.
-        desc: "The list of privileged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering agreements are established out of band and must be reciprocal."
+        desc: "The list of privileged, secure and known peers to connect and maintain the connection to. This requires a not random netkey-file. In the multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>, or enr format (enr:-xx). Peering agreements are established out of band and must be reciprocal"
         name: "direct-peer" .}: seq[string]
 
       doppelgangerDetection* {.
@@ -640,6 +642,12 @@ type
         hidden
         desc: "Bandwidth estimate for the node (bits per second)"
         name: "debug-bandwidth-estimate" .}: Option[Natural]
+
+      forkChoiceVersion* {.
+        hidden
+        desc: "Forkchoice version to use. " &
+              "Must be one of: stable"
+        name: "debug-forkchoice-version" .}: Option[ForkChoiceVersion]
 
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd

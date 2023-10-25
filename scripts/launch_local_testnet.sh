@@ -806,6 +806,13 @@ DEPOSITS_FILE="${DATA_DIR}/deposits.json"
 CONTAINER_DEPOSITS_FILE="${CONTAINER_DATA_DIR}/deposits.json"
 CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE="${CONTAINER_DATA_DIR}/deposit_tree_snapshot.ssz"
 
+CONTAINER_BOOTSTRAP_NETWORK_KEYFILE="bootstrap_network_key.json"
+DIRECTPEER_NETWORK_KEYFILE="directpeer_network_key.json"
+
+
+BOOTSTRAP_NODE=1
+DIRECTPEER_NODE=2
+
 if command -v ulimit; then
   echo "Raising limits"
   ulimit -n $((TOTAL_VALIDATORS * 10))
@@ -885,21 +892,37 @@ fi
 
 jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_block_hash.txt"
 
+for NUM_NODE in $(seq 1 $NUM_NODES); do
+  NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
+  rm -rf "${NODE_DATA_DIR}"
+  scripts/makedir.sh "${NODE_DATA_DIR}" 2>&1
+done
+
 ./build/ncli_testnet createTestnet \
-  --data-dir="$CONTAINER_DATA_DIR" \
+  --data-dir="$CONTAINER_DATA_DIR/node$BOOTSTRAP_NODE" \
   --deposits-file="$CONTAINER_DEPOSITS_FILE" \
   --total-validators=$TOTAL_VALIDATORS \
   --output-genesis="$CONTAINER_DATA_DIR/genesis.ssz" \
   --output-bootstrap-file="$CONTAINER_DATA_DIR/bootstrap_nodes.txt" \
   --output-deposit-tree-snapshot="$CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE" \
   --bootstrap-address=127.0.0.1 \
-  --bootstrap-port=$BASE_PORT \
-  --netkey-file=network_key.json \
+  --bootstrap-port=$(( BASE_PORT + BOOTSTRAP_NODE - 1 )) \
+  --netkey-file=$CONTAINER_BOOTSTRAP_NETWORK_KEYFILE \
   --insecure-netkey-password=true \
   --genesis-time=$GENESIS_TIME \
   --capella-fork-epoch=$CAPELLA_FORK_EPOCH \
   --deneb-fork-epoch=$DENEB_FORK_EPOCH \
   --execution-genesis-block="$EXECUTION_GENESIS_BLOCK_JSON"
+
+DIRECTPEER_ENR=$(
+  ./build/ncli_testnet createTestnetEnr \
+    --data-dir="$CONTAINER_DATA_DIR/node$DIRECTPEER_NODE" \
+    --bootstrap-enr="$CONTAINER_DATA_DIR/bootstrap_nodes.txt" \
+    --enr-address=127.0.0.1 \
+    --enr-port=$(( BASE_PORT + DIRECTPEER_NODE - 1 )) \
+    --enr-netkey-file=$DIRECTPEER_NETWORK_KEYFILE \
+    --insecure-netkey-password=true 2>&1 > /dev/null
+)
 
 ./scripts/make_prometheus_config.sh \
     --nodes ${NUM_NODES} \
@@ -948,7 +971,6 @@ dump_logtrace() {
 }
 
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-$NUM_NODES}
-BOOTSTRAP_NODE=1
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
 VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
 if [[ "${USE_VC}" == "1" ]]; then
@@ -981,8 +1003,6 @@ VALIDATOR_OFFSET=$(( SYSTEM_VALIDATORS / 2 ))
 BOOTSTRAP_ENR="${DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
 CONTAINER_BOOTSTRAP_ENR="${CONTAINER_DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
 
-CONTAINER_NETWORK_KEYFILE="network_key.json"
-
 # TODO The deposit generator tool needs to gain support for generating two sets
 #      of deposits (genesis + submitted ones). Then we can enable the sending of
 #      deposits here.
@@ -998,8 +1018,6 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
   # The first $NODES_WITH_VALIDATORS nodes split them equally between them,
   # after skipping the first $USER_VALIDATORS.
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
-  rm -rf "${NODE_DATA_DIR}"
-  scripts/makedir.sh "${NODE_DATA_DIR}" 2>&1
   scripts/makedir.sh "${NODE_DATA_DIR}/validators" 2>&1
   scripts/makedir.sh "${NODE_DATA_DIR}/secrets" 2>&1
 
@@ -1081,28 +1099,21 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
     # Due to star topology, the bootstrap node must relay all attestations,
     # even if it itself is not interested. --subscribe-all-subnets could be
     # removed by switching to a fully-connected topology.
-    BOOTSTRAP_ARG="--netkey-file=${CONTAINER_NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets"
+    BOOTSTRAP_ARG="--netkey-file=${CONTAINER_BOOTSTRAP_NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets --direct-peer=$DIRECTPEER_ENR"
+  elif [[ ${NUM_NODE} == ${DIRECTPEER_NODE} ]]; then
+    # Start a node using the Direct Peer functionality instead of regular bootstraping
+    BOOTSTRAP_ARG="--netkey-file=${DIRECTPEER_NETWORK_KEYFILE} --direct-peer=$(cat $CONTAINER_BOOTSTRAP_ENR) --insecure-netkey-password=true"
   else
     BOOTSTRAP_ARG="--bootstrap-file=${CONTAINER_BOOTSTRAP_ENR}"
+  fi
 
+  if [[ ${NUM_NODE} != ${BOOTSTRAP_NODE} ]]; then
     if [[ "${CONST_PRESET}" == "minimal" ]]; then
       # The fast epoch and slot times in the minimal config might cause the
       # mesh to break down due to re-subscriptions happening within the prune
       # backoff time
       BOOTSTRAP_ARG="${BOOTSTRAP_ARG} --subscribe-all-subnets"
     fi
-
-    # Wait for the master node to write out its address file
-    START_TIMESTAMP=$(date +%s)
-    while [[ ! -f "${BOOTSTRAP_ENR}" ]]; do
-      sleep 0.1
-      NOW_TIMESTAMP=$(date +%s)
-      if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP - GENESIS_OFFSET ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then
-        echo "Bootstrap node failed to start in ${BOOTSTRAP_TIMEOUT} seconds. Aborting."
-        dump_logs
-        exit 1
-      fi
-    done
   fi
 
   WEB3_ARG=()
@@ -1190,6 +1201,18 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
       echo $PID > "$DATA_DIR/pids/nimbus_validator_client.${NUM_NODE}"
     fi
   fi
+
+  # Wait for the master node to write out its address file
+  START_TIMESTAMP=$(date +%s)
+  while [[ ! -f "${BOOTSTRAP_ENR}" ]]; do
+    sleep 0.1
+    NOW_TIMESTAMP=$(date +%s)
+    if [[ "$(( NOW_TIMESTAMP - START_TIMESTAMP - GENESIS_OFFSET ))" -ge "$BOOTSTRAP_TIMEOUT" ]]; then
+      echo "Bootstrap node failed to start in ${BOOTSTRAP_TIMEOUT} seconds. Aborting."
+      dump_logs
+      exit 1
+    fi
+  done
 done
 
 # light clients

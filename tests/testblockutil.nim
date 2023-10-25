@@ -25,7 +25,7 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/tests/core/pyspec/eth2spec/test/helpers/keys.py
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/tests/core/pyspec/eth2spec/test/helpers/keys.py
 func `[]`*(sk: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
   var bytes = (index.uint64 + 1'u64).toBytesLE()  # Consistent with EF tests
   static: doAssert sizeof(bytes) <= sizeof(result)
@@ -74,7 +74,7 @@ func signBlock(
     fork: Fork, genesis_validators_root: Eth2Digest, forked: ForkedBeaconBlock,
     privKey: ValidatorPrivKey, flags: UpdateFlags = {}): ForkedSignedBeaconBlock =
   let
-    slot = withBlck(forked): blck.slot
+    slot = withBlck(forked): forkyBlck.slot
     root = hash_tree_root(forked)
     signature =
       if skipBlsValidation notin flags:

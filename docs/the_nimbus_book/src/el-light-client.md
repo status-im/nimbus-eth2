@@ -104,7 +104,7 @@ The following sections explain how to do this for certain EL clients.
 ## Running the light client
 
 The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
+This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
 
 ### 1. Obtaining a trusted block root
 
@@ -188,7 +188,7 @@ NOT 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt
 ```
 
 !!! note
-    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
+    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
     As this is a new protocol, not all implementations are supporting it yet.
     Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
 

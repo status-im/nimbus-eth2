@@ -388,7 +388,7 @@ proc verify_builder_signature*(
   let signing_root = compute_builder_signing_root(fork, msg)
   blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 func compute_bls_to_execution_change_signing_root*(
     genesisFork: Fork, genesis_validators_root: Eth2Digest,
     msg: BLSToExecutionChange): Eth2Digest =

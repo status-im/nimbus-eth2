@@ -102,4 +102,4 @@ proc firstCompleted*[T](futs: varargs[Future[T]]): Future[T] =
   subFuture.addCallback(cb, cast[pointer](subFuture))
 
   retFuture.cancelCallback = proc (udata: pointer) =
-    subFuture.cancel()
+    subFuture.cancelSoon()

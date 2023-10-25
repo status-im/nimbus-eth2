@@ -252,11 +252,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + validateAttestation                                                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Gossip validation - Extra
+## Gossip validation - Altair
 ```diff
-+ validateSyncCommitteeMessage                                                               OK
++ Period boundary                                                                            OK
++ validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
@@ -703,4 +704,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 396/401 Fail: 0/401 Skip: 5/401
+OK: 397/402 Fail: 0/402 Skip: 5/402

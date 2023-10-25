@@ -90,6 +90,7 @@ declareGauge attestation_pool_block_attestation_packing_time,
 
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
            quarantine: ref Quarantine,
+           forkChoiceVersion = ForkChoiceVersion.Stable,
            onAttestation: OnAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
@@ -97,7 +98,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
   let finalizedEpochRef = dag.getFinalizedEpochRef()
 
   var forkChoice = ForkChoice.init(
-    finalizedEpochRef, dag.finalizedHead.blck)
+    finalizedEpochRef, dag.finalizedHead.blck, forkChoiceVersion)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
@@ -152,7 +153,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
                 default(FinalityCheckpoints)
           withBlck(blck):
             forkChoice.process_block(
-              dag, epochRef, blckRef, unrealized, blck.message,
+              dag, epochRef, blckRef, unrealized, forkyBlck.message,
               blckRef.slot.start_beacon_time)
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
@@ -559,7 +560,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
-  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#attestations
+  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#attestations
   let newBlockSlot = state.data.slot.uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
@@ -742,7 +743,7 @@ func getAggregatedAttestation*(pool: var AttestationPool,
                                index: CommitteeIndex): Opt[Attestation] =
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
-  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
+  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#construct-aggregate
   let candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
     return Opt.none(Attestation)
@@ -772,7 +773,7 @@ proc getBeaconHead*(
     finalizedExecutionPayloadHash =
       pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/fork_choice/safe-block.md#get_safe_execution_payload_hash
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/fork_choice/safe-block.md#get_safe_execution_payload_hash
     safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionPayloadHash =

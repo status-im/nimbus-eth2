@@ -134,7 +134,7 @@ proc doTransition(conf: NcliConf) =
     info = ForkedEpochInfo()
   let res = withTimerRet(timers[tTransition]): withBlck(blckX):
     state_transition(
-      cfg, stateY[], blck, cache, info, flags, noRollback)
+      cfg, stateY[], forkyBlck, cache, info, flags, noRollback)
   if res.isErr():
     error "State transition failed", error = res.error()
     quit 1

@@ -313,8 +313,8 @@ proc initFullNode(
   let
     quarantine = newClone(
       Quarantine.init())
-    attestationPool = newClone(
-      AttestationPool.init(dag, quarantine, onAttestationReceived))
+    attestationPool = newClone(AttestationPool.init(
+      dag, quarantine, config.forkChoiceVersion.get, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
@@ -344,11 +344,11 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       withBlck(signedBlock):
-        when typeof(blck).toFork() >= ConsensusFork.Deneb:
-          if not blobQuarantine[].hasBlobs(blck):
+        when typeof(forkyBlck).toFork() >= ConsensusFork.Deneb:
+          if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
-            if not quarantine[].addBlobless(dag.finalizedHead.slot, blck):
+            if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
               Future.completed(
                 Result[void, VerifierError].err(VerifierError.UnviableFork),
                 "rmanBlockVerifier")
@@ -357,7 +357,7 @@ proc initFullNode(
                 Result[void, VerifierError].err(VerifierError.MissingParent),
                 "rmanBlockVerifier")
           else:
-            let blobs = blobQuarantine[].popBlobs(blck.root)
+            let blobs = blobQuarantine[].popBlobs(forkyBlck.root)
             blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.some(blobs),
                                       maybeFinalized = maybeFinalized)
@@ -700,6 +700,7 @@ proc init*(T: type BeaconNode,
     getStateField(dag.headState, genesis_validators_root)
 
   let
+    keystoreCache = KeystoreCacheRef.init()
     slashingProtectionDB =
       SlashingProtectionDB.init(
           getStateField(dag.headState, genesis_validators_root),
@@ -711,6 +712,7 @@ proc init*(T: type BeaconNode,
     keymanagerHost = if keymanagerInitResult.server != nil:
       newClone KeymanagerHost.init(
         validatorPool,
+        keystoreCache,
         rng,
         keymanagerInitResult.token,
         config.validatorsDir,
@@ -749,7 +751,7 @@ proc init*(T: type BeaconNode,
     restServer: restServer,
     keymanagerHost: keymanagerHost,
     keymanagerServer: keymanagerInitResult.server,
-    keystoreCache: KeystoreCacheRef.init(),
+    keystoreCache: keystoreCache,
     eventBus: eventBus,
     gossipState: {},
     blocksGossipState: {},
@@ -1188,9 +1190,9 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(blck).toFork() < ConsensusFork.Deneb: continue
+        when typeof(forkyBlck).toFork() < ConsensusFork.Deneb: continue
         else:
-          for j in 0..len(blck.message.body.blob_kzg_commitments) - 1:
+          for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
               count = count + 1
     debug "pruned blobs", count, blobPruneEpoch
@@ -1568,7 +1570,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -1579,7 +1581,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{index}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
         for i in 0 ..< BLOB_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = i
@@ -1902,6 +1904,13 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
+  if config.forkChoiceVersion.isNone:
+    config.forkChoiceVersion =
+      if metadata.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        # https://github.com/ethereum/pm/issues/844#issuecomment-1673359012
+        some(ForkChoiceVersion.Pr3431)
+      else:
+        some(ForkChoiceVersion.Stable)
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =
@@ -2164,6 +2173,7 @@ programMain:
     # permissions are insecure.
     quit QuitFailure
 
+  setupFileLimits()
   setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   ## This Ctrl+C handler exits the program in non-graceful way.

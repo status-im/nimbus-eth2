@@ -766,30 +766,30 @@ template withBlck*(
   case x.kind
   of ConsensusFork.Phase0:
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template blck: untyped {.inject.} = x.phase0Data
+    template forkyBlck: untyped {.inject.} = x.phase0Data
     body
   of ConsensusFork.Altair:
     const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template blck: untyped {.inject.} = x.altairData
+    template forkyBlck: untyped {.inject.} = x.altairData
     body
   of ConsensusFork.Bellatrix:
     const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template blck: untyped {.inject.} = x.bellatrixData
+    template forkyBlck: untyped {.inject.} = x.bellatrixData
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template blck: untyped {.inject.} = x.capellaData
+    template forkyBlck: untyped {.inject.} = x.capellaData
     body
   of ConsensusFork.Deneb:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template blck: untyped {.inject.} = x.denebData
+    template forkyBlck: untyped {.inject.} = x.denebData
     body
 
 func proposer_index*(x: ForkedBeaconBlock): uint64 =
-  withBlck(x): blck.proposer_index
+  withBlck(x): forkyBlck.proposer_index
 
 func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
-  withBlck(x): hash_tree_root(blck)
+  withBlck(x): hash_tree_root(forkyBlck)
 
 func hash_tree_root*(x: Web3SignerForkedBeaconBlock): Eth2Digest =
   hash_tree_root(x.data)
@@ -810,29 +810,29 @@ template getForkedBlockField*(
 template signature*(x: ForkedSignedBeaconBlock |
                        ForkedMsgTrustedSignedBeaconBlock |
                        ForkedSignedBlindedBeaconBlock): ValidatorSig =
-  withBlck(x): blck.signature
+  withBlck(x): forkyBlck.signature
 
 template signature*(x: ForkedTrustedSignedBeaconBlock): TrustedSig =
-  withBlck(x): blck.signature
+  withBlck(x): forkyBlck.signature
 
 template root*(x: ForkedSignedBeaconBlock |
                   ForkedMsgTrustedSignedBeaconBlock |
                   ForkedTrustedSignedBeaconBlock): Eth2Digest =
-  withBlck(x): blck.root
+  withBlck(x): forkyBlck.root
 
 template slot*(x: ForkedSignedBeaconBlock |
                   ForkedMsgTrustedSignedBeaconBlock |
                   ForkedTrustedSignedBeaconBlock): Slot =
-  withBlck(x): blck.message.slot
+  withBlck(x): forkyBlck.message.slot
 
 template shortLog*(x: ForkedBeaconBlock | ForkedBlindedBeaconBlock): auto =
-  withBlck(x): shortLog(blck)
+  withBlck(x): shortLog(forkyBlck)
 
 template shortLog*(x: ForkedSignedBeaconBlock |
                       ForkedMsgTrustedSignedBeaconBlock |
                       ForkedTrustedSignedBeaconBlock |
                       ForkedSignedBlindedBeaconBlock): auto =
-  withBlck(x): shortLog(blck)
+  withBlck(x): shortLog(forkyBlck)
 
 chronicles.formatIt ForkedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
@@ -849,27 +849,27 @@ template withStateAndBlck*(
   of ConsensusFork.Deneb:
     const consensusFork {.inject.} = ConsensusFork.Deneb
     template forkyState: untyped {.inject.} = s.denebData
-    template blck: untyped {.inject.} = b.denebData
+    template forkyBlck: untyped {.inject.} = b.denebData
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject.} = ConsensusFork.Capella
     template forkyState: untyped {.inject.} = s.capellaData
-    template blck: untyped {.inject.} = b.capellaData
+    template forkyBlck: untyped {.inject.} = b.capellaData
     body
   of ConsensusFork.Bellatrix:
     const consensusFork {.inject.} = ConsensusFork.Bellatrix
     template forkyState: untyped {.inject.} = s.bellatrixData
-    template blck: untyped {.inject.} = b.bellatrixData
+    template forkyBlck: untyped {.inject.} = b.bellatrixData
     body
   of ConsensusFork.Altair:
     const consensusFork {.inject.} = ConsensusFork.Altair
     template forkyState: untyped {.inject.} = s.altairData
-    template blck: untyped {.inject.} = b.altairData
+    template forkyBlck: untyped {.inject.} = b.altairData
     body
   of ConsensusFork.Phase0:
     const consensusFork {.inject.} = ConsensusFork.Phase0
     template forkyState: untyped {.inject.} = s.phase0Data
-    template blck: untyped {.inject.} = b.phase0Data
+    template forkyBlck: untyped {.inject.} = b.phase0Data
     body
 
 func toBeaconBlockHeader*(
@@ -893,7 +893,7 @@ template toBeaconBlockHeader*(
     blckParam: ForkedMsgTrustedSignedBeaconBlock |
                ForkedTrustedSignedBeaconBlock): BeaconBlockHeader =
   ## Reduce a given signed beacon block to its `BeaconBlockHeader`.
-  withBlck(blckParam): blck.toBeaconBlockHeader()
+  withBlck(blckParam): forkyBlck.toBeaconBlockHeader()
 
 func genesisFork*(cfg: RuntimeConfig): Fork =
   Fork(
@@ -1036,9 +1036,9 @@ func readSszForkedSignedBeaconBlock*(
     kind: cfg.consensusForkAtEpoch(header.slot.epoch()))
 
   withBlck(result):
-    readSszBytes(data, blck)
+    readSszBytes(data, forkyBlck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and
@@ -1050,7 +1050,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and
@@ -1087,7 +1087,7 @@ func toBlockId*(blck: SomeForkySignedBeaconBlock): BlockId =
 func toBlockId*(blck: ForkedSignedBeaconBlock |
                       ForkedMsgTrustedSignedBeaconBlock |
                       ForkedTrustedSignedBeaconBlock): BlockId =
-  withBlck(blck): BlockId(root: blck.root, slot: blck.message.slot)
+  withBlck(blck): BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
 
 func historical_summaries*(state: ForkedHashedBeaconState):
     HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT] =

@@ -2829,6 +2829,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
   ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/proposer_boost               OK
++ ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_bloc OK
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 + ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_gr OK
 + ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boos OK
@@ -2845,6 +2846,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
   ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_future_block     Skip
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost            OK
++ ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_b OK
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_ OK
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/all_valid           Skip
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
@@ -2865,6 +2867,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
   ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
++ ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_blo OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greate OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_no OK
@@ -2878,12 +2881,18 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_data_unavailable      OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_incorrect_proof       OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_blobs_length    OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_wrong_proofs_length   OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
   ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost                OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              OK
 ```
-OK: 60/68 Fail: 0/68 Skip: 8/68
+OK: 69/77 Fail: 0/77 Skip: 8/77
 ## Sync
 ```diff
 + Sync - mainnet/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
@@ -2893,4 +2902,4 @@ OK: 60/68 Fail: 0/68 Skip: 8/68
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2327/2335 Fail: 0/2335 Skip: 8/2335
+OK: 2336/2344 Fail: 0/2344 Skip: 8/2344

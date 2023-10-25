@@ -15,7 +15,7 @@ export base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
@@ -23,16 +23,16 @@ const
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
 
-  # The spec now includes this as a bare integer as `RESP_TIMEOUT`
-  RESP_TIMEOUT_DUR* = RESP_TIMEOUT.seconds
+const
+  # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
+  RESP_TIMEOUT_DUR* = RESP_TIMEOUT.int64.seconds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/p2p-interface.md#configuration
-  MAX_REQUEST_BLOCKS_DENEB* = 128 # TODO Make use of in request code
-  MAX_REQUEST_BLOB_SIDECARS* = MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
-  # TODO MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#configuration
+  MAX_REQUEST_BLOB_SIDECARS*: uint64 =
+    MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
 
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
@@ -63,11 +63,11 @@ func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicAggregateAndProofsSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/capella/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/p2p-interface.md#topics-and-messages
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
     SubnetId =
@@ -105,16 +105,16 @@ func getBlobSidecarTopic*(forkDigest: ForkDigest,
                           subnet_id: SubnetId): string =
   eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/validator.md#sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/validator.md#sidecar
 func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): SubnetId =
   SubnetId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
   eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"
