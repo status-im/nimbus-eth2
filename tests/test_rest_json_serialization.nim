@@ -11,6 +11,8 @@ import
   unittest2,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization
 
+from std/strutils import endsWith, startsWith
+
 const denebSignedContents = """
 {
   "signed_block": {
@@ -213,13 +215,13 @@ func fromHex(T: typedesc[KzgCommitment], s: string): T {.
   res
 
 suite "REST JSON encoding and decoding":
-  test "DenebSignedBlockContents":
+  test "DenebSignedBlockContents decoding":
     check: hash_tree_root(RestJson.decode(
       denebSignedContents, DenebSignedBlockContents, requireAllFields = true,
       allowUnknownFields = true)) == Eth2Digest.fromHex(
         "0x6b9fce0e35ee7af9b061f244706c4eda43c16e9dcc5b1cc817ed0671f49d16a8")
 
-  test "RestPublishedSignedBlockContents":
+  test "RestPublishedSignedBlockContents decoding":
     check: hash_tree_root(RestJson.decode(
       denebSignedContents, RestPublishedSignedBlockContents,
       requireAllFields = true, allowUnknownFields = true).denebData) ==
@@ -255,3 +257,66 @@ suite "REST JSON encoding and decoding":
       RestJson.encode(zeroKzgCommitment) != randString
       RestJson.encode(randKzgCommitment) != zeroString
       RestJson.encode(randKzgCommitment) == randString
+
+  test "KzgProof":
+    let
+      zeroString =
+        "\"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\""
+      randString =
+        "\"0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb\""
+      zeroKzgProof = KzgProof.fromHex(
+        "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+      randKzgProof = KzgProof.fromHex(
+        "0xe2822fdd03685968091c79b1f81d17ed646196c920baecf927a6abbe45cd2d930a692e85ff5d96ebe36d99a57c74d5cb")
+
+    check:
+      RestJson.decode(
+        zeroString, KzgProof, requireAllFields = true,
+          allowUnknownFields = true) == zeroKzgProof
+      RestJson.decode(
+        zeroString, KzgProof, requireAllFields = true,
+          allowUnknownFields = true) != randKzgProof
+      RestJson.decode(
+        randString, KzgProof, requireAllFields = true,
+          allowUnknownFields = true) != zeroKzgProof
+      RestJson.decode(
+        randString, KzgProof, requireAllFields = true,
+          allowUnknownFields = true) == randKzgProof
+
+      RestJson.encode(zeroKzgProof) == zeroString
+      RestJson.encode(zeroKzgProof) != randString
+      RestJson.encode(randKzgProof) != zeroString
+      RestJson.encode(randKzgProof) == randString
+
+  test "Blob":
+    let
+      zeroBlob = new Blob
+      nonzeroBlob = new Blob
+      blobLen = distinctBase(nonzeroBlob[]).lenu64
+
+    for i in 0 ..< blobLen:
+      nonzeroBlob[i] = 17.byte
+
+    let
+      zeroString = newClone(RestJson.encode(zeroBlob[]))
+      nonzeroString = newClone(RestJson.encode(nonzeroBlob[]))
+
+    let
+      zeroBlobRoundTrip =
+        newClone(RestJson.decode(
+          zeroString[], Blob, requireAllFields = true, allowUnknownFields = true))
+      nonzeroBlobRoundTrip =
+        newClone(RestJson.decode(
+          nonzeroString[], Blob, requireAllFields = true,
+          allowUnknownFields = true))
+
+    check:
+      zeroString[].startsWith "\"0x0000000000000000000000000000000000000000000000000"
+      nonzeroString[].startsWith "\"0x111111111111111111111111111111111111111111111111"
+      zeroString[].endsWith "0000000000000000000000000000000000000000000000\""
+      nonzeroString[].endsWith "1111111111111111111111111111111111111111111111\""
+      zeroString[].lenu64 == 2*blobLen + 4   # quotation marks and 0x prefix
+      nonzeroString[].lenu64 == 2*blobLen + 4   # quotation marks and 0x prefix
+      zeroBlob[] == zeroBlobRoundTrip[]
+      nonzeroBlob[] == nonzeroBlobRoundTrip[]
+      zeroBlob[] != nonzeroBlob[]

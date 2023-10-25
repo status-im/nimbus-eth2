@@ -430,11 +430,13 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## REST JSON encoding and decoding
 ```diff
-+ DenebSignedBlockContents                                                                   OK
++ Blob                                                                                       OK
++ DenebSignedBlockContents decoding                                                          OK
 + KzgCommitment                                                                              OK
-+ RestPublishedSignedBlockContents                                                           OK
++ KzgProof                                                                                   OK
++ RestPublishedSignedBlockContents decoding                                                  OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Remove keystore testing suite
 ```diff
 + Many remotes                                                                               OK
@@ -712,4 +714,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 401/406 Fail: 0/406 Skip: 5/406
+OK: 403/408 Fail: 0/408 Skip: 5/408

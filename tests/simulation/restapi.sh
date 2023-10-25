@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+#
+# beacon_chain
+# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 set -e
 
@@ -196,6 +203,8 @@ DEPOSIT_CONTRACT_BLOCK="0x000000000000000000000000000000000000000000000000000000
 
 echo Wrote $RUNTIME_CONFIG_FILE:
 
+# DENEB_FORK_EPOCH must be non-FAR_FUTURE_EPOCH to trigger creation of blob
+# sidecar database table.
 tee "$RUNTIME_CONFIG_FILE" <<EOF
 PRESET_BASE: "mainnet"
 MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${NUM_VALIDATORS}
@@ -206,6 +215,8 @@ DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
 ALTAIR_FORK_EPOCH: 0
 BELLATRIX_FORK_EPOCH: 0
+CAPELLA_FORK_EPOCH: 9000
+DENEB_FORK_EPOCH: 10000
 EOF
 
 echo "Creating testnet genesis..."
@@ -218,6 +229,8 @@ ${LOCAL_TESTNET_SIMULATION_BIN} \
   --output-deposit-tree-snapshot="${DEPOSIT_TREE_SNAPSHOT_FILE}" \
   --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
   --netkey-file=network_key.json \
+  --capella-fork-epoch=9000 \
+  --deneb-fork-epoch=10000 \
   --insecure-netkey-password=true \
   --genesis-offset=-60 # Chain that has already started allows testing empty slots
 # Make sure we use the newly generated genesis
