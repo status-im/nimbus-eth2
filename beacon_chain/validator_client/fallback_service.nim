@@ -333,11 +333,9 @@ proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
       if fut.completed() and fut.read():
         res = true
   except CancelledError as exc:
-    var pending: seq[Future[void]]
-    for future in pendingChecks:
-      if not(future.finished()):
-        pending.add(future.cancelAndWait())
-    await allFutures(pending)
+    let pending = pendingChecks
+      .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
     raise exc
   return res
 
@@ -456,10 +454,9 @@ proc processTimeMonitoring(service: FallbackServiceRef) {.async.} =
       pendingChecks.add(service.runTimeMonitor(node))
     await allFutures(pendingChecks)
   except CancelledError as exc:
-    var pending: seq[Future[void]]
-    for future in pendingChecks:
-      if not(future.finished()): pending.add(future.cancelAndWait())
-    await allFutures(pending)
+    let pending = pendingChecks
+      .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
     raise exc
   except CatchableError as exc:
     warn "An unexpected error occurred while running time monitoring",

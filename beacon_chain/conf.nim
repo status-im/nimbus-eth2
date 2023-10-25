@@ -1342,9 +1342,7 @@ proc readValue*(r: var TomlReader, a: var Address)
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 
-proc loadEth2Network*(
-    eth2Network: Option[string]
-): Eth2NetworkMetadata {.raises: [IOError].} =
+proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
   const defaultName =
     when const_preset == "gnosis":
       "gnosis"

@@ -465,7 +465,7 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
               debug "Cancelling running proposal duty task",
                     slot = task.duty.slot,
                     validator = shortLog(task.duty.pubkey)
-              task.future.cancel()
+              task.future.cancelSoon()
             else:
               # If task is already running for proper slot, we keep it alive.
               debug "Keep running previous proposal duty task",
@@ -714,18 +714,18 @@ proc runBlockPollMonitor(service: BlockServiceRef,
               break
             res
         if blockReceived:
-          var pending: seq[Future[void]]
-          for future in pendingTasks:
-            if not(future.finished()): pending.add(future.cancelAndWait())
-          await allFutures(pending)
+          let pending =
+            pendingTasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+          # We use `noCancel` here because its cleanup and we have `break`
+          # after it.
+          await noCancel allFutures(pending)
           break
         pendingTasks.keepItIf(it != completedFuture)
         if len(pendingTasks) == 0: break
     except CancelledError as exc:
-      var pending: seq[Future[void]]
-      for future in pendingTasks:
-        if not(future.finished()): pending.add(future.cancelAndWait())
-      await allFutures(pending)
+      let pending =
+        pendingTasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+      await noCancel allFutures(pending)
       raise exc
     except CatchableError as exc:
       warn "An unexpected error occurred while running block monitoring",
@@ -755,10 +755,9 @@ proc runBlockMonitor(service: BlockServiceRef) {.async.} =
   try:
     await allFutures(pendingTasks)
   except CancelledError as exc:
-    var pending: seq[Future[void]]
-    for future in pendingTasks:
-      if not(future.finished()): pending.add(future.cancelAndWait())
-    await allFutures(pending)
+    let pending =
+      pendingTasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
     raise exc
   except CatchableError as exc:
     warn "An unexpected error occurred while running block monitoring",
@@ -781,12 +780,12 @@ proc mainLoop(service: BlockServiceRef) {.async.} =
           err_msg = exc.msg
 
   # We going to cleanup all the pending proposer tasks.
-  var res: seq[Future[void]]
+  var res: seq[FutureBase]
   for epoch, data in vc.proposers.pairs():
     for duty in data.duties.items():
       if not(duty.future.finished()):
         res.add(duty.future.cancelAndWait())
-  await allFutures(res)
+  await noCancel allFutures(res)
 
 proc init*(t: typedesc[BlockServiceRef],
            vc: ValidatorClientRef): Future[BlockServiceRef] {.async.} =

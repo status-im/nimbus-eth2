@@ -536,7 +536,8 @@ func get_attestation_participation_flag_indices(
   doAssert is_matching_source
 
   var participation_flag_indices: set[TimelyFlag]
-  if is_matching_source and inclusion_delay <= integer_squareroot(SLOTS_PER_EPOCH):
+  if is_matching_source and inclusion_delay <=
+      static(integer_squareroot(SLOTS_PER_EPOCH)):
     participation_flag_indices.incl(TIMELY_SOURCE_FLAG_INDEX)
   if is_matching_target and inclusion_delay <= SLOTS_PER_EPOCH:
     participation_flag_indices.incl(TIMELY_TARGET_FLAG_INDEX)
