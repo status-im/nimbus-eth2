@@ -797,7 +797,7 @@ proc putBlobSidecar*(
 
 proc delBlobSidecar*(
     db: BeaconChainDB,
-    root: Eth2Digest, index: BlobIndex) : bool =
+    root: Eth2Digest, index: BlobIndex): bool =
   db.blobs.del(blobkey(root, index)).expectDb()
 
 proc updateImmutableValidators*(
@@ -1042,12 +1042,15 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
 
 proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
-                       data: var seq[byte]):
-    bool =
+                       data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
   db.blobs.get(blobkey(root, index), decode).expectDb()
+
+proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
+                     value: var BlobSidecar): bool =
+  db.blobs.getSZSSZ(blobkey(root, index), value) == GetResult.found
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
