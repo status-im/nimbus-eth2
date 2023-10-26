@@ -23,6 +23,11 @@ proc makeTestDB*(
     eth1Data = Opt.none(Eth1Data),
     flags: UpdateFlags = {},
     cfg = defaultRuntimeConfig): BeaconChainDB =
+  # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
+  var cfg = cfg
+  cfg.CAPELLA_FORK_EPOCH = 90000.Epoch
+  cfg.DENEB_FORK_EPOCH = 100000.Epoch
+
   var genState = (ref ForkedHashedBeaconState)(
     kind: ConsensusFork.Phase0,
     phase0Data: initialize_hashed_beacon_state_from_eth1(

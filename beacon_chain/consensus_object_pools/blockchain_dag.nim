@@ -234,19 +234,6 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
   else:
     err()
 
-proc containsBlock(dag: ChainDAGRef, bid: BlockId): bool =
-  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-  if dag.db.containsBlock(bid.root, fork):
-    return true
-
-  # TODO avoid loading bytes from era
-  var bytes: seq[byte]
-  (bid.slot <= dag.finalizedHead.slot and
-    getBlockSZ(
-      dag.era, getStateField(dag.headState, historical_roots).asSeq,
-      dag.headState.historical_summaries().asSeq,
-      bid.slot, bytes).isOk and bytes.len > 0)
-
 proc getBlock*(
     dag: ChainDAGRef, bid: BlockId,
     T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
