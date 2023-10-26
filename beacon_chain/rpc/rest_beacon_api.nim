@@ -1374,3 +1374,50 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        VoluntaryExitValidationError,
                                        $res.error())
     return RestApiResponse.jsonMsgResponse(VoluntaryExitValidationSuccess)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.2#/Beacon/getBlobSidecars
+  # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/beacon/blob_sidecars/blob_sidecars.yaml
+  router.api(MethodGet, "/eth/v1/beacon/blob_sidecars/{block_id}") do (
+    block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
+    let
+      bid = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+
+      bdata = node.getForkedBlock(bid).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+
+      contentType = block:
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
+
+    # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
+    let data = newClone(default(List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
+
+    if indices.isErr:
+      return RestApiResponse.jsonError(Http400,
+                                       InvalidSidecarIndexValueError)
+
+    let indexFilter = indices.get.toHashSet
+
+    for blobIndex in 0'u64 ..< MAX_BLOBS_PER_BLOCK:
+      if indexFilter.len > 0 and blobIndex notin indexFilter:
+        continue
+
+      var blobSidecar = new BlobSidecar
+
+      if node.dag.db.getBlobSidecar(bdata.root, blobIndex, blobSidecar[]):
+        discard data[].add blobSidecar[]
+
+    return
+      if contentType == sszMediaType:
+        RestApiResponse.sszResponse(
+          data[], headers = [("eth-consensus-version",
+            node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch).toString())])
+      elif contentType == jsonMediaType:
+        RestApiResponse.jsonResponse(data)
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
