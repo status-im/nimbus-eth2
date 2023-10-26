@@ -351,7 +351,7 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
     timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
 
 proc init*(T: type RestServerRef,
-           ip: ValidIpAddress,
+           ip: IpAddress,
            port: Port,
            allowedOrigin: Option[string],
            validateFn: PatternCallback,
