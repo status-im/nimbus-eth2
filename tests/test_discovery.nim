@@ -16,18 +16,23 @@ import
 
 proc new(T: type Eth2DiscoveryProtocol,
     pk: keys.PrivateKey,
-    enrIp: Option[ValidIpAddress], enrTcpPort, enrUdpPort: Option[Port],
-    bindPort: Port, bindIp: ValidIpAddress,
+    enrIp: Option[IpAddress], enrTcpPort, enrUdpPort: Option[Port],
+    bindPort: Port, bindIp: IpAddress,
     enrFields: openArray[(string, seq[byte])] = [],
     rng: ref HmacDrbgContext):
     T {.raises: [CatchableError].} =
+  let optValidIpAddress =
+    if enrIp.isSome:
+      some ValidIpAddress.init enrIp.get
+    else:
+      none ValidIpAddress
 
-  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields,
+  newProtocol(pk, optValidIpAddress, enrTcpPort, enrUdpPort, enrFields,
     bindPort = bindPort, bindIp = bindIp, rng = rng)
 
 proc generateNode(rng: ref HmacDrbgContext, port: Port,
     enrFields: openArray[(string, seq[byte])] = []): Eth2DiscoveryProtocol =
-  let ip = ValidIpAddress.init("127.0.0.1")
+  let ip = parseIpAddress("127.0.0.1")
   Eth2DiscoveryProtocol.new(keys.PrivateKey.random(rng[]),
         some(ip), some(port), some(port), port, ip, enrFields, rng = rng)
 
