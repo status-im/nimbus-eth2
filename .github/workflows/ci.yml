@@ -78,7 +78,7 @@ jobs:
 
       - name: MSYS2 (Windows amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@3a80e3a675f6a4aeef450a4235dc97366f862e15
         with:
           path-type: inherit
           install: >-
