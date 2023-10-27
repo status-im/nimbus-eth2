@@ -1305,7 +1305,7 @@ proc validateContribution*(
 
   return ok((blck.bid, sig, participants))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     finality_update: ForkedLightClientFinalityUpdate,
@@ -1341,7 +1341,7 @@ proc validateLightClientFinalityUpdate*(
   pool.latestForwardedFinalitySlot = finalized_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 proc validateLightClientOptimisticUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     optimistic_update: ForkedLightClientOptimisticUpdate,

@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import std/[typetraits, strutils]
 import stew/[assign2, results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization, json_serialization,
@@ -97,6 +99,7 @@ type
     SetGasLimitRequest |
     bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock |
+    deneb_mev.SignedBlindedBeaconBlockContents |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
@@ -161,9 +164,8 @@ type
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
-                    DenebBlockContents | capella_mev.BlindedBeaconBlock
-
-{.push raises: [].}
+                    DenebBlockContents | capella_mev.BlindedBeaconBlock |
+                    deneb_mev.BlindedBeaconBlock
 
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
@@ -948,6 +950,38 @@ proc writeValue*(
 ) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
+## Blob
+## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L129-L133
+proc readValue*(reader: var JsonReader[RestJson], value: var Blob) {.
+     raises: [IOError, SerializationError].} =
+  try:
+    hexToByteArray(reader.readValue(string), distinctBase(value))
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "Blob value should be a valid hex string")
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: Blob
+) {.raises: [IOError].} =
+  writeValue(writer, hexOriginal(distinctBase(value)))
+
+## KzgCommitment and KzgProof; both are the same type, but this makes it
+## explicit.
+## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L135-L146
+proc readValue*(reader: var JsonReader[RestJson],
+     value: var (KzgCommitment|KzgProof)) {.
+     raises: [IOError, SerializationError].} =
+  try:
+    hexToByteArray(reader.readValue(string), distinctBase(value))
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "KzgCommitment value should be a valid hex string")
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof
+) {.raises: [IOError].} =
+  writeValue(writer, hexOriginal(distinctBase(value)))
+
 ## GraffitiBytes
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: GraffitiBytes
@@ -1222,7 +1256,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     let res =
       try:
         RestJson.decode(string(data.get()),
-                        capella_mev.BlindedBeaconBlock,
+                        deneb_mev.BlindedBeaconBlock,
                         requireAllFields = true,
                         allowUnknownFields = true)
       except SerializationError as exc:
@@ -1377,7 +1411,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlockBody")
       bls_to_execution_changes = Opt.some(
         reader.readValue(SignedBLSToExecutionChangeList))
-    of "blob_kzg_commitments_changes":
+    of "blob_kzg_commitments":
       if blob_kzg_commitments.isSome():
         reader.raiseUnexpectedField("Multiple `blob_kzg_commitments` fields found",
                                     "RestPublishedBeaconBlockBody")
@@ -1748,6 +1782,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           Opt.none(RestPublishedSignedBeaconBlock)
       if signed_message.isNone():
         reader.raiseUnexpectedValue("Incorrect signed_block format")
+
+      # Only needed to signal fork to the blck.kind case selection
       let blck = ForkedSignedBeaconBlock(signed_message.get())
       message = Opt.some(RestPublishedBeaconBlock(
         case blck.kind
@@ -1757,9 +1793,6 @@ proc readValue*(reader: var JsonReader[RestJson],
         of ConsensusFork.Deneb:
           ForkedBeaconBlock.init(blck.denebData.message)
       ))
-
-      signature = Opt.some(forks.signature(
-        ForkedSignedBeaconBlock(signed_message.get())))
     of "signed_blob_sidecars":
       if signed_blob_sidecars.isSome():
         reader.raiseUnexpectedField(
@@ -1767,7 +1800,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           "RestPublishedSignedBlockContents")
       if signature.isSome():
         reader.raiseUnexpectedField(
-          "Found `signed_block` field alongside message or signature fields",
+          "Found `signed_blob_sidecars` field alongside signature field",
           "RestPublishedSignedBlockContents")
       signed_blob_sidecars = Opt.some(reader.readValue(
         List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
@@ -1775,10 +1808,12 @@ proc readValue*(reader: var JsonReader[RestJson],
     else:
       unrecognizedFieldWarning()
 
-  if signature.isNone():
-    reader.raiseUnexpectedValue("Field `signature` is missing")
-  if message.isNone():
-    reader.raiseUnexpectedValue("Field `message` is missing")
+  if signed_message.isNone():
+    # Pre-Deneb; conditions for when signed_message.isSome checked in case body
+    if signature.isNone():
+      reader.raiseUnexpectedValue("Field `signature` is missing")
+    if message.isNone():
+      reader.raiseUnexpectedValue("Field `message` is missing")
 
   let blck = ForkedBeaconBlock(message.get())
   case blck.kind
@@ -1818,10 +1853,8 @@ proc readValue*(reader: var JsonReader[RestJson],
       value = RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb,
         denebData: DenebSignedBlockContents(
-          signed_block: deneb.SignedBeaconBlock(
-            message: blck.denebData,
-            signature: signature.get()
-          ),
+          # Constructed to be internally consistent
+          signed_block: signed_message.get().distinctBase.denebData,
           signed_blob_sidecars: signed_blob_sidecars.get()
         )
       )
@@ -2108,13 +2141,12 @@ proc readValue*[T: SomeForkedLightClientObject](
 
   withLcDataFork(lcDataForkAtConsensusFork(version.get)):
     when lcDataFork > LightClientDataFork.None:
-      value = T(kind: lcDataFork)
       try:
-        value.forky(lcDataFork) = RestJson.decode(
+        value = T.init(RestJson.decode(
           string(data.get()),
           T.Forky(lcDataFork),
           requireAllFields = true,
-          allowUnknownFields = true)
+          allowUnknownFields = true))
       except SerializationError:
         reader.raiseUnexpectedValue("Incorrect format (" & $lcDataFork & ")")
     else:
@@ -3483,7 +3515,7 @@ proc decodeBytes*[T: DecodeConsensysTypes](
       case fork
       of ConsensusFork.Deneb:
         let
-          blck = ? readSszResBytes(capella_mev.BlindedBeaconBlock, value)
+          blck = ? readSszResBytes(deneb_mev.BlindedBeaconBlock, value)
           forked = ForkedBlindedBeaconBlock(
             kind: ConsensusFork.Deneb, denebData: blck)
         ok(ProduceBlindedBlockResponse(forked))

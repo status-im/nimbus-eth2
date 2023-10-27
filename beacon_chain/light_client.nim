@@ -56,9 +56,7 @@ func finalizedHeader*(
     lightClient: LightClient): ForkedLightClientHeader =
   withForkyStore(lightClient.store[]):
     when lcDataFork > LightClientDataFork.None:
-      var header = ForkedLightClientHeader(kind: lcDataFork)
-      header.forky(lcDataFork) = forkyStore.finalized_header
-      header
+      ForkedLightClientHeader.init(forkyStore.finalized_header)
     else:
       default(ForkedLightClientHeader)
 
@@ -66,9 +64,7 @@ func optimisticHeader*(
     lightClient: LightClient): ForkedLightClientHeader =
   withForkyStore(lightClient.store[]):
     when lcDataFork > LightClientDataFork.None:
-      var header = ForkedLightClientHeader(kind: lcDataFork)
-      header.forky(lcDataFork) = forkyStore.optimistic_header
-      header
+      ForkedLightClientHeader.init(forkyStore.optimistic_header)
     else:
       default(ForkedLightClientHeader)
 
@@ -294,9 +290,7 @@ proc installMessageValidators*(
         (ValidationResult.Reject, cstring "Invalid context fork"))
       return ValidationResult.Reject
 
-    const lcDataFork = T.kind
-    var obj = T.Forked(kind: lcDataFork)
-    obj.forky(lcDataFork) = msg
+    let obj = T.Forked.init(msg)
 
     var
       ignoreErrors {.noinit.}: array[2, ValidationError]
@@ -353,7 +347,7 @@ proc installMessageValidators*(
           digest = forkDigests[].atConsensusFork(contextFork)
 
         # light_client_optimistic_update
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/p2p-interface.md#light_client_finality_update
         lightClient.network.addValidator(
           getLightClientFinalityUpdateTopic(digest), proc (
             msg: lcDataFork.LightClientFinalityUpdate
@@ -361,7 +355,7 @@ proc installMessageValidators*(
             validate(msg, contextFork, processLightClientFinalityUpdate))
 
         # light_client_optimistic_update
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
         lightClient.network.addValidator(
           getLightClientOptimisticUpdateTopic(digest), proc (
             msg: lcDataFork.LightClientOptimisticUpdate

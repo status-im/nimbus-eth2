@@ -545,7 +545,7 @@ type
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
-  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb.ExecutionPayload]
+  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
 

@@ -234,19 +234,6 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
   else:
     err()
 
-proc containsBlock(dag: ChainDAGRef, bid: BlockId): bool =
-  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-  if dag.db.containsBlock(bid.root, fork):
-    return true
-
-  # TODO avoid loading bytes from era
-  var bytes: seq[byte]
-  (bid.slot <= dag.finalizedHead.slot and
-    getBlockSZ(
-      dag.era, getStateField(dag.headState, historical_roots).asSeq,
-      dag.headState.historical_summaries().asSeq,
-      bid.slot, bytes).isOk and bytes.len > 0)
-
 proc getBlock*(
     dag: ChainDAGRef, bid: BlockId,
     T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
@@ -544,11 +531,8 @@ func putEpochRef(dag: ChainDAGRef, epochRef: EpochRef) =
 func init*(
     T: type ShufflingRef, state: ForkedHashedBeaconState,
     cache: var StateCache, epoch: Epoch): T =
-  let
-    dependent_epoch =
-      if epoch < 1: Epoch(0) else: epoch - 1
-    attester_dependent_root =
-      withState(state): forkyState.dependent_root(dependent_epoch)
+  let attester_dependent_root =
+    withState(state): forkyState.dependent_root(epoch.get_previous_epoch)
 
   ShufflingRef(
     epoch: epoch,
@@ -1135,7 +1119,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # should have `previous_version` set to `current_version` while
   # this doesn't happen to be the case in network that go through
   # regular hard-fork upgrades. See for example:
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/bellatrix/beacon-chain.md#testing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
@@ -1938,7 +1922,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/sync/optimistic.md#helpers
 template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:

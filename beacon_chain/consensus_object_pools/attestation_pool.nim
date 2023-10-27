@@ -643,7 +643,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var res: seq[Attestation]
   let totalCandidates = candidates.len()
   while candidates.len > 0 and res.lenu64() < MAX_ATTESTATIONS:
-    block:
+    let entryCacheKey = block:
       # Find the candidate with the highest score - slot is used as a
       # tie-breaker so that more recent attestations are added first
       let
@@ -667,10 +667,16 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       # the score below
       attCache.add(entry[].data,  entry[].aggregates[j].aggregation_bits)
 
+      entry[].data.getAttestationCacheKey
+
     block:
       # Because we added some votes, it's quite possible that some candidates
       # are no longer interesting - update the scores of the existing candidates
       for it in candidates.mitems():
+        # Aggregates not on the same (slot, committee) pair don't change scores
+        if it.entry[].data.getAttestationCacheKey != entryCacheKey:
+          continue
+
         it.score = attCache.score(
           it.entry[].data,
           it.entry[].aggregates[it.validation].aggregation_bits)
@@ -763,7 +769,7 @@ proc getBeaconHead*(
     finalizedExecutionPayloadHash =
       pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/fork_choice/safe-block.md#get_safe_execution_payload_hash
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/fork_choice/safe-block.md#get_safe_execution_payload_hash
     safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionPayloadHash =

@@ -714,6 +714,17 @@ gnosis-build gnosis-chain-build: | build deps
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
 
+gnosis-vc-build: | build deps
+	+ echo -e $(BUILD_MSG) "build/nimbus_validator_client_gnosis" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			nimbus_validator_client_gnosis \
+			beacon_chain/nimbus_validator_client.nim \
+			$(NIM_PARAMS) \
+			-d:gnosisChainBinary \
+			-d:const_preset=gnosis \
+			&& \
+		echo -e $(BUILD_END_MSG) "build/nimbus_validator_client_gnosis"
+
 gnosis: | gnosis-build
 	$(call CONNECT_TO_NETWORK,gnosis,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
 
