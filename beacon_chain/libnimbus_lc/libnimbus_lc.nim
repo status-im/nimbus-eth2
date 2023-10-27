@@ -1645,8 +1645,8 @@ proc ETHTransactionsCreateFromJson(
         ecdsa_signature: array[65, byte]
 
       Eip6493Transaction = object
-        payload: PartialContainer[Eip6493TransactionPayload, 32]
-        signature: PartialContainer[Eip6493TransactionSignature, 16]
+        payload: StableContainer[Eip6493TransactionPayload, 32]
+        signature: StableContainer[Eip6493TransactionSignature, 16]
 
     var eip6493Tx: Eip6493Transaction
 
@@ -2348,7 +2348,7 @@ proc ETHReceiptsCreateFromJson(
         # EIP-658
         status: Opt[bool]
 
-      Eip6493Receipt = PartialContainer[Eip6493ReceiptPayload, 32]
+      Eip6493Receipt = StableContainer[Eip6493ReceiptPayload, 32]
 
     var eip6493Rec: Eip6493Receipt
     let transaction = ETHTransactionsGet(transactions, i.cint)
