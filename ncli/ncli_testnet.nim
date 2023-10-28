@@ -117,9 +117,9 @@ type
 
       bootstrapAddress* {.
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
-        defaultValue: init(ValidIpAddress, defaultAdminListenAddress)
+        defaultValue: defaultAdminListenAddress
         defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "bootstrap-address" .}: ValidIpAddress
+        name: "bootstrap-address" .}: IpAddress
 
       bootstrapPort* {.
         desc: "The TCP/UDP port that will be used by the bootstrap node"
@@ -194,9 +194,9 @@ type
 
       enrAddress* {.
         desc: "The public IP address of that ENR"
-        defaultValue: init(ValidIpAddress, defaultAdminListenAddress)
+        defaultValue: defaultAdminListenAddress
         defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "enr-address" .}: ValidIpAddress
+        name: "enr-address" .}: IpAddress
 
       enrPort* {.
         desc: "The TCP/UDP port of that ENR"
