@@ -646,11 +646,11 @@ template forky(
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
   case x.kind
   of EpochInfoFork.Phase0:
-    const infoFork {.inject.} = EpochInfoFork.Phase0
+    const infoFork {.inject, used.} = EpochInfoFork.Phase0
     template info: untyped {.inject.} = x.phase0Data
     body
   of EpochInfoFork.Altair:
-    const infoFork {.inject.} = EpochInfoFork.Altair
+    const infoFork {.inject, used.} = EpochInfoFork.Altair
     template info: untyped {.inject.} = x.altairData
     body
 
@@ -797,11 +797,11 @@ template withBlck*(
   case x.kind
   of ConsensusFork.Phase0:
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyBlck: untyped {.inject.} = x.phase0Data
+    template forkyBlck: untyped {.inject, used.} = x.phase0Data
     body
   of ConsensusFork.Altair:
     const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyBlck: untyped {.inject.} = x.altairData
+    template forkyBlck: untyped {.inject, used.} = x.altairData
     body
   of ConsensusFork.Bellatrix:
     const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
@@ -809,11 +809,11 @@ template withBlck*(
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyBlck: untyped {.inject.} = x.capellaData
+    template forkyBlck: untyped {.inject, used.} = x.capellaData
     body
   of ConsensusFork.Deneb:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyBlck: untyped {.inject.} = x.denebData
+    template forkyBlck: untyped {.inject, used.} = x.denebData
     body
 
 func proposer_index*(x: ForkedBeaconBlock): uint64 =
@@ -899,8 +899,8 @@ template withStateAndBlck*(
     body
   of ConsensusFork.Phase0:
     const consensusFork {.inject.} = ConsensusFork.Phase0
-    template forkyState: untyped {.inject.} = s.phase0Data
-    template forkyBlck: untyped {.inject.} = b.phase0Data
+    template forkyState: untyped {.inject, used.} = s.phase0Data
+    template forkyBlck: untyped {.inject, used.} = b.phase0Data
     body
 
 func toBeaconBlockHeader*(

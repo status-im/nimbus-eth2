@@ -1102,20 +1102,6 @@ proc initialize_beacon_state_from_eth1*(
   # TODO https://github.com/nim-lang/Nim/issues/19094
   # state
 
-proc initialize_hashed_beacon_state_from_eth1(
-    cfg: RuntimeConfig,
-    eth1_block_hash: Eth2Digest,
-    eth1_timestamp: uint64,
-    deposits: openArray[DepositData],
-    execution_payload_header: ForkyExecutionPayloadHeader,
-    flags: UpdateFlags = {}): auto =
-  # TODO https://github.com/nim-lang/Nim/issues/19094
-  result = initHashedBeaconState(
-    initialize_beacon_state_from_eth1(
-      cfg, eth1_block_hash, eth1_timestamp, deposits,
-      execution_payload_header, flags))
-  result.root = hash_tree_root(result.data)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,

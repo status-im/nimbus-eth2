@@ -1887,9 +1887,6 @@ proc new(T: type Eth2Node,
 
   node
 
-template publicKey(node: Eth2Node): keys.PublicKey =
-  node.discovery.privKey.toPublicKey
-
 proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
     try:
@@ -2172,14 +2169,6 @@ proc peerTrimmerHeartbeat(node: Eth2Node) {.async.} =
 
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
   keys.PrivateKey(key.skkey)
-
-proc initAddress(T: type MultiAddress, str: string): T =
-  let address = MultiAddress.init(str)
-  if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
-    result = address
-  else:
-    raise newException(MultiAddressError,
-                       "Invalid bootstrap node multi-address")
 
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)

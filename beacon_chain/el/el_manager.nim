@@ -96,7 +96,6 @@ const
 type
   Eth1BlockNumber* = uint64
   Eth1BlockTimestamp* = uint64
-  Eth1BlockHeader = engine_api.BlockHeader
 
   Eth1Block* = ref object
     hash*: Eth2Digest
@@ -393,9 +392,6 @@ template trackedRequestWithTimeout[T](connection: ELConnection,
 template cfg(m: ELManager): auto =
   m.eth1Chain.cfg
 
-template db(m: ELManager): BeaconChainDB =
-  m.eth1Chain.db
-
 func hasJwtSecret*(m: ELManager): bool =
   for c in m.elConnections:
     if c.engineUrl.jwtSecret.isSome:
@@ -408,12 +404,6 @@ func isSynced*(m: ELManager): bool =
 
 template eth1ChainBlocks*(m: ELManager): Deque[Eth1Block] =
   m.eth1Chain.blocks
-
-template finalizedDepositsMerkleizer(m: ELManager): auto =
-  m.eth1Chain.finalizedDepositsMerkleizer
-
-template headMerkleizer(m: ELManager): auto =
-  m.eth1Chain.headMerkleizer
 
 template toGaugeValue(x: Quantity): int64 =
   toGaugeValue(distinctBase x)
@@ -884,15 +874,6 @@ template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): typ
 
 template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
-
-template payload(response: engine_api.ExecutionPayloadV1): engine_api.ExecutionPayloadV1 =
-  response
-
-template payload(response: engine_api.GetPayloadV2Response): engine_api.ExecutionPayloadV1OrV2 =
-  response.executionPayload
-
-template payload(response: engine_api.GetPayloadV3Response): engine_api.ExecutionPayloadV3 =
-  response.executionPayload
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -1810,10 +1791,6 @@ func new*(T: type ELConnection,
     engineUrl: engineUrl,
     depositContractSyncStatus: DepositContractSyncStatus.unknown)
 
-template getOrDefault[T, E](r: Result[T, E]): T =
-  type TT = T
-  get(r, default(TT))
-
 proc init*(T: type Eth1Chain,
            cfg: RuntimeConfig,
            db: BeaconChainDB,
@@ -2017,12 +1994,6 @@ proc syncBlockRange(m: ELManager,
         blockNumber = lastBlock.number,
         depositsProcessed = lastBlock.depositCount
 
-func init(T: type FullBlockId, blk: Eth1BlockHeader|BlockObject): T =
-  FullBlockId(number: Eth1BlockNumber blk.number, hash: blk.hash)
-
-func isNewLastBlock(m: ELManager, blk: Eth1BlockHeader|BlockObject): bool =
-  m.latestEth1Block.isNone or blk.number.uint64 > m.latestEth1BlockNumber
-
 func hasConnection*(m: ELManager): bool =
   m.elConnections.len > 0
 
@@ -2121,7 +2092,6 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[^1])
 
-  var didPollOnce = false
   while true:
     debug "syncEth1Chain tick"
 
@@ -2182,7 +2152,7 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
         continue
 
       await syncEth1Chain(m, syncedConnectionFut.read)
-    except CatchableError as err:
+    except CatchableError:
       await sleepAsync(10.seconds)
 
       # A more detailed error is already logged by trackEngineApiRequest
@@ -2238,17 +2208,17 @@ proc testWeb3Provider*(web3Url: Uri,
     stdout.write "\n"
     res
 
-  let
-    chainId = request "Chain ID":
-      web3.provider.eth_chainId()
+  discard request "Chain ID":
+    web3.provider.eth_chainId()
 
+  discard request "Sync status":
+    web3.provider.eth_syncing()
+
+  let
     latestBlock = request "Latest block":
       web3.provider.eth_getBlockByNumber(blockId("latest"), false)
 
-    syncStatus = request "Sync status":
-      web3.provider.eth_syncing()
-
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
-    depositRoot = request "Deposit root":
-      ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64)
+  discard request "Deposit root":
+    ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64)

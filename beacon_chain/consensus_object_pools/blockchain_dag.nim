@@ -553,8 +553,6 @@ func init*(
       dag.putShufflingRef(tmp)
       tmp
 
-    attester_dependent_root = withState(state):
-      forkyState.attester_dependent_root
     total_active_balance = withState(state):
       get_total_active_balance(forkyState.data, cache)
     epochRef = EpochRef(
@@ -2421,7 +2419,6 @@ proc updateHead*(
 
     if not(isNil(dag.onHeadChanged)):
       let
-        currentEpoch = epoch(newHead.slot)
         depRoot = withState(dag.headState): forkyState.proposer_dependent_root
         prevDepRoot = withState(dag.headState):
           forkyState.attester_dependent_root
@@ -2733,7 +2730,6 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       if state_root.isZero:
         # If we can find an era file with this state, use it as an alternative
         # starting point - ignore failures for now
-        var bytes: seq[byte]
         if dag.era.getState(
             historicalRoots, historicalSummaries, slot, state[]).isOk():
           state_root = getStateRoot(state[])
