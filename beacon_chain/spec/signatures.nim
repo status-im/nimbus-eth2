@@ -90,7 +90,7 @@ func compute_block_signing_root*(
 
 func compute_blob_signing_root(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blob: BlobSidecar): Eth2Digest =
+    blob: BlindedBlobSidecar | BlobSidecar): Eth2Digest =
   let
     epoch = epoch(slot)
     domain = get_domain(fork, DOMAIN_BLOB_SIDECAR, epoch,
@@ -109,7 +109,8 @@ func get_block_signature*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/validator.md#constructing-the-signedblobsidecars
 proc get_blob_sidecar_signature*(
   fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blob: BlobSidecar, privkey: ValidatorPrivKey): CookedSig =
+    blob: BlindedBlobSidecar | BlobSidecar, privkey: ValidatorPrivKey):
+    CookedSig =
   let signing_root = compute_blob_signing_root(
     fork, genesis_validators_root, slot, blob)
 
