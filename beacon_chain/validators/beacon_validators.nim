@@ -761,8 +761,17 @@ proc blindedBlockCheckSlashingAndSign[
       fork, genesis_validators_root, slot, blockRoot,
       blindedBlockContents.signed_blinded_block.message)
     if res.isErr():
-      return err("Unable to sign block: " & res.error())
+      return err("Unable to sign blinded block: " & res.error())
     res.get()
+
+  for signedBlindedBlobSidecar in mitems(
+      blindedBlockContents.signed_blinded_blob_sidecars):
+    signedBlindedBlobSidecar.signature = validator.getBlobSignature(
+        fork, genesis_validators_root, slot,
+        signedBlindedBlobSidecar.message).valueOr:
+      warn "Unable to sign blinded blob",
+           reason = error()
+      return
 
   return ok blindedBlockContents
 
