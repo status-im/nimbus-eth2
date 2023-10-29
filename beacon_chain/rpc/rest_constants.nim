@@ -241,4 +241,5 @@ const
     "Failed to obtain fork information"
   InvalidTimestampValue* =
     "Invalid or missing timestamp value"
-
+  InvalidSidecarIndexValueError* =
+    "Invalid blob index"

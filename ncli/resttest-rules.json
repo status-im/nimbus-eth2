@@ -2670,6 +2670,30 @@
     }
   },
   {
+    "topics": ["beacon", "blob_sidecars_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blob_sidecars/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "200"}}
+  },
+  {
+    "topics": ["beacon", "blob_sidecars_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blob_sidecars/finalized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "200"}}
+  },
+  {
+    "topics": ["beacon", "blob_sidecars_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blob_sidecars/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "404"}}
+  },
+  {
     "topics": ["builder", "states_expected_withdrawals"],
     "request": {
       "url": "/eth/v1/builder/states/head/expected_withdrawals",
