@@ -2015,7 +2015,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       bnStatus = BeaconNodeStatus.Stopping
     c_signal(ansi_c.SIGTERM, SIGTERMHandler)
 
-  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+  if metadata.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
     let res =
       if config.trustedSetupFile.isNone:
         conf.loadKzgTrustedSetup()
