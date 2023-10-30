@@ -276,7 +276,7 @@ template validateBeaconBlockBellatrix(
   #
   # `is_merge_transition_complete(state)` tests for
   # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/bellatrix/beacon-chain.md#block-processing
   # shows that `state.latest_execution_payload_header` being default or not is
   # exactly equivalent to whether that block's execution payload is default or
   # not, so test cached block information rather than reconstructing a state.
@@ -1012,7 +1012,7 @@ proc validateAttesterSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: ValidatorChangePool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =

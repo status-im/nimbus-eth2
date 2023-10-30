@@ -102,7 +102,7 @@ type
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#synccommitteemessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/validator.md#synccommitteemessage
   SyncCommitteeMessage* = object
     slot*: Slot
       ## Slot to which this contribution pertains
@@ -456,7 +456,7 @@ type
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits

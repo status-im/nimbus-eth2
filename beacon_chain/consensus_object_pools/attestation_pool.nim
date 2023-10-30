@@ -739,7 +739,7 @@ func getAggregatedAttestation*(pool: var AttestationPool,
                                index: CommitteeIndex): Opt[Attestation] =
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
-  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#construct-aggregate
+  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#construct-aggregate
   let candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
     return Opt.none(Attestation)
