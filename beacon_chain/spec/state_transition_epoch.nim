@@ -1152,7 +1152,7 @@ proc process_epoch*(
 
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/beacon-chain.md#justification-and-finalization
   # [Modified in Altair]
   process_justification_and_finalization(state, info.balances, flags)
 

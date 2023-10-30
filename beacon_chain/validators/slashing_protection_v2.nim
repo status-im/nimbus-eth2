@@ -33,7 +33,7 @@ import
 # - https://notes.ethereum.org/@djrtwo/Bkn3zpwxB#Validator-responsibilities
 #
 # Phase 0 spec - Honest Validator - how to avoid slashing
-# - https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#how-to-avoid-slashing
+# - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#how-to-avoid-slashing
 #
 # In-depth reading on slashing conditions
 #
