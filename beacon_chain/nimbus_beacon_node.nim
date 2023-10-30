@@ -114,6 +114,57 @@ declareGauge next_action_wait,
 
 logScope: topics = "beacnde"
 
+proc doRunTrustedNodeSync(
+    db: BeaconChainDB,
+    metadata: Eth2NetworkMetadata,
+    databaseDir: string,
+    eraDir: string,
+    restUrl: string,
+    stateId: Option[string],
+    trustedBlockRoot: Option[Eth2Digest],
+    backfill: bool,
+    reindex: bool,
+    downloadDepositSnapshot: bool) {.async.} =
+  let
+    cfg = metadata.cfg
+    syncTarget =
+      if stateId.isSome:
+        if trustedBlockRoot.isSome:
+          warn "Ignoring `trustedBlockRoot`, `stateId` is set",
+            stateId, trustedBlockRoot
+        TrustedNodeSyncTarget(
+          kind: TrustedNodeSyncKind.StateId,
+          stateId: stateId.get)
+      elif trustedBlockRoot.isSome:
+        TrustedNodeSyncTarget(
+          kind: TrustedNodeSyncKind.TrustedBlockRoot,
+          trustedBlockRoot: trustedBlockRoot.get)
+      else:
+        TrustedNodeSyncTarget(
+          kind: TrustedNodeSyncKind.StateId,
+          stateId: "finalized")
+    genesis =
+      if metadata.hasGenesis:
+        let genesisBytes = try: await metadata.fetchGenesisBytes()
+        except CatchableError as err:
+          error "Failed to obtain genesis state",
+                source = metadata.genesis.sourceDesc,
+                err = err.msg
+          quit 1
+        newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
+      else: nil
+
+  await db.doTrustedNodeSync(
+    cfg,
+    databaseDir,
+    eraDir,
+    restUrl,
+    syncTarget,
+    backfill,
+    reindex,
+    downloadDepositSnapshot,
+    genesis)
+
 func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   case stdoutKind
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
@@ -2143,51 +2194,24 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
   of BNStartUpCmd.trustedNodeSync:
-    let
-      network = loadEth2Network(config)
-      cfg = network.cfg
-      syncTarget =
-        if config.stateId.isSome:
-          if config.lcTrustedBlockRoot.isSome:
-            warn "Ignoring `trustedBlockRoot`, `stateId` is set",
-              stateId = config.stateId,
-              trustedBlockRoot = config.lcTrustedBlockRoot
-          TrustedNodeSyncTarget(
-            kind: TrustedNodeSyncKind.StateId,
-            stateId: config.stateId.get)
-        elif config.lcTrustedBlockRoot.isSome:
-          TrustedNodeSyncTarget(
-            kind: TrustedNodeSyncKind.TrustedBlockRoot,
-            trustedBlockRoot: config.lcTrustedBlockRoot.get)
-        else:
-          TrustedNodeSyncTarget(
-            kind: TrustedNodeSyncKind.StateId,
-            stateId: "finalized")
-      genesis =
-        if network.hasGenesis:
-          let genesisBytes = try: waitFor network.fetchGenesisBytes()
-          except CatchableError as err:
-            error "Failed to obtain genesis state",
-                  source = network.genesis.sourceDesc,
-                  err = err.msg
-            quit 1
-          newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
-        else: nil
-
     if config.blockId.isSome():
       error "--blockId option has been removed - use --state-id instead!"
       quit 1
 
-    waitFor doTrustedNodeSync(
-      cfg,
+    let
+      metadata = loadEth2Network(config)
+      db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
+    waitFor db.doRunTrustedNodeSync(
+      metadata,
       config.databaseDir,
       config.eraDir,
       config.trustedNodeUrl,
-      syncTarget,
+      config.stateId,
+      config.lcTrustedBlockRoot,
       config.backfillBlocks,
       config.reindex,
-      config.downloadDepositSnapshot,
-      genesis)
+      config.downloadDepositSnapshot)
+    db.close()
 
 {.pop.} # TODO moduletests exceptions
 
