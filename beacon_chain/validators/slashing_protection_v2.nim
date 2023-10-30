@@ -675,7 +675,7 @@ proc initCompatV1*(
   let
     alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
     backend = SqStoreRef.init(databasePath, databaseName).valueOr:
-      fatal "Failed to open slashing protection database", error
+      fatal "Failed to open slashing protection database", err = error
       quit 1
 
   result.db = T(backend: backend)
@@ -718,7 +718,7 @@ proc init*(T: type SlashingProtectionDB_v2,
     alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
     backend = SqStoreRef.init(databasePath, databaseName,
                               keyspaces = []).valueOr:
-      fatal "Failed to open slashing protection database", error
+      fatal "Failed to open slashing protection database", err = error
       quit 1
 
   result = T(backend: backend)
