@@ -665,6 +665,12 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlockContents
 
   assign(blindedBlock.message.body.blob_kzg_commitments, bbb.commitments)
 
+  info "FOO8",
+    htr_ePHC =
+      hash_tree_root(executionPayloadHeaderContents.execution_payload_header),
+    htr_bbEPH =
+      hash_tree_root(blindedBlock.message.body.execution_payload_header)
+
   let blockRoot = hash_tree_root(blindedBlock.message)
 
   if blindedBlockContents.signed_blinded_blob_sidecars.setLen(bbb.proofs.len):
@@ -755,6 +761,11 @@ proc blindedBlockCheckSlashingAndSign[
     notSlashable = node.attachedValidators
       .slashingProtection
       .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
+
+  info "Signing blinded Deneb block",
+    blockRoot = shortLog(blockRoot), blckShort = shortLog(nonsignedBlindedBlock),
+    signingRoot = shortLog(signingRoot), validator = validator.pubkey,
+    slot, validator_index, genesis_validators_root, fork
 
   if notSlashable.isErr:
     warn "Slashing protection activated for MEV block",
@@ -856,7 +867,7 @@ proc getBlindedBlockParts[
       shimExecutionPayload.executionPayload,
       executionPayloadHeader.get.blindedBlckPart, getFieldNames(EPH))
   elif EPH is deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle:
-    type PayloadType = deneb.ExecutionPayloadForSigning
+    type PayloadType = deneb.ExecutionPayloadForSigning # has blob, etc, which builder api codepath ignores?
     template actualEPH: untyped =
       executionPayloadHeader.get.blindedBlckPart.execution_payload_header
     let
