@@ -61,6 +61,9 @@ After this the application will terminate and you can now [start the beacon node
     Because trusted node sync by default copies blocks via REST, you may hit API limits if you are using a third-party provider.
     If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
 
+!!! note
+    Since `v23.11.0` onward, it is possible to have the beacon node start immediately after trusted node sync completes by removing the `trustedNodeSync` word of the command. If the database is already initialized, the `--trusted-node-url` option is ignored.
+
 
 ## Verify you synced the correct chain
 

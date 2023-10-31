@@ -335,6 +335,30 @@ type
         defaultValue: false
         name: "enable-yamux" .}: bool
 
+      # A copy of the TNS options also exists for `BNStartUpCmd.trustedNodeSync`
+
+      tnsTrustedNodeUrl* {.
+        desc: "URL of the trusted REST API to sync from"
+        name: "trusted-node-url" .}: Option[string]
+
+      tnsStateId* {.
+        desc: "State id to sync to - this can be \"finalized\", a slot number or state hash or \"head\""
+        name: "state-id" .}: Option[string]
+
+      tnsBackfillBlocks* {.
+        desc: "Backfill blocks directly from REST server instead of fetching via API"
+        defaultValue: true
+        name: "backfill" .}: bool
+
+      tnsReindex* {.
+        desc: "Recreate historical state index at end of backfill, allowing full history access (requires full backfill)"
+        defaultValue: false .}: bool
+
+      tnsDownloadDepositSnapshot* {.
+        desc: "Also try to download a snapshot of the deposit contract state"
+        defaultValue: false
+        name: "with-deposit-snapshot" .}: bool
+
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
@@ -826,6 +850,8 @@ type
           argument .}: OutFile
 
     of BNStartUpCmd.trustedNodeSync:
+      # A copy of the TNS options also exists for `BNStartUpCmd.noCommand`
+
       trustedNodeUrl* {.
         desc: "URL of the REST API to sync from"
         defaultValue: defaultBeaconNode

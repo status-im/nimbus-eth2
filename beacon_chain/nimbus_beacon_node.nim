@@ -555,6 +555,18 @@ proc init*(T: type BeaconNode,
     )
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
+  if config.tnsTrustedNodeUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
+    await db.doRunTrustedNodeSync(
+      metadata,
+      config.databaseDir,
+      config.eraDir,
+      config.tnsTrustedNodeUrl.get,
+      config.tnsStateId,
+      config.trustedBlockRoot,
+      config.tnsBackfillBlocks,
+      config.tnsReindex,
+      config.tnsDownloadDepositSnapshot)
+
   if config.finalizedCheckpointBlock.isSome:
     warn "--finalized-checkpoint-block has been deprecated, ignoring"
 
