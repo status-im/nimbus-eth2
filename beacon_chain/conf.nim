@@ -344,7 +344,6 @@ type
         name: "external-beacon-api-url" .}: Option[string]
 
       syncLightClient* {.
-        hidden
         desc: "Accelerate sync using light client"
         defaultValue: true
         name: "sync-light-client" .}: bool

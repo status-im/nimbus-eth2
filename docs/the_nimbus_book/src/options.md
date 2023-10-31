@@ -72,6 +72,7 @@ The following options are available:
                                latest finalized checkpoint (LC is initialized from trusted block root).
      --trusted-state-root      Recent trusted finalized state root to sync from external beacon API (with
                                `--external-beacon-api-url`).
+     --sync-light-client       Accelerate sync using light client [=true].
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
      --genesis-state           SSZ file specifying the genesis state of the network (for networks without a
                                built-in genesis state).
