@@ -3643,7 +3643,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": "Empty request's body"}}]
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 400, "message": "Empty request's body"}}]
     }
   },
   {
@@ -3660,7 +3660,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": "Invalid broadcast_validation type value"}}]
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 400, "message": "Invalid broadcast_validation type value"}}]
     }
   },
   {
@@ -3677,7 +3677,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": "Invalid broadcast_validation type value"}}]
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 400, "message": "Invalid broadcast_validation type value"}}]
     }
   },
   {
@@ -3695,7 +3695,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": "Only `gossip` broadcast_validation option supported"}}]
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 500, "message": "Only `gossip` broadcast_validation option supported"}}]
     }
   },
   {
@@ -3713,7 +3713,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": "Only `gossip` broadcast_validation option supported"}}]
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 500, "message": "Only `gossip` broadcast_validation option supported"}}]
     }
   }
 ]
