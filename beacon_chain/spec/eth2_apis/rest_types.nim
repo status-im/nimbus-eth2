@@ -84,6 +84,9 @@ type
   StateIdentType* {.pure.} = enum
     Head, Genesis, Finalized, Justified
 
+  BroadcastValidationType* {.pure.} = enum
+    Gossip, Consensus, ConsensusAndEquivocation
+
   StateIdent* = object
     case kind*: StateQueryKind
     of StateQueryKind.Slot:

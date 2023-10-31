@@ -906,19 +906,31 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
   router.api(MethodPost, "/eth/v2/beacon/blocks") do (
+    broadcast_validation: Option[BroadcastValidationType],
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let res =
       block:
-        if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        if request.headers.getString("broadcast_validation") != "gossip":
-          # TODO (henridf): support 'consensus' and 'consensus_and_equivocation'
-          # broadcast_validation
-          return RestApiResponse.jsonError(
-            Http500, "gossip broadcast_validation only supported")
         let
-          body = contentBody.get()
           version = request.headers.getString("eth-consensus-version")
+          validation =
+            block:
+              let res =
+                if broadcast_validation.isNone():
+                  BroadcastValidationType.Gossip
+                else:
+                  broadcast_validation.get().valueOr:
+                    return RestApiResponse.jsonError(Http400, $error)
+              # TODO (henridf): support 'consensus' and
+              # 'consensus_and_equivocation' broadcast_validation types.
+              if res != BroadcastValidationType.Gossip:
+                return RestApiResponse.jsonError(Http500,
+                  "Only `gossip` broadcast_validation option supported")
+              res
+          body =
+            block:
+              if contentBody.isNone():
+                return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+              contentBody.get()
         var
           restBlock = decodeBodyJsonOrSsz(RestPublishedSignedBlockContents,
                                           body, version).valueOr:

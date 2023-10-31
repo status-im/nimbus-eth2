@@ -3611,5 +3611,22 @@
         }}
       ]
     }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_publish_v2"],
+    "request": {
+      "method": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Eth-Consensus-Version": "capella"
+      },
+      "url": "/eth/v2/beacon/blocks",
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": "Empty request's body"}}]
+    }
   }
 ]
