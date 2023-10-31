@@ -48,6 +48,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check Deneb blocks [Preset: mainnet]                                                OK
 + sanity check Deneb states [Preset: mainnet]                                                OK
 + sanity check Deneb states, reusing buffers [Preset: mainnet]                               OK
++ sanity check blobs [Preset: mainnet]                                                       OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -55,7 +56,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
+OK: 25/25 Fail: 0/25 Skip: 0/25
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -428,6 +429,15 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + prune states                                                                               OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## REST JSON encoding and decoding
+```diff
++ Blob                                                                                       OK
++ DenebSignedBlockContents decoding                                                          OK
++ KzgCommitment                                                                              OK
++ KzgProof                                                                                   OK
++ RestPublishedSignedBlockContents decoding                                                  OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Remove keystore testing suite
 ```diff
 + Many remotes                                                                               OK
@@ -706,4 +716,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 399/404 Fail: 0/404 Skip: 5/404
+OK: 405/410 Fail: 0/410 Skip: 5/410
