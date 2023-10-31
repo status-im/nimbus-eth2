@@ -176,24 +176,19 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if state.isErr():
           return RestApiResponse.jsonError(Http400, InvalidPeerStateValueError,
                                            $state.error())
-        let sres = validateState(state.get())
-        if sres.isErr():
+        validateState(state.get()).valueOr:
           return RestApiResponse.jsonError(Http400, InvalidPeerStateValueError,
-                                           $sres.error())
-        sres.get()
+                                           $error)
     let directionMask =
       block:
         if direction.isErr():
           return RestApiResponse.jsonError(Http400,
                                            InvalidPeerDirectionValueError,
                                            $direction.error())
-        let dres = validateDirection(direction.get())
-        if dres.isErr():
+        validateDirection(direction.get()).valueOr:
           return RestApiResponse.jsonError(Http400,
                                            InvalidPeerDirectionValueError,
-                                           $dres.error())
-        dres.get()
-
+                                           $error)
     var res: seq[RestNodePeer]
     for peer in node.network.peers.values():
       if (peer.connectionState in connectionMask) and
@@ -209,7 +204,8 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
         )
         res.add(peer)
-    return RestApiResponse.jsonResponseWMeta(res, (count: uint64(len(res))))
+    return RestApiResponse.jsonResponseWMeta(res,
+                                             (count: RestNumeric(len(res))))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getPeerCount
   router.api(MethodGet, "/eth/v1/node/peer_count") do () -> RestApiResponse:

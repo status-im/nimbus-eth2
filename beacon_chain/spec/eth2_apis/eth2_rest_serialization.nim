@@ -642,6 +642,16 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
+## RestNumeric
+proc writeValue*(w: var JsonWriter[RestJson],
+                 value: RestNumeric) {.raises: [IOError].} =
+  writeValue(w, int(value))
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestNumeric) {.
+     raises: [IOError, SerializationError].} =
+  value = RestNumeric(reader.readValue(int))
+
 ## JustificationBits
 proc writeValue*(
     w: var JsonWriter[RestJson], value: JustificationBits

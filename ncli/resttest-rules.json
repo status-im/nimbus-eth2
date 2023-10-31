@@ -2899,7 +2899,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": 0}}}]
     }
   },
   {
@@ -2911,7 +2911,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": 0}}}]
     }
   },
   {
@@ -2923,7 +2923,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": 0}}}]
     }
   },
   {
@@ -2935,7 +2935,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": 0}}}]
     }
   },
   {
@@ -2947,7 +2947,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": 0}}}]
     }
   },
   {
@@ -2959,7 +2959,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": 0}}}]
     }
   },
   {
@@ -2971,7 +2971,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": 0}}}]
     }
   },
   {
@@ -2983,7 +2983,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": 0}}}]
     }
   },
   {
@@ -2995,7 +2995,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": 0}}}]
     }
   },
   {

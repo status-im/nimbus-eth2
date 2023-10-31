@@ -113,6 +113,8 @@ type
   PeerDirectKind* {.pure.} = enum
     Inbound, Outbound
 
+  RestNumeric* = distinct int
+
   RestAttesterDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
