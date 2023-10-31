@@ -919,7 +919,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   BroadcastValidationType.Gossip
                 else:
                   broadcast_validation.get().valueOr:
-                    return RestApiResponse.jsonError(Http400, $error)
+                    return RestApiResponse.jsonError(Http400,
+                      InvalidBroadcastValidationType)
               # TODO (henridf): support 'consensus' and
               # 'consensus_and_equivocation' broadcast_validation types.
               if res != BroadcastValidationType.Gossip:
