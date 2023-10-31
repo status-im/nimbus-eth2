@@ -674,8 +674,9 @@ proc initCompatV1*(
 
   let
     alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
-    backend = SqStoreRef.init(databasePath, databaseName).valueOr:
-      fatal "Failed to open slashing protection database"
+    backendRes = SqStoreRef.init(databasePath, databaseName)
+    backend = backendRes.valueOr: # TODO https://github.com/nim-lang/Nim/issues/22605
+      fatal "Failed to open slashing protection database", err = backendRes.error
       quit 1
 
   result.db = T(backend: backend)
@@ -716,9 +717,10 @@ proc init*(T: type SlashingProtectionDB_v2,
 
   let
     alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
-    backend = SqStoreRef.init(databasePath, databaseName,
-                              keyspaces = []).valueOr:
-      fatal "Failed to open slashing protection database"
+    backendRes = SqStoreRef.init(databasePath, databaseName,
+                                 keyspaces = [])
+    backend = backendRes.valueOr: # TODO https://github.com/nim-lang/Nim/issues/22605
+      fatal "Failed to open slashing protection database", err = backendRes.error
       quit 1
 
   result = T(backend: backend)
