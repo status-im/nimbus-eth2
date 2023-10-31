@@ -555,17 +555,25 @@ proc init*(T: type BeaconNode,
     )
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
-  if config.tnsTrustedNodeUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
-    await db.doRunTrustedNodeSync(
-      metadata,
-      config.databaseDir,
-      config.eraDir,
-      config.tnsTrustedNodeUrl.get,
-      config.tnsStateId,
-      config.trustedBlockRoot,
-      config.tnsBackfillBlocks,
-      config.tnsReindex,
-      config.tnsDownloadDepositSnapshot)
+  if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
+    if config.trustedStateRoot.isNone and config.trustedBlockRoot.isNone:
+      warn "Ignoring `--external-beacon-api-url`, neither " &
+        "`--trusted-block-root` nor `--trusted-state-root` are provided",
+        externalBeaconApiUrl = config.externalBeaconApiUrl.get,
+        trustedBlockRoot = config.trustedBlockRoot,
+        trustedStateRoot = config.trustedStateRoot
+    else:
+      await db.doRunTrustedNodeSync(
+        metadata,
+        config.databaseDir,
+        config.eraDir,
+        config.externalBeaconApiUrl.get,
+        config.trustedStateRoot.map do (x: Eth2Digest) -> string:
+          "0x" & x.data.toHex,
+        config.trustedBlockRoot,
+        backfill = false,
+        reindex = false,
+        downloadDepositSnapshot = false)
 
   if config.finalizedCheckpointBlock.isSome:
     warn "--finalized-checkpoint-block has been deprecated, ignoring"

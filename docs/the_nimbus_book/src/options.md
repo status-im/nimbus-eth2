@@ -65,15 +65,13 @@ The following options are available:
      --enr-auto-update         Discovery can automatically update its ENR with the IP address and UDP port as
                                seen by other nodes it communicates with. This option allows to enable/disable
                                this functionality [=false].
-     --trusted-node-url        URL of the trusted REST API to sync from.
-     --state-id                State id to sync to - this can be "finalized", a slot number or state hash or
-                               "head".
-     --backfill                Backfill blocks directly from REST server instead of fetching via API [=true].
-     --tnsReindex              Recreate historical state index at end of backfill, allowing full history access
-                               (requires full backfill) [=false].
-     --with-deposit-snapshot   Also try to download a snapshot of the deposit contract state [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
-     --sync-light-client       Accelerate execution layer sync using light client [=true].
+     --external-beacon-api-url  External beacon API to use for syncing (on empty database).
+     --trusted-block-root      Recent trusted finalized block root to sync from external beacon API (with
+                               `--external-beacon-api-url`). Uses the light client sync protocol to obtain the
+                               latest finalized checkpoint (LC is initialized from trusted block root).
+     --trusted-state-root      Recent trusted finalized state root to sync from external beacon API (with
+                               `--external-beacon-api-url`).
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
      --genesis-state           SSZ file specifying the genesis state of the network (for networks without a
                                built-in genesis state).
