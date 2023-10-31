@@ -68,6 +68,7 @@ func shortLog*(v: TrustedNodeSyncTarget): auto =
 chronicles.formatIt(TrustedNodeSyncTarget): shortLog(it)
 
 proc doTrustedNodeSync*(
+    db: BeaconChainDB,
     cfg: RuntimeConfig,
     databaseDir: string,
     eraDir: string,
@@ -88,11 +89,6 @@ proc doTrustedNodeSync*(
     client = RestClientRef.new(restUrl).valueOr:
       error "Cannot connect to server", error = error
       quit 1
-
-  let
-    db = BeaconChainDB.new(databaseDir, cfg, inMemory = false)
-  defer:
-    db.close()
 
   # If possible, we'll store the genesis state in the database - this is not
   # strictly necessary but renders the resulting database compatible with
@@ -551,7 +547,8 @@ when isMainModule:
       kind: TrustedNodeSyncKind.StateId,
       stateId: os.paramStr(5))
     backfill = os.paramCount() > 5 and os.paramStr(6) == "true"
-
-  waitFor doTrustedNodeSync(
+    db = BeaconChainDB.new(databaseDir, cfg, inMemory = false)
+  waitFor db.doTrustedNodeSync(
     getRuntimeConfig(some os.paramStr(1)), os.paramStr(2), os.paramStr(3),
     os.paramStr(4), syncTarget, backfill, false, true)
+  db.close()
