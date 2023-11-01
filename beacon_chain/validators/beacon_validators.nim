@@ -619,6 +619,7 @@ from ./message_router_mev import
 func constructSignableBlindedBlock[T: capella_mev.SignedBlindedBeaconBlock](
     blck: capella.BeaconBlock,
     executionPayloadHeader: capella.ExecutionPayloadHeader): T =
+  # Leaves signature field default, to be filled in by caller
   const
     blckFields = getFieldNames(typeof(blck))
     blckBodyFields = getFieldNames(typeof(blck.body))
@@ -659,12 +660,16 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlockContents
   doAssert bbb.proofs.len == bbb.blob_roots.len
   doAssert bbb.proofs.len == bbb.commitments.len
 
+  assign(blindedBlock.message.body.blob_kzg_commitments, bbb.commitments)
+
+  let blockRoot = hash_tree_root(blindedBlock.message)
+
   if blindedBlockContents.signed_blinded_blob_sidecars.setLen(bbb.proofs.len):
     for i in 0 ..< blindedBlockContents.signed_blinded_blob_sidecars.lenu64:
       assign(
         blindedBlockContents.signed_blinded_blob_sidecars[i],
         deneb_mev.SignedBlindedBlobSidecar(message: deneb_mev.BlindedBlobSidecar(
-          block_root: hash_tree_root(blck),
+          block_root: blockRoot,
           index: i,
           slot: distinctBase(blck.slot),
           block_parent_root: blck.parent_root,
