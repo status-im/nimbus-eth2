@@ -10,19 +10,6 @@ import
 
 from stew/io2 import IoErrorCode
 
-const
-  LogTraceName = "Beacon-Chain LogTrace Tool"
-  LogTraceMajor: int = 0
-  LogTraceMinor: int = 0
-  LogTracePatch: int = 4
-  LogTraceVersion = $LogTraceMajor & "." & $LogTraceMinor & "." &
-                      $LogTracePatch
-  LogTraceCopyright = "Copyright(C) 2021-2023" &
-                       " Status Research & Development GmbH"
-  LogTraceHeader = LogTraceName & ", Version " & LogTraceVersion &
-                    " [" & hostOS & ": " & hostCPU & "]\r\n" &
-                    LogTraceCopyright & "\r\n"
-
 type
   StartUpCommand* {.pure.} = enum
     pubsub, asl, asr, aggasr, scmsr, csr, lat, traceAll, localSimChecks
@@ -314,9 +301,6 @@ proc print(r: FileReport) =
 template fatal(issuesGroup: IssuesGroup, msg: string) =
   issuesGroup.fatalIssues.add msg
 
-template warning(issuesGroup: IssuesGroup, msg: string) =
-  issuesGroup.warnings.add msg
-
 proc new(T: type IssuesGroup, name: string): T =
   T(name: name)
 
@@ -460,56 +444,6 @@ proc readLogFileForASRMessages(file: string, srnode: var SRANode,
                                 lines_processed = counter,
                                 sends_filtered = len(srnode.sends),
                                 recvs_filtered = len(srnode.recvs)
-
-  except CatchableError as exc:
-    warn "Error reading data from file", file = file, errorMsg = exc.msg
-  finally:
-    stream.close()
-
-proc readLogFileForSCMSendMessages(file: string,
-                                   ignoreErrors = true,
-                                   dumpErrors = false): seq[SlotMessage] =
-  var res = newSeq[SlotMessage]()
-  var stream = newFileStream(file)
-  var line: string
-  var counter = 0
-  try:
-    while not(stream.atEnd()):
-      line = stream.readLine()
-      inc(counter)
-      var m: LogMessage
-      try:
-        m = Json.decode(line, LogMessage, allowUnknownFields = true)
-      except SerializationError as exc:
-        if dumpErrors:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter, errorMsg = exc.formatMsg(line)
-        else:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter
-        if not(ignoreErrors):
-          raise exc
-        else:
-          continue
-
-      if m.msg == "Sync committee message sent":
-        let scmm = Json.decode(line, SCMSentMessage,
-                             allowUnknownFields = true)
-        let m = SlotMessage(kind: SMessageType.SCMSent,
-                               scmsmsg: scmm)
-        res.add(m)
-      elif m.msg == "Slot start":
-        let sm = Json.decode(line, SlotStartMessage,
-                             allowUnknownFields = true)
-        let m = SlotMessage(kind: SMessageType.SlotStart,
-                               ssmsg: sm)
-        res.add(m)
-
-      if counter mod 10_000 == 0:
-        info "Processing file", file = extractFilename(file),
-                                lines_processed = counter,
-                                lines_filtered = len(res)
-    result = res
 
   except CatchableError as exc:
     warn "Error reading data from file", file = file, errorMsg = exc.msg
@@ -1191,6 +1125,19 @@ proc run*(conf: LogTraceConf) =
     quit ord(issuesDetected)
 
 when isMainModule:
+  const
+    LogTraceName = "Beacon-Chain LogTrace Tool"
+    LogTraceMajor: int = 0
+    LogTraceMinor: int = 0
+    LogTracePatch: int = 4
+    LogTraceVersion = $LogTraceMajor & "." & $LogTraceMinor & "." &
+                        $LogTracePatch
+    LogTraceCopyright = "Copyright(C) 2021-2023" &
+                         " Status Research & Development GmbH"
+    LogTraceHeader = LogTraceName & ", Version " & LogTraceVersion &
+                      " [" & hostOS & ": " & hostCPU & "]\r\n" &
+                      LogTraceCopyright & "\r\n"
+
   echo LogTraceHeader
   var conf = LogTraceConf.load(version = LogTraceVersion)
   run(conf)

@@ -316,7 +316,7 @@ proc getBlock*(
     readSszBytes(tmp, result.get(), updateRoot = root.isNone)
     if root.isSome():
       result.get().root = root.get()
-  except CatchableError as exc:
+  except CatchableError:
     result.err()
 
 proc getStateSZ*(

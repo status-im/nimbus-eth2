@@ -474,7 +474,7 @@ when const_preset in ["mainnet", "gnosis"]:
           toOpenArray(metadata.genesis.bakedBytes, 0, sizeof(BeaconStateHeader) - 1),
           BeaconStateHeader)
         Opt.some header.genesis_validators_root
-      except SerializationError as err:
+      except SerializationError:
         raiseAssert "Invalid baken-in genesis state"
     else:
       Opt.none Eth2Digest

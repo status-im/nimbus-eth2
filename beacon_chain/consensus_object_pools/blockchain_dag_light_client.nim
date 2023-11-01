@@ -723,11 +723,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
     blocks.add bid
 
   # Process blocks (reuses `dag.headState`, but restores it to the current head)
-  var
-    tmpState = assignClone(dag.headState)
-    tmpCache, cache: StateCache
-    oldCheckpoint: Checkpoint
-    cpIndex = 0
+  var cache: StateCache
   for i in countdown(blocks.high, blocks.low):
     bid = blocks[i]
     if not dag.updateExistingState(
