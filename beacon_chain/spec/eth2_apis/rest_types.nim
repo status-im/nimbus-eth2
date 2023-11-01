@@ -388,6 +388,11 @@ type
     data*: T
     execution_optimistic*: Option[bool]
 
+  DataOptimisticAndFinalizedObject*[T] = object
+    data*: T
+    execution_optimistic*: Option[bool]
+    finalized*: Option[bool]
+
   ForkedSignedBlockHeader* = object
     message*: uint32 # message offset
     signature*: ValidatorSig
@@ -508,7 +513,7 @@ type
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
   GetBlockAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
-  GetBlockHeaderResponse* = DataOptimisticObject[RestBlockHeaderInfo]
+  GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]

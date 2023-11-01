@@ -130,6 +130,7 @@ type
     DataRootEnclosedObject |
     DataOptimisticObject |
     DataVersionEnclosedObject |
+    DataOptimisticAndFinalizedObject |
     GetBlockV2Response |
     GetDistributedKeystoresResponse |
     GetKeystoresResponse |

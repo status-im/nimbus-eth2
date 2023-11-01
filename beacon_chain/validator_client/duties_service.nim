@@ -19,7 +19,8 @@ logScope: service = ServiceName
 type
   DutiesServiceLoop* = enum
     AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
-    ProposerPreparationLoop, ValidatorRegisterLoop, DynamicValidatorsLoop
+    ProposerPreparationLoop, ValidatorRegisterLoop, DynamicValidatorsLoop,
+    SlashPruningLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -30,6 +31,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of ProposerPreparationLoop: "proposer_prepare_loop"
   of ValidatorRegisterLoop: "validator_register_loop"
   of DynamicValidatorsLoop: "dynamic_validators_loop"
+  of SlashPruningLoop: "slashing_pruning_loop"
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -677,6 +679,68 @@ proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
     # Spawning new attestation duties task.
     service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
 
+proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
+  let
+    middleSlot = Slot(SLOTS_PER_EPOCH div 2)
+    currentSlot = vc.beaconClock.now().slotOrZero()
+    slotInEpoch = currentSlot.since_epoch_start()
+
+  if slotInEpoch >= middleSlot:
+    (currentSlot.epoch + 1'u64).start_slot() + uint64(middleSlot)
+  else:
+    currentSlot + (uint64(middleSlot) - uint64(slotInEpoch))
+
+proc pruneSlashingDatabase(service: DutiesServiceRef) {.async.} =
+  let
+    vc = service.client
+    currentSlot = vc.beaconClock.now().slotOrZero()
+    startTime = Moment.now()
+    checkpoint =
+      try:
+        await vc.getFinalizedStateFinalityCheckpoints()
+      except CancelledError as exc:
+        debug "Finalized checkpoint request was interrupted",
+              slot = currentSlot
+        raise exc
+      except CatchableError as exc:
+        error "Unexpected error occured while requesting " &
+              "finalized checkpoint", slot = currentSlot,
+              err_name = exc.name, err_msg = exc.msg
+        Opt.none(Checkpoint)
+    checkpointTime = Moment.now()
+  if checkpoint.isSome():
+    let epoch = checkpoint.get().epoch
+    vc.finalizedEpoch = Opt.some(epoch)
+    if service.lastSlashingEpoch.get(FAR_FUTURE_EPOCH) != epoch:
+      vc.attachedValidators[]
+        .slashingProtection
+        .pruneAfterFinalization(epoch)
+      service.lastSlashingEpoch = Opt.some(epoch)
+  let finishTime = Moment.now()
+  debug "Slashing database has been pruned", slot = currentSlot,
+        elapsed_time = (finishTime - startTime),
+        pruning_time = (finishTime - checkpointTime)
+
+proc slashingDatabasePruningLoop(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  debug "Slashing database pruning loop is waiting for initialization"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
+  while true:
+    let slot = await vc.checkedWaitForSlot(vc.getNextEpochMiddleSlot(),
+                                           aggregateSlotOffset, false)
+    if slot.isNone():
+      continue
+
+    if not(isNil(service.pruneSlashingDatabaseTask)) and
+       not(service.pruneSlashingDatabaseTask.finished()):
+      await cancelAndWait(service.pruneSlashingDatabaseTask)
+    service.pruneSlashingDatabaseTask = service.pruneSlashingDatabase()
+
 template checkAndRestart(serviceLoop: DutiesServiceLoop,
                          future: Future[void], body: untyped): untyped =
   if future.finished():
@@ -715,6 +779,7 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
       else:
         debug "Dynamic validators update loop disabled"
         @[]
+    slashPruningFut = service.slashingDatabasePruningLoop()
     web3SignerUrls = vc.config.web3SignerUrls
 
   while true:
@@ -729,6 +794,7 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
           FutureBase(indicesFut),
           FutureBase(syncFut),
           FutureBase(prepareFut),
+          FutureBase(slashPruningFut)
         ]
         for fut in dynamicFuts:
           futures.add fut
@@ -749,6 +815,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
                           service.dynamicValidatorsLoop(
                             web3SignerUrls[i],
                             vc.config.web3signerUpdateInterval))
+        checkAndRestart(SlashPruningLoop, slashPruningFut,
+                        service.slashingDatabasePruningLoop())
         false
       except CancelledError:
         debug "Service interrupted"
@@ -774,6 +842,9 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         if not(isNil(service.pollingSyncDutiesTask)) and
            not(service.pollingSyncDutiesTask.finished()):
           pending.add(service.pollingSyncDutiesTask.cancelAndWait())
+        if not(isNil(service.pruneSlashingDatabaseTask)) and
+           not(service.pruneSlashingDatabaseTask.finished()):
+          pending.add(service.pruneSlashingDatabaseTask.cancelAndWait())
         await allFutures(pending)
         true
       except CatchableError as exc:

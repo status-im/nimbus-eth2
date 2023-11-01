@@ -49,6 +49,13 @@ proc getStateFinalityCheckpoints*(state_id: StateIdent
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFinalityCheckpoints
 
+proc getStateFinalityCheckpointsPlain*(
+       state_id: StateIdent
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/states/{state_id}/finality_checkpoints",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFinalityCheckpoints
+
 proc getStateValidators*(state_id: StateIdent,
                          id: seq[ValidatorIdent]
                         ): RestResponse[GetStateValidatorsResponse] {.
