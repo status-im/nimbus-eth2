@@ -3611,5 +3611,109 @@
         }}
       ]
     }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_publish_v2"],
+    "request": {
+      "method": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Eth-Consensus-Version": "capella"
+      },
+      "url": "/eth/v2/beacon/blocks",
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": "Empty request's body"}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_publish_v2"],
+    "request": {
+      "method": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Eth-Consensus-Version": "capella"
+      },
+      "url": "/eth/v2/beacon/blocks?broadcast_validation=gossip",
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 400, "message": "Empty request's body"}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_publish_v2"],
+    "request": {
+      "method": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Eth-Consensus-Version": "capella"
+      },
+      "url": "/eth/v2/beacon/blocks?broadcast_validation=test",
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 400, "message": "Invalid broadcast_validation type value"}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_publish_v2"],
+    "request": {
+      "method": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Eth-Consensus-Version": "capella"
+      },
+      "url": "/eth/v2/beacon/blocks?broadcast_validation=",
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 400, "message": "Invalid broadcast_validation type value"}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_publish_v2"],
+    "request": {
+      "method": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Eth-Consensus-Version": "capella"
+      },
+      "url": "/eth/v2/beacon/blocks?broadcast_validation=consensus",
+    },
+    "comment": "TODO: This should be replaced when `consensus` become supported",
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 500, "message": "Only `gossip` broadcast_validation option supported"}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_publish_v2"],
+    "request": {
+      "method": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Eth-Consensus-Version": "capella"
+      },
+      "url": "/eth/v2/beacon/blocks?broadcast_validation=consensus_and_equivocation",
+    },
+    "comment": "TODO: This should be replaced when `consensus_and_equivocation` become supported",
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 500, "message": "Only `gossip` broadcast_validation option supported"}}]
+    }
   }
 ]

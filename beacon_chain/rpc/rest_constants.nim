@@ -243,3 +243,5 @@ const
     "Invalid or missing timestamp value"
   InvalidSidecarIndexValueError* =
     "Invalid blob index"
+  InvalidBroadcastValidationType* =
+    "Invalid broadcast_validation type value"

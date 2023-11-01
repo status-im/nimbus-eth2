@@ -3606,6 +3606,15 @@ proc encodeString*(value: StateIdent): RestResult[string] =
     of StateIdentType.Justified:
       ok("justified")
 
+proc encodeString*(value: BroadcastValidationType): RestResult[string] =
+  case value
+  of BroadcastValidationType.Gossip:
+    ok("gossip")
+  of BroadcastValidationType.Consensus:
+    ok("consensus")
+  of BroadcastValidationType.ConsensusAndEquivocation:
+    ok("consensus_and_equivocation")
+
 proc encodeString*(value: BlockIdent): RestResult[string] =
   case value.kind
   of BlockQueryKind.Slot:
@@ -3820,6 +3829,18 @@ proc decodeString*(t: typedesc[BlockIdent],
   else:
     let res = ? Base10.decode(uint64, value)
     ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
+
+proc decodeString*(t: typedesc[BroadcastValidationType],
+                   value: string): Result[BroadcastValidationType, cstring] =
+  case value
+  of "gossip":
+    ok(BroadcastValidationType.Gossip)
+  of "consensus":
+    ok(BroadcastValidationType.Consensus)
+  of "consensus_and_equivocation":
+    ok(BroadcastValidationType.ConsensusAndEquivocation)
+  else:
+    err("Incorrect broadcast validation type value")
 
 proc decodeString*(t: typedesc[ValidatorIdent],
                    value: string): Result[ValidatorIdent, cstring] =
