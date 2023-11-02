@@ -440,7 +440,8 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload: Opt[PayloadType],
     transactions_root: Opt[Eth2Digest],
     execution_payload_root: Opt[Eth2Digest],
-    withdrawals_root: Opt[Eth2Digest]):
+    withdrawals_root: Opt[Eth2Digest],
+    kzg_commitments: Opt[KzgCommitments]):
     Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -528,7 +529,8 @@ proc makeBeaconBlockForHeadAndSlot*(
       cache,
       verificationFlags = {},
       transactions_root = transactions_root,
-      execution_payload_root = execution_payload_root).mapErr do (error: cstring) -> string:
+      execution_payload_root = execution_payload_root,
+      kzg_commitments = kzg_commitments).mapErr do (error: cstring) -> string:
     # This is almost certainly a bug, but it's complex enough that there's a
     # small risk it might happen even when most proposals succeed - thus we
     # log instead of asserting
@@ -560,7 +562,8 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload = Opt.none(PayloadType),
     transactions_root = Opt.none(Eth2Digest),
     execution_payload_root = Opt.none(Eth2Digest),
-    withdrawals_root = Opt.none(Eth2Digest))
+    withdrawals_root = Opt.none(Eth2Digest),
+    kzg_commitments = Opt.none(KzgCommitments))
 
 proc getBlindedExecutionPayload[
     EPH: capella.ExecutionPayloadHeader |
@@ -846,6 +849,7 @@ proc getBlindedBlockParts[
     template actualEPH: untyped = executionPayloadHeader.get.blindedBlckPart
     let withdrawals_root =
       Opt.some executionPayloadHeader.get.blindedBlckPart.withdrawals_root
+    const kzg_commitments = Opt.none KzgCommitments
 
     var shimExecutionPayload: PayloadType
     copyFields(
@@ -855,7 +859,10 @@ proc getBlindedBlockParts[
     type PayloadType = deneb.ExecutionPayloadForSigning
     template actualEPH: untyped =
       executionPayloadHeader.get.blindedBlckPart.execution_payload_header
-    let withdrawals_root = Opt.some actualEPH.withdrawals_root
+    let
+      withdrawals_root = Opt.some actualEPH.withdrawals_root
+      kzg_commitments = Opt.some(
+        executionPayloadHeader.get.blindedBlckPart.blinded_blobs_bundle.commitments)
 
     var shimExecutionPayload: PayloadType
     type DenebEPH =
@@ -870,7 +877,8 @@ proc getBlindedBlockParts[
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some actualEPH.transactions_root,
     execution_payload_root = Opt.some hash_tree_root(actualEPH),
-    withdrawals_root = withdrawals_root)
+    withdrawals_root = withdrawals_root,
+    kzg_commitments = kzg_commitments)
 
   if newBlock.isErr():
     # Haven't committed to the MEV block, so allow EL fallback.
