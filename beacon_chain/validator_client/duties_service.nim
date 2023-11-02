@@ -716,22 +716,10 @@ proc pruneSlashingDatabase(service: DutiesServiceRef) {.async.} =
         .slashingProtection
         .pruneAfterFinalization(epoch)
       service.lastSlashingEpoch = Opt.some(epoch)
-      let
-        finalizedEpoch =
-          if vc.finalizedEpoch.isNone():
-            "<none>"
-          else:
-            $(vc.finalizedEpoch.get())
-        lastSlashingEpoch =
-          if service.lastSlashingEpoch.isNone():
-            "<none>"
-          else:
-            $(service.lastSlashingEpoch.get())
-        finishTime = Moment.now()
-
+      let finishTime = Moment.now()
       debug "Slashing database has been pruned", slot = currentSlot,
-        epoch = currentSlot.epoch(), finalized_epoch = finalizedEpoch,
-        last_slashing_epoch = lastSlashingEpoch,
+        epoch = currentSlot.epoch(),
+        finalized_epoch = epoch,
         elapsed_time = (finishTime - startTime),
         pruning_time = (finishTime - checkpointTime)
 

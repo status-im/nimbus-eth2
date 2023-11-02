@@ -897,19 +897,3 @@ func init*(t: typedesc[RestErrorMessage], code: HttpCode,
            message: string, stacktrace: openArray[string]): RestErrorMessage =
   RestErrorMessage(code: code.toInt(), message: message,
                    stacktraces: Opt.some(@stacktrace))
-
-template shortLog*(v: RestBlockHeader): auto =
-  (
-    slot: shortLog(v.slot),
-    proposer_index: v.proposer_index,
-    parent_root: shortLog(v.parent_root),
-    state_root: shortLog(v.state_root),
-    body_root: shortLog(v.state_root)
-  )
-
-template shortLog*(v: RestBlockHeaderInfo): auto =
-  (
-    root: shortLog(v.root),
-    canonical: v.canonical,
-    header: shortLog(v.header.message)
-  )
