@@ -2611,7 +2611,7 @@ proc getFinalizedBlockHeader*(
             let
               rdata = res.get()
               epoch = rdata.data.header.message.slot.epoch()
-            if oldestEpoch.get(FAR_FUTURE_EPOCH) < epoch:
+            if oldestEpoch.get(FAR_FUTURE_EPOCH) > epoch:
               oldestEpoch = Opt.some(epoch)
               oldestBlockHeader = rdata
           else:
@@ -2620,6 +2620,7 @@ proc getFinalizedBlockHeader*(
               apiResponse.node, response.status, $res.error)
             # We do not update beacon node's status anymore because of
             # issue #5377.
+            debug ResponseDecodeError, reason = getFailureReason(failure)
             continue
         of 400:
           let failure = ApiNodeFailure.init(
@@ -2627,6 +2628,7 @@ proc getFinalizedBlockHeader*(
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
+          debug ResponseInvalidError, reason = getFailureReason(failure)
           continue
         of 404:
           let failure = ApiNodeFailure.init(
@@ -2634,6 +2636,7 @@ proc getFinalizedBlockHeader*(
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
+          debug ResponseNotFoundError, reason = getFailureReason(failure)
           continue
         of 500:
           let failure = ApiNodeFailure.init(
@@ -2641,6 +2644,7 @@ proc getFinalizedBlockHeader*(
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
+          debug ResponseInternalError, reason = getFailureReason(failure)
           continue
         else:
           let failure = ApiNodeFailure.init(
@@ -2648,92 +2652,10 @@ proc getFinalizedBlockHeader*(
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
+          debug ResponseUnexpectedError, reason = getFailureReason(failure)
           continue
 
     if oldestEpoch.isSome():
       return Opt.some(oldestBlockHeader)
     else:
       return Opt.none(GetBlockHeaderResponse)
-
-proc getFinalizedStateFinalityCheckpoints*(
-       vc: ValidatorClientRef,
-     ): Future[Opt[Checkpoint]] {.async.} =
-  const RequestName = "getFinalizedStateFinalityCheckpoints"
-
-  let
-    stateIdent = StateIdent.init(StateIdentType.Finalized)
-    resp = vc.onceToAll(RestPlainResponse,
-                        SlotDuration,
-                        ViableNodeStatus,
-                        {BeaconNodeRole.Duties},
-                        getStateFinalityCheckpointsPlain(it, stateIdent))
-  case resp.status
-  of ApiOperation.Timeout:
-    debug "Unable to obtain finalized checkpoints in time",
-          timeout = SlotDuration
-    return Opt.none(Checkpoint)
-  of ApiOperation.Interrupt:
-    debug "Finalized checkpoints request was interrupted"
-    return Opt.none(Checkpoint)
-  of ApiOperation.Failure:
-    debug "Unexpected error happened while trying to get finalized checkpoints"
-    return Opt.none(Checkpoint)
-  of ApiOperation.Success:
-    var oldestCheckpoint: Checkpoint
-    var oldestEpoch: Opt[Epoch]
-    for apiResponse in resp.data:
-      if apiResponse.data.isErr():
-        debug "Unable to get finalized checkpoints",
-              endpoint = apiResponse.node, error = apiResponse.data.error
-      else:
-        let response = apiResponse.data.get()
-        case response.status
-        of 200:
-          let res = decodeBytes(GetStateFinalityCheckpointsResponse,
-                                response.data, response.contentType)
-          if res.isOk():
-            let
-              rdata = res.get()
-              epoch = rdata.data.finalized.epoch
-            if oldestEpoch.get(FAR_FUTURE_EPOCH) < epoch:
-              oldestEpoch = Opt.some(epoch)
-              oldestCheckpoint = rdata.data.finalized
-          else:
-            let failure = ApiNodeFailure.init(
-              ApiFailure.UnexpectedResponse, RequestName,
-              apiResponse.node, response.status, $res.error)
-            # We do not update beacon node's status anymore because of
-            # issue #5377.
-            continue
-        of 400:
-          let failure = ApiNodeFailure.init(
-            ApiFailure.Invalid, RequestName,
-            apiResponse.node, response.status, response.getErrorMessage())
-          # We do not update beacon node's status anymore because of
-          # issue #5377.
-          continue
-        of 404:
-          let failure = ApiNodeFailure.init(
-            ApiFailure.NotFound, RequestName,
-            apiResponse.node, response.status, response.getErrorMessage())
-          # We do not update beacon node's status anymore because of
-          # issue #5377.
-          continue
-        of 500:
-          let failure = ApiNodeFailure.init(
-            ApiFailure.Internal, RequestName,
-            apiResponse.node, response.status, response.getErrorMessage())
-          # We do not update beacon node's status anymore because of
-          # issue #5377.
-          continue
-        else:
-          let failure = ApiNodeFailure.init(
-            ApiFailure.UnexpectedCode, RequestName,
-            apiResponse.node, response.status, response.getErrorMessage())
-          # We do not update beacon node's status anymore because of
-          # issue #5377.
-          continue
-    if oldestEpoch.isSome():
-      return Opt.some(oldestCheckpoint)
-    else:
-      return Opt.none(Checkpoint)

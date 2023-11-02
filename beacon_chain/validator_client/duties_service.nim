@@ -709,8 +709,6 @@ proc pruneSlashingDatabase(service: DutiesServiceRef) {.async.} =
         Opt.none(GetBlockHeaderResponse)
     checkpointTime = Moment.now()
   if blockHeader.isSome():
-    debug "Received finalized block header",
-          data = shortLog(blockHeader.get().data)
     let epoch = blockHeader.get().data.header.message.slot.epoch
     vc.finalizedEpoch = Opt.some(epoch)
     if service.lastSlashingEpoch.get(FAR_FUTURE_EPOCH) != epoch:
@@ -718,22 +716,20 @@ proc pruneSlashingDatabase(service: DutiesServiceRef) {.async.} =
         .slashingProtection
         .pruneAfterFinalization(epoch)
       service.lastSlashingEpoch = Opt.some(epoch)
-  else:
-    debug "Received finalized block header", data = "<none>"
-  let
-    finalizedEpoch =
-      if vc.finalizedEpoch.isNone():
-        "<none>"
-      else:
-        $(vc.finalizedEpoch.get())
-    lastSlashingEpoch =
-      if service.lastSlashingEpoch.isNone():
-        "<none>"
-      else:
-        $(service.lastSlashingEpoch.get())
-    finishTime = Moment.now()
+      let
+        finalizedEpoch =
+          if vc.finalizedEpoch.isNone():
+            "<none>"
+          else:
+            $(vc.finalizedEpoch.get())
+        lastSlashingEpoch =
+          if service.lastSlashingEpoch.isNone():
+            "<none>"
+          else:
+            $(service.lastSlashingEpoch.get())
+        finishTime = Moment.now()
 
-  debug "Slashing database has been pruned", slot = currentSlot,
+      debug "Slashing database has been pruned", slot = currentSlot,
         epoch = currentSlot.epoch(), finalized_epoch = finalizedEpoch,
         last_slashing_epoch = lastSlashingEpoch,
         elapsed_time = (finishTime - startTime),
