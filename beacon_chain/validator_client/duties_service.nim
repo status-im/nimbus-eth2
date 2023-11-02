@@ -695,29 +695,47 @@ proc pruneSlashingDatabase(service: DutiesServiceRef) {.async.} =
     vc = service.client
     currentSlot = vc.beaconClock.now().slotOrZero()
     startTime = Moment.now()
-    checkpoint =
+    blockHeader =
       try:
-        await vc.getFinalizedStateFinalityCheckpoints()
+        await vc.getFinalizedBlockHeader()
       except CancelledError as exc:
-        debug "Finalized checkpoint request was interrupted",
+        debug "Finalized block header request was interrupted",
               slot = currentSlot
         raise exc
       except CatchableError as exc:
         error "Unexpected error occured while requesting " &
-              "finalized checkpoint", slot = currentSlot,
+              "finalized block header", slot = currentSlot,
               err_name = exc.name, err_msg = exc.msg
-        Opt.none(Checkpoint)
+        Opt.none(GetBlockHeaderResponse)
     checkpointTime = Moment.now()
-  if checkpoint.isSome():
-    let epoch = checkpoint.get().epoch
+  if blockHeader.isSome():
+    debug "Received finalized block header",
+          data = shortLog(blockHeader.get().data)
+    let epoch = blockHeader.get().data.header.message.slot.epoch
     vc.finalizedEpoch = Opt.some(epoch)
     if service.lastSlashingEpoch.get(FAR_FUTURE_EPOCH) != epoch:
       vc.attachedValidators[]
         .slashingProtection
         .pruneAfterFinalization(epoch)
       service.lastSlashingEpoch = Opt.some(epoch)
-  let finishTime = Moment.now()
+  else:
+    debug "Received finalized block header", data = "<none>"
+  let
+    finalizedEpoch =
+      if vc.finalizedEpoch.isNone():
+        "<none>"
+      else:
+        $(vc.finalizedEpoch.get())
+    lastSlashingEpoch =
+      if service.lastSlashingEpoch.isNone():
+        "<none>"
+      else:
+        $(service.lastSlashingEpoch.get())
+    finishTime = Moment.now()
+
   debug "Slashing database has been pruned", slot = currentSlot,
+        epoch = currentSlot.epoch(), finalized_epoch = finalizedEpoch,
+        last_slashing_epoch = lastSlashingEpoch,
         elapsed_time = (finishTime - startTime),
         pruning_time = (finishTime - checkpointTime)
 
