@@ -486,7 +486,6 @@ proc pollForBeaconProposers*(service: DutiesServiceRef) {.async.} =
 
     service.pruneBeaconProposers(currentEpoch)
     vc.pruneBlocksSeen(currentEpoch)
-    vc.pruneRandaoCache(currentEpoch)
 
 proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
   let vc = service.client

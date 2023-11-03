@@ -127,66 +127,8 @@ proc lazyWait[T](fut: Future[T]) {.async.} =
   except CatchableError:
     discard
 
-proc setSignature(item: var RandaoCacheItem, slot: Slot, key: ValidatorPubKey,
-                  signature: ValidatorSig) =
-  item.data[int(slot.since_epoch_start())] =
-    RandaoPair(pubkey: key, signature: signature)
-
-proc getSignature(item: RandaoCacheItem, slot: Slot,
-                  key: ValidatorPubKey): Opt[ValidatorSig] =
-  let pitem = item.data[int(slot.since_epoch_start())]
-  if pitem.pubkey == key:
-    Opt.some(pitem.signature)
-  else:
-    Opt.none(ValidatorSig)
-
-proc getRandaoReveal(vc: ValidatorClientRef, proposerKey: ValidatorPubKey,
-                     slot: Slot,
-                     deadline: BeaconTime): Future[ValidatorSig] {.async.} =
-  const LogMessage = "RANDAO signature obtained"
-  let
-    start = Moment.now()
-    genesisRoot = vc.beaconGenesis.genesis_validators_root
-    epoch = slot.epoch()
-    fork = vc.forkAtEpoch(epoch)
-    initialCacheItem = RandaoCacheItem(fork: fork)
-    item = vc.randaoCache.mgetOrPut(epoch, initialCacheItem)
-
-  if item.fork == fork:
-    let rsig = item.getSignature(slot, proposerKey)
-    if rsig.isSome():
-      let timeElapsed = Moment.now() - start
-      debug LogMessage, epoch = epoch, validator = shortLog(proposerKey),
-                        source = "cache", elapsed_time = timeElapsed,
-                        delay = vc.getDelay(deadline)
-      return rsig.get()
-
-  let
-    validator = vc.getValidatorForDuties(proposerKey, slot).valueOr: return
-    signature =
-      try:
-        (await validator.getEpochSignature(fork, genesisRoot, epoch)).valueOr:
-          warn "Unable to generate RANDAO reveal using remote signer",
-               reason = error
-          return
-      except CancelledError as exc:
-        debug "RANDAO reveal production has been interrupted"
-        raise exc
-      except CatchableError as exc:
-        error "An unexpected error occurred while receiving RANDAO data",
-              error_name = exc.name, error_msg = exc.msg
-        return
-
-  vc.randaoCache.withValue(epoch, signatures):
-    signatures[].setSignature(slot, validator.pubkey, signature)
-  let timeElapsed = Moment.now() - start
-  debug LogMessage, epoch = epoch, validator = shortLog(proposerKey),
-                    source = "signature", elapsed_time = timeElapsed,
-                    delay = vc.getDelay(deadline)
-  signature
-
-proc getRandao(vc: ValidatorClientRef, slot: Slot,
-               proposerKey: ValidatorPubKey) {.async.} =
+proc prepareRandao(vc: ValidatorClientRef, slot: Slot,
+                   proposerKey: ValidatorPubKey) {.async.} =
   if slot == GENESIS_SLOT:
     return
 
@@ -194,21 +136,45 @@ proc getRandao(vc: ValidatorClientRef, slot: Slot,
     destSlot = slot - 1'u64
     destOffset = TimeDiff(nanoseconds: NANOSECONDS_PER_SLOT.int64 div 2)
     deadline = destSlot.start_beacon_time() + destOffset
+    epoch = slot.epoch()
     # We going to wait to T - (T / 4 * 2), where T is proposer's
     # duty slot.
     currentSlot = (await vc.checkedWaitForSlot(destSlot, destOffset,
                    false)).valueOr:
-      debug "Unable to perform RANDAO caching because of system time"
+      debug "Unable to perform RANDAO signature preparation because of " &
+            "system time failure"
       return
+    validator =
+      vc.getValidatorForDuties(proposerKey, slot, true).valueOr: return
 
   if currentSlot <= destSlot:
     # We do not need result, because we want it to be cached.
-    discard await vc.getRandaoReveal(proposerKey, slot, deadline)
+    let
+      start = Moment.now()
+      genesisRoot = vc.beaconGenesis.genesis_validators_root
+      fork = vc.forkAtEpoch(epoch)
+      rsig = await validator.getEpochSignature(fork, genesisRoot, epoch)
+      timeElapsed = Moment.now() - start
+    if rsig.isErr():
+      debug "Unable to prepare RANDAO signature", epoch = epoch,
+            validator = shortLog(validator), elapsed_time = timeElapsed,
+            current_slot = currentSlot, destination_slot = destSlot,
+            delay = vc.getDelay(deadline)
+    else:
+      debug "RANDAO signature has been prepared", epoch = epoch,
+            validator = shortLog(validator), elapsed_time = timeElapsed,
+            current_slot = currentSlot, destination_slot = destSlot,
+            delay = vc.getDelay(deadline)
+  else:
+    debug "RANDAO signature preparation timed out", epoch = epoch,
+          validator = shortLog(validator),
+          current_slot = currentSlot, destination_slot = destSlot,
+          delay = vc.getDelay(deadline)
 
 proc spawnProposalTask(vc: ValidatorClientRef,
                        duty: RestProposerDuty): ProposerTask =
   ProposerTask(
-    randaoFut: getRandao(vc, duty.slot, duty.pubkey),
+    randaoFut: prepareRandao(vc, duty.slot, duty.pubkey),
     proposeFut: proposeBlock(vc, duty.slot, duty.pubkey),
     duty: duty
   )
@@ -234,8 +200,23 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
   debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
                             genesis_root = genesisRoot,
                             graffiti = graffiti, fork = fork
-  let randaoReveal = await vc.getRandaoReveal(validator.pubkey, slot,
-                                              slot.start_beacon_time())
+
+  let
+    randaoReveal =
+      try:
+        (await validator.getEpochSignature(fork, genesisRoot,
+                                           slot.epoch())).valueOr:
+          warn "Unable to generate RANDAO reveal using remote signer",
+               reason = error
+          return
+      except CancelledError as exc:
+        debug "RANDAO reveal production has been interrupted"
+        raise exc
+      except CatchableError as exc:
+        error "An unexpected error occurred while receiving RANDAO data",
+              error_name = exc.name, error_msg = exc.msg
+        return
+
   var beaconBlocks =
     block:
       let blindedBlockFut =
