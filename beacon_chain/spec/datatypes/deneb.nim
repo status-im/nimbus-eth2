@@ -38,7 +38,7 @@ const
 
 type
   KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-  Blobs* = List[Blob, Limit MAX_BLOBS_PER_BLOCK]
+  Blobs* = List[Blob, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
