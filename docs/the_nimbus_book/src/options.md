@@ -66,7 +66,13 @@ The following options are available:
                                seen by other nodes it communicates with. This option allows to enable/disable
                                this functionality [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
-     --sync-light-client       Accelerate execution layer sync using light client [=true].
+     --external-beacon-api-url  External beacon API to use for syncing (on empty database).
+     --sync-light-client       Accelerate sync using light client [=true].
+     --trusted-block-root      Recent trusted finalized block root to sync from external beacon API (with
+                               `--external-beacon-api-url`). Uses the light client sync protocol to obtain the
+                               latest finalized checkpoint (LC is initialized from trusted block root).
+     --trusted-state-root      Recent trusted finalized state root to sync from external beacon API (with
+                               `--external-beacon-api-url`).
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
      --genesis-state           SSZ file specifying the genesis state of the network (for networks without a
                                built-in genesis state).

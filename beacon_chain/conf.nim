@@ -339,15 +339,26 @@ type
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
 
+      externalBeaconApiUrl* {.
+        desc: "External beacon API to use for syncing (on empty database)"
+        name: "external-beacon-api-url" .}: Option[string]
+
       syncLightClient* {.
-        desc: "Accelerate execution layer sync using light client"
+        desc: "Accelerate sync using light client"
         defaultValue: true
         name: "sync-light-client" .}: bool
 
       trustedBlockRoot* {.
-        hidden
-        desc: "Recent trusted finalized block root to initialize light client from"
+        desc: "Recent trusted finalized block root to sync from external " &
+              "beacon API (with `--external-beacon-api-url`). " &
+              "Uses the light client sync protocol to obtain the latest " &
+              "finalized checkpoint (LC is initialized from trusted block root)"
         name: "trusted-block-root" .}: Option[Eth2Digest]
+
+      trustedStateRoot* {.
+        desc: "Recent trusted finalized state root to sync from external " &
+              "beacon API (with `--external-beacon-api-url`)"
+        name: "trusted-state-root" .}: Option[Eth2Digest]
 
       finalizedCheckpointState* {.
         desc: "SSZ file specifying a recent finalized state"
