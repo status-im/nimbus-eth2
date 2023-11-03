@@ -33,9 +33,6 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/beacon-chain.md#blob
-  BLOB_TX_TYPE* = 0x03'u8
-
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/polynomial-commitments.md#constants
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
 

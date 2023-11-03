@@ -715,35 +715,6 @@ func process_withdrawals*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#tx_peek_blob_versioned_hashes
-func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
-    Result[seq[VersionedHash], cstring] =
-  ## This function retrieves the hashes from the `SignedBlobTransaction` as
-  ## defined in Deneb, using SSZ offsets. Offsets are little-endian `uint32`
-  ## values, as defined in the SSZ specification. See the full details of
-  ## `blob_versioned_hashes` offset calculation.
-  if not (opaque_tx[0] == BLOB_TX_TYPE):
-    return err("tx_peek_blob_versioned_hashes: invalid opaque transaction type")
-  let message_offset = 1 + bytes_to_uint32(opaque_tx.asSeq.toOpenArray(1, 4))
-
-  if opaque_tx.lenu64 < (message_offset + 192).uint64:
-    return err("tx_peek_blob_versioned_hashes: opaque transaction too short")
-
-  # field offset: 32 + 8 + 32 + 32 + 8 + 4 + 32 + 4 + 4 + 32 = 188
-  let blob_versioned_hashes_offset = (
-    message_offset + bytes_to_uint32(
-      opaque_tx[(message_offset + 188) ..< (message_offset + 192)]))
-
-  if blob_versioned_hashes_offset.uint64 > high(int).uint64:
-    return err("tx_peek_blob_versioned_hashes: blob_versioned_hashes_offset too high")
-
-  var res: seq[VersionedHash]
-  for x in countup(blob_versioned_hashes_offset.int, len(opaque_tx) - 1, 32):
-    var versionedHash: VersionedHash
-    versionedHash[0 .. 31] = opaque_tx.asSeq.toOpenArray(x, x + 31)
-    res.add versionedHash
-  ok res
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
     kzg_commitment: KzgCommitment): VersionedHash =
@@ -754,31 +725,6 @@ func kzg_commitment_to_versioned_hash*(
   res[0] = VERSIONED_HASH_VERSION_KZG
   res[1 .. 31] = eth2digest(kzg_commitment).data.toOpenArray(1, 31)
   res
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#verify_kzg_commitments_against_transactions
-func verify_kzg_commitments_against_transactions*(
-    transactions: seq[Transaction],
-    kzg_commitments: seq[KzgCommitment]): bool =
-  var all_versioned_hashes: seq[VersionedHash]
-  for tx in transactions:
-    if tx[0] == BLOB_TX_TYPE:
-      let maybe_versioned_hashed = tx_peek_blob_versioned_hashes(tx)
-      if maybe_versioned_hashed.isErr:
-        return false
-      all_versioned_hashes.add maybe_versioned_hashed.get
-      # TODO valueOr version fails to compile
-      #all_versioned_hashes.add tx_peek_blob_versioned_hashes(tx).valueOr:
-      #  return false
-
-  all_versioned_hashes == mapIt(
-    kzg_commitments, it.kzg_commitment_to_versioned_hash)
-
-func process_blob_kzg_commitments(
-    body: deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
-          deneb.SigVerifiedBeaconBlockBody): bool =
-  verify_kzg_commitments_against_transactions(
-    body.execution_payload.transactions.asSeq,
-    body.blob_kzg_commitments.asSeq)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#validate_blobs
 proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
