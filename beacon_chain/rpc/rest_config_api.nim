@@ -128,6 +128,16 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP:
             Base10.toString(uint64(MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)),
 
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/presets/mainnet/deneb.yaml
+          FIELD_ELEMENTS_PER_BLOB:
+            Base10.toString(deneb_preset.FIELD_ELEMENTS_PER_BLOB),
+          MAX_BLOB_COMMITMENTS_PER_BLOCK:
+            Base10.toString(MAX_BLOB_COMMITMENTS_PER_BLOCK),
+          MAX_BLOBS_PER_BLOCK:
+            Base10.toString(MAX_BLOBS_PER_BLOCK),
+          KZG_COMMITMENT_INCLUSION_PROOF_DEPTH:
+            Base10.toString(uint64(KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)),
+
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/mainnet.yaml
           PRESET_BASE:
             cfg.PRESET_BASE,
