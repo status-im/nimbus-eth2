@@ -5,8 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Mainnet preset - Deneb
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/deneb.yaml
+# Gnosis preset - Deneb
+# https://github.com/gnosischain/configs/blob/b90374a1c63703db8235fcdb65aff2e909bc42b5/presets/gnosis/deneb.yaml
 const
   # `uint64(4096)`
   FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096
@@ -14,3 +14,5 @@ const
   MAX_BLOB_COMMITMENTS_PER_BLOCK*: uint64 = 4096
   # `uint64(2**2)` (= 4)
   MAX_BLOBS_PER_BLOCK*: uint64 = 4
+  # `floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK)` = 4 + 1 + 12 = 17
+  KZG_COMMITMENT_INCLUSION_PROOF_DEPTH* = 17
