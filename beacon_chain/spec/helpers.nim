@@ -11,7 +11,7 @@
 
 import
   # Status libraries
-  stew/[byteutils, endians2, objects, saturation_arith],
+  stew/[bitops2, byteutils, endians2, objects, saturation_arith],
   chronicles,
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/[db, hexary],
@@ -329,6 +329,52 @@ template is_better_update*[
     A, B: SomeForkyLightClientUpdate | ForkedLightClientUpdate](
     new_update: A, old_update: B): bool =
   is_better_data(toMeta(new_update), toMeta(old_update))
+
+func score*(meta: LightClientUpdateMetadata): uint64 =
+  const
+    max_active_participants =
+      SYNC_COMMITTEE_SIZE.uint64
+    supermajority_threshold =
+      (max_active_participants * 2 + 2) div 3
+    pre_supermajority_bits =
+      bitWidth(supermajority_threshold)
+    post_supermajority_bits =
+      bitWidth(max_active_participants - supermajority_threshold)
+    attested_slot_age_bits =
+      bitWidth(SLOTS_PER_SYNC_COMMITTEE_PERIOD - 1)
+
+  let
+    attested_slot_age = (SLOTS_PER_SYNC_COMMITTEE_PERIOD - 1) -
+      meta.attested_slot.since_sync_committee_period_start
+    has_relevant_sync_committee = meta.has_sync_committee and
+      meta.attested_slot.sync_committee_period ==
+      meta.signature_slot.sync_committee_period
+    has_sync_committee_finality = meta.has_finality and
+      meta.finalized_slot.sync_committee_period ==
+      meta.attested_slot.sync_committee_period
+    pre_supermajority_participants =
+      min(meta.num_active_participants, supermajority_threshold)
+    post_supermajority_participants =
+      meta.num_active_participants - pre_supermajority_participants
+
+  static: doAssert sizeof(result) * 8 >=
+    # Sync committee participation up to supermajority
+    pre_supermajority_bits +
+    # Next sync committee relevance
+    1 +
+    # Next sync committee finality
+    1 +
+    # Tiebreaker 1: Sync committee participation beyond supermajority
+    post_supermajority_bits +
+    # Tiebreaker 2: Slot age within sync committee period
+    attested_slot_age_bits
+
+  var res = pre_supermajority_participants
+  res = res shl 1 + (if has_relevant_sync_committee: 1 else: 0)
+  res = res shl 1 + (if has_sync_committee_finality: 1 else: 0)
+  res = res shl post_supermajority_bits + post_supermajority_participants
+  res = res shl attested_slot_age_bits + attested_slot_age
+  res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
