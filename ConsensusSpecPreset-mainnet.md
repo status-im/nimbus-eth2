@@ -2258,7 +2258,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    SignedBLSToExecutionChange                                                    OK
 +   Testing    SignedBeaconBlock                                                             OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
-+   Testing    SignedBlobSidecar                                                             OK
 +   Testing    SignedContributionAndProof                                                    OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
@@ -2271,7 +2270,7 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 49/49 Fail: 0/49 Skip: 0/49
+OK: 48/48 Fail: 0/48 Skip: 0/48
 ## EF - Deneb - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]          OK
@@ -2411,6 +2410,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
 ```
 OK: 14/14 Fail: 0/14 Skip: 0/14
+## EF - Merkle proof [Preset: mainnet]
+```diff
++ Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -2825,6 +2829,8 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
++ ForkChoice - mainnet/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root  OK
++ ForkChoice - mainnet/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_roo OK
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/basic                        OK
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
   ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
@@ -2842,6 +2848,8 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_correct_he OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_atte OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_ro OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ OK
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/basic                     OK
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
   ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_future_block     Skip
@@ -2852,6 +2860,7 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_early_for_merge Skip
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
++ ForkChoice - mainnet/bellatrix/fork_choice/should_override_forkchoice_update/pyspec_tests/ OK
 + ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_grea OK
 + ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_ OK
 + ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
@@ -2863,12 +2872,15 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
++ ForkChoice - mainnet/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root OK
++ ForkChoice - mainnet/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/basic                       OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
   ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_blo OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
++ ForkChoice - mainnet/capella/fork_choice/should_override_forkchoice_update/pyspec_tests/sh OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greate OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_no OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
@@ -2880,6 +2892,8 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head   OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
++ ForkChoice - mainnet/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root   OK
++ ForkChoice - mainnet/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_data_unavailable      OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_incorrect_proof       OK
@@ -2891,8 +2905,9 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              OK
++ ForkChoice - mainnet/deneb/fork_choice/should_override_forkchoice_update/pyspec_tests/shou OK
 ```
-OK: 69/77 Fail: 0/77 Skip: 8/77
+OK: 80/88 Fail: 0/88 Skip: 8/88
 ## Sync
 ```diff
 + Sync - mainnet/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
@@ -2902,4 +2917,4 @@ OK: 69/77 Fail: 0/77 Skip: 8/77
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2336/2344 Fail: 0/2344 Skip: 8/2344
+OK: 2347/2355 Fail: 0/2355 Skip: 8/2355

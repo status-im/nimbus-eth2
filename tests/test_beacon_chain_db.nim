@@ -762,18 +762,22 @@ suite "Beacon chain DB" & preset():
 
   test "sanity check blobs" & preset():
     const
-      blockRoot0 = Eth2Digest.fromHex(
-        "0x436f3180d2541a94560de3423d6d8f0e16e3b4c061ccd620bcfaee31424b5eb6")
-      blockRoot1 = Eth2Digest.fromHex(
-        "0x0d3730dc690d5fe4d39ded682d3aec7679af597d5fc6a65a7c8b4e20f228f96d")
+      blockHeader0 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(1)))
+
+    let
+      blockRoot0 = hash_tree_root(blockHeader0.message)
+      blockRoot1 = hash_tree_root(blockHeader1.message)
 
       # Ensure minimal-difference pairs on both block root and blob index to
       # verify that blobkey uses both
-      blobSidecar0 = BlobSidecar(block_root: blockRoot0, index: 3)
-      blobSidecar1 = BlobSidecar(block_root: blockRoot0, index: 2)
-      blobSidecar2 = BlobSidecar(block_root: blockRoot1, index: 2)
+      blobSidecar0 = BlobSidecar(signed_block_header: blockHeader0, index: 3)
+      blobSidecar1 = BlobSidecar(signed_block_header: blockHeader0, index: 2)
+      blobSidecar2 = BlobSidecar(signed_block_header: blockHeader1, index: 2)
 
-    let db = makeTestDB(SLOTS_PER_EPOCH)
+      db = makeTestDB(SLOTS_PER_EPOCH)
 
     var
       buf: seq[byte]

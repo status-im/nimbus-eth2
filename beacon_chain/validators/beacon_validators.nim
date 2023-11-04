@@ -659,21 +659,10 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlockContents
 
   assign(blindedBlock.message.body.blob_kzg_commitments, bbb.commitments)
 
-  let blockRoot = hash_tree_root(blindedBlock.message)
-
-  if blindedBlockContents.signed_blinded_blob_sidecars.setLen(bbb.proofs.len):
-    for i in 0 ..< blindedBlockContents.signed_blinded_blob_sidecars.lenu64:
-      assign(
-        blindedBlockContents.signed_blinded_blob_sidecars[i],
-        deneb_mev.SignedBlindedBlobSidecar(message: deneb_mev.BlindedBlobSidecar(
-          block_root: blockRoot,
-          index: i,
-          slot: distinctBase(blck.slot),
-          block_parent_root: blck.parent_root,
-          proposer_index: blck.proposer_index,
-          blob_root: bbb.blob_roots[i],
-          kzg_commitment: bbb.commitments[i],
-          kzg_proof: bbb.proofs[i])))
+  let sidecars = blindedBlock.create_blob_sidecars(bbb.proofs, bbb.blob_roots)
+  if blindedBlockContents.blinded_blob_sidecars.setLen(bbb.proofs.len):
+    for i in 0 ..< sidecars.len:
+      assign(blindedBlockContents.blinded_blob_sidecars[i], sidecars[i])
   else:
     debug "constructSignableBlindedBlock: unable to set blinded blob sidecar length",
       blobs_len = bbb.proofs.len
@@ -765,15 +754,6 @@ proc blindedBlockCheckSlashingAndSign[
     if res.isErr():
       return err("Unable to sign blinded block: " & res.error())
     res.get()
-
-  for signedBlindedBlobSidecar in mitems(
-      blindedBlockContents.signed_blinded_blob_sidecars):
-    signedBlindedBlobSidecar.signature = validator.getBlobSignature(
-        fork, genesis_validators_root, slot,
-        signedBlindedBlobSidecar.message).valueOr:
-      warn "Unable to sign blinded blob",
-           reason = error()
-      return
 
   return ok blindedBlockContents
 
@@ -1169,28 +1149,6 @@ proc proposeBlockAux(
         .slashingProtection
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
-    let blobSidecarsOpt =
-      when consensusFork >= ConsensusFork.Deneb:
-        var sidecars: seq[BlobSidecar]
-        let bundle = collectedBids.engineBlockFut.read.get().blobsBundleOpt.get
-        let (blobs, commitments, proofs) = (
-          bundle.blobs, bundle.commitments, bundle.proofs)
-        for i in 0..<blobs.len:
-          var sidecar = BlobSidecar(
-            block_root: blockRoot,
-            index: BlobIndex(i),
-            slot: slot,
-            block_parent_root: forkyBlck.parent_root,
-            proposer_index: forkyBlck.proposer_index,
-            blob: blobs[i],
-            kzg_commitment: commitments[i],
-            kzg_proof: proofs[i]
-          )
-          sidecars.add(sidecar)
-        Opt.some(sidecars)
-      else:
-        Opt.none(seq[BlobSidecar])
-
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",
         blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
@@ -1210,51 +1168,20 @@ proc proposeBlockAux(
                  validator = shortLog(validator), error_msg = res.error()
             return head
           res.get()
-      signedBlock =
-        when forkyBlck is phase0.BeaconBlock:
-          phase0.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
-        elif forkyBlck is altair.BeaconBlock:
-          altair.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
-        elif forkyBlck is bellatrix.BeaconBlock:
-          bellatrix.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
-        elif forkyBlck is capella.BeaconBlock:
-          capella.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
-        elif forkyBlck is deneb.BeaconBlock:
-          deneb.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
+      signedBlock = consensusFork.SignedBeaconBlock(
+        message: forkyBlck, signature: signature, root: blockRoot)
+      blobsOpt =
+        when consensusFork >= ConsensusFork.Deneb:
+          template blobsBundle: untyped =
+            collectedBids.engineBlockFut.read.get.blobsBundleOpt.get
+          Opt.some(signedBlock.create_blob_sidecars(
+            blobsBundle.proofs, blobsBundle.blobs))
         else:
-          static: doAssert "Unknown SignedBeaconBlock type"
-      signedBlobs =
-        when forkyBlck is phase0.BeaconBlock or
-             forkyBlck is altair.BeaconBlock or
-             forkyBlck is bellatrix.BeaconBlock or
-             forkyBlck is capella.BeaconBlock:
-          Opt.none(SignedBlobSidecars)
-        elif forkyBlck is deneb.BeaconBlock:
-          var signed: seq[SignedBlobSidecar]
-          let blobSidecars = blobSidecarsOpt.get()
-          for i in 0..<blobs.len:
-            let res = validator.getBlobSignature(fork, genesis_validators_root,
-                                                 slot, blobSidecars[i])
-            if res.isErr():
-              warn "Unable to sign blob",
-                   reason = res.error()
-              return
-            let signature = res.get()
-            signed.add(deneb.SignedBlobSidecar(
-                       message: blobSidecars[i],
-                       signature: signature))
-          Opt.some(signed)
-        else:
-          static: doAssert "Unknown SignedBeaconBlock type"
-
-      newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock, signedBlobs)).valueOr:
-          return head # Errors logged in router
+          Opt.none(seq[BlobSidecar])
+      newBlockRef = (
+        await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
+      ).valueOr:
+        return head # Errors logged in router
 
     if newBlockRef.isNone():
       return head # Validation errors logged in router

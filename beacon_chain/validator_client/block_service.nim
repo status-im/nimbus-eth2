@@ -21,12 +21,11 @@ const
 logScope: service = ServiceName
 
 type
-  BlobList = List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
-
   PreparedBeaconBlock = object
     blockRoot*: Eth2Digest
     data*: ForkedBeaconBlock
-    blobsOpt*: Opt[BlobList]
+    kzgProofsOpt*: Opt[deneb.KzgProofs]
+    blobsOpt*: Opt[deneb.Blobs]
 
   PreparedBlindedBeaconBlock = object
     blockRoot*: Eth2Digest
@@ -66,27 +65,34 @@ proc produceBlock(
     let blck = produceBlockResponse.phase0Data
     return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
                                         data: ForkedBeaconBlock.init(blck),
-                                        blobsOpt: Opt.none(BlobList)))
+                                        kzgProofsOpt: Opt.none(deneb.KzgProofs),
+                                        blobsOpt: Opt.none(deneb.Blobs)))
   of ConsensusFork.Altair:
     let blck = produceBlockResponse.altairData
     return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
                                         data: ForkedBeaconBlock.init(blck),
-                                        blobsOpt: Opt.none(BlobList)))
+                                        kzgProofsOpt: Opt.none(deneb.KzgProofs),
+                                        blobsOpt: Opt.none(deneb.Blobs)))
   of ConsensusFork.Bellatrix:
     let blck = produceBlockResponse.bellatrixData
     return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
                                         data: ForkedBeaconBlock.init(blck),
-                                        blobsOpt: Opt.none(BlobList)))
+                                        kzgProofsOpt: Opt.none(deneb.KzgProofs),
+                                        blobsOpt: Opt.none(deneb.Blobs)))
   of ConsensusFork.Capella:
     let blck = produceBlockResponse.capellaData
     return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
                                         data: ForkedBeaconBlock.init(blck),
-                                        blobsOpt: Opt.none(BlobList)))
+                                        kzgProofsOpt: Opt.none(deneb.KzgProofs),
+                                        blobsOpt: Opt.none(deneb.Blobs)))
   of ConsensusFork.Deneb:
-    let blck = produceBlockResponse.denebData.`block`
-    let blobs = produceBlockResponse.denebData.blob_sidecars
+    let
+      blck = produceBlockResponse.denebData.`block`
+      kzgProofs = produceBlockResponse.denebData.kzg_proofs
+      blobs = produceBlockResponse.denebData.blobs
     return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
                                         data: ForkedBeaconBlock.init(blck),
+                                        kzgProofsOpt: Opt.some(kzgProofs),
                                         blobsOpt: Opt.some(blobs)))
 
 proc produceBlindedBlock(
@@ -388,30 +394,14 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                 root: preparedBlock.blockRoot,
                 signature: signature))
           of ConsensusFork.Deneb:
-            let blobs = preparedBlock.blobsOpt.get()
-            var signed: seq[SignedBlobSidecar] = @[]
-            for i in 0..<blobs.len:
-              let res = validator.getBlobSignature(fork, genesisRoot,
-                                                   slot, blobs[i])
-              if res.isErr():
-                warn "Unable to sign blob",
-                 reason = res.error()
-                return
-              let signature = res.get()
-              signed.add(deneb.SignedBlobSidecar(
-                message: blobs[i],
-                signature: signature))
-
-            let signedList =
-              List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK].init(signed)
             RestPublishedSignedBlockContents(kind: ConsensusFork.Deneb,
               denebData: DenebSignedBlockContents(
                 signed_block: deneb.SignedBeaconBlock(
                   message: preparedBlock.data.denebData,
                   root: preparedBlock.blockRoot,
                   signature: signature),
-                signed_blob_sidecars: signedList
-              ))
+                kzg_proofs: preparedBlock.kzgProofsOpt.get,
+                blobs: preparedBlock.blobsOpt.get))
 
         res =
           try:

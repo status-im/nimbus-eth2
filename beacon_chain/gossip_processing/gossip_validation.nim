@@ -182,6 +182,20 @@ func check_attestation_subnet(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#verify_blob_sidecar_inclusion_proof
+func verify_blob_sidecar_inclusion_proof(
+    blob_sidecar: deneb.BlobSidecar): Result[void, ValidationError] =
+  let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
+  if not is_valid_merkle_branch(
+      hash_tree_root(blob_sidecar.kzg_commitment),
+      blob_sidecar.kzg_commitment_inclusion_proof,
+      KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
+      get_subtree_index(gindex),
+      blob_sidecar.signed_block_header.message.body_root):
+    return errReject("Sidecar's inclusion proof not valid")
+
+  ok()
+
 # Gossip Validation
 # ----------------------------------------------------------------
 
@@ -302,85 +316,132 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    blobQuarantine: ref BlobQuarantine, sbs: SignedBlobSidecar,
+    blobQuarantine: ref BlobQuarantine, blob_sidecar: BlobSidecar,
     wallTime: BeaconTime, subnet_id: BlobId): Result[void, ValidationError] =
+  # Some of the checks below have been reordered compared to the spec, to
+  # perform the cheap checks first - in particular, we want to avoid loading
+  # an `EpochRef` and checking signatures. This reordering might lead to
+  # different IGNORE/REJECT results in turn affecting gossip scores.
+  template block_header: untyped = blob_sidecar.signed_block_header.message
 
-  # [REJECT] The sidecar is for the correct topic --
-  # i.e. sidecar.index matches the topic {index}.
-  if sbs.message.index != subnet_id:
-    return dag.checkedReject("SignedBlobSidecar: mismatched gossip topic index")
+  # [REJECT] The sidecar's index is consistent with `MAX_BLOBS_PER_BLOCK`
+  # -- i.e. `blob_sidecar.index < MAX_BLOBS_PER_BLOCK`
+  if not (blob_sidecar.index < MAX_BLOBS_PER_BLOCK):
+    return dag.checkedReject("BlobSidecar: index inconsistent")
 
-  if dag.getBlockRef(sbs.message.block_root).isSome():
-    return errIgnore("SignedBlobSidecar: already have block")
+  # [REJECT] The sidecar is for the correct subnet -- i.e.
+  # `compute_subnet_for_blob_sidecar(blob_sidecar.index) == subnet_id`.
+  if not (compute_subnet_for_blob_sidecar(blob_sidecar.index) == subnet_id):
+    return dag.checkedReject("BlobSidecar: subnet incorrect")
 
   # [IGNORE] The sidecar is not from a future slot (with a
-  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
-  # sidecar.slot <= current_slot (a client MAY queue future sidecars
+  # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance) -- i.e. validate that
+  # `block_header.slot <= current_slot` (a client MAY queue future sidecars
   # for processing at the appropriate slot).
-  if not (sbs.message.slot <=
+  if not (block_header.slot <=
       (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
-    return errIgnore("SignedBlobSidecar: slot too high")
+    return errIgnore("BlobSidecar: slot too high")
 
-  # [IGNORE] The block is from a slot greater than the latest
-  # finalized slot -- i.e. validate that
-  # signed_beacon_block.message.slot >
-  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
-  if not (sbs.message.slot > dag.finalizedHead.slot):
-    return errIgnore("SignedBlobSidecar: slot already finalized")
+  # [IGNORE] The sidecar is from a slot greater than the latest
+  # finalized slot -- i.e. validate that `block_header.slot >
+  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)`
+  if not (block_header.slot > dag.finalizedHead.slot):
+    return errIgnore("BlobSidecar: slot already finalized")
 
-  # [IGNORE] The block's parent (defined by block.parent_root) has
-  # been seen (via both gossip and non-gossip sources) (a client MAY
-  # queue blocks for processing once the parent block is retrieved).
-  # [REJECT] The sidecar's block's parent (defined by sidecar.block_parent_root)
-  # passes validation.
-  let parentRes = dag.getBlockRef(sbs.message.block_parent_root)
-  if parentRes.isErr:
-    if sbs.message.block_parent_root in quarantine[].unviable:
-      return dag.checkedReject("SignedBlobSidecar: parent not validated")
+  # [IGNORE] The sidecar is the first sidecar for the tuple
+  # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
+  # with valid header signature, sidecar inclusion proof, and kzg proof.
+  let block_root = hash_tree_root(block_header)
+  if dag.getBlockRef(block_root).isSome():
+    return errIgnore("BlobSidecar: already have block")
+  if blobQuarantine[].hasBlob(
+      block_header.slot, block_header.proposer_index, blob_sidecar.index):
+    return errIgnore("BlobSidecar: already have valid blob from same proposer")
+
+  # [REJECT] The sidecar's inclusion proof is valid as verified by
+  # `verify_blob_sidecar_inclusion_proof(blob_sidecar)`.
+  block:
+    let v = verify_blob_sidecar_inclusion_proof(blob_sidecar)
+    if v.isErr:
+      return dag.checkedReject(v.error)
+
+  # [IGNORE] The sidecar's block's parent (defined by
+  # `block_header.parent_root`) has been seen (via both gossip and
+  # non-gossip sources) (a client MAY queue sidecars for processing
+  # once the parent block is retrieved).
+  #
+  # [REJECT] The sidecar's block's parent (defined by
+  # `block_header.parent_root`) passes validation.
+  let parent = dag.getBlockRef(block_header.parent_root).valueOr:
+    if block_header.parent_root in quarantine[].unviable:
+      quarantine[].addUnviable(block_root)
+      return dag.checkedReject("BlobSidecar: parent not validated")
     else:
-      return errIgnore("SignedBlobSidecar: parent not found")
-  template parent: untyped = parentRes.get
+      quarantine[].addMissing(block_header.parent_root)
+      return errIgnore("BlobSidecar: parent not found")
 
   # [REJECT] The sidecar is from a higher slot than the sidecar's
-  # block's parent (defined by sidecar.block_parent_root).
-  if sbs.message.slot <= parent.bid.slot:
-    return dag.checkedReject("SignedBlobSidecar: slot lower than parents'")
+  # block's parent (defined by `block_header.parent_root`).
+  if not (block_header.slot > parent.bid.slot):
+    return dag.checkedReject("BlobSidecar: slot lower than parents'")
 
-  # [REJECT] The sidecar is proposed by the expected proposer_index
+  # [REJECT] The current finalized_checkpoint is an ancestor of the sidecar's
+  # block -- i.e. `get_checkpoint_block(store, block_header.parent_root,
+  # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root`.
+  let
+    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
+
+  if ancestor.isNil:
+    # This shouldn't happen: we should always be able to trace the parent back
+    # to the finalized checkpoint (else it wouldn't be in the DAG)
+    return errIgnore("BlobSidecar: Can't find ancestor")
+
+  if not (
+      finalized_checkpoint.root == ancestor.root or
+      finalized_checkpoint.root.isZero):
+    quarantine[].addUnviable(block_root)
+    return dag.checkedReject(
+      "BlobSidecar: Finalized checkpoint not an ancestor")
+
+  # [REJECT] The sidecar is proposed by the expected `proposer_index`
   # for the block's slot in the context of the current shuffling
-  # (defined by block_parent_root/slot).  If the proposer_index
-  # cannot immediately be verified against the expected shuffling,
-  # the sidecar MAY be queued for later processing while proposers
+  # (defined by `block_header.parent_root`/`block_header.slot`).
+  # If the proposer_index cannot immediately be verified against the expected
+  # shuffling, the sidecar MAY be queued for later processing while proposers
   # for the block's branch are calculated -- in such a case do not
   # REJECT, instead IGNORE this message.
-  let
-    proposer = getProposer(
-      dag, parent, sbs.message.slot).valueOr:
-      warn "cannot compute proposer for blob"
-      return errIgnore("SignedBlobSidecar: Cannot compute proposer")
+  let proposer = getProposer(dag, parent, block_header.slot).valueOr:
+    warn "cannot compute proposer for blob"
+    return errIgnore("BlobSidecar: Cannot compute proposer") # internal issue
 
-  if uint64(proposer) != sbs.message.proposer_index:
-    return dag.checkedReject("SignedBlobSidecar: Unexpected proposer")
+  if uint64(proposer) != block_header.proposer_index:
+    return dag.checkedReject("BlobSidecar: Unexpected proposer")
 
-  # [REJECT] The proposer signature, signed_blob_sidecar.signature,
-  # is valid as verified by verify_sidecar_signature.
-  if not verify_blob_signature(
-    dag.forkAtEpoch(sbs.message.slot.epoch),
-    getStateField(dag.headState, genesis_validators_root),
-    sbs.message.slot,
-    sbs.message,
-    dag.validatorKey(proposer).get(),
-    sbs.signature):
-    return dag.checkedReject("SignedBlobSidecar: invalid blob signature")
+  # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
+  # is valid with respect to the `block_header.proposer_index` pubkey.
+  if not verify_block_signature(
+      dag.forkAtEpoch(block_header.slot.epoch),
+      getStateField(dag.headState, genesis_validators_root),
+      block_header.slot,
+      block_root,
+      dag.validatorKey(proposer).get(),
+      blob_sidecar.signed_block_header.signature):
+    return dag.checkedReject("BlobSidecar: Invalid proposer signature")
 
-  # [IGNORE] The sidecar is the only sidecar with valid signature
-  # received for the tuple (sidecar.block_root, sidecar.index).
-  if blobQuarantine[].hasBlob(sbs.message):
-    return errIgnore(
-      "SignedBlobSidecar: already have blob with valid signature")
+  # [REJECT] The sidecar's blob is valid as verified by `verify_blob_kzg_proof(
+  # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
+  block:
+    let ok = verifyProof(
+        blob_sidecar.blob,
+        blob_sidecar.kzg_commitment,
+        blob_sidecar.kzg_proof).valueOr:
+      return dag.checkedReject("BlobSidecar: blob verify failed")
+    if not ok:
+      return dag.checkedReject("BlobSidecar: blob invalid")
 
   ok()
 
@@ -498,7 +559,7 @@ proc validateBeaconBlock*(
         blockRoot = shortLog(signed_beacon_block.root),
         blck = shortLog(signed_beacon_block.message),
         signature = shortLog(signed_beacon_block.signature)
-    return errIgnore("BeaconBlock: Parent not found")
+    return errIgnore("BeaconBlock: parent not found")
 
   # Continues block parent validity checking in optimistic case, where it does
   # appear as a `BlockRef` (and not handled above) but isn't usable for gossip
@@ -539,12 +600,12 @@ proc validateBeaconBlock*(
   let
     proposer = getProposer(
         dag, parent, signed_beacon_block.message.slot).valueOr:
-      warn "cannot compute proposer for message"
+      warn "cannot compute proposer for block"
       return errIgnore("BeaconBlock: Cannot compute proposer") # internal issue
 
   if uint64(proposer) != signed_beacon_block.message.proposer_index:
     quarantine[].addUnviable(signed_beacon_block.root)
-    return dag.checkedReject("BeaconBlock: Unexpected proposer proposer")
+    return dag.checkedReject("BeaconBlock: Unexpected proposer")
 
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.

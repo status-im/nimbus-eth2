@@ -37,9 +37,8 @@ const
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
 
 type
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#beaconblockbody
   KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-  KzgProofs* = List[KzgProof, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-  Blobs* = List[Blob, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
@@ -51,30 +50,17 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/validator.md#blobsbundle
-  BlobsBundle* = object
-    commitments*: KzgCommitments
-    proofs*: KzgProofs
-    blobs*: Blobs
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/p2p-interface.md#blobsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
-    block_root*: Eth2Digest
     index*: BlobIndex
       ## Index of blob in block
-    slot*: Slot
-    block_parent_root*: Eth2Digest
-      ## Proposer shuffling determinant
-    proposer_index*: uint64
     blob*: Blob
     kzg_commitment*: KzgCommitment
     kzg_proof*: KzgProof
       ## Allows for quick verification of kzg_commitment
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#signedblobsidecar
-  SignedBlobSidecar* = object
-    message*: BlobSidecar
-    signature*: ValidatorSig
+    signed_block_header*: SignedBeaconBlockHeader
+    kzg_commitment_inclusion_proof*:
+      array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object
@@ -106,6 +92,16 @@ type
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
     blob_gas_used*: uint64   # [New in Deneb]
     excess_blob_gas*: uint64 # [New in Deneb]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/validator.md#blobsbundle
+  KzgProofs* = List[KzgProof, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+  Blobs* = List[Blob, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+  BlobRoots* = List[Eth2Digest, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+
+  BlobsBundle* = object
+    commitments*: KzgCommitments
+    proofs*: KzgProofs
+    blobs*: Blobs
 
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
@@ -532,22 +528,16 @@ func shortLog*(v: SomeBeaconBlock): auto =
 
 func shortLog*(v: BlobSidecar): auto =
   (
-    block_root: shortLog(v.block_root),
     index: v.index,
-    slot: shortLog(v.slot),
-    block_parent_root: shortLog(v.block_parent_root),
-    proposer_index: v.proposer_index,
     bloblen: v.blob.len(),
+    block_header: shortLog(v.signed_block_header.message),
   )
+
+func shortLog*(v: seq[BlobSidecar]): auto =
+  "[" & v.mapIt(shortLog(it)).join(", ") & "]"
 
 func shortLog*(v: seq[ref BlobSidecar]): auto =
   "[" & v.mapIt(shortLog(it[])).join(", ") & "]"
-
-func shortLog*(v: SignedBlobSidecar): auto =
-  (
-    blob: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
@@ -576,6 +566,31 @@ func shortLog*(v: ExecutionPayload): auto =
 
 func shortLog*(x: seq[BlobIdentifier]): string =
   "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
+
+func kzg_commitment_inclusion_proof_gindex*(
+    index: BlobIndex): GeneralizedIndex =
+  # This index is rooted in `BeaconBlockBody`.
+  # The first member (`randao_reveal`) is 16, subsequent members +1 each.
+  # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/ssz/merkle-proofs.md
+  const
+    # `blob_kzg_commitments`
+    BLOB_KZG_COMMITMENTS_GINDEX =
+      27.GeneralizedIndex
+    # List + 0 = items, + 1 = len
+    BLOB_KZG_COMMITMENTS_BASE_GINDEX =
+      (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
+    # List depth
+    BLOB_KZG_COMMITMENTS_PROOF_DEPTH =
+      log2trunc(nextPow2(deneb.KzgCommitments.maxLen.uint64))
+    # First item
+    BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
+      (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)
+  static: doAssert(
+    log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX) ==
+    KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)
+
+  BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(

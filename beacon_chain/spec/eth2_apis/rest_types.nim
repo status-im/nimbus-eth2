@@ -317,7 +317,8 @@ type
 
   DenebSignedBlockContents* = object
     signed_block*: deneb.SignedBeaconBlock
-    signed_blob_sidecars*: List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+    kzg_proofs*: deneb.KzgProofs
+    blobs*: deneb.Blobs
 
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
@@ -339,7 +340,8 @@ type
 
   DenebBlockContents* = object
     `block`*: deneb.BeaconBlock
-    blob_sidecars*: List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+    kzg_proofs*: deneb.KzgProofs
+    blobs*: deneb.Blobs
 
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork

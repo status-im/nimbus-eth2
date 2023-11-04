@@ -1754,12 +1754,12 @@ proc readValue*(reader: var JsonReader[RestJson],
   var message: Opt[RestPublishedBeaconBlock]
   var signed_message: Opt[RestPublishedSignedBeaconBlock]
   var signed_block_data: Opt[JsonString]
-  var signed_blob_sidecars: Opt[List[SignedBlobSidecar,
-                                     Limit MAX_BLOBS_PER_BLOCK]]
+  var kzg_proofs: Opt[deneb.KzgProofs]
+  var blobs: Opt[deneb.Blobs]
 
   # Pre-Deneb, there were always the same two top-level fields
   # ('signature' and 'message'). For Deneb, there's a different set of
-  # a top-level fields: 'signed_block' 'signed_blob_sidecars'. The
+  # a top-level fields: 'signed_block' 'kzg_proofs', `blobs`. The
   # former is the same as the pre-Deneb object.
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -1803,18 +1803,26 @@ proc readValue*(reader: var JsonReader[RestJson],
         of ConsensusFork.Deneb:
           ForkedBeaconBlock.init(blck.denebData.message)
       ))
-    of "signed_blob_sidecars":
-      if signed_blob_sidecars.isSome():
+    of "kzg_proofs":
+      if kzg_proofs.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `signed_blob_sidecars` fields found",
+          "Multiple `kzg_proofs` fields found",
           "RestPublishedSignedBlockContents")
       if signature.isSome():
         reader.raiseUnexpectedField(
-          "Found `signed_blob_sidecars` field alongside signature field",
+          "Found `kzg_proofs` field alongside signature field",
           "RestPublishedSignedBlockContents")
-      signed_blob_sidecars = Opt.some(reader.readValue(
-        List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
-
+      kzg_proofs = Opt.some(reader.readValue(deneb.KzgProofs))
+    of "blobs":
+      if blobs.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `blobs` fields found",
+          "RestPublishedSignedBlockContents")
+      if signature.isSome():
+        reader.raiseUnexpectedField(
+          "Found `blobs` field alongside signature field",
+          "RestPublishedSignedBlockContents")
+      blobs = Opt.some(reader.readValue(deneb.Blobs))
     else:
       unrecognizedFieldWarning()
 
@@ -1826,6 +1834,18 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Field `message` is missing")
 
   let blck = ForkedBeaconBlock(message.get())
+
+  if blck.kind >= ConsensusFork.Deneb:
+    if kzg_proofs.isNone():
+      reader.raiseUnexpectedValue("Field `kzg_proofs` is missing")
+    if blobs.isNone():
+      reader.raiseUnexpectedValue("Field `blobs` is missing")
+  else:
+    if kzg_proofs.isSome():
+      reader.raiseUnexpectedValue("Field `kzg_proofs` found but unsupported")
+    if blobs.isSome():
+      reader.raiseUnexpectedValue("Field `blobs` found but unsupported")
+
   case blck.kind
     of ConsensusFork.Phase0:
       value = RestPublishedSignedBlockContents(
@@ -1865,7 +1885,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         denebData: DenebSignedBlockContents(
           # Constructed to be internally consistent
           signed_block: signed_message.get().distinctBase.denebData,
-          signed_blob_sidecars: signed_blob_sidecars.get()
+          kzg_proofs: kzg_proofs.get(),
+          blobs: blobs.get()
         )
       )
 

@@ -201,7 +201,7 @@ const denebSignedContents = """
     },
     "signature": "0x8e2cd6cf4457825818eb380f1ea74f2fc99665041194ab5bcbdbf96f2e22bad4376d2a94f69d762c999ffd500e2525ab0561b01a79158456c83cf5bf0f2104e26f7b0d22f41dcc8f49a0e1cc29bb09aee1c548903fa04bdfcd20603c400d948d"
   },
-  "signed_blob_sidecars": []
+  "blob_sidecars": []
 }
 """
 
