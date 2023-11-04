@@ -793,7 +793,8 @@ proc putBlock*(
 proc putBlobSidecar*(
     db: BeaconChainDB,
     value: BlobSidecar) =
-  db.blobs.putSZSSZ(blobkey(value.block_root, value.index), value)
+  db.blobs.putSZSSZ(blobkey(
+    value.signed_block_header.message.body_root, value.index), value)
 
 proc delBlobSidecar*(
     db: BeaconChainDB,

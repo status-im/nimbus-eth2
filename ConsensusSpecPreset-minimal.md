@@ -2355,7 +2355,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    SignedBLSToExecutionChange                                                    OK
 +   Testing    SignedBeaconBlock                                                             OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
-+   Testing    SignedBlobSidecar                                                             OK
 +   Testing    SignedContributionAndProof                                                    OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
@@ -2368,7 +2367,7 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 49/49 Fail: 0/49 Skip: 0/49
+OK: 48/48 Fail: 0/48 Skip: 0/48
 ## EF - Deneb - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
@@ -2977,6 +2976,8 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epo OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/voting_source_within_two_epo OK
++ ForkChoice - minimal/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root  OK
++ ForkChoice - minimal/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_roo OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/basic                        OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/incompatible_justification_u OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/incompatible_justification_u OK
@@ -3023,6 +3024,8 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_atte OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/voting_source_within_two_ OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_ro OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/basic                     OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/incompatible_justificatio OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/incompatible_justificatio OK
@@ -3058,6 +3061,8 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delay OK
 + ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delay OK
 + ForkChoice - minimal/bellatrix/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_witho OK
++ ForkChoice - minimal/bellatrix/fork_choice/should_override_forkchoice_update/pyspec_tests/ OK
++ ForkChoice - minimal/bellatrix/fork_choice/should_override_forkchoice_update/pyspec_tests/ OK
 + ForkChoice - minimal/bellatrix/fork_choice/withholding/pyspec_tests/withholding_attack     OK
 + ForkChoice - minimal/bellatrix/fork_choice/withholding/pyspec_tests/withholding_attack_unv OK
 + ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
@@ -3073,6 +3078,8 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ep OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/voting_source_within_two_ep OK
++ ForkChoice - minimal/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root OK
++ ForkChoice - minimal/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/basic                       OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/incompatible_justification_ OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/incompatible_justification_ OK
@@ -3104,6 +3111,8 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed OK
 + ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed OK
 + ForkChoice - minimal/capella/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without OK
++ ForkChoice - minimal/capella/fork_choice/should_override_forkchoice_update/pyspec_tests/sh OK
++ ForkChoice - minimal/capella/fork_choice/should_override_forkchoice_update/pyspec_tests/sh OK
 + ForkChoice - minimal/capella/fork_choice/withholding/pyspec_tests/withholding_attack       OK
 + ForkChoice - minimal/capella/fork_choice/withholding/pyspec_tests/withholding_attack_unvia OK
 + ForkChoice - minimal/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
@@ -3119,6 +3128,8 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epoc OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoc OK
++ ForkChoice - minimal/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root   OK
++ ForkChoice - minimal/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
@@ -3155,10 +3166,12 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
 + ForkChoice - minimal/deneb/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_e OK
++ ForkChoice - minimal/deneb/fork_choice/should_override_forkchoice_update/pyspec_tests/shou OK
++ ForkChoice - minimal/deneb/fork_choice/should_override_forkchoice_update/pyspec_tests/shou OK
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack         OK
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack_unviabl OK
 ```
-OK: 185/193 Fail: 0/193 Skip: 8/193
+OK: 199/207 Fail: 0/207 Skip: 8/207
 ## Sync
 ```diff
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
@@ -3168,4 +3181,4 @@ OK: 185/193 Fail: 0/193 Skip: 8/193
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2578/2586 Fail: 0/2586 Skip: 8/2586
+OK: 2591/2599 Fail: 0/2599 Skip: 8/2599

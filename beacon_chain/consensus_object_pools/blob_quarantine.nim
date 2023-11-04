@@ -37,8 +37,9 @@ func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
       oldest_blob_key = k
       break
     quarantine.blobs.del oldest_blob_key
-  discard quarantine.blobs.hasKeyOrPut((blobSidecar.block_root,
-                                        blobSidecar.index), blobSidecar)
+  discard quarantine.blobs.hasKeyOrPut((
+    blobSidecar.signed_block_header.message.body_root,
+    blobSidecar.index), blobSidecar)
 
 func blobIndices*(quarantine: BlobQuarantine, digest: Eth2Digest):
      seq[BlobIndex] =
@@ -49,7 +50,8 @@ func blobIndices*(quarantine: BlobQuarantine, digest: Eth2Digest):
   r
 
 func hasBlob*(quarantine: BlobQuarantine, blobSidecar: BlobSidecar): bool =
-  quarantine.blobs.hasKey((blobSidecar.block_root, blobSidecar.index))
+  quarantine.blobs.hasKey((
+    blobSidecar.signed_block_header.message.body_root, blobSidecar.index))
 
 func popBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
      seq[ref BlobSidecar] =

@@ -95,7 +95,7 @@ proc checkResponse(idList: seq[BlobIdentifier],
   for blob in blobs:
     var found = false
     for id in idList:
-      if id.block_root == blob.block_root and
+      if id.block_root == blob.signed_block_header.message.body_root and
          id.index == blob.index:
           found = true
           break
@@ -204,8 +204,8 @@ proc fetchBlobsFromNetwork(self: RequestManager,
         self.blobQuarantine[].put(b)
       var curRoot: Eth2Digest
       for b in ublobs:
-        if b.block_root != curRoot:
-          curRoot = b.block_root
+        if b.signed_block_header.message.body_root != curRoot:
+          curRoot = b.signed_block_header.message.body_root
           if (let o = self.quarantine[].popBlobless(curRoot); o.isSome):
             let b = o.unsafeGet()
             discard await self.blockVerifier(ForkedSignedBeaconBlock.init(b), false)

@@ -302,75 +302,84 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    blobQuarantine: ref BlobQuarantine,sbs: SignedBlobSidecar,
+    blobQuarantine: ref BlobQuarantine, sbs: SignedBlobSidecar,
     wallTime: BeaconTime, idx: BlobIndex): Result[void, ValidationError] =
 
+  # [REJECT] The sidecar's index is consistent with MAX_BLOBS_PER_BLOCK -- i.e.
+  # blob_sidecar.index < MAX_BLOBS_PER_BLOCK
+  if not (sbs.message.index < MAX_BLOBS_PER_BLOCK):
+    return dag.checkedReject(
+      "SignedBlobSidecar: sidecar index inconsistent with MAX_BLOBS_PER_BLOCK")
+
+  # TODO matches spec, but document how
   # [REJECT] The sidecar is for the correct topic --
   # i.e. sidecar.index matches the topic {index}.
   if sbs.message.index != idx:
     return dag.checkedReject("SignedBlobSidecar: mismatched gossip topic index")
 
-  if dag.getBlockRef(sbs.message.block_root).isSome():
-    return errIgnore("SignedBlobSidecar: already have block")
+  template block_header: BeaconBlockHeader =
+    sbs.message.signed_block_header.message
 
   # [IGNORE] The sidecar is not from a future slot (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
-  # sidecar.slot <= current_slot (a client MAY queue future sidecars
+  # block_header.slot <= current_slot (a client MAY queue future sidecars
   # for processing at the appropriate slot).
-  if not (sbs.message.slot <=
+  if not (block_header.slot <=
       (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
     return errIgnore("SignedBlobSidecar: slot too high")
 
-  # [IGNORE] The block is from a slot greater than the latest
-  # finalized slot -- i.e. validate that
-  # signed_beacon_block.message.slot >
-  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
-  if not (sbs.message.slot > dag.finalizedHead.slot):
-    return errIgnore("SignedBlobSidecar: slot already finalized")
+  if dag.getBlockRef(
+      sbs.message.signed_block_header.message.body_root).isSome():
+    return errIgnore("SignedBlobSidecar: already have block")
 
-  # [IGNORE] The block's parent (defined by block.parent_root) has
-  # been seen (via both gossip and non-gossip sources) (a client MAY
-  # queue blocks for processing once the parent block is retrieved).
-  # [REJECT] The sidecar's block's parent (defined by sidecar.block_parent_root)
+  # [IGNORE] The sidecar is from a slot greater than the latest
+  # finalized slot -- i.e. validate that
+  # block_header.slot >
+  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
+  if not (block_header.slot > dag.finalizedHead.slot):
+    return errIgnore("SignedBlobSidecar: sidecar slot already finalized")
+
+  # [IGNORE] The sidecar block's parent (defined by block_header.parent_root)
+  # has been seen (via both gossip and non-gossip sources) (a client MAY queue
+  # sidecars for processing once the parent block is retrieved).
+  # [REJECT] The sidecar's block's parent (defined by block_header.parent_root)
   # passes validation.
-  let parentRes = dag.getBlockRef(sbs.message.block_parent_root)
+  let parentRes = dag.getBlockRef(block_header.parent_root)
   if parentRes.isErr:
-    if sbs.message.block_parent_root in quarantine[].unviable:
+    if block_header.parent_root in quarantine[].unviable:
       return dag.checkedReject("SignedBlobSidecar: parent not validated")
     else:
       return errIgnore("SignedBlobSidecar: parent not found")
   template parent: untyped = parentRes.get
 
   # [REJECT] The sidecar is from a higher slot than the sidecar's
-  # block's parent (defined by sidecar.block_parent_root).
-  if sbs.message.slot <= parent.bid.slot:
+  # block's parent (defined by block_header.parent_root).
+  if block_header.slot <= parent.bid.slot:
     return dag.checkedReject("SignedBlobSidecar: slot lower than parents'")
 
-  # [REJECT] The sidecar is proposed by the expected proposer_index
-  # for the block's slot in the context of the current shuffling
-  # (defined by block_parent_root/slot).  If the proposer_index
-  # cannot immediately be verified against the expected shuffling,
-  # the sidecar MAY be queued for later processing while proposers
-  # for the block's branch are calculated -- in such a case do not
-  # REJECT, instead IGNORE this message.
-  let
-    proposer = getProposer(
-      dag, parent, sbs.message.slot).valueOr:
-      warn "cannot compute proposer for blob"
-      return errIgnore("SignedBlobSidecar: Cannot compute proposer")
+  # [REJECT] The sidecar is proposed by the expected proposer_index for the
+  # block's slot in the context of the current shuffling (defined by
+  # block_header.parent_root/block_header.slot). If the proposer_index cannot
+  # immediately be verified against the expected shuffling, the sidecar MAY be
+  # queued for later processing while proposers for the block's branch are
+  # calculated -- in such a case do not REJECT, instead IGNORE this message.
+  let proposer = getProposer(dag, parent, block_header.slot).valueOr:
+    warn "cannot compute proposer for blob"
+    return errIgnore("SignedBlobSidecar: Cannot compute proposer")
 
-  if uint64(proposer) != sbs.message.proposer_index:
+  if uint64(proposer) != block_header.proposer_index:
     return dag.checkedReject("SignedBlobSidecar: Unexpected proposer")
 
+  # TODO this sort of doesn't appear directly in beta.4, investigate
   # [REJECT] The proposer signature, signed_blob_sidecar.signature,
   # is valid as verified by verify_sidecar_signature.
   if not verify_blob_signature(
-    dag.forkAtEpoch(sbs.message.slot.epoch),
+    dag.forkAtEpoch(block_header.slot.epoch),
     getStateField(dag.headState, genesis_validators_root),
-    sbs.message.slot,
+    block_header.slot,
     sbs.message,
     dag.validatorKey(proposer).get(),
     sbs.signature):

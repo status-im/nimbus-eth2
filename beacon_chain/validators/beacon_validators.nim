@@ -1182,14 +1182,19 @@ proc proposeBlockAux(
         let (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
         for i in 0..<blobs.len:
           var sidecar = BlobSidecar(
-            block_root: blockRoot,
             index: BlobIndex(i),
-            slot: slot,
-            block_parent_root: forkyBlck.parent_root,
-            proposer_index: forkyBlck.proposer_index,
             blob: blobs[i],
             kzg_commitment: kzgs[i],
-            kzg_proof: proofs[i]
+            kzg_proof: proofs[i],
+            # TODO signature?
+            signed_block_header: SignedBeaconBlockHeader(
+              message: BeaconBlockHeader(
+                slot: slot,
+                proposer_index: forkyBlck.proposer_index,
+                parent_root: forkyBlck.parent_root,
+                #state_root: , # TODO
+                body_root: blockRoot)),
+            #kzg_commitment_inclusion_proof: TODO builder API doesn't yet supply
           )
           sidecars.add(sidecar)
         Opt.some(sidecars)

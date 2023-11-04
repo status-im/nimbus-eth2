@@ -769,9 +769,18 @@ suite "Beacon chain DB" & preset():
 
       # Ensure minimal-difference pairs on both block root and blob index to
       # verify that blobkey uses both
-      blobSidecar0 = BlobSidecar(block_root: blockRoot0, index: 3)
-      blobSidecar1 = BlobSidecar(block_root: blockRoot0, index: 2)
-      blobSidecar2 = BlobSidecar(block_root: blockRoot1, index: 2)
+      blobSidecar0 = BlobSidecar(
+        signed_block_header: SignedBeaconBlockHeader(
+          message: BeaconBlockHeader(body_root: blockRoot0)),
+        index: 3)
+      blobSidecar1 = BlobSidecar(
+        signed_block_header: SignedBeaconBlockHeader(
+          message: BeaconBlockHeader(body_root: blockRoot0)),
+        index: 2)
+      blobSidecar2 = BlobSidecar(
+        signed_block_header: SignedBeaconBlockHeader(
+          message: BeaconBlockHeader(body_root: blockRoot1)),
+        index: 2)
 
     let db = makeTestDB(SLOTS_PER_EPOCH)
 

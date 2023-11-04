@@ -50,19 +50,17 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/p2p-interface.md#blobsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
-    block_root*: Eth2Digest
     index*: BlobIndex
       ## Index of blob in block
-    slot*: Slot
-    block_parent_root*: Eth2Digest
-      ## Proposer shuffling determinant
-    proposer_index*: uint64
     blob*: Blob
     kzg_commitment*: KzgCommitment
     kzg_proof*: KzgProof
       ## Allows for quick verification of kzg_commitment
+    signed_block_header*: SignedBeaconBlockHeader
+    kzg_commitment_inclusion_proof*:
+      array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#signedblobsidecar
   SignedBlobSidecar* = object
@@ -533,11 +531,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
 
 func shortLog*(v: BlobSidecar): auto =
   (
-    block_root: shortLog(v.block_root),
     index: v.index,
-    slot: shortLog(v.slot),
-    block_parent_root: shortLog(v.block_parent_root),
-    proposer_index: v.proposer_index,
     bloblen: v.blob.len(),
   )
 

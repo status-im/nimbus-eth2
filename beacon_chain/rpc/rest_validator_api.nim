@@ -420,14 +420,19 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             var sidecars = newSeqOfCap[BlobSidecar](bundle.blobs.len)
             for i in 0..<bundle.blobs.len:
               let sidecar = deneb.BlobSidecar(
-                block_root: blockRoot,
                 index: BlobIndex(i),
-                slot: forkyBlck.slot,
-                block_parent_root: forkyBlck.parent_root,
-                proposer_index: forkyBlck.proposer_index,
                 blob: bundle.blobs[i],
                 kzg_commitment: bundle.kzgs[i],
-                kzg_proof: bundle.proofs[i]
+                kzg_proof: bundle.proofs[i],
+                # TODO signature?
+                signed_block_header: SignedBeaconBlockHeader(
+                  message: BeaconBlockHeader(
+                    slot: forkyBlck.slot,
+                    proposer_index: forkyBlck.proposer_index,
+                    parent_root: forkyBlck.parent_root,
+                    #state_root: # TODO
+                    body_root: blockRoot)),
+                #kzg_commitment_inclusion_proof: TODO builder API doesn't yet supply
               )
               sidecars.add(sidecar)
 

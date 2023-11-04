@@ -286,7 +286,8 @@ proc processSignedBlobSidecar*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - signedBlobSidecar.message.slot.start_beacon_time
+  let delay = wallTime - start_beacon_time(
+    signedBlobSidecar.message.signed_block_header.message.slot)
 
   if self.blobQuarantine[].hasBlob(signedBlobSidecar.message):
     debug "Blob received, already in quarantine", delay
@@ -309,7 +310,7 @@ proc processSignedBlobSidecar*(
   var skippedBlocks = false
 
   if (let o = self.quarantine[].popBlobless(
-    signedBlobSidecar.message.block_root); o.isSome):
+    signedBlobSidecar.message.signed_block_header.message.body_root); o.isSome):
     let blobless = o.unsafeGet()
 
     if self.blobQuarantine[].hasBlobs(blobless):
@@ -317,7 +318,7 @@ proc processSignedBlobSidecar*(
         MsgSource.gossip,
         ForkedSignedBeaconBlock.init(blobless),
         Opt.some(self.blobQuarantine[].popBlobs(
-          signedBlobSidecar.message.block_root))
+          signedBlobSidecar.message.signed_block_header.message.body_root))
       )
     else:
       discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,

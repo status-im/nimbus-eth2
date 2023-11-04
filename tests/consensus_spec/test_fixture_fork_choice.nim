@@ -285,6 +285,12 @@ proc stepChecks(
     elif check == "genesis_time":
       # We do not store genesis in fork choice..
       discard
+    elif check == "get_proposer_head":
+      # TODO
+      discard
+    elif check == "should_override_forkchoice_update":
+      # TODO this probably just truly ignore, but verify
+      discard
     else:
       doAssert false, "Unsupported check '" & $check & "'"
 
