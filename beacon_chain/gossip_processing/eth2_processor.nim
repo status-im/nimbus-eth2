@@ -275,7 +275,7 @@ proc processSignedBeaconBlock*(
 
 proc processSignedBlobSidecar*(
     self: var Eth2Processor, src: MsgSource,
-    signedBlobSidecar: deneb.SignedBlobSidecar, idx: BlobIndex): ValidationRes =
+    signedBlobSidecar: deneb.SignedBlobSidecar, subnet_id: BlobId): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -296,7 +296,7 @@ proc processSignedBlobSidecar*(
 
   let v =
     self.dag.validateBlobSidecar(self.quarantine, self.blobQuarantine,
-                                 signedBlobSidecar, wallTime, idx)
+                                 signedBlobSidecar, wallTime, subnet_id)
 
   if v.isErr():
     debug "Dropping blob", error = v.error()

@@ -100,14 +100,14 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blob_sidecar_index
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 func getBlobSidecarTopic*(forkDigest: ForkDigest,
-                          subnet_id: SubnetId): string =
+                          subnet_id: BlobId): string =
   eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/validator.md#sidecar
-func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): SubnetId =
-  SubnetId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
+func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): BlobId =
+  BlobId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
@@ -220,5 +220,5 @@ func getSyncSubnets*(
   res
 
 iterator blobSidecarTopics*(forkDigest: ForkDigest): string =
-  for i in 0.SubnetId ..< static(BLOB_SIDECAR_SUBNET_COUNT.SubnetId):
-    yield getBlobSidecarTopic(forkDigest, i)
+  for subnet_id in BlobId:
+    yield getBlobSidecarTopic(forkDigest, subnet_id)

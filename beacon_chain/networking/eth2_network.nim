@@ -2678,7 +2678,7 @@ proc broadcastBeaconBlock*(
   node.broadcast(topic, blck)
 
 proc broadcastBlobSidecar*(
-    node: Eth2Node, subnet_id: SubnetId, blob: deneb.SignedBlobSidecar):
+    node: Eth2Node, subnet_id: BlobId, blob: deneb.SignedBlobSidecar):
       Future[SendResult] =
   let
     forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)

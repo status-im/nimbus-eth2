@@ -305,12 +305,12 @@ template validateBeaconBlockBellatrix(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    blobQuarantine: ref BlobQuarantine,sbs: SignedBlobSidecar,
-    wallTime: BeaconTime, idx: BlobIndex): Result[void, ValidationError] =
+    blobQuarantine: ref BlobQuarantine, sbs: SignedBlobSidecar,
+    wallTime: BeaconTime, subnet_id: BlobId): Result[void, ValidationError] =
 
   # [REJECT] The sidecar is for the correct topic --
   # i.e. sidecar.index matches the topic {index}.
-  if sbs.message.index != idx:
+  if sbs.message.index != subnet_id:
     return dag.checkedReject("SignedBlobSidecar: mismatched gossip topic index")
 
   if dag.getBlockRef(sbs.message.block_root).isSome():
