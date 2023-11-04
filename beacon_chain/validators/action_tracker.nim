@@ -7,12 +7,12 @@
 
 import
   stew/shims/[sets, hashes], chronicles,
-  eth/p2p/discoveryv5/random2,
   ../spec/forks
 
 from ../spec/validator import compute_subscribed_subnets
+from ../consensus_object_pools/block_pools_types import ShufflingRef
 from ../consensus_object_pools/spec_cache import
-  EpochRef, epoch, get_committee_assignments
+  epoch, get_committee_assignments
 
 export forks, tables, sets
 
@@ -38,8 +38,6 @@ type
     slot*: Slot
 
   ActionTracker* = object
-    useOldStabilitySubnets: bool
-    rng: ref HmacDrbgContext
     nodeId: UInt256
 
     subscribeAllAttnets: bool
@@ -50,9 +48,6 @@ type
     subscribedSubnets*: AttnetBits
       ## All subnets we're currently subscribed to
 
-    stabilitySubnets: seq[tuple[subnet_id: SubnetId, expiration: Epoch]]
-      ## The subnets on which we listen and broadcast gossip traffic to maintain
-      ## the health of the network - these are advertised in the ENR
     nextCycleEpoch: Epoch
 
     # Used to track the next attestation and proposal slots using an
@@ -80,14 +75,6 @@ type
 
 func hash*(x: AggregatorDuty): Hash =
   hashAllFields(x)
-
-func randomStabilitySubnet(
-    self: ActionTracker, epoch: Epoch): tuple[subnet_id: SubnetId, expiration: Epoch] =
-  (
-    self.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId,
-    epoch + EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
-      self.rng[].rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64,
-  )
 
 proc registerDuty*(
     tracker: var ActionTracker, slot: Slot, subnet_id: SubnetId,
@@ -139,7 +126,7 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
       res[duty.subnet_id.int] = true
   res
 
-# TODO https://github.com/nim-lang/Nim/issues/22215 keeps from stabilitySubnets
+# TODO https://github.com/nim-lang/Nim/issues/12172 keeps from stabilitySubnets
 const allSubnetBits = block:
   var res: AttnetBits
   for i in 0..<res.len: res[i] = true
@@ -150,12 +137,7 @@ func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
     allSubnetBits
   else:
     var res: AttnetBits
-
-    if  tracker.useOldStabilitySubnets or
-        tracker.stabilitySubnets.len < SUBNETS_PER_NODE.int:
-      for v in tracker.stabilitySubnets:
-        res[v.subnet_id.int] = true
-    else:
+    if tracker.knownValidators.len > 0:
       for subnetId in compute_subscribed_subnets(tracker.nodeId, slot.epoch):
         res[subnetId.int] = true
     res
@@ -174,35 +156,12 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
     for k in dels:
       tracker.syncDuties.del(k)
 
-  # Keep stability subnets for as long as validators are validating
   var toPrune: seq[ValidatorIndex]
   for k, v in tracker.knownValidators:
     if v + KNOWN_VALIDATOR_DECAY < wallSlot: toPrune.add k
   for k in toPrune:
     debug "Validator no longer active", index = k
     tracker.knownValidators.del k
-
-  let expectedSubnets =
-    min(ATTESTATION_SUBNET_COUNT.int, tracker.knownValidators.len)
-
-  let epoch = wallSlot.epoch
-  block:
-    # If we have too many stability subnets, remove some expired ones
-    var i = 0
-    while tracker.stabilitySubnets.len > expectedSubnets and
-        i < tracker.stabilitySubnets.len:
-      if epoch >= tracker.stabilitySubnets[i].expiration:
-        tracker.stabilitySubnets.delete(i)
-      else:
-        inc i
-
-  for ss in tracker.stabilitySubnets.mitems():
-    if epoch >= ss.expiration:
-      ss = tracker.randomStabilitySubnet(epoch)
-
-  # and if we have too few, add a few more
-  for i in tracker.stabilitySubnets.len..<expectedSubnets:
-    tracker.stabilitySubnets.add(tracker.randomStabilitySubnet(epoch))
 
   tracker.currentSlot = wallSlot
 
@@ -256,19 +215,19 @@ func needsUpdate*(
 from std/sequtils import toSeq
 
 func updateActions*(
-    tracker: var ActionTracker, epochRef: EpochRef) =
-  # Updates the schedule for upcoming attestation and proposal work
-  let
-    epoch = epochRef.epoch
+    tracker: var ActionTracker, shufflingRef: ShufflingRef,
+    beaconProposers: openArray[Opt[ValidatorIndex]]) =
+  let epoch = shufflingRef.epoch
 
-  tracker.attesterDepRoot = epochRef.shufflingRef.attester_dependent_root
+  # Updates the schedule for upcoming attestation and proposal work
+  tracker.attesterDepRoot = shufflingRef.attester_dependent_root
   tracker.lastCalculatedEpoch = epoch
 
   let validatorIndices = toHashSet(toSeq(tracker.knownValidators.keys()))
 
   # Update proposals
   tracker.proposingSlots[epoch mod 2] = 0
-  for i, proposer in epochRef.beacon_proposers:
+  for i, proposer in beacon_proposers:
     if proposer.isSome and proposer.get() in validatorIndices:
       tracker.proposingSlots[epoch mod 2] =
         tracker.proposingSlots[epoch mod 2] or (1'u32 shl i)
@@ -279,8 +238,7 @@ func updateActions*(
   static: doAssert SLOTS_PER_EPOCH <= 32
 
   for (committeeIndex, subnet_id, slot) in
-      get_committee_assignments(epochRef.shufflingRef, validatorIndices):
-
+      get_committee_assignments(shufflingRef, validatorIndices):
     doAssert epoch(slot) == epoch
 
     # Each get_committee_assignments() call here is on the next epoch. At any
@@ -301,11 +259,8 @@ func updateActions*(
         (1'u32 shl (slot mod SLOTS_PER_EPOCH))
 
 func init*(
-    T: type ActionTracker, rng: ref HmacDrbgContext, nodeId: UInt256,
-    subscribeAllAttnets: bool, useOldStabilitySubnets: bool): T =
+    T: type ActionTracker, nodeId: UInt256, subscribeAllAttnets: bool): T =
   T(
-    rng: rng,
     nodeId: nodeId,
     subscribeAllAttnets: subscribeAllAttnets,
-    useOldStabilitySubnets: useOldStabilitySubnets
   )

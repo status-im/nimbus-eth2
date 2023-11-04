@@ -461,6 +461,42 @@ template withForkyStore*(
     const lcDataFork {.inject, used.} = LightClientDataFork.None
     body
 
+func init*(
+    x: typedesc[
+      ForkedLightClientHeader |
+      SomeForkedLightClientObject |
+      ForkedLightClientStore],
+    forkyData:
+      ForkyLightClientHeader |
+      SomeForkyLightClientObject |
+      ForkyLightClientStore): auto =
+  type ResultType = typeof(forkyData).Forked
+  static: doAssert ResultType is x
+  const kind = typeof(forkyData).kind
+  when kind == LightClientDataFork.Deneb:
+    ResultType(kind: kind, denebData: forkyData)
+  elif kind == LightClientDataFork.Capella:
+    ResultType(kind: kind, capellaData: forkyData)
+  elif kind == LightClientDataFork.Altair:
+    ResultType(kind: kind, altairData: forkyData)
+  else:
+    static: raiseAssert "Unreachable"
+
+template forky*(
+    x:
+      ForkedLightClientHeader |
+      SomeForkedLightClientObject |
+      ForkedLightClientStore,
+    kind: static LightClientDataFork): untyped =
+  when kind == LightClientDataFork.Deneb:
+    x.denebData
+  elif kind == LightClientDataFork.Capella:
+    x.capellaData
+  elif kind == LightClientDataFork.Altair:
+    x.altairData
+  else:
+    static: raiseAssert "Unreachable"
+
 func toFull*(
     update: SomeForkyLightClientUpdate): auto =
   type ResultType = typeof(update).kind.LightClientUpdate
@@ -486,10 +522,7 @@ func toFull*(
   else:
     withForkyObject(update):
       when lcDataFork > LightClientDataFork.None:
-        var res = ForkedLightClientUpdate(kind: lcDataFork)
-        template forkyRes: untyped = res.forky(lcDataFork)
-        forkyRes = forkyObject.toFull()
-        res
+        ForkedLightClientUpdate.init(forkyObject.toFull())
       else:
         default(ForkedLightClientUpdate)
 
@@ -518,10 +551,7 @@ func toFinality*(
   else:
     withForkyObject(update):
       when lcDataFork > LightClientDataFork.None:
-        var res = ForkedLightClientFinalityUpdate(kind: lcDataFork)
-        template forkyRes: untyped = res.forky(lcDataFork)
-        forkyRes = forkyObject.toFinality()
-        res
+        ForkedLightClientFinalityUpdate.init(forkyObject.toFinality())
       else:
         default(ForkedLightClientFinalityUpdate)
 
@@ -543,10 +573,7 @@ func toOptimistic*(
   else:
     withForkyObject(update):
       when lcDataFork > LightClientDataFork.None:
-        var res = ForkedLightClientOptimisticUpdate(kind: lcDataFork)
-        template forkyRes: untyped = res.forky(lcDataFork)
-        forkyRes = forkyObject.toOptimistic()
-        res
+        ForkedLightClientOptimisticUpdate.init(forkyObject.toOptimistic())
       else:
         default(ForkedLightClientOptimisticUpdate)
 
@@ -580,21 +607,6 @@ func matches*[A, B: SomeForkedLightClientUpdate](a: A, b: B): bool =
       forkyObject.matches(b.forky(lcDataFork))
     else:
       true
-
-template forky*(
-    x:
-      ForkedLightClientHeader |
-      SomeForkedLightClientObject |
-      ForkedLightClientStore,
-    kind: static LightClientDataFork): untyped =
-  when kind == LightClientDataFork.Deneb:
-    x.denebData
-  elif kind == LightClientDataFork.Capella:
-    x.capellaData
-  elif kind == LightClientDataFork.Altair:
-    x.altairData
-  else:
-    static: raiseAssert "Unreachable"
 
 func migrateToDataFork*(
     x: var ForkedLightClientHeader,
@@ -816,7 +828,7 @@ func migratingToDataFork*[
   upgradedObject.migrateToDataFork(newKind)
   upgradedObject
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/full-node.md#block_to_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/full-node.md#block_to_light_client_header
 func toAltairLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
@@ -826,7 +838,7 @@ func toAltairLightClientHeader(
   altair.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/light-client/full-node.md#modified-block_to_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/light-client/full-node.md#modified-block_to_light_client_header
 func toCapellaLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
@@ -933,7 +945,7 @@ func toDenebLightClientHeader(
       block_hash: payload.block_hash,
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals),
-      excess_data_gas: payload.excess_data_gas),
+      excess_blob_gas: payload.excess_blob_gas),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_INDEX).get)
 

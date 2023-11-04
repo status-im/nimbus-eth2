@@ -29,7 +29,7 @@ logScope: topics = "lcdata"
 # - Capella: ~222 KB per `SyncCommitteePeriod` (~6.1 MB per month)
 # - Deneb: ~230 KB per `SyncCommitteePeriod` (~6.3 MB per month)
 #
-# `lc_altair_current_branches` holds merkle proofs needed to
+# `lc_altair_current_branches` holds Merkle proofs needed to
 # construct `LightClientBootstrap` objects.
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
@@ -504,10 +504,8 @@ proc getBestUpdate*(
       withAll(LightClientDataFork):
         when lcDataFork > LightClientDataFork.None:
           if update[0] == ord(lcDataFork).int64:
-            var obj = ForkedLightClientUpdate(kind: lcDataFork)
-            obj.forky(lcDataFork) = SSZ.decode(
-              update[1], lcDataFork.LightClientUpdate)
-            return obj
+            return ForkedLightClientUpdate.init(SSZ.decode(
+              update[1], lcDataFork.LightClientUpdate))
       warn "Unsupported LC data store kind", store = "bestUpdates",
         period, kind = update[0]
       return default(ForkedLightClientUpdate)

@@ -44,30 +44,16 @@ suite "Light client processor" & preset():
     quarantine = newClone(Quarantine.init())
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
-  var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+  var verifier =BatchVerifier.init(rng, taskpool)
 
   var cache: StateCache
   proc addBlocks(blocks: uint64, syncCommitteeRatio: float) =
     for blck in makeTestBlocks(
         dag.headState, cache, blocks.int, attested = true,
         syncCommitteeRatio = syncCommitteeRatio, cfg = cfg):
-      let added =
-        case blck.kind
-        of ConsensusFork.Phase0:
-          const nilCallback = OnPhase0BlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
-        of ConsensusFork.Altair:
-          const nilCallback = OnAltairBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.altairData, nilCallback)
-        of ConsensusFork.Bellatrix:
-          const nilCallback = OnBellatrixBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
-        of ConsensusFork.Capella:
-          const nilCallback = OnCapellaBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
-        of ConsensusFork.Deneb:
-          const nilCallback = OnDenebBlockAdded(nil)
-          dag.addHeadBlock(verifier, blck.denebData, nilCallback)
+      let added = withBlck(blck):
+        const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+        dag.addHeadBlock(verifier, forkyBlck, nilCallback)
       doAssert added.isOk()
       dag.updateHead(added[], quarantine[], [])
 
@@ -298,8 +284,8 @@ suite "Light client processor" & preset():
       var oldFinalized {.noinit.}: ForkedLightClientHeader
       withForkyStore(store[]):
         when lcDataFork > LightClientDataFork.None:
-          oldFinalized = ForkedLightClientHeader(kind: lcDataFork)
-          oldFinalized.forky(lcDataFork) = forkyStore.finalized_header
+          oldFinalized = ForkedLightClientHeader.init(
+            forkyStore.finalized_header)
         else: raiseAssert "Unreachable"
       let finalityUpdate = dag.getLightClientFinalityUpdate()
       check finalityUpdate.kind > LightClientDataFork.None

@@ -236,7 +236,6 @@ proc addMonitor*(
     self.indices[index.get().uint64] = monitor
 
 template metricId: string =
-  mixin self, id
   if self.totals: total else: id
 
 proc addAutoMonitor*(

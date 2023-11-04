@@ -34,8 +34,6 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
     fork = vc.forkAtEpoch(slot.epoch)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
     vindex = duty.validator_index
-    subcommitteeIdx = getSubcommitteeIndex(
-      duty.validator_sync_committee_index)
     validator = vc.getValidatorForDuties(
       duty.pubkey, slot, slashingSafe = true).valueOr: return false
     message =
@@ -115,10 +113,9 @@ proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
       try:
         await allFutures(pendingSyncCommitteeMessages)
       except CancelledError as exc:
-        for fut in pendingSyncCommitteeMessages:
-          if not(fut.finished()):
-            fut.cancel()
-        await allFutures(pendingSyncCommitteeMessages)
+        let pending = pendingSyncCommitteeMessages
+          .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+        await noCancel allFutures(pending)
         raise exc
 
       for future in pendingSyncCommitteeMessages:
@@ -211,128 +208,131 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
     epoch = slot.epoch
     fork = vc.forkAtEpoch(epoch)
 
-  var slotSignatureReqs: seq[Future[SignatureResult]]
-  var validators: seq[(AttachedValidator, SyncSubcommitteeIndex)]
+  var (contributions, pendingFutures, contributionsMap) =
+    block:
+      var
+        resItems: seq[ContributionItem]
+        resFutures: seq[FutureBase]
+        resMap: array[SYNC_COMMITTEE_SUBNET_COUNT,
+                      Future[SyncCommitteeContribution]]
+      for duty in duties:
+        let validator = vc.getValidatorForDuties(duty.pubkey, slot).valueOr:
+          continue
+        if validator.index.isNone():
+          continue
+        for inindex in duty.validator_sync_committee_indices:
+          let
+            subCommitteeIdx = getSubcommitteeIndex(inindex)
+            signature =
+              vc.getSyncCommitteeSelectionProof(duty.pubkey,
+                                                slot, inindex).valueOr:
+                continue
 
-  for duty in duties:
+          if is_sync_committee_aggregator(signature):
+            resItems.add(ContributionItem(
+              aggregator_index: uint64(validator.index.get()),
+              selection_proof: signature,
+              validator: validator,
+              subcommitteeIdx: subCommitteeIdx
+            ))
+            if isNil(resMap[subCommitteeIdx]):
+              let future =
+                vc.produceSyncCommitteeContribution(
+                  slot, subCommitteeIdx, beaconBlockRoot, ApiStrategyKind.Best)
+              resMap[int(subCommitteeIdx)] = future
+              resFutures.add(FutureBase(future))
+      (resItems, resFutures, resMap)
+
+  if len(contributions) > 0:
     let
-      validator = vc.getValidatorForDuties(duty.pubkey, slot).valueOr:
-        continue
-      subCommitteeIdx =
-        getSubcommitteeIndex(duty.validator_sync_committee_index)
-      future = validator.getSyncCommitteeSelectionProof(
-        fork,
-        vc.beaconGenesis.genesis_validators_root,
-        slot,
-        subCommitteeIdx)
-
-    slotSignatureReqs.add(future)
-    validators.add((validator, subCommitteeIdx))
-
-  try:
-    await allFutures(slotSignatureReqs)
-  except CancelledError as exc:
-    var pendingCancel: seq[Future[void]]
-    for future in slotSignatureReqs:
-      if not(future.finished()):
-        pendingCancel.add(future.cancelAndWait())
-    await allFutures(pendingCancel)
-    raise exc
-
-  var
-    contributionsFuts: array[SYNC_COMMITTEE_SUBNET_COUNT,
-                             Future[SyncCommitteeContribution]]
-
-  let validatorContributions = block:
-    var res: seq[ContributionItem]
-    for idx, fut in slotSignatureReqs:
-      if fut.completed():
-        let
-          sigRes = fut.read
-          validator = validators[idx][0]
-          subCommitteeIdx = validators[idx][1]
-        if sigRes.isErr():
-          warn "Unable to create slot signature using remote signer",
-               validator = shortLog(validator),
-               error_msg = sigRes.error()
-        elif validator.index.isSome and
-             is_sync_committee_aggregator(sigRes.get):
-          res.add ContributionItem(
-            aggregator_index: uint64(validator.index.get),
-            selection_proof: sigRes.get,
-            validator: validator,
-            subcommitteeIdx: subCommitteeIdx)
-
-          if isNil(contributionsFuts[subCommitteeIdx]):
-            contributionsFuts[int subCommitteeIdx] =
-              vc.produceSyncCommitteeContribution(
-                slot,
-                subCommitteeIdx,
-                beaconBlockRoot,
-                ApiStrategyKind.Best)
-    res
-
-  if len(validatorContributions) > 0:
-    let pendingAggregates =
-      block:
-        var res: seq[Future[bool]]
-        for item in validatorContributions:
-          let aggContribution =
+      pendingAggregates =
+        block:
+          var res: seq[Future[bool]]
+          while len(pendingFutures) > 0:
             try:
-              await contributionsFuts[item.subcommitteeIdx]
-            except ValidatorApiError as exc:
-              warn "Unable to get sync message contribution data", slot = slot,
-                   beaconBlockRoot = shortLog(beaconBlockRoot),
-                   reason = exc.getFailureReason()
-              return
-            except CancelledError:
-              debug "Request for sync message contribution was interrupted"
-              return
-            except CatchableError as exc:
-              error "Unexpected error occurred while getting sync message "&
-                    "contribution", slot = slot,
-                    beaconBlockRoot = shortLog(beaconBlockRoot),
-                    err_name = exc.name, err_msg = exc.msg
-              return
+              discard await race(pendingFutures)
+            except CancelledError as exc:
+              let pending = pendingFutures
+                .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+              await noCancel allFutures(pending)
+              raise exc
 
-          let proof = ContributionAndProof(
-            aggregator_index: item.aggregator_index,
-            contribution: aggContribution,
-            selection_proof: item.selection_proof
-          )
-          res.add(service.serveContributionAndProof(proof, item.validator))
-        res
+            var completed: seq[int]
+            for contrib in contributions:
+              let future = contributionsMap[contrib.subcommitteeIdx]
+              doAssert(not(isNil(future)))
+              let index = pendingFutures.find(FutureBase(future))
+              if future.finished() and (index >= 0):
+                if index notin completed: completed.add(index)
+                let aggContribution =
+                  try:
+                    let res = future.read()
+                    Opt.some(res)
+                  except ValidatorApiError as exc:
+                    warn "Unable to get sync message contribution data",
+                         slot = slot,
+                         beacon_block_root = shortLog(beaconBlockRoot),
+                         reason = exc.getFailureReason()
+                    Opt.none(SyncCommitteeContribution)
+                  except CancelledError as exc:
+                    debug "Request for sync message contribution was " &
+                          "interrupted"
+                    raise exc
+                  except CatchableError as exc:
+                    error "Unexpected error occurred while getting sync " &
+                          "message contribution", slot = slot,
+                      beacon_block_root = shortLog(beaconBlockRoot),
+                      err_name = exc.name, err_msg = exc.msg
+                    Opt.none(SyncCommitteeContribution)
 
-    let statistics =
-      block:
-        var errored, succeed, failed = 0
-        try:
-          await allFutures(pendingAggregates)
-        except CancelledError as err:
-          for fut in pendingAggregates:
-            if not(fut.finished()):
-              fut.cancel()
-          await allFutures(pendingAggregates)
-          raise err
+                if aggContribution.isSome():
+                  let proof = ContributionAndProof(
+                    aggregator_index: contrib.aggregator_index,
+                    contribution: aggContribution.get(),
+                    selection_proof: contrib.selection_proof
+                  )
+                  res.add(
+                    service.serveContributionAndProof(proof, contrib.validator))
 
-        for future in pendingAggregates:
-          if future.completed():
-            if future.read():
-              inc(succeed)
+            pendingFutures =
+              block:
+                var res: seq[FutureBase]
+                for index, value in pendingFutures.pairs():
+                  if index notin completed: res.add(value)
+                res
+          res
+      statistics =
+        block:
+          var errored, succeed, failed = 0
+          try:
+            await allFutures(pendingAggregates)
+          except CancelledError as exc:
+            let pending = pendingAggregates
+              .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+            await noCancel allFutures(pending)
+            raise exc
+
+          for future in pendingAggregates:
+            if future.completed():
+              if future.read():
+                inc(succeed)
+              else:
+                inc(failed)
             else:
-              inc(failed)
-          else:
-            inc(errored)
-        (succeed, errored, failed)
+              inc(errored)
+          (succeed, errored, failed)
 
     let delay = vc.getDelay(slot.aggregate_deadline())
     debug "Sync message contribution statistics",
-          total = len(pendingAggregates),
-          succeed = statistics[0], failed_to_deliver = statistics[1],
-          not_accepted = statistics[2], delay = delay, slot = slot
+          total = len(contributions),
+          succeed = statistics[0],
+          failed_to_create = len(pendingAggregates) - len(contributions),
+          failed_to_deliver = statistics[1],
+          not_accepted = statistics[2],
+          delay = delay, slot = slot
 
   else:
-    debug "No contribution and proofs scheduled for slot", slot = slot
+    debug "No contribution and proofs scheduled for the slot", slot = slot
 
 proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                          slot: Slot,
@@ -406,7 +406,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   await service.produceAndPublishContributions(slot, beaconBlockRoot, duties)
 
 proc processSyncCommitteeTasks(service: SyncCommitteeServiceRef,
-                             slot: Slot) {.async.} =
+                               slot: Slot) {.async.} =
   let
     vc = service.client
     duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)

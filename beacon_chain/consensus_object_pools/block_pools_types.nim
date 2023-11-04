@@ -50,13 +50,13 @@ type
       ## We've seen this value already, can't add again
 
   OnBlockCallback* =
-    proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}
+    proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnHeadCallback* =
-    proc(data: HeadChangeInfoObject) {.gcsafe, raises: [Defect].}
+    proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
   OnReorgCallback* =
-    proc(data: ReorgInfoObject) {.gcsafe, raises: [Defect].}
+    proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
   OnFinalizedCallback* =
-    proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
+    proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
@@ -279,9 +279,9 @@ type
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
-  OnBlockAdded[T] = proc(
+  OnBlockAdded[T: ForkyTrustedSignedBeaconBlock] = proc(
     blckRef: BlockRef, blck: T, epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
   OnPhase0BlockAdded* = OnBlockAdded[phase0.TrustedSignedBeaconBlock]
   OnAltairBlockAdded* = OnBlockAdded[altair.TrustedSignedBeaconBlock]
   OnBellatrixBlockAdded* = OnBlockAdded[bellatrix.TrustedSignedBeaconBlock]
@@ -320,6 +320,20 @@ type
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+
+template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[OnDenebBlockAdded]
+  elif kind == ConsensusFork.Capella:
+    typedesc[OnCapellaBlockAdded]
+  elif kind == ConsensusFork.Bellatrix:
+    typedesc[OnBellatrixBlockAdded]
+  elif kind == ConsensusFork.Altair:
+    typedesc[OnAltairBlockAdded]
+  elif kind == ConsensusFork.Phase0:
+    typedesc[OnPhase0BlockAdded]
+  else:
+    static: raiseAssert "Unreachable"
 
 func proposer_dependent_slot*(epochRef: EpochRef): Slot =
   epochRef.key.epoch.proposer_dependent_slot()
@@ -434,7 +448,7 @@ func init*(t: typedesc[EventBeaconBlockObject],
            optimistic: Option[bool]): EventBeaconBlockObject =
   withBlck(v):
     EventBeaconBlockObject(
-      slot: blck.message.slot,
-      block_root: blck.root,
+      slot: forkyBlck.message.slot,
+      block_root: forkyBlck.root,
       optimistic: optimistic
     )

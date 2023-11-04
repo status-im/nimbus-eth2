@@ -101,10 +101,10 @@ type
     categories: seq[IssuesGroup]
 
   LogVisitor = object
-    visitLine: proc(msg, fullLine: string) {.gcsafe, raises: [Defect].}
-    produceReport: proc(): FileReport {.gcsafe, raises: [Defect].}
+    visitLine: proc(msg, fullLine: string) {.gcsafe, raises: [].}
+    produceReport: proc(): FileReport {.gcsafe, raises: [].}
 
-  LogVisitorFactory = proc(): LogVisitor {.gcsafe, raises: [Defect].}
+  LogVisitorFactory = proc(): LogVisitor {.gcsafe, raises: [].}
 
   LogTracer = object
     enabledVisitors: seq[LogVisitorFactory]

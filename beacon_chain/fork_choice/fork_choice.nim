@@ -11,7 +11,7 @@ import
   # Standard library
   std/[sequtils, tables],
   # Status libraries
-  stew/[objects, results], chronicles,
+  stew/[results], chronicles,
   # Internal
   ../spec/[beaconstate, helpers, state_transition_block],
   ../spec/datatypes/[phase0, altair, bellatrix],
@@ -49,11 +49,13 @@ func compute_deltas(
 logScope: topics = "fork_choice"
 
 func init*(
-    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
-  T(proto_array: ProtoArray.init(checkpoints))
+    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints,
+    version: ForkChoiceVersion): T =
+  T(proto_array: ProtoArray.init(checkpoints, version))
 
 proc init*(
-    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
+    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef,
+    version: ForkChoiceVersion): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -65,10 +67,13 @@ proc init*(
     backend: ForkChoiceBackend.init(
       FinalityCheckpoints(
         justified: checkpoint,
-        finalized: checkpoint)),
+        finalized: checkpoint),
+      version),
     checkpoints: Checkpoints(
+      version: version,
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
+        total_active_balance: epochRef.total_active_balance,
         balances: epochRef.effective_balances),
       finalized: checkpoint,
       best_justified: checkpoint))
@@ -94,6 +99,7 @@ proc update_justified(
     store = self.justified.checkpoint, state = justified
   self.justified = BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    total_active_balance: epochRef.total_active_balance,
     balances: epochRef.effective_balances)
 
 proc update_justified(
@@ -107,7 +113,7 @@ proc update_justified(
   self.update_justified(dag, blck, justified.epoch)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#update_checkpoints
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var Checkpoints, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints): FcResult[void] =
@@ -124,7 +130,7 @@ proc update_checkpoints(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#on_tick_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
     self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
   ## Must be called at least once per slot.
@@ -150,38 +156,17 @@ proc on_tick(
 
   ok()
 
-func process_attestation_queue(self: var ForkChoice) {.gcsafe.}
-
-proc update_time*(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
-    FcResult[void] =
-  const step_size = seconds(SECONDS_PER_SLOT.int)
-  if time > self.checkpoints.time:
-    # Call on_tick at least once per slot.
-    while time >= self.checkpoints.time + step_size:
-      ? self.on_tick(dag, self.checkpoints.time + step_size)
-
-    if time > self.checkpoints.time:
-      # Might create two ticks for the last slot.
-      ? self.on_tick(dag, time)
-
-    self.process_attestation_queue() # Only run if time changed!
-
-  ok()
-
-func process_attestation*(
+func process_attestation(
        self: var ForkChoiceBackend,
        validator_index: ValidatorIndex,
        block_root: Eth2Digest,
        target_epoch: Epoch
      ) =
-  if block_root.isZero:
-    return
-
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
   template vote: untyped = self.votes[validator_index]
-  if target_epoch > vote.next_epoch or vote.isZeroMemory:
+  if target_epoch > vote.next_epoch or vote.next_root.isZero:
     vote.next_root = block_root
     vote.next_epoch = target_epoch
 
@@ -189,15 +174,21 @@ func process_attestation*(
       validator_index = validator_index,
       new_vote = shortLog(vote)
 
-func process_attestation_queue(self: var ForkChoice) =
+proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
+  # Spec:
+  # Attestations can only affect the fork choice of subsequent slots.
+  # Delay consideration in the fork choice until their slot is in the past.
+  let startTick = Moment.now()
   self.queuedAttestations.keepItIf:
-    if it.slot < self.checkpoints.time.slotOrZero:
+    if it.slot < slot:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
           validator_index, it.block_root, it.slot.epoch())
       false
     else:
       true
+  let endTick = Moment.now()
+  debug "Processed attestation queue", processDur = endTick - startTick
 
 func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
@@ -206,7 +197,28 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#on_attestation
+proc update_time*(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
+    FcResult[void] =
+  # `time` is the wall time, meaning it changes on every call typically
+  const step_size = seconds(SECONDS_PER_SLOT.int)
+  if time > self.checkpoints.time:
+    let
+      preSlot = self.checkpoints.time.slotOrZero()
+      postSlot = time.slotOrZero()
+    # Call on_tick at least once per slot.
+    while time >= self.checkpoints.time + step_size:
+      ? self.on_tick(dag, self.checkpoints.time + step_size)
+
+    if time > self.checkpoints.time:
+      # Might create two ticks for the last slot.
+      ? self.on_tick(dag, time)
+
+    if preSlot != postSlot:
+      self.process_attestation_queue(postSlot)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attestation
 proc on_attestation*(
        self: var ForkChoice,
        dag: ChainDAGRef,
@@ -216,9 +228,6 @@ proc on_attestation*(
        wallTime: BeaconTime
      ): FcResult[void] =
   ? self.update_time(dag, max(wallTime, attestation_slot.start_beacon_time))
-
-  if beacon_block_root.isZero:
-    return ok()
 
   if attestation_slot < self.checkpoints.time.slotOrZero:
     for validator_index in attesting_indices:
@@ -235,7 +244,7 @@ proc on_attestation*(
       block_root: beacon_block_root))
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#on_attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
 func process_equivocation*(
        self: var ForkChoice,
        validator_index: ValidatorIndex
@@ -287,7 +296,9 @@ proc process_block*(self: var ForkChoice,
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero
-  if slot == blck.slot and self.checkpoints.time < slot.attestation_deadline:
+  if slot == blck.slot and
+      self.checkpoints.time < slot.attestation_deadline and
+      self.checkpoints.proposer_boost_root == ZERO_HASH:
     self.checkpoints.proposer_boost_root = blckRef.root
 
   # Update checkpoints in store if necessary
@@ -315,10 +326,11 @@ proc process_block*(self: var ForkChoice,
 
   ok()
 
-func find_head*(
+func find_head(
        self: var ForkChoiceBackend,
        current_epoch: Epoch,
        checkpoints: FinalityCheckpoints,
+       justified_total_active_balance: Gwei,
        justified_state_balances: seq[Gwei],
        proposer_boost_root: Eth2Digest
      ): FcResult[Eth2Digest] =
@@ -337,7 +349,7 @@ func find_head*(
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
     deltas, current_epoch, checkpoints,
-    justified_state_balances, proposer_boost_root)
+    justified_total_active_balance, proposer_boost_root)
 
   self.balances = justified_state_balances
 
@@ -350,7 +362,7 @@ func find_head*(
 
   return ok(new_head)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#get_head
 proc get_head*(self: var ForkChoice,
                dag: ChainDAGRef,
                wallTime: BeaconTime): FcResult[Eth2Digest] =
@@ -361,10 +373,11 @@ proc get_head*(self: var ForkChoice,
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized),
+    self.checkpoints.justified.total_active_balance,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   # Use most recent justified block as a stopgap
   self.checkpoints.justified.checkpoint.root

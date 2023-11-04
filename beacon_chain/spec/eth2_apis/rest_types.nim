@@ -15,15 +15,16 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/ethtypes,
+  stew/base10, web3/ethtypes, httputils,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
-  ".."/mev/[bellatrix_mev, capella_mev, deneb_mev]
+  ".."/mev/[capella_mev, deneb_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
+from ".."/mev/deneb_mev import ExecutionPayloadAndBlobsBundle
 
-export forks, phase0, altair, bellatrix, capella, bellatrix_mev, capella_mev,
-       deneb_mev, tables
+export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
+       tables, httputils
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -189,7 +190,7 @@ type
     ## https://github.com/ethereum/beacon-APIs/blob/v2.4.0/types/http.yaml#L130
     code*: int
     message*: string
-    stacktraces*: Option[seq[string]]
+    stacktraces*: Opt[seq[string]]
 
   RestIndexedErrorMessage* = object
     ## https://github.com/ethereum/beacon-APIs/blob/v2.4.0/types/http.yaml#L145
@@ -273,6 +274,8 @@ type
     index*: ValidatorIndex
     is_live*: bool
 
+  RestWithdrawalPrefix* = distinct array[1, byte]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#executionpayload
   RestExecutionPayload* = object
     # Execution block header fields
@@ -298,8 +301,8 @@ type
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: Option[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
       ## [New in Capella]
-    data_gas_used*: Option[uint64]   ## [New in Deneb]
-    excess_data_gas*: Option[uint64] ## [New in Deneb]
+    blob_gas_used*: Option[uint64]   ## [New in Deneb]
+    excess_blob_gas*: Option[uint64] ## [New in Deneb]
 
 
   PrepareBeaconProposer* = object
@@ -341,143 +344,6 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData*:     DenebBlockContents
-
-  RestSpec* = object
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/phase0.yaml
-    MAX_COMMITTEES_PER_SLOT*: uint64
-    TARGET_COMMITTEE_SIZE*: uint64
-    MAX_VALIDATORS_PER_COMMITTEE*: uint64
-    SHUFFLE_ROUND_COUNT*: uint64
-    HYSTERESIS_QUOTIENT*: uint64
-    HYSTERESIS_DOWNWARD_MULTIPLIER*: uint64
-    HYSTERESIS_UPWARD_MULTIPLIER*: uint64
-    MIN_DEPOSIT_AMOUNT*: uint64
-    MAX_EFFECTIVE_BALANCE*: uint64
-    EFFECTIVE_BALANCE_INCREMENT*: uint64
-    MIN_ATTESTATION_INCLUSION_DELAY*: uint64
-    SLOTS_PER_EPOCH*: uint64
-    MIN_SEED_LOOKAHEAD*: uint64
-    MAX_SEED_LOOKAHEAD*: uint64
-    EPOCHS_PER_ETH1_VOTING_PERIOD*: uint64
-    SLOTS_PER_HISTORICAL_ROOT*: uint64
-    MIN_EPOCHS_TO_INACTIVITY_PENALTY*: uint64
-    EPOCHS_PER_HISTORICAL_VECTOR*: uint64
-    EPOCHS_PER_SLASHINGS_VECTOR*: uint64
-    HISTORICAL_ROOTS_LIMIT*: uint64
-    VALIDATOR_REGISTRY_LIMIT*: uint64
-    BASE_REWARD_FACTOR*: uint64
-    WHISTLEBLOWER_REWARD_QUOTIENT*: uint64
-    PROPOSER_REWARD_QUOTIENT*: uint64
-    INACTIVITY_PENALTY_QUOTIENT*: uint64
-    MIN_SLASHING_PENALTY_QUOTIENT*: uint64
-    PROPORTIONAL_SLASHING_MULTIPLIER*: uint64
-    MAX_PROPOSER_SLASHINGS*: uint64
-    MAX_ATTESTER_SLASHINGS*: uint64
-    MAX_ATTESTATIONS*: uint64
-    MAX_DEPOSITS*: uint64
-    MAX_VOLUNTARY_EXITS*: uint64
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/altair.yaml
-    INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
-    MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
-    PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
-    SYNC_COMMITTEE_SIZE*: uint64
-    EPOCHS_PER_SYNC_COMMITTEE_PERIOD*: uint64
-    MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
-    UPDATE_TIMEOUT*: uint64
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/bellatrix.yaml
-    INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
-    MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
-    PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
-    MAX_BYTES_PER_TRANSACTION*: uint64
-    MAX_TRANSACTIONS_PER_PAYLOAD*: uint64
-    BYTES_PER_LOGS_BLOOM*: uint64
-    MAX_EXTRA_DATA_BYTES*: uint64
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/presets/mainnet/capella.yaml
-    MAX_BLS_TO_EXECUTION_CHANGES*: uint64
-    MAX_WITHDRAWALS_PER_PAYLOAD*: uint64
-    MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP*: uint64
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/mainnet.yaml
-    PRESET_BASE*: string
-    CONFIG_NAME*: string
-    TERMINAL_TOTAL_DIFFICULTY*: UInt256
-    TERMINAL_BLOCK_HASH*: BlockHash
-    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: uint64
-    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
-    MIN_GENESIS_TIME*: uint64
-    GENESIS_FORK_VERSION*: Version
-    GENESIS_DELAY*: uint64
-    ALTAIR_FORK_VERSION*: Version
-    ALTAIR_FORK_EPOCH*: uint64
-    BELLATRIX_FORK_VERSION*: Version
-    BELLATRIX_FORK_EPOCH*: uint64
-    CAPELLA_FORK_VERSION*: Version
-    CAPELLA_FORK_EPOCH*: uint64
-    DENEB_FORK_VERSION*: Version
-    DENEB_FORK_EPOCH*: uint64
-    SECONDS_PER_SLOT*: uint64
-    SECONDS_PER_ETH1_BLOCK*: uint64
-    MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
-    SHARD_COMMITTEE_PERIOD*: uint64
-    ETH1_FOLLOW_DISTANCE*: uint64
-    INACTIVITY_SCORE_BIAS*: uint64
-    INACTIVITY_SCORE_RECOVERY_RATE*: uint64
-    EJECTION_BALANCE*: uint64
-    MIN_PER_EPOCH_CHURN_LIMIT*: uint64
-    CHURN_LIMIT_QUOTIENT*: uint64
-    PROPOSER_SCORE_BOOST*: uint64
-    DEPOSIT_CHAIN_ID*: uint64
-    DEPOSIT_NETWORK_ID*: uint64
-    DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
-    # GENESIS_SLOT
-    # GENESIS_EPOCH
-    # FAR_FUTURE_EPOCH
-    # BASE_REWARDS_PER_EPOCH
-    # DEPOSIT_CONTRACT_TREE_DEPTH
-    # JUSTIFICATION_BITS_LENGTH
-    # ENDIANNESS
-    BLS_WITHDRAWAL_PREFIX*: byte
-    ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte
-    DOMAIN_BEACON_PROPOSER*: DomainType
-    DOMAIN_BEACON_ATTESTER*: DomainType
-    DOMAIN_RANDAO*: DomainType
-    DOMAIN_DEPOSIT*: DomainType
-    DOMAIN_VOLUNTARY_EXIT*: DomainType
-    DOMAIN_SELECTION_PROOF*: DomainType
-    DOMAIN_AGGREGATE_AND_PROOF*: DomainType
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#constants
-    TIMELY_SOURCE_FLAG_INDEX*: byte
-    TIMELY_TARGET_FLAG_INDEX*: byte
-    TIMELY_HEAD_FLAG_INDEX*: byte
-    TIMELY_SOURCE_WEIGHT*: uint64
-    TIMELY_TARGET_WEIGHT*: uint64
-    TIMELY_HEAD_WEIGHT*: uint64
-    SYNC_REWARD_WEIGHT*: uint64
-    PROPOSER_WEIGHT*: uint64
-    WEIGHT_DENOMINATOR*: uint64
-    DOMAIN_SYNC_COMMITTEE*: DomainType
-    DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF*: DomainType
-    DOMAIN_CONTRIBUTION_AND_PROOF*: DomainType
-    # PARTICIPATION_FLAG_WEIGHTS
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#domain-types
-    DOMAIN_BLS_TO_EXECUTION_CHANGE*: DomainType
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
-    TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
-    RANDOM_SUBNETS_PER_VALIDATOR*: uint64
-    EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
-    ATTESTATION_SUBNET_COUNT*: uint64
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/validator.md#constants
-    TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
-    SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 
   VCRuntimeConfig* = Table[string, string]
 
@@ -582,8 +448,8 @@ type
     ValidatorRegistration
 
   Web3SignerRequest* = object
-    signingRoot*: Option[Eth2Digest]
-    forkInfo* {.serializedFieldName: "fork_info".}: Option[Web3SignerForkInfo]
+    signingRoot*: Opt[Eth2Digest]
+    forkInfo* {.serializedFieldName: "fork_info".}: Opt[Web3SignerForkInfo]
     case kind* {.dontSerialize.}: Web3SignerRequestKind
     of Web3SignerRequestKind.AggregationSlot:
       aggregationSlot* {.
@@ -594,7 +460,9 @@ type
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
-      beaconBlock* {.
+      # https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
+      # https://github.com/Consensys/web3signer/blob/2d956c019663ac70f60640d23196d1d321c1b1fa/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L483-L500
+      beaconBlockHeader* {.
         serializedFieldName: "beacon_block".}: Web3SignerForkedBeaconBlock
       proofs*: Opt[seq[Web3SignerMerkleProof]]
     of Web3SignerRequestKind.Deposit:
@@ -650,7 +518,6 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponseBellatrix* = DataVersionEnclosedObject[bellatrix_mev.SignedBuilderBid]
   GetHeaderResponseCapella* = DataVersionEnclosedObject[capella_mev.SignedBuilderBid]
   GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
@@ -662,7 +529,6 @@ type
   GetPoolProposerSlashingsResponse* = DataEnclosedObject[seq[ProposerSlashing]]
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]
-  GetSpecResponse* = DataEnclosedObject[RestSpec]
   GetSpecVCResponse* = DataEnclosedObject[VCRuntimeConfig]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]
@@ -679,9 +545,8 @@ type
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponseBellatrix* = DataEnclosedObject[bellatrix.ExecutionPayload]
   SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
-  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb.ExecutionPayload]
+  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
 
@@ -710,7 +575,7 @@ type
     extra_data*: Option[RestNodeExtraData]
 
   RestExtraData* = object
-    discard
+    version*: Option[string]
 
   GetForkChoiceResponse* = object
     justified_checkpoint*: Checkpoint
@@ -763,7 +628,7 @@ func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
 func init*(t: typedesc[RestBlockInfo],
            v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
   withBlck(v):
-    RestBlockInfo(slot: blck.message.slot, blck: blck.root)
+    RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            balance: uint64, status: string,
@@ -777,11 +642,11 @@ func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: Slot,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.AggregationSlot,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -790,11 +655,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: AggregateAndProof,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.AggregateAndProof,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -803,11 +668,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: AttestationData,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.Attestation,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -817,43 +682,43 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: Web3SignerForkedBeaconBlock,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.BlockV2,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
-    beaconBlock: data
+    beaconBlockHeader: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: Web3SignerForkedBeaconBlock,
            proofs: openArray[Web3SignerMerkleProof],
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.BlockV2,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     proofs: Opt.some(@proofs),
-    beaconBlock: data
+    beaconBlockHeader: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,
            data: DepositMessage,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.Deposit,
     signingRoot: signingRoot,
     deposit: Web3SignerDepositData(
       pubkey: data.pubkey,
-      withdrawalCredentials: data.withdrawalCredentials,
+      withdrawalCredentials: data.withdrawal_credentials,
       genesisForkVersion: genesisForkVersion,
       amount: data.amount
     )
@@ -861,11 +726,11 @@ func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: Epoch,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.RandaoReveal,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -874,11 +739,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: VoluntaryExit,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.VoluntaryExit,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -887,11 +752,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, blockRoot: Eth2Digest,
-           slot: Slot, signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           slot: Slot, signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeMessage,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -903,11 +768,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: SyncAggregatorSelectionData,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeSelectionProof,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -917,11 +782,11 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: ContributionAndProof,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -933,11 +798,11 @@ from stew/byteutils import to0xHex
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest,
            data: ValidatorRegistrationV1,
-           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.ValidatorRegistration,
-    forkInfo: some(Web3SignerForkInfo(
+    forkInfo: Opt.some(Web3SignerForkInfo(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
@@ -998,3 +863,33 @@ func init*(t: typedesc[RestSignedContributionAndProof],
       message.contribution
     ),
     signature: signature)
+
+func len*(p: RestWithdrawalPrefix): int = sizeof(p)
+
+func init*(t: typedesc[RestErrorMessage], code: int,
+           message: string): RestErrorMessage =
+  RestErrorMessage(code: code, message: message)
+
+func init*(t: typedesc[RestErrorMessage], code: int,
+           message: string, stacktrace: string): RestErrorMessage =
+  RestErrorMessage(code: code, message: message,
+                   stacktraces: Opt.some(@[stacktrace]))
+
+func init*(t: typedesc[RestErrorMessage], code: int,
+           message: string, stacktrace: openArray[string]): RestErrorMessage =
+  RestErrorMessage(code: code, message: message,
+                   stacktraces: Opt.some(@stacktrace))
+
+func init*(t: typedesc[RestErrorMessage], code: HttpCode,
+           message: string): RestErrorMessage =
+  RestErrorMessage(code: code.toInt(), message: message)
+
+func init*(t: typedesc[RestErrorMessage], code: HttpCode,
+           message: string, stacktrace: string): RestErrorMessage =
+  RestErrorMessage(code: code.toInt(), message: message,
+                   stacktraces: Opt.some(@[stacktrace]))
+
+func init*(t: typedesc[RestErrorMessage], code: HttpCode,
+           message: string, stacktrace: openArray[string]): RestErrorMessage =
+  RestErrorMessage(code: code.toInt(), message: message,
+                   stacktraces: Opt.some(@stacktrace))

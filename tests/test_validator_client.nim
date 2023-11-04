@@ -9,8 +9,9 @@
 {.used.}
 
 import std/strutils
-import unittest2
-import ../beacon_chain/validator_client/[common, scoring]
+import httputils
+import chronos/unittest2/asynctests
+import ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
 
 const
   HostNames = [
@@ -250,3 +251,140 @@ suite "Validator Client test suite":
         roots = createRootsSeen(vector[1])
         score = shortScore(roots.getAttestationDataScore(adata))
       check score == vector[2]
+
+  asyncTest "firstSuccessParallel() API timeout test":
+    let
+      uri = parseUri("http://127.0.0.1/")
+      beaconNodes = @[BeaconNodeServerRef.init(uri, 0).tryGet()]
+      vconf = ValidatorClientConf.load(
+        cmdLine = mapIt(["--beacon-node=http://127.0.0.1"], it))
+      epoch = Epoch(1)
+      strategy = ApiStrategyKind.Priority
+
+    var gotCancellation = false
+    var vc = ValidatorClientRef(config: vconf, beaconNodes: beaconNodes)
+    vc.fallbackService = await FallbackServiceRef.init(vc)
+
+    proc getTestDuties(client: RestClientRef,
+                       epoch: Epoch): Future[RestPlainResponse] {.async.} =
+      try:
+        await sleepAsync(1.seconds)
+      except CancelledError as exc:
+        gotCancellation = true
+        raise exc
+
+    const
+      RequestName = "getTestDuties"
+
+    let response = vc.firstSuccessParallel(
+      RestPlainResponse,
+      uint64,
+      100.milliseconds,
+      AllBeaconNodeStatuses,
+      {BeaconNodeRole.Duties},
+      getTestDuties(it, epoch)):
+        check:
+          apiResponse.isErr()
+          apiResponse.error ==
+            "Timeout exceeded while awaiting for the response"
+        ApiResponse[uint64].err(apiResponse.error)
+
+    check:
+      response.isErr()
+      gotCancellation == true
+
+  asyncTest "bestSuccess() API timeout test":
+    let
+      uri = parseUri("http://127.0.0.1/")
+      beaconNodes = @[BeaconNodeServerRef.init(uri, 0).tryGet()]
+      vconf = ValidatorClientConf.load(
+        cmdLine = mapIt(["--beacon-node=http://127.0.0.1"], it))
+      epoch = Epoch(1)
+      strategy = ApiStrategyKind.Priority
+
+    var gotCancellation = false
+    var vc = ValidatorClientRef(config: vconf, beaconNodes: beaconNodes)
+    vc.fallbackService = await FallbackServiceRef.init(vc)
+
+    proc getTestDuties(client: RestClientRef,
+                       epoch: Epoch): Future[RestPlainResponse] {.async.} =
+      try:
+        await sleepAsync(1.seconds)
+      except CancelledError as exc:
+        gotCancellation = true
+        raise exc
+
+    proc getTestScore(data: uint64): float64 = Inf
+
+    const
+      RequestName = "getTestDuties"
+
+    let response = vc.bestSuccess(
+      RestPlainResponse,
+      uint64,
+      100.milliseconds,
+      AllBeaconNodeStatuses,
+      {BeaconNodeRole.Duties},
+      getTestDuties(it, epoch),
+      getTestScore(itresponse)):
+        check:
+          apiResponse.isErr()
+          apiResponse.error ==
+            "Timeout exceeded while awaiting for the response"
+        ApiResponse[uint64].err(apiResponse.error)
+
+    check:
+      response.isErr()
+      gotCancellation == true
+
+
+  test "getLiveness() response deserialization test":
+    proc generateLivenessResponse(T: typedesc[string],
+                                  start, count, modv: int): string =
+      var res: seq[string]
+      for index in start ..< (start + count):
+        let
+          validator = Base10.toString(uint64(index))
+          visibility = if index mod modv == 0: "true" else: "false"
+        res.add("{\"index\":\"" & validator & "\",\"is_live\":" &
+                visibility & "}")
+      "{\"data\":[" & res.join(",") & "]}"
+
+    proc generateLivenessResponse(
+      T: typedesc[RestLivenessItem],
+      start, count, modv: int
+    ): seq[RestLivenessItem] =
+      var res: seq[RestLivenessItem]
+      for index in start ..< (start + count):
+        let visibility = if index mod modv == 0: true else: false
+        res.add(RestLivenessItem(index: ValidatorIndex(uint64(index)),
+                                 is_live: visibility))
+      res
+
+    const Tests = [(0, 2_000_000, 3)]
+
+    for test in Tests:
+      let
+        datastr = string.generateLivenessResponse(
+          test[0], test[1], test[2])
+        data = stringToBytes(datastr)
+        contentType = getContentType("application/json").get()
+        res = decodeBytes(GetValidatorsLivenessResponse,
+                          data, Opt.some(contentType))
+        expect = RestLivenessItem.generateLivenessResponse(
+          test[0], test[1], test[2])
+      check:
+        res.isOk()
+        res.get().data == expect
+
+    let vector = stringToBytes(
+      "{\"data\":[{\"index\":\"100000\",\"epoch\":\"202919\",\"is_live\":true}]}")
+
+    let contentType = getContentType("application/json").tryGet()
+    let res = decodeBytes(
+      GetValidatorsLivenessResponse, vector, Opt.some(contentType))
+    check:
+      res.isOk()
+      len(res.get().data) == 1
+      res.get().data[0].index == 100000
+      res.get().data[0].is_live == true

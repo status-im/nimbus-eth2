@@ -19,6 +19,7 @@ import
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/validators/keystore_management,
+  ../tests/mocking/mock_genesis,
   ./logtrace
 
 # Compiled version of /scripts/depositContract.v.py in this repo
@@ -31,6 +32,7 @@ type
   StartUpCommand {.pure.} = enum
     generateDeposits
     createTestnet
+    createTestnetEnr
     run
     sendDeposits
     analyzeLogs
@@ -163,6 +165,36 @@ type
       outputBootstrapFile* {.
         desc: "Output file with list of bootstrap nodes for the network"
         name: "output-bootstrap-file" .}: OutFile
+
+    of StartUpCommand.createTestnetEnr:
+      inputBootstrapEnr* {.
+        desc: "Path to the bootstrap ENR"
+        name: "bootstrap-enr" .}: InputFile
+
+      enrDataDir* {.
+        desc: "Nimbus data directory where the keys of the node will be placed"
+        name: "data-dir" .}: OutDir
+
+      enrNetKeyFile* {.
+        desc: "Source of network (secp256k1) private key file"
+        name: "enr-netkey-file" .}: OutFile
+
+      enrNetKeyInsecurePassword* {.
+        desc: "Use pre-generated INSECURE password for network private key file"
+        defaultValue: false,
+        name: "insecure-netkey-password" .}: bool
+
+      enrAddress* {.
+        desc: "The public IP address of that ENR"
+        defaultValue: init(ValidIpAddress, defaultAdminListenAddress)
+        defaultValueDesc: $defaultAdminListenAddressDesc
+        name: "enr-address" .}: ValidIpAddress
+
+      enrPort* {.
+        desc: "The TCP/UDP port of that ENR"
+        defaultValue: defaultEth2TcpPort
+        defaultValueDesc: $defaultEth2TcpPortDesc
+        name: "enr-port" .}: Port
 
     of StartUpCommand.sendDeposits:
       depositsFile* {.
@@ -303,8 +335,8 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
     withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
-    data_gas_used: uint64 blk.dataGasUsed.getOrDefault(),
-    excess_data_gas: uint64 blk.excessDataGas.getOrDefault())
+    blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
+    excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
 
 proc createDepositTreeSnapshot(deposits: seq[DepositData],
                                blockHash: Eth2Digest,
@@ -319,9 +351,49 @@ proc createDepositTreeSnapshot(deposits: seq[DepositData],
     depositContractState: merkleizer.toDepositContractState,
     blockHeight: blockHeight)
 
+proc createEnr(rng: var HmacDrbgContext,
+               dataDir: string,
+               netKeyFile: string,
+               netKeyInsecurePassword: bool,
+               cfg: RuntimeConfig,
+               forkId: seq[byte],
+               address: ValidIpAddress,
+               port: Port): enr.Record
+               {.raises: [CatchableError].} =
+  type MetaData = altair.MetaData
+  let
+    networkKeys = rng.getPersistentNetKeys(
+      dataDir, netKeyFile, netKeyInsecurePassword, allowLoadExisting = false)
+
+    netMetadata = MetaData()
+    bootstrapEnr = enr.Record.init(
+      1, # sequence number
+      networkKeys.seckey.asEthKey,
+      some(address),
+      some(port),
+      some(port),
+      [
+        toFieldPair(enrForkIdField, forkId),
+        toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
+      ])
+  bootstrapEnr.tryGet()
+
+proc doCreateTestnetEnr*(config: CliConfig,
+                         rng: var HmacDrbgContext)
+                        {.raises: [CatchableError].} =
+  let
+    cfg = getRuntimeConfig(config.eth2Network)
+    bootstrapEnr = parseBootstrapAddress(toSeq(lines(string config.inputBootstrapEnr))[0]).get()
+    forkIdField = bootstrapEnr.tryGet(enrForkIdField, seq[byte]).get()
+    enr =
+      createEnr(rng, string config.enrDataDir, string config.enrNetKeyFile,
+        config.enrNetKeyInsecurePassword, cfg, forkIdField,
+        config.enrAddress, config.enrPort)
+  stderr.writeLine(enr.toURI)
+
 proc doCreateTestnet*(config: CliConfig,
                       rng: var HmacDrbgContext)
-                     {.raises: [Defect, CatchableError].} =
+                     {.raises: [CatchableError].} =
   let launchPadDeposits = try:
     Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
   except SerializationError as err:
@@ -339,7 +411,7 @@ proc doCreateTestnet*(config: CliConfig,
     else:
       uint64(times.toUnix(times.getTime()) + config.genesisOffset.get(0))
     outGenesis = config.outputGenesis.string
-    eth1Hash = eth1BlockHash # TODO: Can we set a more appropriate value?
+    eth1Hash = mockEth1BlockHash # TODO: Can we set a more appropriate value?
     cfg = getRuntimeConfig(config.eth2Network)
 
   # This is intentionally left default initialized, when the user doesn't
@@ -395,7 +467,7 @@ proc doCreateTestnet*(config: CliConfig,
     let outSszGenesis = outGenesis.changeFileExt "ssz"
     SSZ.saveFile(outSszGenesis, initialState[])
     info "SSZ genesis file written",
-          path = outSszGenesis, fork = toFork(typeof initialState[])
+          path = outSszGenesis, fork = kind(typeof initialState[])
 
     SSZ.saveFile(
       config.outputDepositTreeSnapshot.string,
@@ -416,29 +488,16 @@ proc doCreateTestnet*(config: CliConfig,
 
   let bootstrapFile = string config.outputBootstrapFile
   if bootstrapFile.len > 0:
-    type MetaData = altair.MetaData
     let
-      networkKeys = rng.getPersistentNetKeys(
-        string config.dataDir, string config.netKeyFile,
-        config.netKeyInsecurePassword, allowLoadExisting = false)
-
-      netMetadata = MetaData()
       forkId = getENRForkID(
         cfg,
         Epoch(0),
         genesisValidatorsRoot)
-      bootstrapEnr = enr.Record.init(
-        1, # sequence number
-        networkKeys.seckey.asEthKey,
-        some(config.bootstrapAddress),
-        some(config.bootstrapPort),
-        some(config.bootstrapPort),
-        [
-          toFieldPair(enrForkIdField, SSZ.encode(forkId)),
-          toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
-        ])
-
-    writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
+      enr =
+        createEnr(rng, string config.dataDir, string config.netKeyFile,
+          config.netKeyInsecurePassword, cfg, SSZ.encode(forkId),
+          config.bootstrapAddress, config.bootstrapPort)
+    writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
 proc deployContract*(web3: Web3, code: string): Future[ReceiptObject] {.async.} =
@@ -464,7 +523,7 @@ proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
   web3.send(tr)
 
 type
-  DelayGenerator* = proc(): chronos.Duration {.gcsafe, raises: [Defect].}
+  DelayGenerator* = proc(): chronos.Duration {.gcsafe, raises: [].}
 
 proc ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256
@@ -591,6 +650,10 @@ proc main() {.async.} =
   of StartUpCommand.createTestnet:
     let rng = HmacDrbgContext.new()
     doCreateTestnet(conf, rng[])
+
+  of StartUpCommand.createTestnetEnr:
+    let rng = HmacDrbgContext.new()
+    doCreateTestnetEnr(conf, rng[])
 
   of StartUpCommand.deployDepositContract:
     let web3 = await initWeb3(conf.web3Url, conf.privateKey)

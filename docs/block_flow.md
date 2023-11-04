@@ -6,10 +6,10 @@ This is a WIP document to explain the beacon block flows.
 
 Important distinction:
 - We distinguish block `validation` which is defined in the P2P specs:
-  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/p2p-interface.md#beacon_block.
+  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_block.
   A validated block can be forwarded on gossipsub.
 - and we distinguish `verification` which is defined in consensus specs:
-  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#block-processing
+  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#block-processing
   A block needs to be verified to enter fork choice, the DAG and the BeaconChainDB
 
 In particular in terms of costly checks validating a block only requires checking:
@@ -44,7 +44,7 @@ The related base types are:
   - + metadata (slot, blockchain state before/after, proposer)
 - BeaconBlockHeader
   - metadata (slot, blockchain state before/after, proposer)
-  - merkle hash of the BeaconBlockBody
+  - Merkle hash of the BeaconBlockBody
 - SignedBeaconBlock
   - BeaconBlock
   - + BLS signature

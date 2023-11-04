@@ -87,7 +87,9 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     var response = GetForkChoiceResponse(
       justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
-      finalized_checkpoint: forkChoice.checkpoints.finalized)
+      finalized_checkpoint: forkChoice.checkpoints.finalized,
+      extra_data: RestExtraData(
+        version: some($forkChoice.backend.proto_array.version)))
 
     for item in forkChoice.backend.proto_array:
       let
@@ -113,10 +115,17 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         validity:
           if item.invalid:
             RestNodeValidity.invalid
-          elif node.dag.is_optimistic(item.bid):
-            RestNodeValidity.optimistic
           else:
-            RestNodeValidity.valid,
+            # Fork choice doesn't necessarily prune finalized blocks in a
+            # synchronized way to the chaindag, so can't assume that when
+            # item.bid.slot is before finalizedHead, it has shared status
+            # regarding optimistic/validity as finalizedHead, so fallback
+            # to optimistic is more appropriate for this REST endpoint.
+            let blck = node.dag.getBlockRef(item.bid.root)
+            if blck.isNone() or not blck.get.executionValid:
+              RestNodeValidity.optimistic
+            else:
+              RestNodeValidity.valid,
         execution_block_hash: node.dag.loadExecutionBlockHash(item.bid),
         extra_data: some RestNodeExtraData(
           justified_root: item.checkpoints.justified.root,

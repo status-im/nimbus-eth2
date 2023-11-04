@@ -12,7 +12,6 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, era_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
     beaconstate, state_transition, state_transition_epoch, validator,
     ssz_codec],
@@ -210,9 +209,6 @@ func getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slo
       else: start + count
   (start, ends)
 
-from ../beacon_chain/spec/datatypes/capella import
-  HashedBeaconState, TrustedSignedBeaconBlock
-
 proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   var timers: array[Timers, RunningStat]
 
@@ -353,6 +349,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   processBlocks(blocks[1])
   processBlocks(blocks[2])
   processBlocks(blocks[3])
+  processBlocks(blocks[4])
 
   printTimers(false, timers)
 
@@ -365,6 +362,7 @@ proc cmdDumpState(conf: DbConf) =
     altairState    = (ref altair.HashedBeaconState)()
     bellatrixState = (ref bellatrix.HashedBeaconState)()
     capellaState   = (ref capella.HashedBeaconState)()
+    denebState     = (ref deneb.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -382,6 +380,7 @@ proc cmdDumpState(conf: DbConf) =
     doit(altairState[])
     doit(bellatrixState[])
     doit(capellaState[])
+    doit(denebState[])
 
     echo "Couldn't load ", stateRoot
 
@@ -414,6 +413,8 @@ proc cmdDumpBlock(conf: DbConf) =
         dump("./", blck.get())
       elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
+      elif (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock); blck.isSome):
+        dump("./", blck.get())
       else:
         echo "Couldn't load ", blockRoot
     except CatchableError as e:
@@ -430,13 +431,13 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
         cfg, readAllBytes(file).tryGet())
 
     withBlck(blck.asTrusted()):
-      db.putBlock(blck)
+      db.putBlock(forkyBlck)
       if conf.setHead:
-        db.putHeadBlock(blck.root)
+        db.putHeadBlock(forkyBlck.root)
       if conf.setTail:
-        db.putTailBlock(blck.root)
+        db.putTailBlock(forkyBlck.root)
       if conf.setGenesis:
-        db.putGenesisBlock(blck.root)
+        db.putGenesisBlock(forkyBlck.root)
 
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
@@ -620,14 +621,14 @@ proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
 
       if header.typ == SnappyBeaconBlock:
         withTimer(timers[tBlock]):
-          let uncompressed = decodeFramed(data)
+          let uncompressed = decodeFramed(data, checkIntegrity = false)
           let blck = try: readSszForkedSignedBeaconBlock(cfg, uncompressed)
           except CatchableError as exc:
             error "Invalid snappy block", msg = exc.msg, file
             continue
 
           withBlck(blck.asTrusted()):
-            db.putBlock(blck)
+            db.putBlock(forkyBlck)
         blocks += 1
       elif header.typ == SnappyBeaconState:
         info "Skipping beacon state (use reindexing to recreate state snapshots)"
@@ -1057,13 +1058,13 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   for bi in 0 ..< blockRefs.len:
     let forkedBlock = dag.getForkedBlock(blockRefs[blockRefs.len - bi - 1]).get()
     withBlck(forkedBlock):
-      processSlots(blck.message.slot, {skipLastStateRootCalculation})
+      processSlots(forkyBlck.message.slot, {skipLastStateRootCalculation})
 
       rewardsAndPenalties.collectBlockRewardsAndPenalties(
         tmpState[], forkedBlock, auxiliaryState, cache, cfg)
 
       let res = state_transition_block(
-        cfg, tmpState[], blck, cache, {}, noRollback)
+        cfg, tmpState[], forkyBlck, cache, {}, noRollback)
       if res.isErr:
         fatal "State transition failed (!)"
         quit QuitFailure

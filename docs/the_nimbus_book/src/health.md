@@ -13,7 +13,7 @@ As long as your validator is within the allowed inclusion distance, you will get
 
 You can verify your validator's effectiveness on the [beaconcha.in](https://beaconcha.in/) website.
 
-![](https://i.imgur.com/u80Ub2j.png)
+![](./img/health.png)
 
 Ideally you want to see a value above 95%.
 

@@ -14,14 +14,14 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes/[altair, deneb],
+  ../../../beacon_chain/spec/datatypes/[altair, deneb],
   # Status libraries
   snappy,
   # Test utilities
   ../../testutil, ../fixtures_utils, ../os_ops
 
-from ../../beacon_chain/spec/datatypes/bellatrix import PowBlock
-from ../../beacon_chain/spec/datatypes/capella import
+from ../../../beacon_chain/spec/datatypes/bellatrix import PowBlock
+from ../../../beacon_chain/spec/datatypes/capella import
   BLSToExecutionChange, SignedBLSToExecutionChange, HistoricalSummary,
   Withdrawal
 

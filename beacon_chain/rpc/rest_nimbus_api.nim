@@ -7,13 +7,14 @@
 
 import
   std/[sequtils],
-  stew/results,
+  stew/[results, base10],
   chronicles,
+  chronos/apps/http/httpdebug,
   libp2p/[multiaddress, multicodec, peerstore],
   libp2p/protocols/pubsub/pubsubpeer,
   ./rest_utils,
   ../el/el_manager,
-  ../validators/validator_duties,
+  ../validators/beacon_validators,
   ../spec/[forks, beacon_time],
   ../beacon_node, ../nimbus_binary_common
 
@@ -61,9 +62,22 @@ type
     http_client_connections*: uint64
     http_client_requests*: uint64
     http_client_responses*: uint64
-    http_server_connections*: uint64
+    http_server_secure_connections*: uint64
+    http_server_unsecure_connections*: uint64
+    http_server_requests*: uint64
+    http_server_responses*: uint64
     http_body_readers*: uint64
     http_body_writers*: uint64
+
+  RestConnectionInfo* = object
+    handle*: string
+    query*: string
+    connection_type*: string
+    connection_state*: string
+    remote_address*: string
+    local_address*: string
+    since_accept*: string
+    since_create*: string
 
   RestPubSubPeer* = object
     peerId*: PeerId
@@ -279,28 +293,77 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/nimbus/v1/debug/chronos/metrics") do (
     ) -> RestApiResponse:
 
-    template getCount(ttype: untyped, name: string): uint64 =
-      let res = ttype(getTracker(name))
-      if res.isNil(): 0'u64 else: uint64(res.opened - res.closed)
+    template getCount(name: string): uint64 =
+      let res = getTrackerCounter(name)
+      uint64(res.opened - res.closed)
 
     let res = RestChronosMetricsInfo(
-      tcp_transports: getCount(StreamTransportTracker, "stream.transport"),
-      udp_transports: getCount(DgramTransportTracker, "datagram.transport"),
-      tcp_servers: getCount(StreamServerTracker, "stream.server"),
-      stream_readers: getCount(AsyncStreamTracker,
-                               AsyncStreamReaderTrackerName),
-      stream_writers: getCount(AsyncStreamTracker,
-                               AsyncStreamWriterTrackerName),
-      http_client_connections: getCount(HttpClientTracker,
-                                        HttpClientConnectionTrackerName),
-      http_client_requests: getCount(HttpClientTracker,
-                                     HttpClientRequestTrackerName),
-      http_client_responses: getCount(HttpClientTracker,
-                                      HttpClientResponseTrackerName),
-      http_server_connections: lenu64(node.restServer.server.connections),
-      http_body_readers: getCount(HttpBodyTracker, HttpBodyReaderTrackerName),
-      http_body_writers: getCount(HttpBodyTracker, HttpBodyWriterTrackerName)
+      tcp_transports: getCount(StreamTransportTrackerName),
+      udp_transports: getCount(DgramTransportTrackerName),
+      tcp_servers: getCount(StreamServerTrackerName),
+      stream_readers: getCount(AsyncStreamReaderTrackerName),
+      stream_writers: getCount(AsyncStreamWriterTrackerName),
+      http_client_connections: getCount(HttpClientConnectionTrackerName),
+      http_client_requests: getCount(HttpClientRequestTrackerName),
+      http_client_responses: getCount(HttpClientResponseTrackerName),
+      http_server_secure_connections:
+        getCount(HttpServerSecureConnectionTrackerName),
+      http_server_unsecure_connections:
+        getCount(HttpServerUnsecureConnectionTrackerName),
+      http_server_requests: getCount(HttpServerRequestTrackerName),
+      http_server_responses: getCount(HttpServerResponseTrackerName),
+      http_body_readers: getCount(HttpBodyReaderTrackerName),
+      http_body_writers: getCount(HttpBodyWriterTrackerName)
     )
+    return RestApiResponse.jsonResponse(res)
+
+  router.api(MethodGet, "/nimbus/v1/debug/chronos/restserver/connections") do (
+    ) -> RestApiResponse:
+    var res: seq[RestConnectionInfo]
+    for connection in node.restServer.server.getConnections():
+      let
+        connectionState =
+          case connection.connectionState
+          of httpdebug.ConnectionState.Accepted: "accepted"
+          of httpdebug.ConnectionState.Alive: "alive"
+          of httpdebug.ConnectionState.Closing: "closing"
+          of httpdebug.ConnectionState.Closed: "closed"
+        connectionType =
+          case connection.connectionType
+          of ConnectionType.Secure: "secure"
+          of ConnectionType.NonSecure: "non-secure"
+        localAddress =
+          if connection.localAddress.isNone():
+            "not available"
+          else:
+            $connection.localAddress.get()
+        remoteAddress =
+          if connection.remoteAddress.isNone():
+            "not available"
+          else:
+            $connection.remoteAddress.get()
+        query = connection.query.get("not available")
+        handle = Base10.toString(uint64(connection.handle))
+        moment = Moment.now()
+        sinceAccept = $(moment - connection.acceptMoment)
+        sinceCreate =
+          if connection.createMoment.isSome():
+            $(moment - connection.createMoment.get())
+          else:
+            "not available"
+
+      res.add(
+        RestConnectionInfo(
+          handle: handle,
+          query: query,
+          connection_state: connectionState,
+          connection_type: connectionType,
+          local_address: localAddress,
+          remote_address: remoteAddress,
+          since_accept: sinceAccept,
+          since_create: sinceCreate
+        )
+      )
     return RestApiResponse.jsonResponse(res)
 
   router.api(MethodPost, "/nimbus/v1/validator/activity/{epoch}") do (

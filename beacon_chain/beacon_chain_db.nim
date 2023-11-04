@@ -108,7 +108,7 @@ type
     immutableValidatorsDb*: DbSeq[ImmutableValidatorDataDb2]
     immutableValidators*: seq[ImmutableValidatorData2]
 
-    checkpoint*: proc() {.gcsafe, raises: [Defect].}
+    checkpoint*: proc() {.gcsafe, raises: [].}
 
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
@@ -202,13 +202,6 @@ type
     ## the BlockRef tree.
     slot*: Slot
     parent_root*: Eth2Digest
-
-const
-  # The largest object we're saving is the BeaconState, and by far, the largest
-  # part of it is the validator - each validator takes up at least 129 bytes
-  # in phase0,  which means 100k validators is >12mb - in addition to this,
-  # there are several MB of hashes.
-  maxDecompressedDbRecordSize = 64*1024*1024
 
 # Subkeys essentially create "tables" within the key-value store by prefixing
 # each entry with a table id
@@ -628,7 +621,7 @@ proc decodeSSZ*[T](data: openArray[byte], output: var T): bool =
 
 proc decodeSnappySSZ[T](data: openArray[byte], output: var T): bool =
   try:
-    let decompressed = snappy.decode(data, maxDecompressedDbRecordSize)
+    let decompressed = snappy.decode(data)
     readSszBytes(decompressed, output, updateRoot = false)
     true
   except SerializationError as e:
@@ -640,7 +633,7 @@ proc decodeSnappySSZ[T](data: openArray[byte], output: var T): bool =
 
 proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
   try:
-    let decompressed = decodeFramed(data)
+    let decompressed = decodeFramed(data, checkIntegrity = false)
     readSszBytes(decompressed, output, updateRoot = false)
     true
   except CatchableError as e:
@@ -786,7 +779,7 @@ proc putBlock*(
     db: BeaconChainDB,
     value: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock) =
   db.withManyWrites:
-    db.blocks[type(value).toFork].putSnappySSZ(value.root.data, value)
+    db.blocks[type(value).kind].putSnappySSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc putBlock*(
@@ -794,13 +787,18 @@ proc putBlock*(
     value: bellatrix.TrustedSignedBeaconBlock |
            capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock) =
   db.withManyWrites:
-    db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
+    db.blocks[type(value).kind].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc putBlobSidecar*(
     db: BeaconChainDB,
     value: BlobSidecar) =
   db.blobs.putSZSSZ(blobkey(value.block_root, value.index), value)
+
+proc delBlobSidecar*(
+    db: BeaconChainDB,
+    root: Eth2Digest, index: BlobIndex) : bool =
+  db.blobs.del(blobkey(root, index)).expectDb()
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -840,14 +838,14 @@ proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: phase0.BeaconState | altair.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
-  db.statesNoVal[type(value).toFork()].putSnappySSZ(
+  db.statesNoVal[type(value).kind].putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
-  db.statesNoVal[type(value).toFork()].putSZSSZ(
+  db.statesNoVal[type(value).kind].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
 proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
@@ -953,7 +951,7 @@ proc getBlock*(
     T: type phase0.TrustedSignedBeaconBlock): Opt[T] =
   # We only store blocks that we trust in the database
   result.ok(default(T))
-  if db.blocks[T.toFork].getSnappySSZ(key.data, result.get) != GetResult.found:
+  if db.blocks[T.kind].getSnappySSZ(key.data, result.get) != GetResult.found:
     # During the initial releases phase0, we stored blocks in a different table
     result = db.v0.getPhase0Block(key)
   else:
@@ -965,7 +963,7 @@ proc getBlock*(
     T: type altair.TrustedSignedBeaconBlock): Opt[T] =
   # We only store blocks that we trust in the database
   result.ok(default(T))
-  if db.blocks[T.toFork].getSnappySSZ(key.data, result.get) == GetResult.found:
+  if db.blocks[T.kind].getSnappySSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
@@ -978,7 +976,7 @@ proc getBlock*[
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
   result.ok(default(T))
-  if db.blocks[T.toFork].getSZSSZ(key.data, result.get) == GetResult.found:
+  if db.blocks[T.kind].getSZSSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
@@ -989,8 +987,8 @@ proc getPhase0BlockSSZ(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
-    except CatchableError: success = false
+    dataPtr[] = snappy.decode(data)
+    success = dataPtr[].len > 0
   db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
     success
 
@@ -999,9 +997,8 @@ proc getPhase0BlockSZ(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.encodeFramed(
-      snappy.decode(data, maxDecompressedDbRecordSize))
-    except CatchableError: success = false
+    dataPtr[] = snappy.encodeFramed(snappy.decode(data))
+    success = dataPtr[].len > 0
   db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
     success
 
@@ -1012,8 +1009,8 @@ proc getBlockSSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
-    except CatchableError: success = false
+    dataPtr[] = snappy.decode(data)
+    success = dataPtr[].len > 0
   db.blocks[ConsensusFork.Phase0].get(key.data, decode).expectDb() and success or
     db.v0.getPhase0BlockSSZ(key, data)
 
@@ -1023,9 +1020,9 @@ proc getBlockSSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
-    except CatchableError: success = false
-  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+    dataPtr[] = snappy.decode(data)
+    success = dataPtr[].len > 0
+  db.blocks[T.kind].get(key.data, decode).expectDb() and success
 
 proc getBlockSSZ*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
@@ -1034,9 +1031,9 @@ proc getBlockSSZ*[
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = decodeFramed(data)
-    except CatchableError: success = false
-  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+    dataPtr[] = decodeFramed(data, checkIntegrity = false)
+    success = dataPtr[].len > 0
+  db.blocks[T.kind].get(key.data, decode).expectDb() and success
 
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
@@ -1067,9 +1064,8 @@ proc getBlockSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.encodeFramed(
-      snappy.decode(data, maxDecompressedDbRecordSize))
-    except CatchableError: success = false
+    dataPtr[] = snappy.encodeFramed(snappy.decode(data))
+    success = dataPtr[].len > 0
   db.blocks[ConsensusFork.Phase0].get(key.data, decode).expectDb() and success or
     db.v0.getPhase0BlockSZ(key, data)
 
@@ -1079,10 +1075,9 @@ proc getBlockSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.encodeFramed(
-      snappy.decode(data, maxDecompressedDbRecordSize))
-    except CatchableError: success = false
-  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+    dataPtr[] = snappy.encodeFramed(snappy.decode(data))
+    success = dataPtr[].len > 0
+  db.blocks[T.kind].get(key.data, decode).expectDb() and success
 
 proc getBlockSZ*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
@@ -1091,7 +1086,7 @@ proc getBlockSZ*[
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
-  db.blocks[T.toFork].get(key.data, decode).expectDb()
+  db.blocks[T.kind].get(key.data, decode).expectDb()
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
@@ -1122,12 +1117,14 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
+  let prevNumValidators = output.validators.len
+
   case store.getSnappySSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in 0 ..< numValidators:
+    for i in prevNumValidators ..< numValidators:
       let
         # Bypass hash cache invalidation
         dstValidator = addr output.validators.data[i]
@@ -1138,8 +1135,7 @@ proc getStateOnlyMutableValidators(
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
-
-    output.validators.resetCache()
+      output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:
@@ -1161,12 +1157,14 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
+  let prevNumValidators = output.validators.len
+
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in 0 ..< numValidators:
+    for i in prevNumValidators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
 
@@ -1174,8 +1172,7 @@ proc getStateOnlyMutableValidators(
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
-
-    output.validators.resetCache()
+      output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:
@@ -1198,17 +1195,18 @@ proc getStateOnlyMutableValidators(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
 
+  let prevNumValidators = output.validators.len
+
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
 
-    for i in 0 ..< numValidators:
+    for i in prevNumValidators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
       assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
-
-    output.validators.resetCache()
+      output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:
@@ -1260,7 +1258,7 @@ proc getState*(
   type T = type(output)
 
   if not getStateOnlyMutableValidators(
-      db.immutableValidators, db.statesNoVal[T.toFork], key.data, output, rollback):
+      db.immutableValidators, db.statesNoVal[T.kind], key.data, output, rollback):
     db.v0.getState(db.immutableValidators, key, output, rollback)
   else:
     true
@@ -1280,7 +1278,7 @@ proc getState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   type T = type(output)
   getStateOnlyMutableValidators(
-    db.immutableValidators, db.statesNoVal[T.toFork], key.data, output,
+    db.immutableValidators, db.statesNoVal[T.kind], key.data, output,
     rollback)
 
 proc getState*(
@@ -1342,14 +1340,14 @@ proc containsBlock*(db: BeaconChainDBV0, key: Eth2Digest): bool =
 proc containsBlock*(
     db: BeaconChainDB, key: Eth2Digest,
     T: type phase0.TrustedSignedBeaconBlock): bool =
-  db.blocks[T.toFork].contains(key.data).expectDb() or
+  db.blocks[T.kind].contains(key.data).expectDb() or
     db.v0.containsBlock(key)
 
 proc containsBlock*[
     X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
        capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
-  db.blocks[X.toFork].contains(key.data).expectDb()
+  db.blocks[X.kind].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: ConsensusFork): bool =
   case fork

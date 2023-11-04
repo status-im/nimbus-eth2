@@ -252,21 +252,23 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + validateAttestation                                                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Gossip validation - Extra
+## Gossip validation - Altair
 ```diff
-+ validateSyncCommitteeMessage                                                               OK
++ Period boundary                                                                            OK
++ validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
++ Index shuffling and unshuffling invert                                                     OK
 + Liveness failsafe conditions                                                               OK
 + Mainnet attestation topics                                                                 OK
 + Stability subnets                                                                          OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## ImportKeystores requests [Beacon Node] [Preset: mainnet]
 ```diff
 + ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
@@ -382,8 +384,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Nimbus remote signer/signing test (web3signer)
 ```diff
 + Connection timeout test                                                                    OK
-+ Connections pool stress test                                                               OK
-+ Idle connection test                                                                       OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
 + Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
@@ -401,7 +401,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -581,15 +581,18 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 24/24 Fail: 0/24 Skip: 0/24
 ## Type helpers
 ```diff
-+ BeaconBlockType                                                                            OK
++ BeaconBlock                                                                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ bestSuccess() API timeout test                                                             OK
++ firstSuccessParallel() API timeout test                                                    OK
 + getAttestationDataScore() test vectors                                                     OK
++ getLiveness() response deserialization test                                                OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -604,8 +607,10 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 ```diff
 + Doppelganger for genesis validator                                                         OK
 + Doppelganger for validator that activates in same epoch as check                           OK
++ Dynamic validator set: queryValidatorsSource() test                                        OK
++ Dynamic validator set: updateDynamicValidators() test                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -700,4 +705,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 393/398 Fail: 0/398 Skip: 5/398
+OK: 398/403 Fail: 0/403 Skip: 5/403

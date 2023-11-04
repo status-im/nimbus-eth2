@@ -21,7 +21,7 @@ KeyPath.serializesAsBaseIn RestJson
 WalletName.serializesAsBaseIn RestJson
 
 proc raiseKeymanagerGenericError*(resp: RestPlainResponse) {.
-     noreturn, raises: [RestError, Defect].} =
+     noreturn, raises: [RestError].} =
   let error =
     block:
       let res = decodeBytes(KeymanagerGenericError, resp.data, resp.contentType)

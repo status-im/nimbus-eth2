@@ -45,6 +45,12 @@ proc filterNodes*(vc: ValidatorClientRef, statuses: set[RestBeaconNodeStatus],
     vc.beaconNodes.filterIt((it.roles * roles != {}) and
                             (it.status in statuses))
 
+proc nonameNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
+  vc.beaconNodes.filterIt(it.status == RestBeaconNodeStatus.Noname)
+
+proc offlineNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
+  vc.beaconNodes.filterIt(it.status == RestBeaconNodeStatus.Offline)
+
 proc otherNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
   vc.beaconNodes.filterIt(it.status != RestBeaconNodeStatus.Synced)
 
@@ -90,6 +96,25 @@ proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
         break
 
     inc(iterations)
+
+proc checkName*(
+       node: BeaconNodeServerRef): RestBeaconNodeStatus {.raises: [].} =
+  ## Could return only {Invalid, Noname, Offline}
+  logScope: endpoint = node
+  let client =
+    block:
+      let res = initClient(node.uri)
+      if res.isErr():
+        return
+          case res.error
+          of CriticalHttpAddressError:
+            RestBeaconNodeStatus.Invalid
+          of RecoverableHttpAddressError:
+            RestBeaconNodeStatus.Noname
+      res.get()
+
+  node.client = client
+  RestBeaconNodeStatus.Offline
 
 proc checkCompatible(
        vc: ValidatorClientRef,
@@ -141,15 +166,21 @@ proc checkCompatible(
 
   node.config = info
   node.genesis = Opt.some(genesis)
-  let res =
+
+  return
     if configFlag or genesisFlag:
       if node.status != RestBeaconNodeStatus.Incompatible:
         warn "Beacon node has incompatible configuration",
               genesis_flag = genesisFlag, config_flag = configFlag
       RestBeaconNodeStatus.Incompatible
     else:
-      RestBeaconNodeStatus.Compatible
-  return res
+      let res = vc.updateRuntimeConfig(node, node.config)
+      if res.isErr():
+        warn "Beacon nodes report different configuration values",
+             reason = res.error
+        RestBeaconNodeStatus.Incompatible
+      else:
+        RestBeaconNodeStatus.Compatible
 
 proc checkSync(
        vc: ValidatorClientRef,
@@ -219,6 +250,10 @@ proc checkOnline(
 
 func getReason(status: RestBeaconNodeStatus): string =
   case status
+  of RestBeaconNodeStatus.Invalid:
+    "Beacon node address invalid"
+  of RestBeaconNodeStatus.Noname:
+    "Beacon node address cannot be resolved"
   of RestBeaconNodeStatus.Offline:
     "Connection with node has been lost"
   of RestBeaconNodeStatus.Online:
@@ -230,6 +265,15 @@ proc checkNode(vc: ValidatorClientRef,
                node: BeaconNodeServerRef): Future[bool] {.async.} =
   let nstatus = node.status
   debug "Checking beacon node", endpoint = node, status = node.status
+
+  if nstatus in {RestBeaconNodeStatus.Noname}:
+    let
+      status = node.checkName()
+      failure = ApiNodeFailure.init(ApiFailure.NoError, "checkName",
+                                    node, status.getReason())
+    node.updateStatus(status, failure)
+    if status != RestBeaconNodeStatus.Offline:
+      return nstatus != status
 
   if nstatus in {RestBeaconNodeStatus.Offline,
                  RestBeaconNodeStatus.UnexpectedCode,
@@ -289,11 +333,9 @@ proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
       if fut.completed() and fut.read():
         res = true
   except CancelledError as exc:
-    var pending: seq[Future[void]]
-    for future in pendingChecks:
-      if not(future.finished()):
-        pending.add(future.cancelAndWait())
-    await allFutures(pending)
+    let pending = pendingChecks
+      .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
     raise exc
   return res
 
@@ -402,7 +444,8 @@ proc runTimeMonitor(service: FallbackServiceRef,
 proc processTimeMonitoring(service: FallbackServiceRef) {.async.} =
   let
     vc = service.client
-    blockNodes = vc.filterNodes(AllBeaconNodeStatuses, AllBeaconNodeRoles)
+    blockNodes = vc.filterNodes(
+      ResolvedBeaconNodeStatuses, AllBeaconNodeRoles)
 
   var pendingChecks: seq[Future[void]]
 
@@ -411,10 +454,9 @@ proc processTimeMonitoring(service: FallbackServiceRef) {.async.} =
       pendingChecks.add(service.runTimeMonitor(node))
     await allFutures(pendingChecks)
   except CancelledError as exc:
-    var pending: seq[Future[void]]
-    for future in pendingChecks:
-      if not(future.finished()): pending.add(future.cancelAndWait())
-    await allFutures(pending)
+    let pending = pendingChecks
+      .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
     raise exc
   except CatchableError as exc:
     warn "An unexpected error occurred while running time monitoring",

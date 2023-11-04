@@ -25,7 +25,7 @@
 
 import
   # Status
-  stew/[endians2, objects, results, byteutils],
+  stew/[bitseqs, endians2, objects, results, byteutils],
   blscurve,
   chronicles,
   bearssl/rand,
@@ -54,17 +54,20 @@ type
     ## eagerly load keys - deserialization is slow, as are equality checks -
     ## however, it is not guaranteed that the key is valid (except in some
     ## cases, like the database state)
-    blob*: array[RawPubKeySize, byte]
+    ##
+    ## It must be 8-byte aligned because `hash(ValidatorPubKey)` just casts a
+    ## ptr to one to a ptr to the other, so it needs a compatible alignment.
+    blob* {.align: 16.}: array[RawPubKeySize, byte]
 
   UncompressedPubKey* = object
     ## Uncompressed variation of ValidatorPubKey - this type is faster to
     ## deserialize but doubles the storage footprint
-    blob*: array[UncompressedPubKeySize, byte]
+    blob* {.align: 16.}: array[UncompressedPubKeySize, byte]
 
   CookedPubKey* = distinct blscurve.PublicKey ## Valid deserialized key
 
   ValidatorSig* = object
-    blob*: array[RawSigSize, byte]
+    blob* {.align: 16.}: array[RawSigSize, byte]
 
   ValidatorPrivKey* = distinct blscurve.SecretKey
 
@@ -73,7 +76,7 @@ type
   BlsResult*[T] = Result[T, cstring]
 
   TrustedSig* = object
-    data*: array[RawSigSize, byte]
+    data* {.align: 16.}: array[RawSigSize, byte]
 
   SomeSig* = TrustedSig | ValidatorSig
 
@@ -95,7 +98,7 @@ export
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
   ## Derive a public key from a private key
@@ -203,7 +206,7 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
   sig.finish(agg)
   CookedSig(sig)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#bls-signatures
 func blsVerify*(
     pubkey: CookedPubKey, message: openArray[byte],
     signature: CookedSig): bool =
@@ -216,7 +219,7 @@ func blsVerify*(
   ## to enforce correct usage.
   PublicKey(pubkey).verify(message, blscurve.Signature(signature))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: CookedSig): bool =
@@ -311,6 +314,68 @@ proc blsFastAggregateVerify*(
   let parsedSig = signature.load()
   parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
 
+proc blsFastAggregateVerify*(
+       fullParticipationAggregatePublicKey: ValidatorPubKey,
+       nonParticipatingPublicKeys: openArray[ValidatorPubKey],
+       message: openArray[byte],
+       signature: CookedSig
+     ): bool =
+  let unwrappedFull = fullParticipationAggregatePublicKey.loadWithCache.valueOr:
+    return false
+
+  var unwrapped = newSeqOfCap[PublicKey](nonParticipatingPublicKeys.len)
+  for pubkey in nonParticipatingPublicKeys:
+    let realkey = pubkey.loadWithCache.valueOr:
+      return false
+    unwrapped.add PublicKey(realkey)
+
+  fastAggregateVerify(
+    PublicKey(unwrappedFull), unwrapped,
+    message, blscurve.Signature(signature))
+
+proc blsFastAggregateVerify*(
+       fullParticipationAggregatePublicKey: ValidatorPubKey,
+       nonParticipatingPublicKeys: openArray[ValidatorPubKey],
+       message: openArray[byte],
+       signature: ValidatorSig
+     ): bool =
+  let parsedSig = signature.load()
+  parsedSig.isSome and blsFastAggregateVerify(
+    fullParticipationAggregatePublicKey, nonParticipatingPublicKeys,
+    message, parsedSig.get())
+
+proc blsFastAggregateVerify*(
+       allPublicKeys: openArray[ValidatorPubKey],
+       fullParticipationAggregatePublicKey: ValidatorPubKey,
+       participantBits: BitArray,
+       message: openArray[byte],
+       signature: ValidatorSig
+     ): bool =
+  const maxParticipants = participantBits.bits
+  var numParticipants = 0
+  for idx in 0 ..< maxParticipants:
+    if participantBits[idx]:
+      inc numParticipants
+
+  return
+    if numParticipants < 1:
+      false
+    elif numParticipants > maxParticipants div 2:
+      var nonParticipatingPublicKeys = newSeqOfCap[ValidatorPubKey](
+        maxParticipants - numParticipants)
+      for idx, pubkey in allPublicKeys:
+        if not participantBits[idx]:
+          nonParticipatingPublicKeys.add pubkey
+      blsFastAggregateVerify(
+        fullParticipationAggregatePublicKey, nonParticipatingPublicKeys,
+        message, signature)
+    else:
+      var publicKeys = newSeqOfCap[ValidatorPubKey](numParticipants)
+      for idx, pubkey in allPublicKeys:
+        if participantBits[idx]:
+          publicKeys.add pubkey
+      blsFastAggregateVerify(publicKeys, message, signature)
+
 # Codecs
 # ----------------------------------------------------------------------
 
@@ -391,10 +456,11 @@ template `<`*(x, y: ValidatorPubKey): bool =
 # Serialization
 # ----------------------------------------------------------------------
 
-{.pragma: serializationRaises, raises: [SerializationError, IOError, Defect].}
+{.pragma: serializationRaises, raises: [SerializationError, IOError].}
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey | CookedPubKey) {.
-    inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: ValidatorPubKey | CookedPubKey
+) {.inline, raises: [IOError].} =
   writer.writeValue(value.toHex())
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPubKey)
@@ -406,8 +472,9 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPubKey)
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.
-    inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: ValidatorSig
+) {.inline, raises: [IOError].} =
   # Workaround: https://github.com/status-im/nimbus-eth2/issues/374
   writer.writeValue(value.toHex())
 
@@ -420,8 +487,9 @@ proc readValue*(reader: var JsonReader, value: var ValidatorSig)
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded signature expected")
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorPrivKey) {.
-    inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: ValidatorPrivKey
+) {.inline, raises: [IOError].} =
   writer.writeValue(value.toHex())
 
 proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey)
@@ -464,21 +532,21 @@ func shortLog*(x: TrustedSig): string =
 # TODO more specific exceptions? don't raise?
 
 # For confutils
-func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noinit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noinit, raises: [ValueError].} =
   let v = T.fromHex(hex)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noinit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noinit, raises: [ValueError].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit, raises: [ValueError].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)

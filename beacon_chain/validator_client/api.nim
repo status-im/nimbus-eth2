@@ -86,7 +86,7 @@ proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase,
         ApiFailure.Communication, requestName, strategy, node,
         $request.error.msg)
       node.updateStatus(RestBeaconNodeStatus.Offline, failure)
-  except CancelledError as exc:
+  except CancelledError:
     await cancelAndWait(request)
 
 proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
@@ -116,15 +116,16 @@ proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
 
 proc apiResponseOr[T](future: FutureBase, timerFut: Future[void],
                       message: string): ApiResponse[T] =
-  if future.finished():
-    doAssert(not(future.cancelled()))
+  if future.finished() and not(future.cancelled()):
     if future.failed():
       ApiResponse[T].err($future.error.msg)
     else:
       ApiResponse[T].ok(Future[T](future).read())
   else:
-    doAssert(timerFut.finished())
-    ApiResponse[T].err(message)
+    if timerFut.finished():
+      ApiResponse[T].err(message)
+    else:
+      ApiResponse[T].err("Interrupted by the caller")
 
 template firstSuccessParallel*(
            vc: ValidatorClientRef,
@@ -198,7 +199,7 @@ template firstSuccessParallel*(
           else:
             raceFut = race(pendingRequests)
 
-            if isNil(timerFut):
+            if not(isNil(timerFut)):
               await raceFut or timerFut
             else:
               await allFutures(raceFut)
@@ -256,7 +257,7 @@ template firstSuccessParallel*(
           for future in pendingRequests.items():
             if not(future.finished()):
               pendingCancel.add(future.cancelAndWait())
-          await allFutures(pendingCancel)
+          await noCancel allFutures(pendingCancel)
           raise exc
         except CatchableError as exc:
           # This should not be happened, because allFutures() and race() did not
@@ -346,7 +347,7 @@ template bestSuccess*(
             try:
               raceFut = race(pendingRequests)
 
-              if isNil(timerFut):
+              if not(isNil(timerFut)):
                 await raceFut or timerFut
               else:
                 await allFutures(raceFut)
@@ -422,7 +423,7 @@ template bestSuccess*(
                 if not(future.finished()):
                   pendingCancel.add(future.cancelAndWait())
               # Awaiting cancellations.
-              await allFutures(pendingCancel)
+              await noCancel allFutures(pendingCancel)
               raise exc
             except CatchableError as exc:
               # This should not be happened, because allFutures() and race()
@@ -525,7 +526,7 @@ template onceToAll*(
             pendingCancel.add(fut.cancelAndWait())
         if not(isNil(timerFut)) and not(timerFut.finished()):
           pendingCancel.add(timerFut.cancelAndWait())
-        await allFutures(pendingCancel)
+        await noCancel allFutures(pendingCancel)
         raise exc
       except CatchableError:
         # This should not be happened, because allFutures() and race() did not
@@ -663,7 +664,7 @@ template firstSuccessSequential*(
                 pending.add(bodyFut.cancelAndWait())
               if not(isNil(timerFut)) and not(timerFut.finished()):
                 pending.add(timerFut.cancelAndWait())
-              await allFutures(pending)
+              await noCancel allFutures(pending)
               raise exc
             except CatchableError as exc:
               # This case should not happen.
@@ -2466,7 +2467,7 @@ proc getValidatorsLiveness*(
        validators: seq[ValidatorIndex]
      ): Future[GetValidatorsLivenessResponse] {.async.} =
   const
-    RequestName = "getValidatorsActivity"
+    RequestName = "getLiveness"
   let resp = vc.onceToAll(RestPlainResponse,
                           SlotDuration,
                           ViableNodeStatus,
@@ -2523,36 +2524,36 @@ proc getValidatorsLiveness*(
             let failure = ApiNodeFailure.init(
               ApiFailure.UnexpectedResponse, RequestName,
               apiResponse.node, response.status, $res.error)
-            apiResponse.node.updateStatus(
-              RestBeaconNodeStatus.UnexpectedResponse, failure)
+            # We do not update beacon node's status anymore because of
+            # issue #5377.
             continue
         of 400:
           let failure = ApiNodeFailure.init(
             ApiFailure.Invalid, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
-          apiResponse.node.updateStatus(
-            RestBeaconNodeStatus.Incompatible, failure)
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
           continue
         of 500:
           let failure = ApiNodeFailure.init(
             ApiFailure.Internal, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
-          apiResponse.node.updateStatus(
-            RestBeaconNodeStatus.InternalError, failure)
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
           continue
         of 503:
           let failure = ApiNodeFailure.init(
             ApiFailure.NotSynced, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
-          apiResponse.node.updateStatus(
-            RestBeaconNodeStatus.NotSynced, failure)
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
           continue
         else:
           let failure = ApiNodeFailure.init(
             ApiFailure.UnexpectedCode, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
-          apiResponse.node.updateStatus(
-            RestBeaconNodeStatus.UnexpectedCode, failure)
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
           continue
 
     var response =

@@ -33,6 +33,11 @@ The following options are available:
      --network                 The Eth2 network to join [=mainnet].
  -d, --data-dir                The directory where nimbus will store all blockchain data.
      --validators-dir          A directory containing validator keystores.
+     --verifying-web3-signer-url  Remote Web3Signer URL that will be used as a source of validators.
+     --proven-block-property   The field path of a block property that will be sent for verification to the
+                               verifying Web3Signer (for example ".execution_payload.fee_recipient").
+     --web3-signer-url         Remote Web3Signer URL that will be used as a source of validators.
+     --web3-signer-update-interval  Number of seconds between validator list updates [=3600].
      --secrets-dir             A directory containing validator keystore passwords.
      --wallets-dir             A directory containing wallet files.
      --web3-url                One or more execution layer Engine API URLs.
@@ -63,6 +68,10 @@ The following options are available:
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
      --sync-light-client       Accelerate execution layer sync using light client [=true].
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
+     --genesis-state           SSZ file specifying the genesis state of the network (for networks without a
+                               built-in genesis state).
+     --genesis-state-url       URL for obtaining the genesis state of the network (for networks without a
+                               built-in genesis state).
      --finalized-deposit-tree-snapshot  SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
                                persistent automatically generated ID will be selected for each --data-dir
@@ -103,9 +112,10 @@ The following options are available:
      --discv5                  Enable Discovery v5 [=true].
      --dump                    Write SSZ dumps of blocks, attestations and states to data dir [=false].
      --direct-peer             The list of privileged, secure and known peers to connect and maintain the
-                               connection to, this requires a not random netkey-file. In the complete
-                               multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>.
-                               Peering agreements are established out of band and must be reciprocal..
+                               connection to. This requires a not random netkey-file. In the multiaddress
+                               format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>, or enr format
+                               (enr:-xx). Peering agreements are established out of band and must be
+                               reciprocal.
      --doppelganger-detection  If enabled, the beacon node prudently listens for 2 epochs for attestations from
                                a validator with the same index (a doppelganger), before sending an attestation
                                itself. This protects against slashing (due to double-voting) but means you will

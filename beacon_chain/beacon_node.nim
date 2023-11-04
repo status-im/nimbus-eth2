@@ -122,23 +122,26 @@ func getPayloadBuilderAddress*(config: BeaconNodeConf): Opt[string] =
   else:
     Opt.none(string)
 
+proc getPayloadBuilderAddress*(
+    node: BeaconNode, pubkey: ValidatorPubKey): Opt[string] =
+  let defaultPayloadBuilderAddress = node.config.getPayloadBuilderAddress
+  if node.keymanagerHost.isNil:
+    defaultPayloadBuilderAddress
+  else:
+    node.keymanagerHost[].getBuilderConfig(pubkey).valueOr:
+      defaultPayloadBuilderAddress
+
 proc getPayloadBuilderClient*(
     node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
   if not node.config.payloadBuilderEnable:
     return err "Payload builder globally disabled"
 
   let
-    defaultPayloadBuilderAddress = node.config.getPayloadBuilderAddress
     pubkey = withState(node.dag.headState):
       if validator_index >= forkyState.data.validators.lenu64:
         return err "Validator index too high"
       forkyState.data.validators.item(validator_index).pubkey
-    payloadBuilderAddress =
-      if node.keyManagerHost.isNil:
-        defaultPayloadBuilderAddress
-      else:
-        node.keyManagerHost[].getBuilderConfig(pubkey).valueOr:
-          defaultPayloadBuilderAddress
+    payloadBuilderAddress = node.getPayloadBuilderAddress(pubkey)
 
   if payloadBuilderAddress.isNone:
     return err "Payload builder disabled"

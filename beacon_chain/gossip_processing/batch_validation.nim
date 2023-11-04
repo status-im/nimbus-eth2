@@ -8,17 +8,18 @@
 {.push raises: [].}
 
 import
-  std/[deques, sequtils],
+  std/[atomics, deques, sequtils],
+  stew/ptrops,
   metrics,
   # Status
-  chronicles, chronos,
+  chronicles, chronos, chronos/threadsync,
   ../spec/signatures_batch,
   ../consensus_object_pools/[blockchain_dag, spec_cache]
 
 export signatures_batch, blockchain_dag
 
 logScope:
-  topics = "gossip_checks"
+  topics = "batch_validation"
 
 declareCounter batch_verification_batches,
   "Total number of batches processed"
@@ -26,6 +27,8 @@ declareCounter batch_verification_signatures,
   "Total number of verified signatures before aggregation"
 declareCounter batch_verification_aggregates,
   "Total number of verified signatures after aggregation"
+declareCounter batch_verification_batches_skipped,
+  "Total number of batches skipped"
 
 # Batched gossip validation
 # ----------------------------------------------------------------
@@ -52,93 +55,119 @@ declareCounter batch_verification_aggregates,
 # different signatures, as most validators have the same view of the network -
 # at least 2/3 or we're in deep trouble :)
 
+const
+  BatchAttAccumTime = 10.milliseconds
+    ## Amount of time spent accumulating signatures from the network before
+    ## performing verification
+
+  BatchedCryptoSize = 72
+    ## Threshold for immediate trigger of batch verification.
+    ## A balance between throughput and worst case latency.
+    ## At least 6 so that the constant factors
+    ## (RNG for blinding and Final Exponentiation)
+    ## are amortized, but not too big as we need to redo checks one-by-one if
+    ## one failed.
+    ## The current value is based on experiments, where 72 gives an average
+    ## batch size of ~30 signatures per batch, or 2.5 signatures per aggregate
+    ## (meaning an average of 12 verifications per batch which on a raspberry
+    ## should be doable in less than 30ms). In the same experiment, a value of
+    ## 36 resulted in 17-18 signatures per batch and 1.7-1.9 signatures per
+    ## aggregate - this node was running on mainnet with
+    ## `--subscribe-all-subnets` turned on - typical nodes will see smaller
+    ## batches.
+
+  InflightVerifications = 2
+    ## Maximum number of concurrent in-flight verifications
+
 type
   BatchResult* {.pure.} = enum
     Invalid # Invalid by default
     Valid
     Timeout
 
-  Eager = proc(): bool {.gcsafe, raises: [Defect].} ##\
-  ## Callback that returns true if eager processing should be done to lower
-  ## latency at the expense of spending more cycles validating things, creating
-  ## a crude timesharing priority mechanism.
+  Eager = proc(): bool {.gcsafe, raises: [].}
+    ## Callback that returns true if eager processing should be done to lower
+    ## latency at the expense of spending more cycles validating things,
+    ## creating a crude timesharing priority mechanism.
 
   BatchItem* = object
     sigset: SignatureSet
     fut: Future[BatchResult]
 
   Batch* = object
+    ## A batch represents up to BatchedCryptoSize non-aggregated signatures
     created: Moment
     sigsets: seq[SignatureSet]
     items: seq[BatchItem]
 
+  VerifierItem = object
+    verifier: ref BatchVerifier
+    signal: ThreadSignalPtr
+    inflight: Future[void]
+
   BatchCrypto* = object
-    # Each batch is bounded by BatchedCryptoSize which was chosen:
-    # - based on "nimble bench" in nim-blscurve
-    #   so that low power devices like Raspberry Pi 4 can process
-    #   that many batched verifications within ~30ms on average
-    # - based on the accumulation rate of attestations and aggregates
-    #   in large instances which were 12000 per slot (12s)
-    #   hence 1 per ms (but the pattern is bursty around the 4s mark)
-    # The number of batches is bounded by time - batch validation is skipped if
-    # we can't process them in the time that one slot takes, and we return
-    # timeout instead which prevents the gossip layer from forwarding the
-    # batch.
     batches: Deque[ref Batch]
-    eager: Eager ##\
-    ## Eager is used to enable eager processing of attestations when it's
-    ## prudent to do so (instead of leaving the CPU for other, presumably more
-    ## important work like block processing)
-    ##
-    verifier: BatchVerifier
+    eager: Eager
+      ## Eager is used to enable eager processing of attestations when it's
+      ## prudent to do so (instead of leaving the CPU for other, presumably more
+      ## important work like block processing)
+
+    taskpool: Taskpool
+    rng: ref HmacDrbgContext
+
+    verifiers: array[InflightVerifications, VerifierItem]
+      ## Each batch verification reqires a separate verifier
+    verifier: int
 
     pruneTime: Moment ## last time we had to prune something
 
-    # `nim-metrics` library is a bit too slow to update on every batch, so
-    # we accumulate here instead
     counts: tuple[signatures, batches, aggregates: int64]
+      # `nim-metrics` library is a bit too slow to update on every batch, so
+      # we accumulate here instead
 
-    # Most scheduled checks require this immutable value, so don't require it
-    # to be provided separately each time
     genesis_validators_root: Eth2Digest
+      # Most scheduled checks require this immutable value, so don't require it
+      # to be provided separately each time
 
-const
-  # We cap waiting for an idle slot in case there's a lot of network traffic
-  # taking up all CPU - we don't want to _completely_ stop processing
-  # attestations - doing so also allows us to benefit from more batching /
-  # larger network reads when under load.
-  BatchAttAccumTime = 10.milliseconds
+    processor: Future[void]
 
-  # Threshold for immediate trigger of batch verification.
-  # A balance between throughput and worst case latency.
-  # At least 6 so that the constant factors
-  # (RNG for blinding and Final Exponentiation)
-  # are amortized, but not too big as we need to redo checks one-by-one if one
-  # failed.
-  # The current value is based on experiments, where 72 gives an average batch
-  # size of ~30 signatures per batch, or 2.5 signatures per aggregate (meaning
-  # an average of 12 verifications per batch which on a raspberry should be
-  # doable in less than 30ms). In the same experiment, a value of 36 resulted
-  # in 17-18 signatures per batch and 1.7-1.9 signatures per aggregate - this
-  # node was running on mainnet with `--subscribe-all-subnets` turned on -
-  # typical nodes will see smaller batches.
-  BatchedCryptoSize = 72
+  BatchTask = object
+    ok: Atomic[bool]
+    setsPtr: ptr UncheckedArray[SignatureSet]
+    numSets: int
+    secureRandomBytes: array[32, byte]
+    taskpool: Taskpool
+    cache: ptr BatchedBLSVerifierCache
+    signal: ThreadSignalPtr
 
 proc new*(
     T: type BatchCrypto, rng: ref HmacDrbgContext,
     eager: Eager, genesis_validators_root: Eth2Digest, taskpool: TaskPoolPtr):
-    ref BatchCrypto =
-  (ref BatchCrypto)(
-    verifier: BatchVerifier(rng: rng, taskpool: taskpool),
+    Result[ref BatchCrypto, string] =
+  let res = (ref BatchCrypto)(
+    rng: rng, taskpool: taskpool,
     eager: eager,
     genesis_validators_root: genesis_validators_root,
     pruneTime: Moment.now())
 
-func len(batch: Batch): int =
-  batch.items.len()
+  for i in 0..<res.verifiers.len:
+    res.verifiers[i] = VerifierItem(
+      verifier: BatchVerifier.new(rng, taskpool),
+      signal: block:
+        let sig = ThreadSignalPtr.new()
+        sig.valueOr:
+          for j in 0..<i:
+            discard res.verifiers[j].signal.close()
+          return err(sig.error())
+    )
+
+  ok res
 
 func full(batch: Batch): bool =
-  batch.len() >= BatchedCryptoSize
+  batch.items.len() >= BatchedCryptoSize
+
+func half(batch: Batch): bool =
+  batch.items.len() >= (BatchedCryptoSize div 2)
 
 proc complete(batchItem: var BatchItem, v: BatchResult) =
   batchItem.fut.complete(v)
@@ -146,26 +175,36 @@ proc complete(batchItem: var BatchItem, v: BatchResult) =
 
 proc complete(batchItem: var BatchItem, ok: bool) =
   batchItem.fut.complete(if ok: BatchResult.Valid else: BatchResult.Invalid)
-  batchItem.fut = nil
 
 proc skip(batch: var Batch) =
   for res in batch.items.mitems():
     res.complete(BatchResult.Timeout)
 
-proc pruneBatchQueue(batchCrypto: ref BatchCrypto) =
-  let
-    now = Moment.now()
+proc complete(batchCrypto: var BatchCrypto, batch: var Batch, ok: bool) =
+  if ok:
+    for res in batch.items.mitems():
+      res.complete(BatchResult.Valid)
+  else:
+    # Batched verification failed meaning that some of the signature checks
+    # failed, but we don't know which ones - check each signature separately
+    # instead
+    debug "batch crypto - failure, falling back",
+      items = batch.items.len()
 
-  # If batches haven't been processed for more than 12 seconds
-  while batchCrypto.batches.len() > 0:
-    if batchCrypto.batches[0][].created + SECONDS_PER_SLOT.int64.seconds > now:
-      break
-    if batchCrypto.pruneTime + SECONDS_PER_SLOT.int64.seconds > now:
-      notice "Batch queue pruned, skipping attestation validation",
-        batches = batchCrypto.batches.len()
-      batchCrypto.pruneTime = Moment.now()
+    for item in batch.items.mitems():
+      item.complete(blsVerify item.sigset)
 
-    batchCrypto.batches.popFirst()[].skip()
+  batchCrypto.counts.batches += 1
+  batchCrypto.counts.signatures += batch.items.len()
+  batchCrypto.counts.aggregates += batch.sigsets.len()
+
+  if batchCrypto.counts.batches >= 256:
+    # Not too often, so as not to overwhelm our metrics
+    batch_verification_batches.inc(batchCrypto.counts.batches)
+    batch_verification_signatures.inc(batchCrypto.counts.signatures)
+    batch_verification_aggregates.inc(batchCrypto.counts.aggregates)
+
+    reset(batchCrypto.counts)
 
 func combine(a: var Signature, b: Signature) =
   var tmp = AggregateSignature.init(CookedSig(a))
@@ -177,135 +216,169 @@ func combine(a: var PublicKey, b: PublicKey) =
   tmp.aggregate(b)
   a = PublicKey(tmp.finish())
 
-proc processBatch(batchCrypto: ref BatchCrypto) =
-  ## Process one batch, if there is any
+proc batchVerifyTask(task: ptr BatchTask) {.nimcall.} =
+  # Task suitable for running in taskpools - look, no GC!
+  let
+    tp = task[].taskpool
+    ok = tp.spawn batchVerify(
+      tp, task[].cache, task[].setsPtr, task[].numSets,
+      addr task[].secureRandomBytes)
 
-  # Pruning the queue here makes sure we catch up with processing if need be
-  batchCrypto.pruneBatchQueue() # Skip old batches
+  task[].ok.store(sync ok)
 
-  if batchCrypto[].batches.len() == 0:
-    # No more batches left, they might have been eagerly processed or pruned
+  discard task[].signal.fireSync()
+
+proc spawnBatchVerifyTask(tp: Taskpool, task: ptr BatchTask) =
+  # Inlining this `proc` leads to compilation problems on Nim 2.0
+  # - Error: cannot generate destructor for generic type: Isolated
+  # Workaround: Ensure that `tp.spawn` is not used within an `{.async.}` proc
+  # Possibly related to: https://github.com/nim-lang/Nim/issues/22305
+  tp.spawn batchVerifyTask(task)
+
+proc batchVerifyAsync*(
+    verifier: ref BatchVerifier, signal: ThreadSignalPtr,
+    batch: ref Batch): Future[bool] {.async.} =
+  var task = BatchTask(
+    setsPtr: makeUncheckedArray(baseAddr batch[].sigsets),
+    numSets: batch[].sigsets.len,
+    taskpool: verifier[].taskpool,
+    cache: addr verifier[].sigVerifCache,
+    signal: signal,
+  )
+  verifier[].rng[].generate(task.secureRandomBytes)
+
+  # task will stay allocated in the async environment at least until the signal
+  # has fired at which point it's safe to release it
+  let taskPtr = addr task
+  doAssert verifier[].taskpool.numThreads > 1,
+    "Must have at least one separate thread or signal will never be fired"
+  verifier[].taskpool.spawnBatchVerifyTask(taskPtr)
+  await signal.wait()
+  task.ok.load()
+
+proc processBatch(
+    batchCrypto: ref BatchCrypto, batch: ref Batch,
+    verifier: ref BatchVerifier, signal: ThreadSignalPtr) {.async.} =
+  let
+    numSets = batch[].sigsets.len()
+
+  if numSets == 0:
+    # Nothing to do in this batch, can happen when a batch is created without
+    # there being any signatures successfully added to it
     return
 
   let
-    batch = batchCrypto[].batches.popFirst()
-    batchSize = batch[].sigsets.len()
+    startTick = Moment.now()
 
-  if batchSize == 0:
-    # Nothing to do in this batch, can happen when a batch is created without
-    # there being any signatures successfully added to it
-    discard
-  else:
-    trace "batch crypto - starting",
-      batchSize
+  # If the hardware is too slow to keep up or an event caused a temporary
+  # buildup of signature verification tasks, the batch will be dropped so as to
+  # recover and not cause even further buildup - this puts an (elastic) upper
+  # bound on the amount of queued-up work
+  if batch[].created + SECONDS_PER_SLOT.int64.seconds < startTick:
+    if batchCrypto.pruneTime + SECONDS_PER_SLOT.int64.seconds < startTick:
+      notice "Batch queue pruned, skipping attestation validation",
+        batches = batchCrypto.batches.len()
+      batchCrypto.pruneTime = startTick
 
-    let
-      startTick = Moment.now()
-      ok =
-        if batchSize == 1: blsVerify(batch[].sigsets[0])
-        else: batchCrypto.verifier.batchVerify(batch[].sigsets)
+    batch[].skip()
 
-    trace "batch crypto - finished",
-      batchSize,
-      cryptoVerified = ok,
-      batchDur = Moment.now() - startTick
+    batch_verification_batches_skipped.inc()
 
-    if ok:
-      for res in batch.items.mitems():
-        res.complete(BatchResult.Valid)
+    return
+
+  trace "batch crypto - starting", numSets, items = batch[].items.len
+
+  let ok =
+    # Depending on how many signatures there are in the batch, it may or
+    # may not be beneficial to use batch verification:
+    # https://github.com/status-im/nim-blscurve/blob/3956f63dd0ed5d7939f6195ee09e4c5c1ace9001/blscurve/bls_batch_verifier.nim#L390
+    if numSets == 1:
+      blsVerify(batch[].sigsets[0])
+    elif batchCrypto[].taskpool.numThreads > 1 and numSets > 3:
+      await batchVerifyAsync(verifier, signal, batch)
     else:
-      # Batched verification failed meaning that some of the signature checks
-      # failed, but we don't know which ones - check each signature separately
-      # instead
-      debug "batch crypto - failure, falling back",
-        items = batch[].items.len()
+      let secureRandomBytes = verifier[].rng[].generate(array[32, byte])
+      batchVerifySerial(
+        verifier[].sigVerifCache, batch.sigsets, secureRandomBytes)
 
-      for item in batch[].items.mitems():
-        item.complete(blsVerify item.sigset)
+  trace "batch crypto - finished",
+    numSets, items = batch[].items.len(), ok,
+    batchDur = Moment.now() - startTick
 
-  batchCrypto[].counts.batches += 1
-  batchCrypto[].counts.signatures += batch[].items.len()
-  batchCrypto[].counts.aggregates += batch[].sigsets.len()
+  batchCrypto[].complete(batch[], ok)
 
-  if batchCrypto[].counts.batches >= 256:
-    # Not too often, so as not to overwhelm our metrics
-    batch_verification_batches.inc(batchCrypto[].counts.batches)
-    batch_verification_signatures.inc(batchCrypto[].counts.signatures)
-    batch_verification_aggregates.inc(batchCrypto[].counts.aggregates)
-
-    reset(batchCrypto[].counts)
-
-proc deferCryptoProcessing(batchCrypto: ref BatchCrypto) {.async.} =
+proc processLoop(batchCrypto: ref BatchCrypto) {.async.} =
   ## Process pending crypto check after some time has passed - the time is
   ## chosen such that there's time to fill the batch but not so long that
   ## latency across the network is negatively affected
-  await sleepAsync(BatchAttAccumTime)
+  while batchCrypto[].batches.len() > 0:
+    # When eager processing is enabled, we can start processing the next batch
+    # as soon as it's full - otherwise, wait for more signatures to accumulate
+    if not batchCrypto[].batches.peekFirst()[].full() or
+        not batchCrypto[].eager():
 
-  # Take the first batch in the queue and process it - if eager processing has
-  # stolen it already, that's fine
-  batchCrypto.processBatch()
+      await sleepAsync(BatchAttAccumTime)
 
-proc getBatch(batchCrypto: ref BatchCrypto): (ref Batch, bool) =
-  # Get a batch suitable for attestation processing - in particular, attestation
-  # batches might be skipped
-  batchCrypto.pruneBatchQueue()
+      # We still haven't filled even half the batch - wait a bit more (and give
+      # chonos time to work its task queue)
+      if not batchCrypto[].batches.peekFirst()[].half():
+        await sleepAsync(BatchAttAccumTime div 2)
 
+    # Pick the "next" verifier
+    let verifier = (batchCrypto[].verifier + 1) mod batchCrypto.verifiers.len
+    batchCrypto[].verifier = verifier
+
+    # BatchVerifier:s may not be shared, so make sure the previous round
+    # using this verifier is finished
+    if batchCrypto[].verifiers[verifier].inflight != nil and
+        not batchCrypto[].verifiers[verifier].inflight.finished():
+      await batchCrypto[].verifiers[verifier].inflight
+
+    batchCrypto[].verifiers[verifier].inflight = batchCrypto.processBatch(
+      batchCrypto[].batches.popFirst(),
+      batchCrypto[].verifiers[verifier].verifier,
+      batchCrypto[].verifiers[verifier].signal)
+
+proc getBatch(batchCrypto: var BatchCrypto): ref Batch =
   if batchCrypto.batches.len() == 0 or
       batchCrypto.batches.peekLast[].full():
-    # There are no batches in progress - start a new batch and schedule a
-    # deferred task to eventually handle it
     let batch = (ref Batch)(created: Moment.now())
-    batchCrypto[].batches.addLast(batch)
-    (batch, true)
+    batchCrypto.batches.addLast(batch)
+    batch
   else:
-    let batch = batchCrypto[].batches.peekLast()
-    # len will be 0 when the batch was created but nothing added to it
-    # because of early failures
-    (batch, batch[].len() == 0)
+    batchCrypto.batches.peekLast()
 
-proc scheduleBatch(batchCrypto: ref BatchCrypto, fresh: bool) =
-  if fresh:
-    # Every time we start a new round of batching, we need to launch a deferred
-    # task that will compute the result of the batch eventually in case the
-    # batch is never filled or eager processing is blocked
-    asyncSpawn batchCrypto.deferCryptoProcessing()
+proc scheduleProcessor(batchCrypto: ref BatchCrypto) =
+  if batchCrypto.processor == nil or batchCrypto.processor.finished():
+    batchCrypto.processor = batchCrypto.processLoop()
 
-  if batchCrypto.batches.len() > 0 and
-      batchCrypto.batches.peekFirst()[].full() and
-      batchCrypto.eager():
-    # If there's a full batch, process it eagerly assuming the callback allows
-    batchCrypto.processBatch()
+proc verifySoon(
+    batchCrypto: ref BatchCrypto, name: static string,
+    sigset: SignatureSet): Future[BatchResult] =
+  let
+    batch = batchCrypto[].getBatch()
+    fut = newFuture[BatchResult](name)
 
-template withBatch(
-    batchCrypto: ref BatchCrypto, name: cstring,
-    body: untyped): Future[BatchResult] =
-  block:
-    let
-      (batch, fresh) = batchCrypto.getBatch()
+  var found = false
+  # Find existing signature sets with the same message - if we can verify an
+  # aggregate instead of several signatures, that is _much_ faster
+  for item in batch[].sigsets.mitems():
+    if item.message == sigset.message:
+      item.signature.combine(sigset.signature)
+      item.pubkey.combine(sigset.pubkey)
+      found = true
+      break
 
-    let
-      fut = newFuture[BatchResult](name)
-      sigset = body
+  if not found:
+    batch[].sigsets.add sigset
 
-    var found = false
-    # Find existing signature sets with the same message - if we can verify an
-    # aggregate instead of several signatures, that is _much_ faster
-    for item in batch[].sigsets.mitems():
-      if item.message == sigset.message:
-        item.signature.combine(sigset.signature)
-        item.pubkey.combine(sigset.pubkey)
-        found = true
-        break
+  # We need to keep the "original" sigset to allow verifying each signature
+  # one by one in the case the combined operation fails
+  batch[].items.add(BatchItem(sigset: sigset, fut: fut))
 
-    if not found:
-      batch[].sigsets.add sigset
+  batchCrypto.scheduleProcessor()
 
-    # We need to keep the "original" sigset to allow verifying each signature
-    # one by one in the case the combined operation fails
-    batch[].items.add(BatchItem(sigset: sigset, fut: fut))
-
-    batchCrypto.scheduleBatch(fresh)
-    fut
+  fut
 
 # See also verify_attestation_signature
 proc scheduleAttestationCheck*(
@@ -325,7 +398,7 @@ proc scheduleAttestationCheck*(
   let
     sig = signature.load().valueOr:
       return err("attestation: cannot load signature")
-    fut = batchCrypto.withBatch("batch_validation.scheduleAttestationCheck"):
+    fut = batchCrypto.verifySoon("batch_validation.scheduleAttestationCheck"):
       attestation_signature_set(
         fork, batchCrypto[].genesis_validators_root, attestationData, pubkey,
         sig)
@@ -370,15 +443,15 @@ proc scheduleAggregateChecks*(
       return err("aggregateAndProof: invalid aggregate signature")
 
   let
-    aggregatorFut = batchCrypto.withBatch("scheduleAggregateChecks.aggregator"):
+    aggregatorFut = batchCrypto.verifySoon("scheduleAggregateChecks.aggregator"):
       aggregate_and_proof_signature_set(
         fork, batchCrypto[].genesis_validators_root, aggregate_and_proof,
         aggregatorKey, aggregatorSig)
-    slotFut = batchCrypto.withBatch("scheduleAggregateChecks.selection_proof"):
+    slotFut = batchCrypto.verifySoon("scheduleAggregateChecks.selection_proof"):
       slot_signature_set(
         fork, batchCrypto[].genesis_validators_root, aggregate.data.slot,
         aggregatorKey, slotSig)
-    aggregateFut = batchCrypto.withBatch("scheduleAggregateChecks.aggregate"):
+    aggregateFut = batchCrypto.verifySoon("scheduleAggregateChecks.aggregate"):
       attestation_signature_set(
         fork, batchCrypto[].genesis_validators_root, aggregate.data,
         aggregateKey, aggregateSig)
@@ -402,7 +475,7 @@ proc scheduleSyncCommitteeMessageCheck*(
   let
     sig = signature.load().valueOr:
       return err("SyncCommitteMessage: cannot load signature")
-    fut = batchCrypto.withBatch("scheduleSyncCommitteeMessageCheck"):
+    fut = batchCrypto.verifySoon("scheduleSyncCommitteeMessageCheck"):
       sync_committee_message_signature_set(
         fork, batchCrypto[].genesis_validators_root, slot, beacon_block_root,
         pubkey, sig)
@@ -444,15 +517,15 @@ proc scheduleContributionChecks*(
       dag, dag.syncCommitteeParticipants(contribution.slot + 1, subcommitteeIdx),
       contribution.aggregation_bits)
   let
-    aggregatorFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.aggregator"):
+    aggregatorFut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.aggregator"):
       contribution_and_proof_signature_set(
         fork, batchCrypto[].genesis_validators_root, contribution_and_proof,
         aggregatorKey, aggregatorSig)
-    proofFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.selection_proof"):
+    proofFut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.selection_proof"):
       sync_committee_selection_proof_set(
         fork, batchCrypto[].genesis_validators_root, contribution.slot,
         subcommitteeIdx, aggregatorKey, proofSig)
-    contributionFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.contribution"):
+    contributionFut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.contribution"):
       sync_committee_message_signature_set(
         fork, batchCrypto[].genesis_validators_root, contribution.slot,
         contribution.beacon_block_root, contributionKey, contributionSig)
@@ -460,11 +533,10 @@ proc scheduleContributionChecks*(
   ok((aggregatorFut, proofFut, contributionFut, contributionSig))
 
 proc scheduleBlsToExecutionChangeCheck*(
-      batchCrypto: ref BatchCrypto,
-      genesisFork: Fork,
-      signedBLSToExecutionChange: SignedBLSToExecutionChange): Result[tuple[
-       blsToExecutionFut: Future[BatchResult],
-       sig: CookedSig], cstring] =
+    batchCrypto: ref BatchCrypto,
+    genesis_fork: Fork, signedBLSToExecutionChange: SignedBLSToExecutionChange,
+    dag: ChainDAGRef):
+    Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
   ## SignedBLSToExecutionChange message
   ##
@@ -481,16 +553,15 @@ proc scheduleBlsToExecutionChangeCheck*(
   let
     # Only called when matching already-known withdrawal credentials, so it's
     # resistant to allowing loadWithCache DoSing
-    validatorChangePubkey =
-      signedBLSToExecutionChange.message.from_bls_pubkey.loadWithCache.valueOr:
-        return err("scheduleBlsToExecutionChangeCheck: cannot load BLS to withdrawals pubkey")
-
-    validatorChangeSig = signedBLSToExecutionChange.signature.load().valueOr:
+    pubkey = dag.validatorKey(
+        signedBLSToExecutionChange.message.validator_index).valueOr:
+      return err("SignedAggregateAndProof: invalid validator index")
+    sig = signedBLSToExecutionChange.signature.load().valueOr:
       return err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
-    validatorChangeFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.contribution"):
+    fut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.contribution"):
       bls_to_execution_change_signature_set(
         genesis_fork, batchCrypto[].genesis_validators_root,
         signedBLSToExecutionChange.message,
-        validatorChangePubkey, validatorChangeSig)
+        pubkey, sig)
 
-  ok((validatorChangeFut, validatorChangeSig))
+  ok((fut, sig))

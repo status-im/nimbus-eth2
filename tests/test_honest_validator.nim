@@ -10,8 +10,7 @@
 import
   unittest2,
   ./testutil,
-  ../beacon_chain/spec/[network, validator],
-  ../beacon_chain/spec/datatypes/[base, altair]
+  ../beacon_chain/spec/[network, validator]
 
 from std/sequtils import toSeq
 
@@ -80,6 +79,13 @@ suite "Honest validator":
         "/eth2/00000000/sync_committee_3/ssz_snappy"
       getBlobSidecarTopic(forkDigest, SubnetId(1)) ==
         "/eth2/00000000/blob_sidecar_1/ssz_snappy"
+      toSeq(blobSidecarTopics(forkDigest)) ==
+        ["/eth2/00000000/blob_sidecar_0/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_1/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_2/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_3/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_4/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_5/ssz_snappy"]
 
   test "is_aggregator":
     check:
@@ -302,3 +308,17 @@ suite "Honest validator":
         @[16.SubnetId, 17.SubnetId]
       toSeq(compute_subscribed_subnets(default(UInt256), 400.Epoch)) ==
         @[16.SubnetId, 17.SubnetId]
+
+  test "Index shuffling and unshuffling invert":
+    const seed = Eth2Digest.fromHex(
+      "0xa0054f8b4dead1ac88bd2c50cf13eab88f86d020362708a97a13012a402c57d3")
+
+    for index_count in [1'u64, 4'u64, 52'u64, 2121'u64, 42616'u64]:
+      for index in 0'u64 ..< index_count:
+        check:
+          compute_shuffled_index(
+            compute_inverted_shuffled_index(
+              index, index_count, seed), index_count, seed) == index
+          compute_inverted_shuffled_index(
+            compute_shuffled_index(
+              index, index_count, seed), index_count, seed) == index

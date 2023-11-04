@@ -76,7 +76,8 @@ type
     stamp*: chronos.Moment
     slots*: uint64
 
-  BeaconBlocksRes = NetRes[List[ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS]]
+  BeaconBlocksRes =
+    NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
   BlobSidecarsRes = NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
@@ -389,7 +390,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           queue_input_slot = man.queue.inpSlot,
           queue_output_slot = man.queue.outSlot,
           queue_last_slot = man.queue.finalSlot, direction = man.direction
-    await sleepAsync(RESP_TIMEOUT)
+    await sleepAsync(RESP_TIMEOUT_DUR)
     return
 
   debug "Creating new request for peer", wall_clock_slot = wallSlot,
@@ -629,18 +630,15 @@ proc toTimeLeftString*(d: Duration): string =
 
 proc syncClose[A, B](man: SyncManager[A, B], guardTaskFut: Future[void],
                      speedTaskFut: Future[void]) {.async.} =
-  guardTaskFut.cancel()
-  speedTaskFut.cancel()
-  await allFutures(guardTaskFut, speedTaskFut)
-  let pendingTasks =
-    block:
-      var res: seq[Future[void]]
-      for worker in man.workers:
-        doAssert(worker.status in {Sleeping, WaitingPeer})
-        worker.future.cancel()
-        res.add(worker.future)
-      res
-  await allFutures(pendingTasks)
+  var pending: seq[FutureBase]
+  if not(guardTaskFut.finished()):
+    pending.add(guardTaskFut.cancelAndWait())
+  if not(speedTaskFut.finished()):
+    pending.add(speedTaskFut.cancelAndWait())
+  for worker in man.workers:
+    doAssert(worker.status in {Sleeping, WaitingPeer})
+    pending.add(worker.future.cancelAndWait())
+  await noCancel allFutures(pending)
 
 proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
   logScope:

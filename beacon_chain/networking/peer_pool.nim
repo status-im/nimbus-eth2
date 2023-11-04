@@ -37,13 +37,13 @@ type
 
   PeerIndex = object
     data: int
-    cmp: proc(a, b: PeerIndex): bool {.gcsafe, raises: [Defect].}
+    cmp: proc(a, b: PeerIndex): bool {.gcsafe, raises: [].}
 
-  PeerScoreCheckCallback*[T] = proc(peer: T): bool {.gcsafe, raises: [Defect].}
+  PeerScoreCheckCallback*[T] = proc(peer: T): bool {.gcsafe, raises: [].}
 
-  PeerCounterCallback* = proc() {.gcsafe, raises: [Defect].}
+  PeerCounterCallback* = proc() {.gcsafe, raises: [].}
 
-  PeerOnDeleteCallback*[T] = proc(peer: T) {.gcsafe, raises: [Defect].}
+  PeerOnDeleteCallback*[T] = proc(peer: T) {.gcsafe, raises: [].}
 
   PeerPool*[A, B] = ref object
     incNotEmptyEvent*: AsyncEvent
@@ -54,7 +54,7 @@ type
     outQueue: HeapQueue[PeerIndex]
     registry: Table[B, PeerIndex]
     storage: seq[PeerItem[A]]
-    cmp: proc(a, b: PeerIndex): bool {.gcsafe, raises: [Defect].}
+    cmp: proc(a, b: PeerIndex): bool {.gcsafe, raises: [].}
     scoreCheck: PeerScoreCheckCallback[A]
     onDeletePeer: PeerOnDeleteCallback[A]
     peerCounter: PeerCounterCallback
@@ -114,19 +114,21 @@ proc waitForEvent[A, B](pool: PeerPool[A, B], eventType: EventType,
     var fut2 = outgoingEvent(eventType).wait()
     try:
       discard await one(fut1, fut2)
-      if fut1.finished:
-        if not(fut2.finished):
-          fut2.cancel()
+      if fut1.finished():
+        if not(fut2.finished()):
+          await fut2.cancelAndWait()
         incomingEvent(eventType).clear()
       else:
-        if not(fut1.finished):
-          fut1.cancel()
+        if not(fut1.finished()):
+          await fut1.cancelAndWait()
         outgoingEvent(eventType).clear()
     except CancelledError as exc:
-      if not(fut1.finished):
-        fut1.cancel()
-      if not(fut2.finished):
-        fut2.cancel()
+      var pending: seq[FutureBase]
+      if not(fut1.finished()):
+        pending.add(fut1.cancelAndWait())
+      if not(fut2.finished()):
+        pending.add(fut2.cancelAndWait())
+      await noCancel allFutures(pending)
       raise exc
   elif PeerType.Incoming in filter:
     await incomingEvent(eventType).wait()
@@ -544,7 +546,7 @@ proc acquire*[A, B](pool: PeerPool[A, B],
 proc acquireNoWait*[A, B](pool: PeerPool[A, B],
                           filter = {PeerType.Incoming,
                                     PeerType.Outgoing}
-                         ): A {.raises: [PeerPoolError, Defect].} =
+                         ): A {.raises: [PeerPoolError].} =
   doAssert(filter != {}, "Filter must not be empty")
   if pool.lenAvailable(filter) < 1:
     raise newException(PeerPoolError, "Not enough peers in pool")
@@ -686,12 +688,12 @@ iterator acquiredPeers*[A, B](pool: PeerPool[A, B],
     let pindex = sorted.pop().data
     yield pool.storage[pindex].data
 
-proc `[]`*[A, B](pool: PeerPool[A, B], key: B): A {.inline, raises: [Defect, KeyError].} =
+proc `[]`*[A, B](pool: PeerPool[A, B], key: B): A {.inline, raises: [KeyError].} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
   let pindex = pool.registry[key]
   pool.storage[pindex.data]
 
-proc `[]`*[A, B](pool: var PeerPool[A, B], key: B): var A {.inline, raises: [Defect, KeyError].} =
+proc `[]`*[A, B](pool: var PeerPool[A, B], key: B): var A {.inline, raises: [KeyError].} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
   let pindex = pool.registry[key]
   pool.storage[pindex.data].data

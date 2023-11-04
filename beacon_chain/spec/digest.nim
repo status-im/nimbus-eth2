@@ -7,7 +7,7 @@
 
 # Consensus hash function / digest
 #
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#hash
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
@@ -130,7 +130,9 @@ template withEth2Hash*(body: untyped): Eth2Digest =
 template hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables
   # digests are already good hashes
-  cast[ptr Hash](unsafeAddr x.data[0])[]
+  var h {.noinit.}: Hash
+  copyMem(addr h, unsafeAddr x.data[0], static(sizeof(Hash)))
+  h
 
 func `==`*(a, b: Eth2Digest): bool =
   when nimvm:
@@ -143,17 +145,17 @@ func `==`*(a, b: Eth2Digest): bool =
 func isZero*(x: Eth2Digest): bool =
   x.isZeroMemory
 
-proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =
+proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a
 
-proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =
+proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [IOError, SerializationError].} =
   try:
     a = fromHex(type(a), r.readValue(string))
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
 func strictParse*(T: type Eth2Digest, hexStr: openArray[char]): T
-                 {.raises: [Defect, ValueError].} =
+                 {.raises: [ValueError].} =
   ## TODO We use this local definition because the string parsing functions
   ##      provided by nimcrypto are currently too lax in their requirements
   ##      for the input string. Invalid strings are silently ignored.

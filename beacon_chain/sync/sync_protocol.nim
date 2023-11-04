@@ -153,9 +153,7 @@ proc readChunkPayload*(
         if contextFork !=
             peer.network.cfg.consensusForkAtEpoch(res.get.contextEpoch):
           return neterr InvalidContextBytes
-        var obj = ok MsgType(kind: lcDataFork)
-        obj.get.forky(lcDataFork) = res.get
-        return obj
+        return ok MsgType.init(res.get)
       else:
         return err(res.error)
     else:
@@ -261,7 +259,7 @@ p2pProtocol BeaconSync(version = 1,
     #      given incoming flag
     let
       ourStatus = peer.networkState.getCurrentStatus()
-      theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT)
+      theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)
 
     if theirStatus.isOk:
       discard await peer.handleStatus(peer.networkState, theirStatus.get())
@@ -283,7 +281,7 @@ p2pProtocol BeaconSync(version = 1,
     {.libp2pProtocol("ping", 1, isRequired = true).} =
     return peer.network.metadata.seq_number
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#transitioning-from-v1-to-v2
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#transitioning-from-v1-to-v2
   proc getMetaData(peer: Peer): uint64
     {.libp2pProtocol("metadata", 1, isRequired = true).} =
     raise newException(InvalidInputsError, "GetMetaData v1 unsupported")
@@ -298,7 +296,7 @@ p2pProtocol BeaconSync(version = 1,
       reqCount: uint64,
       reqStep: uint64,
       response: MultipleChunksResponse[
-        ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS])
+        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS])
       {.async, libp2pProtocol("beacon_blocks_by_range", 2).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -320,7 +318,7 @@ p2pProtocol BeaconSync(version = 1,
     if reqCount == 0 or reqStep == 0:
       raise newException(InvalidInputsError, "Empty range requested")
 
-    var blocks: array[MAX_REQUEST_BLOCKS, BlockId]
+    var blocks: array[MAX_REQUEST_BLOCKS.int, BlockId]
     let
       dag = peer.networkState.dag
       # Limit number of blocks in response
@@ -367,7 +365,7 @@ p2pProtocol BeaconSync(version = 1,
       # spec constant MAX_REQUEST_BLOCKS is enforced:
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[
-        ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS])
+        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS])
       {.async, libp2pProtocol("beacon_blocks_by_root", 2).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -548,7 +546,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "BlobSidecar range request done",
       peer, startSlot, count = reqCount, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
   proc lightClientBootstrap(
       peer: Peer,
       blockRoot: Eth2Digest,
@@ -576,7 +574,7 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "LC bootstrap request done", peer, blockRoot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
   proc lightClientUpdatesByRange(
       peer: Peer,
       startPeriod: SyncCommitteePeriod,
@@ -621,7 +619,7 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "LC updates by range request done", peer, startPeriod, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
   proc lightClientFinalityUpdate(
       peer: Peer,
       response: SingleChunkResponse[ForkedLightClientFinalityUpdate])
@@ -648,7 +646,7 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "LC finality update request done", peer
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
   proc lightClientOptimisticUpdate(
       peer: Peer,
       response: SingleChunkResponse[ForkedLightClientOptimisticUpdate])
@@ -710,7 +708,7 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
     nstate = peer.networkState(BeaconSync)
     ourStatus = getCurrentStatus(nstate)
 
-  let theirFut = awaitne peer.status(ourStatus, timeout = RESP_TIMEOUT)
+  let theirFut = awaitne peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)
   if theirFut.failed():
     return false
   else:

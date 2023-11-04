@@ -15,12 +15,12 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../../beacon_chain/spec/helpers,
+  ../../beacon_chain/spec/helpers,
   # Test utilities
   ../testutil,
   ./fixtures_utils, ./os_ops
 
-proc runTest[T](path: string, objType: typedesc[T]) =
+proc runTest[T](suiteName, path: string, objType: typedesc[T]) =
   test "Light client - Single merkle proof - " & path.relativePath(SszTestsDir):
     type
       TestProof = object
@@ -69,8 +69,8 @@ suite "EF - Light client - Single merkle proof" & preset():
         for kind, path in walkDir(suitePath, relative = true, checkDir = true):
           case objName
           of "BeaconBlockBody":
-            runTest(suitePath/path, BeaconBlockBodyType(consensusFork))
+            runTest(suiteName, suitePath/path, consensusFork.BeaconBlockBody)
           of "BeaconState":
-            runTest(suitePath/path, BeaconStateType(consensusFork))
+            runTest(suiteName, suitePath/path, consensusFork.BeaconState)
           else:
             raiseAssert "Unknown test object: " & suitePath/path

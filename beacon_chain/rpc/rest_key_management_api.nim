@@ -24,7 +24,7 @@ func validateKeymanagerApiQueries*(key: string, value: string): int =
   return 0
 
 proc listLocalValidators*(validatorPool: ValidatorPool): seq[KeystoreInfo] {.
-     raises: [Defect].} =
+     raises: [].} =
   var validators: seq[KeystoreInfo]
   for item in validatorPool:
     if item.kind == ValidatorKind.Local:
@@ -37,7 +37,7 @@ proc listLocalValidators*(validatorPool: ValidatorPool): seq[KeystoreInfo] {.
 
 proc listRemoteValidators*(
        validatorPool: ValidatorPool): seq[RemoteKeystoreInfo] {.
-     raises: [Defect].} =
+     raises: [].} =
   var validators: seq[RemoteKeystoreInfo]
   for item in validatorPool:
     if item.kind == ValidatorKind.Remote and item.data.remotes.len == 1:
@@ -49,7 +49,7 @@ proc listRemoteValidators*(
 
 proc listRemoteDistributedValidators*(
        validatorPool: ValidatorPool): seq[DistributedKeystoreInfo] {.
-     raises: [Defect].} =
+     raises: [].} =
   var validators: seq[DistributedKeystoreInfo]
   for item in validatorPool:
     if item.kind == ValidatorKind.Remote and item.data.remotes.len > 1:
@@ -123,7 +123,7 @@ proc handleRemoveValidatorReq(host: KeymanagerHost,
         return RemoteKeystoreStatus(status: KeystoreStatus.notFound)
     else:
       return RemoteKeystoreStatus(status: KeystoreStatus.error,
-                                  message: some($res.error()))
+                                  message: Opt.some($res.error()))
 
 proc handleAddRemoteValidatorReq(host: KeymanagerHost,
                                  keystore: RemoteKeystore): RequestItemStatus =
@@ -185,7 +185,8 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     for index, item in request.keystores:
       let res = importKeystore(host.validatorPool[], host.rng[],
                                host.validatorsDir, host.secretsDir,
-                               item, request.passwords[index])
+                               item, request.passwords[index],
+                               host.keystoreCache)
       if res.isErr():
         let failure = res.error()
         case failure.status

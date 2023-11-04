@@ -63,24 +63,9 @@ suite "Light client" & preset():
       for blck in makeTestBlocks(
           dag.headState, cache, blocks.int, attested = attested,
           syncCommitteeRatio = syncCommitteeRatio, cfg = cfg):
-        let added =
-          case blck.kind
-          of ConsensusFork.Phase0:
-            const nilCallback = OnPhase0BlockAdded(nil)
-            dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
-          of ConsensusFork.Altair:
-            const nilCallback = OnAltairBlockAdded(nil)
-            dag.addHeadBlock(verifier, blck.altairData, nilCallback)
-          of ConsensusFork.Bellatrix:
-            const nilCallback = OnBellatrixBlockAdded(nil)
-            dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
-          of ConsensusFork.Capella:
-            const nilCallback = OnCapellaBlockAdded(nil)
-            dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
-          of ConsensusFork.Deneb:
-            const nilCallback = OnDenebBlockAdded(nil)
-            dag.addHeadBlock(verifier, blck.denebData, nilCallback)
-
+        let added = withBlck(blck):
+          const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+          dag.addHeadBlock(verifier, forkyBlck, nilCallback)
         check: added.isOk()
         dag.updateHead(added[], quarantine, [])
 
@@ -96,7 +81,8 @@ suite "Light client" & preset():
       quarantine = newClone(Quarantine.init())
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
-    var verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+    var
+      verifier = BatchVerifier.init(rng, taskpool)
 
   test "Pre-Altair":
     # Genesis
@@ -159,11 +145,10 @@ suite "Light client" & preset():
     var store {.noinit.}: ForkedLightClientStore
     withForkyBootstrap(bootstrap):
       when lcDataFork > LightClientDataFork.None:
-        var storeRes = initialize_light_client_store(
-          trusted_block_root, forkyBootstrap, cfg)
-        check storeRes.isOk
-        store = ForkedLightClientStore(kind: lcDataFork)
-        store.forky(lcDataFork) = storeRes.get
+        var storeRes = newClone(initialize_light_client_store(
+          trusted_block_root, forkyBootstrap, cfg))
+        check storeRes[].isOk
+        store = newClone(ForkedLightClientStore.init(storeRes[].get))[]
 
     # Sync to latest sync committee period
     var numIterations = 0

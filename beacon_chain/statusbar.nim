@@ -22,7 +22,7 @@ type
     cellsRight: seq[StatusBarCell]
 
   DataItemResolver* = proc (dataItem: string): string {.
-    gcsafe, raises: [Defect].}
+    gcsafe, raises: [].}
 
   StatusBarView* = object
     model: DataItemResolver
@@ -40,11 +40,11 @@ const
   foregroundColor = colWhiteSmoke
 
 func loadFragmentsLayout(contentLayout: string): ContentFragments {.
-    raises: [Defect, ValueError].} =
+    raises: [ValueError].} =
   toSeq(interpolatedFragments(strip contentLayout))
 
 func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.
-    raises: [Defect, ValueError].} =
+    raises: [ValueError].} =
   let cells = cellsLayout.split(';')
   for cell in cells:
     let columns = cell.split(':', maxSplit = 1)
@@ -56,7 +56,7 @@ func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.
       result.add StatusBarCell(
         contentFragments: loadFragmentsLayout(columns[0]))
 
-func loadLayout(layout: string): Layout {.raises: [Defect, ValueError].} =
+func loadLayout(layout: string): Layout {.raises: [ValueError].} =
   let sections = layout.split('|', maxSplit = 1)
   result.cellsLeft = loadCellsLayout(sections[0])
   if sections.len == 2: result.cellsRight = loadCellsLayout(sections[1])
@@ -107,7 +107,7 @@ proc renderCells(cells: seq[StatusBarCell], sep: string) =
       stdout.write cell.content, " "
       stdout.resetAttributes()
 
-proc render*(s: var StatusBarView) {.raises: [Defect, ValueError].} =
+proc render*(s: var StatusBarView) {.raises: [ValueError].} =
   doAssert s.consumedLines == 0
 
   let
@@ -135,6 +135,5 @@ proc erase*(s: var StatusBarView) =
 
 func init*(T: type StatusBarView,
            layout: string,
-           model: DataItemResolver): T {.raises: [Defect, ValueError].} =
+           model: DataItemResolver): T {.raises: [ValueError].} =
   StatusBarView(model: model, consumedLines: 1, layout: loadLayout(layout))
-

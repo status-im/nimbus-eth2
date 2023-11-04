@@ -33,11 +33,29 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-1-6]
+        branch: [~, upstream/version-1-6, upstream/version-2-0]
+        exclude:
+          - target:
+              os: macos
+            branch: upstream/version-1-6
+          - target:
+              os: macos
+            branch: upstream/version-2-0
+          - target:
+              os: windows
+            branch: upstream/version-1-6
+          - target:
+              os: windows
+            branch: ~
         include:
+          - branch: upstream/version-1-6
+            branch-short: version-1-6
+          - branch: upstream/version-2-0
+            branch-short: version-2-0
+            nimflags-extra: --mm:refc
           - target:
               os: linux
-            builder: ubuntu-22.04
+            builder: ['self-hosted','ubuntu-22.04']
             shell: bash
           - target:
               os: macos
@@ -52,7 +70,7 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
 
-    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ matrix.branch }}${{ matrix.branch != '' && ')' || '' }}
+    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ matrix.branch-short }}${{ matrix.branch != '' && ')' || '' }}
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Checkout
@@ -106,12 +124,16 @@ jobs:
           # Stack usage test and UBSAN on recent enough gcc:
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
             if [[ '${{ github.sha }}' =~ ^7 ]]; then
+              export WITH_UBSAN=1
+              echo "WITH_UBSAN=1" >> $GITHUB_ENV
               export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage --passC:-fsanitize=undefined --passL:-fsanitize=undefined"
             else
               export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
             fi
-            echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
           fi
+
+          export NIMFLAGS="${NIMFLAGS} ${{ matrix.nimflags-extra }}"
+          echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
 
           ncpu=""
           make_cmd="make"
@@ -150,7 +172,7 @@ jobs:
 
       - name: Build binaries (with trace logging enabled)
         run: |
-          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none"
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${{ matrix.nimflags-extra }}"
           # The Windows image runs out of disk space, so make some room
           rm -rf build nimcache
 
@@ -193,7 +215,7 @@ jobs:
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           excluded_files="config.yaml"
-          excluded_extensions="ans|json|md|png|ssz|txt"
+          excluded_extensions="ans|json|md|png|service|ssz|txt"
 
           current_year=$(date +"%Y")
           outdated_files=()
@@ -216,16 +238,27 @@ jobs:
         run: |
           while read -r file; do
             commit="$(git -C "$file" rev-parse HEAD)"
+            commit_date=$(git -C "$file" show -s --format='%ci' HEAD)
             if ! branch="$(git config -f .gitmodules --get "submodule.$file.branch")"; then
               echo "Submodule '$file': '.gitmodules' lacks 'branch' entry"
               exit 2
             fi
-            if ! error="$(git -C "$file" fetch -q origin "$branch")"; then
-              echo "Submodule '$file': Failed to fetch '$branch': $error"
+            # Without the `--depth=1` fetch, may run into 'error processing shallow info: 4'
+            if ! error="$(git -C "$file" fetch -q --depth=1 origin "+refs/heads/${branch}:refs/remotes/origin/${branch}")"; then
+              echo "Submodule '$file': Failed to fetch '$branch': $error (1)"
               exit 2
             fi
-            if ! git -C "$file" merge-base --is-ancestor "$commit" "origin/$branch"; then
-              echo "Submodule '$file': '$commit' is not on '$branch'"
+            branch_commit_date=$(git -C "$file" show -s --format='%ci' "refs/remotes/origin/${branch}")
+            if [[ "${commit_date}" > "${branch_commit_date}" ]]; then
+              echo "Submodule '$file': '$commit' ($commit_date) is more recent than latest '$branch' ($branch_commit_date) (branch config: '.gitmodules')"
+              exit 2
+            fi
+            if ! error="$(git -C "$file" fetch -q --shallow-since="$commit_date" origin "+refs/heads/${branch}:refs/remotes/origin/${branch}")"; then
+              echo "Submodule '$file': Failed to fetch '$branch': $error (2)"
+              exit 2
+            fi
+            if ! git -C "$file" merge-base --is-ancestor "$commit" "refs/remotes/origin/$branch"; then
+              echo "Submodule '$file': '$commit' is not on '$branch' as of $commit_date (branch config: '.gitmodules')"
               exit 2
             fi
           done < <(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep -f <(git config --file .gitmodules --get-regexp path | awk '{ print $2 }') || true)

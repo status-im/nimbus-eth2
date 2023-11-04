@@ -12,7 +12,7 @@ import
   # Status lib
   unittest2,
   chronicles, chronos,
-  stew/byteutils,
+  stew/[byteutils, endians2],
   taskpools,
   # Internal
   ../beacon_chain/gossip_processing/[gossip_validation],
@@ -65,7 +65,7 @@ suite "Attestation pool processing" & preset():
         ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 6),
         validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier(rng: rng, taskpool: taskpool)
+      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)

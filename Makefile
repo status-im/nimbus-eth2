@@ -118,17 +118,31 @@ ifneq ($(OS), Windows_NT)
 PLATFORM_SPECIFIC_TARGETS += gnosis-build
 endif
 
+# We don't need the `vendor/holesky/public-keys/all.txt` file but fetching it
+# may trigger 'This repository is over its data quota' from GitHub
+GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt
+
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
 #
 # The `git reset ...` will try to fix a `make update` that was interrupted
 # with Ctrl+C after deleting the working copy and before getting a chance to
 # restore it in $(BUILD_SYSTEM_DIR).
-GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
+
+# `vendor/holesky` requires Git LFS
+ifeq (, $(shell which git-lfs))
+ifeq ($(shell uname), Darwin)
+$(error Git LFS not installed. Run 'brew install git-lfs' to set up)
+else
+$(error Git LFS not installed)
+endif
+endif
+
+GIT_SUBMODULE_UPDATE := git $(GIT_SUBMODULE_CONFIG) submodule update --init --recursive
 .DEFAULT:
 	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE) && \
-		git submodule foreach --quiet 'git reset --quiet --hard' && \
+		git submodule foreach --quiet 'git $(GIT_SUBMODULE_CONFIG) reset --quiet --hard' && \
 		echo
 # Now that the included *.mk files appeared, and are newer than this file, Make will restart itself:
 # https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles
@@ -171,8 +185,10 @@ libbacktrace:
 
 # Make sure ports don't overlap to support concurrent execution of tests
 # Avoid selecting ephemeral ports that may be used by others; safe = 5001-9999
+# - Port 8301 is used by Consul
+# - Port 9952 sometimes reports (48) Address already in use.
 #
-# EXECUTOR_NUMBER: [0, 1] (depends on max number of concurrent CI jobs)
+# EXECUTOR_NUMBER: [0, 2] (depends on max number of concurrent CI jobs)
 #
 # The following port ranges are allocated (entire continuous range):
 #
@@ -181,9 +197,9 @@ libbacktrace:
 # - NIMBUS_TEST_SIGNING_NODE_BASE_PORT + [0, 2)
 #
 # REST tests:
-# - --base-port
-# - --base-rest-port
-# - --base-metrics-port
+# - --base-port (REST_TEST_BASE_PORT + 0)
+# - --base-rest-port (REST_TEST_BASE_PORT + 1)
+# - --base-metrics-port (REST_TEST_BASE_PORT + 2)
 #
 # Local testnets (entire continuous range):
 # - --base-port + [0, --nodes + --light-clients)
@@ -199,14 +215,17 @@ libbacktrace:
 # - --base-el-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
-UNIT_TEST_BASE_PORT := 9950
+UNIT_TEST_BASE_PORT := 9960
+REST_TEST_BASE_PORT := 9990
+MINIMAL_TESTNET_BASE_PORT := 5001
+MAINNET_TESTNET_BASE_PORT := 6501
 
 restapi-test:
 	./tests/simulation/restapi.sh \
 		--data-dir resttest0_data \
-		--base-port $$(( 5001 + EXECUTOR_NUMBER * 500 )) \
-		--base-rest-port $$(( 5031 + EXECUTOR_NUMBER * 500 )) \
-		--base-metrics-port $$(( 5061 + EXECUTOR_NUMBER * 500 )) \
+		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 0 )) \
+		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 1 )) \
+		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 2 )) \
 		--resttest-delay 30 \
 		--kill-old-processes
 
@@ -218,52 +237,53 @@ local-testnet-minimal:
 		--preset minimal \
 		--nodes 2 \
 		--signer-nodes 1 \
-		--remote-validators-count 1024 \
+		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--capella-fork-epoch 3 \
+		--capella-fork-epoch 0 \
 		--deneb-fork-epoch 20 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-payload-builder \
 		--enable-logtrace \
-		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
-		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
-		--base-metrics-port $$(( 6061 + EXECUTOR_NUMBER * 500 )) \
-		--base-vc-keymanager-port $$(( 6131 + EXECUTOR_NUMBER * 500 )) \
-		--base-vc-metrics-port $$(( 6161 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-metrics-port $$(( 6251 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 6301 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-rpc-port $$(( 6302 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 6303 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 6304 + EXECUTOR_NUMBER * 500 )) \
+		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
+		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
+		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
+		--base-vc-keymanager-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 130)) \
+		--base-vc-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 160)) \
+		--base-remote-signer-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 200)) \
+		--base-remote-signer-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 250)) \
+		--base-el-net-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 300 )) \
+		--base-el-rpc-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 301 )) \
+		--base-el-ws-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 302 )) \
+		--base-el-auth-rpc-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 303 )) \
 		--el-port-offset 5 \
 		--timeout 648 \
 		--kill-old-processes \
 		--run-geth --dl-geth \
 		-- \
 		--verify-finalization \
-		--discv5:no
+		--discv5:no \
+		--num-threads:1
 
 local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--capella-fork-epoch 3 \
+		--capella-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
-		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
-		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
-		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
-		--base-vc-keymanager-port $$(( 7131 + EXECUTOR_NUMBER * 500 )) \
-		--base-vc-metrics-port $$(( 7161 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-metrics-port $$(( 7251 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 7301 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-rpc-port $$(( 7302 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 7303 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 7304 + EXECUTOR_NUMBER * 500 )) \
+		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
+		--base-rest-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
+		--base-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
+		--base-vc-keymanager-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 130 )) \
+		--base-vc-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 160 )) \
+		--base-remote-signer-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 200 )) \
+		--base-remote-signer-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 250 )) \
+		--base-el-net-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 300 )) \
+		--base-el-rpc-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 301 )) \
+		--base-el-ws-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 302 )) \
+		--base-el-auth-rpc-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 303 )) \
 		--el-port-offset 5 \
 		--timeout 2784 \
 		--kill-old-processes \
@@ -283,7 +303,6 @@ XML_TEST_BINARIES := \
 
 # test suite
 TEST_BINARIES := \
-	state_sim \
 	block_sim \
 	test_libnimbus_lc
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
@@ -302,7 +321,7 @@ consensus_spec_tests_minimal: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:const_preset=minimal $(TEST_MODULES_FLAGS) && \
+			$(NIM_PARAMS) -d:const_preset=minimal -d:FIELD_ELEMENTS_PER_BLOB=4 $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Tests we only run for the default preset
@@ -340,8 +359,8 @@ fork_choice: | build deps
 # CI false negatives in a process lasting hours and requiring a restart, and
 # therefore even more wasted time, when it does.
 #
-# If one asks for, e.g., `make all_tests state_sim`, it intentionally allows
-# those in paralle, because the CI system does do that.
+# If one asks for, e.g., `make all_tests block_sim`, it intentionally allows
+# those in parallel, because the CI system doesn't do that.
 #
 # https://www.gnu.org/software/make/manual/html_node/Parallel-Disable.html
 # describes a special target .WAIT which would enable this more easily but
@@ -361,15 +380,7 @@ all_tests: | build deps nimbus_signing_node force_build_alone_all_tests
 			$(NIM_PARAMS) $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
-# State and block sims; getting to 4th epoch triggers consensus checks
-state_sim: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"research/$@.nim" \
-			$(NIM_PARAMS) && \
-		echo -e $(BUILD_END_MSG) "build/$@"
-
+# Block sim; getting to 4th epoch triggers consensus checks
 block_sim: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
@@ -387,31 +398,30 @@ endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 + 0 )) \
-		NIMBUS_TEST_SIGNING_NODE_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 + 4 )) \
+		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 6 + 0 )) \
+		NIMBUS_TEST_SIGNING_NODE_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 6 + 4 )) \
 			build/$${TEST_BINARY} $${PARAMS} || { \
-				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
-				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 5000 lines from the log:"; \
+				tail -n5000 "$${TEST_BINARY}.log"; exit 1; \
 			}; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 	for TEST_BINARY in $(TEST_BINARIES); do \
 		PARAMS=""; \
 		REDIRECT=""; \
-		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
-		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
+		if [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=10000 --slots=192"; \
 		elif [[ "$${TEST_BINARY}" == "test_libnimbus_lc" ]]; then REDIRECT="$${TEST_BINARY}.log"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
 		if [[ "$${REDIRECT}" != "" ]]; then \
 			build/$${TEST_BINARY} $${PARAMS} > "$${REDIRECT}" && echo "OK" || { \
-				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
-				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 5000 lines from the log:"; \
+				tail -n5000 "$${TEST_BINARY}.log"; exit 1; \
 			}; \
 		else \
 			build/$${TEST_BINARY} $${PARAMS} || { \
-				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
-				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 5000 lines from the log:"; \
+				tail -n5000 "$${TEST_BINARY}.log"; exit 1; \
 			}; \
 		fi; \
 		done; \
@@ -704,6 +714,17 @@ gnosis-build gnosis-chain-build: | build deps
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
 
+gnosis-vc-build: | build deps
+	+ echo -e $(BUILD_MSG) "build/nimbus_validator_client_gnosis" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			nimbus_validator_client_gnosis \
+			beacon_chain/nimbus_validator_client.nim \
+			$(NIM_PARAMS) \
+			-d:gnosisChainBinary \
+			-d:const_preset=gnosis \
+			&& \
+		echo -e $(BUILD_END_MSG) "build/nimbus_validator_client_gnosis"
+
 gnosis: | gnosis-build
 	$(call CONNECT_TO_NETWORK,gnosis,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
 
@@ -748,24 +769,34 @@ clean-gnosis-chain:
 
 libnimbus_lc.a: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		set -x && \
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) $(NIMC) c -d:disable_libbacktrace -d:release --app:staticlib --noMain --nimcache:nimcache/libnimbus_lc_static -o:build/$@ $(NIM_PARAMS) beacon_chain/libnimbus_lc/libnimbus_lc.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # `-Wno-maybe-uninitialized` in Linux: https://github.com/nim-lang/Nim/issues/22246
+# `-fsanitize=undefined` in Windows: https://github.com/msys2/MINGW-packages/issues/3163
+# `-Wl,--stack,0x0000000000800000` in Windows: MinGW default of 2 MB leads to `SIGSEGV` in `___chkstk_ms` in Nim 2.0
 test_libnimbus_lc: libnimbus_lc.a
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		set -x && \
+		EXTRA_FLAGS=() && \
 		case "$$(uname)" in \
 		Darwin) \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a -framework Security; \
+			if (( $${WITH_UBSAN:-0} )); then \
+				EXTRA_FLAGS+=('-fsanitize=undefined'); \
+			fi; \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a -framework Security "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		MINGW64_*) \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
+			if (( $${WITH_UBSAN:-0} )); then \
+				echo "MINGW cannot find -lubsan." && exit 1; \
+			fi; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -Wl,--stack,0x0000000000800000 -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		*) \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -Wno-maybe-uninitialized -flto -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a; \
+			if (( $${WITH_UBSAN:-0} )); then \
+				EXTRA_FLAGS+=('-fsanitize=undefined'); \
+			fi; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -Wno-maybe-uninitialized -flto -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		esac && \
 		echo -e $(BUILD_END_MSG) "build/$@"
@@ -787,7 +818,7 @@ ntu: | build deps
 	+ $(ENV_SCRIPT) $(NIMC) -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile,nimbus-wix/obj}
+	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,transition*,generate_makefile,nimbus-wix/obj}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ "$(MAKE)" -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif

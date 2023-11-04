@@ -130,7 +130,7 @@ type
     Local, Remote
 
   RemoteKeystoreFlag* {.pure.} = enum
-    IgnoreSSLVerification
+    IgnoreSSLVerification, DynamicKeystore
 
   HttpHostUri* = distinct Uri
 
@@ -518,13 +518,13 @@ proc shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   ctx.clear()
 
 proc writeJsonHexString(s: OutputStream, data: openArray[byte])
-                       {.raises: [IOError, Defect].} =
+                       {.raises: [IOError].} =
   s.write '"'
   s.write ncrutils.toHex(data, {HexFlags.LowerCase})
   s.write '"'
 
 proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   let s = r.readValue(string)
 
   if s.len == 0 or s.len mod 16 != 0:
@@ -538,7 +538,7 @@ proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
       "The Pbkdf2Salt must be a valid hex string")
 
 proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   let s = r.readValue(string)
 
   if s.len != 32:
@@ -551,7 +551,7 @@ proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
       "The aes-128-ctr IV must be a valid hex string")
 
 proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   value = T ncrutils.fromHex(r.readValue(string))
   if len(seq[byte](value)) == 0:
     r.raiseUnexpectedValue("Valid hex string expected")
@@ -688,7 +688,7 @@ proc readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
 
 # HttpHostUri
 proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = parseUri(svalue)
   if res.scheme != "http" and res.scheme != "https":
@@ -697,13 +697,13 @@ proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
     reader.raiseUnexpectedValue("Missing URL hostname")
   value = HttpHostUri(res)
 
-proc writeValue*(writer: var JsonWriter, value: HttpHostUri) {.
-     raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: HttpHostUri) {.raises: [IOError].} =
   writer.writeValue($distinctBase(value))
 
 # RemoteKeystore
-proc writeValue*(writer: var JsonWriter, value: RemoteKeystore)
-                {.raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: RemoteKeystore) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("version", value.version)
   writer.writeField("pubkey", "0x" & value.pubkey.toHex())
@@ -725,8 +725,28 @@ template writeValue*(w: var JsonWriter,
                      value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
   writeJsonHexString(w.stream, distinctBase value)
 
+func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, string] =
+  if propertyPath == ".execution_payload.fee_recipient":
+    ok ProvenProperty(
+      path: propertyPath,
+      bellatrixIndex: some GeneralizedIndex(401),
+      capellaIndex: some GeneralizedIndex(401),
+      denebIndex: some GeneralizedIndex(801))
+  elif propertyPath == ".graffiti":
+    ok ProvenProperty(
+      path: propertyPath,
+      # TODO: graffiti is present since genesis, so the correct index in the early
+      #       forks can be supplied here
+      bellatrixIndex: some GeneralizedIndex(18),
+      capellaIndex: some GeneralizedIndex(18),
+      denebIndex: some GeneralizedIndex(18))
+  else:
+    err("Keystores with proven properties different than " &
+        "`.execution_payload.fee_recipient` and `.graffiti` " &
+        "require a more recent version of Nimbus")
+
 proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
-               {.raises: [SerializationError, IOError, Defect].} =
+               {.raises: [SerializationError, IOError].} =
   var
     version: Option[uint64]
     description: Option[string]
@@ -830,6 +850,8 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
           prop.capellaIndex = some GeneralizedIndex(401)
           prop.denebIndex = some GeneralizedIndex(801)
         elif prop.path == ".graffiti":
+          # TODO: graffiti is present since genesis, so the correct index in the early
+          #       forks can be supplied here
           prop.bellatrixIndex = some GeneralizedIndex(18)
           prop.capellaIndex = some GeneralizedIndex(18)
           prop.denebIndex = some GeneralizedIndex(18)
@@ -905,10 +927,6 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
         provenBlockProperties: provenBlockProperties.get,
         remotes: remotes.get,
         threshold: threshold.get(1))
-
-template writeValue*(w: var JsonWriter,
-                     value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
-  writeJsonHexString(w.stream, distinctBase value)
 
 template bytes(value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv): seq[byte] =
   distinctBase value
@@ -1178,13 +1196,14 @@ proc decryptKeystore*(keystore: JsonString,
                       password: KeystorePass): KsResult[ValidatorPrivKey] =
   decryptKeystore(keystore, password, nil)
 
-proc writeValue*(writer: var JsonWriter, value: lcrypto.PublicKey) {.
-     inline, raises: [IOError, Defect].} =
+proc writeValue*(
+    writer: var JsonWriter, value: lcrypto.PublicKey
+) {.inline, raises: [IOError].} =
   writer.writeValue(ncrutils.toHex(value.getBytes().get(),
                                    {HexFlags.LowerCase}))
 
 proc readValue*(reader: var JsonReader, value: var lcrypto.PublicKey) {.
-     raises: [SerializationError, IOError, Defect].} =
+     raises: [SerializationError, IOError].} =
   let res = init(lcrypto.PublicKey, reader.readValue(string))
   if res.isOk():
     value = res.get()
@@ -1366,13 +1385,13 @@ proc createWallet*(kdfKind: KdfKind,
     crypto: crypto,
     nextAccount: nextAccount.get(0))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/validator.md#bls_withdrawal_prefix
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#bls_withdrawal_prefix
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 

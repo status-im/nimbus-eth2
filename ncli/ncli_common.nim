@@ -288,39 +288,37 @@ proc collectEpochRewardsAndPenalties*(
       total_active_balance)
     finality_delay = get_finality_delay(state)
 
-  for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
-    for validator_index, delta in get_flag_index_deltas(
-        state, flag_index, base_reward_per_increment, info, finality_delay):
-      template rp: untyped = rewardsAndPenalties[validator_index]
+  for validator_index, reward_source, reward_target, reward_head,
+      penalty_source, penalty_target, penalty_inactivity in
+      get_flag_and_inactivity_deltas(
+        cfg, state, base_reward_per_increment, info, finality_delay):
+    template rp: untyped = rewardsAndPenalties[validator_index]
 
-      let
-        base_reward = get_base_reward_increment(
-          state, validator_index, base_reward_per_increment)
-        active_increments = get_active_increments(info)
-        unslashed_participating_increment =
-          get_unslashed_participating_increment(info, flag_index)
-        max_flag_index_reward = get_flag_index_reward(
-          state, base_reward, active_increments,
-          unslashed_participating_increment,
-          PARTICIPATION_FLAG_WEIGHTS[flag_index].uint64,
-          finality_delay)
+    let
+      base_reward = get_base_reward_increment(
+        state, validator_index, base_reward_per_increment)
+      active_increments = get_active_increments(info)
 
-      case flag_index
-      of TIMELY_SOURCE_FLAG_INDEX:
-        rp.source_outcome = delta.getOutcome
-        rp.max_source_reward = max_flag_index_reward
-      of TIMELY_TARGET_FLAG_INDEX:
-        rp.target_outcome = delta.getOutcome
-        rp.max_target_reward = max_flag_index_reward
-      of TIMELY_HEAD_FLAG_INDEX:
-        rp.head_outcome = delta.getOutcome
-        rp.max_head_reward = max_flag_index_reward
-      else:
-        raiseAssert(&"Unknown flag index {flag_index}.")
+    template unslashed_participating_increment(flag_index: untyped): untyped =
+      get_unslashed_participating_increment(info, flag_index)
+    template max_flag_index_reward(flag_index: untyped): untyped =
+      get_flag_index_reward(
+        state, base_reward, active_increments,
+        unslashed_participating_increment(flag_index),
+        PARTICIPATION_FLAG_WEIGHTS[flag_index], finality_delay)
 
-  for validator_index, penalty in get_inactivity_penalty_deltas(
-      cfg, state, info):
-    rewardsAndPenalties[validator_index].inactivity_penalty += penalty
+    rp.source_outcome = reward_source.int64 - penalty_source.int64
+    rp.max_source_reward =
+      max_flag_index_reward(TimelyFlag.TIMELY_SOURCE_FLAG_INDEX)
+    rp.target_outcome = reward_target.int64 - penalty_target.int64
+    rp.max_target_reward =
+      max_flag_index_reward(TimelyFlag.TIMELY_TARGET_FLAG_INDEX)
+    rp.head_outcome = reward_head.int64
+    rp.max_head_reward =
+      max_flag_index_reward(TimelyFlag.TIMELY_HEAD_FLAG_INDEX)
+
+    rewardsAndPenalties[validator_index].inactivity_penalty +=
+      penalty_inactivity
 
   rewardsAndPenalties.collectSlashings(state, info.balances.current_epoch)
 
@@ -338,28 +336,28 @@ func collectFromProposerSlashings(
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock) =
   withStateAndBlck(forkedState, forkedBlock):
-    for proposer_slashing in blck.message.body.proposer_slashings:
+    for proposer_slashing in forkyBlck.message.body.proposer_slashings:
       doAssert check_proposer_slashing(
         forkyState.data, proposer_slashing, {}).isOk
       let slashedIndex =
         proposer_slashing.signed_header_1.message.proposer_index
       rewardsAndPenalties.collectFromSlashedValidator(
         forkyState.data, slashedIndex.ValidatorIndex,
-        blck.message.proposer_index.ValidatorIndex)
+        forkyBlck.message.proposer_index.ValidatorIndex)
 
 func collectFromAttesterSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock) =
   withStateAndBlck(forkedState, forkedBlock):
-    for attester_slashing in blck.message.body.attester_slashings:
+    for attester_slashing in forkyBlck.message.body.attester_slashings:
       let attester_slashing_validity = check_attester_slashing(
         forkyState.data, attester_slashing, {})
       doAssert attester_slashing_validity.isOk
       for slashedIndex in attester_slashing_validity.value:
         rewardsAndPenalties.collectFromSlashedValidator(
           forkyState.data, slashedIndex,
-          blck.message.proposer_index.ValidatorIndex)
+          forkyBlck.message.proposer_index.ValidatorIndex)
 
 func collectFromAttestations(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
@@ -372,7 +370,7 @@ func collectFromAttestations(
       let base_reward_per_increment = get_base_reward_per_increment(
         get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0
-      for attestation in blck.message.body.attestations:
+      for attestation in forkyBlck.message.body.attestations:
         doAssert check_attestation(
           forkyState.data, attestation, {}, cache).isOk
         let proposerReward =
@@ -384,8 +382,8 @@ func collectFromAttestations(
             get_proposer_reward(
               forkyState.data, attestation, base_reward_per_increment, cache,
               epochParticipationFlags.previousEpochParticipation)
-        rewardsAndPenalties[blck.message.proposer_index].proposer_outcome +=
-          proposerReward.int64
+        rewardsAndPenalties[forkyBlck.message.proposer_index]
+          .proposer_outcome += proposerReward.int64
         let inclusionDelay = forkyState.data.slot - attestation.data.slot
         for index in get_attesting_indices(
             forkyState.data, attestation.data, attestation.aggregation_bits,
@@ -399,7 +397,7 @@ proc collectFromDeposits(
     pubkeyToIndex: var PubkeyToIndexTable,
     cfg: RuntimeConfig) =
   withStateAndBlck(forkedState, forkedBlock):
-    for deposit in blck.message.body.deposits:
+    for deposit in forkyBlck.message.body.deposits:
       let pubkey = deposit.data.pubkey
       let amount = deposit.data.amount
       var index = findValidatorIndex(forkyState.data, pubkey)
@@ -428,7 +426,7 @@ func collectFromSyncAggregate(
         indices = get_sync_committee_cache(
           forkyState.data, cache).current_sync_committee
 
-      template aggregate: untyped = blck.message.body.sync_aggregate
+      template aggregate: untyped = forkyBlck.message.body.sync_aggregate
 
       doAssert indices.len == SYNC_COMMITTEE_SIZE
       doAssert aggregate.sync_committee_bits.len == SYNC_COMMITTEE_SIZE
@@ -441,8 +439,8 @@ func collectFromSyncAggregate(
         if aggregate.sync_committee_bits[i]:
           rewardsAndPenalties[indices[i]].sync_committee_outcome +=
             participant_reward.int64
-          rewardsAndPenalties[blck.message.proposer_index].proposer_outcome +=
-            proposer_reward.int64
+          rewardsAndPenalties[forkyBlck.message.proposer_index]
+            .proposer_outcome += proposer_reward.int64
         else:
           rewardsAndPenalties[indices[i]].sync_committee_outcome -=
             participant_reward.int64

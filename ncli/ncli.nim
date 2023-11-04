@@ -1,4 +1,12 @@
+# beacon_chain
+# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
+  std/strutils,
   confutils, json_serialization,
   snappy,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
@@ -88,10 +96,10 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
   of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
 
-proc loadFile(filename: string, T: type): T =
+proc loadFile(filename: string, bytes: openArray[byte], T: type): T =
   let
     ext = splitFile(filename).ext
-    bytes = readAllBytes(filename).expect("file exists")
+
   if cmpIgnoreCase(ext, ".ssz") == 0:
     SSZ.decode(bytes, T)
   elif cmpIgnoreCase(ext, ".ssz_snappy") == 0:
@@ -126,7 +134,7 @@ proc doTransition(conf: NcliConf) =
     info = ForkedEpochInfo()
   let res = withTimerRet(timers[tTransition]): withBlck(blckX):
     state_transition(
-      cfg, stateY[], blck, cache, info, flags, noRollback)
+      cfg, stateY[], forkyBlck, cache, info, flags, noRollback)
   if res.isErr():
     error "State transition failed", error = res.error()
     quit 1
@@ -179,11 +187,12 @@ proc doSSZ(conf: NcliConf) =
     of pretty: (conf.prettyKind, conf.prettyFile)
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
+  let bytes = readAllBytes(file).expect("file exists")
 
   template printit(t: untyped) {.dirty.} =
 
     let v = withTimerRet(timers[tLoad]):
-      newClone(loadFile(file, t))
+      newClone(loadFile(file, bytes, t))
 
     case conf.cmd:
     of hashTreeRoot:

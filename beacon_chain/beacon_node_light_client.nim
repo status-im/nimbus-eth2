@@ -46,12 +46,14 @@ proc initLightClient*(
         wallSlot = node.currentSlot
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Bellatrix:
-          if blck.message.is_execution_block:
-            template blckPayload(): auto = blck.message.body.execution_payload
+          if forkyBlck.message.is_execution_block:
+            template blckPayload(): auto =
+              forkyBlck.message.body.execution_payload
 
             if not blckPayload.block_hash.isZero:
               # engine_newPayloadV1
-              discard await node.elManager.newExecutionPayload(blck.message)
+              discard await node.elManager.newExecutionPayload(
+                forkyBlck.message)
 
               # Retain optimistic head for other `forkchoiceUpdated` callers.
               # May temporarily block `forkchoiceUpdatedV1` calls, e.g., Geth:
@@ -60,7 +62,7 @@ proc initLightClient*(
               # Once DAG sync catches up or as new optimistic heads are fetched
               # the situation recovers
               node.consensusManager[].setOptimisticHead(
-                blck.toBlockId(), blckPayload.block_hash)
+                forkyBlck.toBlockId(), blckPayload.block_hash)
 
               # engine_forkchoiceUpdatedV1 or engine_forkchoiceUpdatedV2,
               # depending on pre or post-Shapella
@@ -73,8 +75,11 @@ proc initLightClient*(
                   finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash,
                   payloadAttributes = none attributes)
 
-              case node.dag.cfg.consensusForkAtEpoch(blck.message.slot.epoch)
-              of ConsensusFork.Capella, ConsensusFork.Deneb:
+              case node.dag.cfg.consensusForkAtEpoch(
+                  forkyBlck.message.slot.epoch)
+              of ConsensusFork.Deneb:
+                callForkchoiceUpdated(PayloadAttributesV3)
+              of ConsensusFork.Capella:
                 # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
                 # Consensus layer client MUST call this method instead of
                 # `engine_forkchoiceUpdatedV1` under any of the following
@@ -170,8 +175,8 @@ proc updateLightClientFromDag*(node: BeaconNode) =
   withBlck(bdata):
     const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
     when lcDataFork > LightClientDataFork.None:
-      header = ForkedLightClientHeader(kind: lcDataFork)
-      header.forky(lcDataFork) = blck.toLightClientHeader(lcDataFork)
+      header = ForkedLightClientHeader.init(
+        forkyBlck.toLightClientHeader(lcDataFork))
     else: raiseAssert "Unreachable"
   let current_sync_committee = block:
     let tmpState = assignClone(node.dag.headState)

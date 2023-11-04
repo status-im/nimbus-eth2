@@ -2,7 +2,7 @@
 
 !!! note
     The commands on this page refer to mainnet.
-    If you're running on `prater` or another testnet, replace `mainnet` accordingly.
+    If you're running on `holesky` or another testnet, replace `mainnet` accordingly.
 
 We are continuously making improvements to both stability and resource usage.
 If you run into any problem with Nimbus and are not running the latest version, chances are they have already been fixed.

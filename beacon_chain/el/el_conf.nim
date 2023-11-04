@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/[options, strutils, uri],
   stew/results, chronicles, confutils,
@@ -68,7 +75,7 @@ template raiseError(reader: var JsonReader, msg: string) =
   raiseTomlErr(reader.lex, msg)
 
 proc readValue*(reader: var TomlReader, value: var EngineApiRoles)
-               {.raises: [Defect, SerializationError, IOError].} =
+               {.raises: [SerializationError, IOError].} =
   let roles = reader.readValue seq[string]
   if roles.len == 0:
     reader.raiseError "At least one role should be provided"
@@ -83,8 +90,8 @@ proc readValue*(reader: var TomlReader, value: var EngineApiRoles)
     else:
       reader.raiseError(unknownRoleMsg role)
 
-proc writeValue*(writer: var JsonWriter, roles: EngineApiRoles)
-                {.raises: [Defect, SerializationError, IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, roles: EngineApiRoles) {.raises: [IOError].} =
   var strRoles: seq[string]
 
   for role in EngineApiRole:
@@ -93,7 +100,7 @@ proc writeValue*(writer: var JsonWriter, roles: EngineApiRoles)
   writer.writeValue strRoles
 
 proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
-                 {.raises: [ValueError, Defect].} =
+                 {.raises: [ValueError].} =
   var
     uri = parseUri(input)
     jwtSecret: Option[string]
@@ -133,7 +140,7 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
     roles: roles)
 
 proc readValue*(reader: var TomlReader, value: var EngineApiUrlConfigValue)
-               {.raises: [Defect, SerializationError, IOError].} =
+               {.raises: [SerializationError, IOError].} =
   if reader.lex.readable and reader.lex.peekChar in ['\'', '"']:
     # If the input is a string, we'll reuse the command-line parsing logic
     value = try: parseCmdArg(EngineApiUrlConfigValue, reader.readValue(string))

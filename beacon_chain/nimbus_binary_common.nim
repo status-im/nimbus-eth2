@@ -38,7 +38,7 @@ export
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
                            lastSlot: Slot): Future[bool] {.gcsafe,
-  raises: [Defect].}
+  raises: [].}
 
 # silly chronicles, colors is a compile-time property
 proc stripAnsi(v: string): string =
@@ -76,7 +76,7 @@ proc stripAnsi(v: string): string =
 
   res
 
-proc updateLogLevel*(logLevel: string) {.raises: [Defect, ValueError].} =
+proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
   let directives = logLevel.split(";")
   try:
@@ -105,6 +105,17 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
 when defaultChroniclesStream.outputs.type.arity == 2:
   from std/os import splitFile
   from "."/filepath import secureCreatePath
+
+proc setupFileLimits*() =
+  when not defined(windows):
+    # In addition to databases and sockets, we need a file descriptor for every
+    # validator - setting it to 16k should provide sufficient margin
+    let
+      limit = getMaxOpenFiles2().valueOr(16384)
+
+    if limit < 16384:
+      setMaxOpenFiles2(16384).isOkOr:
+        warn "Cannot increase open file limit", err = osErrorMsg(error)
 
 proc setupLogging*(
     logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
@@ -201,7 +212,7 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
       version = version, # but a short version string makes more sense...
       copyrightBanner = clientId,
       secondarySources = proc (
-          config: ConfType, sources: auto
+          config: ConfType, sources: ref SecondarySources
       ) {.raises: [ConfigurationError].} =
         if config.configFile.isSome:
           sources.addConfigFile(Toml, config.configFile.get)
@@ -261,6 +272,10 @@ proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
         true
     if exitLoop: break
     cache.pruneExpiredKeys()
+
+proc sleepAsync*(t: TimeDiff): Future[void] =
+  sleepAsync(nanoseconds(
+    if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
 
 proc runSlotLoop*[T](node: T, startTime: BeaconTime,
                      slotProc: SlotStartProc[T]) {.async.} =
@@ -384,7 +399,7 @@ type
 proc initKeymanagerServer*(
     config: AnyConf,
     existingRestServer: RestServerRef = nil): KeymanagerInitResult
-    {.raises: [Defect].} =
+    {.raises: [].} =
 
   var token: string
   let keymanagerServer = if config.keymanagerEnabled:

@@ -57,10 +57,10 @@ type
       ## SyncCommitteePeriod -> altair.SyncCommittee
       ## Stores finalized `SyncCommittee` by sync committee period.
 
-template disposeSafe(s: untyped): untyped =
+template disposeSafe(s: var SqliteStmt): untyped =
   if distinctBase(s) != nil:
     s.dispose()
-    s = nil
+    s = typeof(s)(nil)
 
 proc initLegacyLightClientHeadersStore(
     backend: SqStoreRef,
@@ -152,10 +152,8 @@ proc getLatestFinalizedHeader*(
       withAll(LightClientDataFork):
         when lcDataFork > LightClientDataFork.None:
           if header[0] == ord(lcDataFork).int64:
-            var obj = ForkedLightClientHeader(kind: lcDataFork)
-            obj.forky(lcDataFork) = SSZ.decode(
-              header[1], lcDataFork.LightClientHeader)
-            return obj
+            return ForkedLightClientHeader.init(SSZ.decode(
+              header[1], lcDataFork.LightClientHeader))
       warn "Unsupported LC store kind", store = "headers",
         key, kind = header[0]
       return default(ForkedLightClientHeader)

@@ -90,7 +90,8 @@ func nodeLeadsToViableHead(
 # ----------------------------------------------------------------------
 
 func init*(
-    T: type ProtoArray, checkpoints: FinalityCheckpoints): T =
+    T: type ProtoArray, checkpoints: FinalityCheckpoints,
+    version: ForkChoiceVersion): T =
   let node = ProtoNode(
     bid: BlockId(
       slot: checkpoints.finalized.epoch.start_slot,
@@ -102,7 +103,8 @@ func init*(
     bestChild: none(int),
     bestDescendant: none(int))
 
-  T(checkpoints: checkpoints,
+  T(version: version,
+    checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
@@ -123,19 +125,16 @@ iterator realizePendingCheckpoints*(
   # Reset tip tracking for new epoch
   self.currentEpochTips.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#get_weight
-func calculateProposerBoost(validatorBalances: openArray[Gwei]): uint64 =
-  var total_balance: uint64
-  for balance in validatorBalances:
-    total_balance += balance
-  let committee_weight = total_balance div SLOTS_PER_EPOCH
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/fork-choice.md#get_weight
+func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
+  let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
 func applyScoreChanges*(self: var ProtoArray,
                         deltas: var openArray[Delta],
                         currentEpoch: Epoch,
                         checkpoints: FinalityCheckpoints,
-                        newBalances: openArray[Gwei],
+                        justifiedTotalActiveBalance: Gwei,
                         proposerBoostRoot: Eth2Digest): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
@@ -167,7 +166,7 @@ func applyScoreChanges*(self: var ProtoArray,
     self.nodes.buf[nodePhysicalIdx]
 
   # Default value, if not otherwise set in first node loop
-  var proposerBoostScore: uint64
+  var proposerBoostScore: Gwei
 
   # Iterate backwards through all the indices in `self.nodes`
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
@@ -190,9 +189,9 @@ func applyScoreChanges*(self: var ProtoArray,
     # If we find the node matching the current proposer boost root, increase
     # the delta by the new score amount.
     #
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/fork-choice.md#get_weight
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/fork-choice.md#get_weight
     if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
-      proposerBoostScore = calculateProposerBoost(newBalances)
+      proposerBoostScore = calculateProposerBoost(justifiedTotalActiveBalance)
       if  nodeDelta >= 0 and
           high(Delta) - nodeDelta < proposerBoostScore.int64:
         return err ForkChoiceError(
@@ -531,17 +530,25 @@ func nodeIsViableForHead(
     self.checkpoints.justified.epoch == GENESIS_EPOCH or
     node.checkpoints.justified.epoch == self.checkpoints.justified.epoch
 
-  # If the previous epoch is justified, the block should be pulled-up.
-  # In this case, check that unrealized justification is higher than the store
-  # and that the voting source is not more than two epochs ago
-  if not correctJustified and self.isPreviousEpochJustified and
-      node.bid.slot.epoch == self.currentEpoch:
-    let unrealized =
-      self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
-    correctJustified =
-      unrealized.justified.epoch >= self.checkpoints.justified.epoch and
-      node.checkpoints.justified.epoch + 2 >= self.currentEpoch
-      
+  if not correctJustified:
+    case self.version
+    of ForkChoiceVersion.Stable:
+      # If the previous epoch is justified, the block should be pulled-up.
+      # In this case, check that unrealized justification is higher than the
+      # store and that the voting source is not more than two epochs ago
+      if self.isPreviousEpochJustified and
+          node.bid.slot.epoch == self.currentEpoch:
+        let unrealized =
+          self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
+        correctJustified =
+          unrealized.justified.epoch >= self.checkpoints.justified.epoch and
+          node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+    of ForkChoiceVersion.Pr3431:
+      # The voting source should be either at the same height as the store's
+      # justified checkpoint or not more than two epochs ago
+      correctJustified =
+        node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+
   return
     if not correctJustified:
       false

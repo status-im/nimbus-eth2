@@ -17,13 +17,17 @@ export constants
 export stint, ethtypes.toHex, ethtypes.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
   # Constants from `validator.md` not covered by config/presets in the spec
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
-  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64 = 256
+
+  # Not used anywhere; only for network preset checking
+  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
+  MESSAGE_DOMAIN_INVALID_SNAPPY = 0'u64
+  TTFB_TIMEOUT = 5'u64
 
 type
   Version* = distinct array[4, byte]
@@ -67,6 +71,7 @@ type
     EJECTION_BALANCE*: uint64
     MIN_PER_EPOCH_CHURN_LIMIT*: uint64
     CHURN_LIMIT_QUOTIENT*: uint64
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT*: uint64
 
     # Fork choice
     # TODO PROPOSER_SCORE_BOOST*: uint64
@@ -75,6 +80,9 @@ type
     DEPOSIT_CHAIN_ID*: uint64
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
+
+    # Not actively used, but part of the spec
+    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch
 
   PresetFile* = object
     values*: Table[string, string]
@@ -118,6 +126,7 @@ when const_preset == "mainnet":
     # * 'prater' - testnet
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
+    # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "",
 
@@ -186,7 +195,8 @@ when const_preset == "mainnet":
     MIN_PER_EPOCH_CHURN_LIMIT: 4,
     # 2**16 (= 65,536)
     CHURN_LIMIT_QUOTIENT: 65536,
-
+    # [New in Deneb:EIP7514] 2**3 (= 8)
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -221,6 +231,7 @@ elif const_preset == "gnosis":
     # * 'prater' - testnet
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
+    # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "",
 
@@ -290,7 +301,8 @@ elif const_preset == "gnosis":
     MIN_PER_EPOCH_CHURN_LIMIT: 4,
     # 2**16 (= 65,536)
     CHURN_LIMIT_QUOTIENT: 4096,
-
+    # [New in Deneb:EIP7514] 2**3 (= 8)
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -319,6 +331,7 @@ elif const_preset == "minimal":
     # * 'prater' - testnet
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
+    # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "minimal",
 
@@ -385,10 +398,12 @@ elif const_preset == "minimal":
     INACTIVITY_SCORE_RECOVERY_RATE: 16,
     # 2**4 * 10**9 (= 16,000,000,000) Gwei
     EJECTION_BALANCE: 16000000000'u64,
-    # 2**2 (= 4)
-    MIN_PER_EPOCH_CHURN_LIMIT: 4,
+    # [customized] more easily demonstrate the difference between this value and the activation churn limit
+    MIN_PER_EPOCH_CHURN_LIMIT: 2,
     # [customized] scale queue churn at much lower validator counts for testing
     CHURN_LIMIT_QUOTIENT: 32,
+    # [New in Deneb:EIP7514] [customized]
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 4,
 
 
     # Deposit contract
@@ -428,7 +443,7 @@ else:
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 
-func parse(T: type uint64, input: string): T {.raises: [ValueError, Defect].} =
+func parse(T: type uint64, input: string): T {.raises: [ValueError].} =
   var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
     if parseHex(input, res) != input.len:
@@ -443,7 +458,7 @@ template parse(T: type byte, input: string): T =
   byte parse(uint64, input)
 
 func parse(T: type Version, input: string): T
-           {.raises: [ValueError, Defect].} =
+           {.raises: [ValueError].} =
   Version hexToByteArray(input, 4)
 
 template parse(T: type Slot, input: string): T =
@@ -465,12 +480,12 @@ template parse(T: type UInt256, input: string): T =
   parse(input, UInt256, 10)
 
 func parse(T: type DomainType, input: string): T
-           {.raises: [ValueError, Defect].} =
+           {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
 proc readRuntimeConfig*(
     fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
-    raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
+    raises: [PresetFileError, PresetIncompatibleError].} =
   var
     lineNum = 0
     cfg = defaultRuntimeConfig
@@ -576,8 +591,20 @@ proc readRuntimeConfig*(
   checkCompatibility DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF
   checkCompatibility DOMAIN_CONTRIBUTION_AND_PROOF
 
-  # Never pervasively implemented, still under discussion
-  checkCompatibility TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH
+  checkCompatibility GOSSIP_MAX_SIZE
+  checkCompatibility MAX_REQUEST_BLOCKS
+  checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
+  checkCompatibility MAX_CHUNK_SIZE
+  checkCompatibility SUBNETS_PER_NODE
+  checkCompatibility ATTESTATION_SUBNET_EXTRA_BITS
+  checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
+  checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
+  checkCompatibility MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+  checkCompatibility RESP_TIMEOUT
+  checkCompatibility TTFB_TIMEOUT
+  checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
+  checkCompatibility MAX_REQUEST_BLOCKS_DENEB
+  checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
 
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
@@ -602,7 +629,7 @@ proc readRuntimeConfig*(
 
 proc readRuntimeConfig*(
     path: string): (RuntimeConfig, seq[string]) {.
-    raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
+    raises: [IOError, PresetFileError, PresetIncompatibleError].} =
   readRuntimeConfig(readFile(path), path)
 
 template name*(cfg: RuntimeConfig): string =

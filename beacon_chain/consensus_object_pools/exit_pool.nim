@@ -29,7 +29,7 @@ const
 
 type
   OnVoluntaryExitCallback =
-    proc(data: SignedVoluntaryExit) {.gcsafe, raises: [Defect].}
+    proc(data: SignedVoluntaryExit) {.gcsafe, raises: [].}
 
   ValidatorChangePool* = object
     ## The validator change pool tracks attester slashings, proposer slashings,
@@ -241,7 +241,7 @@ proc getBeaconBlockValidatorChanges*(
     pool.proposer_slashings, cfg, state, indices, res.proposer_slashings)
   getValidatorChangeMessagesForBlock(
     pool.voluntary_exits, cfg, state, indices, res.voluntary_exits)
-  when typeof(state).toFork() >= ConsensusFork.Capella:
+  when typeof(state).kind >= ConsensusFork.Capella:
     # Prioritize these
     getValidatorChangeMessagesForBlock(
       pool.bls_to_execution_changes_api, cfg, state, indices,

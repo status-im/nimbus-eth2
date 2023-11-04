@@ -82,6 +82,7 @@ nav:
       - 'profits.md'
       - 'health.md'
       - 'prater.md'
+      - 'holesky.md'
 
   - Security:
     - 'preparation.md'
@@ -90,6 +91,7 @@ nav:
     - 'distribution_internals.md'
 
   - Reference:
+    - 'faq.md'
     - 'hardware.md'
     - Advanced options:
       - 'options.md'
@@ -111,7 +113,6 @@ nav:
     - 'migration-options.md'
     - 'attestation-performance.md'
     - 'troubleshooting.md'
-    - 'faq.md'
     - 'developers.md'
     - 'resources.md'
     - 'contribute.md'

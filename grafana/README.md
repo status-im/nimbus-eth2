@@ -19,10 +19,10 @@ In order to use it locally, you would have to make some changes:
 
 Click the small "share" icon on the top-left of the Grafana dashboard:
 
-![share icon](https://i.imgur.com/ds3BJoj.png)
+![share icon](./img/grafana_01.png)
 
 Go to the "Export" tab and enable "Export for sharing externally":
 
-![export tab](https://i.imgur.com/sxgrThb.png)
+![export tab](./img/grafana_02.png)
 
 Now you can either "Save to file" or "View JSON" and copy/paste into the destination file, whichever is faster for you.

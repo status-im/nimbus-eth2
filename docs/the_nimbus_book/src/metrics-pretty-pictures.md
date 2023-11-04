@@ -14,7 +14,7 @@ You can learn more about Grafana [here](https://github.com/grafana/grafana).
 To enable the metrics server, run the beacon node  with the `--metrics` flag:
 
 ```
-./run-prater-beacon-node.sh --metrics
+./run-holesky-beacon-node.sh --metrics
 ```
 
 Visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) with a browser or `curl`.
@@ -124,7 +124,7 @@ Follow [the instructions for your platform](https://grafana.com/docs/grafana/lat
 Go to [http://localhost:3000/](http://localhost:3000/), you should see a Grafana login screen that looks like this:
 
 
-![](https://i.imgur.com/jcP1qWl.png)
+![](./img/metrics_01.png)
 
 Type in `admin` for both the username and password.
 You'll be asked to change the password (and we recommend you do so).
@@ -134,48 +134,48 @@ You'll be asked to change the password (and we recommend you do so).
 
 Hover your mouse over the gear icon in the left menu bar, and click on the `Data Sources` option in the sub-menu that pops up.
 
-![](https://i.imgur.com/0Xsgx61.png)
+![](./img/metrics_02.png)
 
 Now click on the `Add Data Source` button in the center of the screen
 
-![](https://i.imgur.com/YRVJjdD.png)
+![](./img/metrics_03.png)
 
 Select `Prometheus`
 
-![](https://i.imgur.com/YpwThOr.png)
+![](./img/metrics_04.png)
 
 Enter `http://localhost:9090` in the URL field
 
-![](https://i.imgur.com/PtVOnur.png)
+![](./img/metrics_05.png)
 
 Set the "Scrape interval" field to the same value you used in the Prometheus config ("15s" in our example below).
 
 Scroll to the bottom and click on `Save and Test`
 
-![](https://i.imgur.com/GJVdwaK.png)
+![](./img/metrics_06.png)
 
 If everything is working correctly you should see a green `Data source is working` box pop up
 
-![](https://i.imgur.com/vf5ahNA.png)
+![](./img/metrics_07.png)
 
 
 #### 8. Import a dashboard
 
 Now, let's import a dashboard; hover your mouse over the `+` icon in the left menu bar and select `import` from the pop-up menu
 
-![](https://i.imgur.com/WnnAcUR.png)
+![](./img/metrics_08.png)
 
 Click on `Upload JSON file`
 
-![](https://i.imgur.com/l65ICZ2.png)
+![](./img/metrics_09.png)
 
 Select the `beacon_nodes_Grafana_dashboard.json`  from the `nimbus-eth2/grafana/` folder and click on `Import`
 
-![](https://i.imgur.com/SoU5Isz.png)
+![](./img/metrics_10.png)
 
 You'll be directed to the dashboard where you'll be able to gain insights into the performance of `nimbus-eth2` and your validators
 
-![](https://i.imgur.com/aIfJ1iT.png)
+![](./img/metrics_11.png)
 
 !!! note
     The dashboard is very much a work in progress.
@@ -190,7 +190,7 @@ And voilà! That's all there is to it :)
 
 ### Joe Clapis
 
-![](https://i.imgur.com/05eJeBr.png)
+![](./img/metrics_12.png)
 
 Joe — who’s done some brilliant work [integrating Nimbus with Rocket Pool](https://our.status.im/rocket-pool-integration/) — has created a [wonderful guide](https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md) where he takes you through how to set up a Grafana server on your Pi, using his dashboard as an example.
 
@@ -203,7 +203,7 @@ Whether or not you're running a Pi, we recommend you check out [his guide]( http
 
 ### Metanull
 
-![](https://i.imgur.com/OlvNGlq.jpg)
+![](./img/metrics_13.png)
 
 A dashboard aimed primarily at users rather than developers.
 
