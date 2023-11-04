@@ -287,12 +287,7 @@ proc processSignedBlobSidecar*(
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime - signedBlobSidecar.message.slot.start_beacon_time
-
-  if self.blobQuarantine[].hasBlob(signedBlobSidecar.message):
-    debug "Blob received, already in quarantine", delay
-    return ValidationRes.ok
-  else:
-    debug "Blob received", delay
+  debug "Blob received", delay
 
   let v =
     self.dag.validateBlobSidecar(self.quarantine, self.blobQuarantine,

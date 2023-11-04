@@ -331,6 +331,12 @@ proc validateBlobSidecar*(
   if not (sbs.message.slot > dag.finalizedHead.slot):
     return errIgnore("SignedBlobSidecar: slot already finalized")
 
+  # [IGNORE] The sidecar is the only sidecar with valid signature
+  # received for the tuple (sidecar.block_root, sidecar.index).
+  if blobQuarantine[].hasBlob(sbs.message):
+    return errIgnore(
+      "SignedBlobSidecar: already have blob with valid signature")
+
   # [IGNORE] The block's parent (defined by block.parent_root) has
   # been seen (via both gossip and non-gossip sources) (a client MAY
   # queue blocks for processing once the parent block is retrieved).
@@ -375,12 +381,6 @@ proc validateBlobSidecar*(
     dag.validatorKey(proposer).get(),
     sbs.signature):
     return dag.checkedReject("SignedBlobSidecar: invalid blob signature")
-
-  # [IGNORE] The sidecar is the only sidecar with valid signature
-  # received for the tuple (sidecar.block_root, sidecar.index).
-  if blobQuarantine[].hasBlob(sbs.message):
-    return errIgnore(
-      "SignedBlobSidecar: already have blob with valid signature")
 
   ok()
 
