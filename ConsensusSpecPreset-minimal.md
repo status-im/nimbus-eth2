@@ -3176,7 +3176,7 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack         OK
 + ForkChoice - minimal/deneb/fork_choice/withholding/pyspec_tests/withholding_attack_unviabl OK
 ```
-OK: 185/207 Fail: 14/207 Skip: 8/207
+OK: 185/207 Fail: 0/207 Skip: 22/207
 ## Sync
 ```diff
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
