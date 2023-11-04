@@ -380,7 +380,7 @@ func partialBeaconBlock*(
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
   when consensusFork >= ConsensusFork.Deneb:
-    res.body.blob_kzg_commitments = execution_payload.kzgs
+    res.body.blob_kzg_commitments = execution_payload.blobsBundle.commitments
 
   res
 

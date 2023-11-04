@@ -551,10 +551,13 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     # The `mapIt` calls below are necessary only because we use different distinct
     # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
     # Both are defined as `array[N, byte]` under the hood.
-    kzgs: KzgCommitments payload.blobsBundle.commitments.mapIt(it.bytes),
-    proofs: payload.blobsBundle.proofs.mapIt(it.bytes),
-    blobs: Blobs payload.blobsBundle.blobs.mapIt(it.bytes)
-  )
+    blobsBundle: BlobsBundle(
+      commitments: KzgCommitments.init(
+        payload.blobsBundle.commitments.mapIt(it.bytes)),
+      proofs: KzgProofs.init(
+        payload.blobsBundle.proofs.mapIt(it.bytes)),
+      blobs: Blobs.init(
+        payload.blobsBundle.blobs.mapIt(it.bytes))))
 
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =

@@ -88,9 +88,6 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
-  BlobsBundle = tuple[blobs: deneb.Blobs,
-                      kzgs: KzgCommitments,
-                      proofs: seq[kzg_abi.KZGProof]]
   ForkedBlockResult =
     Result[tuple[blck: ForkedBeaconBlock,
                  blockValue: Wei,
@@ -541,10 +538,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 
   var blobsBundleOpt = Opt.none(BlobsBundle)
   when payload is deneb.ExecutionPayloadForSigning:
-    let bb: BlobsBundle = (blobs: payload.blobs,
-                           kzgs: payload.kzgs,
-                           proofs: payload.proofs)
-    blobsBundleOpt = Opt.some(bb)
+    blobsBundleOpt = Opt.some(payload.blobsBundle)
   return if blck.isOk:
     ok((blck.get, payload.blockValue, blobsBundleOpt))
   else:
@@ -1176,10 +1170,11 @@ proc proposeBlockAux(
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
     let blobSidecarsOpt =
-      when forkyBlck is deneb.BeaconBlock:
+      when consensusFork >= ConsensusFork.Deneb:
         var sidecars: seq[BlobSidecar]
         let bundle = collectedBids.engineBlockFut.read.get().blobsBundleOpt.get
-        let (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
+        let (blobs, commitments, proofs) = (
+          bundle.blobs, bundle.commitments, bundle.proofs)
         for i in 0..<blobs.len:
           var sidecar = BlobSidecar(
             block_root: blockRoot,
@@ -1188,18 +1183,13 @@ proc proposeBlockAux(
             block_parent_root: forkyBlck.parent_root,
             proposer_index: forkyBlck.proposer_index,
             blob: blobs[i],
-            kzg_commitment: kzgs[i],
+            kzg_commitment: commitments[i],
             kzg_proof: proofs[i]
           )
           sidecars.add(sidecar)
         Opt.some(sidecars)
-      elif forkyBlck is phase0.BeaconBlock or
-           forkyBlck is altair.BeaconBlock or
-           forkyBlck is bellatrix.BeaconBlock or
-           forkyBlck is capella.BeaconBlock:
-        Opt.none(seq[BlobSidecar])
       else:
-        static: doAssert "Unknown BeaconBlock type"
+        Opt.none(seq[BlobSidecar])
 
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",
