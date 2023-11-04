@@ -49,10 +49,6 @@ func blobIndices*(quarantine: BlobQuarantine, digest: Eth2Digest):
       r.add(i)
   r
 
-func hasBlob*(quarantine: BlobQuarantine, blobSidecar: BlobSidecar): bool =
-  let block_root = hash_tree_root(blobSidecar.signed_block_header.message)
-  quarantine.blobs.hasKey((block_root, blobSidecar.index))
-
 func hasBlob*(
     quarantine: BlobQuarantine,
     slot: Slot,
