@@ -38,6 +38,7 @@ const
 
 type
   KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+  KzgProofs* = List[KzgProof, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
   Blobs* = List[Blob, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
@@ -49,6 +50,12 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/validator.md#blobsbundle
+  BlobsBundle* = object
+    commitments*: KzgCommitments
+    proofs*: KzgProofs
+    blobs*: Blobs
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
@@ -103,9 +110,7 @@ type
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
     blockValue*: Wei
-    kzgs*: KzgCommitments
-    proofs*: seq[KZGProof]
-    blobs*: Blobs
+    blobsBundle*: BlobsBundle
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
@@ -130,12 +135,6 @@ type
     withdrawals_root*: Eth2Digest
     blob_gas_used*: uint64   # [New in Deneb:EIP4844]
     excess_blob_gas*: uint64 # [New in Deneb:EIP4844]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/validator.md#blobsbundle
-  BlobsBundle* = object
-    commitments*: seq[KZGCommitment]
-    proofs*: seq[KZGProof]
-    blobs*: seq[Blob]
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}

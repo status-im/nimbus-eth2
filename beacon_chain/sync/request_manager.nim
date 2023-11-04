@@ -292,7 +292,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
         warn "quarantine missing blobs, but missing indices is empty",
          blk=blobless.root,
          indices=rman.blobQuarantine[].blobIndices(blobless.root),
-         kzgs=len(blobless.message.body.blob_kzg_commitments)
+         commitments=len(blobless.message.body.blob_kzg_commitments)
       for idx in missing.indices:
         let id = BlobIdentifier(block_root: blobless.root, index: idx)
         if id notin fetches:
@@ -302,7 +302,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
       warn "missing blob handler found blobless block with all blobs",
          blk=blobless.root,
          indices=rman.blobQuarantine[].blobIndices(blobless.root),
-         kzgs=len(blobless.message.body.blob_kzg_commitments)
+         commitments=len(blobless.message.body.blob_kzg_commitments)
       discard rman.blockVerifier(ForkedSignedBeaconBlock.init(blobless),
                                  false)
       rman.quarantine[].removeBlobless(blobless)
@@ -356,4 +356,3 @@ proc stop*(rman: RequestManager) =
     rman.blockLoopFuture.cancelSoon()
   if not(isNil(rman.blobLoopFuture)):
     rman.blobLoopFuture.cancelSoon()
-
