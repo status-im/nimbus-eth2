@@ -95,7 +95,8 @@ type
 
   ProposerTask* = object
     duty*: RestProposerDuty
-    future*: Future[void]
+    proposeFut*: Future[void]
+    randaoFut*: Future[void]
 
   ProposedData* = object
     epoch*: Epoch
