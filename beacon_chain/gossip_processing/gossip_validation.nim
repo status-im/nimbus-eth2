@@ -307,14 +307,15 @@ proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     blobQuarantine: ref BlobQuarantine, sbs: SignedBlobSidecar,
     wallTime: BeaconTime, subnet_id: BlobId): Result[void, ValidationError] =
+  # Some of the checks below have been reordered compared to the spec, to
+  # perform the cheap checks first - in particular, we want to avoid loading
+  # an `EpochRef` and checking signatures. This reordering might lead to
+  # different IGNORE/REJECT results in turn affecting gossip scores.
 
   # [REJECT] The sidecar is for the correct topic --
   # i.e. sidecar.index matches the topic {index}.
   if sbs.message.index != subnet_id:
     return dag.checkedReject("SignedBlobSidecar: mismatched gossip topic index")
-
-  if dag.getBlockRef(sbs.message.block_root).isSome():
-    return errIgnore("SignedBlobSidecar: already have block")
 
   # [IGNORE] The sidecar is not from a future slot (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
@@ -331,11 +332,14 @@ proc validateBlobSidecar*(
   if not (sbs.message.slot > dag.finalizedHead.slot):
     return errIgnore("SignedBlobSidecar: slot already finalized")
 
-  # [IGNORE] The sidecar is the only sidecar with valid signature
-  # received for the tuple (sidecar.block_root, sidecar.index).
-  if blobQuarantine[].hasBlob(sbs.message):
-    return errIgnore(
-      "SignedBlobSidecar: already have blob with valid signature")
+  # [IGNORE] The sidecar is the first sidecar for the tuple
+  # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
+  # with valid header signature, sidecar inclusion proof, and kzg proof.
+  if dag.getBlockRef(sbs.message.block_root).isSome():
+    return errIgnore("SignedBlobSidecar: already have block")
+  if blobQuarantine[].hasBlob(
+      sbs.message.slot, sbs.message.proposer_index, sbs.message.index):
+    return errIgnore("SignedBlobSidecar: already have valid blob from same proposer")
 
   # [IGNORE] The block's parent (defined by block.parent_root) has
   # been seen (via both gossip and non-gossip sources) (a client MAY
@@ -498,7 +502,7 @@ proc validateBeaconBlock*(
         blockRoot = shortLog(signed_beacon_block.root),
         blck = shortLog(signed_beacon_block.message),
         signature = shortLog(signed_beacon_block.signature)
-    return errIgnore("BeaconBlock: Parent not found")
+    return errIgnore("BeaconBlock: parent not found")
 
   # Continues block parent validity checking in optimistic case, where it does
   # appear as a `BlockRef` (and not handled above) but isn't usable for gossip
@@ -539,12 +543,12 @@ proc validateBeaconBlock*(
   let
     proposer = getProposer(
         dag, parent, signed_beacon_block.message.slot).valueOr:
-      warn "cannot compute proposer for message"
+      warn "cannot compute proposer for block"
       return errIgnore("BeaconBlock: Cannot compute proposer") # internal issue
 
   if uint64(proposer) != signed_beacon_block.message.proposer_index:
     quarantine[].addUnviable(signed_beacon_block.root)
-    return dag.checkedReject("BeaconBlock: Unexpected proposer proposer")
+    return dag.checkedReject("BeaconBlock: Unexpected proposer")
 
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.
