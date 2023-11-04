@@ -192,7 +192,7 @@ func verify_blob_sidecar_inclusion_proof(
       KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
       get_subtree_index(gindex),
       blob_sidecar.signed_block_header.message.body_root):
-    return errReject("Sidecar's inclusion proof not valid")
+    return errReject("BlobSidecar: inclusion proof not valid")
 
   ok()
 
