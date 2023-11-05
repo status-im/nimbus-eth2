@@ -312,15 +312,19 @@ proc validateBlobSidecar*(
   # an `EpochRef` and checking signatures. This reordering might lead to
   # different IGNORE/REJECT results in turn affecting gossip scores.
 
-  # [REJECT] The sidecar is for the correct topic --
-  # i.e. sidecar.index matches the topic {index}.
-  if sbs.message.index != subnet_id:
-    return dag.checkedReject("SignedBlobSidecar: mismatched gossip topic index")
+  # [REJECT] The sidecar's index is consistent with `MAX_BLOBS_PER_BLOCK`
+  # -- i.e. `blob_sidecar.index < MAX_BLOBS_PER_BLOCK`
+  if not (sbs.message.index < MAX_BLOBS_PER_BLOCK):
+    return dag.checkedReject("SignedBlobSidecar: index inconsistent")
+
+  # [REJECT] The sidecar is for the correct subnet -- i.e.
+  # `compute_subnet_for_blob_sidecar(blob_sidecar.index) == subnet_id`.
+  if not (compute_subnet_for_blob_sidecar(sbs.message.index) == subnet_id):
+    return dag.checkedReject("SignedBlobSidecar: subnet incorrect")
 
   # [IGNORE] The sidecar is not from a future slot (with a
-  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
-  # sidecar.slot <= current_slot (a client MAY queue future sidecars
-  # for processing at the appropriate slot).
+  # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance) -- i.e. validate that
+  # `block_header.slot <= current_slot` (a client MAY queue future sidecars
   if not (sbs.message.slot <=
       (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
     return errIgnore("SignedBlobSidecar: slot too high")
