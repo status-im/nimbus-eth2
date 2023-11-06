@@ -40,7 +40,7 @@ The fields have the following semantics:
 5. `remote` - An URL of a remote signing server.
 6. `remotes` - A [distributed keystore](#distributed-keystores) configuration including two or more remote signing servers.
 7. `ignore_ssl_verification` - An optional boolean flag allowing the use of self-signed certificates by the signing server.
-8. `proven_block_properties` - When the `verifying-web3signer` type is used, this is a list of locations withing the SSZ block body for which the block signing requests will contain additional Merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the `fee_recipient` value).
+8. `proven_block_properties` - When the `verifying-web3signer` type is used, this is a list of locations within the SSZ block body for which the block signing requests will contain additional Merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the `fee_recipient` value).
 
 !!! info
     The current version of the remote keystore format is `3` which adds support for the experimental [verifying web3signer setups](#verifying-web3signer).
