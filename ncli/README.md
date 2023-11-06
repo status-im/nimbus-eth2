@@ -1,6 +1,6 @@
 # Introduction
 
-`ncli` is a set of low level / debugging tools to interact with the nimbus [beacon chain specification](https://github.com/ethereum/consensus-specs/tree/dev/specs) implementation, simliar to [zcli](https://github.com/protolambda/zcli). With it, you explore SSZ, make state transitions and compute hash tree roots.
+`ncli` is a set of low level / debugging tools to interact with the nimbus [beacon chain specification](https://github.com/ethereum/consensus-specs/tree/dev/specs) implementation, similar to [zcli](https://github.com/protolambda/zcli). With it, you explore SSZ, make state transitions and compute hash tree roots.
 
 # Tools
 
