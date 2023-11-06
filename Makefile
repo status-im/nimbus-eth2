@@ -118,7 +118,8 @@ ifneq ($(OS), Windows_NT)
 PLATFORM_SPECIFIC_TARGETS += gnosis-build
 endif
 
-# We don't need the `vendor/holesky/public-keys/all.txt` file but fetching it
+# We don't need the `vendor/holesky/public-keys/all.txt` and
+# `/custom_config_data/genesis.ssz` files but fetching them
 # may trigger 'This repository is over its data quota' from GitHub
 GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt,/custom_config_data/genesis.ssz
 
