@@ -97,7 +97,7 @@ proc unblindAndRouteBlockMEV*(
 
       let newBlockRef =
         (await node.router.routeSignedBeaconBlock(
-          signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
+          signedBlock, Opt.none(seq[BlobSidecar]))).valueOr:
           # submitBlindedBlock has run, so don't allow fallback to run
           return err("routeSignedBeaconBlock error") # Errors logged in router
 
@@ -175,7 +175,7 @@ proc unblindAndRouteBlockMEV*(
 
       let newBlockRef =
         (await node.router.routeSignedBeaconBlock(
-          signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
+          signedBlock, Opt.none(seq[BlobSidecar]))).valueOr:
           # submitBlindedBlock has run, so don't allow fallback to run
           return err("routeSignedBeaconBlock error") # Errors logged in router
 
@@ -197,4 +197,3 @@ proc unblindAndRouteBlockMEV*(
     # with the external builder network.
     err("submitBlindedBlock failed with HTTP error code" &
       $unblindedPayload.status & ": " & $shortLog(blindedBlock))
-

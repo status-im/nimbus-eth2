@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import ../spec/datatypes/deneb
+import ../spec/helpers
 from std/sequtils import mapIt
 from std/strutils import join
 
@@ -37,8 +37,9 @@ func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
       oldest_blob_key = k
       break
     quarantine.blobs.del oldest_blob_key
+  let block_root = hash_tree_root(blobSidecar.signed_block_header.message)
   discard quarantine.blobs.hasKeyOrPut(
-    (blobSidecar.block_root, blobSidecar.index), blobSidecar)
+    (block_root, blobSidecar.index), blobSidecar)
 
 func blobIndices*(quarantine: BlobQuarantine, digest: Eth2Digest):
      seq[BlobIndex] =
@@ -54,8 +55,9 @@ func hasBlob*(
     proposer_index: uint64,
     index: BlobIndex): bool =
   for blob_sidecar in quarantine.blobs.values:
-    if blob_sidecar.slot == slot and
-        blob_sidecar.proposer_index == proposer_index and
+    template block_header: untyped = blob_sidecar.signed_block_header.message
+    if block_header.slot == slot and
+        block_header.proposer_index == proposer_index and
         blob_sidecar.index == index:
       return true
   false

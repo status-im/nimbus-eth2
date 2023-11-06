@@ -905,8 +905,9 @@ template withStateAndBlck*(
 
 func toBeaconBlockHeader*(
     blck: SomeForkyBeaconBlock |
-          capella_mev.BlindedBeaconBlock | deneb_mev.BlindedBeaconBlock):
-            BeaconBlockHeader =
+          capella_mev.BlindedBeaconBlock |
+          deneb_mev.BlindedBeaconBlock
+): BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(
     slot: blck.slot,
@@ -918,13 +919,23 @@ func toBeaconBlockHeader*(
 template toBeaconBlockHeader*(
     blck: SomeForkySignedBeaconBlock): BeaconBlockHeader =
   ## Reduce a given `SignedBeaconBlock` to its `BeaconBlockHeader`.
-  blck.message.toBeaconBlockHeader
+  blck.message.toBeaconBlockHeader()
 
 template toBeaconBlockHeader*(
     blckParam: ForkedMsgTrustedSignedBeaconBlock |
                ForkedTrustedSignedBeaconBlock): BeaconBlockHeader =
   ## Reduce a given signed beacon block to its `BeaconBlockHeader`.
   withBlck(blckParam): forkyBlck.toBeaconBlockHeader()
+
+func toSignedBeaconBlockHeader*(
+    signedBlock: SomeForkySignedBeaconBlock |
+                 capella_mev.SignedBlindedBeaconBlock |
+                 deneb_mev.SignedBlindedBeaconBlock
+): SignedBeaconBlockHeader =
+  ## Reduce a given `SignedBeaconBlock` to its `SignedBeaconBlockHeader`.
+  SignedBeaconBlockHeader(
+    message: signedBlock.message.toBeaconBlockHeader(),
+    signature: signedBlock.signature)
 
 func genesisFork*(cfg: RuntimeConfig): Fork =
   Fork(

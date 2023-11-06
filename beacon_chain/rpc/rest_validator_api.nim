@@ -407,26 +407,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       withBlck(message.blck):
         let data =
           when consensusFork >= ConsensusFork.Deneb:
-            let bundle = message.blobsBundleOpt.get()
-            let blockRoot = hash_tree_root(forkyBlck)
-            var sidecars = newSeqOfCap[BlobSidecar](bundle.blobs.len)
-            for i in 0..<bundle.blobs.len:
-              let sidecar = deneb.BlobSidecar(
-                block_root: blockRoot,
-                index: BlobIndex(i),
-                slot: forkyBlck.slot,
-                block_parent_root: forkyBlck.parent_root,
-                proposer_index: forkyBlck.proposer_index,
-                blob: bundle.blobs[i],
-                kzg_commitment: bundle.commitments[i],
-                kzg_proof: bundle.proofs[i]
-              )
-              sidecars.add(sidecar)
-
+            let blobsBundle = message.blobsBundleOpt.get()
             DenebBlockContents(
               `block`: forkyBlck,
-              blob_sidecars: List[BlobSidecar,
-                                  Limit MAX_BLOBS_PER_BLOCK].init(sidecars))
+              kzg_proofs: blobsBundle.proofs,
+              blobs: blobsBundle.blobs)
           else:
             forkyBlck
         if contentType == sszMediaType:
