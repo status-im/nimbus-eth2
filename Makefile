@@ -120,7 +120,7 @@ endif
 
 # We don't need the `vendor/holesky/public-keys/all.txt` file but fetching it
 # may trigger 'This repository is over its data quota' from GitHub
-GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt
+GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt,/custom_config_data/genesis.ssz
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
