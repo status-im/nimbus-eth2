@@ -716,30 +716,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-<<<<<<< HEAD
-<<<<<<< HEAD
-OK: 403/408 Fail: 0/408 Skip: 5/408
-||||||| parent of f5eaaf9c6 (Fix AllTests.)
-OK: 404/409 Fail: 0/409 Skip: 5/409
-=======
-<<<<<<< HEAD
-||||||| parent of 355ac1719 (Fix AllTests.)
-=======
-<<<<<<< HEAD
->>>>>>> 355ac1719 (Fix AllTests.)
-OK: 404/409 Fail: 0/409 Skip: 5/409
-||||||| parent of c6d733b89 (Fix AllTests.)
-OK: 398/403 Fail: 0/403 Skip: 5/403
-=======
-OK: 395/400 Fail: 0/400 Skip: 5/400
->>>>>>> c6d733b89 (Fix AllTests.)
-<<<<<<< HEAD
->>>>>>> f5eaaf9c6 (Fix AllTests.)
-||||||| parent of 355ac1719 (Fix AllTests.)
-=======
-||||||| parent of bc399fa3f (Fix AllTests.)
-OK: 395/400 Fail: 0/400 Skip: 5/400
-=======
-OK: 400/405 Fail: 0/405 Skip: 5/405
->>>>>>> bc399fa3f (Fix AllTests.)
->>>>>>> 355ac1719 (Fix AllTests.)
+OK: 405/410 Fail: 0/410 Skip: 5/410
