@@ -13,11 +13,13 @@ import "."/common
 
 {.push raises: [].}
 
+type
+  CommitteeBitsArray = BitArray[int(MAX_VALIDATORS_PER_COMMITTEE)]
+  CommitteeTable = Table[CommitteeIndex, CommitteeBitsArray]
+
 const
-  DefaultCommitteeTable =
-    default(Table[CommitteeIndex, CommitteeValidatorsBits])
-  DefaultCommitteeBits =
-    default(CommitteeValidatorsBits)
+  DefaultCommitteeTable = default(CommitteeTable)
+  DefaultCommitteeBitsArray = default(CommitteeBitsArray)
 
 func perfectScore*(score: float64): bool =
   score == Inf
@@ -73,7 +75,7 @@ proc getAggregatedAttestationDataScore*(
        adata: GetAggregatedAttestationResponse
      ): float64 =
   let
-    length = len(adata.data.aggregation_bits)
+    length = int(MAX_VALIDATORS_PER_COMMITTEE)
     ones = countOnes(adata.data.aggregation_bits)
     res = if length == ones: Inf else: float64(ones) / float64(length)
 
@@ -85,7 +87,7 @@ proc getSyncCommitteeContributionDataScore*(
        cdata: ProduceSyncCommitteeContributionResponse
      ): float64 =
   let
-    length = len(cdata.data.aggregation_bits)
+    length = int(SYNC_SUBCOMMITTEE_SIZE)
     ones = countOnes(cdata.data.aggregation_bits)
     res = if length == ones: Inf else: float64(ones) / float64(length)
 
@@ -133,9 +135,10 @@ proc getSyncCommitteeMessageDataScore*(
   getSyncCommitteeMessageDataScore(
     vc.rootsSeen, vc.beaconClock.now().slotOrZero(), cdata)
 
-proc processVotes(bits: var CommitteeValidatorsBits,
-                  attestation: Attestation): uint64 =
-  var res = 0'u64
+proc processVotes(bits: var CommitteeBitsArray,
+                  attestation: Attestation): int =
+  doAssert(len(attestation.aggregation_bits) <= len(bits))
+  var res = 0
   for index in 0 ..< len(attestation.aggregation_bits):
     if attestation.aggregation_bits[index]:
       if not(bits[index]):
@@ -143,24 +146,15 @@ proc processVotes(bits: var CommitteeValidatorsBits,
         bits[index] = true
   res
 
-proc getUniqueVotes*(attestations: openArray[Attestation]): uint64 =
+proc getUniqueVotes*(attestations: openArray[Attestation]): int =
   var
-    res = 0'u64
-    attested: Table[Slot, Table[CommitteeIndex, CommitteeValidatorsBits]]
+    res = 0
+    attested: Table[Slot, CommitteeTable]
   for attestation in attestations:
-    let
-      data = attestation.data
-      count =
-        attested.mgetOrPut(data.slot, DefaultCommitteeTable).
-          mgetOrPut(CommitteeIndex(data.index), DefaultCommitteeBits).
-            processVotes(attestation)
+    let count =
+      attested.mgetOrPut(attestation.data.slot, DefaultCommitteeTable).
+        mgetOrPut(CommitteeIndex(attestation.data.index),
+                  DefaultCommitteeBitsArray).
+          processVotes(attestation)
     res += count
   res
-
-proc getAttestationVotes*(response: ProduceBlockResponseV2): int =
-  withBlck(response):
-    let count = getUniqueVotes(distinctBase(blck.body.attestations))
-
-proc getBlockProposalScore*(bdata: ProduceBlockResponseV2): float64 =
-  let data = getAttestationVotes(bdata)
-  float64(data)

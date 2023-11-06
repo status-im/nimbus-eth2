@@ -310,10 +310,10 @@ type
     target: uint64
   ]
 
-  AttestationBitsObject* = object
+  AttestationBitsObject = object
     data: CommitteeValidatorsBits
 
-  SyncCommitteeBitsObject* = object
+  SyncCommitteeBitsObject = object
     data: SyncCommitteeAggregationBits
 
 const
@@ -376,14 +376,13 @@ const
   ]
 
   AggregatedDataVectors = [
-    ("0xff00000001", "0.2500"),
-    ("0xffff000001", "0.5000"),
-    ("0xffffff0001", "0.7500"),
-    ("0xffffffff01", "<perfect>"),
-    ("0xfffffff701", "0.9688"),
-    ("0xffffefdf01", "0.9375")
+    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01", "<perfect>"),
+    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.2500"),
+    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.5000"),
+    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.7500"),
+    ("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01", "0.9995"),
+    ("0x0101", "0.0005"),
   ]
-
   ContributionDataVectors = [
     ("0xffffffffffffffffffffffffffff7f7f", "0.9844"),
     ("0xffffffffffffffffffffffff7f7f7f7f", "0.9688"),
@@ -435,6 +434,12 @@ const
      "0.5931"),
   ]
 
+  AttestationBitsVectors = [
+    ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(0), 0'u64)], 8),
+    ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(1), 0'u64)], 16),
+    ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(0), 1'u64)], 16)
+  ]
+
 proc init(t: typedesc[Eth2Digest], data: string): Eth2Digest =
   let length = len(data)
   var dst = Eth2Digest()
@@ -454,9 +459,8 @@ proc init(t: typedesc[ProduceAttestationDataResponse],
     target: Checkpoint(epoch: Epoch(ad.target))
   ))
 
-proc init(t: typedesc[GetAggregatedAttestationResponse],
-          bits: string): GetAggregatedAttestationResponse =
-
+proc init(t: typedesc[Attestation], bits: string,
+          slot: Slot = GENESIS_SLOT, index: uint64 = 0'u64): Attestation =
   let
     jdata = "{\"data\":\"" & bits & "\"}"
     bits =
@@ -464,9 +468,12 @@ proc init(t: typedesc[GetAggregatedAttestationResponse],
         RestJson.decode(jdata, AttestationBitsObject)
       except SerializationError as exc:
         raiseAssert "Serialization error from [" & $exc.name & "]: " & $exc.msg
-  GetAggregatedAttestationResponse(data: Attestation(
-    aggregation_bits: bits.data
-  ))
+  Attestation(aggregation_bits: bits.data,
+              data: AttestationData(slot: slot, index: index))
+
+proc init(t: typedesc[GetAggregatedAttestationResponse],
+          bits: string): GetAggregatedAttestationResponse =
+  GetAggregatedAttestationResponse(data: Attestation.init(bits))
 
 proc init(t: typedesc[ProduceSyncCommitteeContributionResponse],
           bits: string): ProduceSyncCommitteeContributionResponse =
@@ -750,6 +757,15 @@ suite "Validator Client test suite":
                                                             rdata))
       check:
         score == vector[5]
+
+  test "getUniqueVotes() test vectors":
+    var data = CommitteeValidatorsBits.init(16)
+
+    for vector in AttestationBitsVectors:
+      let
+        a1 = Attestation.init(vector[0][0][0], vector[0][0][1], vector[0][0][2])
+        a2 = Attestation.init(vector[0][1][0], vector[0][1][1], vector[0][1][2])
+      check getUniqueVotes([a1, a2]) == vector[1]
 
   asyncTest "firstSuccessParallel() API timeout test":
     let
