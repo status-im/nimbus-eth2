@@ -21,7 +21,7 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
-    GETH_VERSION="1.13.5-51b5ad3d"
+    GETH_VERSION="1.13.5-51b5ad3d"  # not actually a stable version but first with macOS ARM64
     GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
     case "${OS}-${ARCH}" in
@@ -107,7 +107,7 @@ download_status_geth_binary() {
 }
 
 download_geth_capella() {
-  download_status_stable
+  download_geth_stable
 }
 
 download_geth_deneb() {
