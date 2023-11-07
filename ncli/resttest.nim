@@ -34,7 +34,8 @@ type
     Exists, NotExists, Equals, OneOf, Substr
 
   BodyOperatorKind {.pure.} = enum
-    Exists, JsonStructCmpS, JsonStructCmpNS
+    Exists, JsonStructCmpS, JsonStructCmpNS,
+    JsonStructCmpSAV, JsonStructCmpNSAV
 
   StatusExpect = object
     kind: StatusOperatorKind
@@ -649,13 +650,18 @@ proc getResponseBodyExpect(rule: JsonNode): Result[BodyExpect, cstring] =
             BodyOperatorKind.JsonStructCmpS
           of "jstructcmpns":
             BodyOperatorKind.JsonStructCmpNS
+          of "jstructcmpsav":
+            BodyOperatorKind.JsonStructCmpSAV
+          of "jstructcmpnsav":
+            BodyOperatorKind.JsonStructCmpNSAV
           else:
             return err("`response.body` element has incorrect operator")
 
     case operator
     of BodyOperatorKind.Exists:
       res.add(BodyItemExpect(kind: operator))
-    of BodyOperatorKind.JsonStructCmpS, BodyOperatorKind.JsonStructCmpNS:
+    of BodyOperatorKind.JsonStructCmpS, BodyOperatorKind.JsonStructCmpNS,
+       BodyOperatorKind.JsonStructCmpSAV, BodyOperatorKind.JsonStructCmpNSAV:
       let start =
         block:
           var default: seq[string]
@@ -762,7 +768,7 @@ proc getPath(jobj: JsonNode, path: seq[string]): Result[JsonNode, cstring] =
     jnode = jitem
   ok(jnode)
 
-proc structCmp(j1, j2: JsonNode, strict: bool): bool =
+proc structCmp(j1, j2: JsonNode, strict: bool, checkvalue: bool): bool =
   if j1.kind != j2.kind:
     return false
   case j1.kind
@@ -776,7 +782,7 @@ proc structCmp(j1, j2: JsonNode, strict: bool): bool =
         false
       else:
         for item in j1.elems:
-          if not(structCmp(item, j2.elems[0], strict)):
+          if not(structCmp(item, j2.elems[0], strict, checkvalue)):
             return false
         true
   of JObject:
@@ -787,7 +793,7 @@ proc structCmp(j1, j2: JsonNode, strict: bool): bool =
         let j2node = j2.getOrDefault(key)
         if isNil(j2node):
           return false
-        if not(structCmp(value, j2node, strict)):
+        if not(structCmp(value, j2node, strict, checkvalue)):
           return false
       true
     else:
@@ -795,10 +801,18 @@ proc structCmp(j1, j2: JsonNode, strict: bool): bool =
         let j1node = j1.getOrDefault(key)
         if isNil(j1node):
           return false
-        if not(structCmp(j1node, value, strict)):
+        if not(structCmp(j1node, value, strict, checkvalue)):
           return false
       true
-  else:
+  of JString:
+    if checkvalue: j1.str == j2.str else: true
+  of JInt:
+    if checkvalue: j1.num == j2.num else: true
+  of JFloat:
+    if checkvalue: j1.fnum == j2.fnum else: true
+  of JBool:
+    if checkvalue: j1.bval == j2.bval else: true
+  of JNull:
     true
 
 proc validateBody(body: openArray[byte], expect: BodyExpect): bool =
@@ -810,7 +824,8 @@ proc validateBody(body: openArray[byte], expect: BodyExpect): bool =
       of BodyOperatorKind.Exists:
         if len(body) == 0:
           return false
-      of BodyOperatorKind.JsonStructCmpS, BodyOperatorKind.JsonStructCmpNS:
+      of BodyOperatorKind.JsonStructCmpS, BodyOperatorKind.JsonStructCmpNS,
+         BodyOperatorKind.JsonStructCmpSAV, BodyOperatorKind.JsonStructCmpNSAV:
         let jbody =
           block:
             let jres = jsonBody(body)
@@ -822,11 +837,18 @@ proc validateBody(body: openArray[byte], expect: BodyExpect): bool =
               return false
             jpathres.get()
         let strict =
-          if item.kind == BodyOperatorKind.JsonStructCmpS:
+          if item.kind in {BodyOperatorKind.JsonStructCmpS,
+                           BodyOperatorKind.JsonStructCmpSAV}:
             true
           else:
             false
-        if not(structCmp(jbody, item.value, strict)):
+        let checkvalue =
+          if item.kind in {BodyOperatorKind.JsonStructCmpSAV,
+                           BodyOperatorKind.JsonStructCmpNSAV}:
+            true
+          else:
+            false
+        if not(structCmp(jbody, item.value, strict, checkvalue)):
           return false
     true
 

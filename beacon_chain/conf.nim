@@ -36,7 +36,7 @@ from consensus_object_pools/block_pools_types_light_client
 
 export
   uri, nat, enr,
-  defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
+  defaultEth2TcpPort, enabledLogLevel,
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network, BlockHashOrNumber,
   confTomlDefs, confTomlNet, confTomlUri,
@@ -47,8 +47,8 @@ declareGauge network_name, "network name", ["name"]
 const
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
-  defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
-  defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
+  defaultListenAddress* = (static parseIpAddress("0.0.0.0"))
+  defaultAdminListenAddress* = (static parseIpAddress("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
@@ -292,7 +292,7 @@ type
         desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
         defaultValue: defaultListenAddress
         defaultValueDesc: $defaultListenAddressDesc
-        name: "listen-address" .}: ValidIpAddress
+        name: "listen-address" .}: IpAddress
 
       tcpPort* {.
         desc: "Listening TCP port for Ethereum LibP2P traffic"
@@ -339,15 +339,26 @@ type
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
 
+      externalBeaconApiUrl* {.
+        desc: "External beacon API to use for syncing (on empty database)"
+        name: "external-beacon-api-url" .}: Option[string]
+
       syncLightClient* {.
-        desc: "Accelerate execution layer sync using light client"
+        desc: "Accelerate sync using light client"
         defaultValue: true
         name: "sync-light-client" .}: bool
 
       trustedBlockRoot* {.
-        hidden
-        desc: "Recent trusted finalized block root to initialize light client from"
+        desc: "Recent trusted finalized block root to sync from external " &
+              "beacon API (with `--external-beacon-api-url`). " &
+              "Uses the light client sync protocol to obtain the latest " &
+              "finalized checkpoint (LC is initialized from trusted block root)"
         name: "trusted-block-root" .}: Option[Eth2Digest]
+
+      trustedStateRoot* {.
+        desc: "Recent trusted finalized state root to sync from external " &
+              "beacon API (with `--external-beacon-api-url`)"
+        name: "trusted-state-root" .}: Option[Eth2Digest]
 
       finalizedCheckpointState* {.
         desc: "SSZ file specifying a recent finalized state"
@@ -408,7 +419,7 @@ type
         desc: "Listening address of the metrics server"
         defaultValue: defaultAdminListenAddress
         defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "metrics-address" .}: ValidIpAddress
+        name: "metrics-address" .}: IpAddress
 
       metricsPort* {.
         desc: "Listening HTTP port of the metrics server"
@@ -449,7 +460,7 @@ type
         # Deprecated > 1.7.0
         hidden
         desc: "Deprecated for removal"
-        name: "rpc-address" .}: Option[ValidIpAddress]
+        name: "rpc-address" .}: Option[IpAddress]
 
       restEnabled* {.
         desc: "Enable the REST server"
@@ -466,7 +477,7 @@ type
         desc: "Listening address of the REST server"
         defaultValue: defaultAdminListenAddress
         defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "rest-address" .}: ValidIpAddress
+        name: "rest-address" .}: IpAddress
 
       restAllowedOrigin* {.
         desc: "Limit the access to the REST API to a particular hostname " &
@@ -520,7 +531,7 @@ type
         desc: "Listening port for the REST keymanager API"
         defaultValue: defaultAdminListenAddress
         defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "keymanager-address" .}: ValidIpAddress
+        name: "keymanager-address" .}: IpAddress
 
       keymanagerAllowedOrigin* {.
         desc: "Limit the access to the Keymanager API to a particular hostname " &
@@ -776,7 +787,7 @@ type
       of RecordCmd.create:
         ipExt* {.
           desc: "External IP address"
-          name: "ip" .}: ValidIpAddress
+          name: "ip" .}: IpAddress
 
         tcpPortExt* {.
           desc: "External TCP port"
@@ -973,7 +984,7 @@ type
       desc: "Listening port for the REST keymanager API"
       defaultValue: defaultAdminListenAddress
       defaultValueDesc: $defaultAdminListenAddressDesc
-      name: "keymanager-address" .}: ValidIpAddress
+      name: "keymanager-address" .}: IpAddress
 
     keymanagerAllowedOrigin* {.
       desc: "Limit the access to the Keymanager API to a particular hostname " &
@@ -993,7 +1004,7 @@ type
       desc: "Listening address of the metrics server (BETA)"
       defaultValue: defaultAdminListenAddress
       defaultValueDesc: $defaultAdminListenAddressDesc
-      name: "metrics-address" .}: ValidIpAddress
+      name: "metrics-address" .}: IpAddress
 
     metricsPort* {.
       desc: "Listening HTTP port of the metrics server (BETA)"
@@ -1091,7 +1102,7 @@ type
       desc: "Listening address of the REST HTTP server"
       defaultValue: defaultAdminListenAddress
       defaultValueDesc: $defaultAdminListenAddressDesc
-      name: "bind-address" .}: ValidIpAddress
+      name: "bind-address" .}: IpAddress
 
     tlsEnabled* {.
       desc: "Use secure TLS communication for REST server"

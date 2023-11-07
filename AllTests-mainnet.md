@@ -48,6 +48,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check Deneb blocks [Preset: mainnet]                                                OK
 + sanity check Deneb states [Preset: mainnet]                                                OK
 + sanity check Deneb states, reusing buffers [Preset: mainnet]                               OK
++ sanity check blobs [Preset: mainnet]                                                       OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -55,7 +56,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
+OK: 25/25 Fail: 0/25 Skip: 0/25
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -357,7 +358,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
-+ Blob sidecar signatures                                                                    OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -365,7 +365,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Network metadata
 ```diff
 + goerli                                                                                     OK

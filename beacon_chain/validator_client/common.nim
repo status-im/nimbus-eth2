@@ -65,7 +65,9 @@ type
   DutiesServiceRef* = ref object of ClientServiceRef
     pollingAttesterDutiesTask*: Future[void]
     pollingSyncDutiesTask*: Future[void]
+    pruneSlashingDatabaseTask*: Future[void]
     syncSubscriptionEpoch*: Opt[Epoch]
+    lastSlashingEpoch*: Opt[Epoch]
 
   FallbackServiceRef* = ref object of ClientServiceRef
     changesEvent*: AsyncEvent
@@ -95,7 +97,8 @@ type
 
   ProposerTask* = object
     duty*: RestProposerDuty
-    future*: Future[void]
+    proposeFut*: Future[void]
+    randaoFut*: Future[void]
 
   ProposedData* = object
     epoch*: Epoch
@@ -228,6 +231,7 @@ type
     blocksSeen*: Table[Slot, BlockDataItem]
     rootsSeen*: Table[Eth2Digest, Slot]
     processingDelay*: Opt[Duration]
+    finalizedEpoch*: Opt[Epoch]
     rng*: ref HmacDrbgContext
 
   ApiStrategyKind* {.pure.} = enum

@@ -2570,3 +2570,92 @@ proc getValidatorsLiveness*(
         res
 
     return GetValidatorsLivenessResponse(data: response)
+
+proc getFinalizedBlockHeader*(
+       vc: ValidatorClientRef,
+     ): Future[Opt[GetBlockHeaderResponse]] {.async.} =
+  const RequestName = "getFinalizedBlockHeader"
+
+  let
+    blockIdent = BlockIdent.init(BlockIdentType.Finalized)
+    resp = vc.onceToAll(RestPlainResponse,
+                        SlotDuration,
+                        ViableNodeStatus,
+                        {BeaconNodeRole.Duties},
+                        getBlockHeaderPlain(it, blockIdent))
+  case resp.status
+  of ApiOperation.Timeout:
+    debug "Unable to obtain finalized block header in time",
+          timeout = SlotDuration
+    return Opt.none(GetBlockHeaderResponse)
+  of ApiOperation.Interrupt:
+    debug "Finalized block header request was interrupted"
+    return Opt.none(GetBlockHeaderResponse)
+  of ApiOperation.Failure:
+    debug "Unexpected error happened while trying to get finalized block header"
+    return Opt.none(GetBlockHeaderResponse)
+  of ApiOperation.Success:
+    var oldestBlockHeader: GetBlockHeaderResponse
+    var oldestEpoch: Opt[Epoch]
+    for apiResponse in resp.data:
+      if apiResponse.data.isErr():
+        debug "Unable to get finalized block header",
+              endpoint = apiResponse.node, error = apiResponse.data.error
+      else:
+        let response = apiResponse.data.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetBlockHeaderResponse,
+                                response.data, response.contentType)
+          if res.isOk():
+            let
+              rdata = res.get()
+              epoch = rdata.data.header.message.slot.epoch()
+            if oldestEpoch.get(FAR_FUTURE_EPOCH) > epoch:
+              oldestEpoch = Opt.some(epoch)
+              oldestBlockHeader = rdata
+          else:
+            let failure = ApiNodeFailure.init(
+              ApiFailure.UnexpectedResponse, RequestName,
+              apiResponse.node, response.status, $res.error)
+            # We do not update beacon node's status anymore because of
+            # issue #5377.
+            debug ResponseDecodeError, reason = getFailureReason(failure)
+            continue
+        of 400:
+          let failure = ApiNodeFailure.init(
+            ApiFailure.Invalid, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
+          debug ResponseInvalidError, reason = getFailureReason(failure)
+          continue
+        of 404:
+          let failure = ApiNodeFailure.init(
+            ApiFailure.NotFound, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
+          debug ResponseNotFoundError, reason = getFailureReason(failure)
+          continue
+        of 500:
+          let failure = ApiNodeFailure.init(
+            ApiFailure.Internal, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
+          debug ResponseInternalError, reason = getFailureReason(failure)
+          continue
+        else:
+          let failure = ApiNodeFailure.init(
+            ApiFailure.UnexpectedCode, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
+          debug ResponseUnexpectedError, reason = getFailureReason(failure)
+          continue
+
+    if oldestEpoch.isSome():
+      return Opt.some(oldestBlockHeader)
+    else:
+      return Opt.none(GetBlockHeaderResponse)

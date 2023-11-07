@@ -114,6 +114,57 @@ declareGauge next_action_wait,
 
 logScope: topics = "beacnde"
 
+proc doRunTrustedNodeSync(
+    db: BeaconChainDB,
+    metadata: Eth2NetworkMetadata,
+    databaseDir: string,
+    eraDir: string,
+    restUrl: string,
+    stateId: Option[string],
+    trustedBlockRoot: Option[Eth2Digest],
+    backfill: bool,
+    reindex: bool,
+    downloadDepositSnapshot: bool) {.async.} =
+  let
+    cfg = metadata.cfg
+    syncTarget =
+      if stateId.isSome:
+        if trustedBlockRoot.isSome:
+          warn "Ignoring `trustedBlockRoot`, `stateId` is set",
+            stateId, trustedBlockRoot
+        TrustedNodeSyncTarget(
+          kind: TrustedNodeSyncKind.StateId,
+          stateId: stateId.get)
+      elif trustedBlockRoot.isSome:
+        TrustedNodeSyncTarget(
+          kind: TrustedNodeSyncKind.TrustedBlockRoot,
+          trustedBlockRoot: trustedBlockRoot.get)
+      else:
+        TrustedNodeSyncTarget(
+          kind: TrustedNodeSyncKind.StateId,
+          stateId: "finalized")
+    genesis =
+      if metadata.hasGenesis:
+        let genesisBytes = try: await metadata.fetchGenesisBytes()
+        except CatchableError as err:
+          error "Failed to obtain genesis state",
+                source = metadata.genesis.sourceDesc,
+                err = err.msg
+          quit 1
+        newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
+      else: nil
+
+  await db.doTrustedNodeSync(
+    cfg,
+    databaseDir,
+    eraDir,
+    restUrl,
+    syncTarget,
+    backfill,
+    reindex,
+    downloadDepositSnapshot,
+    genesis)
+
 func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   case stdoutKind
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
@@ -503,6 +554,26 @@ proc init*(T: type BeaconNode,
       finalQueue: newAsyncEventQueue[FinalizationInfoObject]()
     )
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
+
+  if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
+    if config.trustedStateRoot.isNone and config.trustedBlockRoot.isNone:
+      warn "Ignoring `--external-beacon-api-url`, neither " &
+        "`--trusted-block-root` nor `--trusted-state-root` are provided",
+        externalBeaconApiUrl = config.externalBeaconApiUrl.get,
+        trustedBlockRoot = config.trustedBlockRoot,
+        trustedStateRoot = config.trustedStateRoot
+    else:
+      await db.doRunTrustedNodeSync(
+        metadata,
+        config.databaseDir,
+        config.eraDir,
+        config.externalBeaconApiUrl.get,
+        config.trustedStateRoot.map do (x: Eth2Digest) -> string:
+          "0x" & x.data.toHex,
+        config.trustedBlockRoot,
+        backfill = false,
+        reindex = false,
+        downloadDepositSnapshot = false)
 
   if config.finalizedCheckpointBlock.isSome:
     warn "--finalized-checkpoint-block has been deprecated, ignoring"
@@ -1662,18 +1733,18 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Deneb:
-        # blob_sidecar_{index}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
-        for i in 0 ..< BLOB_SIDECAR_SUBNET_COUNT:
+        # blob_sidecar_{subnet_id}
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+        for it in BlobId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-            let idx = i
+            let subnet_id = it
             node.network.addValidator(
-              getBlobSidecarTopic(digest, SubnetId(idx)), proc (
-                signedBlobSidecar: SignedBlobSidecar
+              getBlobSidecarTopic(digest, subnet_id), proc (
+                blobSidecar: deneb.BlobSidecar
               ): ValidationResult =
                 toValidationResult(
-                  node.processor[].processSignedBlobSidecar(
-                    MsgSource.gossip, signedBlobSidecar, idx)))
+                  node.processor[].processBlobSidecar(
+                    MsgSource.gossip, blobSidecar, subnet_id)))
 
   node.installLightClientMessageValidators()
 
@@ -2015,9 +2086,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       bnStatus = BeaconNodeStatus.Stopping
     c_signal(ansi_c.SIGTERM, SIGTERMHandler)
 
-  let node = waitFor BeaconNode.init(rng, config, metadata)
-
-  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+  if metadata.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
     let res =
       if config.trustedSetupFile.isNone:
         conf.loadKzgTrustedSetup()
@@ -2025,6 +2094,8 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
         conf.loadKzgTrustedSetup(config.trustedSetupFile.get)
     if res.isErr():
       raiseAssert res.error()
+
+  let node = waitFor BeaconNode.init(rng, config, metadata)
 
   if bnStatus == BeaconNodeStatus.Stopping:
     return
@@ -2057,7 +2128,7 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     let record = enr.Record.init(
       config.seqNumber,
       netKeys.seckey.asEthKey,
-      some(config.ipExt),
+      some(ValidIpAddress.init config.ipExt),
       some(config.tcpPortExt),
       some(config.udpPortExt),
       fieldPairs).expect("Record within size limits")
@@ -2143,51 +2214,24 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
   of BNStartUpCmd.trustedNodeSync:
-    let
-      network = loadEth2Network(config)
-      cfg = network.cfg
-      syncTarget =
-        if config.stateId.isSome:
-          if config.lcTrustedBlockRoot.isSome:
-            warn "Ignoring `trustedBlockRoot`, `stateId` is set",
-              stateId = config.stateId,
-              trustedBlockRoot = config.lcTrustedBlockRoot
-          TrustedNodeSyncTarget(
-            kind: TrustedNodeSyncKind.StateId,
-            stateId: config.stateId.get)
-        elif config.lcTrustedBlockRoot.isSome:
-          TrustedNodeSyncTarget(
-            kind: TrustedNodeSyncKind.TrustedBlockRoot,
-            trustedBlockRoot: config.lcTrustedBlockRoot.get)
-        else:
-          TrustedNodeSyncTarget(
-            kind: TrustedNodeSyncKind.StateId,
-            stateId: "finalized")
-      genesis =
-        if network.hasGenesis:
-          let genesisBytes = try: waitFor network.fetchGenesisBytes()
-          except CatchableError as err:
-            error "Failed to obtain genesis state",
-                  source = network.genesis.sourceDesc,
-                  err = err.msg
-            quit 1
-          newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
-        else: nil
-
     if config.blockId.isSome():
       error "--blockId option has been removed - use --state-id instead!"
       quit 1
 
-    waitFor doTrustedNodeSync(
-      cfg,
+    let
+      metadata = loadEth2Network(config)
+      db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
+    waitFor db.doRunTrustedNodeSync(
+      metadata,
       config.databaseDir,
       config.eraDir,
       config.trustedNodeUrl,
-      syncTarget,
+      config.stateId,
+      config.lcTrustedBlockRoot,
       config.backfillBlocks,
       config.reindex,
-      config.downloadDepositSnapshot,
-      genesis)
+      config.downloadDepositSnapshot)
+    db.close()
 
 {.pop.} # TODO moduletests exceptions
 

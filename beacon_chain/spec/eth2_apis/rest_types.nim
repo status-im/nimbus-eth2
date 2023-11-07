@@ -84,6 +84,9 @@ type
   StateIdentType* {.pure.} = enum
     Head, Genesis, Finalized, Justified
 
+  BroadcastValidationType* {.pure.} = enum
+    Gossip, Consensus, ConsensusAndEquivocation
+
   StateIdent* = object
     case kind*: StateQueryKind
     of StateQueryKind.Slot:
@@ -112,6 +115,8 @@ type
 
   PeerDirectKind* {.pure.} = enum
     Inbound, Outbound
+
+  RestNumeric* = distinct int
 
   RestAttesterDuty* = object
     pubkey*: ValidatorPubKey
@@ -312,7 +317,8 @@ type
 
   DenebSignedBlockContents* = object
     signed_block*: deneb.SignedBeaconBlock
-    signed_blob_sidecars*: List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+    kzg_proofs*: deneb.KzgProofs
+    blobs*: deneb.Blobs
 
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
@@ -334,7 +340,8 @@ type
 
   DenebBlockContents* = object
     `block`*: deneb.BeaconBlock
-    blob_sidecars*: List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+    kzg_proofs*: deneb.KzgProofs
+    blobs*: deneb.Blobs
 
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
@@ -387,6 +394,11 @@ type
   DataOptimisticObject*[T] = object
     data*: T
     execution_optimistic*: Option[bool]
+
+  DataOptimisticAndFinalizedObject*[T] = object
+    data*: T
+    execution_optimistic*: Option[bool]
+    finalized*: Option[bool]
 
   ForkedSignedBlockHeader* = object
     message*: uint32 # message offset
@@ -508,7 +520,7 @@ type
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
   GetBlockAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
-  GetBlockHeaderResponse* = DataOptimisticObject[RestBlockHeaderInfo]
+  GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]

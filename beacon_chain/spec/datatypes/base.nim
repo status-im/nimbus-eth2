@@ -74,7 +74,7 @@ export
   tables, results, json_serialization, timer, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.4.0-beta.3"
+const SPEC_VERSION* = "1.4.0-beta.4"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -186,6 +186,13 @@ type
     ##
     ## The `SubnetId` type is constrained to values in the range
     ## `[0, ATTESTATION_SUBNET_COUNT)` during initialization.
+
+  BlobId* = distinct uint8
+    ## The blob id maps which gossip subscription to use to publish a
+    ## blob sidecar - it is distinct from the CommitteeIndex in particular
+    ##
+    ## The `BlobId` type is constrained to values in the range
+    ## `[0, BLOB_SIDECAR_SUBNET_COUNT)` during initialization.
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
@@ -603,6 +610,7 @@ template makeLimitedU64*(T: untyped, limit: uint64) =
 
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
+makeLimitedU64(BlobId, BLOB_SIDECAR_SUBNET_COUNT)
 
 const
   validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)

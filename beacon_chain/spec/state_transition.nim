@@ -380,7 +380,7 @@ func partialBeaconBlock*(
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
   when consensusFork >= ConsensusFork.Deneb:
-    res.body.blob_kzg_commitments = execution_payload.kzgs
+    res.body.blob_kzg_commitments = execution_payload.blobsBundle.commitments
 
   res
 
@@ -403,7 +403,8 @@ proc makeBeaconBlock*(
     # removed if we don't use invalid signatures there
     verificationFlags: UpdateFlags,
     transactions_root: Opt[Eth2Digest],
-    execution_payload_root: Opt[Eth2Digest]):
+    execution_payload_root: Opt[Eth2Digest],
+    kzg_commitments: Opt[KzgCommitments]):
     Result[ForkedBeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
@@ -428,7 +429,7 @@ proc makeBeaconBlock*(
       rollback(state)
       return err(res.error())
 
-    # Override for MEV
+    # Override for Builder API
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
         when consensusFork < ConsensusFork.Capella:
@@ -455,6 +456,9 @@ proc makeBeaconBlock*(
              execution_payload_root.get,
              hash_tree_root(validator_changes.bls_to_execution_changes)])
         elif consensusFork == ConsensusFork.Deneb:
+          forkyState.data.latest_execution_payload_header.transactions_root =
+            transactions_root.get
+
           when executionPayload is deneb.ExecutionPayloadForSigning:
             # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
@@ -469,7 +473,7 @@ proc makeBeaconBlock*(
                hash_tree_root(sync_aggregate),
                execution_payload_root.get,
                hash_tree_root(validator_changes.bls_to_execution_changes),
-               hash_tree_root(executionPayload.kzgs)
+               hash_tree_root(kzg_commitments.get)
             ])
           else:
             raiseAssert "Attempt to use non-Deneb payload with post-Deneb state"
@@ -517,7 +521,8 @@ proc makeBeaconBlock*(
     attestations, deposits, validator_changes, sync_aggregate,
     executionPayload, rollback, cache,
     verificationFlags = {}, transactions_root = Opt.none Eth2Digest,
-    execution_payload_root = Opt.none Eth2Digest)
+    execution_payload_root = Opt.none Eth2Digest,
+    kzg_commitments = Opt.none KzgCommitments)
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
@@ -536,4 +541,5 @@ proc makeBeaconBlock*(
     executionPayload, rollback, cache,
     verificationFlags = verificationFlags,
     transactions_root = Opt.none Eth2Digest,
-    execution_payload_root = Opt.none Eth2Digest)
+    execution_payload_root = Opt.none Eth2Digest,
+    kzg_commitments = Opt.none KzgCommitments)

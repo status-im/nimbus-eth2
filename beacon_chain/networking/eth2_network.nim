@@ -174,7 +174,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [CatchableError].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -1887,9 +1887,6 @@ proc new(T: type Eth2Node,
 
   node
 
-template publicKey(node: Eth2Node): keys.PublicKey =
-  node.discovery.privKey.toPublicKey
-
 proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
     try:
@@ -2173,14 +2170,6 @@ proc peerTrimmerHeartbeat(node: Eth2Node) {.async.} =
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
   keys.PrivateKey(key.skkey)
 
-proc initAddress(T: type MultiAddress, str: string): T =
-  let address = MultiAddress.init(str)
-  if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
-    result = address
-  else:
-    raise newException(MultiAddressError,
-                       "Invalid bootstrap node multi-address")
-
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
@@ -2263,7 +2252,7 @@ proc getPersistentNetKeys*(
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/p2p-interface.md#topics-and-messages
   const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
     h.update(MESSAGE_DOMAIN_VALID_SNAPPY)
@@ -2315,7 +2304,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
-      config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
+      config.nat, ValidIpAddress.init config.listenAddress, config.tcpPort,
+      config.udpPort, clientId)
     except CatchableError as exc: raise exc
     except Exception as exc: raiseAssert exc.msg
 
@@ -2337,7 +2327,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
+    hostAddress = tcpEndPoint(
+      ValidIpAddress.init config.listenAddress, config.tcpPort)
     announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
 
@@ -2687,7 +2678,7 @@ proc broadcastBeaconBlock*(
   node.broadcast(topic, blck)
 
 proc broadcastBlobSidecar*(
-    node: Eth2Node, subnet_id: SubnetId, blob: deneb.SignedBlobSidecar):
+    node: Eth2Node, subnet_id: BlobId, blob: deneb.BlobSidecar):
       Future[SendResult] =
   let
     forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)

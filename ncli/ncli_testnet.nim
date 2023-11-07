@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, sequtils, strutils, options, json, terminal, times],
+  std/[json, options],
   chronos, bearssl/rand, chronicles, confutils, stint, json_serialization,
   web3, web3/confutils_defs, eth/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils], json_rpc/jsonmarshal,
@@ -22,9 +22,17 @@ import
   ../tests/mocking/mock_genesis,
   ./logtrace
 
+from std/os import changeFileExt, fileExists
+from std/sequtils import mapIt, toSeq
+from std/terminal import readPasswordFromStdin
+from std/times import toUnix
+
 # Compiled version of /scripts/depositContract.v.py in this repo
 # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
 const depositContractCode = staticRead "../beacon_chain/el/deposit_contract_code.txt"
+
+# For nim-confutils, which uses this kind of init(Type, value) pattern
+func init(T: type IpAddress, ip: IpAddress): T = ip
 
 type
   Eth1Address = web3.Address
@@ -109,9 +117,9 @@ type
 
       bootstrapAddress* {.
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
-        defaultValue: init(ValidIpAddress, defaultAdminListenAddress)
+        defaultValue: defaultAdminListenAddress
         defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "bootstrap-address" .}: ValidIpAddress
+        name: "bootstrap-address" .}: IpAddress
 
       bootstrapPort* {.
         desc: "The TCP/UDP port that will be used by the bootstrap node"
@@ -186,9 +194,9 @@ type
 
       enrAddress* {.
         desc: "The public IP address of that ENR"
-        defaultValue: init(ValidIpAddress, defaultAdminListenAddress)
+        defaultValue: defaultAdminListenAddress
         defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "enr-address" .}: ValidIpAddress
+        name: "enr-address" .}: IpAddress
 
       enrPort* {.
         desc: "The TCP/UDP port of that ENR"
@@ -338,7 +346,7 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
     excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
 
-proc createDepositTreeSnapshot(deposits: seq[DepositData],
+func createDepositTreeSnapshot(deposits: seq[DepositData],
                                blockHash: Eth2Digest,
                                blockHeight: uint64): DepositTreeSnapshot =
   var merkleizer = DepositsMerkleizer.init()
@@ -357,7 +365,7 @@ proc createEnr(rng: var HmacDrbgContext,
                netKeyInsecurePassword: bool,
                cfg: RuntimeConfig,
                forkId: seq[byte],
-               address: ValidIpAddress,
+               address: IpAddress,
                port: Port): enr.Record
                {.raises: [CatchableError].} =
   type MetaData = altair.MetaData
@@ -369,7 +377,7 @@ proc createEnr(rng: var HmacDrbgContext,
     bootstrapEnr = enr.Record.init(
       1, # sequence number
       networkKeys.seckey.asEthKey,
-      some(address),
+      some(ValidIpAddress.init address),
       some(port),
       some(port),
       [
@@ -378,9 +386,9 @@ proc createEnr(rng: var HmacDrbgContext,
       ])
   bootstrapEnr.tryGet()
 
-proc doCreateTestnetEnr*(config: CliConfig,
-                         rng: var HmacDrbgContext)
-                        {.raises: [CatchableError].} =
+proc doCreateTestnetEnr(config: CliConfig,
+                        rng: var HmacDrbgContext)
+                       {.raises: [CatchableError].} =
   let
     cfg = getRuntimeConfig(config.eth2Network)
     bootstrapEnr = parseBootstrapAddress(toSeq(lines(string config.inputBootstrapEnr))[0]).get()
@@ -500,7 +508,7 @@ proc doCreateTestnet*(config: CliConfig,
     writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
-proc deployContract*(web3: Web3, code: string): Future[ReceiptObject] {.async.} =
+proc deployContract(web3: Web3, code: string): Future[ReceiptObject] {.async.} =
   var code = code
   if code[1] notin {'x', 'X'}:
     code = "0x" & code
@@ -523,9 +531,9 @@ proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
   web3.send(tr)
 
 type
-  DelayGenerator* = proc(): chronos.Duration {.gcsafe, raises: [].}
+  DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
 
-proc ethToWei(eth: UInt256): UInt256 =
+func ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256
 
 proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
@@ -539,10 +547,10 @@ proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
 
 # TODO: async functions should note take `seq` inputs because
 #       this leads to full copies.
-proc sendDeposits*(deposits: seq[LaunchPadDeposit],
-                   web3Url, privateKey: string,
-                   depositContractAddress: Eth1Address,
-                   delayGenerator: DelayGenerator = nil) {.async.} =
+proc sendDeposits(deposits: seq[LaunchPadDeposit],
+                  web3Url, privateKey: string,
+                  depositContractAddress: Eth1Address,
+                  delayGenerator: DelayGenerator = nil) {.async.} =
   notice "Sending deposits",
     web3 = web3Url,
     depositContract = depositContractAddress

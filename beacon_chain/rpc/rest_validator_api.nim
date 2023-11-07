@@ -392,21 +392,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             qslot, proposer, qrandao, qskip_randao_verification):
           return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
-        let res =
-          case node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
-          of ConsensusFork.Deneb:
+        let res = withConsensusFork(
+            node.dag.cfg.consensusForkAtEpoch(qslot.epoch)):
+          when consensusFork >= ConsensusFork.Bellatrix:
             await makeBeaconBlockForHeadAndSlot(
-              deneb.ExecutionPayloadForSigning,
+              consensusFork.ExecutionPayloadForSigning,
               node, qrandao, proposer, qgraffiti, qhead, qslot)
-          of ConsensusFork.Capella:
-            await makeBeaconBlockForHeadAndSlot(
-              capella.ExecutionPayloadForSigning,
-              node, qrandao, proposer, qgraffiti, qhead, qslot)
-          of ConsensusFork.Bellatrix:
-            await makeBeaconBlockForHeadAndSlot(
-              bellatrix.ExecutionPayloadForSigning,
-              node, qrandao, proposer, qgraffiti, qhead, qslot)
-          of ConsensusFork.Altair, ConsensusFork.Phase0:
+          else:
             return RestApiResponse.jsonError(Http400, InvalidSlotValueError)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
@@ -414,39 +406,19 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       withBlck(message.blck):
         let data =
-          when forkyBlck is deneb.BeaconBlock:
-            let bundle = message.blobsBundleOpt.get()
-            let blockRoot = hash_tree_root(forkyBlck)
-            var sidecars = newSeqOfCap[BlobSidecar](bundle.blobs.len)
-            for i in 0..<bundle.blobs.len:
-              let sidecar = deneb.BlobSidecar(
-                block_root: blockRoot,
-                index: BlobIndex(i),
-                slot: forkyBlck.slot,
-                block_parent_root: forkyBlck.parent_root,
-                proposer_index: forkyBlck.proposer_index,
-                blob: bundle.blobs[i],
-                kzg_commitment: bundle.kzgs[i],
-                kzg_proof: bundle.proofs[i]
-              )
-              sidecars.add(sidecar)
-
+          when consensusFork >= ConsensusFork.Deneb:
+            let blobsBundle = message.blobsBundleOpt.get()
             DenebBlockContents(
               `block`: forkyBlck,
-              blob_sidecars: List[BlobSidecar,
-                                  Limit MAX_BLOBS_PER_BLOCK].init(sidecars))
-          elif forkyBlck is phase0.BeaconBlock or
-               forkyBlck is altair.BeaconBlock or
-               forkyBlck is bellatrix.BeaconBlock or
-               forkyBlck is capella.BeaconBlock:
-            forkyBlck
+              kzg_proofs: blobsBundle.proofs,
+              blobs: blobsBundle.blobs)
           else:
-            static: raiseAssert "produceBlockV2 received unexpected version"
+            forkyBlck
         if contentType == sszMediaType:
-          let headers = [("eth-consensus-version", message.blck.kind.toString())]
+          let headers = [("eth-consensus-version", consensusFork.toString())]
           RestApiResponse.sszResponse(data, headers)
         elif contentType == jsonMediaType:
-          RestApiResponse.jsonResponseWVersion(data, message.blck.kind)
+          RestApiResponse.jsonResponseWVersion(data, consensusFork)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
 

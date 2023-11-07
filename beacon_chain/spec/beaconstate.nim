@@ -142,7 +142,7 @@ func initiate_validator_exit*(
 
 from ./datatypes/deneb import BeaconState
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_slashing_penalty*(state: ForkyBeaconState,
@@ -342,7 +342,7 @@ func is_eligible_for_activation_queue*(validator: Validator): bool =
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_eligible_for_activation
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#is_eligible_for_activation
 func is_eligible_for_activation*(
     state: ForkyBeaconState, validator: Validator): bool =
   ## Check if ``validator`` is eligible for activation.
@@ -1102,20 +1102,6 @@ proc initialize_beacon_state_from_eth1*(
   # TODO https://github.com/nim-lang/Nim/issues/19094
   # state
 
-proc initialize_hashed_beacon_state_from_eth1(
-    cfg: RuntimeConfig,
-    eth1_block_hash: Eth2Digest,
-    eth1_timestamp: uint64,
-    deposits: openArray[DepositData],
-    execution_payload_header: ForkyExecutionPayloadHeader,
-    flags: UpdateFlags = {}): auto =
-  # TODO https://github.com/nim-lang/Nim/issues/19094
-  result = initHashedBeaconState(
-    initialize_beacon_state_from_eth1(
-      cfg, eth1_block_hash, eth1_timestamp, deposits,
-      execution_payload_header, flags))
-  result.root = hash_tree_root(result.data)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,
@@ -1342,7 +1328,7 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     # historical_summaries initialized to correct default automatically
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/fork.md#upgrading-the-state
 func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
     ref deneb.BeaconState =
   let

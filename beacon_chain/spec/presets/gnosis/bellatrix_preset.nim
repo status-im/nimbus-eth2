@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Gnosis preset - Bellatrix
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/presets/mainnet/bellatrix.yaml
+# https://github.com/gnosischain/configs/blob/b90374a1c63703db8235fcdb65aff2e909bc42b5/presets/gnosis/bellatrix.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

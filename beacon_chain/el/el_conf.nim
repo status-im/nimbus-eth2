@@ -71,9 +71,6 @@ func unknownRoleMsg(role: string): string =
 template raiseError(reader: var TomlReader, msg: string) =
   raiseTomlErr(reader.lex, msg)
 
-template raiseError(reader: var JsonReader, msg: string) =
-  raiseTomlErr(reader.lex, msg)
-
 proc readValue*(reader: var TomlReader, value: var EngineApiRoles)
                {.raises: [SerializationError, IOError].} =
   let roles = reader.readValue seq[string]

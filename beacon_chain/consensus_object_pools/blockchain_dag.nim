@@ -234,19 +234,6 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
   else:
     err()
 
-proc containsBlock(dag: ChainDAGRef, bid: BlockId): bool =
-  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-  if dag.db.containsBlock(bid.root, fork):
-    return true
-
-  # TODO avoid loading bytes from era
-  var bytes: seq[byte]
-  (bid.slot <= dag.finalizedHead.slot and
-    getBlockSZ(
-      dag.era, getStateField(dag.headState, historical_roots).asSeq,
-      dag.headState.historical_summaries().asSeq,
-      bid.slot, bytes).isOk and bytes.len > 0)
-
 proc getBlock*(
     dag: ChainDAGRef, bid: BlockId,
     T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
@@ -566,8 +553,6 @@ func init*(
       dag.putShufflingRef(tmp)
       tmp
 
-    attester_dependent_root = withState(state):
-      forkyState.attester_dependent_root
     total_active_balance = withState(state):
       get_total_active_balance(forkyState.data, cache)
     epochRef = EpochRef(
@@ -2434,7 +2419,6 @@ proc updateHead*(
 
     if not(isNil(dag.onHeadChanged)):
       let
-        currentEpoch = epoch(newHead.slot)
         depRoot = withState(dag.headState): forkyState.proposer_dependent_root
         prevDepRoot = withState(dag.headState):
           forkyState.attester_dependent_root
@@ -2626,7 +2610,7 @@ func aggregateAll*(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregate: no attesting keys")
 
   let
@@ -2746,7 +2730,6 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       if state_root.isZero:
         # If we can find an era file with this state, use it as an alternative
         # starting point - ignore failures for now
-        var bytes: seq[byte]
         if dag.era.getState(
             historicalRoots, historicalSummaries, slot, state[]).isOk():
           state_root = getStateRoot(state[])
