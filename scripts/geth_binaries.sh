@@ -14,7 +14,7 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
-    GETH_VERSION="1.10.26-e5eb32ac"
+    GETH_VERSION="1.13.4-3f9076da"
     GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
     case "${OS}-${ARCH}" in
@@ -102,11 +102,11 @@ download_status_geth_binary() {
 }
 
 download_geth_capella() {
-  download_status_geth_binary withdrawals-timestamp "$GETH_CAPELLA_BINARY"
+  download_status_geth_binary capella "$GETH_CAPELLA_BINARY"
 }
 
 download_geth_deneb() {
-  download_status_geth_binary eip-4844 "$GETH_DENEB_BINARY"
+  download_status_geth_binary deneb "$GETH_DENEB_BINARY"
 }
 
 fi
