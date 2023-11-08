@@ -123,7 +123,7 @@ The following [configuration options](./options.md) control checkpoint sync beha
 | Option                                   | Description |
 |------------------------------------------|-------------|
 | <nobr>`--external-beacon-api-url`</nobr> | <ul><li>External beacon API to use for checkpoint sync</li></ul> |
-| <nobr>`--trusted-block-root`</nobr>      | <ul><li>Recent trusted finalized block root to sync from external beacon API</li><li>Uses the [light client sync protocol](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/sync-protocol.md) to obtain the latest finalized checkpoint</li></ul> |
+| <nobr>`--trusted-block-root`</nobr>      | <ul><li>Recent trusted finalized block root to sync from external beacon API</li><li>Uses the [light client sync protocol](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md) to obtain the latest finalized checkpoint</li></ul> |
 | <nobr>`--trusted-state-root`</nobr>      | <ul><li>Recent trusted finalized state root to sync from external beacon API</li><li>Takes precedence over `--trusted-block-root` if both are specified</li></ul> |
 
 !!! info

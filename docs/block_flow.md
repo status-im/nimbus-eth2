@@ -9,7 +9,7 @@ Important distinction:
   https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_block.
   A validated block can be forwarded on gossipsub.
 - and we distinguish `verification` which is defined in consensus specs:
-  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#block-processing
+  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#block-processing
   A block needs to be verified to enter fork choice, the DAG and the BeaconChainDB
 
 In particular in terms of costly checks validating a block only requires checking:
