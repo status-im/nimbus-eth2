@@ -122,7 +122,9 @@ type
     seq[RestSyncCommitteeSubscription] |
     seq[SignedAggregateAndProof] |
     seq[SignedValidatorRegistrationV1] |
-    seq[ValidatorIndex]
+    seq[ValidatorIndex] |
+    seq[RestBeaconCommitteeSelection] |
+    seq[RestSyncCommitteeSelection]
 
   DecodeTypes* =
     DataEnclosedObject |

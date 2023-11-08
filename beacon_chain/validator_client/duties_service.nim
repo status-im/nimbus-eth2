@@ -6,8 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/[sets, sequtils]
-import chronicles
-import common, api, block_service
+import chronicles, metrics
+import common, api, block_service, selection_proofs
 
 const
   ServiceName = "duties_service"
@@ -314,12 +314,23 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
     block:
       let
         moment = Moment.now()
-        sigres = await service.fillAttestationSelectionProofs(
-          currentSlot, currentSlot + Epoch(1))
-      debug "Attestation selection proofs have been received",
-            signatures_requested = sigres.signaturesRequested,
-            signatures_received = sigres.signaturesReceived,
-            time = (Moment.now() - moment)
+        sigres =
+          await vc.fillAttestationSelectionProofs(currentSlot,
+            currentSlot + Epoch(AGGREGATION_PRE_COMPUTE_EPOCHS))
+
+      if vc.config.distributedEnabled:
+        debug "Attestation selection proofs have been received",
+              signatures_requested = sigres.signaturesRequested,
+              signatures_received = sigres.signaturesReceived,
+              selections_requested = sigres.selections_requested,
+              selections_received = sigres.selections_received,
+              selections_processed = sigres.selections_processed,
+              total_elapsed_time = (Moment.now() - moment)
+      else:
+        debug "Attestation selection proofs have been received",
+              signatures_requested = sigres.signaturesRequested,
+              signatures_received = sigres.signaturesReceived,
+              total_elapsed_time = (Moment.now() - moment)
 
     let subscriptions =
       block:
@@ -393,12 +404,23 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
     block:
       let
         moment = Moment.now()
-        sigres = await service.fillSyncCommitteeSelectionProofs(
-          currentSlot, currentSlot + Epoch(AGGREGATION_PRE_COMPUTE_EPOCHS))
-      debug "Sync committee selection proofs have been received",
-            signatures_requested = sigres.signaturesRequested,
-            signatures_received = sigres.signaturesReceived,
-            time = (Moment.now() - moment)
+        sigres =
+          await vc.fillSyncCommitteeSelectionProofs(currentSlot,
+            currentSlot + Epoch(AGGREGATION_PRE_COMPUTE_EPOCHS))
+
+      if vc.config.distributedEnabled:
+        debug "Sync committee selection proofs have been received",
+              signatures_requested = sigres.signaturesRequested,
+              signatures_received = sigres.signaturesReceived,
+              selections_requested = sigres.selections_requested,
+              selections_received = sigres.selections_received,
+              selections_processed = sigres.selections_processed,
+              total_elapsed_time = (Moment.now() - moment)
+      else:
+        debug "Sync committee selection proofs have been received",
+              signatures_requested = sigres.signaturesRequested,
+              signatures_received = sigres.signaturesReceived,
+              total_elapsed_time = (Moment.now() - moment)
 
     let
       periods =

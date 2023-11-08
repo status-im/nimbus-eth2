@@ -63,6 +63,9 @@ type
   ValidatorQueryKind* {.pure.} = enum
     Index, Key
 
+  ValidatorIndexError* {.pure.} = enum
+    UnsupportedValue, TooHighValue
+
   ValidatorIdent* = object
     case kind*: ValidatorQueryKind
     of ValidatorQueryKind.Index:
@@ -515,6 +518,17 @@ type
     timestamp3*: uint64
     delay*: uint64
 
+  RestBeaconCommitteeSelection* = object
+    validator_index*: RestValidatorIndex
+    slot*: Slot
+    selection_proof*: ValidatorSig
+
+  RestSyncCommitteeSelection* = object
+    validator_index*: RestValidatorIndex
+    slot*: Slot
+    subcommittee_index*: uint64
+    selection_proof*: ValidatorSig
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
@@ -560,6 +574,8 @@ type
   SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
+  SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
+  SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",
@@ -904,3 +920,23 @@ func init*(t: typedesc[RestErrorMessage], code: HttpCode,
            message: string, stacktrace: openArray[string]): RestErrorMessage =
   RestErrorMessage(code: code.toInt(), message: message,
                    stacktraces: Opt.some(@stacktrace))
+
+func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
+                                                          ValidatorIndexError] =
+  when sizeof(ValidatorIndex) == 4:
+    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
+      # On x86 platform Nim allows only `int32` indexes, so all the indexes in
+      # range `2^31 <= x < 2^32` are not supported.
+      if uint64(value) <= uint64(high(int32)):
+        ok(ValidatorIndex(value))
+      else:
+        err(ValidatorIndexError.UnsupportedValue)
+    else:
+      err(ValidatorIndexError.TooHighValue)
+  elif sizeof(ValidatorIndex) == 8:
+    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
+      ok(ValidatorIndex(value))
+    else:
+      err(ValidatorIndexError.TooHighValue)
+  else:
+    doAssert(false, "ValidatorIndex type size is incorrect")
