@@ -517,6 +517,17 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
     trace "Exception while disconnecting peer", peer = peer.peerId,
                                                 reason = reason
 
+proc releasePeer*(peer: Peer) =
+  ## Checks for peer's score and disconnects peer if score is less than
+  ## `PeerScoreLowLimit`.
+  if peer.connectionState notin {ConnectionState.Disconnecting,
+                                 ConnectionState.Disconnected}:
+    if peer.score < PeerScoreLowLimit:
+      debug "Peer was disconnected due to low score", peer = peer,
+            peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+            score_high_limit = PeerScoreHighLimit
+      asyncSpawn(peer.disconnect(PeerScoreLow))
+
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 
@@ -1233,7 +1244,7 @@ proc handleIncomingStream(network: Eth2Node,
 
   finally:
     await conn.closeWithEOF()
-    discard network.peerPool.checkPeerScore(peer)
+    releasePeer(peer)
 
 proc toPeerAddr*(r: enr.TypedRecord,
                  proto: IpTransportProtocol): Result[PeerAddr, cstring] =
@@ -1869,18 +1880,7 @@ proc new(T: type Eth2Node,
     peer.score >= PeerScoreLowLimit
 
   proc onDeletePeer(peer: Peer) =
-    if peer.connectionState notin {ConnectionState.Disconnecting,
-                                   ConnectionState.Disconnected}:
-      if peer.score < PeerScoreLowLimit:
-        debug "Peer was removed from PeerPool due to low score", peer = peer,
-              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
-              score_high_limit = PeerScoreHighLimit
-        asyncSpawn(peer.disconnect(PeerScoreLow))
-      else:
-        debug "Peer was removed from PeerPool", peer = peer,
-              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
-              score_high_limit = PeerScoreHighLimit
-        asyncSpawn(peer.disconnect(FaultOrError)) # Shouldn't actually happen!
+    peer.releasePeer()
 
   node.peerPool.setScoreCheck(scoreCheck)
   node.peerPool.setOnDeletePeer(onDeletePeer)
