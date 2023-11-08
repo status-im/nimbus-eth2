@@ -10,13 +10,13 @@ type
   Epoch* = distinct uint64
   SyncCommitteePeriod* = distinct uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/capella/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/beacon-chain.md#custom-types
   WithdrawalIndex* = uint64
 
   DomainType* = distinct array[4, byte]
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/p2p-interface.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#constants
   NODE_ID_BITS* = 256
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
@@ -36,7 +36,7 @@ const
   FAR_FUTURE_EPOCH* = Epoch(not 0'u64)
   FAR_FUTURE_PERIOD* = SyncCommitteePeriod(not 0'u64)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#domain-types
   DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
   DOMAIN_BEACON_ATTESTER* = DomainType([byte 0x01, 0x00, 0x00, 0x00])
   DOMAIN_RANDAO* = DomainType([byte 0x02, 0x00, 0x00, 0x00])
@@ -46,12 +46,12 @@ const
   DOMAIN_AGGREGATE_AND_PROOF* = DomainType([byte 0x06, 0x00, 0x00, 0x00])
   DOMAIN_APPLICATION_MASK* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/beacon-chain.md#domain-types
   DOMAIN_SYNC_COMMITTEE* = DomainType([byte 0x07, 0x00, 0x00, 0x00])
   DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF* = DomainType([byte 0x08, 0x00, 0x00, 0x00])
   DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/capella/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/beacon-chain.md#domain-types
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0a, 0x00, 0x00, 0x00])
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#configuration

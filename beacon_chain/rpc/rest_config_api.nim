@@ -88,7 +88,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VOLUNTARY_EXITS:
             Base10.toString(MAX_VOLUNTARY_EXITS),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/presets/mainnet/altair.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/presets/mainnet/altair.yaml
           INACTIVITY_PENALTY_QUOTIENT_ALTAIR:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_ALTAIR),
           MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR:
@@ -104,7 +104,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           UPDATE_TIMEOUT:
             Base10.toString(UPDATE_TIMEOUT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/presets/mainnet/bellatrix.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/presets/mainnet/bellatrix.yaml
           INACTIVITY_PENALTY_QUOTIENT_BELLATRIX:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_BELLATRIX),
           MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX:
@@ -120,7 +120,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_EXTRA_DATA_BYTES:
             Base10.toString(uint64(MAX_EXTRA_DATA_BYTES)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/presets/mainnet/capella.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/presets/mainnet/capella.yaml
           MAX_BLS_TO_EXECUTION_CHANGES:
             Base10.toString(uint64(MAX_BLS_TO_EXECUTION_CHANGES)),
           MAX_WITHDRAWALS_PER_PAYLOAD:
