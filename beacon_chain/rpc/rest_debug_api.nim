@@ -72,8 +72,11 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
               "/eth/v2/debug/beacon/heads") do () -> RestApiResponse:
     RestApiResponse.jsonResponse(
       node.dag.heads.mapIt(
-        (root: it.root, slot: it.slot,
-         execution_optimistic: not it.executionValid)
+        RestChainHeadV2(
+          root: it.root,
+          slot: it.slot,
+          execution_optimistic: not it.executionValid
+        )
       )
     )
 
