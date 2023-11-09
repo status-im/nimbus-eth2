@@ -32,7 +32,7 @@ const
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/ssz/merkle-proofs.md
-  EXECUTION_PAYLOAD_INDEX* = 25.GeneralizedIndex # `execution_payload`
+  EXECUTION_PAYLOAD_GINDEX* = 25.GeneralizedIndex # `execution_payload`
 
 type
   SignedBLSToExecutionChangeList* =
@@ -120,7 +120,7 @@ type
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
   ExecutionBranch* =
-    array[log2trunc(EXECUTION_PAYLOAD_INDEX), Eth2Digest]
+    array[log2trunc(EXECUTION_PAYLOAD_GINDEX), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
@@ -673,8 +673,8 @@ func is_valid_light_client_header*(
   is_valid_merkle_branch(
     get_lc_execution_root(header, cfg),
     header.execution_branch,
-    log2trunc(EXECUTION_PAYLOAD_INDEX),
-    get_subtree_index(EXECUTION_PAYLOAD_INDEX),
+    log2trunc(EXECUTION_PAYLOAD_GINDEX),
+    get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
     header.beacon.body_root)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/light-client/fork.md#upgrading-light-client-data

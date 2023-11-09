@@ -32,8 +32,8 @@ func initialize_light_client_store*(
   if not is_valid_merkle_branch(
       hash_tree_root(bootstrap.current_sync_committee),
       bootstrap.current_sync_committee_branch,
-      log2trunc(altair.CURRENT_SYNC_COMMITTEE_INDEX),
-      get_subtree_index(altair.CURRENT_SYNC_COMMITTEE_INDEX),
+      log2trunc(altair.CURRENT_SYNC_COMMITTEE_GINDEX),
+      get_subtree_index(altair.CURRENT_SYNC_COMMITTEE_GINDEX),
       bootstrap.header.beacon.state_root):
     return ResultType.err(VerifierError.Invalid)
 
@@ -111,8 +111,8 @@ proc validate_light_client_update*(
       if not is_valid_merkle_branch(
           finalized_root,
           update.finality_branch,
-          log2trunc(altair.FINALIZED_ROOT_INDEX),
-          get_subtree_index(altair.FINALIZED_ROOT_INDEX),
+          log2trunc(altair.FINALIZED_ROOT_GINDEX),
+          get_subtree_index(altair.FINALIZED_ROOT_GINDEX),
           update.attested_header.beacon.state_root):
         return err(VerifierError.Invalid)
 
@@ -130,8 +130,8 @@ proc validate_light_client_update*(
       if not is_valid_merkle_branch(
           hash_tree_root(update.next_sync_committee),
           update.next_sync_committee_branch,
-          log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX),
-          get_subtree_index(altair.NEXT_SYNC_COMMITTEE_INDEX),
+          log2trunc(altair.NEXT_SYNC_COMMITTEE_GINDEX),
+          get_subtree_index(altair.NEXT_SYNC_COMMITTEE_GINDEX),
           update.attested_header.beacon.state_root):
         return err(VerifierError.Invalid)
 

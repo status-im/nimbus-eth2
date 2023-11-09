@@ -59,11 +59,11 @@ const
   # All of these indices are rooted in `BeaconState`.
   # The first member (`genesis_time`) is 32, subsequent members +1 each.
   # If there are ever more than 32 members in `BeaconState`, indices change!
-  # `FINALIZED_ROOT_INDEX` is one layer deeper, i.e., `52 * 2 + 1`.
+  # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `52 * 2 + 1`.
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/ssz/merkle-proofs.md
-  FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex # `finalized_checkpoint` > `root`
-  CURRENT_SYNC_COMMITTEE_INDEX* = 54.GeneralizedIndex # `current_sync_committee`
-  NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex # `next_sync_committee`
+  FINALIZED_ROOT_GINDEX* = 105.GeneralizedIndex # `finalized_checkpoint` > `root`
+  CURRENT_SYNC_COMMITTEE_GINDEX* = 54.GeneralizedIndex # `current_sync_committee`
+  NEXT_SYNC_COMMITTEE_GINDEX* = 55.GeneralizedIndex # `next_sync_committee`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/beacon-chain.md#inactivity-penalties
   INACTIVITY_SCORE_BIAS* = 4
@@ -157,13 +157,13 @@ type
   ### Modified/overloaded
 
   FinalityBranch* =
-    array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+    array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
 
   CurrentSyncCommitteeBranch* =
-    array[log2trunc(CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
 
   NextSyncCommitteeBranch* =
-    array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#lightclientheader
   LightClientHeader* = object
