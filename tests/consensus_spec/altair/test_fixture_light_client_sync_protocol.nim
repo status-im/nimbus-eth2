@@ -288,7 +288,7 @@ proc runTest(storeDataFork: static LightClientDataFork) =
       template next_sync_committee(): auto = state.next_sync_committee
       let
         next_sync_committee_branch =
-          state.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get
+          state.build_proof(altair.NEXT_SYNC_COMMITTEE_GINDEX).get
 
       # Finality is unchanged
         finality_header = default(storeDataFork.LightClientHeader)
@@ -358,7 +358,7 @@ proc runTest(storeDataFork: static LightClientDataFork) =
         finalized_header.beacon.hash_tree_root() ==
           state.finalized_checkpoint.root
       let
-        finality_branch = state.build_proof(altair.FINALIZED_ROOT_INDEX).get
+        finality_branch = state.build_proof(altair.FINALIZED_ROOT_GINDEX).get
 
         update = storeDataFork.LightClientUpdate(
           attested_header: attested_header,

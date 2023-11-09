@@ -878,7 +878,7 @@ func toCapellaLightClientHeader(
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals)),
     execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_INDEX).get)
+      capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/light-client/full-node.md#modified-block_to_light_client_header
 func toDenebLightClientHeader(
@@ -920,7 +920,7 @@ func toDenebLightClientHeader(
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals)),
     execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_INDEX).get)
+      capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 func toDenebLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
@@ -947,7 +947,7 @@ func toDenebLightClientHeader(
       withdrawals_root: hash_tree_root(payload.withdrawals),
       excess_blob_gas: payload.excess_blob_gas),
     execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_INDEX).get)
+      capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 func toLightClientHeader*(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
