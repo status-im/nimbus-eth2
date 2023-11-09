@@ -423,11 +423,15 @@ proc initFullNode(
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool, dag.cfg.DENEB_FORK_EPOCH, SyncQueueKind.Forward, getLocalHeadSlot,
+      node.network.peerPool,
+      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.tail.slot, blockVerifier)
     backfiller = newSyncManager[Peer, PeerId](
-      node.network.peerPool, dag.cfg.DENEB_FORK_EPOCH, SyncQueueKind.Backward, getLocalHeadSlot,
+      node.network.peerPool,
+      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier,
       maxHeadAge = 0)
@@ -1326,7 +1330,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
 proc pruneBlobs(node: BeaconNode, slot: Slot) =
   let blobPruneEpoch = (slot.epoch -
-                        MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
+                        node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
   if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
     var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
     var count = 0

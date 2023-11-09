@@ -65,13 +65,12 @@ import
   stew/[assign2, byteutils, results],
   chronicles,
   json_serialization,
-  chronos/timer,
   ssz_serialization/types as sszTypes,
   ../../version,
   ".."/[beacon_time, crypto, digest, presets]
 
 export
-  tables, results, json_serialization, timer, sszTypes, beacon_time, crypto,
+  tables, results, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
 const SPEC_VERSION* = "1.4.0-beta.4"
@@ -81,9 +80,6 @@ const
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE* = 32
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
-  MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   SLOTS_PER_ETH1_VOTING_PERIOD* =
     EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
