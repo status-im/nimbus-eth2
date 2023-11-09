@@ -7,8 +7,6 @@
 
 import chronos/timer
 
-export timer
-
 type
   Slot* = distinct uint64
   Epoch* = distinct uint64

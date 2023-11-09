@@ -9,6 +9,7 @@
 
 import
   std/[strutils, parseutils, tables, typetraits],
+  chronos/timer,
   stew/[byteutils], stint, web3/[ethtypes],
   ./datatypes/constants
 
