@@ -5,6 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+import chronos/timer
+
+export timer
+
 type
   Slot* = distinct uint64
   Epoch* = distinct uint64
@@ -54,8 +58,11 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/beacon-chain.md#domain-types
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0a, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
+  REORG_HEAD_WEIGHT_THRESHOLD*: uint64 = 20
+  REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
+  REORG_MAX_EPOCHS_SINCE_FINALIZATION* = Epoch(2)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#configuration
   BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 6
@@ -64,11 +71,11 @@ const
   MAX_REQUEST_BLOCKS* = 1024'u64
   RESP_TIMEOUT* = 10'u64
   ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64 = 32
+  MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#configuration
   GOSSIP_MAX_SIZE* = 10'u64 * 1024 * 1024 # bytes
   MAX_CHUNK_SIZE* = 10'u64 * 1024 * 1024 # bytes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#configuration
-  MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS*: uint64 = 4096
   MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128 # TODO Make use of in request code
