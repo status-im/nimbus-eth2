@@ -574,7 +574,7 @@ func kzg_commitment_inclusion_proof_gindex*(
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/ssz/merkle-proofs.md
   const
-    # `blob_kzg_commitments`
+    # blob_kzg_commitments
     BLOB_KZG_COMMITMENTS_GINDEX =
       27.GeneralizedIndex
     # List + 0 = items, + 1 = len

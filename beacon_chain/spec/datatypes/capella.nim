@@ -32,7 +32,7 @@ const
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/ssz/merkle-proofs.md
-  EXECUTION_PAYLOAD_GINDEX* = 25.GeneralizedIndex # `execution_payload`
+  EXECUTION_PAYLOAD_GINDEX* = 25.GeneralizedIndex  # execution_payload
 
 type
   SignedBLSToExecutionChangeList* =
