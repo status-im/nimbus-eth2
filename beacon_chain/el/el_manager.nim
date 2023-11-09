@@ -1380,8 +1380,6 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
         # https://eips.ethereum.org/EIPS/eip-155#list-of-chain-ids
         expectedChain = case m.eth1Network.get
           of mainnet: 1.Quantity
-          of ropsten: 3.Quantity
-          of rinkeby: 4.Quantity
           of goerli:  5.Quantity
           of sepolia: 11155111.Quantity   # https://chainid.network/
           of holesky: 17000.Quantity
