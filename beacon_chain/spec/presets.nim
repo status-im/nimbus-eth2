@@ -664,30 +664,33 @@ proc readRuntimeConfig*(
 
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
-  template checkCompatibility(constValue: untyped, name: string): untyped =
+  template checkCompatibility(
+      constValue: untyped, name: string, operator: untyped = `==`): untyped =
     if values.hasKey(name):
+      const opDesc = astToStr(operator)
       try:
         let value = parse(typeof(constValue), values[name])
         when constValue is distinct:
-          if distinctBase(value) != distinctBase(constValue):
+          if not operator(distinctBase(value), distinctBase(constValue)):
             raise (ref PresetFileError)(msg:
               "Cannot override config" &
-              " (compiled: " & name & "=" & $distinctBase(constValue) &
+              " (required: " & name & opDesc & $distinctBase(constValue) &
               " - config: " & name & "=" & values[name] & ")")
         else:
-          if value != constValue:
+          if not operator(value, constValue):
             raise (ref PresetFileError)(msg:
               "Cannot override config" &
-              " (compiled: " & name & "=" & $constValue &
+              " (required: " & name & opDesc & $constValue &
               " - config: " & name & "=" & values[name] & ")")
         values.del name
       except ValueError:
         raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
-  template checkCompatibility(constValue: untyped): untyped =
+  template checkCompatibility(
+      constValue: untyped, operator: untyped = `==`): untyped =
     block:
       const name = astToStr(constValue)
-      checkCompatibility(constValue, name)
+      checkCompatibility(constValue, name, operator)
 
   checkCompatibility SECONDS_PER_SLOT
 
@@ -785,12 +788,8 @@ proc readRuntimeConfig*(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#configuration
   let safeMinEpochsForBlockRequests =
     cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
-  if cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS < safeMinEpochsForBlockRequests:
-    let name = "MIN_EPOCHS_FOR_BLOCK_REQUESTS"
-    raise (ref PresetFileError)(msg:
-      "Cannot override config" &
-      " (minimum: " & name & "=" & $safeMinEpochsForBlockRequests &
-      " - config: " & name & "=" & $cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS & ")")
+  checkCompatibility safeMinEpochsForBlockRequests,
+                     "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
 
   var unknowns: seq[string]
   for name in values.keys:
