@@ -1,3 +1,9 @@
+2023-11-06 v23.10.1
+===================
+
+Nimbus `v23.10.1` is a `low-urgency` hotfix release addressing a peer scoring issue introduced in the `v23.10.0` release. The issue manifests under specific network circumstances as a buildup of gossip topics with a low number of peers. Affected users are advised to upgrade at their earliest convenience.
+
+
 2023-10-17 v23.10.0
 ===================
 
