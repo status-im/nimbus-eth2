@@ -841,10 +841,10 @@ book:
 	"$(MAKE)" -C docs book
 
 auditors-book:
-	[[ "$$(mdbook --version)" = "mdbook v0.4.28" ]] || { echo "'mdbook v0.4.28' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.3.3" ]] || { echo "'mdbook-open-on-gh 2.3.3' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.7.0" ]] || { echo "'mdbook-open-on-gh 1.7.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook --version)" = "mdbook v0.4.35" ]] || { echo "'mdbook v0.4.28' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.14.1" ]] || { echo "'mdbook-toc 0.14.1' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.4.1" ]] || { echo "'mdbook-open-on-gh 2.4.1' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.13.1" ]] || { echo "'mdbook-open-on-gh 1.13.1' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_auditors_handbook && \
 	mdbook build
 
