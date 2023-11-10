@@ -377,7 +377,7 @@ proc createEnr(rng: var HmacDrbgContext,
     bootstrapEnr = enr.Record.init(
       1, # sequence number
       networkKeys.seckey.asEthKey,
-      some(ValidIpAddress.init address),
+      some(address),
       some(port),
       some(port),
       [

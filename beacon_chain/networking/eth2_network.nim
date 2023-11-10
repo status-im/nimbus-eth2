@@ -1806,7 +1806,7 @@ proc new(T: type Eth2Node,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
          switch: Switch, pubsub: GossipSub,
-         ip: Option[ValidIpAddress], tcpPort, udpPort: Option[Port],
+         ip: Option[IpAddress], tcpPort, udpPort: Option[Port],
          privKey: keys.PrivateKey, discovery: bool,
          directPeers: DirectPeers,
          rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
@@ -2304,8 +2304,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
-      config.nat, ValidIpAddress.init config.listenAddress, config.tcpPort,
-      config.udpPort, clientId)
+      config.nat, config.listenAddress, config.tcpPort, config.udpPort,
+      clientId)
     except CatchableError as exc: raise exc
     except Exception as exc: raiseAssert exc.msg
 
@@ -2330,7 +2330,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     hostAddress = tcpEndPoint(
       ValidIpAddress.init config.listenAddress, config.tcpPort)
     announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
+                         else: @[tcpEndPoint(ValidIpAddress.init(extIp.get()), extTcpPort.get())]
 
   debug "Initializing networking", hostAddress,
                                    network_public_key = netKeys.pubkey,
