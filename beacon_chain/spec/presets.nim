@@ -586,6 +586,10 @@ else:
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#configuration
+func safeMinEpochsForBlockRequests*(cfg: RuntimeConfig): uint64 =
+  cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
+
 func parse(T: type uint64, input: string): T {.raises: [ValueError].} =
   var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
@@ -784,11 +788,7 @@ proc readRuntimeConfig*(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
 
   # Requires initialized `cfg`
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#configuration
-  let safeMinEpochsForBlockRequests =
-    cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
-  checkCompatibility safeMinEpochsForBlockRequests,
+  checkCompatibility cfg.safeMinEpochsForBlockRequests(),
                      "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
 
   var unknowns: seq[string]
