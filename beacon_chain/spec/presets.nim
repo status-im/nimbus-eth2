@@ -91,7 +91,7 @@ type
     # TODO GOSSIP_MAX_SIZE*: uint64
     # TODO MAX_REQUEST_BLOCKS*: uint64
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
-    # TODO MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
+    MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
     # TODO MAX_CHUNK_SIZE*: uint64
     # TODO TTFB_TIMEOUT*: uint64
     # TODO RESP_TIMEOUT*: uint64
@@ -240,7 +240,7 @@ when const_preset == "mainnet":
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
-    # TODO MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
+    MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
     # `10 * 2**20` (=10485760, 10 MiB)
     # TODO MAX_CHUNK_SIZE: 10485760,
     # 5s
@@ -385,7 +385,7 @@ elif const_preset == "gnosis":
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
-    # TODO MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
+    MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
     # `10 * 2**20` (=10485760, 10 MiB)
     # TODO MAX_CHUNK_SIZE: 10485760,
     # 5s
@@ -422,7 +422,7 @@ elif const_preset == "minimal":
 
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/minimal.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 
@@ -527,7 +527,7 @@ elif const_preset == "minimal":
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # [customized] `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 272)
-    # TODO MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
+    MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
     # `10 * 2**20` (=10485760, 10 MiB)
     # TODO MAX_CHUNK_SIZE: 10485760,
     # 5s
@@ -585,10 +585,6 @@ else:
 
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#configuration
-func MIN_EPOCHS_FOR_BLOCK_REQUESTS*(cfg: RuntimeConfig): uint64 =
-  cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
 
 func parse(T: type uint64, input: string): T {.raises: [ValueError].} =
   var res: BiggestUInt
@@ -785,8 +781,16 @@ proc readRuntimeConfig*(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
 
   # Requires initialized `cfg`
-  checkCompatibility cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS,
-                     "MIN_EPOCHS_FOR_BLOCK_REQUESTS"
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#configuration
+  let safeMinEpochsForBlockRequests =
+    cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
+  if cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS < safeMinEpochsForBlockRequests:
+    let name = "MIN_EPOCHS_FOR_BLOCK_REQUESTS"
+    raise (ref PresetFileError)(msg:
+      "Cannot override config" &
+      " (minimum: " & name & "=" & $safeMinEpochsForBlockRequests &
+      " - config: " & name & "=" & $cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS & ")")
 
   var unknowns: seq[string]
   for name in values.keys:
