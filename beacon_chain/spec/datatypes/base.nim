@@ -413,7 +413,7 @@ type
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig

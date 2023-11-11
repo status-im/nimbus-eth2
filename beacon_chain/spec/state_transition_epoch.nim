@@ -1141,7 +1141,7 @@ func init*(
            deneb.BeaconState): T =
   init(result, state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig,
     state: var (altair.BeaconState | bellatrix.BeaconState),

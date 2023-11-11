@@ -34,7 +34,7 @@ type
 
 static:
   # Verify that ordinals follow spec values (the spec uses these as shifts for bit flags)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/beacon-chain.md#participation-flag-indices
   doAssert ord(TIMELY_SOURCE_FLAG_INDEX) == 0
   doAssert ord(TIMELY_TARGET_FLAG_INDEX) == 1
   doAssert ord(TIMELY_HEAD_FLAG_INDEX) == 2
@@ -138,13 +138,13 @@ type
     signature*: ValidatorSig
       ## Signature by the validator(s) over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#contributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#contributionandproof
   ContributionAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     contribution*: SyncCommitteeContribution
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#signedcontributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#signedcontributionandproof
   SignedContributionAndProof* = object
     message*: ContributionAndProof
     signature*: ValidatorSig

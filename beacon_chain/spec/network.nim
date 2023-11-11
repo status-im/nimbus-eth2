@@ -105,7 +105,7 @@ func getBlobSidecarTopic*(forkDigest: ForkDigest,
                           subnet_id: BlobId): string =
   eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/validator.md#sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/validator.md#sidecar
 func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): BlobId =
   BlobId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
 
@@ -212,7 +212,7 @@ func getSyncSubnets*(
     if not nodeHasPubkey(pubkey):
       continue
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#broadcast-sync-committee-message
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#broadcast-sync-committee-message
     # The first quarter of the pubkeys map to subnet 0, the second quarter to
     # subnet 1, the third quarter to subnet 2 and the final quarter to subnet
     # 3.

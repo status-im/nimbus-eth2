@@ -75,5 +75,5 @@ const
   GOSSIP_MAX_SIZE* = 10'u64 * 1024 * 1024 # bytes
   MAX_CHUNK_SIZE* = 10'u64 * 1024 * 1024 # bytes
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128 # TODO Make use of in request code

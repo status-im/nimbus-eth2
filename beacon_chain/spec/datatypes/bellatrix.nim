@@ -97,7 +97,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/bellatrix/fork-choice.md#powblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/bellatrix/fork-choice.md#powblock
   PowBlock* = object
     block_hash*: Eth2Digest
     parent_hash*: Eth2Digest

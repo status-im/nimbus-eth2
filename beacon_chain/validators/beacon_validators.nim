@@ -1479,13 +1479,13 @@ proc signAndSendAggregate(
           return
         res.get()
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
 
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#aggregateandproof
     var
       msg = SignedAggregateAndProof(
         message: AggregateAndProof(

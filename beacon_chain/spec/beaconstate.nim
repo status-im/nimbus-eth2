@@ -336,7 +336,7 @@ template get_total_balance(
     res += state.validators[validator_index].effective_balance
   max(EFFECTIVE_BALANCE_INCREMENT, res)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
 func is_eligible_for_activation_queue*(validator: Validator): bool =
   ## Check if ``validator`` is eligible to be placed into the activation queue.
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
@@ -352,7 +352,7 @@ func is_eligible_for_activation*(
   # Has not yet been activated
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: ForkyBeaconState, indexed_attestation: SomeIndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =

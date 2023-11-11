@@ -150,9 +150,9 @@ typedef struct ETHBeaconState ETHBeaconState;
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/bellatrix/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/capella/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/configs/README.md
  */
 ETH_RESULT_USE_CHECK
@@ -268,7 +268,7 @@ void ETHBeaconClockDestroy(ETHBeaconClock *beaconClock);
  * @return Slot number for the current wall clock time - If genesis has occurred.
  * @return `0` - If genesis is still pending.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#custom-types
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#custom-types
  */
 ETH_RESULT_USE_CHECK
 int ETHBeaconClockGetSlot(const ETHBeaconClock *beaconClock);
@@ -576,7 +576,7 @@ typedef struct ETHLightClientHeader ETHLightClientHeader;
  *
  * @return Latest finalized header.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
  */
 ETH_RESULT_USE_CHECK
 const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(
@@ -595,7 +595,7 @@ const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(
  * @return Whether or not the next sync committee is currently known.
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/light-client/light-client.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/light-client.md
  */
 ETH_RESULT_USE_CHECK
 bool ETHLightClientStoreIsNextSyncCommitteeKnown(const ETHLightClientStore *store);
@@ -611,7 +611,7 @@ bool ETHLightClientStoreIsNextSyncCommitteeKnown(const ETHLightClientStore *stor
  *
  * @return Latest optimistic header.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
  */
 ETH_RESULT_USE_CHECK
 const ETHLightClientHeader *ETHLightClientStoreGetOptimisticHeader(
@@ -772,7 +772,7 @@ const ETHRoot *ETHBeaconBlockHeaderGetBodyRoot(const ETHBeaconBlockHeader *beaco
  *
  * @return Pointer to a copy of the given header's execution block hash.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#executionpayloadheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#executionpayloadheader
  */
 ETH_RESULT_USE_CHECK
 ETHRoot *ETHLightClientHeaderCopyExecutionHash(
