@@ -74,7 +74,7 @@ func is_exited_validator*(validator: Validator, epoch: Epoch): bool =
 func is_withdrawable_validator*(validator: Validator, epoch: Epoch): bool =
   epoch >= validator.withdrawable_epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#get_active_validator_indices
 iterator get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
     ValidatorIndex =
   for vidx in state.validators.vindices:
