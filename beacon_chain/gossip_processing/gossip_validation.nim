@@ -1039,7 +1039,7 @@ proc validateBlsToExecutionChange*(
       if deferredCrypto.isErr():
         return pool.checkedReject(deferredCrypto.error)
 
-      let (cryptoFut, sig) = deferredCrypto.get()
+      let (cryptoFut, _) = deferredCrypto.get()
       case await cryptoFut
       of BatchResult.Invalid:
         return pool.checkedReject(
