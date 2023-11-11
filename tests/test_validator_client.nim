@@ -413,7 +413,7 @@ suite "Validator Client test suite":
         ok RestJson.decode(value, T,
                            requireAllFields = true,
                            allowUnknownFields = true)
-      except SerializationError as exc:
+      except SerializationError:
         err("Serialization error")
     else:
       err("Content-Type not supported")

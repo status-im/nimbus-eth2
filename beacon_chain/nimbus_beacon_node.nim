@@ -533,7 +533,7 @@ proc init*(T: type BeaconNode,
       taskpool = TaskPoolPtr.new(numThreads = config.numThreads)
 
     info "Threadpool started", numThreads = taskpool.numThreads
-  except Exception as exc:
+  except Exception:
     raise newException(Defect, "Failure in taskpool initialization.")
 
   if metadata.genesis.kind == BakedIn:

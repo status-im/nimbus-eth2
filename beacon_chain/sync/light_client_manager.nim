@@ -279,10 +279,10 @@ proc query[E](
       let didProgress = cast[Future[bool]](future).read()
       if didProgress and not progressFut.finished:
         progressFut.complete()
-    except CancelledError as exc:
+    except CancelledError:
       if not progressFut.finished:
         progressFut.cancelSoon()
-    except CatchableError as exc:
+    except CatchableError:
       discard
     finally:
       inc numCompleted
@@ -297,7 +297,7 @@ proc query[E](
         workers[i].addCallback(handleFinishedWorker)
       except CancelledError as exc:
         raise exc
-      except CatchableError as exc:
+      except CatchableError:
         workers[i] = newFuture[bool]()
         workers[i].complete(false)
 
@@ -316,13 +316,13 @@ proc query[E](
       try:
         await allFutures(workers[0 ..< maxCompleted])
         break
-      except CancelledError as exc:
+      except CancelledError:
         continue
     while true:
       try:
         await doneFut
         break
-      except CancelledError as exc:
+      except CancelledError:
         continue
 
   if not progressFut.finished:

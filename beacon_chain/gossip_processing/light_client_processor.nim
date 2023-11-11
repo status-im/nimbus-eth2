@@ -455,7 +455,7 @@ proc addObject*(
 
   let
     wallTime = self.getBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (afterGenesis, _) = wallTime.toSlot()
 
   if not afterGenesis:
     error "Processing LC object before genesis, clock turned back?"

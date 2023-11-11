@@ -805,7 +805,7 @@ template withBlck*(
     body
   of ConsensusFork.Bellatrix:
     const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyBlck: untyped {.inject.} = x.bellatrixData
+    template forkyBlck: untyped {.inject, used.} = x.bellatrixData
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella

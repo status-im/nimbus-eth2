@@ -1604,7 +1604,6 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
             stateEpoch = forkyState.data.get_current_epoch
             blckEpoch = blck.bid.slot.epoch
             minEpoch = min(stateEpoch, blckEpoch)
-            lowSlot = epoch.lowSlotForAttesterShuffling
             shufflingRef = dag.computeShufflingRef(forkyState, blck, epoch)
             mix = dag.computeRandaoMix(forkyState,
               dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)
