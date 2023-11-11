@@ -825,6 +825,8 @@ func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
 func hash_tree_root*(x: Web3SignerForkedBeaconBlock): Eth2Digest =
   hash_tree_root(x.data)
 
+func hash_tree_root*(_: Opt[auto]) {.error.}
+
 template getForkedBlockField*(
     x: ForkedSignedBeaconBlock |
        ForkedMsgTrustedSignedBeaconBlock |
