@@ -1398,6 +1398,11 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
 
   connection.etcStatus = EtcStatus.match
 
+  # https://github.com/ethereum/execution-apis/blob/c4089414bbbe975bbc4bf1ccf0a3d31f76feb3e1/src/engine/cancun.md#deprecate-engine_exchangetransitionconfigurationv1
+  # Consensus layer clients MUST NOT call this method.
+  if m.eth1Chain.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    return
+
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
   let
     ourConf = TransitionConfigurationV1(
