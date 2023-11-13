@@ -74,25 +74,51 @@ proc getAttestationDataScore*(vc: ValidatorClientRef,
 proc getAggregatedAttestationDataScore*(
        adata: GetAggregatedAttestationResponse
      ): float64 =
+  # This procedure returns score value in range [0.0000, 1.0000) and `Inf`.
+  # It returns perfect score when all the bits was set to `1`, but this could
+  # provide wrong expectation for some edge cases (when different attestations
+  # has different committee sizes), but currently this is the only viable way
+  # to return perfect score.
+  const MaxLength = int(MAX_VALIDATORS_PER_COMMITTEE)
+  doAssert(len(adata.data.aggregation_bits) <= MaxLength)
   let
+    size = len(adata.data.aggregation_bits)
     ones = countOnes(adata.data.aggregation_bits)
-    res = float64(ones) / float64(MAX_VALIDATORS_PER_COMMITTEE)
+    res =
+      if ones == size:
+        # We consider score perfect, when all bits was set to 1.
+        Inf
+      else:
+        float64(ones) / float64(size)
 
   debug "Aggregated attestation score", attestation_data = shortLog(adata.data),
-        block_slot = adata.data.data.slot, ones_count = ones,
-        score = shortScore(res)
+        block_slot = adata.data.data.slot, committee_size = size,
+        ones_count = ones, score = shortScore(res)
   res
 
 proc getSyncCommitteeContributionDataScore*(
        cdata: ProduceSyncCommitteeContributionResponse
      ): float64 =
+  # This procedure returns score value in range [0.0000, 1.0000) and `Inf`.
+  # It returns perfect score when all the bits was set to `1`, but this could
+  # provide wrong expectation for some edge cases (when different contributions
+  # has different committee sizes), but currently this is the only viable way
+  # to return perfect score.
+  const MaxLength = int(SYNC_SUBCOMMITTEE_SIZE)
+  doAssert(len(cdata.data.aggregation_bits) <= MaxLength)
   let
+    size = len(cdata.data.aggregation_bits)
     ones = countOnes(cdata.data.aggregation_bits)
-    res = float64(ones) / float64(SYNC_SUBCOMMITTEE_SIZE)
+    res =
+      if ones == size:
+        # We consider score perfect, when all bits was set to 1.
+        Inf
+      else:
+        float64(ones) / float64(size)
 
   debug "Sync committee contribution score",
         contribution_data = shortLog(cdata.data), block_slot = cdata.data.slot,
-        ones_count = ones, score = shortScore(res)
+        committee_size = size, ones_count = ones, score = shortScore(res)
   res
 
 proc getSyncCommitteeMessageDataScore*(
