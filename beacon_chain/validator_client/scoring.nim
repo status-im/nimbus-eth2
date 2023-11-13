@@ -75,25 +75,24 @@ proc getAggregatedAttestationDataScore*(
        adata: GetAggregatedAttestationResponse
      ): float64 =
   let
-    length = int(MAX_VALIDATORS_PER_COMMITTEE)
     ones = countOnes(adata.data.aggregation_bits)
-    res = if length == ones: Inf else: float64(ones) / float64(length)
+    res = float64(ones) / float64(MAX_VALIDATORS_PER_COMMITTEE)
 
   debug "Aggregated attestation score", attestation_data = shortLog(adata.data),
-        block_slot = adata.data.data.slot, score = shortScore(res)
+        block_slot = adata.data.data.slot, ones_count = ones,
+        score = shortScore(res)
   res
 
 proc getSyncCommitteeContributionDataScore*(
        cdata: ProduceSyncCommitteeContributionResponse
      ): float64 =
   let
-    length = int(SYNC_SUBCOMMITTEE_SIZE)
     ones = countOnes(cdata.data.aggregation_bits)
-    res = if length == ones: Inf else: float64(ones) / float64(length)
+    res = float64(ones) / float64(SYNC_SUBCOMMITTEE_SIZE)
 
   debug "Sync committee contribution score",
         contribution_data = shortLog(cdata.data), block_slot = cdata.data.slot,
-        score = shortScore(res)
+        ones_count = ones, score = shortScore(res)
   res
 
 proc getSyncCommitteeMessageDataScore*(
