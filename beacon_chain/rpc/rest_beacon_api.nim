@@ -1006,78 +1006,56 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
        (currentEpochFork.toString != version):
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
-    case currentEpochFork
-    of ConsensusFork.Deneb:
-      let
-        restBlockContents = decodeBodyJsonOrSsz(deneb_mev.SignedBlindedBeaconBlockContents,
-                                                body).valueOr:
-          return RestApiResponse.jsonError(error)
+    withConsensusFork(currentEpochFork):
+      when consensusFork >= ConsensusFork.Capella:
+        let
+          restBlock = decodeBodyJsonOrSsz(
+              consensusFork.SignedBlindedBeaconBlock, body).valueOr:
+            return RestApiResponse.jsonError(error)
+          payloadBuilderClient = node.getPayloadBuilderClient(
+              restBlock.message.proposer_index).valueOr:
+            return RestApiResponse.jsonError(
+              Http400, "Unable to initialize payload builder client: " & $error)
+          res = await node.unblindAndRouteBlockMEV(
+            payloadBuilderClient, restBlock)
 
-        payloadBuilderClient = node.getPayloadBuilderClient(
-            restBlockContents.signed_blinded_block.message.proposer_index).valueOr:
+        if res.isErr():
           return RestApiResponse.jsonError(
-            Http400, "Unable to initialize payload builder client: " & $error)
-        res = await node.unblindAndRouteBlockMEV(
-          payloadBuilderClient, restBlockContents)
+            Http500, InternalServerError, $res.error())
+        if res.get().isNone():
+          return RestApiResponse.jsonError(Http202, BlockValidationError)
 
-      if res.isErr():
+        return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+      elif consensusFork >= ConsensusFork.Bellatrix:
         return RestApiResponse.jsonError(
-          Http500, InternalServerError, $res.error())
-      if res.get().isNone():
-        return RestApiResponse.jsonError(Http202, BlockValidationError)
+          Http400, $consensusFork & " builder API unsupported")
+      else:
+        # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
+        #
+        # This is mostly the same as /eth/v1/beacon/blocks for phase 0 and
+        # altair.
+        var
+          restBlock = decodeBody(
+              RestPublishedSignedBeaconBlock, body, version).valueOr:
+            return RestApiResponse.jsonError(error)
+          forked = ForkedSignedBeaconBlock(restBlock)
 
-      return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
-    of ConsensusFork.Capella:
-      let
-        restBlock =
-          decodeBodyJsonOrSsz(capella_mev.SignedBlindedBeaconBlock,
-                              body).valueOr:
-          return RestApiResponse.jsonError(error)
+        if forked.kind != node.dag.cfg.consensusForkAtEpoch(
+            getForkedBlockField(forked, slot).epoch):
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-        payloadBuilderClient = node.getPayloadBuilderClient(
-            restBlock.message.proposer_index).valueOr:
+        let res = withBlck(forked):
+          forkyBlck.root = hash_tree_root(forkyBlck.message)
+          await node.router.routeSignedBeaconBlock(
+            forkyBlck, Opt.none(seq[BlobSidecar]))
+
+        if res.isErr():
           return RestApiResponse.jsonError(
-            Http400, "Unable to initialize payload builder client: " & $error)
-        res = await node.unblindAndRouteBlockMEV(
-          payloadBuilderClient, restBlock)
+            Http503, BeaconNodeInSyncError, $res.error())
+        elif res.get().isNone():
+          return RestApiResponse.jsonError(Http202, BlockValidationError)
 
-      if res.isErr():
-        return RestApiResponse.jsonError(
-          Http500, InternalServerError, $res.error())
-      if res.get().isNone():
-        return RestApiResponse.jsonError(Http202, BlockValidationError)
-
-      return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
-    of ConsensusFork.Bellatrix:
-      return RestApiResponse.jsonError(Http400,
-                                       "Bellatrix builder API unsupported")
-    of ConsensusFork.Altair, ConsensusFork.Phase0:
-      # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
-      #
-      # This is mostly the same as /eth/v1/beacon/blocks for phase 0 and
-      # altair.
-      var
-        restBlock = decodeBody(RestPublishedSignedBeaconBlock, body,
-                               version).valueOr:
-          return RestApiResponse.jsonError(error)
-        forked = ForkedSignedBeaconBlock(restBlock)
-
-      if forked.kind != node.dag.cfg.consensusForkAtEpoch(
-           getForkedBlockField(forked, slot).epoch):
-        return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
-
-      let res = withBlck(forked):
-        forkyBlck.root = hash_tree_root(forkyBlck.message)
-        await node.router.routeSignedBeaconBlock(
-          forkyBlck, Opt.none(seq[BlobSidecar]))
-
-      if res.isErr():
-        return RestApiResponse.jsonError(
-          Http503, BeaconNodeInSyncError, $res.error())
-      elif res.get().isNone():
-        return RestApiResponse.jsonError(Http202, BlockValidationError)
-
-      return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+        return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
   router.api(MethodGet, "/eth/v1/beacon/blocks/{block_id}") do (

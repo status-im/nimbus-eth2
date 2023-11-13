@@ -317,7 +317,8 @@ template kind*(
       capella.TrustedBeaconBlockBody |
       capella.SigVerifiedSignedBeaconBlock |
       capella.MsgTrustedSignedBeaconBlock |
-      capella.TrustedSignedBeaconBlock]): ConsensusFork =
+      capella.TrustedSignedBeaconBlock |
+      capella_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Capella
 
 template kind*(
@@ -335,7 +336,8 @@ template kind*(
       deneb.TrustedBeaconBlockBody |
       deneb.SigVerifiedSignedBeaconBlock |
       deneb.MsgTrustedSignedBeaconBlock |
-      deneb.TrustedSignedBeaconBlock]): ConsensusFork =
+      deneb.TrustedSignedBeaconBlock |
+      deneb_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Deneb
 
 template BeaconState*(kind: static ConsensusFork): auto =
@@ -415,6 +417,16 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
     typedesc[capella.ExecutionPayloadForSigning]
   elif kind == ConsensusFork.Bellatrix:
     typedesc[bellatrix.ExecutionPayloadForSigning]
+  else:
+    static: raiseAssert "Unreachable"
+
+template SignedBlindedBeaconBlock*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[deneb_mev.SignedBlindedBeaconBlock]
+  elif kind == ConsensusFork.Capella:
+    typedesc[capella_mev.SignedBlindedBeaconBlock]
+  elif kind == ConsensusFork.Bellatrix:
+    static: raiseAssert "Unsupported"
   else:
     static: raiseAssert "Unreachable"
 

@@ -235,30 +235,6 @@ func create_blob_sidecars*(
     res.add(sidecar)
   res
 
-func create_blob_sidecars*(
-    forkyBlck: deneb_mev.SignedBlindedBeaconBlock,
-    kzg_proofs: KzgProofs,
-    blob_roots: BlobRoots): seq[BlindedBlobSidecar] =
-  template kzg_commitments: untyped =
-    forkyBlck.message.body.blob_kzg_commitments
-  doAssert kzg_proofs.len == blob_roots.len
-  doAssert kzg_proofs.len == kzg_commitments.len
-
-  var res = newSeqOfCap[BlindedBlobSidecar](blob_roots.len)
-  let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
-  for i in 0 ..< blob_roots.lenu64:
-    var sidecar = BlindedBlobSidecar(
-      index: i,
-      blob_root: blob_roots[i],
-      kzg_commitment: kzg_commitments[i],
-      kzg_proof: kzg_proofs[i],
-      signed_block_header: signedBlockHeader)
-    forkyBlck.message.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(i),
-      sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
-    res.add(sidecar)
-  res
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
