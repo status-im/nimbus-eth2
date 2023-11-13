@@ -595,6 +595,8 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ /eth/v1/validator/beacon_committee_selections serialization/deserialization test           OK
++ /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
 + bestSuccess() API timeout test                                                             OK
 + firstSuccessParallel() API timeout test                                                    OK
 + getAggregatedAttestationDataScore() test vectors                                           OK
@@ -605,7 +607,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -718,4 +720,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 407/412 Fail: 0/412 Skip: 5/412
+OK: 409/414 Fail: 0/414 Skip: 5/414
