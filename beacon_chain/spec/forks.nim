@@ -628,7 +628,7 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
     template forkyState: untyped {.inject, used.} = x.phase0Data
     body
 
-template forky(
+template forky*(
     x: ForkedHashedBeaconState, kind: static ConsensusFork): untyped =
   when kind == ConsensusFork.Deneb:
     x.denebData
