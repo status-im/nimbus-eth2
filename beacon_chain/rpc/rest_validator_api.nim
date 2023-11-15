@@ -585,7 +585,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if forked.executionValue.isSome():
       res.add("eth-execution-payload-value", $(forked.executionValue.get()))
     if forked.consensusValue.isSome():
-      res.add("eth-consensus-payload-value", $(forked.consensusValue.get()))
+      res.add("eth-consensus-block-value", $(forked.consensusValue.get()))
     res
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV3
