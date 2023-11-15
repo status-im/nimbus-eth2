@@ -1371,15 +1371,28 @@ proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     finality_update: ForkedLightClientFinalityUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
+  # [IGNORE] The `finalized_header.beacon.slot` is greater than that of all
+  # previously forwarded `finality_update`s, or it matches the highest
+  # previously forwarded slot and also has a `sync_aggregate` indicating
+  # supermajority (> 2/3) sync committee participation while the previously
+  # forwarded `finality_update` for that slot did not indicate supermajority
   let finalized_slot = withForkyFinalityUpdate(finality_update):
     when lcDataFork > LightClientDataFork.None:
       forkyFinalityUpdate.finalized_header.beacon.slot
     else:
       GENESIS_SLOT
-  if finalized_slot <= pool.latestForwardedFinalitySlot:
-    # [IGNORE] The `finalized_header.beacon.slot` is greater than that of all
-    # previously forwarded `finality_update`s
+  if finalized_slot < pool.latestForwardedFinalitySlot:
     return errIgnore("LightClientFinalityUpdate: slot already forwarded")
+  let has_supermajority = withForkyFinalityUpdate(finality_update):
+    when lcDataFork > LightClientDataFork.None:
+      forkyFinalityUpdate.sync_aggregate.hasSupermajoritySyncParticipation
+    else:
+      false
+  if finalized_slot == pool.latestForwardedFinalitySlot:
+    if pool.latestForwardedFinalityHasSupermajority:
+      return errIgnore("LightClientFinalityUpdate: already have supermajority")
+    if not has_supermajority:
+      return errIgnore("LightClientFinalityUpdate: no new supermajority")
 
   let
     signature_slot = withForkyFinalityUpdate(finality_update):
@@ -1400,6 +1413,7 @@ proc validateLightClientFinalityUpdate*(
     return errIgnore("LightClientFinalityUpdate: not matching local")
 
   pool.latestForwardedFinalitySlot = finalized_slot
+  pool.latestForwardedFinalityHasSupermajority = has_supermajority
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update

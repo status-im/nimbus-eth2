@@ -563,6 +563,11 @@ proc createLightClientUpdates(
     var finalized_slot = attested_data.finalized_slot
     if finalized_slot == forkyLatest.finalized_header.beacon.slot:
       forkyLatest.finality_branch = attested_data.finality_branch
+      let old_num_active_participants =
+        forkyLatest.sync_aggregate.num_active_participants.uint64
+      if not hasSupermajoritySyncParticipation(old_num_active_participants) and
+          hasSupermajoritySyncParticipation(num_active_participants):
+        newFinality = true
     elif finalized_slot < dag.tail.slot or
         not load_finalized_bid(finalized_slot):
       forkyLatest.finalized_header.reset()
