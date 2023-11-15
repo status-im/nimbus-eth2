@@ -59,7 +59,7 @@ when defined(windows):
       lpServiceProc*: LPSERVICE_MAIN_FUNCTION
 
     LPSERVICE_TABLE_ENTRY* = ptr SERVICE_TABLE_ENTRY
-    LPHANDLER_FUNCTION* = proc (para1: DWORD): WINBOOL{.stdcall.}
+    LPHANDLER_FUNCTION* = proc (para1: DWORD): WINBOOL {.stdcall.}
 
   const
     SERVICE_WIN32_OWN_PROCESS = 16
@@ -284,7 +284,7 @@ proc initFullNode(
     rng: ref HmacDrbgContext,
     dag: ChainDAGRef,
     taskpool: TaskPoolPtr,
-    getBeaconTime: GetBeaconTimeFn) =
+    getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
 
   proc onAttestationReceived(data: Attestation) =
@@ -478,7 +478,7 @@ proc initFullNode(
   node.backfiller = backfiller
   node.router = router
 
-  node.addValidators()
+  await node.addValidators()
 
   block:
     # Add in-process validators to the list of "known" validators such that
@@ -837,8 +837,7 @@ proc init*(T: type BeaconNode,
 
   node.initLightClient(
     rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
-  node.initFullNode(
-    rng, dag, taskpool, getBeaconTime)
+  await node.initFullNode(rng, dag, taskpool, getBeaconTime)
 
   node.updateLightClientFromDag()
 
@@ -2289,14 +2288,21 @@ when defined(windows):
 
     info "Service thread started"
 
-    var config = makeBannerAndConfig(clientId, BeaconNodeConf)
+    var config = makeBannerAndConfig(clientId, copyrights, nimBanner, [],
+                                     BeaconNodeConf).valueOr:
+      stderr.write error
+      quit QuitFailure
+
     handleStartUpCmd(config)
 
     info "Service thread stopped"
     reportServiceStatus(SERVICE_STOPPED, NO_ERROR, 0) # we have to report back when we stopped!
 
 programMain:
-  var config = makeBannerAndConfig(clientId, BeaconNodeConf)
+  var config = makeBannerAndConfig(clientId, copyrights, nimBanner, [],
+                                   BeaconNodeConf).valueOr:
+    stderr.write error
+    quit QuitFailure
 
   if not(checkAndCreateDataDir(string(config.dataDir))):
     # We are unable to access/create data folder or data folder's

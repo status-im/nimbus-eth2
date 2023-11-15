@@ -1491,3 +1491,50 @@ proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
     Kzg.loadTrustedSetupFromString(readFile(trustedSetupPath))
   except IOError as err:
     err(err.msg)
+
+proc makeBannerAndConfig*(clientId, copyright, banner: string,
+                          environment: openArray[string],
+                          ConfType: type): Result[ConfType, string] =
+  let
+    version = clientId & "\p" & copyright & "\p\p" &
+      "eth2 specification v" & SPEC_VERSION & "\p\p" &
+      banner
+
+  # TODO for some reason, copyrights are printed when doing `--help`
+  {.push warning[ProveInit]: off.}
+  let config = try:
+    if len(environment) == 0:
+      ConfType.load(
+        version = version, # but a short version string makes more sense...
+        copyrightBanner = clientId,
+        secondarySources = proc (
+            config: ConfType, sources: ref SecondarySources
+        ) {.raises: [ConfigurationError].} =
+          if config.configFile.isSome:
+            sources.addConfigFile(Toml, config.configFile.get)
+      )
+    else:
+      ConfType.load(
+        version = version, # but a short version string makes more sense...
+        copyrightBanner = clientId,
+        cmdLine = @environment,
+        secondarySources = proc (
+            config: ConfType, sources: ref SecondarySources
+        ) {.raises: [ConfigurationError].} =
+          if config.configFile.isSome:
+            sources.addConfigFile(Toml, config.configFile.get)
+      )
+  except CatchableError as exc:
+    # We need to log to stderr here, because logging hasn't been configured yet
+    var msg = "Failure while loading the configuration:\p" & exc.msg & "\p"
+    if (exc[] of ConfigurationError) and not(isNil(exc.parent)) and
+       (exc.parent[] of TomlFieldReadingError):
+      let fieldName = ((ref TomlFieldReadingError)(exc.parent)).field
+      if fieldName in ["web3-url", "bootstrap-node",
+                       "direct-peer", "validator-monitor-pubkey"]:
+        msg &= "Since the '" & fieldName & "' option is allowed to " &
+               "have more than one value, please make sure to supply " &
+               "a properly formatted TOML array\p"
+    return err(msg)
+  {.pop.}
+  ok(config)
