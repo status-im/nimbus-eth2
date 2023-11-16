@@ -88,9 +88,6 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
-  BlobsBundle = tuple[blobs: deneb.Blobs,
-                      kzgs: KzgCommitments,
-                      proofs: seq[kzg_abi.KZGProof]]
   ForkedBlockResult =
     Result[tuple[blck: ForkedBeaconBlock,
                  blockValue: Wei,
@@ -541,10 +538,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 
   var blobsBundleOpt = Opt.none(BlobsBundle)
   when payload is deneb.ExecutionPayloadForSigning:
-    let bb: BlobsBundle = (blobs: payload.blobs,
-                           kzgs: payload.kzgs,
-                           proofs: payload.proofs)
-    blobsBundleOpt = Opt.some(bb)
+    blobsBundleOpt = Opt.some(payload.blobsBundle)
   return if blck.isOk:
     ok((blck.get, payload.blockValue, blobsBundleOpt))
   else:
@@ -567,7 +561,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 
 proc getBlindedExecutionPayload[
     EPH: capella.ExecutionPayloadHeader |
-         deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle](
+         deneb_mev.BlindedExecutionPayloadAndBlobsBundle](
     node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
     executionBlockRoot: Eth2Digest, pubkey: ValidatorPubKey):
     Future[BlindedBlockResult[EPH]] {.async.} =
@@ -578,7 +572,7 @@ proc getBlindedExecutionPayload[
       payloadBuilderClient.getHeaderCapella(slot, executionBlockRoot, pubkey),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
         return err "Timeout obtaining Capella blinded header from builder"
-  elif EPH is deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle:
+  elif EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
     let blindedHeader = awaitWithTimeout(
       payloadBuilderClient.getHeaderDeneb(slot, executionBlockRoot, pubkey),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
@@ -600,19 +594,13 @@ proc getBlindedExecutionPayload[
       return ok((
         blindedBlckPart: blindedHeader.data.data.message.header,
         blockValue: blindedHeader.data.data.message.value))
-    elif EPH is deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle:
-      template bbb: untyped = blindedHeader.data.data.message.blinded_blobs_bundle
-
-      if  bbb.proofs.len != bbb.blob_roots.len or
-          bbb.proofs.len != bbb.commitments.len:
-        return err("getBlindedExecutionPayload: mismatched blob_roots, commitments, and proofs lengths: " &
-          $bbb.blob_roots.len & ", " & $bbb.commitments.len & ", and" & $bbb.proofs.len)
-
+    elif EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
+      template builderBid: untyped = blindedHeader.data.data.message
       return ok((
-        blindedBlckPart: ExecutionPayloadHeaderAndBlindedBlobsBundle(
-          execution_payload_header: blindedHeader.data.data.message.header,
-          blinded_blobs_bundle: bbb),
-        blockValue: blindedHeader.data.data.message.value))
+        blindedBlckPart: EPH(
+          execution_payload_header: builderBid.header,
+          blob_kzg_commitments: builderBid.blob_kzg_commitments),
+        blockValue: builderBid.value))
     else:
       static: doAssert false
 
@@ -637,54 +625,27 @@ func constructSignableBlindedBlock[T: capella_mev.SignedBlindedBeaconBlock](
 
   blindedBlock
 
-proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlockContents](
+proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
     blck: deneb.BeaconBlock,
-    executionPayloadHeaderContents:
-      deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle):
-    T =
+    blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
   # Leaves signature field default, to be filled in by caller
   const
     blckFields = getFieldNames(typeof(blck))
     blckBodyFields = getFieldNames(typeof(blck.body))
 
-  var blindedBlockContents: T
-  template blindedBlock: untyped = blindedBlockContents.signed_blinded_block
+  var blindedBlock: T
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock.message, blck, blckFields)
   copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
   assign(
     blindedBlock.message.body.execution_payload_header,
-    executionPayloadHeaderContents.execution_payload_header)
+    blindedBundle.execution_payload_header)
+  assign(
+    blindedBlock.message.body.blob_kzg_commitments,
+    blindedBundle.blob_kzg_commitments)
 
-  template bbb: untyped = executionPayloadHeaderContents.blinded_blobs_bundle
-
-  # Checked in getBlindedExecutionPayload, so it's a logic error here
-  doAssert bbb.proofs.len == bbb.blob_roots.len
-  doAssert bbb.proofs.len == bbb.commitments.len
-
-  assign(blindedBlock.message.body.blob_kzg_commitments, bbb.commitments)
-
-  let blockRoot = hash_tree_root(blindedBlock.message)
-
-  if blindedBlockContents.signed_blinded_blob_sidecars.setLen(bbb.proofs.len):
-    for i in 0 ..< blindedBlockContents.signed_blinded_blob_sidecars.lenu64:
-      assign(
-        blindedBlockContents.signed_blinded_blob_sidecars[i],
-        deneb_mev.SignedBlindedBlobSidecar(message: deneb_mev.BlindedBlobSidecar(
-          block_root: blockRoot,
-          index: i,
-          slot: distinctBase(blck.slot),
-          block_parent_root: blck.parent_root,
-          proposer_index: blck.proposer_index,
-          blob_root: bbb.blob_roots[i],
-          kzg_commitment: bbb.commitments[i],
-          kzg_proof: bbb.proofs[i])))
-  else:
-    debug "constructSignableBlindedBlock: unable to set blinded blob sidecar length",
-      blobs_len = bbb.proofs.len
-
-  blindedBlockContents
+  blindedBlock
 
 func constructPlainBlindedBlock[
     T: capella_mev.BlindedBeaconBlock, EPH: capella.ExecutionPayloadHeader](
@@ -702,49 +663,13 @@ func constructPlainBlindedBlock[
 
   blindedBlock
 
-proc blindedBlockCheckSlashingAndSign[T: capella_mev.SignedBlindedBeaconBlock](
+proc blindedBlockCheckSlashingAndSign[
+    T:
+      capella_mev.SignedBlindedBeaconBlock |
+      deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
     Future[Result[T, string]] {.async.} =
-  # Check with slashing protection before submitBlindedBlock
-  let
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
-    blockRoot = hash_tree_root(nonsignedBlindedBlock.message)
-    signingRoot = compute_block_signing_root(
-      fork, genesis_validators_root, slot, blockRoot)
-    notSlashable = node.attachedValidators
-      .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
-
-  if notSlashable.isErr:
-    warn "Slashing protection activated for MEV block",
-      blockRoot = shortLog(blockRoot), blck = shortLog(nonsignedBlindedBlock),
-      signingRoot = shortLog(signingRoot),
-      validator = validator.pubkey,
-      slot = slot,
-      existingProposal = notSlashable.error
-    return err("MEV proposal would be slashable: " & $notSlashable.error)
-
-  var blindedBlock = nonsignedBlindedBlock
-  blindedBlock.signature =
-    block:
-      let res = await validator.getBlockSignature(
-        fork, genesis_validators_root, slot, blockRoot, blindedBlock.message)
-      if res.isErr():
-        return err("Unable to sign block: " & res.error())
-      res.get()
-
-  return ok blindedBlock
-
-proc blindedBlockCheckSlashingAndSign[
-    T: deneb_mev.SignedBlindedBeaconBlockContents](
-    node: BeaconNode, slot: Slot, validator: AttachedValidator,
-    validator_index: ValidatorIndex, nonsignedBlindedBlockContents: T):
-    Future[Result[T, string]] {.async.} =
-  template nonsignedBlindedBlock: untyped =
-    nonsignedBlindedBlockContents.signed_blinded_block
-
   # Check with slashing protection before submitBlindedBlock
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
@@ -763,38 +688,28 @@ proc blindedBlockCheckSlashingAndSign[
       slot = slot, existingProposal = notSlashable.error
     return err("MEV proposal would be slashable: " & $notSlashable.error)
 
-  var blindedBlockContents = nonsignedBlindedBlockContents
-  blindedBlockContents.signed_blinded_block.signature = block:
+  var blindedBlock = nonsignedBlindedBlock
+  blindedBlock.signature = block:
     let res = await validator.getBlockSignature(
-      fork, genesis_validators_root, slot, blockRoot,
-      blindedBlockContents.signed_blinded_block.message)
+      fork, genesis_validators_root, slot, blockRoot, blindedBlock.message)
     if res.isErr():
-      return err("Unable to sign blinded block: " & res.error())
+      return err("Unable to sign block: " & res.error())
     res.get()
 
-  for signedBlindedBlobSidecar in mitems(
-      blindedBlockContents.signed_blinded_blob_sidecars):
-    signedBlindedBlobSidecar.signature = validator.getBlobSignature(
-        fork, genesis_validators_root, slot,
-        signedBlindedBlobSidecar.message).valueOr:
-      warn "Unable to sign blinded blob",
-           reason = error()
-      return
-
-  return ok blindedBlockContents
+  return ok blindedBlock
 
 proc getUnsignedBlindedBeaconBlock[
     T: capella_mev.SignedBlindedBeaconBlock |
-       deneb_mev.SignedBlindedBeaconBlockContents](
+       deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: capella.ExecutionPayloadHeader |
-                            deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle):
+                            deneb_mev.BlindedExecutionPayloadAndBlobsBundle):
     Result[T, string] =
   withBlck(forkedBlock):
     when consensusFork >= ConsensusFork.Capella:
       when not (
-          (T is deneb_mev.SignedBlindedBeaconBlockContents and
+          (T is deneb_mev.SignedBlindedBeaconBlock and
            consensusFork == ConsensusFork.Deneb) or
           (T is capella_mev.SignedBlindedBeaconBlock and
            consensusFork == ConsensusFork.Capella)):
@@ -807,7 +722,7 @@ proc getUnsignedBlindedBeaconBlock[
 
 proc getBlindedBlockParts[
     EPH: capella.ExecutionPayloadHeader |
-         deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle](
+         deneb_mev.BlindedExecutionPayloadAndBlobsBundle](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes):
@@ -855,18 +770,18 @@ proc getBlindedBlockParts[
     copyFields(
       shimExecutionPayload.executionPayload,
       executionPayloadHeader.get.blindedBlckPart, getFieldNames(EPH))
-  elif EPH is deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle:
+  elif EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
     type PayloadType = deneb.ExecutionPayloadForSigning
     template actualEPH: untyped =
       executionPayloadHeader.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blinded_blobs_bundle.commitments)
+        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
 
     var shimExecutionPayload: PayloadType
     type DenebEPH =
-      deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle.execution_payload_header
+      deneb_mev.BlindedExecutionPayloadAndBlobsBundle.execution_payload_header
     copyFields(
       shimExecutionPayload.executionPayload, actualEPH, getFieldNames(DenebEPH))
   else:
@@ -893,7 +808,7 @@ proc getBlindedBlockParts[
 
 proc getBuilderBid[
     SBBB: capella_mev.SignedBlindedBeaconBlock |
-          deneb_mev.SignedBlindedBeaconBlockContents](
+          deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     validator_pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex):
@@ -902,8 +817,8 @@ proc getBuilderBid[
   ## Used by the BN's own validators, but not the REST server
   when SBBB is capella_mev.SignedBlindedBeaconBlock:
     type EPH = capella.ExecutionPayloadHeader
-  elif SBBB is deneb_mev.SignedBlindedBeaconBlockContents:
-    type EPH = deneb_mev.ExecutionPayloadHeaderAndBlindedBlobsBundle
+  elif SBBB is deneb_mev.SignedBlindedBeaconBlock:
+    type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
   else:
     static: doAssert false
 
@@ -930,7 +845,7 @@ proc getBuilderBid[
 proc proposeBlockMEV(
     node: BeaconNode, payloadBuilderClient: RestClientRef,
     blindedBlock: capella_mev.SignedBlindedBeaconBlock |
-                  deneb_mev.SignedBlindedBeaconBlockContents):
+                  deneb_mev.SignedBlindedBeaconBlock):
     Future[Result[BlockRef, string]] {.async.} =
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
     payloadBuilderClient, blindedBlock)
@@ -1174,32 +1089,6 @@ proc proposeBlockAux(
         .slashingProtection
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
-    let blobSidecarsOpt =
-      when forkyBlck is deneb.BeaconBlock:
-        var sidecars: seq[BlobSidecar]
-        let bundle = collectedBids.engineBlockFut.read.get().blobsBundleOpt.get
-        let (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
-        for i in 0..<blobs.len:
-          var sidecar = BlobSidecar(
-            block_root: blockRoot,
-            index: BlobIndex(i),
-            slot: slot,
-            block_parent_root: forkyBlck.parent_root,
-            proposer_index: forkyBlck.proposer_index,
-            blob: blobs[i],
-            kzg_commitment: kzgs[i],
-            kzg_proof: proofs[i]
-          )
-          sidecars.add(sidecar)
-        Opt.some(sidecars)
-      elif forkyBlck is phase0.BeaconBlock or
-           forkyBlck is altair.BeaconBlock or
-           forkyBlck is bellatrix.BeaconBlock or
-           forkyBlck is capella.BeaconBlock:
-        Opt.none(seq[BlobSidecar])
-      else:
-        static: doAssert "Unknown BeaconBlock type"
-
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",
         blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
@@ -1219,51 +1108,20 @@ proc proposeBlockAux(
                  validator = shortLog(validator), error_msg = res.error()
             return head
           res.get()
-      signedBlock =
-        when forkyBlck is phase0.BeaconBlock:
-          phase0.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
-        elif forkyBlck is altair.BeaconBlock:
-          altair.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
-        elif forkyBlck is bellatrix.BeaconBlock:
-          bellatrix.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
-        elif forkyBlck is capella.BeaconBlock:
-          capella.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
-        elif forkyBlck is deneb.BeaconBlock:
-          deneb.SignedBeaconBlock(
-            message: forkyBlck, signature: signature, root: blockRoot)
+      signedBlock = consensusFork.SignedBeaconBlock(
+        message: forkyBlck, signature: signature, root: blockRoot)
+      blobsOpt =
+        when consensusFork >= ConsensusFork.Deneb:
+          template blobsBundle: untyped =
+            collectedBids.engineBlockFut.read.get.blobsBundleOpt.get
+          Opt.some(signedBlock.create_blob_sidecars(
+            blobsBundle.proofs, blobsBundle.blobs))
         else:
-          static: doAssert "Unknown SignedBeaconBlock type"
-      signedBlobs =
-        when forkyBlck is phase0.BeaconBlock or
-             forkyBlck is altair.BeaconBlock or
-             forkyBlck is bellatrix.BeaconBlock or
-             forkyBlck is capella.BeaconBlock:
-          Opt.none(SignedBlobSidecars)
-        elif forkyBlck is deneb.BeaconBlock:
-          var signed: seq[SignedBlobSidecar]
-          let blobSidecars = blobSidecarsOpt.get()
-          for i in 0..<blobs.len:
-            let res = validator.getBlobSignature(fork, genesis_validators_root,
-                                                 slot, blobSidecars[i])
-            if res.isErr():
-              warn "Unable to sign blob",
-                   reason = res.error()
-              return
-            let signature = res.get()
-            signed.add(deneb.SignedBlobSidecar(
-                       message: blobSidecars[i],
-                       signature: signature))
-          Opt.some(signed)
-        else:
-          static: doAssert "Unknown SignedBeaconBlock type"
-
-      newBlockRef =
-        (await node.router.routeSignedBeaconBlock(signedBlock, signedBlobs)).valueOr:
-          return head # Errors logged in router
+          Opt.none(seq[BlobSidecar])
+      newBlockRef = (
+        await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
+      ).valueOr:
+        return head # Errors logged in router
 
     if newBlockRef.isNone():
       return head # Validation errors logged in router
@@ -1307,19 +1165,17 @@ proc proposeBlock(node: BeaconNode,
       type1, type2, node, validator, validator_index, head, slot, randao, fork,
         genesis_validators_root, node.config.localBlockValueBoost)
 
-  return
-    if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
+  return withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
+    when consensusFork >= ConsensusFork.Capella:
       proposeBlockContinuation(
-        deneb_mev.SignedBlindedBeaconBlockContents,
-        deneb.ExecutionPayloadForSigning)
-    elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
-      proposeBlockContinuation(
-        capella_mev.SignedBlindedBeaconBlock, capella.ExecutionPayloadForSigning)
+        consensusFork.SignedBlindedBeaconBlock,
+        consensusFork.ExecutionPayloadForSigning)
     else:
       # Bellatrix MEV is not supported; this signals that, because it triggers
       # intentional SignedBlindedBeaconBlock/ExecutionPayload mismatches.
       proposeBlockContinuation(
-        capella_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning)
+        capella_mev.SignedBlindedBeaconBlock,
+        bellatrix.ExecutionPayloadForSigning)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -1561,13 +1417,13 @@ proc signAndSendAggregate(
           return
         res.get()
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
 
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#aggregateandproof
     var
       msg = SignedAggregateAndProof(
         message: AggregateAndProof(
@@ -2044,10 +1900,10 @@ proc makeBeaconBlockForHeadAndSlotV3*(
               let blck = blindedResult.get().blindedBlckPart.message
               ForkedAndBlindedBeaconBlock.init(
                 blck, Opt.some(payloadValue), Opt.none(UInt256))
-            elif SBBB is deneb_mev.SignedBlindedBeaconBlockContents:
+            elif SBBB is deneb_mev.SignedBlindedBeaconBlock:
+              let blck = blindedResult.get().blindedBlckPart.message
               ForkedAndBlindedBeaconBlock.init(
-                blindedResult.get().blindedBlckPart, Opt.some(payloadValue),
-                Opt.none(UInt256))
+                blck, Opt.some(payloadValue), Opt.none(UInt256))
             else:
               static: doAssert false
           )
@@ -2055,7 +1911,7 @@ proc makeBeaconBlockForHeadAndSlotV3*(
         collectedBids.engineBlockFut.read().get()
 
       if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-        getBlockResult(deneb_mev.SignedBlindedBeaconBlockContents,
+        getBlockResult(deneb_mev.SignedBlindedBeaconBlock,
                        deneb.ExecutionPayloadForSigning)
       elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
         getBlockResult(capella_mev.SignedBlindedBeaconBlock,
@@ -2070,30 +1926,16 @@ proc makeBeaconBlockForHeadAndSlotV3*(
 
   case blockResult.blck.kind
   of ConsensusFork.Deneb:
-    let sidecars =
-      block:
-        var res: seq[BlobSidecar]
-        let
-          blockRoot = hash_tree_root(blockResult.blck.denebData)
-          bundle = blockResult.blobsBundleOpt.get()
-          (blobs, kzgs, proofs) = (bundle.blobs, bundle.kzgs, bundle.proofs)
-        for i in 0 ..< len(blobs):
-          let sidecar = BlobSidecar(
-            block_root: blockRoot,
-            index: BlobIndex(i),
-            slot: slot,
-            block_parent_root: blockResult.blck.denebData.parent_root,
-            proposer_index: blockResult.blck.denebData.proposer_index,
-            blob: blobs[i],
-            kzg_commitment: kzgs[i],
-            kzg_proof: proofs[i]
-          )
-          res.add(sidecar)
-        res
+    let blobsBundle = blockResult.blobsBundleOpt.get()
+    doAssert blobsBundle.commitments ==
+      blockResult.blck.denebData.body.blob_kzg_commitments
     Result[ForkedAndBlindedBeaconBlock, string].ok(
       ForkedAndBlindedBeaconBlock.init(
-        blockResult.blck.denebData,
-        sidecars, Opt.some(Uint256(blockResult.blockValue)), Opt.none(UInt256)))
+        deneb.BlockContents(
+          `block`: blockResult.blck.denebData,
+          kzg_proofs: blobsBundle.proofs,
+          blobs: blobsBundle.blobs),
+        Opt.some(Uint256(blockResult.blockValue)), Opt.none(UInt256)))
   of ConsensusFork.Capella:
     Result[ForkedAndBlindedBeaconBlock, string].ok(
       ForkedAndBlindedBeaconBlock.init(

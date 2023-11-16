@@ -1145,6 +1145,7 @@ suite "Pruning":
         var res = defaultRuntimeConfig
         res.MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 4
         res.CHURN_LIMIT_QUOTIENT = 1
+        res.MIN_EPOCHS_FOR_BLOCK_REQUESTS = res.safeMinEpochsForBlockRequests()
         doAssert res.MIN_EPOCHS_FOR_BLOCK_REQUESTS == 4
         res
       db = makeTestDB(SLOTS_PER_EPOCH)
@@ -1603,7 +1604,6 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
             stateEpoch = forkyState.data.get_current_epoch
             blckEpoch = blck.bid.slot.epoch
             minEpoch = min(stateEpoch, blckEpoch)
-            lowSlot = epoch.lowSlotForAttesterShuffling
             shufflingRef = dag.computeShufflingRef(forkyState, blck, epoch)
             mix = dag.computeRandaoMix(forkyState,
               dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)

@@ -170,7 +170,7 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
       payloadAttributes = none attributes)
 
   # Can't use dag.head here because it hasn't been updated yet
-  let (payloadExecutionStatus, latestValidHash) =
+  let (payloadExecutionStatus, _) =
     case self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
     of ConsensusFork.Deneb:
       callForkchoiceUpdated(PayloadAttributesV3)
@@ -369,17 +369,6 @@ proc runProposalForkchoiceUpdated*(
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
-    withdrawals =
-      if self.dag.headState.kind >= ConsensusFork.Capella:
-        # Head state is not eventual proposal state, but withdrawals will be
-        # identical within an epoch.
-        withState(self.dag.headState):
-          when consensusFork >= ConsensusFork.Capella:
-            Opt.some get_expected_withdrawals(forkyState.data)
-          else:
-            Opt.none(seq[Withdrawal])
-      else:
-        Opt.none(seq[Withdrawal])
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
     headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck)
 

@@ -358,7 +358,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
-+ Blob sidecar signatures                                                                    OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -366,7 +365,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Network metadata
 ```diff
 + goerli                                                                                     OK
@@ -597,13 +596,19 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ /eth/v1/validator/beacon_committee_selections serialization/deserialization test           OK
++ /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
 + bestSuccess() API timeout test                                                             OK
 + firstSuccessParallel() API timeout test                                                    OK
++ getAggregatedAttestationDataScore() test vectors                                           OK
 + getAttestationDataScore() test vectors                                                     OK
 + getLiveness() response deserialization test                                                OK
++ getSyncCommitteeContributionDataScore() test vectors                                       OK
++ getSyncCommitteeMessageDataScore() test vectors                                            OK
++ getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -716,4 +721,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 405/410 Fail: 0/410 Skip: 5/410
+OK: 410/415 Fail: 0/415 Skip: 5/415

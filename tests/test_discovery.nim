@@ -21,13 +21,7 @@ proc new(T: type Eth2DiscoveryProtocol,
     enrFields: openArray[(string, seq[byte])] = [],
     rng: ref HmacDrbgContext):
     T {.raises: [CatchableError].} =
-  let optValidIpAddress =
-    if enrIp.isSome:
-      some ValidIpAddress.init enrIp.get
-    else:
-      none ValidIpAddress
-
-  newProtocol(pk, optValidIpAddress, enrTcpPort, enrUdpPort, enrFields,
+  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields,
     bindPort = bindPort, bindIp = bindIp, rng = rng)
 
 proc generateNode(rng: ref HmacDrbgContext, port: Port,

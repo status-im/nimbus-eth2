@@ -41,8 +41,6 @@ type
 
   Eth1Network* = enum
     mainnet
-    ropsten
-    rinkeby
     goerli
     sepolia
     holesky

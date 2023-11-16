@@ -11,7 +11,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types,
   ../validators/activity_metrics,
-  "."/[common, api]
+  "."/[common, api, selection_proofs]
 
 const
   ServiceName = "sync_committee_service"
@@ -350,7 +350,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   let beaconBlockRoot =
     block:
       try:
-        let res = await vc.getHeadBlockRoot(ApiStrategyKind.First)
+        let res = await vc.getHeadBlockRoot(ApiStrategyKind.Best)
         if res.execution_optimistic.isNone():
           ## The `execution_optimistic` is missing from the response, we assume
           ## that the BN is unaware optimistic sync, so we consider the BN

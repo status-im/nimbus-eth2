@@ -40,7 +40,7 @@ The fields have the following semantics:
 5. `remote` - An URL of a remote signing server.
 6. `remotes` - A [distributed keystore](#distributed-keystores) configuration including two or more remote signing servers.
 7. `ignore_ssl_verification` - An optional boolean flag allowing the use of self-signed certificates by the signing server.
-8. `proven_block_properties` - When the `verifying-web3signer` type is used, this is a list of locations withing the SSZ block body for which the block signing requests will contain additional Merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the `fee_recipient` value).
+8. `proven_block_properties` - When the `verifying-web3signer` type is used, this is a list of locations within the SSZ block body for which the block signing requests will contain additional Merkle proofs, allowing the signer to verify certain details about the signed blocks (e.g. the `fee_recipient` value).
 
 !!! info
     The current version of the remote keystore format is `3` which adds support for the experimental [verifying web3signer setups](#verifying-web3signer).
@@ -155,6 +155,6 @@ Since the generalized index of a particular field may change in a hard-fork, in 
 ```
 
 Nimbus automatically computes the generalized index depending on the currently active fork.
-The remote signer is expected to verify the incoming Merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
+The remote signer is expected to verify the incoming Merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
 
 You can instruct Nimbus to use the verifying Web3Signer protocol by either supplying the `--verifying-web3-signer` command-line option or by creating a remote keystore file in the format described above. You can use the command-line option `--proven-block-property` once or multiple times to enumerate the properties of the block for which Merkle proofs will be supplied.

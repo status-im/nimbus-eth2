@@ -11,24 +11,11 @@ import
   # Status libraries
   stew/bitops2,
   # Beacon chain internals
-  ../spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
+  ../spec/forks,
   ../beacon_chain_db_light_client,
   "."/[block_pools_types, blockchain_dag]
 
 logScope: topics = "chaindag_lc"
-
-type
-  HashedBeaconStateWithSyncCommittee =
-    deneb.HashedBeaconState |
-    capella.HashedBeaconState |
-    bellatrix.HashedBeaconState |
-    altair.HashedBeaconState
-
-  TrustedSignedBeaconBlockWithSyncAggregate =
-    deneb.TrustedSignedBeaconBlock |
-    capella.TrustedSignedBeaconBlock |
-    bellatrix.TrustedSignedBeaconBlock |
-    altair.TrustedSignedBeaconBlock
 
 template nextEpochBoundarySlot(slot: Slot): Slot =
   ## Compute the first possible epoch boundary state slot of a `Checkpoint`
@@ -95,8 +82,7 @@ proc existingCurrentSyncCommitteeForPeriod(
     doAssert strictVerification notin dag.updateFlags
   syncCommittee
 
-template syncCommitteeRoot(
-    state: HashedBeaconStateWithSyncCommittee): Eth2Digest =
+template syncCommitteeRoot(state: ForkyHashedBeaconState): Eth2Digest =
   ## Compute a root to uniquely identify `current_sync_committee` and
   ## `next_sync_committee`.
   withEth2Hash:
@@ -222,7 +208,7 @@ proc initLightClientBootstrapForPeriod(
             forkyBlck.toLightClientHeader(lcDataFork))
           dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
             bid.slot, forkyState.data.build_proof(
-              altair.CURRENT_SYNC_COMMITTEE_INDEX).get)
+              altair.CURRENT_SYNC_COMMITTEE_GINDEX).get)
         else: raiseAssert "Unreachable"
   res
 
@@ -371,10 +357,10 @@ proc initLightClientUpdateForPeriod(
           attested_header: forkyBlck.toLightClientHeader(lcDataFork),
           next_sync_committee: forkyState.data.next_sync_committee,
           next_sync_committee_branch:
-            forkyState.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get,
+            forkyState.data.build_proof(altair.NEXT_SYNC_COMMITTEE_GINDEX).get,
           finality_branch:
             if finalizedBid.slot != FAR_FUTURE_SLOT:
-              forkyState.data.build_proof(altair.FINALIZED_ROOT_INDEX).get
+              forkyState.data.build_proof(altair.FINALIZED_ROOT_GINDEX).get
             else:
               default(FinalityBranch)))
       else: raiseAssert "Unreachable"
@@ -436,19 +422,19 @@ proc getLightClientData(
   except KeyError: raiseAssert "Unreachable"
 
 proc cacheLightClientData(
-    dag: ChainDAGRef, state: HashedBeaconStateWithSyncCommittee, bid: BlockId) =
+    dag: ChainDAGRef, state: ForkyHashedBeaconState, bid: BlockId) =
   ## Cache data for a given block and its post-state to speed up creating future
   ## `LightClientUpdate` and `LightClientBootstrap` instances that refer to this
   ## block and state.
   let cachedData = CachedLightClientData(
     current_sync_committee_branch:
-      state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get,
+      state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_GINDEX).get,
     next_sync_committee_branch:
-      state.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get,
+      state.data.build_proof(altair.NEXT_SYNC_COMMITTEE_GINDEX).get,
     finalized_slot:
       state.data.finalized_checkpoint.epoch.start_slot,
     finality_branch:
-      state.data.build_proof(altair.FINALIZED_ROOT_INDEX).get)
+      state.data.build_proof(altair.FINALIZED_ROOT_GINDEX).get)
   if dag.lcDataStore.cache.data.hasKeyOrPut(bid, cachedData):
     doAssert false, "Redundant `cacheLightClientData` call"
 
@@ -530,8 +516,8 @@ template lazy_bid(name: untyped): untyped {.dirty.} =
 
 proc createLightClientUpdates(
     dag: ChainDAGRef,
-    state: HashedBeaconStateWithSyncCommittee,
-    blck: TrustedSignedBeaconBlockWithSyncAggregate,
+    state: ForkyHashedBeaconState,
+    blck: ForkyTrustedSignedBeaconBlock,
     parent_bid: BlockId,
     data_fork: static LightClientDataFork) =
   ## Create `LightClientUpdate` instances for a given block and its post-state,
@@ -665,8 +651,8 @@ proc createLightClientUpdates(
 
 proc createLightClientUpdates(
     dag: ChainDAGRef,
-    state: HashedBeaconStateWithSyncCommittee,
-    blck: TrustedSignedBeaconBlockWithSyncAggregate,
+    state: ForkyHashedBeaconState,
+    blck: ForkyTrustedSignedBeaconBlock,
     parent_bid: BlockId) =
   # Attested block (parent) determines `LightClientUpdate` fork
   withLcDataFork(dag.cfg.lcDataForkAtEpoch(parent_bid.slot.epoch)):
@@ -781,22 +767,13 @@ proc processNewBlockForLightClient*(
   if signedBlock.message.slot < dag.lcDataStore.cache.tailSlot:
     return
 
-  when signedBlock is deneb.TrustedSignedBeaconBlock:
-    dag.cacheLightClientData(state.denebData, signedBlock.toBlockId())
-    dag.createLightClientUpdates(state.denebData, signedBlock, parentBid)
-  elif signedBlock is capella.TrustedSignedBeaconBlock:
-    dag.cacheLightClientData(state.capellaData, signedBlock.toBlockId())
-    dag.createLightClientUpdates(state.capellaData, signedBlock, parentBid)
-  elif signedBlock is bellatrix.TrustedSignedBeaconBlock:
-    dag.cacheLightClientData(state.bellatrixData, signedBlock.toBlockId())
-    dag.createLightClientUpdates(state.bellatrixData, signedBlock, parentBid)
-  elif signedBlock is altair.TrustedSignedBeaconBlock:
-    dag.cacheLightClientData(state.altairData, signedBlock.toBlockId())
-    dag.createLightClientUpdates(state.altairData, signedBlock, parentBid)
-  elif signedBlock is phase0.TrustedSignedBeaconBlock:
-    raiseAssert "Unreachable" # `tailSlot` cannot be before Altair
+  const consensusFork = typeof(signedBlock).kind
+  when consensusFork >= ConsensusFork.Altair:
+    template forkyState: untyped = state.forky(consensusFork)
+    dag.cacheLightClientData(forkyState, signedBlock.toBlockId())
+    dag.createLightClientUpdates(forkyState, signedBlock, parentBid)
   else:
-    {.error: "Unreachable".}
+    raiseAssert "Unreachable"  # `tailSlot` cannot be before Altair
 
 proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
   ## Update light client data to account for a new head block.
@@ -956,7 +933,7 @@ proc getLightClientBootstrap(
           dag.lcDataStore.db.putHeader(header)
           dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
             slot, forkyState.data.build_proof(
-              altair.CURRENT_SYNC_COMMITTEE_INDEX).get)
+              altair.CURRENT_SYNC_COMMITTEE_GINDEX).get)
         else: raiseAssert "Unreachable"
     do: return default(ForkedLightClientBootstrap)
 

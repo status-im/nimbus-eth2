@@ -22,6 +22,8 @@ const
   ResponseNoSyncError = "Received nosync error response"
   ResponseDecodeError = "Received response could not be decoded"
   ResponseECNotInSyncError* = "Execution client not in sync"
+  ResponseNotImplementedError =
+    "Received endpoint not implemented error response"
 
 type
   ApiResponse*[T] = Result[T, string]
@@ -772,6 +774,12 @@ template handle500(): untyped {.dirty.} =
   node.updateStatus(RestBeaconNodeStatus.InternalError, failure)
   failures.add(failure)
 
+template handle501(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.NotImplemented, RequestName,
+    strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+  failures.add(failure)
+
 template handle503(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.NotSynced, RequestName,
     strategy, node, response.status, response.getErrorMessage())
@@ -1132,13 +1140,59 @@ proc getHeadBlockRoot*(
   let blockIdent = BlockIdent.init(BlockIdentType.Head)
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(RestPlainResponse,
                                       GetBlockRootResponse,
                                       SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.SyncCommitteeData},
                                       getBlockRootPlain(it, blockIdent)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[GetBlockRootResponse].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetBlockRootResponse, response.data,
+                                response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[GetBlockRootResponse].err($res.error)
+          else:
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              handleOptimistic()
+              failures.add(failure)
+              ApiResponse[GetBlockRootResponse].err(ResponseECNotInSyncError)
+            else:
+              ApiResponse[GetBlockRootResponse].ok(data)
+        of 400:
+          handle400()
+          ApiResponse[GetBlockRootResponse].err(ResponseInvalidError)
+        of 404:
+          handle404()
+          ApiResponse[GetBlockRootResponse].err(ResponseNotFoundError)
+        of 500:
+          handle500()
+          ApiResponse[GetBlockRootResponse].err(ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[GetBlockRootResponse].err(ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      GetBlockRootResponse,
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.SyncCommitteeData},
+      getBlockRootPlain(it, blockIdent),
+      getSyncCommitteeMessageDataScore(vc, itresponse)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[GetBlockRootResponse].err(apiResponse.error)
@@ -1595,7 +1649,7 @@ proc getAggregatedAttestation*(
   var failures: seq[ApiNodeFailure]
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       GetAggregatedAttestationResponse,
@@ -1603,6 +1657,46 @@ proc getAggregatedAttestation*(
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
       getAggregatedAttestationPlain(it, root, slot)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[GetAggregatedAttestationResponse].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let res = decodeBytes(GetAggregatedAttestationResponse, response.data,
+                                response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[GetAggregatedAttestationResponse].err($res.error)
+          else:
+            ApiResponse[GetAggregatedAttestationResponse].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[GetAggregatedAttestationResponse].err(
+            ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[GetAggregatedAttestationResponse].err(
+            ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[GetAggregatedAttestationResponse].err(
+            ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get().data
+
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      GetAggregatedAttestationResponse,
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AggregatedData},
+      getAggregatedAttestationPlain(it, root, slot),
+      getAggregatedAttestationDataScore(itresponse)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[GetAggregatedAttestationResponse].err(apiResponse.error)
@@ -1679,7 +1773,7 @@ proc produceSyncCommitteeContribution*(
   var failures: seq[ApiNodeFailure]
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       ProduceSyncCommitteeContributionResponse,
@@ -1687,6 +1781,48 @@ proc produceSyncCommitteeContribution*(
       ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
       produceSyncCommitteeContributionPlain(it, slot, subcommitteeIndex, root)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+          apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let res = decodeBytes(ProduceSyncCommitteeContributionResponse,
+                                response.data, response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+              $res.error)
+          else:
+            ApiResponse[ProduceSyncCommitteeContributionResponse].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+            ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+            ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+            ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get().data
+
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      ProduceSyncCommitteeContributionResponse,
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.SyncCommitteeData},
+      produceSyncCommitteeContributionPlain(it, slot, subcommitteeIndex, root),
+      getSyncCommitteeContributionDataScore(itresponse)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[ProduceSyncCommitteeContributionResponse].err(
@@ -2570,3 +2706,284 @@ proc getValidatorsLiveness*(
         res
 
     return GetValidatorsLivenessResponse(data: response)
+
+proc getFinalizedBlockHeader*(
+       vc: ValidatorClientRef,
+     ): Future[Opt[GetBlockHeaderResponse]] {.async.} =
+  const RequestName = "getFinalizedBlockHeader"
+
+  let
+    blockIdent = BlockIdent.init(BlockIdentType.Finalized)
+    resp = vc.onceToAll(RestPlainResponse,
+                        SlotDuration,
+                        ViableNodeStatus,
+                        {BeaconNodeRole.Duties},
+                        getBlockHeaderPlain(it, blockIdent))
+  case resp.status
+  of ApiOperation.Timeout:
+    debug "Unable to obtain finalized block header in time",
+          timeout = SlotDuration
+    return Opt.none(GetBlockHeaderResponse)
+  of ApiOperation.Interrupt:
+    debug "Finalized block header request was interrupted"
+    return Opt.none(GetBlockHeaderResponse)
+  of ApiOperation.Failure:
+    debug "Unexpected error happened while trying to get finalized block header"
+    return Opt.none(GetBlockHeaderResponse)
+  of ApiOperation.Success:
+    var oldestBlockHeader: GetBlockHeaderResponse
+    var oldestEpoch: Opt[Epoch]
+    for apiResponse in resp.data:
+      if apiResponse.data.isErr():
+        debug "Unable to get finalized block header",
+              endpoint = apiResponse.node, error = apiResponse.data.error
+      else:
+        let response = apiResponse.data.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetBlockHeaderResponse,
+                                response.data, response.contentType)
+          if res.isOk():
+            let
+              rdata = res.get()
+              epoch = rdata.data.header.message.slot.epoch()
+            if oldestEpoch.get(FAR_FUTURE_EPOCH) > epoch:
+              oldestEpoch = Opt.some(epoch)
+              oldestBlockHeader = rdata
+          else:
+            let failure = ApiNodeFailure.init(
+              ApiFailure.UnexpectedResponse, RequestName,
+              apiResponse.node, response.status, $res.error)
+            # We do not update beacon node's status anymore because of
+            # issue #5377.
+            debug ResponseDecodeError, reason = getFailureReason(failure)
+            continue
+        of 400:
+          let failure = ApiNodeFailure.init(
+            ApiFailure.Invalid, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
+          debug ResponseInvalidError, reason = getFailureReason(failure)
+          continue
+        of 404:
+          let failure = ApiNodeFailure.init(
+            ApiFailure.NotFound, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
+          debug ResponseNotFoundError, reason = getFailureReason(failure)
+          continue
+        of 500:
+          let failure = ApiNodeFailure.init(
+            ApiFailure.Internal, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
+          debug ResponseInternalError, reason = getFailureReason(failure)
+          continue
+        else:
+          let failure = ApiNodeFailure.init(
+            ApiFailure.UnexpectedCode, RequestName,
+            apiResponse.node, response.status, response.getErrorMessage())
+          # We do not update beacon node's status anymore because of
+          # issue #5377.
+          debug ResponseUnexpectedError, reason = getFailureReason(failure)
+          continue
+
+    if oldestEpoch.isSome():
+      return Opt.some(oldestBlockHeader)
+    else:
+      return Opt.none(GetBlockHeaderResponse)
+
+proc submitBeaconCommitteeSelections*(
+       vc: ValidatorClientRef,
+       data: seq[RestBeaconCommitteeSelection],
+       strategy: ApiStrategyKind
+     ): Future[SubmitBeaconCommitteeSelectionsResponse] {.async.} =
+  const
+    RequestName = "submitBeaconCommitteeSelections"
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res =  vc.firstSuccessParallel(
+      RestPlainResponse,
+      SubmitBeaconCommitteeSelectionsResponse,
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.Duties},
+      submitBeaconCommitteeSelectionsPlain(it, data)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
+          apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(SubmitBeaconCommitteeSelectionsResponse,
+                                response.data, response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err($res.error)
+          else:
+            ApiResponse[SubmitBeaconCommitteeSelectionsResponse].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
+            ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
+            ResponseInternalError)
+        of 501:
+          handle501()
+          ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
+            ResponseNotImplementedError)
+        of 503:
+          handle503()
+          ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
+            ResponseNoSyncError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[SubmitBeaconCommitteeSelectionsResponse].err(
+            ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.Duties},
+                              submitBeaconCommitteeSelectionsPlain(it, data)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(SubmitBeaconCommitteeSelectionsResponse,
+                                response.data, response.contentType)
+          if res.isOk(): return res.get()
+          handleUnexpectedData()
+          false
+        of 400:
+          handle400()
+          false
+        of 500:
+          handle500()
+          false
+        of 501:
+          handle501()
+          false
+        of 503:
+          handle503()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to submit beacon committee selections", data: failures)
+
+proc submitSyncCommitteeSelections*(
+       vc: ValidatorClientRef,
+       data: seq[RestSyncCommitteeSelection],
+       strategy: ApiStrategyKind
+     ): Future[SubmitSyncCommitteeSelectionsResponse] {.async.} =
+  const
+    RequestName = "submitBeaconCommitteeSelections"
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res =  vc.firstSuccessParallel(
+      RestPlainResponse,
+      SubmitSyncCommitteeSelectionsResponse,
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.Duties},
+      submitSyncCommitteeSelectionsPlain(it, data)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
+          apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(SubmitSyncCommitteeSelectionsResponse,
+                                response.data, response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[SubmitSyncCommitteeSelectionsResponse].err($res.error)
+          else:
+            ApiResponse[SubmitSyncCommitteeSelectionsResponse].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
+            ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
+            ResponseInternalError)
+        of 501:
+          handle501()
+          ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
+            ResponseNotImplementedError)
+        of 503:
+          handle503()
+          ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
+            ResponseNoSyncError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[SubmitSyncCommitteeSelectionsResponse].err(
+            ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.Duties},
+                              submitSyncCommitteeSelectionsPlain(it, data)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(SubmitSyncCommitteeSelectionsResponse,
+                                response.data, response.contentType)
+          if res.isOk(): return res.get()
+          handleUnexpectedData()
+          false
+        of 400:
+          handle400()
+          false
+        of 500:
+          handle500()
+          false
+        of 501:
+          handle501()
+          false
+        of 503:
+          handle503()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to submit sync committee selections", data: failures)

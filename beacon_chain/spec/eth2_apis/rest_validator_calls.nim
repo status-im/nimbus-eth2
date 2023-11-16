@@ -167,4 +167,18 @@ proc getValidatorsLiveness*(epoch: Epoch,
                            ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/liveness/{epoch}",
      meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/getLiveness
+
+proc submitBeaconCommitteeSelectionsPlain*(
+       body: seq[RestBeaconCommitteeSelection]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/beacon_committee_selections",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/submitBeaconCommitteeSelections
+
+proc submitSyncCommitteeSelectionsPlain*(
+       body: seq[RestSyncCommitteeSelection]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/sync_committee_selections",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/submitSyncCommitteeSelections
+

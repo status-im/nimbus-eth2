@@ -82,14 +82,10 @@ template blockProcessor(router: MessageRouter): ref BlockProcessor =
 template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
   router.processor[].getCurrentBeaconTime()
 
-type SignedBlobSidecars* = seq[SignedBlobSidecar]
-func shortLog*(v: SignedBlobSidecars): auto =
-  "[" & v.mapIt(shortLog(it)).join(", ") & "]"
-
 type RouteBlockResult = Result[Opt[BlockRef], cstring]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[SignedBlobSidecars]): Future[RouteBlockResult] {.async.} =
+    blobsOpt: Opt[seq[BlobSidecar]]): Future[RouteBlockResult] {.async.} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
@@ -112,8 +108,8 @@ proc routeSignedBeaconBlock*(
         let blobs = blobsOpt.get()
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
         if blobs.len > 0 or kzgCommits.len > 0:
-          let res = validate_blobs(kzgCommits, blobs.mapIt(it.message.blob),
-                                   blobs.mapIt(it.message.kzg_proof))
+          let res = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+                                   blobs.mapIt(it.kzg_proof))
           if res.isErr():
             warn "blobs failed validation",
               blockRoot = shortLog(blck.root),
@@ -145,26 +141,26 @@ proc routeSignedBeaconBlock*(
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature), error = res.error()
 
-  var blobs = Opt.none(seq[ref BlobSidecar])
+  var blobRefs = Opt.none(BlobSidecars)
   if blobsOpt.isSome():
-    let signedBlobs = blobsOpt.get()
-    var workers = newSeq[Future[SendResult]](signedBlobs.len)
-    for i in 0..<signedBlobs.len:
-      let subnet_id = compute_subnet_for_blob_sidecar(BlobIndex(i))
-      workers[i] = router[].network.broadcastBlobSidecar(subnet_id, signedBlobs[i])
+    let blobs = blobsOpt.get()
+    var workers = newSeq[Future[SendResult]](blobs.len)
+    for i in 0..<blobs.lenu64:
+      let subnet_id = compute_subnet_for_blob_sidecar(i)
+      workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
     let allres = await allFinished(workers)
     for i in 0..<allres.len:
       let res = allres[i]
       doAssert res.finished()
       if res.failed():
         notice "Blob not sent",
-          blob = shortLog(signedBlobs[i]), error = res.error[]
+          blob = shortLog(blobs[i]), error = res.error[]
       else:
-        notice "Blob sent", blob = shortLog(signedBlobs[i])
-    blobs = Opt.some(blobsOpt.get().mapIt(newClone(it.message)))
+        notice "Blob sent", blob = shortLog(blobs[i])
+    blobRefs = Opt.some(blobs.mapIt(newClone(it)))
 
   let added = await router[].blockProcessor[].addBlock(
-    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobs)
+    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain

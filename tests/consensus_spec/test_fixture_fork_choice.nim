@@ -354,6 +354,12 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
     "too_late_for_merge",
     "block_lookup_failed",
     "all_valid",
+
+    # TODO intentional reorgs
+    "should_override_forkchoice_update__false",
+    "should_override_forkchoice_update__true",
+    "basic_is_parent_root",
+    "basic_is_head_root",
   ]
 
   test suiteName & " - " & path.relativePath(SszTestsDir):

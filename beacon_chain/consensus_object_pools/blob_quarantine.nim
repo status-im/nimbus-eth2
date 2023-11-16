@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import ../spec/datatypes/deneb
+import ../spec/helpers
 from std/sequtils import mapIt
 from std/strutils import join
 
@@ -37,8 +37,9 @@ func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
       oldest_blob_key = k
       break
     quarantine.blobs.del oldest_blob_key
-  discard quarantine.blobs.hasKeyOrPut((blobSidecar.block_root,
-                                        blobSidecar.index), blobSidecar)
+  let block_root = hash_tree_root(blobSidecar.signed_block_header.message)
+  discard quarantine.blobs.hasKeyOrPut(
+    (block_root, blobSidecar.index), blobSidecar)
 
 func blobIndices*(quarantine: BlobQuarantine, digest: Eth2Digest):
      seq[BlobIndex] =
@@ -48,8 +49,18 @@ func blobIndices*(quarantine: BlobQuarantine, digest: Eth2Digest):
       r.add(i)
   r
 
-func hasBlob*(quarantine: BlobQuarantine, blobSidecar: BlobSidecar): bool =
-  quarantine.blobs.hasKey((blobSidecar.block_root, blobSidecar.index))
+func hasBlob*(
+    quarantine: BlobQuarantine,
+    slot: Slot,
+    proposer_index: uint64,
+    index: BlobIndex): bool =
+  for blob_sidecar in quarantine.blobs.values:
+    template block_header: untyped = blob_sidecar.signed_block_header.message
+    if block_header.slot == slot and
+        block_header.proposer_index == proposer_index and
+        blob_sidecar.index == index:
+      return true
+  false
 
 func popBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
      seq[ref BlobSidecar] =

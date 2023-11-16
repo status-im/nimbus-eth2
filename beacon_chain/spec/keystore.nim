@@ -1391,7 +1391,7 @@ func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 

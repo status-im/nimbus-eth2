@@ -63,6 +63,9 @@ type
   ValidatorQueryKind* {.pure.} = enum
     Index, Key
 
+  ValidatorIndexError* {.pure.} = enum
+    UnsupportedValue, TooHighValue
+
   ValidatorIdent* = object
     case kind*: ValidatorQueryKind
     of ValidatorQueryKind.Index:
@@ -317,7 +320,8 @@ type
 
   DenebSignedBlockContents* = object
     signed_block*: deneb.SignedBeaconBlock
-    signed_blob_sidecars*: List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+    kzg_proofs*: deneb.KzgProofs
+    blobs*: deneb.Blobs
 
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
@@ -337,17 +341,13 @@ type
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
 
-  DenebBlockContents* = object
-    `block`*: deneb.BeaconBlock
-    blob_sidecars*: List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
-
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
     of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     DenebBlockContents
+    of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
 
   VCRuntimeConfig* = Table[string, string]
 
@@ -392,6 +392,11 @@ type
   DataOptimisticObject*[T] = object
     data*: T
     execution_optimistic*: Option[bool]
+
+  DataOptimisticAndFinalizedObject*[T] = object
+    data*: T
+    execution_optimistic*: Option[bool]
+    finalized*: Option[bool]
 
   ForkedSignedBlockHeader* = object
     message*: uint32 # message offset
@@ -508,12 +513,23 @@ type
     timestamp3*: uint64
     delay*: uint64
 
+  RestBeaconCommitteeSelection* = object
+    validator_index*: RestValidatorIndex
+    slot*: Slot
+    selection_proof*: ValidatorSig
+
+  RestSyncCommitteeSelection* = object
+    validator_index*: RestValidatorIndex
+    slot*: Slot
+    subcommittee_index*: uint64
+    selection_proof*: ValidatorSig
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
   GetBlockAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
-  GetBlockHeaderResponse* = DataOptimisticObject[RestBlockHeaderInfo]
+  GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]
@@ -553,6 +569,8 @@ type
   SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
+  SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
+  SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",
@@ -897,3 +915,47 @@ func init*(t: typedesc[RestErrorMessage], code: HttpCode,
            message: string, stacktrace: openArray[string]): RestErrorMessage =
   RestErrorMessage(code: code.toInt(), message: message,
                    stacktraces: Opt.some(@stacktrace))
+
+func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
+                                                          ValidatorIndexError] =
+  when sizeof(ValidatorIndex) == 4:
+    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
+      # On x86 platform Nim allows only `int32` indexes, so all the indexes in
+      # range `2^31 <= x < 2^32` are not supported.
+      if uint64(value) <= uint64(high(int32)):
+        ok(ValidatorIndex(value))
+      else:
+        err(ValidatorIndexError.UnsupportedValue)
+    else:
+      err(ValidatorIndexError.TooHighValue)
+  elif sizeof(ValidatorIndex) == 8:
+    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
+      ok(ValidatorIndex(value))
+    else:
+      err(ValidatorIndexError.TooHighValue)
+  else:
+    doAssert(false, "ValidatorIndex type size is incorrect")
+
+template withBlck*(x: ProduceBlockResponseV2,
+                   body: untyped): untyped =
+  case x.kind
+  of ConsensusFork.Phase0:
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
+    template blck: untyped {.inject.} = x.phase0Data
+    body
+  of ConsensusFork.Altair:
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
+    template blck: untyped {.inject.} = x.altairData
+    body
+  of ConsensusFork.Bellatrix:
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+    template blck: untyped {.inject.} = x.bellatrixData
+    body
+  of ConsensusFork.Capella:
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
+    template blck: untyped {.inject.} = x.capellaData
+    body
+  of ConsensusFork.Deneb:
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    template blck: untyped {.inject.} = x.denebData.blck
+    body

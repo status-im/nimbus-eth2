@@ -21,7 +21,7 @@ Blocks are received by batch:
 - in case of failure:
   - `push(SyncQueue, SyncRequest)` is called to reschedule the sync request.
 
-Every second when sync is not in progress, the beacon node will ask the RequestManager to download all missing blocks currently in quarantaine.
+Every second when sync is not in progress, the beacon node will ask the RequestManager to download all missing blocks currently in quarantine.
 - via `handleMissingBlocks`
 - which calls `fetchAncestorBlocks`
 - which asynchronously enqueue the request in the SharedBlockQueue `AsyncQueue[BlockEntry]`.

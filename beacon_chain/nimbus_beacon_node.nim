@@ -423,11 +423,15 @@ proc initFullNode(
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool, dag.cfg.DENEB_FORK_EPOCH, SyncQueueKind.Forward, getLocalHeadSlot,
+      node.network.peerPool,
+      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.tail.slot, blockVerifier)
     backfiller = newSyncManager[Peer, PeerId](
-      node.network.peerPool, dag.cfg.DENEB_FORK_EPOCH, SyncQueueKind.Backward, getLocalHeadSlot,
+      node.network.peerPool,
+      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier,
       maxHeadAge = 0)
@@ -529,7 +533,7 @@ proc init*(T: type BeaconNode,
       taskpool = TaskPoolPtr.new(numThreads = config.numThreads)
 
     info "Threadpool started", numThreads = taskpool.numThreads
-  except Exception as exc:
+  except Exception:
     raise newException(Defect, "Failure in taskpool initialization.")
 
   if metadata.genesis.kind == BakedIn:
@@ -871,7 +875,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.deneb]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/p2p-interface.md#attestation-subnet-subscription
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
@@ -1326,7 +1330,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
 proc pruneBlobs(node: BeaconNode, slot: Slot) =
   let blobPruneEpoch = (slot.epoch -
-                        MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
+                        node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
   if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
     var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
     var count = 0
@@ -1659,7 +1663,7 @@ proc installMessageValidators(node: BeaconNode) =
                   MsgSource.gossip, attestation, subnet_id)))
 
       # beacon_aggregate_and_proof
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
       node.network.addAsyncValidator(
         getAggregateAndProofsTopic(digest), proc (
           signedAggregateAndProof: SignedAggregateAndProof
@@ -1669,7 +1673,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, signedAggregateAndProof)))
 
       # attester_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/p2p-interface.md#attester_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attester_slashing
       node.network.addValidator(
         getAttesterSlashingsTopic(digest), proc (
           attesterSlashing: AttesterSlashing
@@ -1679,7 +1683,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, attesterSlashing)))
 
       # proposer_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#proposer_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#proposer_slashing
       node.network.addValidator(
         getProposerSlashingsTopic(digest), proc (
           proposerSlashing: ProposerSlashing
@@ -1689,7 +1693,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, proposerSlashing)))
 
       # voluntary_exit
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#voluntary_exit
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#voluntary_exit
       node.network.addValidator(
         getVoluntaryExitsTopic(digest), proc (
           signedVoluntaryExit: SignedVoluntaryExit
@@ -1700,7 +1704,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Altair:
         # sync_committee_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#sync_committee_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/p2p-interface.md#sync_committee_subnet_id
         for subcommitteeIdx in SyncSubcommitteeIndex:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = subcommitteeIdx
@@ -1713,7 +1717,7 @@ proc installMessageValidators(node: BeaconNode) =
                     MsgSource.gossip, msg, idx)))
 
         # sync_committee_contribution_and_proof
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
         node.network.addAsyncValidator(
           getSyncCommitteeContributionAndProofTopic(digest), proc (
             msg: SignedContributionAndProof
@@ -1723,7 +1727,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -1733,18 +1737,18 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Deneb:
-        # blob_sidecar_{index}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
-        for i in 0 ..< BLOB_SIDECAR_SUBNET_COUNT:
+        # blob_sidecar_{subnet_id}
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+        for it in BlobId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-            let idx = i
+            let subnet_id = it
             node.network.addValidator(
-              getBlobSidecarTopic(digest, SubnetId(idx)), proc (
-                signedBlobSidecar: SignedBlobSidecar
+              getBlobSidecarTopic(digest, subnet_id), proc (
+                blobSidecar: deneb.BlobSidecar
               ): ValidationResult =
                 toValidationResult(
-                  node.processor[].processSignedBlobSidecar(
-                    MsgSource.gossip, signedBlobSidecar, idx)))
+                  node.processor[].processBlobSidecar(
+                    MsgSource.gossip, blobSidecar, subnet_id)))
 
   node.installLightClientMessageValidators()
 
@@ -2128,7 +2132,7 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     let record = enr.Record.init(
       config.seqNumber,
       netKeys.seckey.asEthKey,
-      some(ValidIpAddress.init config.ipExt),
+      some(config.ipExt),
       some(config.tcpPortExt),
       some(config.udpPortExt),
       fieldPairs).expect("Record within size limits")
