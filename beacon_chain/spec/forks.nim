@@ -154,8 +154,6 @@ type
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb.BeaconBlock
 
-  
-
   ForkedAndBlindedBeaconBlock* = object
     case kind*: ConsensusBlindedFork
     of ConsensusBlindedFork.Phase0:
@@ -1240,14 +1238,3 @@ template init*(T: type ForkedAndBlindedBeaconBlock,
   ForkedAndBlindedBeaconBlock(kind: ConsensusBlindedFork.DenebBlinded,
                               denebBlinded: contents,
                               consensusValue: cvalue, executionValue: evalue)
-
-func init*(T: type ForkedAndBlindedBeaconBlock,
-               blck: deneb.BeaconBlock, sidecars: openArray[BlobSidecar],
-               evalue: Opt[Uint256], cvalue: Opt[Uint256]): T =
-  var res: List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
-  for i in 0 ..< len(sidecars):
-    res[i] = sidecars[i]
-  ForkedAndBlindedBeaconBlock(
-    kind: ConsensusBlindedFork.Deneb,
-    denebData: deneb.BlockContents(`block`: blck, blob_sidecars: res),
-    consensusValue: cvalue, executionValue: evalue)
