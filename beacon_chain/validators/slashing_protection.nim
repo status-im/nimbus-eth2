@@ -154,7 +154,7 @@ proc checkSlashableBlockProposal*(
   ## The error contains the blockroot that was already proposed
   ##
   ## Returns success otherwise
-  checkSlashableBlockProposal(db.db_v2, some(index), validator, slot)
+  checkSlashableBlockProposal(db.db_v2, Opt.some(index), validator, slot)
 
 proc checkSlashableAttestation*(
        db: SlashingProtectionDB,
@@ -169,7 +169,7 @@ proc checkSlashableAttestation*(
   ## (surrounding vote or surrounded vote).
   ##
   ## Returns success otherwise
-  checkSlashableAttestation(db.db_v2, some(index), validator, source, target)
+  checkSlashableAttestation(db.db_v2, Opt.some(index), validator, source, target)
 
 # DB Updates - only v2 supported here
 # --------------------------------------------
@@ -184,7 +184,7 @@ proc registerBlock*(
   ##
   ## block_signing_root is the output of
   ## compute_signing_root(block, domain)
-  registerBlock(db.db_v2, some(index), validator, slot, block_signing_root)
+  registerBlock(db.db_v2, Opt.some(index), validator, slot, block_signing_root)
 
 proc registerAttestation*(
        db: SlashingProtectionDB,
@@ -197,8 +197,21 @@ proc registerAttestation*(
   ##
   ## attestation_signing_root is the output of
   ## compute_signing_root(attestation, domain)
-  registerAttestation(db.db_v2, some(index), validator,
+  registerAttestation(db.db_v2, Opt.some(index), validator,
       source, target, attestation_signing_root)
+
+template withContext*(db: SlashingProtectionDB, body: untyped): untyped =
+  ## Perform multiple slashing database operations within a single database
+  ## context
+  db.db_v2.withContext:
+    template registerAttestationInContext(
+      index: ValidatorIndex,
+        validator: ValidatorPubKey,
+        source, target: Epoch,
+        attestation_signing_root: Eth2Digest): Result[void, BadVote] =
+      registerAttestationInContextV2(Opt.some(index), validator, source, target, attestation_signing_root)
+    block:
+      body
 
 # DB maintenance
 # --------------------------------------------

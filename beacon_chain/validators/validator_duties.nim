@@ -11,12 +11,29 @@ import
   chronos,
   results,
   ../consensus_object_pools/block_dag,
-  ../beacon_clock
+  ../beacon_clock,
+  "."/[validator_pool]
 
 export chronos, results, block_dag, beacon_clock
 
-# The validator_duties module contains logic and utilities related to performing
-# validator duties that are shared between beacon node and validator client.
+## The validator_duties module contains logic and utilities related to performing
+## validator duties that are shared between beacon node and validator client.
+
+type
+  RegisteredAttestation* = object
+    # A registered attestation is one that has been successfully registered in
+    # the slashing protection database and is therefore ready to be signed and
+    # sent
+    validator*: AttachedValidator
+    index_in_committee*: uint64
+    committee_len*: int
+    data*: AttestationData
+
+proc toAttestation*(
+    registered: RegisteredAttestation, signature: ValidatorSig): Attestation =
+  Attestation.init(
+    [registered.index_in_committee], registered.committee_len,
+    registered.data, signature).expect("valid data")
 
 proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
                            head: Opt[BlockRef] = Opt.none(BlockRef)) {.async.} =
