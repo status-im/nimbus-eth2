@@ -3214,7 +3214,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_payload_blinded", "true")
     writeExecutionValue()
     writeConsensusValue()
-    writer.writeField("data", value.capellaData)
+    writer.writeField("data", value.capellaBlinded)
   of ConsensusBlindedFork.Deneb:
     writeForkVersion()
     writer.writeField("execution_payload_blinded", "false")
