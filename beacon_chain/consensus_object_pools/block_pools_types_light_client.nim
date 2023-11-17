@@ -47,7 +47,7 @@ type
 
     pendingBest*:
       Table[(SyncCommitteePeriod, Eth2Digest), ForkedLightClientUpdate]
-      ## Same as `bestUpdates`, but for `SyncCommitteePeriod` with not yet
+      ## Same as `db.bestUpdates`, but for `SyncCommitteePeriod` with not yet
       ## finalized `next_sync_committee`. Key is `(attested_period,
       ## hash_tree_root(current_sync_committee | next_sync_committee)`.
 
