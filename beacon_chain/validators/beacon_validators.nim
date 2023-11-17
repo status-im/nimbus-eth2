@@ -1591,8 +1591,11 @@ proc registerValidatorsPerBuilder(
         validatorRegistrations.add @[validatorRegistration]
 
     # First, check for VC-added keys; cheaper because provided pre-signed
+    # See issue #5599: currently VC have no way to provide BN with per-validator builders per the specs, so we have to
+    #   resort to use the BN fallback default (--payload-builder-url value, obtained by calling getPayloadBuilderAddress)
     var nonExitedVcPubkeys: HashSet[ValidatorPubKey]
-    if node.externalBuilderRegistrations.len > 0:
+    if  node.externalBuilderRegistrations.len > 0 and
+        payloadBuilderAddress == node.config.getPayloadBuilderAddress.value:
       withState(node.dag.headState):
         let currentEpoch = node.currentSlot().epoch
         for i in 0 ..< forkyState.data.validators.len:
@@ -1679,6 +1682,12 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   if not node.config.payloadBuilderEnable: return
 
   var builderKeys: Table[string, seq[ValidatorPubKey]]
+
+  # Ensure VC validators are still registered if we have no attached validators
+  let externalPayloadBuilderAddress = node.config.getPayloadBuilderAddress
+  if externalPayloadBuilderAddress.isSome:
+    builderKeys[externalPayloadBuilderAddress.value] = newSeq[ValidatorPubKey](0)
+
   for pubkey in node.attachedValidators[].validators.keys:
     let payloadBuilderAddress = node.getPayloadBuilderAddress(pubkey).valueOr:
       continue
