@@ -261,6 +261,8 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
     head.slot + node.config.syncHorizon >= wallSlot.slot
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
+  template pool: untyped = node.lightClientPool[]
+
   static: doAssert lightClientFinalityUpdateSlotOffset ==
     lightClientOptimisticUpdateSlotOffset
   let sendTime = node.beaconClock.fromNow(
@@ -280,14 +282,28 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
       if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
         return
 
-      let finalized_slot = forkyFinalityUpdate.finalized_header.beacon.slot
-      if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
+      let
+        finalized_slot =
+          forkyFinalityUpdate.finalized_header.beacon.slot
+        has_supermajority =
+          hasSupermajoritySyncParticipation(num_active_participants.uint64)
+        newFinality =
+          if finalized_slot > pool.latestForwardedFinalitySlot:
+            true
+          elif finalized_slot < pool.latestForwardedFinalitySlot:
+            false
+          elif pool.latestForwardedFinalityHasSupermajority:
+            false
+          else:
+            has_supermajority
+      if newFinality:
         template msg(): auto = forkyFinalityUpdate
         let sendResult =
           await node.network.broadcastLightClientFinalityUpdate(msg)
 
         # Optimization for message with ephemeral validity, whether sent or not
-        node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
+        pool.latestForwardedFinalitySlot = finalized_slot
+        pool.latestForwardedFinalityHasSupermajority = has_supermajority
 
         if sendResult.isOk:
           beacon_light_client_finality_updates_sent.inc()
@@ -297,13 +313,13 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
             error = sendResult.error()
 
       let attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
-      if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
+      if attested_slot > pool.latestForwardedOptimisticSlot:
         let msg = forkyFinalityUpdate.toOptimistic
         let sendResult =
           await node.network.broadcastLightClientOptimisticUpdate(msg)
 
         # Optimization for message with ephemeral validity, whether sent or not
-        node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
+        pool.latestForwardedOptimisticSlot = attested_slot
 
         if sendResult.isOk:
           beacon_light_client_optimistic_updates_sent.inc()

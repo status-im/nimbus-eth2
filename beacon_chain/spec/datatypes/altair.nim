@@ -638,6 +638,14 @@ func init*(T: type SyncAggregate): SyncAggregate =
 func num_active_participants*(v: SomeSyncAggregate): int =
   countOnes(v.sync_committee_bits)
 
+func hasSupermajoritySyncParticipation*(
+    num_active_participants: uint64): bool =
+  const max_active_participants = SYNC_COMMITTEE_SIZE.uint64
+  num_active_participants * 3 >= static(max_active_participants * 2)
+
+func hasSupermajoritySyncParticipation*(v: SomeSyncAggregate): bool =
+  hasSupermajoritySyncParticipation(v.num_active_participants.uint64)
+
 func shortLog*(v: SyncAggregate): auto =
   $(v.sync_committee_bits)
 
