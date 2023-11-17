@@ -501,6 +501,7 @@ func toFull*(
     update: SomeForkyLightClientUpdate): auto =
   type ResultType = typeof(update).kind.LightClientUpdate
   when update is ForkyLightClientUpdate:
+    static: doAssert update is ResultType
     update
   elif update is SomeForkyLightClientUpdateWithFinality:
     ResultType(
