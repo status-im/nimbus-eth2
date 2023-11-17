@@ -456,7 +456,7 @@ template lazy_header(name: untyped): untyped {.dirty.} =
     `name _ ptr`: ptr[data_fork.LightClientHeader]
     `name _ ok` = true
   template `assign _ name`(
-      obj: var SomeForkyLightClientObject, bid: BlockId): untyped =
+      obj: var SomeForkyLightClientObject, bid: BlockId): untyped {.used.} =
     if `name _ ptr` != nil:
       obj.name = `name _ ptr`[]
     elif `name _ ok`:
@@ -472,7 +472,7 @@ template lazy_header(name: untyped): untyped {.dirty.} =
         `name _ ptr` = addr obj.name
     `name _ ok`
   template `assign _ name _ with_migration`(
-      obj: var SomeForkedLightClientObject, bid: BlockId): untyped =
+      obj: var SomeForkedLightClientObject, bid: BlockId): untyped {.used.} =
     if `name _ ptr` != nil:
       obj.migrateToDataFork(data_fork)
       obj.forky(data_fork).name = `name _ ptr`[]

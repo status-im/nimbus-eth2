@@ -78,9 +78,10 @@ proc validate_light_client_update*(
       return err(VerifierError.MissingParent)
 
   # Verify update is relevant
-  let attested_period = update.attested_header.beacon.slot.sync_committee_period
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
-    let is_sync_committee_update = update.is_sync_committee_update
+    let
+      attested_period = update.attested_header.beacon.slot.sync_committee_period
+      is_sync_committee_update = update.is_sync_committee_update
   if update.attested_header.beacon.slot <= store.finalized_header.beacon.slot:
     when update is SomeForkyLightClientUpdateWithSyncCommittee:
       if is_next_sync_committee_known:
