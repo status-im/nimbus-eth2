@@ -1203,25 +1203,32 @@ template withContext*(dbParam: SlashingProtectionDB_v2, body: untyped): untyped 
       signing_root: Eth2Digest): Result[void, BadVote] =
     registerAttestation(db, index, validator, source, target, signing_root)
 
-  discard db.backend.exec("BEGIN TRANSACTION;")
   var
     commit = false
     res: Result[typeof(body), string]
-  try:
-      when type(body) is void:
-        body
-        commit = true
+    beginRes = db.backend.exec("BEGIN TRANSACTION;")
+  if beginRes.isErr(): # always lovely handling errors in templates
+    res.err(beginRes.error())
+  else:
+    try:
+        when type(body) is void:
+          body
+          commit = true
+        else:
+          res.ok(body)
+          commit = true
+    finally:
+      if commit:
+        let commit = db.backend.exec("COMMIT TRANSACTION;")
+        if commit.isErr:
+          res.err(commit.error())
       else:
-        res.ok(body)
-        commit = true
-  finally:
-    if commit:
-      let commit = db.backend.exec("COMMIT TRANSACTION;")
-      if commit.isErr:
-        res.err(commit.error())
-    else:
-      if isInsideTransaction(db.backend): # calls `sqlite3_get_autocommit`
-        discard db.backend.exec("ROLLBACK TRANSACTION;")
+        # Exception was raised from body - catch/reraise would cause the wrong
+        # exception effect..
+        if isInsideTransaction(db.backend): # calls `sqlite3_get_autocommit`
+          discard db.backend.exec("ROLLBACK TRANSACTION;")
+        res.err("Rolled back")
+
   res
 
 # DB maintenance
