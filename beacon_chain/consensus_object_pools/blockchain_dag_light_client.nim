@@ -676,23 +676,26 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
   let targetTailSlot = max(dag.targetLightClientTailSlot, dag.tail.slot)
   dag.lcDataStore.cache.tailSlot = max(dag.head.slot, targetTailSlot)
 
-  # Import head state
+  # In `OnlyNew` mode, only head state needs to be cached
   if dag.head.slot < dag.lcDataStore.cache.tailSlot:
     return
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Altair:
-      dag.cacheLightClientData(forkyState, dag.head.bid)
-    else: raiseAssert "Unreachable" # `tailSlot` cannot be before Altair
   if dag.lcDataStore.importMode == LightClientDataImportMode.OnlyNew:
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Altair:
+        dag.cacheLightClientData(forkyState, dag.head.bid)
+      else: raiseAssert "Unreachable" # `tailSlot` cannot be before Altair
     return
 
   # Import light client data for finalized period through finalized head
-  let finalizedSlot = max(dag.finalizedHead.blck.slot, targetTailSlot)
-  if finalizedSlot >= dag.lcDataStore.cache.tailSlot:
-    return
-  dag.lcDataStore.cache.tailSlot = finalizedSlot
-  let finalizedPeriod = finalizedSlot.sync_committee_period
-  var res = dag.initLightClientDataForPeriod(finalizedPeriod)
+  let
+    finalizedSlot = max(dag.finalizedHead.blck.slot, targetTailSlot)
+    finalizedPeriod = finalizedSlot.sync_committee_period
+  var res =
+    if finalizedSlot < dag.lcDataStore.cache.tailSlot:
+      dag.lcDataStore.cache.tailSlot = finalizedSlot
+      dag.initLightClientDataForPeriod(finalizedPeriod)
+    else:
+      Opt[void].ok()
 
   let lightClientStartTick = Moment.now()
   logScope: lightClientDataMaxPeriods = dag.lcDataStore.maxPeriods
@@ -728,14 +731,13 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       continue
     withStateAndBlck(dag.headState, bdata):
       when consensusFork >= ConsensusFork.Altair:
-        # Cache light client data (non-finalized blocks may refer to this)
-        if i != blocks.low:
-          dag.cacheLightClientData(forkyState, bid)  # `dag.head` already cached
-
         # Create `LightClientUpdate` instances
         if i < blocks.high:
           dag.createLightClientUpdates(
             forkyState, forkyBlck, parentBid = blocks[i + 1])
+
+        # Cache light client data (non-finalized blocks may refer to this)
+        dag.cacheLightClientData(forkyState, bid)
       else: raiseAssert "Unreachable"
 
   let lightClientEndTick = Moment.now()
@@ -775,8 +777,8 @@ proc processNewBlockForLightClient*(
   const consensusFork = typeof(signedBlock).kind
   when consensusFork >= ConsensusFork.Altair:
     template forkyState: untyped = state.forky(consensusFork)
-    dag.cacheLightClientData(forkyState, signedBlock.toBlockId())
     dag.createLightClientUpdates(forkyState, signedBlock, parentBid)
+    dag.cacheLightClientData(forkyState, signedBlock.toBlockId())
   else:
     raiseAssert "Unreachable"  # `tailSlot` cannot be before Altair
 
