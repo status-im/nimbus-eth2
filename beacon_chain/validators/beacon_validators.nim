@@ -1093,6 +1093,38 @@ proc proposeBlockAux(
         return head   # errors logged in router
       false
 
+  # There should always be an engine bid, and if payloadBuilderClient exists,
+  # not getting a builder bid is also an error. Do not report lack of builder
+  # when that's intentional. Replicate some of the nested if statements here,
+  # because that avoids entangling logging with other functionality. The logs
+  # here are inteded to clarify that, for example, when the builder API relay
+  # URL is provided for this validator, it's reasonable for Nimbus not to use
+  # it for every block.
+  if collectedBids.engineBidAvailable:
+    # Three cases: builder bid expected and absent, builder bid expected and
+    # present, and builder bid not expected.
+    if collectedBids.builderBidAvailable:
+      info "Compared engine and builder block bids",
+        localBlockValueBoost,
+        useBuilderBlock,
+        builderBlockValue =
+          collectedBids.payloadBuilderBidFut.read.get().blockValue,
+        engineBlockValue = collectedBids.engineBlockFut.read.get().blockValue
+    elif payloadBuilderClient.isNil:
+      discard  # builder API not configured for this block
+    else:
+      info "Did not receive expected builder bid; using engine block",
+        engineBlockValue = collectedBids.engineBlockFut.read.get().blockValue
+  else:
+    # Similar three cases: builder bid expected and absent, builder bid
+    # expected and present, and builder bid not expected. However, only
+    # the second is worth logging, because the other two result in this
+    # block being missed altogether, and with details logged elsewhere.
+    if collectedBids.builderBidAvailable:
+      info "Did not receive expected engine bid; using builder block",
+        builderBlockValue =
+          collectedBids.payloadBuilderBidFut.read.get().blockValue
+
   if useBuilderBlock:
     let
       blindedBlock = (await blindedBlockCheckSlashingAndSign(
