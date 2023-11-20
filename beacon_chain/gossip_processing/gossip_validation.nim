@@ -724,8 +724,8 @@ proc validateAttestation*(
   # This uses the same epochRef as data.target.epoch, because the attestation's
   # epoch matches its target and attestation.data.target.root is an ancestor of
   # attestation.data.beacon_block_root.
-  if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
-      shufflingRef, attestation.data.slot, committee_index)):
+  if not attestation.aggregation_bits.compatible_with_shuffling(
+      shufflingRef, slot, committee_index):
     return pool.checkedReject(
       "Attestation: number of aggregation bits and committee size mismatch")
 
@@ -872,14 +872,6 @@ proc validateAggregate*(
       return pool.checkedResult(v.error)
     v.get()
 
-  if checkCover and
-      pool[].covers(aggregate.data, aggregate.aggregation_bits):
-    # [IGNORE] A valid aggregate attestation defined by
-    # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
-    # superset has _not_ already been seen.
-    # https://github.com/ethereum/consensus-specs/pull/2847
-    return errIgnore("Aggregate already covered")
-
   let
     shufflingRef =
       pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
@@ -896,6 +888,18 @@ proc validateAggregate*(
       return pool.checkedReject(
         "Attestation: committee index not within expected range")
     idx.get()
+  if not aggregate.aggregation_bits.compatible_with_shuffling(
+      shufflingRef, slot, committee_index):
+    return pool.checkedReject(
+      "Aggregate: number of aggregation bits and committee size mismatch")
+
+  if checkCover and
+      pool[].covers(aggregate.data, aggregate.aggregation_bits):
+    # [IGNORE] A valid aggregate attestation defined by
+    # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
+    # superset has _not_ already been seen.
+    # https://github.com/ethereum/consensus-specs/pull/2847
+    return errIgnore("Aggregate already covered")
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
