@@ -872,14 +872,6 @@ proc validateAggregate*(
       return pool.checkedResult(v.error)
     v.get()
 
-  if checkCover and
-      pool[].covers(aggregate.data, aggregate.aggregation_bits):
-    # [IGNORE] A valid aggregate attestation defined by
-    # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
-    # superset has _not_ already been seen.
-    # https://github.com/ethereum/consensus-specs/pull/2847
-    return errIgnore("Aggregate already covered")
-
   let
     shufflingRef =
       pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
@@ -896,6 +888,17 @@ proc validateAggregate*(
       return pool.checkedReject(
         "Attestation: committee index not within expected range")
     idx.get()
+  if not aggregate.aggregation_bits.compatible_with_shuffling(
+      shufflingRef, slot, committee_index):
+    return pool.checkedReject("Aggregate: invalid aggregation bits")
+
+  if checkCover and
+      pool[].covers(aggregate.data, aggregate.aggregation_bits):
+    # [IGNORE] A valid aggregate attestation defined by
+    # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
+    # superset has _not_ already been seen.
+    # https://github.com/ethereum/consensus-specs/pull/2847
+    return errIgnore("Aggregate already covered")
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
