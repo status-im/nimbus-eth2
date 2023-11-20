@@ -724,8 +724,8 @@ proc validateAttestation*(
   # This uses the same epochRef as data.target.epoch, because the attestation's
   # epoch matches its target and attestation.data.target.root is an ancestor of
   # attestation.data.beacon_block_root.
-  if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
-      shufflingRef, attestation.data.slot, committee_index)):
+  if not attestation.aggregation_bits.compatible_with_shuffling(
+      shufflingRef, slot, committee_index):
     return pool.checkedReject(
       "Attestation: number of aggregation bits and committee size mismatch")
 
@@ -890,7 +890,8 @@ proc validateAggregate*(
     idx.get()
   if not aggregate.aggregation_bits.compatible_with_shuffling(
       shufflingRef, slot, committee_index):
-    return pool.checkedReject("Aggregate: invalid aggregation bits")
+    return pool.checkedReject(
+      "Aggregate: number of aggregation bits and committee size mismatch")
 
   if checkCover and
       pool[].covers(aggregate.data, aggregate.aggregation_bits):
