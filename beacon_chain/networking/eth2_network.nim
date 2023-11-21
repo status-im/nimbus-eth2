@@ -812,17 +812,10 @@ proc uncompressFramedStream(conn: Connection,
 
 func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
-  static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
-  when T is ForkySignedBeaconBlock:
-    when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock or
-         T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is deneb.SignedBeaconBlock:
-      MAX_CHUNK_SIZE.uint32
-    else:
-      {.fatal: "what's the chunk size here?".}
-  elif isFixedSize(T):
+  when isFixedSize(T):
     uint32 fixedPortionSize(T)
   else:
+    static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
     MAX_CHUNK_SIZE.uint32
 
 from ../spec/datatypes/capella import SignedBeaconBlock
