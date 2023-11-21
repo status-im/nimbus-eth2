@@ -22,7 +22,8 @@ import
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
-    nimbus_binary_common, statusbar, trusted_node_sync, wallets]
+    nimbus_binary_common, statusbar, trusted_node_sync, wallets,
+    winservice]
 
 when defined(posix):
   import system/ansi_c
@@ -33,64 +34,6 @@ from
   libp2p/protocols/pubsub/gossipsub
 import
   TopicParams, validateParameters, init
-
-when defined(windows):
-  import winlean
-
-  type
-    LPCSTR* = cstring
-    LPSTR* = cstring
-
-    SERVICE_STATUS* {.final, pure.} = object
-      dwServiceType*: DWORD
-      dwCurrentState*: DWORD
-      dwControlsAccepted*: DWORD
-      dwWin32ExitCode*: DWORD
-      dwServiceSpecificExitCode*: DWORD
-      dwCheckPoint*: DWORD
-      dwWaitHint*: DWORD
-
-    SERVICE_STATUS_HANDLE* = DWORD
-    LPSERVICE_STATUS* = ptr SERVICE_STATUS
-    LPSERVICE_MAIN_FUNCTION* = proc (para1: DWORD, para2: LPSTR) {.stdcall.}
-
-    SERVICE_TABLE_ENTRY* {.final, pure.} = object
-      lpServiceName*: LPSTR
-      lpServiceProc*: LPSERVICE_MAIN_FUNCTION
-
-    LPSERVICE_TABLE_ENTRY* = ptr SERVICE_TABLE_ENTRY
-    LPHANDLER_FUNCTION* = proc (para1: DWORD): WINBOOL {.stdcall.}
-
-  const
-    SERVICE_WIN32_OWN_PROCESS = 16
-    SERVICE_RUNNING = 4
-    SERVICE_STOPPED = 1
-    SERVICE_START_PENDING = 2
-    SERVICE_STOP_PENDING = 3
-    SERVICE_CONTROL_STOP = 1
-    SERVICE_CONTROL_PAUSE = 2
-    SERVICE_CONTROL_CONTINUE = 3
-    SERVICE_CONTROL_INTERROGATE = 4
-    SERVICE_ACCEPT_STOP = 1
-    NO_ERROR = 0
-    SERVICE_NAME = LPCSTR "NIMBUS_BEACON_NODE"
-
-  var
-    gSvcStatusHandle: SERVICE_STATUS_HANDLE
-    gSvcStatus: SERVICE_STATUS
-
-  proc reportServiceStatus*(dwCurrentState, dwWin32ExitCode, dwWaitHint: DWORD) {.gcsafe.}
-
-  proc StartServiceCtrlDispatcher*(lpServiceStartTable: LPSERVICE_TABLE_ENTRY): WINBOOL{.
-      stdcall, dynlib: "advapi32", importc: "StartServiceCtrlDispatcherA".}
-
-  proc SetServiceStatus*(hServiceStatus: SERVICE_STATUS_HANDLE,
-                       lpServiceStatus: LPSERVICE_STATUS): WINBOOL{.stdcall,
-    dynlib: "advapi32", importc: "SetServiceStatus".}
-
-  proc RegisterServiceCtrlHandler*(lpServiceName: LPCSTR,
-                                  lpHandlerProc: LPHANDLER_FUNCTION): SERVICE_STATUS_HANDLE{.
-    stdcall, dynlib: "advapi32", importc: "RegisterServiceCtrlHandlerA".}
 
 type
   RpcServer = RpcHttpServer
@@ -1556,7 +1499,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   when defined(windows):
     if node.config.runAsService:
-      reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
+      reportServiceStatusSuccess()
 
   beacon_slot.set wallSlot.toGaugeValue
   beacon_current_epoch.set wallSlot.epoch.toGaugeValue
@@ -2238,66 +2181,6 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
 
 {.pop.} # TODO moduletests exceptions
 
-when defined(windows):
-  proc reportServiceStatus*(dwCurrentState, dwWin32ExitCode, dwWaitHint: DWORD) {.gcsafe.} =
-    gSvcStatus.dwCurrentState = dwCurrentState
-    gSvcStatus.dwWin32ExitCode = dwWin32ExitCode
-    gSvcStatus.dwWaitHint = dwWaitHint
-    if dwCurrentState == SERVICE_START_PENDING:
-      gSvcStatus.dwControlsAccepted = 0
-    else:
-      gSvcStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP
-
-    # TODO
-    # We can use non-zero values for the `dwCheckPoint` parameter to report
-    # progress during lengthy operations such as start-up and shut down.
-    gSvcStatus.dwCheckPoint = 0
-
-    # Report the status of the service to the SCM.
-    let status = SetServiceStatus(gSvcStatusHandle, addr gSvcStatus)
-    debug "Service status updated", status
-
-  proc serviceControlHandler(dwCtrl: DWORD): WINBOOL {.stdcall.} =
-    case dwCtrl
-    of SERVICE_CONTROL_STOP:
-      # We re reporting that we plan stop the service in 10 seconds
-      reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 10_000)
-      bnStatus = BeaconNodeStatus.Stopping
-    of SERVICE_CONTROL_PAUSE, SERVICE_CONTROL_CONTINUE:
-      warn "The Nimbus service cannot be paused and resimed"
-    of SERVICE_CONTROL_INTERROGATE:
-      # The default behavior is correct.
-      # The service control manager will report our last status.
-      discard
-    else:
-      debug "Service received an unexpected user-defined control message",
-            msg = dwCtrl
-
-  proc serviceMainFunction(dwArgc: DWORD, lpszArgv: LPSTR) {.stdcall.} =
-    # The service is launched in a fresh thread created by Windows, so
-    # we must initialize the Nim GC here
-    setupForeignThreadGc()
-
-    gSvcStatusHandle = RegisterServiceCtrlHandler(
-      SERVICE_NAME,
-      serviceControlHandler)
-
-    gSvcStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS
-    gSvcStatus.dwServiceSpecificExitCode = 0
-    reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
-
-    info "Service thread started"
-
-    var config = makeBannerAndConfig(clientId, copyrights, nimBanner, [],
-                                     BeaconNodeConf).valueOr:
-      stderr.write error
-      quit QuitFailure
-
-    handleStartUpCmd(config)
-
-    info "Service thread stopped"
-    reportServiceStatus(SERVICE_STOPPED, NO_ERROR, 0) # we have to report back when we stopped!
-
 programMain:
   var config = makeBannerAndConfig(clientId, copyrights, nimBanner, [],
                                    BeaconNodeConf).valueOr:
@@ -2337,15 +2220,9 @@ programMain:
 
   when defined(windows):
     if config.runAsService:
-      var dispatchTable = [
-        SERVICE_TABLE_ENTRY(lpServiceName: SERVICE_NAME, lpServiceProc: serviceMainFunction),
-        SERVICE_TABLE_ENTRY(lpServiceName: nil, lpServiceProc: nil) # last entry must be nil
-      ]
-
-      let status = StartServiceCtrlDispatcher(LPSERVICE_TABLE_ENTRY(addr dispatchTable[0]))
-      if status == 0:
-        fatal "Failed to start Windows service", errorCode = getLastError()
-        quit 1
+      establishWindowsService(clientId, copyrights, nimBanner,
+                              "nimbus_beacon_node", BeaconNodeConf,
+                              handleStartUpCmd)
     else:
       handleStartUpCmd(config)
   else:
