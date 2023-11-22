@@ -638,8 +638,9 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + init with gaps [Preset: mainnet]                                                           OK
 + orphaned epoch block [Preset: mainnet]                                                     OK
 + prune heads on finalization [Preset: mainnet]                                              OK
++ shutdown during finalization [Preset: mainnet]                                             OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## createValidatorFiles()
 ```diff
 + Add keystore files [LOCAL]                                                                 OK
@@ -720,4 +721,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 409/414 Fail: 0/414 Skip: 5/414
+OK: 410/415 Fail: 0/415 Skip: 5/415
