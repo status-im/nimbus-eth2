@@ -1008,7 +1008,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # state - the tail is implicitly finalized, and if we have a finalized block
     # table, that provides another hint
     finalizedSlot = db.finalizedBlocks.high.get(tail.slot)
-    newFinalized: seq[BlockId]
     cache: StateCache
     foundHeadState = false
     headBlocks: seq[BlockRef]
@@ -1128,28 +1127,37 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   doAssert dag.finalizedHead.blck != nil,
     "The finalized head should exist at the slot"
-  doAssert dag.finalizedHead.blck.parent == nil,
-    "...but that's the last BlockRef with a parent"
 
   block: # Top up finalized blocks
     if db.finalizedBlocks.high.isNone or
         db.finalizedBlocks.high.get() < dag.finalizedHead.blck.slot:
+      # Versions prior to 1.7.0 did not store finalized blocks in the
+      # database, and / or the application might have crashed between the head
+      # and finalized blocks updates.
       info "Loading finalized blocks",
         finHigh = db.finalizedBlocks.high,
         finalizedHead = shortLog(dag.finalizedHead)
 
-      for blck in db.getAncestorSummaries(dag.finalizedHead.blck.root):
+      var
+        newFinalized: seq[BlockId]
+        tmp = dag.finalizedHead.blck
+      while tmp.parent != nil:
+        newFinalized.add(tmp.bid)
+        let p = tmp.parent
+        tmp.parent = nil
+        tmp = p
+
+      for blck in db.getAncestorSummaries(tmp.root):
         if db.finalizedBlocks.high.isSome and
             blck.summary.slot <= db.finalizedBlocks.high.get:
           break
 
-        # Versions prior to 1.7.0 did not store finalized blocks in the
-        # database, and / or the application might have crashed between the head
-        # and finalized blocks updates.
         newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
 
-  let finalizedBlocksTick = Moment.now()
-  db.updateFinalizedBlocks(newFinalized)
+      db.updateFinalizedBlocks(newFinalized)
+
+  doAssert dag.finalizedHead.blck.parent == nil,
+    "The finalized head is the last BlockRef with a parent"
 
   block:
     let finalized = db.finalizedBlocks.get(db.finalizedBlocks.high.get()).expect(
