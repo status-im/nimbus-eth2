@@ -764,23 +764,22 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
     initDur = lightClientEndTick - lightClientStartTick, res
   if res.isErr:
     return
-  if dag.lcDataStore.importMode == LightClientDataImportMode.OnDemand:
-    return
 
   # Import historic data
-  dag.lcDataStore.cache.tailSlot = targetTailSlot
-  let targetTailPeriod = targetTailSlot.sync_committee_period
-  if targetTailPeriod < finalizedPeriod:
-    # `countdown` through 0 fails on distinct `uint64`
-    # https://github.com/nim-lang/Nim/pull/19926
-    var period = finalizedPeriod - 1
-    while period >= targetTailPeriod:
-      if dag.initLightClientDataForPeriod(period).isErr:
-        res.err()
-      if period <= targetTailPeriod:
-        break
-      dec period
-    debug "Historic LC data imported", res
+  if dag.lcDataStore.importMode == LightClientDataImportMode.Full:
+    dag.lcDataStore.cache.tailSlot = targetTailSlot
+    let targetTailPeriod = targetTailSlot.sync_committee_period
+    if targetTailPeriod < finalizedPeriod:
+      # `countdown` through 0 fails on distinct `uint64`
+      # https://github.com/nim-lang/Nim/pull/19926
+      var period = finalizedPeriod - 1
+      while period >= targetTailPeriod:
+        if dag.initLightClientDataForPeriod(period).isErr:
+          res.err()
+        if period <= targetTailPeriod:
+          break
+        dec period
+      debug "Historic LC data imported", res
 
 proc processNewBlockForLightClient*(
     dag: ChainDAGRef,
