@@ -417,6 +417,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     let slots = mapIt(blockData, it[].slot)
     if not(checkResponse(req, slots)):
       peer.updateScore(PeerScoreBadResponse)
+      man.queue.push(req)
       warn "Received blocks sequence is not in requested range",
            blocks_count = len(blockData), blocks_map = blockSmap,
            request = req
@@ -446,12 +447,15 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
           if not(checkResponse(req, uniqueSlots)):
             peer.updateScore(PeerScoreBadResponse)
+            man.queue.push(req)
             warn "Received blobs sequence is not in requested range",
               blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
                             request = req
             return
         let groupedBlobs = groupBlobs(req, blockData, blobData)
         if groupedBlobs.isErr():
+          peer.updateScore(PeerScoreBadResponse)
+          man.queue.push(req)
           warn "Received blobs sequence is invalid",
             blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
           return
@@ -462,9 +466,9 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     if blobData.isSome:
       let blobs = blobData.get()
       if len(blobs) != len(blockData):
-        info "block and blobs have different lengths", blobs=len(blobs), blocks=len(blockData)
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
+        info "block and blobs have different lengths", blobs=len(blobs), blocks=len(blockData)
         return
       for i, blk in blockData:
         if len(blobs[i]) > 0 and blk[].slot !=
@@ -502,6 +506,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
       man.workers[index].status = SyncWorkerStatus.Processing)
 
   except CatchableError as exc:
+    man.queue.push(req)
     debug "Unexpected exception while receiving blocks", request = req,
           errName = exc.name, errMsg = exc.msg
     return
