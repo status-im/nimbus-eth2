@@ -73,6 +73,8 @@ when defined(windows):
                       lpszArgv: LPWSTR): Result[seq[string], string] =
     var res: seq[string]
     let arguments = cast[ptr UncheckedArray[LPWSTR]](lpszArgv)
+    if uint64(dwArgc) > uint64(high(int)):
+      return err("Unable to process incredible count of arguments")
     for i in 0 ..< int(dwArgc):
       let str = arguments[i].toString().valueOr:
         return err("Unable to process arguments, reason: " & osErrorMsg(error))
@@ -111,7 +113,7 @@ when defined(windows):
     proc serviceControlHandler(dwCtrl: DWORD): WINBOOL {.stdcall.} =
       case dwCtrl
       of SERVICE_CONTROL_STOP:
-        # We re reporting that we plan stop the service in 10 seconds
+        # We're reporting that we plan to stop the service in 10 seconds
         reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 10_000)
         bnStatus = BeaconNodeStatus.Stopping
       of SERVICE_CONTROL_PAUSE, SERVICE_CONTROL_CONTINUE:
@@ -150,7 +152,6 @@ when defined(windows):
             quit QuitFailure
           res.get()
 
-
       var config =
         block:
           # `valueOr` cannot be used because of we can't use `error`.
@@ -181,6 +182,6 @@ when defined(windows):
       startServiceCtrlDispatcher(LPSERVICE_TABLE_ENTRYW(addr dispatchTable[0]))
     if status == 0:
       let errorCode = osLastError()
-      fatal "Failed to start Windows service", error_code = int(errorCode),
+      fatal "Failed to start Windows service", error_code = uint32(errorCode),
             reason = osErrorMsg(errorCode)
       quit QuitFailure
