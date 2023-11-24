@@ -46,6 +46,8 @@ when defined(windows):
     SERVICE_CONTROL_CONTINUE = 3
     SERVICE_CONTROL_INTERROGATE = 4
     SERVICE_ACCEPT_STOP = 1
+    ERROR_INVALID_PARAMETER = 87
+    ERROR_BAD_CONFIGURATION = 1610
     NO_ERROR = 0
 
   var
@@ -108,14 +110,15 @@ when defined(windows):
                                     argNimBanner,
                                     argServiceName: string,
                                     argConfigType: untyped,
-                                    argEntryPoint: untyped): untyped =
+                                    argEntryPoint: untyped,
+                                    argExitPoint: untyped): untyped =
 
     proc serviceControlHandler(dwCtrl: DWORD): WINBOOL {.stdcall.} =
       case dwCtrl
       of SERVICE_CONTROL_STOP:
         # We're reporting that we plan to stop the service in 10 seconds
         reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 10_000)
-        bnStatus = BeaconNodeStatus.Stopping
+        argExitPoint()
       of SERVICE_CONTROL_PAUSE, SERVICE_CONTROL_CONTINUE:
         warn "The Nimbus service cannot be paused and resimed"
       of SERVICE_CONTROL_INTERROGATE:
@@ -141,27 +144,15 @@ when defined(windows):
       gSvcStatus.dwServiceSpecificExitCode = 0
       reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
 
-      info "Service thread started"
+      let environment = getCommandLine(dwArgc, lpszArgv).valueOr:
+        reportServiceStatus(SERVICE_STOPPED, ERROR_INVALID_PARAMETER, 0)
+        quit QuitFailure
 
-      let environment =
-        block:
-          # `valueOr` cannot be used because of we can't use `error`.
-          let res = getCommandLine(dwArgc, lpszArgv)
-          if res.isErr():
-            stderr.write res.error
-            quit QuitFailure
-          res.get()
-
-      var config =
-        block:
-          # `valueOr` cannot be used because of we can't use `error`.
-          let res = makeBannerAndConfig(argClientId, argCopyrights,
-                                        argNimBanner, environment,
-                                        argConfigType)
-          if res.isErr():
-            stderr.write res.error
-            quit QuitFailure
-          res.get()
+      var config = makeBannerAndConfig(argClientId, argCopyrights,
+                                       argNimBanner, environment,
+                                       argConfigType).valueOr:
+        reportServiceStatus(SERVICE_STOPPED, ERROR_BAD_CONFIGURATION, 0)
+        quit QuitFailure
 
       argEntryPoint(config)
 

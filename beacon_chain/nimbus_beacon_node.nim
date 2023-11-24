@@ -2220,9 +2220,11 @@ programMain:
 
   when defined(windows):
     if config.runAsService:
+      proc exitService() =
+        bnStatus = BeaconNodeStatus.Stopping
       establishWindowsService(clientId, copyrights, nimBanner,
                               "nimbus_beacon_node", BeaconNodeConf,
-                              handleStartUpCmd)
+                              handleStartUpCmd, exitService)
     else:
       handleStartUpCmd(config)
   else:
