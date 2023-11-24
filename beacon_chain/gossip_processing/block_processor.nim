@@ -746,7 +746,8 @@ proc storeBlock(
              error = res.error()
             continue
           if self.blobQuarantine[].hasBlobs(forkyBlck):
-            let blobs = self.blobQuarantine[].popBlobs(forkyBlck.root)
+            let blobs = self.blobQuarantine[].popBlobs(
+              forkyBlck.root, forkyBlck)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
             if not self.consensusManager.quarantine[].addBlobless(

@@ -242,7 +242,7 @@ proc processSignedBeaconBlock*(
     let blobs =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(signedBlock):
-          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root))
+          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
         else:
           if not self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
                                                signedBlock):
@@ -310,7 +310,7 @@ proc processBlobSidecar*(
       self.blockProcessor[].enqueueBlock(
         MsgSource.gossip,
         ForkedSignedBeaconBlock.init(blobless),
-        Opt.some(self.blobQuarantine[].popBlobs(block_root)))
+        Opt.some(self.blobQuarantine[].popBlobs(block_root, blobless)))
     else:
       discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
                                             blobless)

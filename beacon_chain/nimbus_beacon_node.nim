@@ -408,7 +408,7 @@ proc initFullNode(
                 Result[void, VerifierError].err(VerifierError.MissingParent),
                 "rmanBlockVerifier")
           else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root)
+            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
             blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.some(blobs),
                                       maybeFinalized = maybeFinalized)

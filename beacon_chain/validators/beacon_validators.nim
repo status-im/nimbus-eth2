@@ -560,8 +560,6 @@ proc makeBeaconBlockForHeadAndSlot*(
   else:
     err(blck.error)
 
-# workaround for https://github.com/nim-lang/Nim/issues/20900 to avoid default
-# parameters
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,

@@ -504,8 +504,6 @@ proc makeBeaconBlock*(
   else:
     {.error: "Unsupported fork".}
 
-# workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have
-# these be default arguments
 proc makeBeaconBlock*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
