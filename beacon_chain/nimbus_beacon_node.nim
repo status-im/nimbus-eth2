@@ -2182,8 +2182,8 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
 {.pop.} # TODO moduletests exceptions
 
 programMain:
-  var config = makeBannerAndConfig(clientId, copyrights, nimBanner, [],
-                                   BeaconNodeConf).valueOr:
+  var config = makeBannerAndConfig(clientId, copyrights, nimBanner,
+                                   SPEC_VERSION, [], BeaconNodeConf).valueOr:
     stderr.write error
     quit QuitFailure
 
