@@ -435,10 +435,10 @@ proc getExecutionPayload(
       return Opt.none(PayloadType)
 
     return Opt.some payload
-  except CatchableError as err:
+  except CatchableError as exc:
     beacon_block_payload_errors.inc()
-    error "Error creating non-empty execution payload",
-      msg = err.msg
+    warn "Error creating non-empty execution payload",
+      msg = exc.msg
     return Opt.none PayloadType
 
 proc makeBeaconBlockForHeadAndSlot*(
@@ -518,7 +518,9 @@ proc makeBeaconBlockForHeadAndSlot*(
     exits = withState(state[]):
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)
-    payload = (await payloadFut).valueOr:
+    # TODO workaround for https://github.com/arnetheduck/nim-results/issues/34
+    payloadRes = await payloadFut
+    payload = payloadRes.valueOr:
       beacon_block_production_errors.inc()
       warn "Unable to get execution payload. Skipping block proposal",
         slot, validator_index
