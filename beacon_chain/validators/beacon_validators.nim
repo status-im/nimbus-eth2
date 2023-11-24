@@ -396,7 +396,7 @@ proc getExecutionPayload(
   let feeRecipient = block:
     let pubkey = node.dag.validatorKey(validator_index)
     if pubkey.isNone():
-      error "Cannot get proposer pubkey, bug?", validator_index
+      warn "Cannot get proposer pubkey, bug?", validator_index
       default(Eth1Address)
     else:
       node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
@@ -430,15 +430,15 @@ proc getExecutionPayload(
     let payload = (await node.elManager.getPayload(
         PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
         latestFinalized, timestamp, random, feeRecipient, withdrawals)).valueOr:
-      error "Failed to obtain execution payload from EL",
+      warn "Failed to obtain execution payload from EL",
              executionHeadBlock = executionHead
       return Opt.none(PayloadType)
 
     return Opt.some payload
-  except CatchableError as err:
+  except CatchableError as exc:
     beacon_block_payload_errors.inc()
-    error "Error creating non-empty execution payload",
-      msg = err.msg
+    warn "Error creating non-empty execution payload",
+      msg = exc.msg
     return Opt.none PayloadType
 
 proc makeBeaconBlockForHeadAndSlot*(
@@ -518,7 +518,9 @@ proc makeBeaconBlockForHeadAndSlot*(
     exits = withState(state[]):
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)
-    payload = (await payloadFut).valueOr:
+    # TODO workaround for https://github.com/arnetheduck/nim-results/issues/34
+    payloadRes = await payloadFut
+    payload = payloadRes.valueOr:
       beacon_block_production_errors.inc()
       warn "Unable to get execution payload. Skipping block proposal",
         slot, validator_index
@@ -546,7 +548,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     # small risk it might happen even when most proposals succeed - thus we
     # log instead of asserting
     beacon_block_production_errors.inc()
-    error "Cannot create block for proposal",
+    warn "Cannot create block for proposal",
       slot, head = shortLog(head), error
     $error
 
