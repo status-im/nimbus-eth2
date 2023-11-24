@@ -12,7 +12,7 @@
 when defined(windows):
   import results, chronicles
   import chronos/[osdefs, osutils, oserrno]
-  import ./conf
+  import ./conf_common
 
   type
     SERVICE_STATUS* {.final, pure.} = object
@@ -108,6 +108,7 @@ when defined(windows):
   template establishWindowsService*(argClientId,
                                     argCopyrights,
                                     argNimBanner,
+                                    argSpecVersion,
                                     argServiceName: string,
                                     argConfigType: untyped,
                                     argEntryPoint: untyped,
@@ -149,8 +150,8 @@ when defined(windows):
         quit QuitFailure
 
       var config = makeBannerAndConfig(argClientId, argCopyrights,
-                                       argNimBanner, environment,
-                                       argConfigType).valueOr:
+                                       argNimBanner, argSpecVersion,
+                                       environment, argConfigType).valueOr:
         reportServiceStatus(SERVICE_STOPPED, ERROR_BAD_CONFIGURATION, 0)
         quit QuitFailure
 
