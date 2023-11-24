@@ -396,7 +396,7 @@ proc getExecutionPayload(
   let feeRecipient = block:
     let pubkey = node.dag.validatorKey(validator_index)
     if pubkey.isNone():
-      error "Cannot get proposer pubkey, bug?", validator_index
+      warn "Cannot get proposer pubkey, bug?", validator_index
       default(Eth1Address)
     else:
       node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
@@ -430,7 +430,7 @@ proc getExecutionPayload(
     let payload = (await node.elManager.getPayload(
         PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
         latestFinalized, timestamp, random, feeRecipient, withdrawals)).valueOr:
-      error "Failed to obtain execution payload from EL",
+      warn "Failed to obtain execution payload from EL",
              executionHeadBlock = executionHead
       return Opt.none(PayloadType)
 
@@ -548,7 +548,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     # small risk it might happen even when most proposals succeed - thus we
     # log instead of asserting
     beacon_block_production_errors.inc()
-    error "Cannot create block for proposal",
+    warn "Cannot create block for proposal",
       slot, head = shortLog(head), error
     $error
 
