@@ -82,34 +82,6 @@ proc existingCurrentSyncCommitteeForPeriod(
     doAssert strictVerification notin dag.updateFlags
   syncCommittee
 
-template syncCommitteeRoot(state: ForkyHashedBeaconState): Eth2Digest =
-  ## Compute a root to uniquely identify `current_sync_committee` and
-  ## `next_sync_committee`.
-  withEth2Hash:
-    h.update state.data.current_sync_committee.hash_tree_root().data
-    h.update state.data.next_sync_committee.hash_tree_root().data
-
-proc syncCommitteeRootForPeriod(
-    dag: ChainDAGRef,
-    tmpState: var ForkedHashedBeaconState,
-    period: SyncCommitteePeriod): Opt[Eth2Digest] =
-  ## Compute a root to uniquely identify `current_sync_committee` and
-  ## `next_sync_committee` for a given sync committee period.
-  ## For non-finalized periods, follow the chain as selected by fork choice.
-  let lowSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
-  if period < lowSlot.sync_committee_period:
-    return err()
-  let
-    periodStartSlot = period.start_slot
-    syncCommitteeSlot = max(periodStartSlot, lowSlot)
-    bsi = ? dag.getExistingBlockIdAtSlot(syncCommitteeSlot)
-  dag.withUpdatedExistingState(tmpState, bsi) do:
-    withState(updatedState):
-      when consensusFork >= ConsensusFork.Altair:
-        ok forkyState.syncCommitteeRoot
-      else: raiseAssert "Unreachable"
-  do: err()
-
 proc initLightClientDataStore*(
     config: LightClientDataConfig,
     cfg: RuntimeConfig,
