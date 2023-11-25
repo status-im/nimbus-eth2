@@ -13,7 +13,6 @@ import
 
 from std/base64 import encode
 from std/json import JsonNode, `$`, `%*`
-from std/options import Option, get, isNone
 from std/os import `/`
 from std/strutils import replace
 
@@ -83,7 +82,7 @@ proc loadJwtSecretFile*(jwtSecretFile: InputFile): Result[seq[byte], cstring] =
     err("invalid JWT hex string")
 
 proc checkJwtSecret*(
-    rng: var HmacDrbgContext, dataDir: string, jwtSecret: Option[InputFile]):
+    rng: var HmacDrbgContext, dataDir: string, jwtSecret: Opt[InputFile]):
     Result[seq[byte], cstring] =
   # If such a parameter is given, but the file cannot be read, or does not
   # contain a hex-encoded key of 256 bits, the client should treat this as an

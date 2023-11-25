@@ -1436,8 +1436,8 @@ func defaultFeeRecipient*(conf: AnyConf): Opt[Eth1Address] =
 proc loadJwtSecret*(
     rng: var HmacDrbgContext,
     dataDir: string,
-    jwtSecret: Option[InputFile],
-    allowCreate: bool): Option[seq[byte]] =
+    jwtSecret: Opt[InputFile],
+    allowCreate: bool): Opt[seq[byte]] =
   # Some Web3 endpoints aren't compatible with JWT, but if explicitly chosen,
   # use it regardless.
   if jwtSecret.isSome or allowCreate:
@@ -1447,15 +1447,21 @@ proc loadJwtSecret*(
         err = secret.error
       quit 1
 
-    some secret.get
+    Opt.some secret.get
   else:
-    none(seq[byte])
+    Opt.none seq[byte]
 
 proc loadJwtSecret*(
     rng: var HmacDrbgContext,
     config: BeaconNodeConf,
-    allowCreate: bool): Option[seq[byte]] =
-  rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)
+    allowCreate: bool): Opt[seq[byte]] =
+  rng.loadJwtSecret(
+    string(config.dataDir),
+    (if config.jwtSecret.isSome:
+       Opt.some config.jwtSecret.get
+     else:
+       Opt.none InputFile),
+    allowCreate)
 
 proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
   let elUrls = if config.noEl:
