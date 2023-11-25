@@ -1451,17 +1451,18 @@ proc loadJwtSecret*(
   else:
     Opt.none seq[byte]
 
+func configJwtSecretOpt*(jwtSecret: Option[InputFile]): Opt[InputFile] =
+  if jwtSecret.isSome:
+    Opt.some jwtSecret.get
+  else:
+    Opt.none InputFile
+
 proc loadJwtSecret*(
     rng: var HmacDrbgContext,
     config: BeaconNodeConf,
     allowCreate: bool): Opt[seq[byte]] =
   rng.loadJwtSecret(
-    string(config.dataDir),
-    (if config.jwtSecret.isSome:
-       Opt.some config.jwtSecret.get
-     else:
-       Opt.none InputFile),
-    allowCreate)
+    string(config.dataDir), config.jwtSecret.configJwtSecretOpt, allowCreate)
 
 proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
   let elUrls = if config.noEl:
@@ -1472,10 +1473,7 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
     config.elUrls
 
   (elUrls & config.web3Urls).toFinalEngineApiUrls(
-    if config.jwtSecret.isSome:
-      Opt.some config.jwtSecret.get
-    else:
-      Opt.none InputFile)
+    config.jwtSecret.configJwtSecretOpt)
 
 proc loadKzgTrustedSetup*(): Result[void, string] =
   const
