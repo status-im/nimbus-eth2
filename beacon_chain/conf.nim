@@ -1471,7 +1471,11 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
   else:
     config.elUrls
 
-  (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)
+  (elUrls & config.web3Urls).toFinalEngineApiUrls(
+    if config.jwtSecret.isSome:
+      Opt.some config.jwtSecret.get
+    else:
+      Opt.none InputFile)
 
 proc loadKzgTrustedSetup*(): Result[void, string] =
   const
