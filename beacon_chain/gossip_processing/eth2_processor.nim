@@ -280,7 +280,7 @@ proc processBlobSidecar*(
 
   let
     wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (_, wallSlot) = wallTime.toSlot()
 
   logScope:
     blob = shortLog(blobSidecar)
@@ -301,8 +301,6 @@ proc processBlobSidecar*(
 
   debug "Blob validated, putting in blob quarantine"
   self.blobQuarantine[].put(newClone(blobSidecar))
-
-  var skippedBlocks = false
 
   let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):

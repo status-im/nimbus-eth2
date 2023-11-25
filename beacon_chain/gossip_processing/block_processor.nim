@@ -787,7 +787,7 @@ proc processBlock(
 
   let
     wallTime = self.getBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (afterGenesis, _) = wallTime.toSlot()
 
   if not afterGenesis:
     error "Processing block before genesis, clock turned back?"

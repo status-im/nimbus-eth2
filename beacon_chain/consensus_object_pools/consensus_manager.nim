@@ -114,8 +114,6 @@ proc expectBlock*(self: var ConsensusManager, expectedSlot: Slot): Future[bool] 
 
   return fut
 
-func `$`(h: BlockHash): string = $h.asEth2Digest
-
 func shouldSyncOptimistically*(
     optimisticSlot, dagSlot, wallSlot: Slot): bool =
   ## Determine whether an optimistic execution block hash should be reported
