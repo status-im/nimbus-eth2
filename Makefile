@@ -240,7 +240,7 @@ local-testnet-minimal:
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
 		--capella-fork-epoch 0 \
-		--deneb-fork-epoch 2 \
+		--deneb-fork-epoch 20 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-payload-builder \
@@ -270,7 +270,6 @@ local-testnet-mainnet:
 		--data-dir $@ \
 		--nodes 2 \
 		--capella-fork-epoch 0 \
-		--deneb-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \

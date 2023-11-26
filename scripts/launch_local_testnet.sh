@@ -48,7 +48,7 @@ if [[ ${PIPESTATUS[0]} != 4 ]]; then
 fi
 
 CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit 1; }
-JQ_BINARY="$(command -v jq)" || { echo "jq not installed. Aborting."; exit 1; }
+JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
 LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,altair-fork-epoch:,bellatrix-fork-epoch:,capella-fork-epoch:,deneb-fork-epoch:"
@@ -453,7 +453,13 @@ if [[ "${RUN_GETH}" == "1" ]]; then
   if [[ $DENEB_FORK_EPOCH -lt $STOP_AT_EPOCH ]]; then
     download_geth_deneb
     GETH_BINARY="$GETH_DENEB_BINARY"
+  elif [[ $CAPELLA_FORK_EPOCH -lt $STOP_AT_EPOCH ]]; then
+    download_geth_capella
+    GETH_BINARY="$GETH_CAPELLA_BINARY"
   else
+    # TODO We should run Geth stable here, but it lacks an ARM build for macOS,
+    # so we will run our own Geth capella build until we add some Geth stable
+    # binaries to our nimbus-simulation-binaries project:
     download_geth_capella
     GETH_BINARY="$GETH_CAPELLA_BINARY"
   fi
@@ -696,7 +702,7 @@ fi
 BINARIES_MISSING="0"
 for BINARY in ${BINARIES}; do
   if [[ ! -e "build/${BINARY}" ]]; then
-    log "Missing binary build/${BINARY}"
+    log "Missing binay build/${BINARY}"
     BINARIES_MISSING="1"
     break
   fi
@@ -825,7 +831,7 @@ GENESIS_OFFSET=60  # See `Scheduling first slot action` > `startTime`
 NOW_UNIX_TIMESTAMP=$(date +%s)
 GENESIS_TIME=$((NOW_UNIX_TIMESTAMP + GENESIS_OFFSET))
 SHANGHAI_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * CAPELLA_FORK_EPOCH))
-CANCUN_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * DENEB_FORK_EPOCH))
+SHARDING_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * DENEB_FORK_EPOCH))
 
 EXECUTION_GENESIS_JSON="${DATA_DIR}/execution_genesis.json"
 EXECUTION_GENESIS_BLOCK_JSON="${DATA_DIR}/execution_genesis_block.json"
@@ -834,7 +840,7 @@ EXECUTION_GENESIS_BLOCK_JSON="${DATA_DIR}/execution_genesis_block.json"
 #      currently hard-codes some merkle branches that won't match the random deposits generated
 #      by this simulation. This doesn't happen to produce problems only by accident. If we enable
 #      the `deposit_root` safety-checks in the deposit downloader, it will detect the discrepancy.
-sed "s/SHANGHAI_FORK_TIME/${SHANGHAI_FORK_TIME}/g; s/CANCUN_FORK_TIME/${CANCUN_FORK_TIME}/g" \
+sed "s/SHANGHAI_FORK_TIME/${SHANGHAI_FORK_TIME}/g; s/SHARDING_FORK_TIME/${SHARDING_FORK_TIME}/g" \
   "${SCRIPTS_DIR}/execution_genesis.json.template" > "$EXECUTION_GENESIS_JSON"
 
 DEPOSIT_CONTRACT_ADDRESS="0x4242424242424242424242424242424242424242"
