@@ -17,7 +17,7 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 : ${CURL_BINARY:="curl"}
 : ${STABLE_GETH_BINARY:="${BUILD_DIR}/downloads/geth$EXE_EXTENSION"}
 : ${GETH_CAPELLA_BINARY:="$STABLE_GETH_BINARY"}
-: ${GETH_DENEB_BINARY:="${BUILD_DIR}/downloads/geth_deneb$EXE_EXTENSION"}
+: ${GETH_DENEB_BINARY:="$STABLE_GETH_BINARY"}
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
@@ -111,7 +111,7 @@ download_geth_capella() {
 }
 
 download_geth_deneb() {
-  download_status_geth_binary deneb "$GETH_DENEB_BINARY"
+  download_geth_stable
 }
 
 fi
