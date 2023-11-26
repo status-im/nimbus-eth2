@@ -648,8 +648,8 @@ template firstSuccessSequential*(
               if not(bodyFut.finished()):
                 await bodyFut.cancelAndWait()
               raise exc
-            except CatchableError as exc:
-              # This case could not be happened.
+            except CatchableError:
+              # This case should not happen.
               ApiOperation.Failure
           else:
             try:
@@ -668,7 +668,7 @@ template firstSuccessSequential*(
                 pending.add(timerFut.cancelAndWait())
               await noCancel allFutures(pending)
               raise exc
-            except CatchableError as exc:
+            except CatchableError:
               # This case should not happen.
               ApiOperation.Failure
 
@@ -2344,11 +2344,7 @@ proc publishBlindedBlock*(
         of ConsensusFork.Capella:
           publishBlindedBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
-          debugRaiseAssert $denebImplementationMissing &
-                           ": validator_client/api.nim:publishBlindedBlock (1)"
-          let f = newFuture[RestPlainResponse]("")
-          f.fail(new RestError)
-          f
+          publishBlindedBlock(it, data.denebData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2393,11 +2389,7 @@ proc publishBlindedBlock*(
       of ConsensusFork.Capella:
         publishBlindedBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
-        debugRaiseAssert $denebImplementationMissing &
-                         ": validator_client/api.nim:publishBlindedBlock (2)"
-        let f = newFuture[RestPlainResponse]("")
-        f.fail(new RestError)
-        f
+        publishBlindedBlock(it, data.denebData)
     do:
       if apiResponse.isErr():
         handleCommunicationError()

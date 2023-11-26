@@ -1029,9 +1029,6 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 # won't be hit.
 const denebImplementationMissing* = false
 
-#template debugRaiseAssert*(x: string) = raiseAssert x
-template debugRaiseAssert*(x: string) = discard
-
 func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:
     distinctBase(result).setLen(n)
