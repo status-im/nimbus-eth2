@@ -688,7 +688,7 @@ func hash*(x: Eth1Data): Hash =
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
-func getJsonRpcRequestHeaders(jwtSecret: Option[seq[byte]]):
+func getJsonRpcRequestHeaders(jwtSecret: Opt[seq[byte]]):
     auto =
   if jwtSecret.isSome:
     let secret = jwtSecret.get
@@ -2189,7 +2189,7 @@ func `$`(x: BlockObject): string =
 
 proc testWeb3Provider*(web3Url: Uri,
                        depositContractAddress: Eth1Address,
-                       jwtSecret: Option[seq[byte]]) {.async.} =
+                       jwtSecret: Opt[seq[byte]]) {.async.} =
   stdout.write "Establishing web3 connection..."
   var web3: Web3
   try:
