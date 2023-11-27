@@ -51,7 +51,7 @@ const
   PARTICIPATION_FLAG_WEIGHTS*: array[TimelyFlag, uint64] =
     [uint64 TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#misc
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
@@ -149,7 +149,7 @@ type
     message*: ContributionAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#syncaggregatorselectiondata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#syncaggregatorselectiondata
   SyncAggregatorSelectionData* = object
     slot*: Slot
     subcommittee_index*: uint64 # `SyncSubcommitteeIndex` after validation

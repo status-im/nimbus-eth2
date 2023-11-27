@@ -182,7 +182,7 @@ func slotOrZero*(time: BeaconTime): Slot =
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func epoch*(slot: Slot): Epoch = # aka compute_epoch_at_slot
   ## Return the epoch number at ``slot``.
   if slot == FAR_FUTURE_SLOT: FAR_FUTURE_EPOCH
