@@ -153,7 +153,7 @@ typedef struct ETHBeaconState ETHBeaconState;
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/bellatrix/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/configs/README.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/configs/README.md
  */
 ETH_RESULT_USE_CHECK
 ETHBeaconState *ETHBeaconStateCreateFromSsz(
@@ -198,7 +198,7 @@ ETHRoot *ETHBeaconStateCopyGenesisValidatorsRoot(const ETHBeaconState *state);
  *
  * @param      root                 Merkle root.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#custom-types
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#custom-types
  */
 void ETHRootDestroy(ETHRoot *root);
 
@@ -322,7 +322,7 @@ typedef struct ETHLightClientStore ETHLightClientStore;
  *
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/light-client.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/light-client.md
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
  */
 ETH_RESULT_USE_CHECK
@@ -594,7 +594,7 @@ const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(
  *
  * @return Whether or not the next sync committee is currently known.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/light-client.md
  */
 ETH_RESULT_USE_CHECK
@@ -669,7 +669,7 @@ void ETHLightClientHeaderDestroy(ETHLightClientHeader *header);
  *
  * @return Pointer to a copy of the given header's beacon block root.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#hash_tree_root
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#hash_tree_root
  */
 ETH_RESULT_USE_CHECK
 ETHRoot *ETHLightClientHeaderCopyBeaconRoot(

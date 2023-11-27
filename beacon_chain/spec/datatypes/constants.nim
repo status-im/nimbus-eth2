@@ -62,7 +62,7 @@ const
   REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
   REORG_MAX_EPOCHS_SINCE_FINALIZATION* = Epoch(2)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#configuration
   BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 6
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
