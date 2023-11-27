@@ -22,7 +22,7 @@ Given what's at stake, there is no such thing as a stupid question.
 
 No matter which client you are migrating over from, the first step is to sync the Nimbus beacon node.
 
-The easiest way to do this is to follow the [beacon node quick start guide](./quick-start.md).
+The easiest and fastest way to do this is to follow the [beacon node quick start guide](./quick-start.md) and perform a [trusted node sync](./trusted-node-sync.md) from the source client.
 
 Once your Nimbus beacon node has synced and you're satisfied that it's working, move to **Step 2**.
 
