@@ -2,342 +2,342 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://nimbus.guide/index.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/additional-validator.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/api.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/attestation-performance.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/audit.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/beacon-node-systemd.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/binaries.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/build.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/checksums.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/connect-eth2.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/contribute.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/data-dir.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/database-backup.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/deposit.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/developers.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/distribution_internals.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/docker.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/doppelganger-detection.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/el-light-client.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/email-notifications.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/era-store.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/eth1.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/external-block-builder.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/faq.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/goerli-eth.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/graffiti.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/hardware.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/health.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/history.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/holesky.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/infura-guide.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/install.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/intro.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/keep-an-eye.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/keep-updated.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/keymanager-api.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/keys.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/light-client-data.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/log-levels.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/log-rotate.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/logging.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/merge.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/metrics-pretty-pictures.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/migration-options.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/migration.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/more-keys.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/networking.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/optimistic-sync.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/options.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/pi-guide.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/prater.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/preparation.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/profits.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/quick-start.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/resources.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/rest-api.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/run-a-validator.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/security_issues.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/start-syncing.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/suggested-fee-recipient.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/troubleshooting.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/trusted-node-sync.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/validator-client-options.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/validator-client.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/validator-monitor.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/voluntary-exit.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/web3signer.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://nimbus.guide/withdrawals.html</loc>
-         <lastmod>2023-10-18</lastmod>
+         <lastmod>2023-11-27</lastmod>
          <changefreq>daily</changefreq>
     </url>
 </urlset>

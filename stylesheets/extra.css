@@ -1,0 +1,6 @@
+[data-md-color-scheme="slate"] {
+    --md-hue: 180;
+    --md-default-bg-color: hsla(var(--md-hue), 0%, 0%, 1);
+    --md-footer-bg-color: hsla(var(--md-hue), 0%, 0%, 1);
+    --md-footer-bg-color--dark: hsla(var(--md-hue), 0%, 0%, 1);
+  }
