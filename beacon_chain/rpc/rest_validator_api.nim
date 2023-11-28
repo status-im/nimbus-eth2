@@ -541,18 +541,21 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         withBlck(res.get().blck):
           return responseVersioned(forkyBlck, contextFork)
 
-  func getHeaders(forked: ForkedAndBlindedBeaconBlock): HttpTable =
+  func getMaybeBlindedHeaders(
+      consensusFork: ConsensusFork,
+      isBlinded: bool,
+      executionValue: Opt[UInt256],
+      consensusValue: Opt[UInt256]): HttpTable =
     var res = HttpTable.init()
-    withForkyAndBlindedBlck(forked):
-      res.add("eth-consensus-version", consensusFork.toString())
-      when isBlinded:
-        res.add("eth-execution-payload-blinded", "true")
-      else:
-        res.add("eth-execution-payload-blinded", "false")
-    if forked.executionValue.isSome():
-      res.add("eth-execution-payload-value", $(forked.executionValue.get()))
-    if forked.consensusValue.isSome():
-      res.add("eth-consensus-block-value", $(forked.consensusValue.get()))
+    res.add("eth-consensus-version", consensusFork.toString())
+    if isBlinded:
+      res.add("eth-execution-payload-blinded", "true")
+    else:
+      res.add("eth-execution-payload-blinded", "false")
+    if executionValue.isSome():
+      res.add("eth-execution-payload-value", $(executionValue.get()))
+    if consensusValue.isSome():
+      res.add("eth-consensus-block-value", $(consensusValue.get()))
     res
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV3
@@ -563,85 +566,128 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let
       contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
         return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-    let message =
-      block:
+      qslot = block:
+        if slot.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                            $slot.error())
+        let res = slot.get()
+
+        if res <= node.dag.finalizedHead.slot:
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                            "Slot already finalized")
+        let wallTime =
+          node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+        if res > wallTime.slotOrZero:
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                            "Slot cannot be in the future")
+        res
+      qskip_randao_verification =
+        if skip_randao_verification.isNone():
+          false
+        else:
+          let res = skip_randao_verification.get()
+          if res.isErr() or res.get() != "":
+            return RestApiResponse.jsonError(
+              Http400, InvalidSkipRandaoVerificationValue)
+          true
+      qrandao =
+        if randao_reveal.isNone():
+          return RestApiResponse.jsonError(Http400,
+                                            MissingRandaoRevealValue)
+        else:
+          let res = randao_reveal.get()
+          if res.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                              InvalidRandaoRevealValue,
+                                              $res.error())
+          res.get()
+      qgraffiti =
+        if graffiti.isNone():
+          defaultGraffitiBytes()
+        else:
+          let res = graffiti.get()
+          if res.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                              InvalidGraffitiBytesValue,
+                                              $res.error())
+          res.get()
+      qhead =
+        block:
+          let res = node.getSyncedHead(qslot)
+          if res.isErr():
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                              $res.error())
+          let tres = res.get()
+          if not tres.executionValid:
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+          tres
+      proposer = node.dag.getProposer(qhead, qslot).valueOr:
+        return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
+
+    if not node.verifyRandao(
+        qslot, proposer, qrandao, qskip_randao_verification):
+      return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
+
+    withConsensusFork(node.dag.cfg.consensusForkAtEpoch(qslot.epoch)):
+      when consensusFork >= ConsensusFork.Capella:
         let
-          qslot =
-            block:
-              if slot.isErr():
-                return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                                  $slot.error())
-              let res = slot.get()
+          message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
+              consensusFork, qrandao, qgraffiti, qhead, qslot)).valueOr:
+            # HTTP 400 error is only for incorrect parameters.
+            return RestApiResponse.jsonError(Http500, error)
+          headers = consensusFork.getMaybeBlindedHeaders(
+            message.blck.isBlinded,
+            message.executionValue,
+            message.consensusValue)
 
-              if res <= node.dag.finalizedHead.slot:
-                return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                                 "Slot already finalized")
-              let wallTime =
-                node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-              if res > wallTime.slotOrZero:
-                return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                                 "Slot cannot be in the future")
-              res
-          qskip_randao_verification =
-            if skip_randao_verification.isNone():
-              false
+        if contentType == sszMediaType:
+          if message.blck.isBlinded:
+            RestApiResponse.sszResponse(message.blck.blindedData, headers)
+          else:
+            RestApiResponse.sszResponse(message.blck.data, headers)
+        elif contentType == jsonMediaType:
+          let forked =
+            if message.blck.isBlinded:
+              ForkedMaybeBlindedBeaconBlock.init(
+                message.blck.blindedData,
+                message.executionValue,
+                message.consensusValue)
             else:
-              let res = skip_randao_verification.get()
-              if res.isErr() or res.get() != "":
-                return RestApiResponse.jsonError(
-                  Http400, InvalidSkipRandaoVerificationValue)
-              true
-          qrandao =
-            if randao_reveal.isNone():
-              return RestApiResponse.jsonError(Http400,
-                                               MissingRandaoRevealValue)
+              ForkedMaybeBlindedBeaconBlock.init(
+                message.blck.data,
+                message.executionValue,
+                message.consensusValue)
+          RestApiResponse.jsonResponsePlain(forked, headers)
+        else:
+          raiseAssert "preferredContentType() returns invalid content type"
+      else:
+        when consensusFork >= ConsensusFork.Bellatrix:
+          type PayloadType = consensusFork.ExecutionPayloadForSigning
+        else:
+          type PayloadType = bellatrix.ExecutionPayloadForSigning
+        let
+          message = (await PayloadType.makeBeaconBlockForHeadAndSlot(
+              node, qrandao, proposer, qgraffiti, qhead, qslot)).valueOr:
+            return RestApiResponse.jsonError(Http500, error)
+          executionValue = Opt.some(UInt256(message.blockValue))
+          consensusValue = Opt.none(UInt256)
+          headers = consensusFork.getMaybeBlindedHeaders(
+            isBlinded = false, executionValue, consensusValue)
+
+        doAssert message.blck.kind == consensusFork
+        template forkyBlck: untyped = message.blck.forky(consensusFork)
+        if contentType == sszMediaType:
+          RestApiResponse.sszResponse(forkyBlck, headers)
+        elif contentType == jsonMediaType:
+          let forked =
+            when consensusFork >= ConsensusFork.Bellatrix:
+              ForkedMaybeBlindedBeaconBlock.init(
+                forkyBlck, executionValue, consensusValue)
             else:
-              let res = randao_reveal.get()
-              if res.isErr():
-                return RestApiResponse.jsonError(Http400,
-                                                 InvalidRandaoRevealValue,
-                                                 $res.error())
-              res.get()
-          qgraffiti =
-            if graffiti.isNone():
-              defaultGraffitiBytes()
-            else:
-              let res = graffiti.get()
-              if res.isErr():
-                return RestApiResponse.jsonError(Http400,
-                                                 InvalidGraffitiBytesValue,
-                                                 $res.error())
-              res.get()
-          qhead =
-            block:
-              let res = node.getSyncedHead(qslot)
-              if res.isErr():
-                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
-                                                 $res.error())
-              let tres = res.get()
-              if not tres.executionValid:
-                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-              tres
-          proposer = node.dag.getProposer(qhead, qslot).valueOr:
-            return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
-
-        if not node.verifyRandao(
-            qslot, proposer, qrandao, qskip_randao_verification):
-          return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
-
-        (await node.makeBeaconBlockForHeadAndSlotV3(qrandao, qgraffiti, qhead,
-                                                    qslot)).valueOr:
-          # HTTP 400 error is only for incorrect parameters.
-          return RestApiResponse.jsonError(Http500, error)
-
-    let headers = message.getHeaders()
-    if contentType == sszMediaType:
-      withForkyAndBlindedBlck(message):
-        RestApiResponse.sszResponse(forkyAndBlindedBlck, headers)
-    elif contentType == jsonMediaType:
-      RestApiResponse.jsonResponsePlain(message, headers)
-    else:
-      raiseAssert "preferredContentType() returns invalid content type"
+              ForkedMaybeBlindedBeaconBlock.init(forkyBlck)
+          RestApiResponse.jsonResponsePlain(forked, headers)
+        else:
+          raiseAssert "preferredContentType() returns invalid content type"
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/eth/v1/validator/attestation_data") do (

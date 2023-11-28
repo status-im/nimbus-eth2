@@ -111,7 +111,7 @@ type
     capella.SignedBeaconBlock |
     phase0.SignedBeaconBlock |
     DenebSignedBlockContents |
-    ForkedAndBlindedBeaconBlock
+    ForkedMaybeBlindedBeaconBlock
 
   EncodeArrays* =
     seq[Attestation] |
@@ -3193,11 +3193,11 @@ proc readValue*(reader: var JsonReader[RestJson],
       let msg = "Multiple `" & fieldName & "` fields found"
       reader.raiseUnexpectedField(msg, "VCRuntimeConfig")
 
-## ForkedAndBlindedBeaconBlock
+## ForkedMaybeBlindedBeaconBlock
 proc writeValue*(writer: var JsonWriter[RestJson],
-                 value: ForkedAndBlindedBeaconBlock) {.raises: [IOError].} =
+                 value: ForkedMaybeBlindedBeaconBlock) {.raises: [IOError].} =
   writer.beginRecord()
-  withForkyAndBlindedBlck(value):
+  withForkyMaybeBlindedBlck(value):
     writer.writeField("version", consensusFork.toString())
     when isBlinded:
       writer.writeField("execution_payload_blinded", "true")
@@ -3209,11 +3209,11 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     if value.consensusValue.isSome():
       writer.writeField("consensus_block_value",
                         $(value.consensusValue.get()))
-    writer.writeField("data", forkyAndBlindedBlck)
+    writer.writeField("data", forkyMaybeBlindedBlck)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson],
-                value: var ForkedAndBlindedBeaconBlock) {.
+                value: var ForkedMaybeBlindedBeaconBlock) {.
      raises: [SerializationError, IOError].} =
   var
     version: Opt[ConsensusFork]
@@ -3227,7 +3227,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     of "version":
       if version.isSome():
         reader.raiseUnexpectedField("Multiple `version` fields found",
-                                    "ForkedAndBlindedBeaconBlock")
+                                    "ForkedMaybeBlindedBeaconBlock")
       let res = reader.readValue(string)
       version = ConsensusFork.init(res)
       if version.isNone:
@@ -3236,13 +3236,13 @@ proc readValue*(reader: var JsonReader[RestJson],
       if blinded.isSome():
         reader.raiseUnexpectedField("Multiple `execution_payload_blinded`" &
                                     "fields found",
-                                    "ForkedAndBlindedBeaconBlock")
+                                    "ForkedMaybeBlindedBeaconBlock")
       blinded = Opt.some(reader.readValue(bool))
     of "execution_payload_value":
       if executionValue.isSome():
         reader.raiseUnexpectedField("Multiple `execution_payload_value`" &
                                     "fields found",
-                                    "ForkedAndBlindedBeaconBlock")
+                                    "ForkedMaybeBlindedBeaconBlock")
       let res = strictParse(reader.readValue(string), UInt256, 10)
       if res.isErr():
         reader.raiseUnexpectedValue($res.error)
@@ -3251,7 +3251,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       if consensusValue.isSome():
         reader.raiseUnexpectedField("Multiple `consensus_block_value`" &
                                     "fields found",
-                                    "ForkedAndBlindedBeaconBlock")
+                                    "ForkedMaybeBlindedBeaconBlock")
       let res = strictParse(reader.readValue(string), UInt256, 10)
       if res.isErr():
         reader.raiseUnexpectedValue($res.error)
@@ -3259,7 +3259,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     of "data":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple `data` fields found",
-                                    "ForkedAndBlindedBeaconBlock")
+                                    "ForkedMaybeBlindedBeaconBlock")
       data = Opt.some(reader.readValue(JsonString))
     else:
       unrecognizedFieldWarning()
@@ -3278,13 +3278,13 @@ proc readValue*(reader: var JsonReader[RestJson],
   withConsensusFork(version.get):
     when consensusFork >= ConsensusFork.Capella:
       if blinded.get:
-        value = ForkedAndBlindedBeaconBlock.init(
+        value = ForkedMaybeBlindedBeaconBlock.init(
           RestJson.decode(
             string(data.get()), consensusFork.BlindedBlockContents,
             requireAllFields = true, allowUnknownFields = true),
           executionValue, consensusValue)
       else:
-        value = ForkedAndBlindedBeaconBlock.init(
+        value = ForkedMaybeBlindedBeaconBlock.init(
           RestJson.decode(
             string(data.get()), consensusFork.BlockContents,
             requireAllFields = true, allowUnknownFields = true),
@@ -3293,7 +3293,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       if blinded.get:
         reader.raiseUnexpectedValue(
           "`execution_payload_blinded` unsupported for `version`")
-      value = ForkedAndBlindedBeaconBlock.init(
+      value = ForkedMaybeBlindedBeaconBlock.init(
         RestJson.decode(
           string(data.get()), consensusFork.BlockContents,
           requireAllFields = true, allowUnknownFields = true),
@@ -3302,7 +3302,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       if blinded.get:
         reader.raiseUnexpectedValue(
           "`execution_payload_blinded` unsupported for `version`")
-      value = ForkedAndBlindedBeaconBlock.init(
+      value = ForkedMaybeBlindedBeaconBlock.init(
         RestJson.decode(
           string(data.get()), consensusFork.BlockContents,
           requireAllFields = true, allowUnknownFields = true))
