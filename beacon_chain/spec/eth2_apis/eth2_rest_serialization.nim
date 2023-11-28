@@ -3773,16 +3773,16 @@ proc toList*(value: set[ValidatorFilterKind]): seq[string] =
     res: seq[string]
     v = value
 
-  if pendingSet * v != {}:
+  if pendingSet * v == pendingSet:
     res.add("pending")
     v.excl(pendingSet)
-  if activeSet * v != {}:
+  if activeSet * v == activeSet:
     res.add("active")
     v.excl(activeSet)
-  if exitedSet * v != {}:
+  if exitedSet * v == exitedSet:
     res.add("exited")
     v.excl(exitedSet)
-  if withdrawSet * v != {}:
+  if withdrawSet * v == withdrawSet:
     res.add("withdrawal")
     v.excl(withdrawSet)
 

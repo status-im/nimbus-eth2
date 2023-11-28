@@ -25,9 +25,9 @@ const
   BlockNotFoundError* =
     "Block header/data has not been found"
   EmptyRequestBodyError* =
-    "Empty request's body"
+    "Empty request body"
   InvalidRequestBodyError* =
-    "Invalid request's body"
+    "Invalid request body"
   InvalidBlockObjectError* =
     "Unable to decode block object(s)"
   InvalidAttestationObjectError* =
