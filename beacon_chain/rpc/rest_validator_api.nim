@@ -569,17 +569,17 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       qslot = block:
         if slot.isErr():
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                            $slot.error())
+                                           $slot.error())
         let res = slot.get()
 
         if res <= node.dag.finalizedHead.slot:
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                            "Slot already finalized")
+                                           "Slot already finalized")
         let wallTime =
           node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
         if res > wallTime.slotOrZero:
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                            "Slot cannot be in the future")
+                                           "Slot cannot be in the future")
         res
       qskip_randao_verification =
         if skip_randao_verification.isNone():
@@ -593,13 +593,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       qrandao =
         if randao_reveal.isNone():
           return RestApiResponse.jsonError(Http400,
-                                            MissingRandaoRevealValue)
+                                           MissingRandaoRevealValue)
         else:
           let res = randao_reveal.get()
           if res.isErr():
             return RestApiResponse.jsonError(Http400,
-                                              InvalidRandaoRevealValue,
-                                              $res.error())
+                                             InvalidRandaoRevealValue,
+                                             $res.error())
           res.get()
       qgraffiti =
         if graffiti.isNone():
@@ -608,15 +608,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let res = graffiti.get()
           if res.isErr():
             return RestApiResponse.jsonError(Http400,
-                                              InvalidGraffitiBytesValue,
-                                              $res.error())
+                                             InvalidGraffitiBytesValue,
+                                             $res.error())
           res.get()
       qhead =
         block:
           let res = node.getSyncedHead(qslot)
           if res.isErr():
             return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
-                                              $res.error())
+                                             $res.error())
           let tres = res.get()
           if not tres.executionValid:
             return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
