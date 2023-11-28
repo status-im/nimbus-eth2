@@ -544,7 +544,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   func getHeaders(forked: ForkedAndBlindedBeaconBlock): HttpTable =
     var res = HttpTable.init()
     withForkyAndBlindedBlck(forked):
-      res.add("eth-consensus-version", blindedFork.toString())
+      res.add("eth-consensus-version", consensusFork.toString())
       when isBlinded:
         res.add("eth-execution-payload-blinded", "true")
       else:

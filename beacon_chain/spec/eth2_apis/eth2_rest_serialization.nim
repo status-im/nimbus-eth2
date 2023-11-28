@@ -3198,7 +3198,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
                  value: ForkedAndBlindedBeaconBlock) {.raises: [IOError].} =
   writer.beginRecord()
   withForkyAndBlindedBlck(value):
-    writer.writeField("version", blindedFork.toString())
+    writer.writeField("version", consensusFork.toString())
     when isBlinded:
       writer.writeField("execution_payload_blinded", "true")
     else:
@@ -3275,21 +3275,37 @@ proc readValue*(reader: var JsonReader[RestJson],
   if data.isNone():
     reader.raiseUnexpectedValue("Field `data` is missing")
 
-  let blindedFork =
-    ConsensusBlindedFork.init(version.get, blinded.get).valueOr:
-      reader.raiseUnexpectedValue(
-        "Unsupported combination of `version` and `execution_payload_blinded`")
-
-  withConsensusBlindedFork(blindedFork):
-    when blindedFork.kind >= ConsensusFork.Bellatrix:
+  withConsensusFork(version.get):
+    when consensusFork >= ConsensusFork.Capella:
+      if blinded.get:
+        value = ForkedAndBlindedBeaconBlock.init(
+          RestJson.decode(
+            string(data.get()), consensusFork.BlindedBlockContents,
+            requireAllFields = true, allowUnknownFields = true),
+          executionValue, consensusValue)
+      else:
+        value = ForkedAndBlindedBeaconBlock.init(
+          RestJson.decode(
+            string(data.get()), consensusFork.BlockContents,
+            requireAllFields = true, allowUnknownFields = true),
+          executionValue, consensusValue)
+    elif consensusFork >= ConsensusFork.Bellatrix:
+      if blinded.get:
+        reader.raiseUnexpectedValue(
+          "`execution_payload_blinded` unsupported for `version`")
       value = ForkedAndBlindedBeaconBlock.init(
-        RestJson.decode(string(data.get()), blindedFork.BlockContents,
-                        requireAllFields = true, allowUnknownFields = true),
+        RestJson.decode(
+          string(data.get()), consensusFork.BlockContents,
+          requireAllFields = true, allowUnknownFields = true),
         executionValue, consensusValue)
     else:
+      if blinded.get:
+        reader.raiseUnexpectedValue(
+          "`execution_payload_blinded` unsupported for `version`")
       value = ForkedAndBlindedBeaconBlock.init(
-        RestJson.decode(string(data.get()), blindedFork.BlockContents,
-                        requireAllFields = true, allowUnknownFields = true))
+        RestJson.decode(
+          string(data.get()), consensusFork.BlockContents,
+          requireAllFields = true, allowUnknownFields = true))
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
