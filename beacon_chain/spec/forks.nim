@@ -448,6 +448,16 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
   else:
     static: raiseAssert "Unreachable"
 
+template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[deneb_mev.BlindedBeaconBlock]
+  elif kind == ConsensusFork.Capella:
+    typedesc[capella_mev.BlindedBeaconBlock]
+  elif kind == ConsensusFork.Bellatrix:
+    static: raiseAssert "Unsupported"
+  else:
+    static: raiseAssert "Unreachable"
+
 template SignedBlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Deneb:
     typedesc[deneb_mev.SignedBlindedBeaconBlock]
