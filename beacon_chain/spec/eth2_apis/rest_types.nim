@@ -121,6 +121,10 @@ type
 
   RestNumeric* = distinct int
 
+  RestValidatorRequest* = object
+    ids*: Opt[seq[ValidatorIdent]]
+    status*: Opt[ValidatorFilter]
+
   RestAttesterDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
