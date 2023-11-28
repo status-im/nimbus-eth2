@@ -893,8 +893,7 @@ proc proposeBlockMEV(
 func isEFMainnet(cfg: RuntimeConfig): bool =
   cfg.DEPOSIT_CHAIN_ID == 1 and cfg.DEPOSIT_NETWORK_ID == 1
 
-proc makeBlindedBeaconBlockForHeadAndSlot*[
-    BBB: capella_mev.BlindedBeaconBlock](
+proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
     node: BeaconNode, payloadBuilderClient: RestClientRef,
     randao_reveal: ValidatorSig, validator_index: ValidatorIndex,
     graffiti: GraffitiBytes, head: BlockRef, slot: Slot):
@@ -905,7 +904,9 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
   ##
   ## This function is used by the validator client, but not the beacon node for
   ## its own validators.
-  when BBB is capella_mev.BlindedBeaconBlock:
+  when BBB is deneb_mev.BlindedBeaconBlock:
+    type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
+  elif BBB is capella_mev.BlindedBeaconBlock:
     type EPH = capella.ExecutionPayloadHeader
   else:
     static: doAssert false

@@ -146,6 +146,10 @@ type
     capella.ExecutionPayloadForSigning |
     deneb.ExecutionPayloadForSigning
 
+  ForkyBlindedBeaconBlock* =
+    capella_mev.BlindedBeaconBlock |
+    deneb_mev.BlindedBeaconBlock
+
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
