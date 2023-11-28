@@ -723,7 +723,10 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
     body
 
 template forky*(
-    x: ForkedHashedBeaconState, kind: static ConsensusFork): untyped =
+    x:
+      ForkedBeaconBlock |
+      ForkedHashedBeaconState,
+    kind: static ConsensusFork): untyped =
   when kind == ConsensusFork.Deneb:
     x.denebData
   elif kind == ConsensusFork.Capella:
@@ -909,21 +912,6 @@ template withBlck*(
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyBlck: untyped {.inject, used.} = x.denebData
     body
-
-template forky*(
-    x: ForkedBeaconBlock, kind: static ConsensusFork): untyped =
-  when kind == ConsensusFork.Deneb:
-    x.denebData
-  elif kind == ConsensusFork.Capella:
-    x.capellaData
-  elif kind == ConsensusFork.Bellatrix:
-    x.bellatrixData
-  elif kind == ConsensusFork.Altair:
-    x.altairData
-  elif kind == ConsensusFork.Phase0:
-    x.phase0Data
-  else:
-    static: raiseAssert "Unreachable"
 
 func proposer_index*(x: ForkedBeaconBlock): uint64 =
   withBlck(x): forkyBlck.proposer_index
