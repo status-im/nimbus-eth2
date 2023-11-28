@@ -170,18 +170,18 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
   of StdoutLogKind.Colors:
     VanityLogs(
-      onMergeTransitionBlock:          color🐼,
-      onFinalizedMergeTransitionBlock: blink🐼,
-      onUpgradeToCapella:              color🦉,
-      onKnownBlsToExecutionChange:     blink🦉,
-      onUpgradeToDeneb:                color🐟)
+      onMergeTransitionBlock:          bellatrixColor,
+      onFinalizedMergeTransitionBlock: bellatrixBlink,
+      onUpgradeToCapella:              capellaColor,
+      onKnownBlsToExecutionChange:     capellaBlink,
+      onUpgradeToDeneb:                denebColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
-      onMergeTransitionBlock:          mono🐼,
-      onFinalizedMergeTransitionBlock: mono🐼,
-      onUpgradeToCapella:              mono🦉,
-      onKnownBlsToExecutionChange:     mono🦉,
-      onUpgradeToDeneb:                mono🐟)
+      onMergeTransitionBlock:          bellatrixMono,
+      onFinalizedMergeTransitionBlock: bellatrixMono,
+      onUpgradeToCapella:              capellaMono,
+      onKnownBlsToExecutionChange:     capellaMono,
+      onUpgradeToDeneb:                denebMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onMergeTransitionBlock:

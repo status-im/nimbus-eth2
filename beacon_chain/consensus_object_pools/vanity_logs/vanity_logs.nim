@@ -37,13 +37,13 @@ type
 # Created by http://beatscribe.com/ (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
 
-proc mono🐼*()  = notice "\n" & staticRead("bellatrix" / "mono.txt")
-proc color🐼*() = notice "\n" & staticRead("bellatrix" / "color.ans")
-proc blink🐼*() = notice "\n" & staticRead("bellatrix" / "blink.ans")
+proc bellatrixMono*()  = notice "\n" & staticRead("bellatrix" / "mono.txt")
+proc bellatrixColor*() = notice "\n" & staticRead("bellatrix" / "color.ans")
+proc bellatrixBlink*() = notice "\n" & staticRead("bellatrix" / "blink.ans")
 
-proc mono🦉*()  = notice "\n" & staticRead("capella" / "mono.txt")
-proc color🦉*() = notice "\n" & staticRead("capella" / "color.ans")
-proc blink🦉*() = notice "\n" & staticRead("capella" / "blink.ans")
+proc capellaMono*()  = notice "\n" & staticRead("capella" / "mono.txt")
+proc capellaColor*() = notice "\n" & staticRead("capella" / "color.ans")
+proc capellaBlink*() = notice "\n" & staticRead("capella" / "blink.ans")
 
-proc mono🐟*()  = notice "\n" & staticRead("deneb" / "mono.txt")
-proc color🐟*() = notice "\n" & staticRead("deneb" / "color.ans")
+proc denebMono*()  = notice "\n" & staticRead("deneb" / "mono.txt")
+proc denebColor*() = notice "\n" & staticRead("deneb" / "color.ans")
