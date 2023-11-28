@@ -3196,74 +3196,27 @@ proc readValue*(reader: var JsonReader[RestJson],
 ## ForkedAndBlindedBeaconBlock
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: ForkedAndBlindedBeaconBlock) {.raises: [IOError].} =
-  template writeConsensusValue() =
-    if value.consensusValue.isSome():
-      writer.writeField("consensus_block_value",
-                        $(value.consensusValue.get()))
-  template writeExecutionValue() =
+  writer.beginRecord()
+  withForkyAndBlindedBlck(value):
+    writer.writeField("version", blindedFork.toString())
+    when isBlinded:
+      writer.writeField("execution_payload_blinded", "true")
+    else:
+      writer.writeField("execution_payload_blinded", "false")
     if value.executionValue.isSome():
       writer.writeField("execution_payload_value",
                         $(value.executionValue.get()))
-  template writeForkVersion() =
-    writer.writeField("version", value.kind.toString())
-
-  writer.beginRecord()
-  case value.kind
-  of ConsensusBlindedFork.Phase0:
-    writeForkVersion()
-    writer.writeField("execution_payload_blinded", "false")
-    writeExecutionValue()
-    writeConsensusValue()
-    writer.writeField("data", value.phase0Data)
-  of ConsensusBlindedFork.Altair:
-    writeForkVersion()
-    writer.writeField("execution_payload_blinded", "false")
-    writeExecutionValue()
-    writeConsensusValue()
-    writer.writeField("data", value.altairData)
-  of ConsensusBlindedFork.Bellatrix:
-    writeForkVersion()
-    writer.writeField("execution_payload_blinded", "false")
-    writeExecutionValue()
-    writeConsensusValue()
-    writer.writeField("data", value.bellatrixData)
-  of ConsensusBlindedFork.Capella:
-    writeForkVersion()
-    writer.writeField("execution_payload_blinded", "false")
-    writeExecutionValue()
-    writeConsensusValue()
-    writer.writeField("data", value.capellaData)
-  of ConsensusBlindedFork.CapellaBlinded:
-    writeForkVersion()
-    writer.writeField("execution_payload_blinded", "true")
-    writeExecutionValue()
-    writeConsensusValue()
-    writer.writeField("data", value.capellaBlinded)
-  of ConsensusBlindedFork.Deneb:
-    writeForkVersion()
-    writer.writeField("execution_payload_blinded", "false")
-    writeExecutionValue()
-    writeConsensusValue()
-    block:
-      writer.writeFieldName("data")
-      writer.beginRecord()
-      writer.writeField("block", value.denebData.`block`)
-      writer.writeField("kzg_proofs", value.denebData.kzg_proofs)
-      writer.writeField("blobs", value.denebData.blobs)
-      writer.endRecord()
-  of ConsensusBlindedFork.DenebBlinded:
-    writeForkVersion()
-    writer.writeField("execution_payload_blinded", "true")
-    writeExecutionValue()
-    writeConsensusValue()
-    writer.writeField("data", value.denebBlinded)
+    if value.consensusValue.isSome():
+      writer.writeField("consensus_block_value",
+                        $(value.consensusValue.get()))
+    writer.writeField("data", forkyAndBlindedBlck)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var ForkedAndBlindedBeaconBlock) {.
      raises: [SerializationError, IOError].} =
   var
-    version: Opt[ConsensusBlindedFork]
+    version: Opt[ConsensusFork]
     blinded: Opt[bool]
     executionValue: Opt[UInt256]
     consensusValue: Opt[UInt256]
@@ -3276,18 +3229,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField("Multiple `version` fields found",
                                     "ForkedAndBlindedBeaconBlock")
       let res = reader.readValue(string)
-      case res
-      of "phase0":
-        version = Opt.some(ConsensusBlindedFork.Phase0)
-      of "altair":
-        version = Opt.some(ConsensusBlindedFork.Altair)
-      of "bellatrix":
-        version = Opt.some(ConsensusBlindedFork.Bellatrix)
-      of "capella":
-        version = Opt.some(ConsensusBlindedFork.Capella)
-      of "deneb":
-        version = Opt.some(ConsensusBlindedFork.Deneb)
-      else:
+      version = ConsensusFork.init(res)
+      if version.isNone:
         reader.raiseUnexpectedValue("Incorrect `version` field value")
     of "execution_payload_blinded":
       if blinded.isSome():
@@ -3333,51 +3276,20 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field `data` is missing")
 
   let blindedFork =
-    if blinded.get():
-      case version.get()
-      of ConsensusBlindedFork.Capella:
-        ConsensusBlindedFork.CapellaBlinded
-      of ConsensusBlindedFork.Deneb:
-        ConsensusBlindedFork.DenebBlinded
-      else:
-        version.get()
-    else:
-      version.get()
+    ConsensusBlindedFork.init(version.get, blinded.get).valueOr:
+      reader.raiseUnexpectedValue(
+        "Unsupported combination of `version` and `execution_payload_blinded`")
 
-  case blindedFork
-  of ConsensusBlindedFork.Phase0:
-    value = ForkedAndBlindedBeaconBlock.init(
-      RestJson.decode(string(data.get()), phase0.BeaconBlock,
-                      requireAllFields = true, allowUnknownFields = true))
-  of ConsensusBlindedFork.Altair:
-    value = ForkedAndBlindedBeaconBlock.init(
-      RestJson.decode(string(data.get()), altair.BeaconBlock,
-                      requireAllFields = true, allowUnknownFields = true))
-  of ConsensusBlindedFork.Bellatrix:
-    value = ForkedAndBlindedBeaconBlock.init(
-      RestJson.decode(string(data.get()), bellatrix.BeaconBlock,
-                      requireAllFields = true, allowUnknownFields = true),
-      executionValue, consensusValue)
-  of ConsensusBlindedFork.Capella:
-    value = ForkedAndBlindedBeaconBlock.init(
-      RestJson.decode(string(data.get()), capella.BeaconBlock,
-                      requireAllFields = true, allowUnknownFields = true),
-      executionValue, consensusValue)
-  of ConsensusBlindedFork.CapellaBlinded:
-    value = ForkedAndBlindedBeaconBlock.init(
-      RestJson.decode(string(data.get()), capella_mev.BlindedBeaconBlock,
-                      requireAllFields = true, allowUnknownFields = true),
-      executionValue, consensusValue)
-  of ConsensusBlindedFork.Deneb:
-    value = ForkedAndBlindedBeaconBlock.init(
-      RestJson.decode(string(data.get()), deneb.BlockContents,
-                      requireAllFields = true, allowUnknownFields = true),
-      executionValue, consensusValue)
-  of ConsensusBlindedFork.DenebBlinded:
-    value = ForkedAndBlindedBeaconBlock.init(
-      RestJson.decode(string(data.get()), deneb_mev.BlindedBeaconBlock,
-                      requireAllFields = true, allowUnknownFields = true),
-      executionValue, consensusValue)
+  withConsensusBlindedFork(blindedFork):
+    when blindedFork.kind >= ConsensusFork.Bellatrix:
+      value = ForkedAndBlindedBeaconBlock.init(
+        RestJson.decode(string(data.get()), blindedFork.BlockContents,
+                        requireAllFields = true, allowUnknownFields = true),
+        executionValue, consensusValue)
+    else:
+      value = ForkedAndBlindedBeaconBlock.init(
+        RestJson.decode(string(data.get()), blindedFork.BlockContents,
+                        requireAllFields = true, allowUnknownFields = true))
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

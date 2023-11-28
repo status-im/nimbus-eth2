@@ -1906,80 +1906,62 @@ proc makeBeaconBlockForHeadAndSlotV3*(
             nil
         localBlockValueBoost = node.config.localBlockValueBoost
 
-      template getBlockResult(SBBB: typedesc, EPS: typedesc): untyped =
-        let
-          collectedBids =
-            await collectBidFutures(SBBB, EPS, node,
-                                    payloadBuilderClient, proposerKey,
-                                    proposer, graffiti, head, slot,
-                                    randao_reveal)
-          useBuilderBlock =
-            if collectedBids.builderBidAvailable:
-              (not collectedBids.engineBidAvailable) or builderBetterBid(
-                localBlockValueBoost,
-                collectedBids.payloadBuilderBidFut.read.get().blockValue,
-                collectedBids.engineBlockFut.read.get().blockValue)
-            else:
-              if not(collectedBids.engineBidAvailable):
-                return Result[ForkedAndBlindedBeaconBlock, string].err(
-                  "Engine bid is not available")
-              false
-
-        if useBuilderBlock:
+      withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
+        when consensusFork >= ConsensusFork.Capella:
           let
-            blindedResult = collectedBids.payloadBuilderBidFut.read()
-            payloadValue = blindedResult.get().blockValue
+            collectedBids =
+              await collectBidFutures(consensusFork.SignedBlindedBeaconBlock,
+                                      consensusFork.ExecutionPayloadForSigning,
+                                      node,
+                                      payloadBuilderClient, proposerKey,
+                                      proposer, graffiti, head, slot,
+                                      randao_reveal)
+            useBuilderBlock =
+              if collectedBids.builderBidAvailable:
+                (not collectedBids.engineBidAvailable) or builderBetterBid(
+                  localBlockValueBoost,
+                  collectedBids.payloadBuilderBidFut.read.get().blockValue,
+                  collectedBids.engineBlockFut.read.get().blockValue)
+              else:
+                if not(collectedBids.engineBidAvailable):
+                  return Result[ForkedAndBlindedBeaconBlock, string].err(
+                    "Engine bid is not available")
+                false
 
-          return Result[ForkedAndBlindedBeaconBlock, string].ok(
-            when SBBB is capella_mev.SignedBlindedBeaconBlock:
-              let blck = blindedResult.get().blindedBlckPart.message
+          if useBuilderBlock:
+            let
+              blindedResult = collectedBids.payloadBuilderBidFut.read()
+              payloadValue = blindedResult.get().blockValue
+
+            return Result[ForkedAndBlindedBeaconBlock, string].ok(
               ForkedAndBlindedBeaconBlock.init(
-                blck, Opt.some(payloadValue), Opt.none(UInt256))
-            elif SBBB is deneb_mev.SignedBlindedBeaconBlock:
-              let blck = blindedResult.get().blindedBlckPart.message
-              ForkedAndBlindedBeaconBlock.init(
-                blck, Opt.some(payloadValue), Opt.none(UInt256))
-            else:
-              static: doAssert false
-          )
+                blindedResult.get().blindedBlckPart.message,
+                Opt.some(payloadValue), Opt.none(UInt256)))
 
-        collectedBids.engineBlockFut.read().get()
+          collectedBids.engineBlockFut.read().get()
+        elif consensusFork >= ConsensusFork.Bellatrix:
+          (await makeBeaconBlockForHeadAndSlot(
+            bellatrix.ExecutionPayloadForSigning, node, randao_reveal, proposer,
+            graffiti, head, slot)).valueOr:
+            return Result[ForkedAndBlindedBeaconBlock, string].err(error)
+        else:
+          raiseAssert("Slot from invalid epoch")
 
-      if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-        getBlockResult(deneb_mev.SignedBlindedBeaconBlock,
-                       deneb.ExecutionPayloadForSigning)
-      elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
-        getBlockResult(capella_mev.SignedBlindedBeaconBlock,
-                       capella.ExecutionPayloadForSigning)
-      elif slot.epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-        (await makeBeaconBlockForHeadAndSlot(
-          bellatrix.ExecutionPayloadForSigning, node, randao_reveal, proposer,
-          graffiti, head, slot)).valueOr:
-          return Result[ForkedAndBlindedBeaconBlock, string].err(error)
-      else:
-        raiseAssert("Slot from invalid epoch")
-
-  case blockResult.blck.kind
-  of ConsensusFork.Deneb:
-    let blobsBundle = blockResult.blobsBundleOpt.get()
-    doAssert blobsBundle.commitments ==
-      blockResult.blck.denebData.body.blob_kzg_commitments
-    Result[ForkedAndBlindedBeaconBlock, string].ok(
-      ForkedAndBlindedBeaconBlock.init(
-        deneb.BlockContents(
-          `block`: blockResult.blck.denebData,
-          kzg_proofs: blobsBundle.proofs,
-          blobs: blobsBundle.blobs),
-        Opt.some(Uint256(blockResult.blockValue)), Opt.none(UInt256)))
-  of ConsensusFork.Capella:
-    Result[ForkedAndBlindedBeaconBlock, string].ok(
-      ForkedAndBlindedBeaconBlock.init(
-        blockResult.blck.capellaData,
-        Opt.some(Uint256(blockResult.blockValue)), Opt.none(UInt256)))
-  of ConsensusFork.Bellatrix:
-    Result[ForkedAndBlindedBeaconBlock, string].ok(
-      ForkedAndBlindedBeaconBlock.init(
-        blockResult.blck.bellatrixData,
-        Opt.some(Uint256(blockResult.blockValue)), Opt.none(UInt256)))
-  else:
-    raiseAssert "Invalid block fork received"
+  withBlck(blockResult.blck):
+    when consensusFork >= ConsensusFork.Deneb:
+      let blobsBundle = blockResult.blobsBundleOpt.get()
+      doAssert blobsBundle.commitments == forkyBlck.body.blob_kzg_commitments
+      Result[ForkedAndBlindedBeaconBlock, string].ok(
+        ForkedAndBlindedBeaconBlock.init(
+          deneb.BlockContents(
+            `block`: forkyBlck,
+            kzg_proofs: blobsBundle.proofs,
+            blobs: blobsBundle.blobs),
+          Opt.some(Uint256(blockResult.blockValue)), Opt.none(UInt256)))
+    elif consensusFork >= ConsensusFork.Bellatrix:
+      Result[ForkedAndBlindedBeaconBlock, string].ok(
+        ForkedAndBlindedBeaconBlock.init(
+          forkyBlck,
+          Opt.some(Uint256(blockResult.blockValue)), Opt.none(UInt256)))
+    else:
+      raiseAssert "Invalid block fork received"

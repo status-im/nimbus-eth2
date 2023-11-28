@@ -1023,12 +1023,6 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
   assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH)
 
-# This is a readily/uniquely searchable token of where a false assertion is
-# due to a Deneb implementation missing. checkForkConsistency() checks that
-# Nimbus does not run any non-FAR_FUTURE_EPOCH Deneb network, so such cases
-# won't be hit.
-const denebImplementationMissing* = false
-
 func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:
     distinctBase(result).setLen(n)

@@ -496,6 +496,61 @@ template withConsensusFork*(
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
     body
 
+template BlockContents*(kind: static ConsensusBlindedFork): auto =
+  when kind == ConsensusBlindedFork.DenebBlinded:
+    typedesc[deneb_mev.BlindedBeaconBlock]
+  elif kind == ConsensusBlindedFork.Deneb:
+    typedesc[deneb.BlockContents]
+  elif kind == ConsensusBlindedFork.CapellaBlinded:
+    typedesc[capella_mev.BlindedBeaconBlock]
+  elif kind == ConsensusBlindedFork.Capella:
+    typedesc[capella.BeaconBlock]
+  elif kind == ConsensusBlindedFork.Bellatrix:
+    typedesc[bellatrix.BeaconBlock]
+  elif kind == ConsensusBlindedFork.Altair:
+    typedesc[altair.BeaconBlock]
+  elif kind == ConsensusBlindedFork.Phase0:
+    typedesc[phase0.BeaconBlock]
+
+template withConsensusBlindedFork*(
+    x: ConsensusBlindedFork, body: untyped): untyped =
+  case x
+  of ConsensusBlindedFork.DenebBlinded:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.DenebBlinded
+      isBlinded {.inject, used.} = true
+    body
+  of ConsensusBlindedFork.Deneb:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Deneb
+      isBlinded {.inject, used.} = false
+    body
+  of ConsensusBlindedFork.CapellaBlinded:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.CapellaBlinded
+      isBlinded {.inject, used.} = true
+    body
+  of ConsensusBlindedFork.Capella:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Capella
+      isBlinded {.inject, used.} = false
+    body
+  of ConsensusBlindedFork.Bellatrix:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Bellatrix
+      isBlinded {.inject, used.} = false
+    body
+  of ConsensusBlindedFork.Altair:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Altair
+      isBlinded {.inject, used.} = false
+    body
+  of ConsensusBlindedFork.Phase0:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Phase0
+      isBlinded {.inject, used.} = false
+    body
+
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
 func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
@@ -640,18 +695,81 @@ template toString*(kind: ConsensusFork): string =
   of ConsensusFork.Deneb:
     "deneb"
 
-template toString*(kind: ConsensusBlindedFork): string =
-  case kind
-  of ConsensusBlindedFork.Phase0:
-    "phase0"
-  of ConsensusBlindedFork.Altair:
-    "altair"
-  of ConsensusBlindedFork.Bellatrix:
-    "bellatrix"
+template init*(T: typedesc[ConsensusFork], value: string): Opt[ConsensusFork] =
+  case value
+  of "deneb":
+    Opt.some ConsensusFork.Deneb
+  of "capella":
+    Opt.some ConsensusFork.Capella
+  of "bellatrix":
+    Opt.some ConsensusFork.Bellatrix
+  of "altair":
+    Opt.some ConsensusFork.Altair
+  of "phase0":
+    Opt.some ConsensusFork.Phase0
+  else:
+    Opt.none(ConsensusFork)
+
+static:
+  for fork in ConsensusFork:
+    doAssert ConsensusFork.init(fork.toString()).expect("init defined") == fork
+
+template kind*(blindedFork: ConsensusBlindedFork): ConsensusFork =
+  case blindedFork
+  of ConsensusBlindedFork.Deneb, ConsensusBlindedFork.DenebBlinded:
+    ConsensusFork.Deneb
   of ConsensusBlindedFork.Capella, ConsensusBlindedFork.CapellaBlinded:
-    "capella"
+    ConsensusFork.Capella
+  of ConsensusBlindedFork.Bellatrix:
+    ConsensusFork.Bellatrix
+  of ConsensusBlindedFork.Altair:
+    ConsensusFork.Altair
+  of ConsensusBlindedFork.Phase0:
+    ConsensusFork.Phase0
+
+template toString*(blindedFork: ConsensusBlindedFork): string =
+  case blindedFork
   of ConsensusBlindedFork.Deneb, ConsensusBlindedFork.DenebBlinded:
     "deneb"
+  of ConsensusBlindedFork.Capella, ConsensusBlindedFork.CapellaBlinded:
+    "capella"
+  of ConsensusBlindedFork.Bellatrix:
+    "bellatrix"
+  of ConsensusBlindedFork.Altair:
+    "altair"
+  of ConsensusBlindedFork.Phase0:
+    "phase0"
+
+template init*(
+    T: typedesc[ConsensusBlindedFork],
+    consensusFork: ConsensusFork,
+    isBlinded: bool): Opt[ConsensusBlindedFork] =
+  case consensusFork
+  of ConsensusFork.Deneb:
+    if isBlinded:
+      Opt.some ConsensusBlindedFork.DenebBlinded
+    else:
+      Opt.some ConsensusBlindedFork.Deneb
+  of ConsensusFork.Capella:
+    if isBlinded:
+      Opt.some ConsensusBlindedFork.CapellaBlinded
+    else:
+      Opt.some ConsensusBlindedFork.Capella
+  of ConsensusFork.Bellatrix:
+    if isBlinded:
+      Opt.none(ConsensusBlindedFork)
+    else:
+      Opt.some ConsensusBlindedFork.Bellatrix
+  of ConsensusFork.Altair:
+    if isBlinded:
+      Opt.none(ConsensusBlindedFork)
+    else:
+      Opt.some ConsensusBlindedFork.Altair
+  of ConsensusFork.Phase0:
+    if isBlinded:
+      Opt.none(ConsensusBlindedFork)
+    else:
+      Opt.some ConsensusBlindedFork.Phase0
 
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
@@ -924,6 +1042,53 @@ chronicles.formatIt ForkedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedMsgTrustedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
+
+template withForkyAndBlindedBlck*(
+    b: ForkedAndBlindedBeaconBlock,
+    body: untyped): untyped =
+  case b.kind
+  of ConsensusBlindedFork.DenebBlinded:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.DenebBlinded
+      isBlinded {.inject, used.} = true
+    template forkyAndBlindedBlck: untyped {.inject, used.} = b.denebBlinded
+    body
+  of ConsensusBlindedFork.Deneb:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Deneb
+      isBlinded {.inject, used.} = false
+    template forkyAndBlindedBlck: untyped {.inject, used.} = b.denebData
+    body
+  of ConsensusBlindedFork.CapellaBlinded:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.CapellaBlinded
+      isBlinded {.inject, used.} = true
+    template forkyAndBlindedBlck: untyped {.inject, used.} = b.capellaBlinded
+    body
+  of ConsensusBlindedFork.Capella:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Capella
+      isBlinded {.inject, used.} = false
+    template forkyAndBlindedBlck: untyped {.inject, used.} = b.capellaData
+    body
+  of ConsensusBlindedFork.Bellatrix:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Bellatrix
+      isBlinded {.inject, used.} = false
+    template forkyAndBlindedBlck: untyped {.inject, used.} = b.bellatrixData
+    body
+  of ConsensusBlindedFork.Altair:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Altair
+      isBlinded {.inject, used.} = false
+    template forkyAndBlindedBlck: untyped {.inject, used.} = b.altairData
+    body
+  of ConsensusBlindedFork.Phase0:
+    const
+      blindedFork {.inject.} = ConsensusBlindedFork.Phase0
+      isBlinded {.inject, used.} = false
+    template forkyAndBlindedBlck: untyped {.inject, used.} = b.phase0Data
+    body
 
 template withStateAndBlck*(
     s: ForkedHashedBeaconState,
@@ -1233,8 +1398,8 @@ template init*(T: type ForkedAndBlindedBeaconBlock,
                               consensusValue: cvalue, executionValue: evalue)
 
 template init*(T: type ForkedAndBlindedBeaconBlock,
-               contents: deneb_mev.BlindedBeaconBlock,
+               blck: deneb_mev.BlindedBeaconBlock,
                evalue: Opt[Uint256], cvalue: Opt[Uint256]): T =
   ForkedAndBlindedBeaconBlock(kind: ConsensusBlindedFork.DenebBlinded,
-                              denebBlinded: contents,
+                              denebBlinded: blck,
                               consensusValue: cvalue, executionValue: evalue)

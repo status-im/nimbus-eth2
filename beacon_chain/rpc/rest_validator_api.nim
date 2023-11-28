@@ -519,42 +519,36 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           Http500, "Unable to initialize payload builder client: " & $error)
       contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
 
-    case contextFork
-    of ConsensusFork.Deneb:
-      # TODO
-      # We should return a block with sidecars here
-      # https://github.com/ethereum/beacon-APIs/pull/302/files
-      return RestApiResponse.jsonError(
-        Http400, "Deneb builder API beacon API not yet supported: " & $denebImplementationMissing)
-    of ConsensusFork.Capella:
-      let res = await makeBlindedBeaconBlockForHeadAndSlot[
-          capella_mev.BlindedBeaconBlock](
-        node, payloadBuilderClient, qrandao, proposer, qgraffiti, qhead, qslot)
-      if res.isErr():
-        return RestApiResponse.jsonError(Http400, res.error())
-      return responseVersioned(res.get().blindedBlckPart, contextFork)
-    of ConsensusFork.Bellatrix:
-      return RestApiResponse.jsonError(Http400, "Pre-Capella builder API unsupported")
-    of ConsensusFork.Altair, ConsensusFork.Phase0:
-      # Pre-Bellatrix, this endpoint will return a BeaconBlock
-      let res = await makeBeaconBlockForHeadAndSlot(
-        bellatrix.ExecutionPayloadForSigning, node, qrandao,
-        proposer, qgraffiti, qhead, qslot)
-      if res.isErr():
-        return RestApiResponse.jsonError(Http400, res.error())
-      withBlck(res.get().blck):
-        return responseVersioned(forkyBlck, contextFork)
+    withConsensusFork(contextFork):
+      when consensusFork >= ConsensusFork.Capella:
+        let res = await makeBlindedBeaconBlockForHeadAndSlot[
+            consensusFork.BlindedBeaconBlock](
+          node, payloadBuilderClient, qrandao,
+          proposer, qgraffiti, qhead, qslot)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400, res.error())
+        return responseVersioned(res.get().blindedBlckPart, contextFork)
+      elif consensusFork >= ConsensusFork.Bellatrix:
+        return RestApiResponse.jsonError(
+          Http400, "Pre-Capella builder API unsupported")
+      else:
+        # Pre-Bellatrix, this endpoint will return a BeaconBlock
+        let res = await makeBeaconBlockForHeadAndSlot(
+          bellatrix.ExecutionPayloadForSigning, node, qrandao,
+          proposer, qgraffiti, qhead, qslot)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400, res.error())
+        withBlck(res.get().blck):
+          return responseVersioned(forkyBlck, contextFork)
 
   func getHeaders(forked: ForkedAndBlindedBeaconBlock): HttpTable =
     var res = HttpTable.init()
-    let blinded =
-      if forked.kind in {ConsensusBlindedFork.CapellaBlinded,
-                         ConsensusBlindedFork.DenebBlinded}:
-        "true"
+    withForkyAndBlindedBlck(forked):
+      res.add("eth-consensus-version", blindedFork.toString())
+      when isBlinded:
+        res.add("eth-execution-payload-blinded", "true")
       else:
-        "false"
-    res.add("eth-consensus-version", toString(forked.kind))
-    res.add("eth-execution-payload-blinded", blinded)
+        res.add("eth-execution-payload-blinded", "false")
     if forked.executionValue.isSome():
       res.add("eth-execution-payload-value", $(forked.executionValue.get()))
     if forked.consensusValue.isSome():
@@ -642,21 +636,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let headers = message.getHeaders()
     if contentType == sszMediaType:
-      case message.kind
-      of ConsensusBlindedFork.Phase0:
-        RestApiResponse.sszResponse(message.phase0Data, headers)
-      of ConsensusBlindedFork.Altair:
-        RestApiResponse.sszResponse(message.altairData, headers)
-      of ConsensusBlindedFork.Bellatrix:
-        RestApiResponse.sszResponse(message.bellatrixData, headers)
-      of ConsensusBlindedFork.Capella:
-        RestApiResponse.sszResponse(message.capellaData, headers)
-      of ConsensusBlindedFork.CapellaBlinded:
-        RestApiResponse.sszResponse(message.capellaBlinded, headers)
-      of ConsensusBlindedFork.Deneb:
-        RestApiResponse.sszResponse(message.denebData, headers)
-      of ConsensusBlindedFork.DenebBlinded:
-        RestApiResponse.sszResponse(message.denebBlinded, headers)
+      withForkyAndBlindedBlck(message):
+        RestApiResponse.sszResponse(forkyAndBlindedBlck, headers)
     elif contentType == jsonMediaType:
       RestApiResponse.jsonResponsePlain(message, headers)
     else:
