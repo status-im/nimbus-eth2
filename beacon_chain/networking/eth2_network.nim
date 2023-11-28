@@ -812,17 +812,10 @@ proc uncompressFramedStream(conn: Connection,
 
 func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
-  static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
-  when T is ForkySignedBeaconBlock:
-    when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock or
-         T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is deneb.SignedBeaconBlock:
-      MAX_CHUNK_SIZE.uint32
-    else:
-      {.fatal: "what's the chunk size here?".}
-  elif isFixedSize(T):
+  when isFixedSize(T):
     uint32 fixedPortionSize(T)
   else:
+    static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
     MAX_CHUNK_SIZE.uint32
 
 from ../spec/datatypes/capella import SignedBeaconBlock
@@ -2251,7 +2244,7 @@ proc getPersistentNetKeys*(
 
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/p2p-interface.md#topics-and-messages
   const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
@@ -2531,7 +2524,7 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
 
 proc subscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now, we just rely on block and
   # aggregate which are more stable and reliable
 

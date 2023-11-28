@@ -251,9 +251,6 @@ proc addHeadBlockWithParent*(
         parent = shortLog(parent), checkedParent = shortLog(checkedParent)
       return err(VerifierError.MissingParent)
 
-  template blck(): untyped = signedBlock.message # shortcuts without copy
-  template blockRoot(): untyped = signedBlock.root
-
   # The block is resolved, now it's time to validate it to ensure that the
   # blocks we add to the database are clean for the given state
   let startTick = Moment.now()

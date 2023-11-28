@@ -724,8 +724,8 @@ proc validateAttestation*(
   # This uses the same epochRef as data.target.epoch, because the attestation's
   # epoch matches its target and attestation.data.target.root is an ancestor of
   # attestation.data.beacon_block_root.
-  if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
-      shufflingRef, attestation.data.slot, committee_index)):
+  if not attestation.aggregation_bits.compatible_with_shuffling(
+      shufflingRef, slot, committee_index):
     return pool.checkedReject(
       "Attestation: number of aggregation bits and committee size mismatch")
 
@@ -872,14 +872,6 @@ proc validateAggregate*(
       return pool.checkedResult(v.error)
     v.get()
 
-  if checkCover and
-      pool[].covers(aggregate.data, aggregate.aggregation_bits):
-    # [IGNORE] A valid aggregate attestation defined by
-    # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
-    # superset has _not_ already been seen.
-    # https://github.com/ethereum/consensus-specs/pull/2847
-    return errIgnore("Aggregate already covered")
-
   let
     shufflingRef =
       pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
@@ -896,6 +888,18 @@ proc validateAggregate*(
       return pool.checkedReject(
         "Attestation: committee index not within expected range")
     idx.get()
+  if not aggregate.aggregation_bits.compatible_with_shuffling(
+      shufflingRef, slot, committee_index):
+    return pool.checkedReject(
+      "Aggregate: number of aggregation bits and committee size mismatch")
+
+  if checkCover and
+      pool[].covers(aggregate.data, aggregate.aggregation_bits):
+    # [IGNORE] A valid aggregate attestation defined by
+    # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
+    # superset has _not_ already been seen.
+    # https://github.com/ethereum/consensus-specs/pull/2847
+    return errIgnore("Aggregate already covered")
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
@@ -1371,15 +1375,28 @@ proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     finality_update: ForkedLightClientFinalityUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
+  # [IGNORE] The `finalized_header.beacon.slot` is greater than that of all
+  # previously forwarded `finality_update`s, or it matches the highest
+  # previously forwarded slot and also has a `sync_aggregate` indicating
+  # supermajority (> 2/3) sync committee participation while the previously
+  # forwarded `finality_update` for that slot did not indicate supermajority
   let finalized_slot = withForkyFinalityUpdate(finality_update):
     when lcDataFork > LightClientDataFork.None:
       forkyFinalityUpdate.finalized_header.beacon.slot
     else:
       GENESIS_SLOT
-  if finalized_slot <= pool.latestForwardedFinalitySlot:
-    # [IGNORE] The `finalized_header.beacon.slot` is greater than that of all
-    # previously forwarded `finality_update`s
+  if finalized_slot < pool.latestForwardedFinalitySlot:
     return errIgnore("LightClientFinalityUpdate: slot already forwarded")
+  let has_supermajority = withForkyFinalityUpdate(finality_update):
+    when lcDataFork > LightClientDataFork.None:
+      forkyFinalityUpdate.sync_aggregate.hasSupermajoritySyncParticipation
+    else:
+      false
+  if finalized_slot == pool.latestForwardedFinalitySlot:
+    if pool.latestForwardedFinalityHasSupermajority:
+      return errIgnore("LightClientFinalityUpdate: already have supermajority")
+    if not has_supermajority:
+      return errIgnore("LightClientFinalityUpdate: no new supermajority")
 
   let
     signature_slot = withForkyFinalityUpdate(finality_update):
@@ -1400,6 +1417,7 @@ proc validateLightClientFinalityUpdate*(
     return errIgnore("LightClientFinalityUpdate: not matching local")
 
   pool.latestForwardedFinalitySlot = finalized_slot
+  pool.latestForwardedFinalityHasSupermajority = has_supermajority
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update

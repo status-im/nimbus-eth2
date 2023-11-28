@@ -524,7 +524,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       # TODO
       # We should return a block with sidecars here
       # https://github.com/ethereum/beacon-APIs/pull/302/files
-      debugRaiseAssert $denebImplementationMissing & ": GET /eth/v1/validator/blinded_blocks/{slot}"
+      return RestApiResponse.jsonError(
+        Http400, "Deneb builder API beacon API not yet supported: " & $denebImplementationMissing)
     of ConsensusFork.Capella:
       let res = await makeBlindedBeaconBlockForHeadAndSlot[
           capella_mev.BlindedBeaconBlock](

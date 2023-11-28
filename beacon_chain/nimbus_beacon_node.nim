@@ -1650,7 +1650,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, signedBlock)))
 
       # beacon_attestation_{subnet_id}
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
       for it in SubnetId:
         closureScope:  # Needed for inner `proc`; don't lift it out of loop.
           let subnet_id = it

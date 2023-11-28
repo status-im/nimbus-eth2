@@ -261,6 +261,8 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
     head.slot + node.config.syncHorizon >= wallSlot.slot
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
+  template pool: untyped = node.lightClientPool[]
+
   static: doAssert lightClientFinalityUpdateSlotOffset ==
     lightClientOptimisticUpdateSlotOffset
   let sendTime = node.beaconClock.fromNow(
@@ -280,14 +282,28 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
       if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
         return
 
-      let finalized_slot = forkyFinalityUpdate.finalized_header.beacon.slot
-      if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
+      let
+        finalized_slot =
+          forkyFinalityUpdate.finalized_header.beacon.slot
+        has_supermajority =
+          hasSupermajoritySyncParticipation(num_active_participants.uint64)
+        newFinality =
+          if finalized_slot > pool.latestForwardedFinalitySlot:
+            true
+          elif finalized_slot < pool.latestForwardedFinalitySlot:
+            false
+          elif pool.latestForwardedFinalityHasSupermajority:
+            false
+          else:
+            has_supermajority
+      if newFinality:
         template msg(): auto = forkyFinalityUpdate
         let sendResult =
           await node.network.broadcastLightClientFinalityUpdate(msg)
 
         # Optimization for message with ephemeral validity, whether sent or not
-        node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
+        pool.latestForwardedFinalitySlot = finalized_slot
+        pool.latestForwardedFinalityHasSupermajority = has_supermajority
 
         if sendResult.isOk:
           beacon_light_client_finality_updates_sent.inc()
@@ -297,13 +313,13 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
             error = sendResult.error()
 
       let attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
-      if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
+      if attested_slot > pool.latestForwardedOptimisticSlot:
         let msg = forkyFinalityUpdate.toOptimistic
         let sendResult =
           await node.network.broadcastLightClientOptimisticUpdate(msg)
 
         # Optimization for message with ephemeral validity, whether sent or not
-        node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
+        pool.latestForwardedOptimisticSlot = attested_slot
 
         if sendResult.isOk:
           beacon_light_client_optimistic_updates_sent.inc()
@@ -315,27 +331,23 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
                               genesis_validators_root: Eth2Digest,
-                              validator: AttachedValidator,
-                              data: AttestationData,
-                              committeeLen: int,
-                              indexInCommittee: int,
+                              registered: RegisteredAttestation,
                               subnet_id: SubnetId) {.async.} =
   try:
     let
       signature = block:
-        let res = await validator.getAttestationSignature(
-          fork, genesis_validators_root, data)
+        let res = await registered.validator.getAttestationSignature(
+          fork, genesis_validators_root, registered.data)
         if res.isErr():
-          warn "Unable to sign attestation", validator = shortLog(validator),
-                attestationData = shortLog(data), error_msg = res.error()
+          warn "Unable to sign attestation",
+                validator = shortLog(registered.validator),
+                attestationData = shortLog(registered.data),
+                error_msg = res.error()
           return
         res.get()
-      attestation =
-        Attestation.init(
-          [uint64 indexInCommittee], committeeLen, data, signature).expect(
-            "valid data")
+      attestation = registered.toAttestation(signature)
 
-    validator.doppelgangerActivity(attestation.data.slot.epoch)
+    registered.validator.doppelgangerActivity(attestation.data.slot.epoch)
 
     # Logged in the router
     let res = await node.router.routeAttestation(
@@ -344,7 +356,9 @@ proc createAndSendAttestation(node: BeaconNode,
       return
 
     if node.config.dumpEnabled:
-      dump(node.config.dumpDirOutgoing, attestation.data, validator.pubkey)
+      dump(
+        node.config.dumpDirOutgoing, attestation.data,
+        registered.validator.pubkey)
   except CatchableError as exc:
     # An error could happen here when the signature task fails - we must
     # not leak the exception because this is an asyncSpawn task
@@ -382,7 +396,7 @@ proc getExecutionPayload(
   let feeRecipient = block:
     let pubkey = node.dag.validatorKey(validator_index)
     if pubkey.isNone():
-      error "Cannot get proposer pubkey, bug?", validator_index
+      warn "Cannot get proposer pubkey, bug?", validator_index
       default(Eth1Address)
     else:
       node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
@@ -416,15 +430,15 @@ proc getExecutionPayload(
     let payload = (await node.elManager.getPayload(
         PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
         latestFinalized, timestamp, random, feeRecipient, withdrawals)).valueOr:
-      error "Failed to obtain execution payload from EL",
+      warn "Failed to obtain execution payload from EL",
              executionHeadBlock = executionHead
       return Opt.none(PayloadType)
 
     return Opt.some payload
-  except CatchableError as err:
+  except CatchableError as exc:
     beacon_block_payload_errors.inc()
-    error "Error creating non-empty execution payload",
-      msg = err.msg
+    warn "Error creating non-empty execution payload",
+      msg = exc.msg
     return Opt.none PayloadType
 
 proc makeBeaconBlockForHeadAndSlot*(
@@ -504,7 +518,9 @@ proc makeBeaconBlockForHeadAndSlot*(
     exits = withState(state[]):
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)
-    payload = (await payloadFut).valueOr:
+    # TODO workaround for https://github.com/arnetheduck/nim-results/issues/34
+    payloadRes = await payloadFut
+    payload = payloadRes.valueOr:
       beacon_block_production_errors.inc()
       warn "Unable to get execution payload. Skipping block proposal",
         slot, validator_index
@@ -532,7 +548,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     # small risk it might happen even when most proposals succeed - thus we
     # log instead of asserting
     beacon_block_production_errors.inc()
-    error "Cannot create block for proposal",
+    warn "Cannot create block for proposal",
       slot, head = shortLog(head), error
     $error
 
@@ -550,8 +566,8 @@ proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot):
-    Future[ForkedBlockResult] {.async.} =
-  return await makeBeaconBlockForHeadAndSlot(
+    Future[ForkedBlockResult] =
+  return makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao_reveal, validator_index, graffiti, head, slot,
     execution_payload = Opt.none(PayloadType),
     transactions_root = Opt.none(Eth2Digest),
@@ -1218,7 +1234,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
@@ -1228,41 +1244,51 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
+    registeredRes = node.attachedValidators.slashingProtection.withContext:
+      var tmp: seq[(RegisteredAttestation, SubnetId)]
 
-  for committee_index in get_committee_indices(committees_per_slot):
-    let committee = get_beacon_committee(
-      epochRef.shufflingRef, slot, committee_index)
+      for committee_index in get_committee_indices(committees_per_slot):
+        let
+          committee = get_beacon_committee(
+            epochRef.shufflingRef, slot, committee_index)
+          subnet_id = compute_subnet_for_attestation(
+            committees_per_slot, slot, committee_index)
 
-    for index_in_committee, validator_index in committee:
-      let validator = node.getValidatorForDuties(validator_index, slot).valueOr:
-        continue
+        for index_in_committee, validator_index in committee:
+          let validator = node.getValidatorForDuties(validator_index, slot).valueOr:
+            continue
 
-      let
-        data = makeAttestationData(epochRef, attestationHead, committee_index)
-        # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
-        signingRoot = compute_attestation_signing_root(
-          fork, genesis_validators_root, data)
-        registered = node.attachedValidators
-          .slashingProtection
-          .registerAttestation(
-            validator_index,
-            validator.pubkey,
-            data.source.epoch,
-            data.target.epoch,
-            signingRoot)
-      if registered.isOk():
-        let subnet_id = compute_subnet_for_attestation(
-          committees_per_slot, data.slot, committee_index)
-        asyncSpawn createAndSendAttestation(
-          node, fork, genesis_validators_root, validator, data,
-          committee.len(), index_in_committee, subnet_id)
-      else:
-        warn "Slashing protection activated for attestation",
-          attestationData = shortLog(data),
-          signingRoot = shortLog(signingRoot),
-          validator_index,
-          validator = shortLog(validator),
-          badVoteDetails = $registered.error()
+          let
+            data = makeAttestationData(epochRef, attestationHead, committee_index)
+            # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
+            signingRoot = compute_attestation_signing_root(
+              fork, genesis_validators_root, data)
+            registered = registerAttestationInContext(
+              validator_index, validator.pubkey, data.source.epoch,
+              data.target.epoch, signingRoot)
+          if registered.isErr():
+            warn "Slashing protection activated for attestation",
+              attestationData = shortLog(data),
+              signingRoot = shortLog(signingRoot),
+              validator_index,
+              validator = shortLog(validator),
+              badVoteDetails = $registered.error()
+            continue
+
+          tmp.add((RegisteredAttestation(
+            validator: validator,
+            index_in_committee: uint64 index_in_committee,
+            committee_len: committee.len(), data: data), subnet_id
+          ))
+      tmp
+
+  if registeredRes.isErr():
+    warn "Could not update slashing database, skipping attestation duties",
+      error = registeredRes.error()
+  else:
+    for attestation in registeredRes[]:
+      asyncSpawn createAndSendAttestation(
+        node, fork, genesis_validators_root, attestation[0], attestation[1])
 
 proc createAndSendSyncCommitteeMessage(node: BeaconNode,
                                        validator: AttachedValidator,
@@ -1574,8 +1600,11 @@ proc registerValidatorsPerBuilder(
         validatorRegistrations.add @[validatorRegistration]
 
     # First, check for VC-added keys; cheaper because provided pre-signed
+    # See issue #5599: currently VC have no way to provide BN with per-validator builders per the specs, so we have to
+    #   resort to use the BN fallback default (--payload-builder-url value, obtained by calling getPayloadBuilderAddress)
     var nonExitedVcPubkeys: HashSet[ValidatorPubKey]
-    if node.externalBuilderRegistrations.len > 0:
+    if  node.externalBuilderRegistrations.len > 0 and
+        payloadBuilderAddress == node.config.getPayloadBuilderAddress.value:
       withState(node.dag.headState):
         let currentEpoch = node.currentSlot().epoch
         for i in 0 ..< forkyState.data.validators.len:
@@ -1662,6 +1691,12 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   if not node.config.payloadBuilderEnable: return
 
   var builderKeys: Table[string, seq[ValidatorPubKey]]
+
+  # Ensure VC validators are still registered if we have no attached validators
+  let externalPayloadBuilderAddress = node.config.getPayloadBuilderAddress
+  if externalPayloadBuilderAddress.isSome:
+    builderKeys[externalPayloadBuilderAddress.value] = newSeq[ValidatorPubKey](0)
+
   for pubkey in node.attachedValidators[].validators.keys:
     let payloadBuilderAddress = node.getPayloadBuilderAddress(pubkey).valueOr:
       continue

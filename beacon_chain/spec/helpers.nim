@@ -303,12 +303,11 @@ template toMeta*(update: ForkedLightClientUpdate): LightClientUpdateMetadata =
 
 func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
   # Compare supermajority (> 2/3) sync committee participation
-  const max_active_participants = SYNC_COMMITTEE_SIZE.uint64
   let
     new_has_supermajority =
-      new_meta.num_active_participants * 3 >= max_active_participants * 2
+      hasSupermajoritySyncParticipation(new_meta.num_active_participants)
     old_has_supermajority =
-      old_meta.num_active_participants * 3 >= max_active_participants * 2
+      hasSupermajoritySyncParticipation(old_meta.num_active_participants)
   if new_has_supermajority != old_has_supermajority:
     return new_has_supermajority > old_has_supermajority
   if not new_has_supermajority:

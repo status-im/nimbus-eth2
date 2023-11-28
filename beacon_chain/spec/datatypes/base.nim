@@ -407,7 +407,7 @@ type
     message*: BeaconBlockHeader
     signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
@@ -1028,9 +1028,6 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 # Nimbus does not run any non-FAR_FUTURE_EPOCH Deneb network, so such cases
 # won't be hit.
 const denebImplementationMissing* = false
-
-#template debugRaiseAssert*(x: string) = raiseAssert x
-template debugRaiseAssert*(x: string) = discard
 
 func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:

@@ -77,12 +77,19 @@ func get_beacon_committee_len*(
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#get_attesting_indices
+func compatible_with_shuffling*(
+    bits: CommitteeValidatorsBits,
+    shufflingRef: ShufflingRef,
+    slot: Slot,
+    committee_index: CommitteeIndex): bool =
+  bits.lenu64 == get_beacon_committee_len(shufflingRef, slot, committee_index)
+
 iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
                                 bits: CommitteeValidatorsBits):
                                   ValidatorIndex =
-  if bits.lenu64 != get_beacon_committee_len(shufflingRef, slot, committee_index):
+  if not bits.compatible_with_shuffling(shufflingRef, slot, committee_index):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
   else:
     for index_in_committee, validator_index in get_beacon_committee(
@@ -191,7 +198,7 @@ func makeAttestationData*(
       epoch: current_epoch,
       root: epoch_boundary_block.blck.root))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     shufflingRef: ShufflingRef, validator_indices: HashSet[ValidatorIndex]):
     tuple[committee_index: CommitteeIndex,
