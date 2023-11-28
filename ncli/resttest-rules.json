@@ -4592,7 +4592,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": "Empty request's body"}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": "Empty request body"}}]
     }
   },
   {
@@ -4609,7 +4609,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpnsav", "value": {"code": 400, "message": "Empty request's body"}}]
+      "body": [{"operator": "jstructcmpnsav", "value": {"code": 400, "message": "Empty request body"}}]
     }
   },
   {
