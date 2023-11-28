@@ -969,43 +969,43 @@ template withForkyAndBlindedBlck*(
     body: untyped): untyped =
   case b.kind
   of ConsensusFork.Deneb:
-    const consensusFork {.inject.} = ConsensusFork.Deneb
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
     case b.denebIsBlinded:
     of true:
-      const isBlinded {.inject.} = true
+      const isBlinded {.inject, used.} = true
       template forkyAndBlindedBlck: untyped {.inject, used.} = b.denebBlinded
       body
     of false:
-      const isBlinded {.inject.} = false
+      const isBlinded {.inject, used.} = false
       template forkyAndBlindedBlck: untyped {.inject, used.} = b.denebData
       body
   of ConsensusFork.Capella:
-    const consensusFork {.inject.} = ConsensusFork.Capella
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
     case b.capellaIsBlinded:
     of true:
-      const isBlinded {.inject.} = true
+      const isBlinded {.inject, used.} = true
       template forkyAndBlindedBlck: untyped {.inject, used.} = b.capellaBlinded
       body
     of false:
-      const isBlinded {.inject.} = false
+      const isBlinded {.inject, used.} = false
       template forkyAndBlindedBlck: untyped {.inject, used.} = b.capellaData
       body
   of ConsensusFork.Bellatrix:
     const
-      consensusFork {.inject.} = ConsensusFork.Bellatrix
-      isBlinded {.inject.} = false
+      consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+      isBlinded {.inject, used.} = false
     template forkyAndBlindedBlck: untyped {.inject, used.} = b.bellatrixData
     body
   of ConsensusFork.Altair:
     const
-      consensusFork {.inject.} = ConsensusFork.Altair
-      isBlinded {.inject.} = false
+      consensusFork {.inject, used.} = ConsensusFork.Altair
+      isBlinded {.inject, used.} = false
     template forkyAndBlindedBlck: untyped {.inject, used.} = b.altairData
     body
   of ConsensusFork.Phase0:
     const
-      consensusFork {.inject.} = ConsensusFork.Phase0
-      isBlinded {.inject.} = false
+      consensusFork {.inject, used.} = ConsensusFork.Phase0
+      isBlinded {.inject, used.} = false
     template forkyAndBlindedBlck: untyped {.inject, used.} = b.phase0Data
     body
 
