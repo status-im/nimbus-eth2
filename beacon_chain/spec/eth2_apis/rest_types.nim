@@ -341,18 +341,13 @@ type
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
 
-  DenebBlockContents* = object
-    `block`*: deneb.BeaconBlock
-    kzg_proofs*: deneb.KzgProofs
-    blobs*: deneb.Blobs
-
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
     of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     DenebBlockContents
+    of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
 
   VCRuntimeConfig* = Table[string, string]
 
@@ -940,7 +935,7 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
-                   
+
 template withBlck*(x: ProduceBlockResponseV2,
                    body: untyped): untyped =
   case x.kind

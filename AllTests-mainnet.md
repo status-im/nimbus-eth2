@@ -455,8 +455,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ```diff
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
++ strictParse(Stuint) tests                                                                  OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Shufflings
 ```diff
 + Accelerated shuffling computation                                                          OK
@@ -721,4 +722,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 410/415 Fail: 0/415 Skip: 5/415
+OK: 411/416 Fail: 0/416 Skip: 5/416

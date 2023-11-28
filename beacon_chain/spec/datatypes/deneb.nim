@@ -501,6 +501,11 @@ type
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
 
+  BlockContents* = object
+    `block`*: BeaconBlock
+    kzg_proofs*: KzgProofs
+    blobs*: Blobs
+
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)

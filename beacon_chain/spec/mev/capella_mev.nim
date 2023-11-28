@@ -64,6 +64,13 @@ type
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody # [Modified in Capella]
 
+  MaybeBlindedBeaconBlock* = object
+    case isBlinded*: bool
+    of false:
+      data*: capella.BeaconBlock
+    of true:
+      blindedData*: BlindedBeaconBlock
+
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signedblindedbeaconblock
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
   SignedBlindedBeaconBlock* = object

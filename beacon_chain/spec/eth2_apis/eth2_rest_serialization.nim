@@ -10,7 +10,7 @@
 import std/[typetraits, strutils]
 import stew/[assign2, results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization, json_serialization,
-       json_serialization/std/[net, sets],
+       json_serialization/std/[net, sets], stint,
        chronicles
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/../consensus_object_pools/block_pools_types,
@@ -110,7 +110,8 @@ type
     bellatrix.SignedBeaconBlock |
     capella.SignedBeaconBlock |
     phase0.SignedBeaconBlock |
-    DenebSignedBlockContents
+    DenebSignedBlockContents |
+    ForkedMaybeBlindedBeaconBlock
 
   EncodeArrays* =
     seq[Attestation] |
@@ -167,8 +168,93 @@ type
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
-                    DenebBlockContents | capella_mev.BlindedBeaconBlock |
+                    deneb.BlockContents | capella_mev.BlindedBeaconBlock |
                     deneb_mev.BlindedBeaconBlock
+
+func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
+  ## Converts an hex char to an int
+  const
+    lowerLastChar = chr(ord('a') + radix - 11'u8)
+    capitalLastChar = chr(ord('A') + radix - 11'u8)
+  case c
+  of '0' .. '9': ok(int8 ord(c) - ord('0'))
+  of 'a' .. lowerLastChar: ok(int8 ord(c) - ord('a') + 10)
+  of 'A' .. capitalLastChar: ok(int8 ord(c) - ord('A') + 10)
+  else: err("Invalid hexadecimal character encountered!")
+
+func readStrictDecChar(c: char, radix: static[uint8]): Result[int8, cstring] =
+  const lastChar = char(ord('0') + radix - 1'u8)
+  case c
+  of '0' .. lastChar: ok(int8 ord(c) - ord('0'))
+  else: err("Invalid decimal character encountered!")
+
+func skipPrefixes(str: string,
+                  radix: range[2..16]): Result[int, cstring] =
+  ## Returns the index of the first meaningful char in `hexStr` by skipping
+  ## "0x" prefix
+  if len(str) < 2:
+    return ok(0)
+
+  return
+    if str[0] == '0':
+      if str[1] in {'x', 'X'}:
+        if radix != 16:
+          return err("Parsing mismatch, 0x prefix is only valid for a " &
+                     "hexadecimal number (base 16)")
+        ok(2)
+      elif str[1] in {'o', 'O'}:
+        if radix != 8:
+          return err("Parsing mismatch, 0o prefix is only valid for an " &
+                     "octal number (base 8)")
+        ok(2)
+      elif str[1] in {'b', 'B'}:
+        if radix == 2:
+          ok(2)
+        elif radix == 16:
+          # allow something like "0bcdef12345" which is a valid hex
+          ok(0)
+        else:
+          err("Parsing mismatch, 0b prefix is only valid for a binary number " &
+              "(base 2), or hex number")
+      else:
+        ok(0)
+    else:
+      ok(0)
+
+func strictParse*[bits: static[int]](input: string,
+                                     T: typedesc[StUint[bits]],
+                                     radix: static[uint8] = 10
+                                    ): Result[T, cstring] {.raises: [].} =
+  var res: T
+  static: doAssert (radix >= 2) and (radix <= 16),
+            "Only base from 2..16 are supported"
+
+  const
+    base = radix.uint8.stuint(bits)
+    zero = 0.uint8.stuint(256)
+
+  var currentIndex =
+    block:
+      let res = skipPrefixes(input, radix)
+      if res.isErr():
+        return err(res.error)
+      res.get()
+
+  while currentIndex < len(input):
+    let value =
+      when radix <= 10:
+        ? readStrictDecChar(input[currentIndex], radix)
+      else:
+        ? readStrictHexChar(input[currentIndex], radix)
+    let mres = res * base
+    if (res != zero) and (mres div base != res):
+      return err("Overflow error")
+    let ares = mres + value.stuint(bits)
+    if ares < mres:
+      return err("Overflow error")
+    res = ares
+    inc(currentIndex)
+  ok(res)
 
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
@@ -416,6 +502,22 @@ proc jsonResponsePlain*(t: typedesc[RestApiResponse],
         default
   RestApiResponse.response(res, Http200, "application/json")
 
+proc jsonResponsePlain*(t: typedesc[RestApiResponse],
+                        data: auto, headers: HttpTable): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.writeValue(data)
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
 proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
                         data: auto, meta: auto): RestApiResponse =
   let res =
@@ -590,6 +692,23 @@ proc sszResponsePlain*(t: typedesc[RestApiResponse], res: seq[byte],
 proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
                   headers: openArray[RestKeyValueTuple] = []
                  ): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = SszWriter.init(stream)
+        writer.writeValue(data)
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/octet-stream",
+                           headers = headers)
+
+proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
+                  headers: HttpTable): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -1205,11 +1324,11 @@ proc readValue*[BlockType: ProduceBlockResponseV2](
     let res =
       try:
         Opt.some(RestJson.decode(string(data.get()),
-                                 DenebBlockContents,
+                                 deneb.BlockContents,
                                  requireAllFields = true,
                                  allowUnknownFields = true))
       except SerializationError:
-        Opt.none(DenebBlockContents)
+        Opt.none(deneb.BlockContents)
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect deneb block format")
     value = ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
@@ -3074,6 +3193,120 @@ proc readValue*(reader: var JsonReader[RestJson],
       let msg = "Multiple `" & fieldName & "` fields found"
       reader.raiseUnexpectedField(msg, "VCRuntimeConfig")
 
+## ForkedMaybeBlindedBeaconBlock
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: ForkedMaybeBlindedBeaconBlock) {.raises: [IOError].} =
+  writer.beginRecord()
+  withForkyMaybeBlindedBlck(value):
+    writer.writeField("version", consensusFork.toString())
+    when isBlinded:
+      writer.writeField("execution_payload_blinded", "true")
+    else:
+      writer.writeField("execution_payload_blinded", "false")
+    if value.executionValue.isSome():
+      writer.writeField("execution_payload_value",
+                        $(value.executionValue.get()))
+    if value.consensusValue.isSome():
+      writer.writeField("consensus_block_value",
+                        $(value.consensusValue.get()))
+    writer.writeField("data", forkyMaybeBlindedBlck)
+  writer.endRecord()
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ForkedMaybeBlindedBeaconBlock) {.
+     raises: [SerializationError, IOError].} =
+  var
+    version: Opt[ConsensusFork]
+    blinded: Opt[bool]
+    executionValue: Opt[UInt256]
+    consensusValue: Opt[UInt256]
+    data: Opt[JsonString]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple `version` fields found",
+                                    "ForkedMaybeBlindedBeaconBlock")
+      let res = reader.readValue(string)
+      version = ConsensusFork.init(res)
+      if version.isNone:
+        reader.raiseUnexpectedValue("Incorrect `version` field value")
+    of "execution_payload_blinded":
+      if blinded.isSome():
+        reader.raiseUnexpectedField("Multiple `execution_payload_blinded`" &
+                                    "fields found",
+                                    "ForkedMaybeBlindedBeaconBlock")
+      blinded = Opt.some(reader.readValue(bool))
+    of "execution_payload_value":
+      if executionValue.isSome():
+        reader.raiseUnexpectedField("Multiple `execution_payload_value`" &
+                                    "fields found",
+                                    "ForkedMaybeBlindedBeaconBlock")
+      let res = strictParse(reader.readValue(string), UInt256, 10)
+      if res.isErr():
+        reader.raiseUnexpectedValue($res.error)
+      executionValue = Opt.some(res.get())
+    of "consensus_block_value":
+      if consensusValue.isSome():
+        reader.raiseUnexpectedField("Multiple `consensus_block_value`" &
+                                    "fields found",
+                                    "ForkedMaybeBlindedBeaconBlock")
+      let res = strictParse(reader.readValue(string), UInt256, 10)
+      if res.isErr():
+        reader.raiseUnexpectedValue($res.error)
+      consensusValue = Opt.some(res.get())
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField("Multiple `data` fields found",
+                                    "ForkedMaybeBlindedBeaconBlock")
+      data = Opt.some(reader.readValue(JsonString))
+    else:
+      unrecognizedFieldWarning()
+
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field `version` is missing")
+  if blinded.isNone():
+    reader.raiseUnexpectedValue("Field `execution_payload_blinded` is missing")
+  if executionValue.isNone():
+    reader.raiseUnexpectedValue("Field `execution_payload_value` is missing")
+  # TODO (cheatfate): At some point we should add check for missing
+  # `consensus_block_value` too
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field `data` is missing")
+
+  withConsensusFork(version.get):
+    when consensusFork >= ConsensusFork.Capella:
+      if blinded.get:
+        value = ForkedMaybeBlindedBeaconBlock.init(
+          RestJson.decode(
+            string(data.get()), consensusFork.BlindedBlockContents,
+            requireAllFields = true, allowUnknownFields = true),
+          executionValue, consensusValue)
+      else:
+        value = ForkedMaybeBlindedBeaconBlock.init(
+          RestJson.decode(
+            string(data.get()), consensusFork.BlockContents,
+            requireAllFields = true, allowUnknownFields = true),
+          executionValue, consensusValue)
+    elif consensusFork >= ConsensusFork.Bellatrix:
+      if blinded.get:
+        reader.raiseUnexpectedValue(
+          "`execution_payload_blinded` unsupported for `version`")
+      value = ForkedMaybeBlindedBeaconBlock.init(
+        RestJson.decode(
+          string(data.get()), consensusFork.BlockContents,
+          requireAllFields = true, allowUnknownFields = true),
+        executionValue, consensusValue)
+    else:
+      if blinded.get:
+        reader.raiseUnexpectedValue(
+          "`execution_payload_blinded` unsupported for `version`")
+      value = ForkedMaybeBlindedBeaconBlock.init(
+        RestJson.decode(
+          string(data.get()), consensusFork.BlockContents,
+          requireAllFields = true, allowUnknownFields = true))
+
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
     ok(Eth2Digest(data: hexToByteArray[32](value)))
@@ -3524,7 +3757,7 @@ proc decodeBytes*[T: DecodeConsensysTypes](
         return err("Invalid or Unsupported consensus version")
       case fork
       of ConsensusFork.Deneb:
-        let blckContents = ? readSszResBytes(DenebBlockContents, value)
+        let blckContents = ? readSszResBytes(deneb.BlockContents, value)
         ok(ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
                                   denebData: blckContents))
       of ConsensusFork.Capella:
