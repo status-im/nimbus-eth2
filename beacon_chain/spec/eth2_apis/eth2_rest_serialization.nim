@@ -3773,28 +3773,28 @@ proc toList*(value: set[ValidatorFilterKind]): seq[string] =
     res: seq[string]
     v = value
 
-  if pendingSet * v == pendingSet:
-    res.add("pending")
-    v.excl(pendingSet)
-  if activeSet * v == activeSet:
-    res.add("active")
-    v.excl(activeSet)
-  if exitedSet * v == exitedSet:
-    res.add("exited")
-    v.excl(exitedSet)
-  if withdrawSet * v == withdrawSet:
-    res.add("withdrawal")
-    v.excl(withdrawSet)
+  template processSet(argSet, argName: untyped): untyped =
+    if argSet * v == argSet:
+      res.add(argName)
+      v.excl(argSet)
 
-  if ValidatorFilterKind.PendingInitialized in v: res.add("pending_initialized")
-  if ValidatorFilterKind.PendingQueued in v: res.add("pending_queued")
-  if ValidatorFilterKind.ActiveOngoing in v: res.add("active_ongoing")
-  if ValidatorFilterKind.ActiveExiting in v: res.add("active_exiting")
-  if ValidatorFilterKind.ActiveSlashed in v: res.add("active_slashed")
-  if ValidatorFilterKind.ExitedUnslashed in v: res.add("exited_unslashed")
-  if ValidatorFilterKind.ExitedSlashed in v: res.add("exited_slashed")
-  if ValidatorFilterKind.WithdrawalPossible in v: res.add("withdrawal_possible")
-  if ValidatorFilterKind.WithdrawalDone in v: res.add("withdrawal_done")
+  template processSingle(argSingle, argName): untyped =
+    if argSingle in v:
+      res.add(argName)
+
+  processSet(pendingSet, "pending")
+  processSet(activeSet, "active")
+  processSet(exitedSet, "exited")
+  processSet(withdrawSet, "withdrawal")
+  processSingle(ValidatorFilterKind.PendingInitialized, "pending_initialized")
+  processSingle(ValidatorFilterKind.PendingQueued, "pending_queued")
+  processSingle(ValidatorFilterKind.ActiveOngoing, "active_ongoing")
+  processSingle(ValidatorFilterKind.ActiveExiting, "active_exiting")
+  processSingle(ValidatorFilterKind.ActiveSlashed, "active_slashed")
+  processSingle(ValidatorFilterKind.ExitedUnslashed, "exited_unslashed")
+  processSingle(ValidatorFilterKind.ExitedSlashed, "exited_slashed")
+  processSingle(ValidatorFilterKind.WithdrawalPossible, "withdrawal_possible")
+  processSingle(ValidatorFilterKind.WithdrawalDone, "withdrawal_done")
   res
 
 proc decodeString*(t: typedesc[ValidatorSig],
