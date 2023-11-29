@@ -919,9 +919,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
+      "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -932,9 +932,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
+      "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1587,6 +1587,42 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators", "post"],
+    "comment": "Non-unique id values #1",
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "{\"ids\":[\"0\",\"0\"]}"
+      },
+      "url": "/eth/v1/beacon/states/head/validators",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators", "post"],
+    "comment": "Non-unique id values #2",
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "{\"ids\":[\"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\"]}"
+      },
+      "url": "/eth/v1/beacon/states/head/validators",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {

@@ -4059,8 +4059,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   let
     validatorIds =
       block:
-        # TODO (cheatfate): According to specification, all items should be
-        # unique.
+        # Test for uniqueness of value will be happened on higher layer.
         if ids.isSome():
           var res: seq[ValidatorIdent]
           for item in ids.get():
@@ -4077,6 +4076,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           for item in statuses.get():
             let value = decodeString(ValidatorFilter, item).valueOr:
               reader.raiseUnexpectedValue($error)
+            # Test for uniqueness of value.
             if value * res != {}:
               reader.raiseUnexpectedValue(
                 "The `statuses` array should consist of only unique values")
