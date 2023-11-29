@@ -242,8 +242,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
          state: ForkedHashedBeaconState
        ): Result[seq[ValidatorIndex], RestErrorMessage] =
     var
-      keyset: Table[ValidatorPubKey, uint]
-      indexset: Table[ValidatorIndex, uint]
+      keyset: HashSet[ValidatorPubKey]
+      indexset: HashSet[ValidatorIndex]
 
     let validatorsCount = lenu64(getStateField(state, validators))
 
@@ -251,7 +251,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       case item.kind
       of ValidatorQueryKind.Key:
         # Test for uniqueness of value.
-        if keyset.hasKeyOrPut(item.key, 0'u):
+        if keyset.containsOrIncl(item.key):
           return err(RestErrorMessage.init(
             Http400, NonUniqueValidatorIdError, $item.key))
       of ValidatorQueryKind.Index:
@@ -266,20 +266,19 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if uint64(vindex) < validatorsCount:
           # We're only adding validator indices which are present in
           # validators list at this moment.
-          if indexset.hasKeyOrPut(vindex, 0'u):
+          if indexset.containsOrIncl(vindex):
             return err(RestErrorMessage.init(
               Http400, NonUniqueValidatorIdError,
               Base10.toString(uint64(vindex))))
 
     if len(keyset) > 0:
-      let optIndices = keysToIndices(node.restKeysCache, state,
-                                     keyset.keys().toSeq())
+      let optIndices = keysToIndices(node.restKeysCache, state, keyset.toSeq())
       # Remove all the duplicates.
       for item in optIndices:
         # We ignore missing keys.
         if item.isSome():
-          indexset[item.get()] = 0'u
-    ok(indexset.keys().toSeq())
+          indexset.incl(item.get())
+    ok(indexset.toSeq())
 
   proc getValidators(
          node: BeaconNode,
