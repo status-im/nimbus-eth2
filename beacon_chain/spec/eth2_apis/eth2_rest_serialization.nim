@@ -3991,6 +3991,45 @@ proc encodeString*(value: set[EventTopic]): Result[string, cstring] =
   res.setLen(len(res) - 1)
   ok(res)
 
+proc toList*(value: set[ValidatorFilterKind]): seq[string] =
+  const
+    pendingSet = {ValidatorFilterKind.PendingInitialized,
+                  ValidatorFilterKind.PendingQueued}
+    activeSet = {ValidatorFilterKind.ActiveOngoing,
+                 ValidatorFilterKind.ActiveExiting,
+                 ValidatorFilterKind.ActiveSlashed}
+    exitedSet = {ValidatorFilterKind.ExitedUnslashed,
+                 ValidatorFilterKind.ExitedSlashed}
+    withdrawSet = {ValidatorFilterKind.WithdrawalPossible,
+                   ValidatorFilterKind.WithdrawalDone}
+  var
+    res: seq[string]
+    v = value
+
+  template processSet(argSet, argName: untyped): untyped =
+    if argSet * v == argSet:
+      res.add(argName)
+      v.excl(argSet)
+
+  template processSingle(argSingle, argName): untyped =
+    if argSingle in v:
+      res.add(argName)
+
+  processSet(pendingSet, "pending")
+  processSet(activeSet, "active")
+  processSet(exitedSet, "exited")
+  processSet(withdrawSet, "withdrawal")
+  processSingle(ValidatorFilterKind.PendingInitialized, "pending_initialized")
+  processSingle(ValidatorFilterKind.PendingQueued, "pending_queued")
+  processSingle(ValidatorFilterKind.ActiveOngoing, "active_ongoing")
+  processSingle(ValidatorFilterKind.ActiveExiting, "active_exiting")
+  processSingle(ValidatorFilterKind.ActiveSlashed, "active_slashed")
+  processSingle(ValidatorFilterKind.ExitedUnslashed, "exited_unslashed")
+  processSingle(ValidatorFilterKind.ExitedSlashed, "exited_slashed")
+  processSingle(ValidatorFilterKind.WithdrawalPossible, "withdrawal_possible")
+  processSingle(ValidatorFilterKind.WithdrawalDone, "withdrawal_done")
+  res
+
 proc decodeString*(t: typedesc[ValidatorSig],
                    value: string): Result[ValidatorSig, cstring] =
   if len(value) != ValidatorSigSize + 2:
@@ -4215,3 +4254,82 @@ proc decodeString*(t: typedesc[EventBeaconBlockObject],
                        allowUnknownFields = true))
   except SerializationError as exc:
     err(exc.formatMsg("<data>"))
+
+## ValidatorIdent
+proc writeValue*(w: var JsonWriter[RestJson],
+                 value: ValidatorIdent) {.raises: [IOError].} =
+  writeValue(w, value.encodeString().get())
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ValidatorIdent) {.
+     raises: [IOError, SerializationError].} =
+  value = decodeString(ValidatorIdent, reader.readValue(string)).valueOr:
+    raise newException(SerializationError, $error)
+
+## RestValidatorRequest
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestValidatorRequest) {.
+     raises: [IOError, SerializationError].} =
+  var
+    statuses: Opt[seq[string]]
+    ids: Opt[seq[string]]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "ids":
+      if ids.isSome():
+        reader.raiseUnexpectedField("Multiple `ids` fields found",
+                                    "RestValidatorRequest")
+      ids = Opt.some(reader.readValue(seq[string]))
+    of "statuses":
+      if statuses.isSome():
+        reader.raiseUnexpectedField("Multiple `statuses` fields found",
+                                    "RestValidatorRequest")
+      statuses = Opt.some(reader.readValue(seq[string]))
+    else:
+      unrecognizedFieldWarning()
+
+  let
+    validatorIds =
+      block:
+        # Test for uniqueness of value will be happened on higher layer.
+        if ids.isSome():
+          var res: seq[ValidatorIdent]
+          for item in ids.get():
+            let value = decodeString(ValidatorIdent, item).valueOr:
+              reader.raiseUnexpectedValue($error)
+            res.add(value)
+          Opt.some(res)
+        else:
+          Opt.none(seq[ValidatorIdent])
+    filter =
+      block:
+        if statuses.isSome():
+          var res: ValidatorFilter
+          for item in statuses.get():
+            let value = decodeString(ValidatorFilter, item).valueOr:
+              reader.raiseUnexpectedValue($error)
+            # Test for uniqueness of value.
+            if value * res != {}:
+              reader.raiseUnexpectedValue(
+                "The `statuses` array should consist of only unique values")
+            res.incl(value)
+          Opt.some(res)
+        else:
+          Opt.none(ValidatorFilter)
+
+  value = RestValidatorRequest(ids: validatorIds, status: filter)
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestValidatorRequest) {.raises: [IOError].} =
+  writer.beginRecord()
+  if value.ids.isSome():
+    var res: seq[string]
+    for item in value.ids.get():
+      res.add(item.encodeString().get())
+    writer.writeField("ids", res)
+  if value.status.isSome():
+    let res = value.status.get().toList()
+    if len(res) > 0:
+      writer.writeField("statuses", res)
+  writer.endRecord()
