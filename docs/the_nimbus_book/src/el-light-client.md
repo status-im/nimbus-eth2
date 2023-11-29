@@ -161,7 +161,7 @@ You should see logs similar to the following:
 ### Nimbus
 
 ```
-NOT 2022-11-21 18:00:23.666+01:00 Starting light client                      topics="lightcl" trusted_block_root=some(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c)
+NTC 2022-11-21 18:00:23.666+01:00 Starting light client                      topics="lightcl" trusted_block_root=some(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c)
 ...
 INF 2022-11-21 18:01:24.001+01:00 Slot start                                 slot=1109707 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms495us
 INF 2022-11-21 18:01:24.734+01:00 Exchanged engine configuration             topics="eth1" terminalTotalDifficulty=17000000000000000 terminalBlockHash=0x0000000000000000000000000000000000000000000000000000000000000000 terminalBlockNumber=0
@@ -178,13 +178,13 @@ INF 2022-11-21 18:03:27.984+01:00 New LC optimistic header                   opt
 WRN 2022-11-21 18:03:31.419+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
 INF 2022-11-21 18:03:36.001+01:00 Slot start                                 slot=1109718 epoch=34678 sync=synced peers=7 head=c5464508:1109716 finalized=c092a1d1:1109216 delay=1ms98us
 INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header="(beacon: (slot: 1109717, proposer_index: 835, parent_root: \"c5464508\", state_root: \"13f823f8\"))"
-NOT 2022-11-21 18:03:40.012+01:00 New LC optimistic block                    opt=99ab28aa:1109717 wallSlot=1109718
+NTC 2022-11-21 18:03:40.012+01:00 New LC optimistic block                    opt=99ab28aa:1109717 wallSlot=1109718
 WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
 INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
 WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
 INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
 INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header="(beacon: (slot: 1109718, proposer_index: 1202, parent_root: \"99ab28aa\", state_root: \"7f7f88d2\"))"
-NOT 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt=ab007266:1109718 wallSlot=1109720
+NTC 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt=ab007266:1109718 wallSlot=1109720
 ```
 
 !!! note

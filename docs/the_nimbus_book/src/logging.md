@@ -3,9 +3,6 @@
 Nimbus offers several options for logging.
 By default, logs are written to stdout using the [chronicles](https://github.com/status-im/nim-chronicles#introduction) `textlines` format which is convenient to read and can be used with tooling for [heroku/logfmt](https://brandur.org/logfmt).
 
-!!! tip
-    `NOT` at the beginning of a log line means `NOTICE`.
-
 ## Change log level
 
 You can customise Nimbus' verbosity with the `--log-level` option.
@@ -54,4 +51,3 @@ To send logs to a file, you can redirect the stdout logs:
 
 We recommend keeping an eye on the growth of this file with a [log rotator](./log-rotate.md).
 Logs are written in the "JSON Lines" format - one `json` entry per line.
-
