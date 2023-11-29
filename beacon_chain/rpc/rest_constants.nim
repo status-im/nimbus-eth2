@@ -102,7 +102,7 @@ const
   InvalidBlockIdValueError* =
     "Invalid block identifier value"
   InvalidValidatorIdValueError* =
-    "Invalid validator's identifier value(s)"
+    "Invalid validator identifier value(s)"
   NonUniqueValidatorIdError* =
     "Non-unique validator identifier value(s)"
   MaximumNumberOfValidatorIdsError* =
