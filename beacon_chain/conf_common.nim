@@ -7,6 +7,7 @@
 
 {.push raises: [].}
 
+import std/os
 import "."/[conf, conf_light_client]
 import results, confutils, confutils/defs, confutils/std/net,
        confutils/toml/defs as confTomlDefs,
@@ -20,31 +21,22 @@ proc makeBannerAndConfig*(clientId, copyright, banner, specVersion: string,
     version = clientId & "\p" & copyright & "\p\p" &
       "eth2 specification v" & specVersion & "\p\p" &
       banner
+    cmdLine = if len(environment) == 0: commandLineParams()
+              else: @environment
 
   # TODO for some reason, copyrights are printed when doing `--help`
   {.push warning[ProveInit]: off.}
   let config = try:
-    if len(environment) == 0:
-      ConfType.load(
-        version = version, # but a short version string makes more sense...
-        copyrightBanner = clientId,
-        secondarySources = proc (
-            config: ConfType, sources: ref SecondarySources
-        ) {.raises: [ConfigurationError].} =
-          if config.configFile.isSome:
-            sources.addConfigFile(Toml, config.configFile.get)
-      )
-    else:
-      ConfType.load(
-        version = version, # but a short version string makes more sense...
-        copyrightBanner = clientId,
-        cmdLine = @environment,
-        secondarySources = proc (
-            config: ConfType, sources: ref SecondarySources
-        ) {.raises: [ConfigurationError].} =
-          if config.configFile.isSome:
-            sources.addConfigFile(Toml, config.configFile.get)
-      )
+    ConfType.load(
+      version = version, # but a short version string makes more sense...
+      copyrightBanner = clientId,
+      cmdLine = cmdLine,
+      secondarySources = proc (
+          config: ConfType, sources: auto
+      ) {.raises: [ConfigurationError], gcsafe.} =
+        if config.configFile.isSome:
+          sources.addConfigFile(Toml, config.configFile.get)
+    )
   except CatchableError as exc:
     # We need to log to stderr here, because logging hasn't been configured yet
     var msg = "Failure while loading the configuration:\p" & exc.msg & "\p"
