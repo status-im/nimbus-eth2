@@ -17,7 +17,6 @@ import
   eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes, endians2],
   # Local modules:
   ../spec/[deposit_snapshots, eth2_merkleization, forks, helpers],
-  ../spec/datatypes/[base, phase0, bellatrix, deneb],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_chain_db, beacon_node_status, beacon_clock, future_combinators],
@@ -758,8 +757,7 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
                timestamp: uint64,
                randomData: Eth2Digest,
                feeRecipient: Eth1Address,
-               withdrawals: seq[WithdrawalV1],
-               parentBeaconBlockRoot: FixedBytes[32]): bool =
+               withdrawals: seq[WithdrawalV1]): bool =
   expectedParams.isSome and
     expectedParams.get.headBlockHash == latestHead and
     expectedParams.get.safeBlockHash == latestSafe and
@@ -767,9 +765,7 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
     expectedParams.get.payloadAttributes.timestamp.uint64 == timestamp and
     expectedParams.get.payloadAttributes.prevRandao.bytes == randomData.data and
     expectedParams.get.payloadAttributes.suggestedFeeRecipient == feeRecipient and
-    expectedParams.get.payloadAttributes.withdrawals == withdrawals and
-    expectedParams.get.payloadAttributes.parentBeaconBlockRoot ==
-      parentBeaconBlockRoot
+    expectedParams.get.payloadAttributes.withdrawals == withdrawals
 
 proc forkchoiceUpdated(rpcClient: RpcClient,
                        state: ForkchoiceStateV1,
@@ -906,8 +902,7 @@ proc getPayload*(m: ELManager,
     engineApiWithdrawals = toEngineWithdrawals withdrawals
     isFcUpToDate = m.nextExpectedPayloadParams.areSameAs(
       headBlock, safeBlock, finalizedBlock, timestamp,
-      randomData, suggestedFeeRecipient, engineApiWithdrawals,
-      consensusHead.asBlockHash)
+      randomData, suggestedFeeRecipient, engineApiWithdrawals)
 
   # `getPayloadFromSingleEL` may introduce additional latency
   const extraProcessingOverhead = 500.milliseconds
