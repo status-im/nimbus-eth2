@@ -284,7 +284,8 @@ proc addHeadBlockWithParent*(
     var sigs: seq[SignatureSet]
     if (let e = sigs.collectSignatureSets(
         signedBlock, dag.db.immutableValidators,
-        dag.clearanceState, dag.cfg.genesisFork(), cache); e.isErr()):
+        dag.clearanceState, dag.cfg.genesisFork(), dag.cfg.capellaFork(),
+        cache); e.isErr()):
       # A PublicKey or Signature isn't on the BLS12-381 curve
       info "Unable to load signature sets",
         err = e.error()
