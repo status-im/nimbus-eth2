@@ -209,12 +209,6 @@ proc checkSync(
   node.syncInfo = Opt.some(syncInfo)
   let res =
     block:
-      let optimistic =
-        if syncInfo.is_optimistic.isNone():
-          "none"
-        else:
-          $syncInfo.is_optimistic.get()
-
       if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
         if not(syncInfo.is_optimistic.get(false)):
           RestBeaconNodeStatus.Synced

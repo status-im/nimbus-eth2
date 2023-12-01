@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -51,7 +51,7 @@ type
     participationEpochsCount: seq[uint]
     inclusionDelaysCount: seq[uint]
 
-proc init*(T: type ValidatorDbAggregator, outputDir: string,
+func init*(T: type ValidatorDbAggregator, outputDir: string,
            resolution: uint, endEpoch: Epoch): T =
   const initialCapacity = 1 shl 16
   ValidatorDbAggregator(
@@ -87,7 +87,7 @@ proc checkIntegrity(startEpoch, endEpoch: Epoch, dir: string) =
       fatal "File for epoch does not exist.", epoch = epoch, filePath = filePath
       quit QuitFailure
 
-proc parseRow(csvRow: CsvRow): RewardsAndPenalties =
+func parseRow(csvRow: CsvRow): RewardsAndPenalties =
   result = RewardsAndPenalties(
     source_outcome: parseBiggestInt(csvRow[0]),
     max_source_reward: parseBiggestUInt(csvRow[1]),
@@ -106,7 +106,7 @@ proc parseRow(csvRow: CsvRow): RewardsAndPenalties =
   if csvRow[14].len > 0:
     result.inclusion_delay = some(parseBiggestUInt(csvRow[14]))
 
-proc `+=`(lhs: var RewardsAndPenalties, rhs: RewardsAndPenalties) =
+func `+=`(lhs: var RewardsAndPenalties, rhs: RewardsAndPenalties) =
   lhs.source_outcome += rhs.source_outcome
   lhs.max_source_reward += rhs.max_source_reward
   lhs.target_outcome += rhs.target_outcome
@@ -128,7 +128,7 @@ proc `+=`(lhs: var RewardsAndPenalties, rhs: RewardsAndPenalties) =
     if rhs.inclusion_delay.isSome:
       lhs.inclusion_delay = some(rhs.inclusion_delay.get)
 
-proc average(rp: var RewardsAndPenalties,
+func average(rp: var RewardsAndPenalties,
              averageInclusionDelay: var Option[float],
              epochsCount: uint, inclusionDelaysCount: uint64) =
   rp.source_outcome = rp.source_outcome div epochsCount.int64
@@ -153,7 +153,7 @@ proc average(rp: var RewardsAndPenalties,
     averageInclusionDelay = none(float)
 
 
-proc addValidatorData*(aggregator: var ValidatorDbAggregator,
+func addValidatorData*(aggregator: var ValidatorDbAggregator,
                        index: int, rp: RewardsAndPenalties) =
   if index >= aggregator.participationEpochsCount.len:
     aggregator.aggregatedRewardsAndPenalties.add rp
@@ -243,28 +243,28 @@ proc exitOnSigterm(signal: cint) {.noconv.} =
   notice "Shutting down after having received SIGTERM."
   shouldShutDown = true
 
-proc main =
-  setControlCHook(controlCHook)
-  when defined(posix):
-    c_signal(SIGTERM, exitOnSigterm)
-
-  let config = load AggregatorConf
-  let (startEpoch, endEpoch) = config.determineStartAndEndEpochs
-  if endEpoch == 0:
-    fatal "Not found epoch info files in the directory.",
-          inputDir = config.inputDir
-    quit QuitFailure
-
-  checkIntegrity(startEpoch, endEpoch, config.inputDir.string)
-
-  let outputDir =
-    if config.outputDir.string.len > 0:
-      config.outputDir
-    else:
-      config.inputDir
-
-  aggregateEpochs(startEpoch, endEpoch, config.resolution,
-                  config.inputDir.string, outputDir.string)
-
 when isMainModule:
+  proc main =
+    setControlCHook(controlCHook)
+    when defined(posix):
+      c_signal(SIGTERM, exitOnSigterm)
+
+    let config = load AggregatorConf
+    let (startEpoch, endEpoch) = config.determineStartAndEndEpochs
+    if endEpoch == 0:
+      fatal "Not found epoch info files in the directory.",
+            inputDir = config.inputDir
+      quit QuitFailure
+
+    checkIntegrity(startEpoch, endEpoch, config.inputDir.string)
+
+    let outputDir =
+      if config.outputDir.string.len > 0:
+        config.outputDir
+      else:
+        config.inputDir
+
+    aggregateEpochs(startEpoch, endEpoch, config.resolution,
+                    config.inputDir.string, outputDir.string)
+
   main()

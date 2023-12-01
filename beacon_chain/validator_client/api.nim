@@ -2649,35 +2649,35 @@ proc getValidatorsLiveness*(
                     activities_count = len(list),
                     updated_count = updated
           else:
-            let failure = ApiNodeFailure.init(
+            discard ApiNodeFailure.init(
               ApiFailure.UnexpectedResponse, RequestName,
               apiResponse.node, response.status, $res.error)
             # We do not update beacon node's status anymore because of
             # issue #5377.
             continue
         of 400:
-          let failure = ApiNodeFailure.init(
+          discard ApiNodeFailure.init(
             ApiFailure.Invalid, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
           continue
         of 500:
-          let failure = ApiNodeFailure.init(
+          discard ApiNodeFailure.init(
             ApiFailure.Internal, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
           continue
         of 503:
-          let failure = ApiNodeFailure.init(
+          discard ApiNodeFailure.init(
             ApiFailure.NotSynced, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
           continue
         else:
-          let failure = ApiNodeFailure.init(
+          discard ApiNodeFailure.init(
             ApiFailure.UnexpectedCode, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of

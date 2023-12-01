@@ -296,7 +296,7 @@ proc openConnection*(address: TransportAddress, uri: Uri,
   let transp =
     try:
       await connect(address)
-    except TransportOsError as exc:
+    except TransportOsError:
       raise newException(ConnectionError, "Unable to establish connection")
 
   let treader = newAsyncStreamReader(transp)
@@ -753,7 +753,7 @@ proc jsonBody(body: openArray[byte]): Result[JsonNode, cstring] =
   let res =
     try:
       parseJson(sbody)
-    except CatchableError as exc:
+    except CatchableError:
       return err("Unable to parse json")
     except Exception as exc:
       raiseAssert exc.msg
@@ -871,7 +871,7 @@ proc runTest(conn: HttpConnectionRef, uri: Uri,
   debug "Running test", name = testName, test_index = testIndex,
                         worker_index = workerIndex
 
-  let (requestUri, request) =
+  let (_, request) =
     block:
       let res = prepareRequest(uri, rule)
       if res.isErr():
@@ -1152,7 +1152,7 @@ proc run(conf: RestTesterConf): int =
          hostname = uri.hostname & ":" & uri.port
   try:
     waitFor(checkConnection(conf, uri))
-  except ConnectionError as exc:
+  except ConnectionError:
     return 1
 
   try:

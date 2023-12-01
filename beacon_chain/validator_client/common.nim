@@ -914,7 +914,6 @@ proc currentSlot*(vc: ValidatorClientRef): Slot =
 
 proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   let
-    slot = vc.currentSlot()
     withdrawalAddress =
       if vc.keymanagerHost.isNil:
         Opt.none Eth1Address
