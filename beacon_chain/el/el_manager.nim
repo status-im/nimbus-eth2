@@ -1377,11 +1377,11 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
             rpcClient.eth_chainId(),
             web3RequestsTimeout)
 
-        # https://eips.ethereum.org/EIPS/eip-155#list-of-chain-ids
+        # https://chainid.network/
         expectedChain = case m.eth1Network.get
           of mainnet: 1.Quantity
           of goerli:  5.Quantity
-          of sepolia: 11155111.Quantity   # https://chainid.network/
+          of sepolia: 11155111.Quantity
           of holesky: 17000.Quantity
       if expectedChain != providerChain:
         warn "The specified EL client is connected to a different chain",
