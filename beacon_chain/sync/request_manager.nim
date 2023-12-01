@@ -342,7 +342,7 @@ proc requestManagerBlobLoop(rman: RequestManager) {.async.} =
              failed = (len(workers) - succeed),
              sync_speed = speed(start, finish)
 
-      except CancelledError as exc:
+      except CancelledError:
         break
       except CatchableError as exc:
         warn "Unexpected error in request manager blob loop", exc = exc.msg
