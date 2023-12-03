@@ -661,9 +661,12 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
 
   blindedBlock
 
-func constructPlainBlindedBlock[
-    T: capella_mev.BlindedBeaconBlock, EPH: capella.ExecutionPayloadHeader](
-    blck: ForkyBeaconBlock, executionPayloadHeader: EPH): T =
+func constructPlainBlindedBlock[T: capella_mev.BlindedBeaconBlock](
+    blck: ForkyBeaconBlock,
+    executionPayloadHeader: capella.ExecutionPayloadHeader): T =
+  # https://github.com/nim-lang/Nim/issues/23020 workaround
+  static: doAssert T is capella_mev.BlindedBeaconBlock
+
   const
     blckFields = getFieldNames(typeof(blck))
     blckBodyFields = getFieldNames(typeof(blck.body))
@@ -674,6 +677,25 @@ func constructPlainBlindedBlock[
   copyFields(blindedBlock, blck, blckFields)
   copyFields(blindedBlock.body, blck.body, blckBodyFields)
   assign(blindedBlock.body.execution_payload_header, executionPayloadHeader)
+
+  blindedBlock
+
+func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
+    blck: ForkyBeaconBlock,
+    executionPayloadHeader: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
+  # https://github.com/nim-lang/Nim/issues/23020 workaround
+  static: doAssert T is deneb_mev.BlindedBeaconBlock
+
+  const
+    blckFields = getFieldNames(typeof(blck))
+    blckBodyFields = getFieldNames(typeof(blck.body))
+
+  var blindedBlock: T
+
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
+  copyFields(blindedBlock, blck, blckFields)
+  copyFields(blindedBlock.body, blck.body, blckBodyFields)
+  assign(blindedBlock.body.execution_payload_header, executionPayloadHeader.execution_payload_header)
 
   blindedBlock
 
@@ -938,10 +960,10 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
   withBlck(forkedBlck):
     when consensusFork >= ConsensusFork.Capella:
       when ((consensusFork == ConsensusFork.Deneb and
-             EPH is deneb.ExecutionPayloadHeader) or
+             EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle) or
             (consensusFork == ConsensusFork.Capella and
              EPH is capella.ExecutionPayloadHeader)):
-        return ok (constructPlainBlindedBlock[BBB, EPH](
+        return ok (constructPlainBlindedBlock[BBB](
           forkyBlck, executionPayloadHeader), bidValue)
       else:
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
