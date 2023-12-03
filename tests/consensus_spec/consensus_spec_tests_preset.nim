@@ -20,6 +20,7 @@ import
   ./test_fixture_light_client_single_merkle_proof,
   ./test_fixture_light_client_sync,
   ./test_fixture_light_client_update_ranking,
+  ./test_fixture_merkle_proof,
   ./test_fixture_sanity_blocks,
   ./test_fixture_sanity_slots,
   ./test_fixture_transition

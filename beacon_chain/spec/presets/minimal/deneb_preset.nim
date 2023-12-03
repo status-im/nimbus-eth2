@@ -6,11 +6,13 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Minimal preset - Deneb
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/presets/minimal/deneb.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/presets/minimal/deneb.yaml
 const
-  # [customized]
-  FIELD_ELEMENTS_PER_BLOB*: uint64 = 4
+  # `uint64(4096)`
+  FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096
   # [customized]
   MAX_BLOB_COMMITMENTS_PER_BLOCK*: uint64 = 16
   # `uint64(6)`
   MAX_BLOBS_PER_BLOCK*: uint64 = 6
+  # [customized] `floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK)` = 4 + 1 + 4 = 9
+  KZG_COMMITMENT_INCLUSION_PROOF_DEPTH* = 9

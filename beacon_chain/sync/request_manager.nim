@@ -93,9 +93,10 @@ proc checkResponse(idList: seq[BlobIdentifier],
   if len(blobs) > len(idList):
     return false
   for blob in blobs:
+    let block_root = hash_tree_root(blob.signed_block_header.message)
     var found = false
     for id in idList:
-      if id.block_root == blob.block_root and
+      if id.block_root == block_root and
          id.index == blob.index:
           found = true
           break
@@ -204,8 +205,9 @@ proc fetchBlobsFromNetwork(self: RequestManager,
         self.blobQuarantine[].put(b)
       var curRoot: Eth2Digest
       for b in ublobs:
-        if b.block_root != curRoot:
-          curRoot = b.block_root
+        let block_root = hash_tree_root(b.signed_block_header.message)
+        if block_root != curRoot:
+          curRoot = block_root
           if (let o = self.quarantine[].popBlobless(curRoot); o.isSome):
             let b = o.unsafeGet()
             discard await self.blockVerifier(ForkedSignedBeaconBlock.init(b), false)
@@ -292,7 +294,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
         warn "quarantine missing blobs, but missing indices is empty",
          blk=blobless.root,
          indices=rman.blobQuarantine[].blobIndices(blobless.root),
-         kzgs=len(blobless.message.body.blob_kzg_commitments)
+         commitments=len(blobless.message.body.blob_kzg_commitments)
       for idx in missing.indices:
         let id = BlobIdentifier(block_root: blobless.root, index: idx)
         if id notin fetches:
@@ -302,7 +304,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
       warn "missing blob handler found blobless block with all blobs",
          blk=blobless.root,
          indices=rman.blobQuarantine[].blobIndices(blobless.root),
-         kzgs=len(blobless.message.body.blob_kzg_commitments)
+         commitments=len(blobless.message.body.blob_kzg_commitments)
       discard rman.blockVerifier(ForkedSignedBeaconBlock.init(blobless),
                                  false)
       rman.quarantine[].removeBlobless(blobless)
@@ -356,4 +358,3 @@ proc stop*(rman: RequestManager) =
     rman.blockLoopFuture.cancelSoon()
   if not(isNil(rman.blobLoopFuture)):
     rman.blobLoopFuture.cancelSoon()
-

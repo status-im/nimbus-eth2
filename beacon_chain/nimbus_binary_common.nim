@@ -41,40 +41,41 @@ type
   raises: [].}
 
 # silly chronicles, colors is a compile-time property
-proc stripAnsi(v: string): string =
-  var
-    res = newStringOfCap(v.len)
-    i: int
+when defaultChroniclesStream.outputs.type.arity == 2:
+  func stripAnsi(v: string): string =
+    var
+      res = newStringOfCap(v.len)
+      i: int
 
-  while i < v.len:
-    let c = v[i]
-    if c == '\x1b':
-      var
-        x = i + 1
-        found = false
+    while i < v.len:
+      let c = v[i]
+      if c == '\x1b':
+        var
+          x = i + 1
+          found = false
 
-      while x < v.len: # look for [..m
-        let c2 = v[x]
-        if x == i + 1:
-          if c2 != '[':
-            break
-        else:
-          if c2 in {'0'..'9'} + {';'}:
-            discard # keep looking
-          elif c2 == 'm':
-            i = x + 1
-            found = true
-            break
+        while x < v.len: # look for [..m
+          let c2 = v[x]
+          if x == i + 1:
+            if c2 != '[':
+              break
           else:
-            break
-        inc x
+            if c2 in {'0'..'9'} + {';'}:
+              discard # keep looking
+            elif c2 == 'm':
+              i = x + 1
+              found = true
+              break
+            else:
+              break
+          inc x
 
-      if found: # skip adding c
-        continue
-    res.add c
-    inc i
+        if found: # skip adding c
+          continue
+      res.add c
+      inc i
 
-  res
+    res
 
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
@@ -351,14 +352,15 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
     timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
 
 proc init*(T: type RestServerRef,
-           ip: ValidIpAddress,
+           ip: IpAddress,
            port: Port,
            allowedOrigin: Option[string],
            validateFn: PatternCallback,
            config: AnyConf): T =
-  let address = initTAddress(ip, port)
-  let serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
-                     HttpServerFlags.NotifyDisconnect}
+  let
+    address = initTAddress(ip, port)
+    serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
+                   HttpServerFlags.NotifyDisconnect}
   # We increase default timeout to help validator clients who poll our server
   # at least once per slot (12.seconds).
   let
@@ -370,26 +372,20 @@ proc init*(T: type RestServerRef,
     maxHeadersSize = config.restMaxRequestHeadersSize * 1024
     maxRequestBodySize = config.restMaxRequestBodySize * 1024
 
-  let res = try:
-    RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
-                      address, serverFlags = serverFlags,
-                      httpHeadersTimeout = headersTimeout,
-                      maxHeadersSize = maxHeadersSize,
-                      maxRequestBodySize = maxRequestBodySize)
-  except CatchableError as err:
-    notice "Rest server could not be started", address = $address,
-           reason = err.msg
-    return nil
-
+  let res = RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
+                              address, serverFlags = serverFlags,
+                              httpHeadersTimeout = headersTimeout,
+                              maxHeadersSize = maxHeadersSize,
+                              maxRequestBodySize = maxRequestBodySize,
+                              errorType = string)
   if res.isErr():
-    notice "Rest server could not be started", address = $address,
+    notice "REST HTTP server could not be started", address = $address,
            reason = res.error()
     nil
   else:
-    notice "Starting REST HTTP server",
-      url = "http://" & $ip & ":" & $port & "/"
-
-    res.get()
+    let server = res.get()
+    notice "Starting REST HTTP server", url = "http://" & $server.localAddress()
+    server
 
 type
   KeymanagerInitResult* = object

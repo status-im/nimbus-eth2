@@ -75,7 +75,7 @@ suite "SyncManager test suite":
     var res = newSeq[ref BlobSidecar](len(slots))
     for (i, item) in res.mpairs():
       item = new BlobSidecar
-      item[].slot = slots[i]
+      item[].signed_block_header.message.slot = slots[i]
     res
 
   proc getSlice(chain: openArray[ref ForkedSignedBeaconBlock], startSlot: Slot,
@@ -1081,16 +1081,16 @@ suite "SyncManager test suite":
       len(grouped[0]) == 0
       # slot 11
       len(grouped[1]) == 2
-      grouped[1][0].slot == Slot(11)
-      grouped[1][1].slot == Slot(11)
+      grouped[1][0].signed_block_header.message.slot == Slot(11)
+      grouped[1][1].signed_block_header.message.slot == Slot(11)
       # slot 12
       len(grouped[2]) == 1
-      grouped[2][0].slot == Slot(12)
+      grouped[2][0].signed_block_header.message.slot == Slot(12)
       # slot 13
       len(grouped[3]) == 0
       # slot 14
       len(grouped[4]) == 1
-      grouped[4][0].slot == Slot(14)
+      grouped[4][0].signed_block_header.message.slot == Slot(14)
       # slot 15
       len(grouped[5]) == 0
 
@@ -1108,7 +1108,7 @@ suite "SyncManager test suite":
       len(grouped2[6]) == 0 # slot 17
 
     let blob18 = new (ref BlobSidecar)
-    blob18[].slot = Slot(18)
+    blob18[].signed_block_header.message.slot = Slot(18)
     blobs.add(blob18)
     let groupedRes3 = groupBlobs(req, blocks, blobs)
 

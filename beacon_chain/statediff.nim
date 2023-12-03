@@ -187,7 +187,7 @@ func getBeaconStateDiffSummary*(state0: capella.BeaconState):
       if state0.eth1_data_votes.len > 0:
         # replaceOrAddEncodeEth1Votes will check whether it needs to replace or add
         # the votes. Which happens is a function of effectively external data, i.e.
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#eth1-data
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#eth1-data
         # notes it depends on things not deterministic, from a pure consensus-layer
         # perspective. It thus must distinguish between adding and replacing votes,
         # which it accomplishes by checking lengths and the most recent votes. This

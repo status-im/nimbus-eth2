@@ -455,7 +455,7 @@ proc addObject*(
 
   let
     wallTime = self.getBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (afterGenesis, _) = wallTime.toSlot()
 
   if not afterGenesis:
     error "Processing LC object before genesis, clock turned back?"
@@ -522,7 +522,7 @@ func toValidationError(
       # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -537,7 +537,7 @@ proc processLightClientFinalityUpdate*(
   self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

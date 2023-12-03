@@ -88,7 +88,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VOLUNTARY_EXITS:
             Base10.toString(MAX_VOLUNTARY_EXITS),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/presets/mainnet/altair.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/presets/mainnet/altair.yaml
           INACTIVITY_PENALTY_QUOTIENT_ALTAIR:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_ALTAIR),
           MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR:
@@ -104,7 +104,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           UPDATE_TIMEOUT:
             Base10.toString(UPDATE_TIMEOUT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/presets/mainnet/bellatrix.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/presets/mainnet/bellatrix.yaml
           INACTIVITY_PENALTY_QUOTIENT_BELLATRIX:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_BELLATRIX),
           MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX:
@@ -120,7 +120,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_EXTRA_DATA_BYTES:
             Base10.toString(uint64(MAX_EXTRA_DATA_BYTES)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/presets/mainnet/capella.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/presets/mainnet/capella.yaml
           MAX_BLS_TO_EXECUTION_CHANGES:
             Base10.toString(uint64(MAX_BLS_TO_EXECUTION_CHANGES)),
           MAX_WITHDRAWALS_PER_PAYLOAD:
@@ -128,7 +128,17 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP:
             Base10.toString(uint64(MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/mainnet.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/presets/mainnet/deneb.yaml
+          FIELD_ELEMENTS_PER_BLOB:
+            Base10.toString(deneb_preset.FIELD_ELEMENTS_PER_BLOB),
+          MAX_BLOB_COMMITMENTS_PER_BLOCK:
+            Base10.toString(MAX_BLOB_COMMITMENTS_PER_BLOCK),
+          MAX_BLOBS_PER_BLOCK:
+            Base10.toString(MAX_BLOBS_PER_BLOCK),
+          KZG_COMMITMENT_INCLUSION_PROOF_DEPTH:
+            Base10.toString(uint64(KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)),
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/configs/mainnet.yaml
           PRESET_BASE:
             cfg.PRESET_BASE,
           CONFIG_NAME:
@@ -187,12 +197,56 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT),
           PROPOSER_SCORE_BOOST:
             Base10.toString(PROPOSER_SCORE_BOOST),
+          REORG_HEAD_WEIGHT_THRESHOLD:
+            Base10.toString(REORG_HEAD_WEIGHT_THRESHOLD),
+          REORG_PARENT_WEIGHT_THRESHOLD:
+            Base10.toString(REORG_PARENT_WEIGHT_THRESHOLD),
+          REORG_MAX_EPOCHS_SINCE_FINALIZATION:
+            Base10.toString(uint64(REORG_MAX_EPOCHS_SINCE_FINALIZATION)),
           DEPOSIT_CHAIN_ID:
             Base10.toString(cfg.DEPOSIT_CHAIN_ID),
           DEPOSIT_NETWORK_ID:
             Base10.toString(cfg.DEPOSIT_NETWORK_ID),
           DEPOSIT_CONTRACT_ADDRESS:
             $cfg.DEPOSIT_CONTRACT_ADDRESS,
+          GOSSIP_MAX_SIZE:
+            Base10.toString(GOSSIP_MAX_SIZE),
+          MAX_REQUEST_BLOCKS:
+            Base10.toString(MAX_REQUEST_BLOCKS),
+          EPOCHS_PER_SUBNET_SUBSCRIPTION:
+            Base10.toString(EPOCHS_PER_SUBNET_SUBSCRIPTION),
+          MIN_EPOCHS_FOR_BLOCK_REQUESTS:
+            Base10.toString(cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS),
+          MAX_CHUNK_SIZE:
+            Base10.toString(MAX_CHUNK_SIZE),
+          TTFB_TIMEOUT:
+            Base10.toString(TTFB_TIMEOUT),
+          RESP_TIMEOUT:
+            Base10.toString(RESP_TIMEOUT),
+          ATTESTATION_PROPAGATION_SLOT_RANGE:
+            Base10.toString(ATTESTATION_PROPAGATION_SLOT_RANGE),
+          MAXIMUM_GOSSIP_CLOCK_DISPARITY:
+            Base10.toString(MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64),
+          MESSAGE_DOMAIN_INVALID_SNAPPY:
+            to0xHex(MESSAGE_DOMAIN_INVALID_SNAPPY),
+          MESSAGE_DOMAIN_VALID_SNAPPY:
+            to0xHex(MESSAGE_DOMAIN_VALID_SNAPPY),
+          SUBNETS_PER_NODE:
+            Base10.toString(SUBNETS_PER_NODE),
+          ATTESTATION_SUBNET_COUNT:
+            Base10.toString(ATTESTATION_SUBNET_COUNT),
+          ATTESTATION_SUBNET_EXTRA_BITS:
+            Base10.toString(ATTESTATION_SUBNET_EXTRA_BITS),
+          ATTESTATION_SUBNET_PREFIX_BITS:
+            Base10.toString(ATTESTATION_SUBNET_PREFIX_BITS),
+          MAX_REQUEST_BLOCKS_DENEB:
+            Base10.toString(MAX_REQUEST_BLOCKS_DENEB),
+          MAX_REQUEST_BLOB_SIDECARS:
+            Base10.toString(MAX_REQUEST_BLOB_SIDECARS),
+          MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS:
+            Base10.toString(cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS),
+          BLOB_SIDECAR_SUBNET_COUNT:
+            Base10.toString(BLOB_SIDECAR_SUBNET_COUNT),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
@@ -255,8 +309,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
-          ATTESTATION_SUBNET_COUNT:
-            Base10.toString(ATTESTATION_SUBNET_COUNT),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#constants
           TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE:

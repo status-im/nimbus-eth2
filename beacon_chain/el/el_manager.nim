@@ -96,7 +96,6 @@ const
 type
   Eth1BlockNumber* = uint64
   Eth1BlockTimestamp* = uint64
-  Eth1BlockHeader = engine_api.BlockHeader
 
   Eth1Block* = ref object
     hash*: Eth2Digest
@@ -393,9 +392,6 @@ template trackedRequestWithTimeout[T](connection: ELConnection,
 template cfg(m: ELManager): auto =
   m.eth1Chain.cfg
 
-template db(m: ELManager): BeaconChainDB =
-  m.eth1Chain.db
-
 func hasJwtSecret*(m: ELManager): bool =
   for c in m.elConnections:
     if c.engineUrl.jwtSecret.isSome:
@@ -409,12 +405,6 @@ func isSynced*(m: ELManager): bool =
 template eth1ChainBlocks*(m: ELManager): Deque[Eth1Block] =
   m.eth1Chain.blocks
 
-template finalizedDepositsMerkleizer(m: ELManager): auto =
-  m.eth1Chain.finalizedDepositsMerkleizer
-
-template headMerkleizer(m: ELManager): auto =
-  m.eth1Chain.headMerkleizer
-
 template toGaugeValue(x: Quantity): int64 =
   toGaugeValue(distinctBase x)
 
@@ -423,11 +413,11 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
@@ -435,7 +425,7 @@ func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   compute_time_at_slot(
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -561,10 +551,13 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     # The `mapIt` calls below are necessary only because we use different distinct
     # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
     # Both are defined as `array[N, byte]` under the hood.
-    kzgs: KzgCommitments payload.blobsBundle.commitments.mapIt(it.bytes),
-    proofs: payload.blobsBundle.proofs.mapIt(it.bytes),
-    blobs: Blobs payload.blobsBundle.blobs.mapIt(it.bytes)
-  )
+    blobsBundle: BlobsBundle(
+      commitments: KzgCommitments.init(
+        payload.blobsBundle.commitments.mapIt(it.bytes)),
+      proofs: KzgProofs.init(
+        payload.blobsBundle.proofs.mapIt(it.bytes)),
+      blobs: Blobs.init(
+        payload.blobsBundle.blobs.mapIt(it.bytes))))
 
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
@@ -695,7 +688,7 @@ func hash*(x: Eth1Data): Hash =
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
-func getJsonRpcRequestHeaders(jwtSecret: Option[seq[byte]]):
+func getJsonRpcRequestHeaders(jwtSecret: Opt[seq[byte]]):
     auto =
   if jwtSecret.isSome:
     let secret = jwtSecret.get
@@ -884,15 +877,6 @@ template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): typ
 
 template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
-
-template payload(response: engine_api.ExecutionPayloadV1): engine_api.ExecutionPayloadV1 =
-  response
-
-template payload(response: engine_api.GetPayloadV2Response): engine_api.ExecutionPayloadV1OrV2 =
-  response.executionPayload
-
-template payload(response: engine_api.GetPayloadV3Response): engine_api.ExecutionPayloadV3 =
-  response.executionPayload
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -1274,7 +1258,7 @@ proc forkchoiceUpdated*(m: ELManager,
   # block hash provided by this event is stubbed with
   # `0x0000000000000000000000000000000000000000000000000000000000000000`."
   # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
 
@@ -1396,8 +1380,6 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
         # https://eips.ethereum.org/EIPS/eip-155#list-of-chain-ids
         expectedChain = case m.eth1Network.get
           of mainnet: 1.Quantity
-          of ropsten: 3.Quantity
-          of rinkeby: 4.Quantity
           of goerli:  5.Quantity
           of sepolia: 11155111.Quantity   # https://chainid.network/
           of holesky: 17000.Quantity
@@ -1415,6 +1397,11 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
              error = exc.msg
 
   connection.etcStatus = EtcStatus.match
+
+  # https://github.com/ethereum/execution-apis/blob/c4089414bbbe975bbc4bf1ccf0a3d31f76feb3e1/src/engine/cancun.md#deprecate-engine_exchangetransitionconfigurationv1
+  # Consensus layer clients MUST NOT call this method.
+  if m.eth1Chain.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    return
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
   let
@@ -1715,7 +1702,7 @@ template trackFinalizedState*(m: ELManager,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,
@@ -1809,10 +1796,6 @@ func new*(T: type ELConnection,
   ELConnection(
     engineUrl: engineUrl,
     depositContractSyncStatus: DepositContractSyncStatus.unknown)
-
-template getOrDefault[T, E](r: Result[T, E]): T =
-  type TT = T
-  get(r, default(TT))
 
 proc init*(T: type Eth1Chain,
            cfg: RuntimeConfig,
@@ -2017,12 +2000,6 @@ proc syncBlockRange(m: ELManager,
         blockNumber = lastBlock.number,
         depositsProcessed = lastBlock.depositCount
 
-func init(T: type FullBlockId, blk: Eth1BlockHeader|BlockObject): T =
-  FullBlockId(number: Eth1BlockNumber blk.number, hash: blk.hash)
-
-func isNewLastBlock(m: ELManager, blk: Eth1BlockHeader|BlockObject): bool =
-  m.latestEth1Block.isNone or blk.number.uint64 > m.latestEth1BlockNumber
-
 func hasConnection*(m: ELManager): bool =
   m.elConnections.len > 0
 
@@ -2121,7 +2098,6 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[^1])
 
-  var didPollOnce = false
   while true:
     debug "syncEth1Chain tick"
 
@@ -2182,7 +2158,7 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
         continue
 
       await syncEth1Chain(m, syncedConnectionFut.read)
-    except CatchableError as err:
+    except CatchableError:
       await sleepAsync(10.seconds)
 
       # A more detailed error is already logged by trackEngineApiRequest
@@ -2213,7 +2189,7 @@ func `$`(x: BlockObject): string =
 
 proc testWeb3Provider*(web3Url: Uri,
                        depositContractAddress: Eth1Address,
-                       jwtSecret: Option[seq[byte]]) {.async.} =
+                       jwtSecret: Opt[seq[byte]]) {.async.} =
   stdout.write "Establishing web3 connection..."
   var web3: Web3
   try:
@@ -2238,17 +2214,17 @@ proc testWeb3Provider*(web3Url: Uri,
     stdout.write "\n"
     res
 
-  let
-    chainId = request "Chain ID":
-      web3.provider.eth_chainId()
+  discard request "Chain ID":
+    web3.provider.eth_chainId()
 
+  discard request "Sync status":
+    web3.provider.eth_syncing()
+
+  let
     latestBlock = request "Latest block":
       web3.provider.eth_getBlockByNumber(blockId("latest"), false)
 
-    syncStatus = request "Sync status":
-      web3.provider.eth_syncing()
-
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
-    depositRoot = request "Deposit root":
-      ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64)
+  discard request "Deposit root":
+    ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64)

@@ -28,7 +28,7 @@ type
 
   EngineApiUrl* = object
     url: string
-    jwtSecret: Option[seq[byte]]
+    jwtSecret: Opt[seq[byte]]
     roles: EngineApiRoles
 
   EngineApiUrlConfigValue* = object
@@ -52,14 +52,14 @@ chronicles.formatIt EngineApiUrl:
 
 proc init*(T: type EngineApiUrl,
            url: string,
-           jwtSecret = none seq[byte],
+           jwtSecret = Opt.none seq[byte],
            roles = defaultEngineApiRoles): T =
   T(url: url, jwtSecret: jwtSecret, roles: roles)
 
 func url*(engineUrl: EngineApiUrl): string =
   engineUrl.url
 
-func jwtSecret*(engineUrl: EngineApiUrl): Option[seq[byte]] =
+func jwtSecret*(engineUrl: EngineApiUrl): Opt[seq[byte]] =
   engineUrl.jwtSecret
 
 func roles*(engineUrl: EngineApiUrl): EngineApiRoles =
@@ -69,9 +69,6 @@ func unknownRoleMsg(role: string): string =
   "'" & role & "' is not a valid EL function"
 
 template raiseError(reader: var TomlReader, msg: string) =
-  raiseTomlErr(reader.lex, msg)
-
-template raiseError(reader: var JsonReader, msg: string) =
   raiseTomlErr(reader.lex, msg)
 
 proc readValue*(reader: var TomlReader, value: var EngineApiRoles)
@@ -160,14 +157,14 @@ proc fixupWeb3Urls*(web3Url: var string) =
     web3Url = "ws://" & web3Url
 
 proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
-                 confJwtSecret: Option[seq[byte]]): Result[EngineApiUrl, cstring] =
+                 confJwtSecret: Opt[seq[byte]]): Result[EngineApiUrl, cstring] =
   if confValue.jwtSecret.isSome and confValue.jwtSecretFile.isSome:
     return err "The options `jwtSecret` and `jwtSecretFile` should not be specified together"
 
   let jwtSecret = if confValue.jwtSecret.isSome:
-    some(? parseJwtTokenValue(confValue.jwtSecret.get))
+    Opt.some(? parseJwtTokenValue(confValue.jwtSecret.get))
   elif confValue.jwtSecretFile.isSome:
-    some(? loadJwtSecretFile(confValue.jwtSecretFile.get))
+    Opt.some(? loadJwtSecretFile(confValue.jwtSecretFile.get))
   else:
     confJwtSecret
 
@@ -179,19 +176,19 @@ proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
     jwtSecret = jwtSecret,
     roles = confValue.roles.get(defaultEngineApiRoles))
 
-proc loadJwtSecret*(jwtSecret: Option[InputFile]): Option[seq[byte]] =
+proc loadJwtSecret*(jwtSecret: Opt[InputFile]): Opt[seq[byte]] =
   if jwtSecret.isSome:
     let res = loadJwtSecretFile(jwtSecret.get)
     if res.isOk:
-      some res.value
+      Opt.some res.value
     else:
       fatal "Failed to load JWT secret file", err = res.error
       quit 1
   else:
-    none seq[byte]
+    Opt.none seq[byte]
 
 proc toFinalEngineApiUrls*(elUrls: seq[EngineApiUrlConfigValue],
-                           confJwtSecret: Option[InputFile]): seq[EngineApiUrl] =
+                           confJwtSecret: Opt[InputFile]): seq[EngineApiUrl] =
   let jwtSecret = loadJwtSecret confJwtSecret
 
   for elUrl in elUrls:

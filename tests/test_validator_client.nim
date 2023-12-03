@@ -11,7 +11,8 @@
 import std/strutils
 import httputils
 import chronos/unittest2/asynctests
-import ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
+import ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
+       ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
 
 const
   HostNames = [
@@ -144,7 +145,163 @@ const
     ("", "err(Missing hostname)")
   ]
 
+  ObolBeaconRequestTestVector = """
+[
+  {
+    "validator_index": "1",
+    "slot": "1",
+    "selection_proof": "0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+  },
+  {
+    "slot": "2",
+    "validator_index": "2",
+    "selection_proof": "0x2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+  },
+  {
+    "validator_index": "3",
+    "selection_proof": "0x3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
+    "slot": "3"
+  },
+  {
+    "selection_proof": "0x4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
+    "validator_index": "4",
+    "slot": "4"
+  }
+]"""
+  ObolBeaconResponseTestVector = """
+{
+  "data": [
+    {
+      "validator_index": "1",
+      "slot": "1",
+      "selection_proof": "0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    },
+    {
+      "validator_index": "2",
+      "slot": "2",
+      "selection_proof": "0x2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    },
+    {
+      "validator_index": "3",
+      "slot": "3",
+      "selection_proof": "0x3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    },
+    {
+      "validator_index": "4",
+      "slot": "4",
+      "selection_proof": "0x4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    }
+  ]
+}"""
+  ObolBeaconResponseTestVectorObject = [
+    (
+      validator_index: RestValidatorIndex(1),
+      slot: Slot(1),
+      selection_proof: "1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    ),
+    (
+      validator_index: RestValidatorIndex(2),
+      slot: Slot(2),
+      selection_proof: "2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    ),
+    (
+      validator_index: RestValidatorIndex(3),
+      slot: Slot(3),
+      selection_proof: "3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    ),
+    (
+      validator_index: RestValidatorIndex(4),
+      slot: Slot(4),
+      selection_proof: "4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    )
+  ]
+  ObolSyncRequestTestVector = """
+[
+  {
+    "validator_index": "1",
+    "slot": "1",
+    "subcommittee_index": "1",
+    "selection_proof": "0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+  },
+  {
+    "validator_index": "2",
+    "subcommittee_index": "2",
+    "slot": "2",
+    "selection_proof": "0x2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+  },
+  {
+    "subcommittee_index": "3",
+    "validator_index": "3",
+    "slot": "3",
+    "selection_proof": "0x3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+  },
+  {
+    "validator_index": "4",
+    "slot": "4",
+    "selection_proof": "0x4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
+    "subcommittee_index": "4"
+  }
+]"""
+  ObolSyncResponseTestVector = """
+{
+  "data": [
+    {
+      "validator_index": "1",
+      "slot": "1",
+      "subcommittee_index": "1",
+      "selection_proof": "0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    },
+    {
+      "validator_index": "2",
+      "subcommittee_index": "2",
+      "slot": "2",
+      "selection_proof": "0x2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    },
+    {
+      "subcommittee_index": "3",
+      "validator_index": "3",
+      "slot": "3",
+      "selection_proof": "0x3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    },
+    {
+      "validator_index": "4",
+      "slot": "4",
+      "selection_proof": "0x4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505",
+      "subcommittee_index": "4"
+    }
+  ]
+}"""
+  ObolSyncResponseTestVectorObject = [
+    (
+      validator_index: RestValidatorIndex(1),
+      slot: Slot(1),
+      subcommittee_index: 1'u64,
+      selection_proof: "1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    ),
+    (
+      validator_index: RestValidatorIndex(2),
+      slot: Slot(2),
+      subcommittee_index: 2'u64,
+      selection_proof: "2b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    ),
+    (
+      validator_index: RestValidatorIndex(3),
+      slot: Slot(3),
+      subcommittee_index: 3'u64,
+      selection_proof: "3b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    ),
+    (
+      validator_index: RestValidatorIndex(4),
+      slot: Slot(4),
+      subcommittee_index: 4'u64,
+      selection_proof: "4b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505"
+    )
+  ]
+
 type
+  TestDecodeTypes = seq[RestBeaconCommitteeSelection] |
+                    seq[RestSyncCommitteeSelection]
+
   AttestationDataTuple* = tuple[
     slot: uint64,
     index: uint64,
@@ -152,6 +309,12 @@ type
     source: uint64,
     target: uint64
   ]
+
+  AttestationBitsObject = object
+    data: CommitteeValidatorsBits
+
+  SyncCommitteeBitsObject = object
+    data: SyncCommitteeAggregationBits
 
 const
   AttestationDataVectors = [
@@ -212,6 +375,71 @@ const
      ("00000000", 0'u64), "375197.0000"),
   ]
 
+  AggregatedDataVectors = [
+    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01", "<perfect>"),
+    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.2500"),
+    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.5000"),
+    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.7500"),
+    ("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01", "0.9995"),
+    ("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101", "0.0005"),
+  ]
+  ContributionDataVectors = [
+    ("0xffffffffffffffffffffffffffff7f7f", "0.9844"),
+    ("0xffffffffffffffffffffffff7f7f7f7f", "0.9688"),
+    ("0xffffffffffffffffffff7f7f7f7f7f7f", "0.9531"),
+    ("0xffffffffffffffff7f7f7f7f7f7f7f7f", "0.9375"),
+    ("0xffffffffffff7f7f7f7f7f7f7f7f7f7f", "0.9219"),
+    ("0xffffffff7f7f7f7f7f7f7f7f7f7f7f7f", "0.9062"),
+    ("0xffff7f7f7f7f7f7f7f7f7f7f7f7f7f7f", "0.8906"),
+    ("0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f", "0.8750"),
+    ("0xffffffffffffffffffffffffffffffff", "<perfect>")
+  ]
+
+  SyncMessageDataVectors = [
+    # Sync committee messages score with block monitoring enabled (perfect)
+    (6002798'u64, "22242212", "22242212", 6002798'u64, Opt.some(false),
+     "<perfect>"),
+    (6002811'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(false),
+     "<perfect>"),
+    (6002836'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(false),
+     "<perfect>"),
+    (6002859'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(false),
+     "<perfect>"),
+    # Sync committee messages score when beacon node is optimistically synced
+    (6002798'u64, "22242212", "22242212", 6002798'u64, Opt.some(true),
+     "<bad>"),
+    (6002811'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(true),
+     "<bad>"),
+    (6002836'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(true),
+     "<bad>"),
+    (6002859'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(true),
+     "<bad>"),
+    # Sync committee messages score with block monitoring enabled (not perfect)
+    (6002797'u64, "22242212", "22242212", 6002798'u64, Opt.some(false),
+     "1.5000"),
+    (6002809'u64, "26ec78d6", "26ec78d6", 6002811'u64, Opt.some(false),
+     "1.3333"),
+    (6002826'u64, "42354ded", "42354ded", 6002836'u64, Opt.some(false),
+     "1.0909"),
+    (6002819'u64, "97d8ac69", "97d8ac69", 6002859'u64, Opt.some(false),
+     "1.0244"),
+    # Sync committee messages score with block monitoring disabled
+    (6002797'u64, "00000000", "22242212", 6002798'u64, Opt.some(false),
+     "0.1334"),
+    (6002809'u64, "00000000", "26ec78d6", 6002811'u64, Opt.some(false),
+     "0.1520"),
+    (6002826'u64, "00000000", "42354ded", 6002836'u64, Opt.some(false),
+     "0.2586"),
+    (6002819'u64, "00000000", "97d8ac69", 6002859'u64, Opt.some(false),
+     "0.5931"),
+  ]
+
+  AttestationBitsVectors = [
+    ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(0), 0'u64)], 8),
+    ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(1), 0'u64)], 16),
+    ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(0), 1'u64)], 16)
+  ]
+
 proc init(t: typedesc[Eth2Digest], data: string): Eth2Digest =
   let length = len(data)
   var dst = Eth2Digest()
@@ -222,14 +450,52 @@ proc init(t: typedesc[Eth2Digest], data: string): Eth2Digest =
     discard
   dst
 
-proc init*(t: typedesc[ProduceAttestationDataResponse],
-           ad: AttestationDataTuple): ProduceAttestationDataResponse =
+proc init(t: typedesc[ProduceAttestationDataResponse],
+          ad: AttestationDataTuple): ProduceAttestationDataResponse =
   ProduceAttestationDataResponse(data: AttestationData(
     slot: Slot(ad.slot), index: ad.index,
     beacon_block_root: Eth2Digest.init(ad.beacon_block_root),
     source: Checkpoint(epoch: Epoch(ad.source)),
     target: Checkpoint(epoch: Epoch(ad.target))
   ))
+
+proc init(t: typedesc[Attestation], bits: string,
+          slot: Slot = GENESIS_SLOT, index: uint64 = 0'u64): Attestation =
+  let
+    jdata = "{\"data\":\"" & bits & "\"}"
+    bits =
+      try:
+        RestJson.decode(jdata, AttestationBitsObject)
+      except SerializationError as exc:
+        raiseAssert "Serialization error from [" & $exc.name & "]: " & $exc.msg
+  Attestation(aggregation_bits: bits.data,
+              data: AttestationData(slot: slot, index: index))
+
+proc init(t: typedesc[GetAggregatedAttestationResponse],
+          bits: string): GetAggregatedAttestationResponse =
+  GetAggregatedAttestationResponse(data: Attestation.init(bits))
+
+proc init(t: typedesc[ProduceSyncCommitteeContributionResponse],
+          bits: string): ProduceSyncCommitteeContributionResponse =
+  let
+    jdata = "{\"data\":\"" & bits & "\"}"
+    bits =
+      try:
+        RestJson.decode(jdata, SyncCommitteeBitsObject)
+      except SerializationError as exc:
+        raiseAssert "Serialization error from [" & $exc.name & "]: " & $exc.msg
+  ProduceSyncCommitteeContributionResponse(data: SyncCommitteeContribution(
+    aggregation_bits: bits.data
+  ))
+
+proc init(t: typedesc[GetBlockRootResponse],
+          optimistic: Opt[bool], root: Eth2Digest): GetBlockRootResponse =
+  let optopt =
+    if optimistic.isNone():
+      none[bool]()
+    else:
+      some(optimistic.get())
+  GetBlockRootResponse(data: RestRoot(root: root), execution_optimistic: optopt)
 
 proc createRootsSeen(
        root: tuple[root: string, slot: uint64]): Table[Eth2Digest, Slot] =
@@ -238,11 +504,226 @@ proc createRootsSeen(
   res
 
 suite "Validator Client test suite":
+
+  proc decodeBytes[T: TestDecodeTypes](
+       t: typedesc[T],
+       value: openArray[byte],
+       contentType: Opt[ContentTypeData] = Opt.none(ContentTypeData)
+     ): RestResult[T] =
+    let mediaType =
+      if contentType.isNone():
+        ApplicationJsonMediaType
+      else:
+        if isWildCard(contentType.get().mediaType):
+          return err("Incorrect Content-Type")
+        contentType.get().mediaType
+
+    if mediaType == ApplicationJsonMediaType:
+      try:
+        ok RestJson.decode(value, T,
+                           requireAllFields = true,
+                           allowUnknownFields = true)
+      except SerializationError:
+        err("Serialization error")
+    else:
+      err("Content-Type not supported")
+
+  proc submitBeaconCommitteeSelectionsPlain(
+         body: seq[RestBeaconCommitteeSelection]
+       ): RestPlainResponse {.
+       rest, endpoint: "/eth/v1/validator/beacon_committee_selections",
+       meth: MethodPost.}
+    ## https://ethereum.github.io/beacon-APIs/#/Validator/submitBeaconCommitteeSelections
+
+  proc submitSyncCommitteeSelectionsPlain(
+         body: seq[RestSyncCommitteeSelection]
+       ): RestPlainResponse {.
+       rest, endpoint: "/eth/v1/validator/sync_committee_selections",
+       meth: MethodPost.}
+    ## https://ethereum.github.io/beacon-APIs/#/Validator/submitSyncCommitteeSelections
+
+  proc createServer(address: TransportAddress,
+                    process: HttpProcessCallback, secure: bool): HttpServerRef =
+    let
+      socketFlags = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr}
+      res = HttpServerRef.new(address, process, socketFlags = socketFlags)
+    res.get()
+
   test "normalizeUri() test vectors":
     for hostname in HostNames:
       for vector in GoodTestVectors:
         let expect = vector[1] % (hostname)
         check $normalizeUri(parseUri(vector[0] % (hostname))) == expect
+
+  asyncTest "/eth/v1/validator/beacon_committee_selections " &
+            "serialization/deserialization test":
+    var clientRequest: seq[byte]
+    proc process(r: RequestFence): Future[HttpResponseRef] {.async.} =
+      if r.isOk():
+        let request = r.get()
+        case request.uri.path
+        of "/eth/v1/validator/beacon_committee_selections":
+          clientRequest = await request.getBody()
+          let headers = HttpTable.init([("Content-Type", "application/json")])
+          return await request.respond(Http200, ObolBeaconResponseTestVector,
+                                       headers)
+        else:
+          return await request.respond(Http404, "Page not found")
+      else:
+        return dumbResponse()
+
+    let  server = createServer(initTAddress("127.0.0.1:0"), process, false)
+    server.start()
+    defer:
+      await server.stop()
+      await server.closeWait()
+
+    let
+      serverAddress = server.instance.localAddress
+      flags = {RestClientFlag.CommaSeparatedArray}
+      remoteUri = "http://" & $serverAddress
+      client =
+        block:
+          let res = RestClientRef.new(remoteUri, flags = flags)
+          check res.isOk()
+          res.get()
+      selections =
+        block:
+          let res = decodeBytes(
+            seq[RestBeaconCommitteeSelection],
+            ObolBeaconRequestTestVector.toOpenArrayByte(
+              0, len(ObolBeaconRequestTestVector) - 1))
+          check res.isOk()
+          res.get()
+
+    defer:
+      await client.closeWait()
+
+    let resp = await client.submitBeaconCommitteeSelectionsPlain(selections)
+    check:
+      resp.status == 200
+      resp.contentType == MediaType.init("application/json")
+
+    let request =
+      block:
+        let res = decodeBytes(
+          seq[RestBeaconCommitteeSelection],
+          clientRequest)
+        check res.isOk()
+        res.get()
+
+    let response = block:
+      let res = decodeBytes(SubmitBeaconCommitteeSelectionsResponse,
+                            resp.data, resp.contentType)
+      check res.isOk()
+      res.get()
+
+    check:
+      len(request) == len(selections)
+      len(response.data) == len(ObolBeaconResponseTestVectorObject)
+
+    # Checking response
+    for index, item in response.data.pairs():
+      check:
+        item.validator_index ==
+          ObolBeaconResponseTestVectorObject[index].validator_index
+        item.slot ==
+          ObolBeaconResponseTestVectorObject[index].slot
+        item.selection_proof.toHex() ==
+          ObolBeaconResponseTestVectorObject[index].selection_proof
+
+    # Checking request
+    for index, item in selections.pairs():
+      check:
+        item.validator_index == request[index].validator_index
+        item.slot == request[index].slot
+        item.selection_proof.toHex() == request[index].selection_proof.toHex()
+
+  asyncTest "/eth/v1/validator/sync_committee_selections " &
+            "serialization/deserialization test":
+    var clientRequest: seq[byte]
+    proc process(r: RequestFence): Future[HttpResponseRef] {.async.} =
+      if r.isOk():
+        let request = r.get()
+        case request.uri.path
+        of "/eth/v1/validator/sync_committee_selections":
+          clientRequest = await request.getBody()
+          let headers = HttpTable.init([("Content-Type", "application/json")])
+          return await request.respond(Http200, ObolSyncResponseTestVector,
+                                       headers)
+        else:
+          return await request.respond(Http404, "Page not found")
+      else:
+        return dumbResponse()
+
+    let  server = createServer(initTAddress("127.0.0.1:0"), process, false)
+    server.start()
+    defer:
+      await server.stop()
+      await server.closeWait()
+
+    let
+      serverAddress = server.instance.localAddress
+      flags = {RestClientFlag.CommaSeparatedArray}
+      remoteUri = "http://" & $serverAddress
+      client =
+        block:
+          let res = RestClientRef.new(remoteUri, flags = flags)
+          check res.isOk()
+          res.get()
+      selections =
+        block:
+          let res = decodeBytes(
+            seq[RestSyncCommitteeSelection],
+            ObolSyncRequestTestVector.toOpenArrayByte(
+              0, len(ObolSyncRequestTestVector) - 1))
+          check res.isOk()
+          res.get()
+
+    defer:
+      await client.closeWait()
+
+    let resp = await client.submitSyncCommitteeSelectionsPlain(selections)
+    check:
+      resp.status == 200
+      resp.contentType == MediaType.init("application/json")
+
+    let request =
+      block:
+        let res = decodeBytes(
+          seq[RestSyncCommitteeSelection],
+          clientRequest)
+        check res.isOk()
+        res.get()
+
+    let response = block:
+      let res = decodeBytes(SubmitSyncCommitteeSelectionsResponse,
+                            resp.data, resp.contentType)
+      check res.isOk()
+      res.get()
+
+    check:
+      len(request) == len(selections)
+      len(response.data) == len(ObolSyncResponseTestVectorObject)
+
+    # Checking response
+    for index, item in response.data.pairs():
+      check:
+        item.validator_index ==
+          ObolSyncResponseTestVectorObject[index].validator_index
+        item.slot ==
+          ObolSyncResponseTestVectorObject[index].slot
+        item.selection_proof.toHex() ==
+          ObolSyncResponseTestVectorObject[index].selection_proof
+        item.subcommittee_index == request[index].subcommittee_index
+
+    # Checking request
+    for index, item in selections.pairs():
+      check:
+        item.validator_index == request[index].validator_index
+        item.slot == request[index].slot
+        item.subcommittee_index == request[index].subcommittee_index
+        item.selection_proof.toHex() == request[index].selection_proof.toHex()
 
   test "getAttestationDataScore() test vectors":
     for vector in AttestationDataVectors:
@@ -251,6 +732,40 @@ suite "Validator Client test suite":
         roots = createRootsSeen(vector[1])
         score = shortScore(roots.getAttestationDataScore(adata))
       check score == vector[2]
+
+  test "getAggregatedAttestationDataScore() test vectors":
+    for vector in AggregatedDataVectors:
+      let
+        adata = GetAggregatedAttestationResponse.init(vector[0])
+        score = shortScore(getAggregatedAttestationDataScore(adata))
+      check score == vector[1]
+
+  test "getSyncCommitteeContributionDataScore() test vectors":
+    for vector in ContributionDataVectors:
+      let
+        adata = ProduceSyncCommitteeContributionResponse.init(vector[0])
+        score = shortScore(getSyncCommitteeContributionDataScore(adata))
+      check score == vector[1]
+
+  test "getSyncCommitteeMessageDataScore() test vectors":
+    for vector in SyncMessageDataVectors:
+      let
+        roots = createRootsSeen((vector[1], vector[0]))
+        rdata = GetBlockRootResponse.init(vector[4], Eth2Digest.init(vector[2]))
+        currentSlot = Slot(vector[3])
+        score = shortScore(getSyncCommitteeMessageDataScore(roots, currentSlot,
+                                                            rdata))
+      check:
+        score == vector[5]
+
+  test "getUniqueVotes() test vectors":
+    var data = CommitteeValidatorsBits.init(16)
+
+    for vector in AttestationBitsVectors:
+      let
+        a1 = Attestation.init(vector[0][0][0], vector[0][0][1], vector[0][0][2])
+        a2 = Attestation.init(vector[0][1][0], vector[0][1][1], vector[0][1][2])
+      check getUniqueVotes([a1, a2]) == vector[1]
 
   asyncTest "firstSuccessParallel() API timeout test":
     let
@@ -336,7 +851,6 @@ suite "Validator Client test suite":
     check:
       response.isErr()
       gotCancellation == true
-
 
   test "getLiveness() response deserialization test":
     proc generateLivenessResponse(T: typedesc[string],

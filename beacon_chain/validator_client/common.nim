@@ -65,7 +65,9 @@ type
   DutiesServiceRef* = ref object of ClientServiceRef
     pollingAttesterDutiesTask*: Future[void]
     pollingSyncDutiesTask*: Future[void]
+    pruneSlashingDatabaseTask*: Future[void]
     syncSubscriptionEpoch*: Opt[Epoch]
+    lastSlashingEpoch*: Opt[Epoch]
 
   FallbackServiceRef* = ref object of ClientServiceRef
     changesEvent*: AsyncEvent
@@ -95,7 +97,8 @@ type
 
   ProposerTask* = object
     duty*: RestProposerDuty
-    future*: Future[void]
+    proposeFut*: Future[void]
+    randaoFut*: Future[void]
 
   ProposedData* = object
     epoch*: Epoch
@@ -228,6 +231,7 @@ type
     blocksSeen*: Table[Slot, BlockDataItem]
     rootsSeen*: Table[Eth2Digest, Slot]
     processingDelay*: Opt[Duration]
+    finalizedEpoch*: Opt[Epoch]
     rng*: ref HmacDrbgContext
 
   ApiStrategyKind* {.pure.} = enum
@@ -235,7 +239,7 @@ type
 
   ApiFailure* {.pure.} = enum
     Communication, Invalid, NotFound, OptSynced, NotSynced, Internal,
-    UnexpectedCode, UnexpectedResponse, NoError
+    NotImplemented, UnexpectedCode, UnexpectedResponse, NoError
 
   ApiNodeFailure* = object
     node*: BeaconNodeServerRef
@@ -250,22 +254,6 @@ type
   ValidatorClientError* = object of CatchableError
   ValidatorApiError* = object of ValidatorClientError
     data*: seq[ApiNodeFailure]
-
-  FillSignaturesResult* = object
-    signaturesRequested*: int
-    signaturesReceived*: int
-
-  AttestationSlotRequest* = object
-    validator*: AttachedValidator
-    fork*: Fork
-    slot*: Slot
-
-  SyncCommitteeSlotRequest* = object
-    validator*: AttachedValidator
-    fork*: Fork
-    slot*: Slot
-    sync_committee_index*: IndexInSyncCommittee
-    duty*: SyncCommitteeDuty
 
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
@@ -382,6 +370,7 @@ proc `$`*(failure: ApiFailure): string =
   of ApiFailure.NotSynced: "not-synced"
   of ApiFailure.OptSynced: "opt-synced"
   of ApiFailure.Internal: "internal-issue"
+  of ApiFailure.NotImplemented: "not-implemented"
   of ApiFailure.UnexpectedCode: "unexpected-code"
   of ApiFailure.UnexpectedResponse: "unexpected-data"
   of ApiFailure.NoError: "status-update"
@@ -1460,240 +1449,6 @@ func `==`*(a, b: SyncCommitteeDuty): bool =
   (a.validator_index == b.validator_index) and
   compareUnsorted(a.validator_sync_committee_indices,
                   b.validator_sync_committee_indices)
-
-proc cmp(x, y: AttestationSlotRequest|SyncCommitteeSlotRequest): int =
-  cmp(x.slot, y.slot)
-
-func getIndex*(proof: SyncCommitteeSelectionProof,
-               inindex: IndexInSyncCommittee): Opt[int] =
-  if len(proof) == 0:
-    return Opt.none(int)
-  for index, value in proof.pairs():
-    if value.sync_committee_index == inindex:
-      return Opt.some(index)
-  Opt.none(int)
-
-func hasSignature*(proof: SyncCommitteeSelectionProof,
-                   inindex: IndexInSyncCommittee,
-                   slot: Slot): bool =
-  let index = proof.getIndex(inindex).valueOr: return false
-  proof[index].signatures[int(slot.since_epoch_start())].isSome()
-
-proc setSignature*(proof: var SyncCommitteeSelectionProof,
-                   inindex: IndexInSyncCommittee, slot: Slot,
-                   signature: Opt[ValidatorSig]) =
-  let index = proof.getIndex(inindex).expect(
-    "EpochSelectionProof should be present at this moment")
-  proof[index].signatures[int(slot.since_epoch_start())] = signature
-
-proc setSyncSelectionProof*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
-                            inindex: IndexInSyncCommittee, slot: Slot,
-                            duty: SyncCommitteeDuty,
-                            signature: Opt[ValidatorSig]) =
-  let
-    proof =
-      block:
-        let length = len(duty.validator_sync_committee_indices)
-        var res = newSeq[EpochSelectionProof](length)
-        for i in 0 ..< length:
-          res[i].sync_committee_index = duty.validator_sync_committee_indices[i]
-        res
-
-  vc.syncCommitteeProofs.
-    mgetOrPut(slot.epoch(), default(SyncCommitteeProofs)).proofs.
-    mgetOrPut(pubkey, proof).setSignature(inindex, slot, signature)
-
-proc getSyncCommitteeSelectionProof*(
-    vc: ValidatorClientRef,
-    pubkey: ValidatorPubKey,
-    epoch: Epoch
-  ): Opt[SyncCommitteeSelectionProof] =
-  vc.syncCommitteeProofs.withValue(epoch, epochProofs):
-    epochProofs[].proofs.withValue(pubkey, validatorProofs):
-      return Opt.some(validatorProofs[])
-    do:
-      return Opt.none(SyncCommitteeSelectionProof)
-  do:
-    return Opt.none(SyncCommitteeSelectionProof)
-
-proc getSyncCommitteeSelectionProof*(
-       vc: ValidatorClientRef,
-       pubkey: ValidatorPubKey,
-       slot: Slot,
-       inindex: IndexInSyncCommittee
-     ): Opt[ValidatorSig] =
-  vc.syncCommitteeProofs.withValue(slot.epoch(), epochProofs):
-    epochProofs[].proofs.withValue(pubkey, validatorProofs):
-      let index = getIndex(validatorProofs[], inindex).valueOr:
-        return Opt.none(ValidatorSig)
-      return validatorProofs[][index].signatures[int(slot.since_epoch_start())]
-    do:
-      return Opt.none(ValidatorSig)
-  do:
-    return Opt.none(ValidatorSig)
-
-proc fillSyncCommitteeSelectionProofs*(
-       service: DutiesServiceRef,
-       start, finish: Slot
-     ): Future[FillSignaturesResult] {.async.} =
-  let
-    vc = service.client
-    genesisRoot = vc.beaconGenesis.genesis_validators_root
-  var
-    requests =
-      block:
-        var res: seq[SyncCommitteeSlotRequest]
-        for epoch in start.epoch() .. finish.epoch():
-          let
-            fork = vc.forkAtEpoch(epoch)
-            period = epoch.sync_committee_period()
-          for duty in vc.syncDutiesForPeriod(period):
-            let validator = vc.attachedValidators[].
-              getValidator(duty.pubkey).valueOr:
-                # Ignore all the validators which are not here anymore
-                continue
-            if validator.index.isNone():
-              # Ignore all the valididators which do not have index yet.
-              continue
-            let proof = vc.getSyncCommitteeSelectionProof(duty.pubkey, epoch).
-                          get(default(SyncCommitteeSelectionProof))
-            for inindex in duty.validator_sync_committee_indices:
-              for slot in epoch.slots():
-                if slot < start: continue
-                if slot > finish: break
-                if not(proof.hasSignature(inindex, slot)):
-                  res.add(
-                    SyncCommitteeSlotRequest(
-                      validator: validator,
-                      fork: fork,
-                      slot: slot,
-                      duty: duty,
-                      sync_committee_index: inindex))
-        # We make requests sorted by slot number.
-        sorted(res, cmp, order = SortOrder.Ascending)
-    sigres = FillSignaturesResult(signaturesRequested: len(requests))
-    pendingRequests = requests.mapIt(
-      FutureBase(getSyncCommitteeSelectionProof(
-        it.validator, it.fork, genesisRoot, it.slot,
-        getSubcommitteeIndex(it.sync_committee_index))))
-
-  while len(pendingRequests) > 0:
-    try:
-      discard await race(pendingRequests)
-    except CancelledError as exc:
-      let pending = pendingRequests
-        .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-      await noCancel allFutures(pending)
-      raise exc
-
-    (requests, pendingRequests) =
-      block:
-        var
-          res1: seq[SyncCommitteeSlotRequest]
-          res2: seq[FutureBase]
-        for index, fut in pendingRequests.pairs():
-          if not(fut.finished()):
-            res1.add(requests[index])
-            res2.add(fut)
-          else:
-            let
-              request = requests[index]
-              signature =
-                if fut.completed():
-                  let sres = Future[SignatureResult](fut).read()
-                  if sres.isErr():
-                    warn "Unable to create slot signature using remote signer",
-                         reason = sres.error(), epoch = request.slot.epoch(),
-                         slot = request.slot
-                    Opt.none(ValidatorSig)
-                  else:
-                    inc(sigres.signaturesReceived)
-                    Opt.some(sres.get())
-                else:
-                  Opt.none(ValidatorSig)
-            vc.setSyncSelectionProof(request.validator.pubkey,
-                                     request.sync_committee_index,
-                                     request.slot, request.duty,
-                                     signature)
-        (res1, res2)
-  sigres
-
-proc fillAttestationSelectionProofs*(
-       service: DutiesServiceRef,
-       start, finish: Slot
-     ): Future[FillSignaturesResult] {.async.} =
-  let
-    vc = service.client
-    genesisRoot = vc.beaconGenesis.genesis_validators_root
-  var
-    requests =
-      block:
-        var res: seq[AttestationSlotRequest]
-        for epoch in start.epoch() .. finish.epoch():
-          for duty in vc.attesterDutiesForEpoch(epoch):
-            if (duty.data.slot < start) or (duty.data.slot > finish):
-              # Ignore all the slots which are not in range.
-              continue
-            if duty.slotSig.isSome():
-              # Ignore all the duties which already has selection proof.
-              continue
-            let validator = vc.attachedValidators[].
-              getValidator(duty.data.pubkey).valueOr:
-                # Ignore all the validators which are not here anymore
-                continue
-            if validator.index.isNone():
-              # Ignore all the valididators which do not have index yet.
-              continue
-            res.add(AttestationSlotRequest(
-              validator: validator,
-              slot: duty.data.slot,
-              fork: vc.forkAtEpoch(duty.data.slot.epoch())
-            ))
-        # We make requests sorted by slot number.
-        sorted(res, cmp, order = SortOrder.Ascending)
-    sigres = FillSignaturesResult(signaturesRequested: len(requests))
-    pendingRequests = requests.mapIt(
-      FutureBase(getSlotSignature(it.validator, it.fork, genesisRoot, it.slot)))
-
-  while len(pendingRequests) > 0:
-    try:
-      discard await race(pendingRequests)
-    except CancelledError as exc:
-      let pending = pendingRequests
-        .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-      await noCancel allFutures(pending)
-      raise exc
-
-    (requests, pendingRequests) =
-      block:
-        var
-          res1: seq[AttestationSlotRequest]
-          res2: seq[FutureBase]
-        for index, fut in pendingRequests.pairs():
-          if not(fut.finished()):
-            res1.add(requests[index])
-            res2.add(fut)
-          else:
-            let
-              request = requests[index]
-              signature =
-                if fut.completed():
-                  let sres = Future[SignatureResult](fut).read()
-                  if sres.isErr():
-                    warn "Unable to create slot signature using remote signer",
-                         reason = sres.error(), epoch = request.slot.epoch(),
-                         slot = request.slot
-                    Opt.none(ValidatorSig)
-                  else:
-                    inc(sigres.signaturesReceived)
-                    Opt.some(sres.get())
-                else:
-                  Opt.none(ValidatorSig)
-            vc.attesters.withValue(request.validator.pubkey, map):
-              map[].duties.withValue(request.slot.epoch(), dap):
-                dap[].slotSig = signature
-        (res1, res2)
-  sigres
 
 proc updateRuntimeConfig*(vc: ValidatorClientRef,
                           node: BeaconNodeServerRef,

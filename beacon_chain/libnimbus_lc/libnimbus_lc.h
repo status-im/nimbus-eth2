@@ -149,11 +149,11 @@ typedef struct ETHBeaconState ETHBeaconState;
  *         representation - If successful.
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/bellatrix/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/configs/README.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/bellatrix/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/configs/README.md
  */
 ETH_RESULT_USE_CHECK
 ETHBeaconState *ETHBeaconStateCreateFromSsz(
@@ -198,7 +198,7 @@ ETHRoot *ETHBeaconStateCopyGenesisValidatorsRoot(const ETHBeaconState *state);
  *
  * @param      root                 Merkle root.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#custom-types
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#custom-types
  */
 void ETHRootDestroy(ETHRoot *root);
 
@@ -268,7 +268,7 @@ void ETHBeaconClockDestroy(ETHBeaconClock *beaconClock);
  * @return Slot number for the current wall clock time - If genesis has occurred.
  * @return `0` - If genesis is still pending.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/beacon-chain.md#custom-types
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#custom-types
  */
 ETH_RESULT_USE_CHECK
 int ETHBeaconClockGetSlot(const ETHBeaconClock *beaconClock);
@@ -322,7 +322,7 @@ typedef struct ETHLightClientStore ETHLightClientStore;
  *
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/light-client.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/light-client.md
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
  */
 ETH_RESULT_USE_CHECK
@@ -576,7 +576,7 @@ typedef struct ETHLightClientHeader ETHLightClientHeader;
  *
  * @return Latest finalized header.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
  */
 ETH_RESULT_USE_CHECK
 const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(
@@ -594,8 +594,8 @@ const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(
  *
  * @return Whether or not the next sync committee is currently known.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/light-client/light-client.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/light-client.md
  */
 ETH_RESULT_USE_CHECK
 bool ETHLightClientStoreIsNextSyncCommitteeKnown(const ETHLightClientStore *store);
@@ -611,7 +611,7 @@ bool ETHLightClientStoreIsNextSyncCommitteeKnown(const ETHLightClientStore *stor
  *
  * @return Latest optimistic header.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
  */
 ETH_RESULT_USE_CHECK
 const ETHLightClientHeader *ETHLightClientStoreGetOptimisticHeader(
@@ -669,7 +669,7 @@ void ETHLightClientHeaderDestroy(ETHLightClientHeader *header);
  *
  * @return Pointer to a copy of the given header's beacon block root.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/beacon-chain.md#hash_tree_root
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#hash_tree_root
  */
 ETH_RESULT_USE_CHECK
 ETHRoot *ETHLightClientHeaderCopyBeaconRoot(
@@ -772,7 +772,7 @@ const ETHRoot *ETHBeaconBlockHeaderGetBodyRoot(const ETHBeaconBlockHeader *beaco
  *
  * @return Pointer to a copy of the given header's execution block hash.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#executionpayloadheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#executionpayloadheader
  */
 ETH_RESULT_USE_CHECK
 ETHRoot *ETHLightClientHeaderCopyExecutionHash(
@@ -1142,7 +1142,7 @@ void ETHTransactionsDestroy(ETHTransactions *transactions);
 /**
  * Indicates the total number of transactions in a transaction sequence.
  *
- * - Individual transactions may be investigated using `ETHTransactionsGet`.
+ * - Individual transactions may be inspected using `ETHTransactionsGet`.
  *
  * @param      transactions         Transaction sequence.
  *
@@ -1352,7 +1352,7 @@ const ETHAccessList *ETHTransactionGetAccessList(const ETHTransaction *transacti
 /**
  * Indicates the total number of access tuples in a transaction access list.
  *
- * - Individual access tuples may be investigated using `ETHAccessListGet`.
+ * - Individual access tuples may be inspected using `ETHAccessListGet`.
  *
  * @param      accessList           Transaction access list.
  *
@@ -1401,7 +1401,7 @@ const ETHExecutionAddress *ETHAccessTupleGetAddress(const ETHAccessTuple *access
 /**
  * Indicates the total number of storage keys in an access tuple.
  *
- * - Individual storage keys may be investigated using
+ * - Individual storage keys may be inspected using
  *   `ETHAccessTupleGetStorageKey`.
  *
  * @param      accessTuple          Access tuple.
@@ -1446,7 +1446,7 @@ const uint64_t *ETHTransactionGetMaxFeePerBlobGas(const ETHTransaction *transact
 /**
  * Indicates the total number of blob versioned hashes of a transaction.
  *
- * - Individual blob versioned hashes may be investigated using
+ * - Individual blob versioned hashes may be inspected using
  *   `ETHTransactionGetBlobVersionedHash`.
  *
  * @param      transaction          Transaction.
@@ -1553,7 +1553,7 @@ void ETHReceiptsDestroy(ETHReceipts *receipts);
 /**
  * Indicates the total number of receipts in a receipt sequence.
  *
- * - Individual receipts may be investigated using `ETHReceiptsGet`.
+ * - Individual receipts may be inspected using `ETHReceiptsGet`.
  *
  * @param      receipts             Receipt sequence.
  *
@@ -1677,7 +1677,7 @@ const ETHLogs *ETHReceiptGetLogs(const ETHReceipt *receipt);
 /**
  * Indicates the total number of logs in a log sequence.
  *
- * - Individual logs may be investigated using `ETHLogsGet`.
+ * - Individual logs may be inspected using `ETHLogsGet`.
  *
  * @param      logs                 Log sequence.
  *
@@ -1725,7 +1725,7 @@ const ETHExecutionAddress *ETHLogGetAddress(const ETHLog *log);
 /**
  * Indicates the total number of topics in a log.
  *
- * - Individual topics may be investigated using `ETHLogGetTopic`.
+ * - Individual topics may be inspected using `ETHLogGetTopic`.
  *
  * @param      log                  Log.
  *
@@ -1788,7 +1788,7 @@ const void *ETHReceiptGetBytes(
 /**
  * Indicates the total number of withdrawals in a withdrawal sequence.
  *
- * - Individual withdrawals may be investigated using `ETHWithdrawalsGet`.
+ * - Individual withdrawals may be inspected using `ETHWithdrawalsGet`.
  *
  * @param      withdrawals          Withdrawal sequence.
  *

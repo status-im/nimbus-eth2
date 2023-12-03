@@ -110,7 +110,7 @@ proc isGossipSupported*(
     finalizedPeriod = self.getFinalizedPeriod(),
     isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 proc doRequest(
     e: typedesc[Bootstrap],
     peer: Peer,
@@ -119,7 +119,7 @@ proc doRequest(
     raises: [IOError].} =
   peer.lightClientBootstrap(blockRoot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
 type LightClientUpdatesByRangeResponse =
   NetRes[List[ForkedLightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES]]
 proc doRequest(
@@ -138,7 +138,7 @@ proc doRequest(
       raise newException(ResponseError, e.error)
   return response
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 proc doRequest(
     e: typedesc[FinalityUpdate],
     peer: Peer
@@ -146,7 +146,7 @@ proc doRequest(
     raises: [IOError].} =
   peer.lightClientFinalityUpdate()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 proc doRequest(
     e: typedesc[OptimisticUpdate],
     peer: Peer
@@ -279,10 +279,10 @@ proc query[E](
       let didProgress = cast[Future[bool]](future).read()
       if didProgress and not progressFut.finished:
         progressFut.complete()
-    except CancelledError as exc:
+    except CancelledError:
       if not progressFut.finished:
         progressFut.cancelSoon()
-    except CatchableError as exc:
+    except CatchableError:
       discard
     finally:
       inc numCompleted
@@ -297,7 +297,7 @@ proc query[E](
         workers[i].addCallback(handleFinishedWorker)
       except CancelledError as exc:
         raise exc
-      except CatchableError as exc:
+      except CatchableError:
         workers[i] = newFuture[bool]()
         workers[i].complete(false)
 
@@ -316,13 +316,13 @@ proc query[E](
       try:
         await allFutures(workers[0 ..< maxCompleted])
         break
-      except CancelledError as exc:
+      except CancelledError:
         continue
     while true:
       try:
         await doneFut
         break
-      except CancelledError as exc:
+      except CancelledError:
         continue
 
   if not progressFut.finished:
@@ -335,7 +335,7 @@ template query[E](
 ): Future[bool] =
   self.query(e, Nothing())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/light-client.md#light-client-sync-process
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/light-client.md#light-client-sync-process
 proc loop(self: LightClientManager) {.async.} =
   var nextSyncTaskTime = self.getBeaconTime()
   while true:

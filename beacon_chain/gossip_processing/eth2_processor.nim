@@ -245,7 +245,7 @@ proc processSignedBeaconBlock*(
           Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root))
         else:
           if not self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                              signedBlock):
+                                               signedBlock):
             notice "Block quarantine full (blobless)",
               blockRoot = shortLog(signedBlock.root),
               blck = shortLog(signedBlock.message),
@@ -273,30 +273,26 @@ proc processSignedBeaconBlock*(
 
   v
 
-proc processSignedBlobSidecar*(
+proc processBlobSidecar*(
     self: var Eth2Processor, src: MsgSource,
-    signedBlobSidecar: deneb.SignedBlobSidecar, idx: BlobIndex): ValidationRes =
+    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId): ValidationRes =
+  template block_header: untyped = blobSidecar.signed_block_header.message
+
   let
     wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+    (_, wallSlot) = wallTime.toSlot()
 
   logScope:
-    blob = shortLog(signedBlobSidecar.message)
-    signature = shortLog(signedBlobSidecar.signature)
+    blob = shortLog(blobSidecar)
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - signedBlobSidecar.message.slot.start_beacon_time
-
-  if self.blobQuarantine[].hasBlob(signedBlobSidecar.message):
-    debug "Blob received, already in quarantine", delay
-    return ValidationRes.ok
-  else:
-    debug "Blob received", delay
+  let delay = wallTime - block_header.slot.start_beacon_time
+  debug "Blob received", delay
 
   let v =
     self.dag.validateBlobSidecar(self.quarantine, self.blobQuarantine,
-                                 signedBlobSidecar, wallTime, idx)
+                                 blobSidecar, wallTime, subnet_id)
 
   if v.isErr():
     debug "Dropping blob", error = v.error()
@@ -304,21 +300,17 @@ proc processSignedBlobSidecar*(
     return v
 
   debug "Blob validated, putting in blob quarantine"
-  self.blobQuarantine[].put(newClone(signedBlobSidecar.message))
+  self.blobQuarantine[].put(newClone(blobSidecar))
 
-  var skippedBlocks = false
-
-  if (let o = self.quarantine[].popBlobless(
-    signedBlobSidecar.message.block_root); o.isSome):
+  let block_root = hash_tree_root(block_header)
+  if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
     let blobless = o.unsafeGet()
 
     if self.blobQuarantine[].hasBlobs(blobless):
       self.blockProcessor[].enqueueBlock(
         MsgSource.gossip,
         ForkedSignedBeaconBlock.init(blobless),
-        Opt.some(self.blobQuarantine[].popBlobs(
-          signedBlobSidecar.message.block_root))
-      )
+        Opt.some(self.blobQuarantine[].popBlobs(block_root)))
     else:
       discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
                                             blobless)
@@ -658,7 +650,7 @@ proc processSignedContributionAndProof*(
 
     err(v.error())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -674,7 +666,7 @@ proc processLightClientFinalityUpdate*(
     beacon_light_client_finality_update_dropped.inc(1, [$v.error[0]])
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
     self: var Eth2Processor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

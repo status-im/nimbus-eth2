@@ -25,7 +25,7 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/tests/core/pyspec/eth2spec/test/helpers/keys.py
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/keys.py
 func `[]`*(sk: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
   var bytes = (index.uint64 + 1'u64).toBytesLE()  # Consistent with EF tests
   static: doAssert sizeof(bytes) <= sizeof(result)
@@ -268,7 +268,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,

@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import std/[typetraits, strutils]
 import stew/[assign2, results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization, json_serialization,
@@ -97,7 +99,7 @@ type
     SetGasLimitRequest |
     bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock |
-    deneb_mev.SignedBlindedBeaconBlockContents |
+    deneb_mev.SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
@@ -120,7 +122,9 @@ type
     seq[RestSyncCommitteeSubscription] |
     seq[SignedAggregateAndProof] |
     seq[SignedValidatorRegistrationV1] |
-    seq[ValidatorIndex]
+    seq[ValidatorIndex] |
+    seq[RestBeaconCommitteeSelection] |
+    seq[RestSyncCommitteeSelection]
 
   DecodeTypes* =
     DataEnclosedObject |
@@ -128,6 +132,7 @@ type
     DataRootEnclosedObject |
     DataOptimisticObject |
     DataVersionEnclosedObject |
+    DataOptimisticAndFinalizedObject |
     GetBlockV2Response |
     GetDistributedKeystoresResponse |
     GetKeystoresResponse |
@@ -162,9 +167,8 @@ type
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
-                    DenebBlockContents | capella_mev.BlindedBeaconBlock
-
-{.push raises: [].}
+                    DenebBlockContents | capella_mev.BlindedBeaconBlock |
+                    deneb_mev.BlindedBeaconBlock
 
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
@@ -641,6 +645,16 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
+## RestNumeric
+proc writeValue*(w: var JsonWriter[RestJson],
+                 value: RestNumeric) {.raises: [IOError].} =
+  writeValue(w, int(value))
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestNumeric) {.
+     raises: [IOError, SerializationError].} =
+  value = RestNumeric(reader.readValue(int))
+
 ## JustificationBits
 proc writeValue*(
     w: var JsonWriter[RestJson], value: JustificationBits
@@ -949,6 +963,38 @@ proc writeValue*(
 ) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
+## Blob
+## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L129-L133
+proc readValue*(reader: var JsonReader[RestJson], value: var Blob) {.
+     raises: [IOError, SerializationError].} =
+  try:
+    hexToByteArray(reader.readValue(string), distinctBase(value))
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "Blob value should be a valid hex string")
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: Blob
+) {.raises: [IOError].} =
+  writeValue(writer, hexOriginal(distinctBase(value)))
+
+## KzgCommitment and KzgProof; both are the same type, but this makes it
+## explicit.
+## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L135-L146
+proc readValue*(reader: var JsonReader[RestJson],
+     value: var (KzgCommitment|KzgProof)) {.
+     raises: [IOError, SerializationError].} =
+  try:
+    hexToByteArray(reader.readValue(string), distinctBase(value))
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "KzgCommitment value should be a valid hex string")
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof
+) {.raises: [IOError].} =
+  writeValue(writer, hexOriginal(distinctBase(value)))
+
 ## GraffitiBytes
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: GraffitiBytes
@@ -1223,7 +1269,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     let res =
       try:
         RestJson.decode(string(data.get()),
-                        capella_mev.BlindedBeaconBlock,
+                        deneb_mev.BlindedBeaconBlock,
                         requireAllFields = true,
                         allowUnknownFields = true)
       except SerializationError as exc:
@@ -1378,7 +1424,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlockBody")
       bls_to_execution_changes = Opt.some(
         reader.readValue(SignedBLSToExecutionChangeList))
-    of "blob_kzg_commitments_changes":
+    of "blob_kzg_commitments":
       if blob_kzg_commitments.isSome():
         reader.raiseUnexpectedField("Multiple `blob_kzg_commitments` fields found",
                                     "RestPublishedBeaconBlockBody")
@@ -1711,12 +1757,12 @@ proc readValue*(reader: var JsonReader[RestJson],
   var message: Opt[RestPublishedBeaconBlock]
   var signed_message: Opt[RestPublishedSignedBeaconBlock]
   var signed_block_data: Opt[JsonString]
-  var signed_blob_sidecars: Opt[List[SignedBlobSidecar,
-                                     Limit MAX_BLOBS_PER_BLOCK]]
+  var kzg_proofs: Opt[deneb.KzgProofs]
+  var blobs: Opt[deneb.Blobs]
 
   # Pre-Deneb, there were always the same two top-level fields
   # ('signature' and 'message'). For Deneb, there's a different set of
-  # a top-level fields: 'signed_block' 'signed_blob_sidecars'. The
+  # a top-level fields: 'signed_block' 'kzg_proofs', `blobs`. The
   # former is the same as the pre-Deneb object.
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -1749,6 +1795,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           Opt.none(RestPublishedSignedBeaconBlock)
       if signed_message.isNone():
         reader.raiseUnexpectedValue("Incorrect signed_block format")
+
+      # Only needed to signal fork to the blck.kind case selection
       let blck = ForkedSignedBeaconBlock(signed_message.get())
       message = Opt.some(RestPublishedBeaconBlock(
         case blck.kind
@@ -1758,30 +1806,49 @@ proc readValue*(reader: var JsonReader[RestJson],
         of ConsensusFork.Deneb:
           ForkedBeaconBlock.init(blck.denebData.message)
       ))
-
-      signature = Opt.some(forks.signature(
-        ForkedSignedBeaconBlock(signed_message.get())))
-    of "signed_blob_sidecars":
-      if signed_blob_sidecars.isSome():
+    of "kzg_proofs":
+      if kzg_proofs.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `signed_blob_sidecars` fields found",
+          "Multiple `kzg_proofs` fields found",
           "RestPublishedSignedBlockContents")
       if signature.isSome():
         reader.raiseUnexpectedField(
-          "Found `signed_block` field alongside message or signature fields",
+          "Found `kzg_proofs` field alongside signature field",
           "RestPublishedSignedBlockContents")
-      signed_blob_sidecars = Opt.some(reader.readValue(
-        List[SignedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
-
+      kzg_proofs = Opt.some(reader.readValue(deneb.KzgProofs))
+    of "blobs":
+      if blobs.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `blobs` fields found",
+          "RestPublishedSignedBlockContents")
+      if signature.isSome():
+        reader.raiseUnexpectedField(
+          "Found `blobs` field alongside signature field",
+          "RestPublishedSignedBlockContents")
+      blobs = Opt.some(reader.readValue(deneb.Blobs))
     else:
       unrecognizedFieldWarning()
 
-  if signature.isNone():
-    reader.raiseUnexpectedValue("Field `signature` is missing")
-  if message.isNone():
-    reader.raiseUnexpectedValue("Field `message` is missing")
+  if signed_message.isNone():
+    # Pre-Deneb; conditions for when signed_message.isSome checked in case body
+    if signature.isNone():
+      reader.raiseUnexpectedValue("Field `signature` is missing")
+    if message.isNone():
+      reader.raiseUnexpectedValue("Field `message` is missing")
 
   let blck = ForkedBeaconBlock(message.get())
+
+  if blck.kind >= ConsensusFork.Deneb:
+    if kzg_proofs.isNone():
+      reader.raiseUnexpectedValue("Field `kzg_proofs` is missing")
+    if blobs.isNone():
+      reader.raiseUnexpectedValue("Field `blobs` is missing")
+  else:
+    if kzg_proofs.isSome():
+      reader.raiseUnexpectedValue("Field `kzg_proofs` found but unsupported")
+    if blobs.isSome():
+      reader.raiseUnexpectedValue("Field `blobs` found but unsupported")
+
   case blck.kind
     of ConsensusFork.Phase0:
       value = RestPublishedSignedBlockContents(
@@ -1819,11 +1886,10 @@ proc readValue*(reader: var JsonReader[RestJson],
       value = RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb,
         denebData: DenebSignedBlockContents(
-          signed_block: deneb.SignedBeaconBlock(
-            message: blck.denebData,
-            signature: signature.get()
-          ),
-          signed_blob_sidecars: signed_blob_sidecars.get()
+          # Constructed to be internally consistent
+          signed_block: signed_message.get().distinctBase.denebData,
+          kzg_proofs: kzg_proofs.get(),
+          blobs: blobs.get()
         )
       )
 
@@ -3483,7 +3549,7 @@ proc decodeBytes*[T: DecodeConsensysTypes](
       case fork
       of ConsensusFork.Deneb:
         let
-          blck = ? readSszResBytes(capella_mev.BlindedBeaconBlock, value)
+          blck = ? readSszResBytes(deneb_mev.BlindedBeaconBlock, value)
           forked = ForkedBlindedBeaconBlock(
             kind: ConsensusFork.Deneb, denebData: blck)
         ok(ProduceBlindedBlockResponse(forked))
@@ -3573,6 +3639,15 @@ proc encodeString*(value: StateIdent): RestResult[string] =
       ok("finalized")
     of StateIdentType.Justified:
       ok("justified")
+
+proc encodeString*(value: BroadcastValidationType): RestResult[string] =
+  case value
+  of BroadcastValidationType.Gossip:
+    ok("gossip")
+  of BroadcastValidationType.Consensus:
+    ok("consensus")
+  of BroadcastValidationType.ConsensusAndEquivocation:
+    ok("consensus_and_equivocation")
 
 proc encodeString*(value: BlockIdent): RestResult[string] =
   case value.kind
@@ -3788,6 +3863,18 @@ proc decodeString*(t: typedesc[BlockIdent],
   else:
     let res = ? Base10.decode(uint64, value)
     ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
+
+proc decodeString*(t: typedesc[BroadcastValidationType],
+                   value: string): Result[BroadcastValidationType, cstring] =
+  case value
+  of "gossip":
+    ok(BroadcastValidationType.Gossip)
+  of "consensus":
+    ok(BroadcastValidationType.Consensus)
+  of "consensus_and_equivocation":
+    ok(BroadcastValidationType.ConsensusAndEquivocation)
+  else:
+    err("Incorrect broadcast validation type value")
 
 proc decodeString*(t: typedesc[ValidatorIdent],
                    value: string): Result[ValidatorIdent, cstring] =

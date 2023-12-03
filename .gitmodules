@@ -24,7 +24,7 @@
 	path = vendor/nim-libp2p
 	url = https://github.com/status-im/nim-libp2p.git
 	ignore = untracked
-	branch = b2eac7e-and-revert-c6aa085
+	branch = unstable
 [submodule "vendor/nimbus-build-system"]
 	path = vendor/nimbus-build-system
 	url = https://github.com/status-im/nimbus-build-system.git
@@ -64,7 +64,7 @@
 	path = vendor/nim-chronicles
 	url = https://github.com/status-im/nim-chronicles.git
 	ignore = untracked
-	branch = nbc-1.5.3
+	branch = master
 [submodule "vendor/nim-faststreams"]
 	path = vendor/nim-faststreams
 	url = https://github.com/status-im/nim-faststreams.git

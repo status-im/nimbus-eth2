@@ -28,8 +28,7 @@ proc addMapping*(store: var DynamicFeeRecipientsStore,
                  validator: ValidatorIndex,
                  feeRecipient: Eth1Address,
                  currentEpoch: Epoch) =
-  var
-    found, updated = false
+  var updated = false
   store.mappings.withValue(validator, entry) do:
     updated = not (entry[].recipient == feeRecipient)
     entry[] = Entry(recipient: feeRecipient, addedAt: currentEpoch)

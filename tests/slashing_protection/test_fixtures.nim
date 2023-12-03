@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -182,7 +182,8 @@ proc runTest(identifier: string) =
 
     for blck in step.blocks:
       let pubkey = ValidatorPubKey.fromRaw(blck.pubkey.PubKeyBytes).get()
-      let status = db.db_v2.checkSlashableBlockProposal(none(ValidatorIndex),
+      let status = db.db_v2.checkSlashableBlockProposal(
+        Opt.none(ValidatorIndex),
         pubkey,
         Slot blck.slot
       )
@@ -196,7 +197,7 @@ proc runTest(identifier: string) =
         # Successful blocks are to be incoporated in the DB
         if status.isOk(): # Skip duplicates
           let status = db.db_v2.registerBlock(
-            none(ValidatorIndex),
+            Opt.none(ValidatorIndex),
             pubkey, Slot blck.slot,
             Eth2Digest blck.signing_root
           )
@@ -212,7 +213,7 @@ proc runTest(identifier: string) =
     for att in step.attestations:
       let pubkey = ValidatorPubKey.fromRaw(att.pubkey.PubKeyBytes).get()
 
-      let status = db.db_v2.checkSlashableAttestation(none(ValidatorIndex),
+      let status = db.db_v2.checkSlashableAttestation(Opt.none(ValidatorIndex),
         pubkey,
         Epoch att.source_epoch,
         Epoch att.target_epoch
@@ -227,7 +228,7 @@ proc runTest(identifier: string) =
         # Successful attestations are to be incoporated in the DB
         if status.isOk(): # Skip duplicates
           let status = db.db_v2.registerAttestation(
-            none(ValidatorIndex),
+            Opt.none(ValidatorIndex),
             pubkey,
             Epoch att.source_epoch,
             Epoch att.target_epoch,

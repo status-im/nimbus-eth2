@@ -118,9 +118,9 @@ ifneq ($(OS), Windows_NT)
 PLATFORM_SPECIFIC_TARGETS += gnosis-build
 endif
 
-# We don't need the `vendor/holesky/public-keys/all.txt` file but fetching it
+# We don't need these `vendor/holesky` files but fetching them
 # may trigger 'This repository is over its data quota' from GitHub
-GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt
+GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt,/custom_config_data/genesis.ssz
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -240,7 +240,7 @@ local-testnet-minimal:
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
 		--capella-fork-epoch 0 \
-		--deneb-fork-epoch 20 \
+		--deneb-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-payload-builder \
@@ -270,6 +270,7 @@ local-testnet-mainnet:
 		--data-dir $@ \
 		--nodes 2 \
 		--capella-fork-epoch 0 \
+		--deneb-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
@@ -841,10 +842,10 @@ book:
 	"$(MAKE)" -C docs book
 
 auditors-book:
-	[[ "$$(mdbook --version)" = "mdbook v0.4.28" ]] || { echo "'mdbook v0.4.28' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.3.3" ]] || { echo "'mdbook-open-on-gh 2.3.3' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.7.0" ]] || { echo "'mdbook-open-on-gh 1.7.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook --version)" == "mdbook v0.4.35" ]] || { echo "'mdbook v0.4.35' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.14.1" ]] || { echo "'mdbook-toc 0.14.1' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.4.1" ]] || { echo "'mdbook-open-on-gh 2.4.1' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.13.1" ]] || { echo "'mdbook-open-on-gh 1.13.1' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_auditors_handbook && \
 	mdbook build
 

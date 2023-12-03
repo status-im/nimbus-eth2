@@ -40,8 +40,8 @@ suite "EL Configuration":
       url1.jwtSecretFile.isNone
 
     let
-      url1Final1 = url1.toFinalUrl(some validJwtToken)
-      url1Final2 = url1.toFinalUrl(none seq[byte])
+      url1Final1 = url1.toFinalUrl(Opt.some validJwtToken)
+      url1Final2 = url1.toFinalUrl(Opt.none seq[byte])
 
     check:
       url1Final1.isOk
@@ -70,7 +70,7 @@ suite "EL Configuration":
       url3.jwtSecret == some("ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba")
       url3.jwtSecretFile.isNone
 
-    let url3Final = url3.toFinalUrl(some validJwtToken)
+    let url3Final = url3.toFinalUrl(Opt.some validJwtToken)
     check:
       url3Final.isOk
       url3Final.get.jwtSecret.get.toHex == "ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba"
@@ -84,7 +84,7 @@ suite "EL Configuration":
       url4.jwtSecret == some("ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba23")
       url4.jwtSecretFile.isNone
 
-    let url4Final = url4.toFinalUrl(some validJwtToken)
+    let url4Final = url4.toFinalUrl(Opt.some validJwtToken)
     check:
       not url4Final.isOk # the JWT secret is invalid
 

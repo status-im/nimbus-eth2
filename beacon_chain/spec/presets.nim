@@ -9,6 +9,7 @@
 
 import
   std/[strutils, parseutils, tables, typetraits],
+  chronos/timer,
   stew/[byteutils], stint, web3/[ethtypes],
   ./datatypes/constants
 
@@ -17,7 +18,7 @@ export constants
 export stint, ethtypes.toHex, ethtypes.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
@@ -26,21 +27,23 @@ const
 
   # Not used anywhere; only for network preset checking
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
-  MESSAGE_DOMAIN_INVALID_SNAPPY = 0'u64
-  TTFB_TIMEOUT = 5'u64
+  TTFB_TIMEOUT* = 5'u64
+  MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte] = [0x00, 0x00, 0x00, 0x00]
+  MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
 type
   Version* = distinct array[4, byte]
   Eth1Address* = ethtypes.Address
 
   RuntimeConfig* = object
-    ## https://github.com/ethereum/consensus-specs/tree/v1.3.0/configs
+    ## https://github.com/ethereum/consensus-specs/tree/v1.4.0-beta.4/configs
     PRESET_BASE*: string
     CONFIG_NAME*: string
 
     # Transition
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
     TERMINAL_BLOCK_HASH*: BlockHash
+    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch  # Not actively used, but part of the spec
 
     # Genesis
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
@@ -75,14 +78,37 @@ type
 
     # Fork choice
     # TODO PROPOSER_SCORE_BOOST*: uint64
+    # TODO REORG_HEAD_WEIGHT_THRESHOLD*: uint64
+    # TODO REORG_PARENT_WEIGHT_THRESHOLD*: uint64
+    # TODO REORG_MAX_EPOCHS_SINCE_FINALIZATION*: uint64
 
     # Deposit contract
     DEPOSIT_CHAIN_ID*: uint64
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
-    # Not actively used, but part of the spec
-    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch
+    # Networking
+    # TODO GOSSIP_MAX_SIZE*: uint64
+    # TODO MAX_REQUEST_BLOCKS*: uint64
+    # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
+    MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
+    # TODO MAX_CHUNK_SIZE*: uint64
+    # TODO TTFB_TIMEOUT*: uint64
+    # TODO RESP_TIMEOUT*: uint64
+    # TODO ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64
+    # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY*: uint64
+    # TODO MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte]
+    # TODO MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte]
+    # TODO SUBNETS_PER_NODE*: uint64
+    # TODO ATTESTATION_SUBNET_COUNT*: uint64
+    # TODO ATTESTATION_SUBNET_EXTRA_BITS*: uint64
+    # TODO ATTESTATION_SUBNET_PREFIX_BITS*: uint64
+
+    # Deneb
+    # TODO MAX_REQUEST_BLOCKS_DENEB*: uint64
+    # TODO MAX_REQUEST_BLOB_SIDECARS*: uint64
+    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS*: uint64
+    # TODO BLOB_SIDECAR_SUBNET_COUNT*: uint64
 
   PresetFile* = object
     values*: Table[string, string]
@@ -203,7 +229,46 @@ when const_preset == "mainnet":
     # Ethereum PoW Mainnet
     DEPOSIT_CHAIN_ID: 1,
     DEPOSIT_NETWORK_ID: 1,
-    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address)
+    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address),
+
+    # Networking
+    # ---------------------------------------------------------------
+    # `10 * 2**20` (= 10485760, 10 MiB)
+    # TODO GOSSIP_MAX_SIZE: 10485760,
+    # `2**10` (= 1024)
+    # TODO MAX_REQUEST_BLOCKS: 1024,
+    # `2**8` (= 256)
+    # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
+    # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
+    MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
+    # `10 * 2**20` (=10485760, 10 MiB)
+    # TODO MAX_CHUNK_SIZE: 10485760,
+    # 5s
+    # TODO TTFB_TIMEOUT: 5,
+    # 10s
+    # TODO RESP_TIMEOUT: 10,
+    # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
+    # 500ms
+    # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
+    # TODO MESSAGE_DOMAIN_INVALID_SNAPPY: [byte 0x00, 0x00, 0x00, 0x00],
+    # TODO MESSAGE_DOMAIN_VALID_SNAPPY: [byte 0x01, 0x00, 0x00, 0x00],
+    # 2 subnets per node
+    # TODO SUBNETS_PER_NODE: 2,
+    # 2**8 (= 64)
+    # TODO ATTESTATION_SUBNET_COUNT: 64,
+    # TODO ATTESTATION_SUBNET_EXTRA_BITS: 0,
+    # ceillog2(ATTESTATION_SUBNET_COUNT) + ATTESTATION_SUBNET_EXTRA_BITS
+    # TODO ATTESTATION_SUBNET_PREFIX_BITS: 6,
+
+    # Deneb
+    # `2**7` (=128)
+    # TODO MAX_REQUEST_BLOCKS_DENEB: 128,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
+    # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
+    # `2**12` (= 4096 epochs, ~18 days)
+    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 4096,
+    # `6`
+    # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
   )
 
 elif const_preset == "gnosis":
@@ -309,7 +374,46 @@ elif const_preset == "gnosis":
     # Gnosis PoW Mainnet
     DEPOSIT_CHAIN_ID: 100,
     DEPOSIT_NETWORK_ID: 100,
-    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address)
+    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address),
+
+    # Networking
+    # ---------------------------------------------------------------
+    # `10 * 2**20` (= 10485760, 10 MiB)
+    # TODO GOSSIP_MAX_SIZE: 10485760,
+    # `2**10` (= 1024)
+    # TODO MAX_REQUEST_BLOCKS: 1024,
+    # `2**8` (= 256)
+    # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
+    # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
+    MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
+    # `10 * 2**20` (=10485760, 10 MiB)
+    # TODO MAX_CHUNK_SIZE: 10485760,
+    # 5s
+    # TODO TTFB_TIMEOUT: 5,
+    # 10s
+    # TODO RESP_TIMEOUT: 10,
+    # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
+    # 500ms
+    # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
+    # TODO MESSAGE_DOMAIN_INVALID_SNAPPY: [byte 0x00, 0x00, 0x00, 0x00],
+    # TODO MESSAGE_DOMAIN_VALID_SNAPPY: [byte 0x01, 0x00, 0x00, 0x00],
+    # 2 subnets per node
+    # TODO SUBNETS_PER_NODE: 2,
+    # 2**8 (= 64)
+    # TODO ATTESTATION_SUBNET_COUNT: 64,
+    # TODO ATTESTATION_SUBNET_EXTRA_BITS: 0,
+    # ceillog2(ATTESTATION_SUBNET_COUNT) + ATTESTATION_SUBNET_EXTRA_BITS
+    # TODO ATTESTATION_SUBNET_PREFIX_BITS: 6,
+
+    # Deneb
+    # `2**7` (=128)
+    # TODO MAX_REQUEST_BLOCKS_DENEB: 128,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
+    # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
+    # `2**12` (= 4096 epochs, ~18 days)
+    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 16384,
+    # `6`
+    # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
   )
 
 elif const_preset == "minimal":
@@ -318,7 +422,7 @@ elif const_preset == "minimal":
 
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/configs/minimal.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 
@@ -412,7 +516,46 @@ elif const_preset == "minimal":
     DEPOSIT_CHAIN_ID: 5,
     DEPOSIT_NETWORK_ID: 5,
     # Configured on a per testnet basis
-    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address)
+    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address),
+
+    # Networking
+    # ---------------------------------------------------------------
+    # `10 * 2**20` (= 10485760, 10 MiB)
+    # TODO GOSSIP_MAX_SIZE: 10485760,
+    # `2**10` (= 1024)
+    # TODO MAX_REQUEST_BLOCKS: 1024,
+    # `2**8` (= 256)
+    # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
+    # [customized] `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 272)
+    MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
+    # `10 * 2**20` (=10485760, 10 MiB)
+    # TODO MAX_CHUNK_SIZE: 10485760,
+    # 5s
+    # TODO TTFB_TIMEOUT: 5,
+    # 10s
+    # TODO RESP_TIMEOUT: 10,
+    # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
+    # 500ms
+    # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
+    # TODO MESSAGE_DOMAIN_INVALID_SNAPPY: [byte 0x00, 0x00, 0x00, 0x00],
+    # TODO MESSAGE_DOMAIN_VALID_SNAPPY: [byte 0x01, 0x00, 0x00, 0x00],
+    # 2 subnets per node
+    # TODO SUBNETS_PER_NODE: 2,
+    # 2**8 (= 64)
+    # TODO ATTESTATION_SUBNET_COUNT: 64,
+    # TODO ATTESTATION_SUBNET_EXTRA_BITS: 0,
+    # ceillog2(ATTESTATION_SUBNET_COUNT) + ATTESTATION_SUBNET_EXTRA_BITS
+    # TODO ATTESTATION_SUBNET_PREFIX_BITS: 6,
+
+    # Deneb
+    # `2**7` (=128)
+    # TODO MAX_REQUEST_BLOCKS_DENEB: 128,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
+    # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
+    # `2**12` (= 4096 epochs, ~18 days)
+    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 4096,
+    # `6`
+    # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
   )
 
 else:
@@ -443,6 +586,10 @@ else:
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#configuration
+func safeMinEpochsForBlockRequests*(cfg: RuntimeConfig): uint64 =
+  cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
+
 func parse(T: type uint64, input: string): T {.raises: [ValueError].} =
   var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
@@ -456,6 +603,10 @@ func parse(T: type uint64, input: string): T {.raises: [ValueError].} =
 
 template parse(T: type byte, input: string): T =
   byte parse(uint64, input)
+
+func parse(T: type array[4, byte], input: string): T
+           {.raises: [ValueError].} =
+  hexToByteArray(input, 4)
 
 func parse(T: type Version, input: string): T
            {.raises: [ValueError].} =
@@ -517,27 +668,33 @@ proc readRuntimeConfig*(
 
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
-  template checkCompatibility(constValue: untyped): untyped =
+  template checkCompatibility(
+      constValue: untyped, name: string, operator: untyped = `==`): untyped =
+    if values.hasKey(name):
+      const opDesc = astToStr(operator)
+      try:
+        let value = parse(typeof(constValue), values[name])
+        when constValue is distinct:
+          if not operator(distinctBase(value), distinctBase(constValue)):
+            raise (ref PresetFileError)(msg:
+              "Cannot override config" &
+              " (required: " & name & opDesc & $distinctBase(constValue) &
+              " - config: " & name & "=" & values[name] & ")")
+        else:
+          if not operator(value, constValue):
+            raise (ref PresetFileError)(msg:
+              "Cannot override config" &
+              " (required: " & name & opDesc & $constValue &
+              " - config: " & name & "=" & values[name] & ")")
+        values.del name
+      except ValueError:
+        raise (ref PresetFileError)(msg: "Unable to parse " & name)
+
+  template checkCompatibility(
+      constValue: untyped, operator: untyped = `==`): untyped =
     block:
       const name = astToStr(constValue)
-      if values.hasKey(name):
-        try:
-          let value = parse(typeof(constValue), values[name])
-          when constValue is distinct:
-            if distinctBase(value) != distinctBase(constValue):
-              raise (ref PresetFileError)(msg:
-                "Cannot override config" &
-                " (compiled: " & name & "=" & $distinctBase(constValue) &
-                " - config: " & name & "=" & values[name] & ")")
-          else:
-            if value != constValue:
-              raise (ref PresetFileError)(msg:
-                "Cannot override config" &
-                " (compiled: " & name & "=" & $constValue &
-                " - config: " & name & "=" & values[name] & ")")
-          values.del name
-        except ValueError:
-          raise (ref PresetFileError)(msg: "Unable to parse " & name)
+      checkCompatibility(constValue, name, operator)
 
   checkCompatibility SECONDS_PER_SLOT
 
@@ -578,7 +735,6 @@ proc readRuntimeConfig*(
 
   checkCompatibility TARGET_AGGREGATORS_PER_COMMITTEE
   checkCompatibility EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION
-  checkCompatibility ATTESTATION_SUBNET_COUNT
 
   checkCompatibility DOMAIN_BEACON_PROPOSER
   checkCompatibility DOMAIN_BEACON_ATTESTER
@@ -595,19 +751,29 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_REQUEST_BLOCKS
   checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
   checkCompatibility MAX_CHUNK_SIZE
+  checkCompatibility TTFB_TIMEOUT
+  checkCompatibility RESP_TIMEOUT
+  checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
+  checkCompatibility MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64,
+                     "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
+  checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
+  checkCompatibility MESSAGE_DOMAIN_VALID_SNAPPY
   checkCompatibility SUBNETS_PER_NODE
+  checkCompatibility ATTESTATION_SUBNET_COUNT
   checkCompatibility ATTESTATION_SUBNET_EXTRA_BITS
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
-  checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
-  checkCompatibility MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
-  checkCompatibility RESP_TIMEOUT
-  checkCompatibility TTFB_TIMEOUT
-  checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
-  checkCompatibility MAX_REQUEST_BLOCKS_DENEB
-  checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
 
+  checkCompatibility MAX_REQUEST_BLOCKS_DENEB
+  checkCompatibility MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK,
+                     "MAX_REQUEST_BLOB_SIDECARS"
+  checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
+  checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD
+  checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
+  checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
 
   for name, field in cfg.fieldPairs():
     if name in values:
@@ -620,6 +786,10 @@ proc readRuntimeConfig*(
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
+
+  # Requires initialized `cfg`
+  checkCompatibility cfg.safeMinEpochsForBlockRequests(),
+                     "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
 
   var unknowns: seq[string]
   for name in values.keys:
@@ -637,10 +807,6 @@ template name*(cfg: RuntimeConfig): string =
     cfg.CONFIG_NAME
   else:
     const_preset
-
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#configuration
-func MIN_EPOCHS_FOR_BLOCK_REQUESTS*(cfg: RuntimeConfig): uint64 =
-  cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
 
 func defaultLightClientDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
   const epochsPerPeriod = EPOCHS_PER_SYNC_COMMITTEE_PERIOD

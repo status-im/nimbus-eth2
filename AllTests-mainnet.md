@@ -48,6 +48,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check Deneb blocks [Preset: mainnet]                                                OK
 + sanity check Deneb states [Preset: mainnet]                                                OK
 + sanity check Deneb states, reusing buffers [Preset: mainnet]                               OK
++ sanity check blobs [Preset: mainnet]                                                       OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -55,7 +56,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
+OK: 25/25 Fail: 0/25 Skip: 0/25
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -357,7 +358,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ```diff
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
-+ Blob sidecar signatures                                                                    OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
 + Sync committee message signatures                                                          OK
@@ -365,7 +365,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Network metadata
 ```diff
 + goerli                                                                                     OK
@@ -428,6 +428,15 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + prune states                                                                               OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## REST JSON encoding and decoding
+```diff
++ Blob                                                                                       OK
++ DenebSignedBlockContents decoding                                                          OK
++ KzgCommitment                                                                              OK
++ KzgProof                                                                                   OK
++ RestPublishedSignedBlockContents decoding                                                  OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Remove keystore testing suite
 ```diff
 + Many remotes                                                                               OK
@@ -586,13 +595,19 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
++ /eth/v1/validator/beacon_committee_selections serialization/deserialization test           OK
++ /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
 + bestSuccess() API timeout test                                                             OK
 + firstSuccessParallel() API timeout test                                                    OK
++ getAggregatedAttestationDataScore() test vectors                                           OK
 + getAttestationDataScore() test vectors                                                     OK
 + getLiveness() response deserialization test                                                OK
++ getSyncCommitteeContributionDataScore() test vectors                                       OK
++ getSyncCommitteeMessageDataScore() test vectors                                            OK
++ getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -623,8 +638,9 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + init with gaps [Preset: mainnet]                                                           OK
 + orphaned epoch block [Preset: mainnet]                                                     OK
 + prune heads on finalization [Preset: mainnet]                                              OK
++ shutdown during finalization [Preset: mainnet]                                             OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## createValidatorFiles()
 ```diff
 + Add keystore files [LOCAL]                                                                 OK
@@ -705,4 +721,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 398/403 Fail: 0/403 Skip: 5/403
+OK: 410/415 Fail: 0/415 Skip: 5/415
