@@ -221,6 +221,9 @@ const
   DeprecatedRemovalGetDebugChainHeadsV1* =
     "v1/debug/beacon/heads endpoint was deprecated and replaced by v2: " &
       "https://github.com/ethereum/beacon-APIs/pull/319"
+  DeprecatedRemovalProduceBlindedBlockV1* =
+    "v1/validator/blinded_blocks/{slot} was deprecated and replaced by " &
+    "produceBlockV3: https://github.com/ethereum/beacon-APIs/pull/339"
   BlockIncorrectFork* =
     "Block has incorrect fork"
   ValidatorNotActive* =
