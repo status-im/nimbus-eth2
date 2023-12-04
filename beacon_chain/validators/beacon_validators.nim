@@ -682,7 +682,7 @@ func constructPlainBlindedBlock[T: capella_mev.BlindedBeaconBlock](
 
 func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
     blck: ForkyBeaconBlock,
-    executionPayloadHeader: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
+    blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
   # https://github.com/nim-lang/Nim/issues/23020 workaround
   static: doAssert T is deneb_mev.BlindedBeaconBlock
 
@@ -695,7 +695,12 @@ func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock, blck, blckFields)
   copyFields(blindedBlock.body, blck.body, blckBodyFields)
-  assign(blindedBlock.body.execution_payload_header, executionPayloadHeader.execution_payload_header)
+  assign(
+    blindedBlock.body.execution_payload_header,
+    blindedBundle.execution_payload_header)
+  assign(
+    blindedBlock.message.body.blob_kzg_commitments,
+    blindedBundle.blob_kzg_commitments)
 
   blindedBlock
 
