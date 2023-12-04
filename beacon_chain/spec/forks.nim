@@ -1024,27 +1024,27 @@ template withStateAndBlck*(
     body: untyped): untyped =
   case s.kind
   of ConsensusFork.Deneb:
-    const consensusFork {.inject.} = ConsensusFork.Deneb
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyState: untyped {.inject.} = s.denebData
     template forkyBlck: untyped {.inject.} = b.denebData
     body
   of ConsensusFork.Capella:
-    const consensusFork {.inject.} = ConsensusFork.Capella
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
     template forkyState: untyped {.inject.} = s.capellaData
     template forkyBlck: untyped {.inject.} = b.capellaData
     body
   of ConsensusFork.Bellatrix:
-    const consensusFork {.inject.} = ConsensusFork.Bellatrix
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
     template forkyState: untyped {.inject.} = s.bellatrixData
     template forkyBlck: untyped {.inject.} = b.bellatrixData
     body
   of ConsensusFork.Altair:
-    const consensusFork {.inject.} = ConsensusFork.Altair
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
     template forkyState: untyped {.inject.} = s.altairData
     template forkyBlck: untyped {.inject.} = b.altairData
     body
   of ConsensusFork.Phase0:
-    const consensusFork {.inject.} = ConsensusFork.Phase0
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
     template forkyState: untyped {.inject, used.} = s.phase0Data
     template forkyBlck: untyped {.inject, used.} = b.phase0Data
     body
