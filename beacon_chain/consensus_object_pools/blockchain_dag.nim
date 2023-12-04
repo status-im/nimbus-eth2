@@ -252,7 +252,7 @@ proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
       getBlockSSZ(
         dag.era, getStateField(dag.headState, historical_roots).asSeq,
         dag.headState.historical_summaries().asSeq,
-        bid.slot, bytes).isOk)
+        bid.slot, bytes).isOk() and bytes.len > 0)
 
 proc getBlockSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
   # Load the snappy-frame-compressed ("SZ") SSZ-encoded data of a block into
@@ -265,7 +265,7 @@ proc getBlockSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
       getBlockSZ(
         dag.era, getStateField(dag.headState, historical_roots).asSeq,
         dag.headState.historical_summaries().asSeq,
-        bid.slot, bytes).isOk)
+        bid.slot, bytes).isOk and bytes.len > 0)
 
 proc getForkedBlock*(
     dag: ChainDAGRef, bid: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
