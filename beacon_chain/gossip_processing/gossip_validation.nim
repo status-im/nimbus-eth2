@@ -12,7 +12,6 @@ import
   chronicles, chronos, metrics,
   stew/results,
   # Internals
-  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
@@ -20,9 +19,6 @@ import
     exit_pool, spec_cache, light_client_pool, sync_committee_msg_pool],
   ".."/[beacon_clock],
   ./batch_validation
-
-from ../spec/datatypes/capella import SignedBeaconBlock
-from ../spec/datatypes/deneb import SignedBeaconBlock, BLS_MODULUS
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 
@@ -1039,7 +1035,7 @@ proc validateBlsToExecutionChange*(
 
       # BLS to execution change signatures are batch-verified
       let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
-        pool.dag.cfg.genesisFork, signed_address_change, pool.dag)
+        pool.dag.cfg.genesisFork, signed_address_change)
       if deferredCrypto.isErr():
         return pool.checkedReject(deferredCrypto.error)
 
