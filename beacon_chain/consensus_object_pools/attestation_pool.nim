@@ -557,7 +557,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
-  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#attestations
+  ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#attestations
   let newBlockSlot = state.data.slot.uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
@@ -769,7 +769,7 @@ proc getBeaconHead*(
     finalizedExecutionPayloadHash =
       pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/fork_choice/safe-block.md#get_safe_execution_payload_hash
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/fork_choice/safe-block.md#get_safe_execution_payload_hash
     safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionPayloadHash =

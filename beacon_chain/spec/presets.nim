@@ -18,7 +18,7 @@ export constants
 export stint, ethtypes.toHex, ethtypes.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
@@ -422,7 +422,7 @@ elif const_preset == "minimal":
 
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/configs/minimal.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 
@@ -768,7 +768,7 @@ proc readRuntimeConfig*(
                      "MAX_REQUEST_BLOB_SIDECARS"
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/fork-choice.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
   checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD
