@@ -127,7 +127,7 @@ proc doRequest(
     peer: Peer,
     key: tuple[startPeriod: SyncCommitteePeriod, count: uint64]
 ): Future[LightClientUpdatesByRangeResponse] {.
-    async, raises: [IOError].} =
+    async.} =
   let (startPeriod, count) = key
   doAssert count > 0 and count <= MAX_REQUEST_LIGHT_CLIENT_UPDATES
   let response = await peer.lightClientUpdatesByRange(startPeriod, count)
@@ -142,16 +142,14 @@ proc doRequest(
 proc doRequest(
     e: typedesc[FinalityUpdate],
     peer: Peer
-): Future[NetRes[ForkedLightClientFinalityUpdate]] {.
-    raises: [IOError].} =
+): Future[NetRes[ForkedLightClientFinalityUpdate]] =
   peer.lightClientFinalityUpdate()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 proc doRequest(
     e: typedesc[OptimisticUpdate],
     peer: Peer
-): Future[NetRes[ForkedLightClientOptimisticUpdate]] {.
-    raises: [IOError].} =
+): Future[NetRes[ForkedLightClientOptimisticUpdate]] =
   peer.lightClientOptimisticUpdate()
 
 template valueVerifier[E](

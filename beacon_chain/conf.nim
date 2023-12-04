@@ -1324,10 +1324,10 @@ func runAsService*(config: BeaconNodeConf): bool =
     false
 
 func web3SignerUrls*(conf: AnyConf): seq[Web3SignerUrl] =
-  for url in conf.web3signers:
+  for url in conf.web3Signers:
     result.add Web3SignerUrl(url: url)
 
-  for url in conf.verifyingWeb3signers:
+  for url in conf.verifyingWeb3Signers:
     result.add Web3SignerUrl(url: url,
                              provenBlockProperties: conf.provenBlockProperties)
 

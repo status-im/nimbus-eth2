@@ -11,7 +11,7 @@ import
   std/osproc,
 
   # Nimble packages
-  chronos, json_rpc/servers/httpserver, presto, bearssl/rand,
+  chronos, presto, bearssl/rand,
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf, light_client],
@@ -30,7 +30,7 @@ import
   ./rpc/state_ttl_cache
 
 export
-  osproc, chronos, httpserver, presto, action_tracker,
+  osproc, chronos, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
   attestation_pool, sync_committee_msg_pool, validator_pool,
   eth2_network, el_manager, request_manager, sync_manager,
