@@ -519,7 +519,7 @@ when isMainModule:
   doAssert got8193
 
   doAssert db.getBlock(
-      historical_roots, Slot(1), Opt[Eth2Digest].err(),
+      historical_roots, [], Slot(1), Opt[Eth2Digest].err(),
       phase0.TrustedSignedBeaconBlock).get().root ==
     Eth2Digest.fromHex(
         "0xbacd20f09da907734434f052bd4c9503aa16bab1960e89ea20610d08d064481c")
