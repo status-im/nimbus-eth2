@@ -699,7 +699,7 @@ func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
     blindedBlock.body.execution_payload_header,
     blindedBundle.execution_payload_header)
   assign(
-    blindedBlock.message.body.blob_kzg_commitments,
+    blindedBlock.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
 
   blindedBlock
