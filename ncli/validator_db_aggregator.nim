@@ -6,13 +6,13 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[os, strutils, streams, parsecsv],
+  std/[parsecsv, streams],
   stew/[io2, byteutils], chronicles, confutils, snappy,
   ../beacon_chain/spec/datatypes/base,
   ./ncli_common
 
-when defined(posix):
-  import system/ansi_c
+from std/os import fileExists
+from std/strutils import parseBiggestInt, parseBiggestUInt
 
 type
   AggregatorConf = object
@@ -199,51 +199,54 @@ proc advanceEpochs*(aggregator: var ValidatorDbAggregator, epoch: Epoch,
   aggregator.inclusionDelaysCount.setLen(0)
   aggregator.epochsAggregated = 0
 
-proc aggregateEpochs(startEpoch, endEpoch: Epoch, resolution: uint,
-                     inputDir, outputDir: string) =
-  if startEpoch > endEpoch:
-    fatal "Start epoch cannot be larger than the end one.",
-          startEpoch = startEpoch, endEpoch = endEpoch
-    quit QuitFailure
-
-  info "Aggregating epochs ...", startEpoch = startEpoch, endEpoch = endEpoch,
-       inputDir = inputDir, outputDir = outputDir
-
-  var aggregator = ValidatorDbAggregator.init(outputDir, resolution, endEpoch)
-
-  for epoch in startEpoch .. endEpoch:
-    let filePath = getFilePathForEpoch(epoch, inputDir)
-    info "Processing file ...", file = filePath
-
-    let data = io2.readAllBytes(filePath)
-    doAssert data.isOk
-    let dataStream = newStringStream(
-      string.fromBytes(snappy.decode(
-        data.get.toOpenArray(0, data.get.len - 1))))
-
-    var csvParser: CsvParser
-    csvParser.open(dataStream, filePath)
-
-    var validatorsCount = 0
-    while csvParser.readRow:
-      inc validatorsCount
-      let rp = parseRow(csvParser.row)
-      aggregator.addValidatorData(validatorsCount - 1, rp)
-
-    aggregator.advanceEpochs(epoch, shouldShutDown)
-
-    if shouldShutDown:
-      quit QuitSuccess
-
-proc controlCHook {.noconv.} =
-  notice "Shutting down after having received SIGINT."
-  shouldShutDown = true
-
-proc exitOnSigterm(signal: cint) {.noconv.} =
-  notice "Shutting down after having received SIGTERM."
-  shouldShutDown = true
-
 when isMainModule:
+  when defined(posix):
+    import system/ansi_c
+
+  proc aggregateEpochs(startEpoch, endEpoch: Epoch, resolution: uint,
+                       inputDir, outputDir: string) =
+    if startEpoch > endEpoch:
+      fatal "Start epoch cannot be larger than the end one.",
+            startEpoch = startEpoch, endEpoch = endEpoch
+      quit QuitFailure
+
+    info "Aggregating epochs ...", startEpoch = startEpoch, endEpoch = endEpoch,
+         inputDir = inputDir, outputDir = outputDir
+
+    var aggregator = ValidatorDbAggregator.init(outputDir, resolution, endEpoch)
+
+    for epoch in startEpoch .. endEpoch:
+      let filePath = getFilePathForEpoch(epoch, inputDir)
+      info "Processing file ...", file = filePath
+
+      let data = io2.readAllBytes(filePath)
+      doAssert data.isOk
+      let dataStream = newStringStream(
+        string.fromBytes(snappy.decode(
+          data.get.toOpenArray(0, data.get.len - 1))))
+
+      var csvParser: CsvParser
+      csvParser.open(dataStream, filePath)
+
+      var validatorsCount = 0
+      while csvParser.readRow:
+        inc validatorsCount
+        let rp = parseRow(csvParser.row)
+        aggregator.addValidatorData(validatorsCount - 1, rp)
+
+      aggregator.advanceEpochs(epoch, shouldShutDown)
+
+      if shouldShutDown:
+        quit QuitSuccess
+
+  proc controlCHook {.noconv.} =
+    notice "Shutting down after having received SIGINT."
+    shouldShutDown = true
+
+  proc exitOnSigterm(signal: cint) {.noconv.} =
+    notice "Shutting down after having received SIGTERM."
+    shouldShutDown = true
+
   proc main =
     setControlCHook(controlCHook)
     when defined(posix):

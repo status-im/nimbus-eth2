@@ -484,7 +484,7 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
         if await service.checkNodes(): service.changesEvent.fire()
         await sleepAsync(2.seconds)
         false
-      except CancelledError as exc:
+      except CancelledError:
         debug "Service interrupted"
         if not(timeMonitorFut.finished()): await timeMonitorFut.cancelAndWait()
         true

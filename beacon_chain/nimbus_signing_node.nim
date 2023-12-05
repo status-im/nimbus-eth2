@@ -427,7 +427,7 @@ template runWithSignals(sn: SigningNodeRef, body: untyped): bool =
   discard await race(future, sn.sigintHandleFut, sn.sigtermHandleFut)
   if future.finished():
     if future.failed() or future.cancelled():
-      let exc = future.readError()
+      discard future.readError()
       debug "Signing node initialization failed"
       var pending: seq[Future[void]]
       if not(sn.sigintHandleFut.finished()):
