@@ -92,12 +92,6 @@ when defined(windows):
                                   lpHandlerProc: LPHANDLER_FUNCTION): SERVICE_STATUS_HANDLE{.
     stdcall, dynlib: "advapi32", importc: "RegisterServiceCtrlHandlerA".}
 
-type
-  RpcServer = RpcHttpServer
-
-template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
-  newRpcHttpServer([initTAddress(ip, port)])
-
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_current_epoch, "Current epoch"
@@ -517,7 +511,7 @@ proc init*(T: type BeaconNode,
            rng: ref HmacDrbgContext,
            config: BeaconNodeConf,
            metadata: Eth2NetworkMetadata): Future[BeaconNode]
-          {.async, raises: [CatchableError].} =
+          {.async.} =
   var taskpool: TaskPoolPtr
 
   template cfg: auto = metadata.cfg

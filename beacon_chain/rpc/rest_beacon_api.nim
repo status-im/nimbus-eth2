@@ -336,7 +336,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
        ): RestApiResponse =
     node.withStateForBlockSlotId(bslot):
       let
-        validatorsCount = lenu64(getStateField(state, validators))
         indices = node.getIndices(validatorIds, state).valueOr:
           return RestApiResponse.jsonError(error)
         response =
