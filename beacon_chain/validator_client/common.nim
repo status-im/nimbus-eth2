@@ -406,7 +406,6 @@ func getFailureReason*(failure: ApiNodeFailure): string =
   [failure.reason, status, request, $failure.failure].join(";")
 
 proc getFailureReason*(exc: ref ValidatorApiError): string =
-  var counts: array[int(high(ApiFailure)) + 1, int]
   let
     errors = exc[].data
     errorsCount = len(errors)
@@ -825,7 +824,6 @@ proc getDurationToNextAttestation*(vc: ValidatorClientRef,
     for key, item in vc.attesters:
       let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
       if not(duty.isDefault()):
-        let dutySlotTime = duty.data.slot
         if (duty.data.slot < minSlot) and (duty.data.slot >= slot):
           minSlot = duty.data.slot
     if minSlot != FAR_FUTURE_SLOT:

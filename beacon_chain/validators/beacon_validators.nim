@@ -1815,9 +1815,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
     curSlot += 1
 
-  let
-    newHead = await handleProposal(node, head, slot)
-    didSubmitBlock = (newHead != head)
+  let newHead = await handleProposal(node, head, slot)
   head = newHead
 
   let

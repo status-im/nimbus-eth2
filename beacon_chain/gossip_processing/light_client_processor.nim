@@ -214,7 +214,6 @@ proc processObject(
     obj: SomeForkedLightClientObject,
     wallTime: BeaconTime): Result[void, VerifierError] =
   let
-    wallSlot = wallTime.slotOrZero()
     res = withForkyObject(obj):
       when lcDataFork > LightClientDataFork.None:
         when forkyObject is ForkyLightClientBootstrap:
@@ -242,7 +241,9 @@ proc processObject(
               self.store[].migrateToDataFork(lcDataFork)
             withForkyStore(self.store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgradedObject = obj.migratingToDataFork(lcDataFork)
+                let
+                  wallSlot = wallTime.slotOrZero()
+                  upgradedObject = obj.migratingToDataFork(lcDataFork)
                 process_light_client_update(
                   forkyStore, upgradedObject.forky(lcDataFork), wallSlot,
                   self.cfg, self.genesis_validators_root)

@@ -14,7 +14,6 @@ import "."/[common, fallback_service, scoring]
 export eth2_rest_serialization, common
 
 const
-  ResponseSuccess = "Received successful response"
   ResponseInvalidError = "Received invalid request response"
   ResponseInternalError = "Received internal error response"
   ResponseUnexpectedError = "Received unexpected error response"
