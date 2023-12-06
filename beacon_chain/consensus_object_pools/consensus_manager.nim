@@ -169,7 +169,7 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
 
   # Can't use dag.head here because it hasn't been updated yet
   let
-    consensusfork =
+    consensusFork =
       self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
     (payloadExecutionStatus, _) = withConsensusFork(consensusFork):
       when consensusFork >= ConsensusFork.Bellatrix:
