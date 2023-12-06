@@ -547,7 +547,7 @@ func get_attestation_participation_flag_indices(
 
   participation_flag_indices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/beacon-chain.md#modified-get_attestation_participation_flag_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: deneb.BeaconState,
     data: AttestationData, inclusion_delay: uint64): set[TimelyFlag] =
