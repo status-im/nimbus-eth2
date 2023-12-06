@@ -736,13 +736,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                                $res.error())
             let tres = res.get()
-            if not tres.executionValid:
-              return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-            tres
+            if tres.executionValid:
+              tres
+            else:
+              let qbs = node.lastValidAttestedBlock.valueOr:
+                return RestApiResponse.jsonError(
+                  Http503, BeaconNodeInSyncError)
+              if qbs.blck.slot > qslot:
+                return RestApiResponse.jsonError(
+                  Http503, BeaconNodeInSyncError)
+              qbs.blck
+
         let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
           return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
-        makeAttestationData(
-          epochRef.checkpoints.justified, qslot, qhead.atSlot(qslot), qindex)
+        makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
     return RestApiResponse.jsonResponse(adata)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation

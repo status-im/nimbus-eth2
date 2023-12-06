@@ -173,33 +173,29 @@ func get_attesting_indices*(shufflingRef: ShufflingRef,
     result.add(idx)
 
 func makeAttestationData*(
-    justified_checkpoint: Checkpoint, current_slot: Slot, bs: BlockSlot,
+    epochRef: EpochRef, bs: BlockSlot,
     committee_index: CommitteeIndex): AttestationData =
   ## Create an attestation / vote for the block `bs` using the
-  ## data in `justified_checkpoint` to fill in the rest of the fields.
-  ## `justified_checkpoint` corresponds to the `bs` advanced to
+  ## data in `epochRef` to fill in the rest of the fields.
+  ## `epochRef` is the epoch information corresponding to the `bs` advanced to
   ## the slot we're attesting to.
-  ##
-  ## `current_slot` must actually be the current slot, and match
-  ## `committee_index`.
+
   let
-    attestation_head_epoch = bs.slot.epoch()
-    epoch_boundary_block = bs.blck.atSlot(attestation_head_epoch.start_slot())
+    slot = bs.slot
+    current_epoch = slot.epoch()
+    epoch_boundary_slot = current_epoch.start_slot()
+    epoch_boundary_block = bs.blck.atSlot(epoch_boundary_slot)
+
+  doAssert current_epoch == epochRef.epoch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#attestation-data
   AttestationData(
-    # `slot` and `index` track slot for which attestation is happening, usually
-    # the current slot, but can also be in recent past, catching up. Regardless
-    # of which, these are not intrinsically coupled with `beacon_block_root` or
-    # `source`/`target`.
-    slot: current_slot,
+    slot: slot,
     index: committee_index.asUInt64,
-
-    # `beacon_block_root`, `source`, and `target` track attestation head
     beacon_block_root: bs.blck.root,
-    source: justified_checkpoint,
+    source: epochRef.checkpoints.justified,
     target: Checkpoint(
-      epoch: attestation_head_epoch,
+      epoch: current_epoch,
       root: epoch_boundary_block.blck.root))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#validator-assignments

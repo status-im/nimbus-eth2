@@ -1311,9 +1311,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             continue
 
           let
-            data = makeAttestationData(
-              epochRef.checkpoints.justified, attestationHead.slot,
-              attestationHead, committee_index)
+            data = makeAttestationData(epochRef, attestationHead, committee_index)
             # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
             signingRoot = compute_attestation_signing_root(
               fork, genesis_validators_root, data)
@@ -1796,8 +1794,10 @@ proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
   if attestationHead.slot + SLOTS_PER_EPOCH < slot:
     return
 
+  # Using `slot` and `curSlot` here ensure that the attestation data created
+  # is for the wall slot, regardless of attestationHead's block and slot.
   for curSlot in (lastSlot + 1) ..< slot:
-    notice "Catching up on attestation duties", curSlot, slot
+    notice "Catching up on fallback attestation duties", curSlot, slot
     handleAttestations(node, attestationHead.blck, curSlot)
 
   handleAttestations(node, attestationHead.blck, slot)
