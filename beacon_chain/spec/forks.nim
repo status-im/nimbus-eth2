@@ -531,6 +531,17 @@ template BlindedBlockContents*(
   else:
     {.error: "BlindedBlockContents does not support " & $kind.}
 
+template PayloadAttributes*(
+    kind: static ConsensusFork): auto =
+  when kind >= ConsensusFork.Deneb:
+    typedesc[PayloadAttributesV3]
+  elif kind >= ConsensusFork.Capella:
+    typedesc[PayloadAttributesV2]
+  elif kind >= ConsensusFork.Bellatrix:
+    typedesc[PayloadAttributesV1]
+  else:
+    {.error: "PayloadAttributes does not support " & $kind.}
+
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
 func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
