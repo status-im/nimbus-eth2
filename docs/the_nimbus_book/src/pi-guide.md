@@ -35,7 +35,7 @@ As such, we try our best to explain things from first-principles.
     Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
 
 !!! note
-    If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please [read this recommended fix](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426).
+    If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please [read this recommended fix](https://forums.raspberrypi.com/viewtopic.php?t=245931#p1501426).
 
 ## Steps
 
@@ -43,7 +43,7 @@ As such, we try our best to explain things from first-principles.
 
 [Raspberry Pi Imager](https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/) is an imaging utility that makes it simple to manage your microSD card with Raspberry Pi OS (the free Pi operating system based on Debian, previously called Raspbian).
 
-You can find the [download](https://www.learnenough.com/command-line-tutorial/basics) link for your operating system here: [Windows](https://downloads.raspberrypi.org/imager/imager_1.4.exe), [macOS](https://downloads.raspberrypi.org/imager/imager_1.4.dmg), [Ubuntu](https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb).
+You can find the download link for your operating system here: [Windows](https://downloads.raspberrypi.org/imager/imager_1.4.exe), [macOS](https://downloads.raspberrypi.org/imager/imager_1.4.dmg), [Ubuntu](https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb).
 
 ### 2. Download 64-bit Raspberry Pi OS
 
@@ -111,7 +111,7 @@ network={
 
 ### 6. Enable SSH (using Linux or macOS)
 
-You can [access the command line](https://www.raspberrypi.org/documentation/remote-access/ssh/) of a Raspberry Pi remotely from another computer or device on the same network using [SSH](https://en.wikipedia.org/wiki/Ssh_(Secure_Shell)).
+You can [access the command line](https://www.raspberrypi.com/documentation/computers/remote-access.html) of a Raspberry Pi remotely from another computer or device on the same network using [SSH](https://en.wikipedia.org/wiki/Ssh_(Secure_Shell)).
 
 While SSH is not enabled by default, you can enable it by placing a file named `ssh`, without any extension, onto the boot partition of the SD card.
 
@@ -253,7 +253,7 @@ Follow [this RPi4 guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4
     rpi-clone sda
     ```
 
-For more on `raspi-config`, see [here](https://www.raspberrypi.org/documentation/configuration/raspi-config.md).
+For more on `raspi-config`, see [here](https://www.raspberrypi.com/documentation/computers/configuration.html).
 
 !!! tip
     To shutdown your Pi safely, run `sudo shutdown -h now`
@@ -424,7 +424,7 @@ Keep an eye on the number of peers you're currently connected to (in the above c
 !!! note
     15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Holesky` with a Pi.
     If your sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter.
-    See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
+    See [this post](https://forums.raspberrypi.com/viewtopic.php?f=28&t=245931) for a recommended workaround.
 
 
 ## Mainnet advice
@@ -442,7 +442,7 @@ Although we don't expect a modern Pi to fail, we recommend buying a spare Pi, an
 
 ### Systemd
 
-Now that you have Nimbus up and running, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md) with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly).
+Now that you have Nimbus up and running, we recommend [setting up a systemd service](https://www.raspberrypi.com/documentation/computers/remote-access.html#server-configuration) with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly).
 
 Systemd will also ensure your validator keeps running when you exit your ssh session (`Ctrl-C`) and/or switch off your laptop.
 

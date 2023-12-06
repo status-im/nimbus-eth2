@@ -27,7 +27,7 @@ sudo useradd -g nimbus nimbus -m -d /var/lib/nimbus
 
 ### 2. Create the service file
 
-`systemd` services are created by placing a [service](https://www.freedesktop.org/software/systemd/man/systemd.service.html) file in `/etc/systemd/system`, or, if Nimbus was installed by a package manager, `/usr/lib/systemd/system`.
+`systemd` services are created by placing a [service](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html) file in `/etc/systemd/system`, or, if Nimbus was installed by a package manager, `/usr/lib/systemd/system`.
 
 A good starting point is the [example service file](https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_src/nimbus_beacon_node/image/lib/systemd/system/nimbus_beacon_node.service) in the Nimbus repository.
 
@@ -36,7 +36,7 @@ A good starting point is the [example service file](https://raw.githubuserconten
 curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_src/nimbus_beacon_node/image/lib/systemd/system/nimbus_beacon_node.service | sudo tee /etc/systemd/system/nimbus_beacon_node.service > /dev/null
 ```
 
-The format of service files is documented in the [systemd manual](https://www.freedesktop.org/software/systemd/man/systemd.service.html).
+The format of service files is documented in the [systemd manual](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html).
 
 !!! tip
     Automatic restarts increase the risk that the doppelganger detection fails - set `RestartPreventExitStatus=129` to prevent this from happening
@@ -142,4 +142,4 @@ When running multiple beacon nodes, make sure that each service:
 ## Further examples
 
 - A [service template file](https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service) by Pawel Bylica which allows you to start two services at the same time, e.g. `nimbus@holesky.service` and `nimbus@mainnet.service`.
-- The [EthereumOnARM](https://github.com/diglos/ethereumonarm/blob/main/fpm-package-builder/nimbus/extras/nimbus.service) project maintains a service file as part of their Ethereum installation package repository.
+- The [EthereumOnARM](https://github.com/EOA-Blockchain-Labs/ethereumonarm/blob/main/fpm-package-builder/l1-clients/consensus-layer/nimbus/extras/nimbus-beacon.service) project maintains a service file as part of their Ethereum installation package repository.

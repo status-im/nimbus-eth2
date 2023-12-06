@@ -52,7 +52,7 @@ This can lead to better packing in some cases, which can lead to slightly greate
 
 ## Useful resources
 
-- [The journey of a validator balance](https://kb.beaconcha.in/rewards-and-penalties)
+- [The journey of a validator balance](https://kb.beaconcha.in/ethereum-staking/rewards-and-penalties)
 
 - [Validator rewards in practice](https://pintail.xyz/posts/validator-rewards-in-practice/)
 
