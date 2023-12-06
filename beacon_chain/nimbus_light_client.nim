@@ -151,9 +151,9 @@ programMain:
   info "Listening to incoming network requests"
   network.initBeaconSync(cfg, forkDigests, genesisBlockRoot, getBeaconTime)
   withAll(ConsensusFork):
-    let digest = forkDigests[].atConsensusFork(consensusFork)
+    let forkDigest = forkDigests[].atConsensusFork(consensusFork)
     network.addValidator(
-      getBeaconBlocksTopic(digest), proc (
+      getBeaconBlocksTopic(forkDigest), proc (
           signedBlock: consensusFork.SignedBeaconBlock
       ): ValidationResult =
         toValidationResult(
