@@ -1117,9 +1117,6 @@ proc handleIncomingStream(network: Eth2Node,
 
     nbc_reqresp_messages_received.inc(1, [shortProtocolId(protocolId)])
 
-    # TODO(zah) The TTFB timeout is not implemented in LibP2P streams back-end
-    let deadline = sleepAsync RESP_TIMEOUT_DUR
-
     const isEmptyMsg = when MsgRec is object:
       # We need nested `when` statements here, because Nim doesn't properly
       # apply boolean short-circuit logic at compile time and this causes
@@ -1135,6 +1132,10 @@ proc handleIncomingStream(network: Eth2Node,
         when isEmptyMsg:
           NetRes[MsgRec].ok default(MsgRec)
         else:
+          # TODO(zah) The TTFB timeout is not implemented in LibP2P streams
+          # back-end
+          let deadline = sleepAsync RESP_TIMEOUT_DUR
+
           awaitWithTimeout(
             readChunkPayload(conn, peer, MsgRec), deadline):
               # Timeout, e.g., cancellation due to fulfillment by different peer.

@@ -46,12 +46,6 @@ import
 from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
 
-const
-  delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
-                  0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
-
-  BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
-
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
   "Number of LC finality updates sent by this peer"
@@ -1418,10 +1412,7 @@ proc signAndSendContribution(node: BeaconNode,
 
 proc handleSyncCommitteeContributions(
     node: BeaconNode, head: BlockRef, slot: Slot) {.async.} =
-  let
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
-    syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
+  let syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
@@ -1595,7 +1586,9 @@ proc getValidatorRegistration(
 proc registerValidatorsPerBuilder(
     node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,
     attachedValidatorPubkeys: seq[ValidatorPubKey]) {.async.} =
-  const HttpOk = 200
+  const
+    HttpOk = 200
+    BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
   try:
     let payloadBuilderClient =
