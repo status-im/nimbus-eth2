@@ -20,12 +20,6 @@ export
   results, eth2_rest_serialization, blockchain_dag, presto, rest_types,
   rest_constants, rest_common
 
-func match(data: openArray[char], charset: set[char]): int =
-  for ch in data:
-    if ch notin charset:
-      return 1
-  0
-
 proc getSyncedHead*(
        node: BeaconNode,
        slot: Slot
