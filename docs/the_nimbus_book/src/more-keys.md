@@ -12,7 +12,7 @@ For more on how keys are derived, see this [excellent post](https://blog.ethereu
 To stay consistent with the rest of the book, we'll take you though how to do this using the [deposit-cli's](https://github.com/ethereum/eth2.0-deposit-cli) [binary executable](https://github.com/ethereum/eth2.0-deposit-cli/releases).
 
 Specifically, we'll be using the `existing-mnemonic` command.
-Here's a description of the command from the deposit-cli's [README](https://github.com/ethereum/eth2.0-deposit-cli#step-2-create-keys-and-deposit_data-json):
+Here's a description of the command from the deposit-cli's [README](https://github.com/ethereum/staking-deposit-cli#step-2-create-keys-and-deposit_data-json):
 
 > This command is used to re-generate or derive new keys from your existing mnemonic.
 Use this command, if (i) you have already generated keys with this CLI before, (ii) you want to reuse your mnemonic that you know is secure that you generated elsewhere (reusing your eth1 mnemonic .etc), or (iii) you lost your keystores and need to recover your keys.

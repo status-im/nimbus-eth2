@@ -32,5 +32,5 @@ sudo apt install vnstat
 
 To run it:
 
-*TBC - See [here](https://docs.rocketpool.net/guides/node/performance.html#beaconcha-in-website-using-the-beacon-chain-as-a-metric-source) for more info*
+*TBC - See [here](https://docs.rocketpool.net/guides/node/performance#beaconcha-in-website-using-the-beacon-chain-as-a-metric-source) for more info*
 
