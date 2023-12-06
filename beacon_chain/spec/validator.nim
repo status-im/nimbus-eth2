@@ -513,7 +513,7 @@ func livenessFailsafeInEffect*(
 
   false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-subscription
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
     SubnetId =
   # Ensure neither `truncate` loses information

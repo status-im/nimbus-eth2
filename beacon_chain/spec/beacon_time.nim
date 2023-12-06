@@ -216,7 +216,7 @@ iterator slots*(epoch: Epoch): Slot =
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
     yield slot
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#sync-committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#sync-committee
 template sync_committee_period*(epoch: Epoch): SyncCommitteePeriod =
   if epoch == FAR_FUTURE_EPOCH: FAR_FUTURE_PERIOD
   else: SyncCommitteePeriod(epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
