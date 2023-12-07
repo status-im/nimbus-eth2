@@ -642,21 +642,11 @@ proc storeBlock(
             finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
             payloadAttributes = none attributes)
 
-      case self.consensusManager.dag.cfg.consensusForkAtEpoch(
-          newHead.get.blck.bid.slot.epoch)
-      of ConsensusFork.Deneb:
-        callForkchoiceUpdated(PayloadAttributesV3)
-      of ConsensusFork.Capella:
-        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
-        # Consensus layer client MUST call this method instead of
-        # `engine_forkchoiceUpdatedV1` under any of the following conditions:
-        # `headBlockHash` references a block which `timestamp` is greater or
-        # equal to the Shanghai timestamp
-        callForkchoiceUpdated(PayloadAttributesV2)
-      of ConsensusFork.Bellatrix:
-        callForkchoiceUpdated(PayloadAttributesV1)
-      of ConsensusFork.Phase0, ConsensusFork.Altair:
-        discard
+      let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
+        newHead.get.blck.bid.slot.epoch)
+      withConsensusFork(consensusFork):
+        when consensusFork >= ConsensusFork.Bellatrix:
+          callForkchoiceUpdated(consensusFork.PayloadAttributes)
     else:
       let
         headExecutionPayloadHash =
