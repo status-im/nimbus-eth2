@@ -608,6 +608,8 @@ func shortLog*(v: SomeBeaconBlock): auto =
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
     block_number: v.body.execution_payload.block_number,
     # TODO checksum hex? shortlog?
+    block_hash: to0xHex(v.body.execution_payload.block_hash.data),
+    parent_hash: to0xHex(v.body.execution_payload.parent_hash.data),
     fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
     blob_kzg_commitments_len: 0,  # Deneb compat

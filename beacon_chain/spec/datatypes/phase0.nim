@@ -297,7 +297,9 @@ func shortLog*(v: SomeBeaconBlock): auto =
     voluntary_exits_len: v.body.voluntary_exits.len(),
     sync_committee_participants: -1, # Altair logging compatibility
     block_number: 0'u64, # Bellatrix compat
-    fee_recipient: "",
+    block_hash: "",      # Bellatrix compat
+    parent_hash: "",     # Bellatrix compat
+    fee_recipient: "",   # Bellatrix compat
     bls_to_execution_changes_len: 0,  # Capella compat
     blob_kzg_commitments_len: 0,  # Deneb compat
   )
