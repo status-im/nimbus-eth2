@@ -1006,7 +1006,7 @@ proc isExpired(vc: ValidatorClientRef,
       block:
         let res = vc.beaconClock.toSlot(regTime)
         if not(res.afterGenesis):
-          # This case should not have happend, but it could in case of time
+          # This case should not have happened, but it could in case of time
           # jumps (time could be modified by admin or ntpd).
           return false
         uint64(res.slot)
@@ -1041,6 +1041,10 @@ proc getValidatorRegistration(
         res.slot
 
   if cached.isDefault() or vc.isExpired(cached, currentSlot):
+    if not cached.isDefault():
+      # Want to send it to relay, but not recompute perfectly fine cache
+      return ok(PendingValidatorRegistration(registration: cached, future: nil))
+
     let feeRecipient = vc.getFeeRecipient(validator.pubkey, vindex,
                                           currentSlot.epoch())
     if feeRecipient.isNone():
