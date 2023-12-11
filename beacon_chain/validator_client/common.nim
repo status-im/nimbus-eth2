@@ -37,6 +37,8 @@ const
   HISTORICAL_DUTIES_EPOCHS* = 2'u64
   TIME_DELAY_FROM_SLOT* = 79.milliseconds
   SUBSCRIPTION_BUFFER_SLOTS* = 2'u64
+
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#constants
   EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
 
   DelayBuckets* = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
@@ -993,29 +995,29 @@ proc prepareProposersList*(vc: ValidatorClientRef,
 proc isDefault*(reg: SignedValidatorRegistrationV1): bool =
   (reg.message.timestamp == 0'u64) or (reg.message.gas_limit == 0'u64)
 
-proc isExpired*(vc: ValidatorClientRef,
-                reg: SignedValidatorRegistrationV1, slot: Slot): bool =
+proc isExpired(vc: ValidatorClientRef,
+               reg: SignedValidatorRegistrationV1, slot: Slot): bool =
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#registration-dissemination
+  # This specification suggests validators re-submit to builder software every
+  # `EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION` epochs.
   let
     regTime = fromUnix(int64(reg.message.timestamp))
     regSlot =
       block:
         let res = vc.beaconClock.toSlot(regTime)
         if not(res.afterGenesis):
-          # This case should not be happend, but it could in case of time jumps
-          # (time could be modified by admin or ntpd).
+          # This case should not have happend, but it could in case of time
+          # jumps (time could be modified by admin or ntpd).
           return false
         uint64(res.slot)
 
   if regSlot > slot:
-    # This case should not be happened, but if it happens (time could be
+    # This case should not have happened, but if it happens (time could be
     # modified by admin or ntpd).
     false
   else:
-    if (slot - regSlot) div SLOTS_PER_EPOCH >=
-      EPOCHS_BETWEEN_VALIDATOR_REGISTRATION:
-      false
-    else:
-      true
+    (slot - regSlot) div SLOTS_PER_EPOCH >=
+      EPOCHS_BETWEEN_VALIDATOR_REGISTRATION
 
 proc getValidatorRegistration(
        vc: ValidatorClientRef,
