@@ -41,9 +41,6 @@ const
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#constants
   EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
 
-  DelayBuckets* = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
-                   0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
-
   ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
 
 type
