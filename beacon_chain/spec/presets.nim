@@ -10,12 +10,12 @@
 import
   std/[strutils, parseutils, tables, typetraits],
   chronos/timer,
-  stew/[byteutils], stint, web3/[ethtypes],
+  stew/[byteutils], stint, web3/primitives as web3types,
   ./datatypes/constants
 
 export constants
 
-export stint, ethtypes.toHex, ethtypes.`==`
+export stint, web3types.toHex, web3types.`==`
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#withdrawal-prefixes
@@ -33,7 +33,7 @@ const
 
 type
   Version* = distinct array[4, byte]
-  Eth1Address* = ethtypes.Address
+  Eth1Address* = web3types.Address
 
   RuntimeConfig* = object
     ## https://github.com/ethereum/consensus-specs/tree/v1.4.0-beta.4/configs

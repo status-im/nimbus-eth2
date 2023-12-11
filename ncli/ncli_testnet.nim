@@ -29,7 +29,8 @@ from std/times import toUnix
 
 # Compiled version of /scripts/depositContract.v.py in this repo
 # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
-const depositContractCode = staticRead "../beacon_chain/el/deposit_contract_code.txt"
+const depositContractCode =
+  hexToSeqByte staticRead "../beacon_chain/el/deposit_contract_code.txt"
 
 # For nim-confutils, which uses this kind of init(Type, value) pattern
 func init(T: type IpAddress, ip: IpAddress): T = ip
@@ -282,7 +283,7 @@ contract(DepositContract):
                signature: SignatureBytes,
                deposit_data_root: FixedBytes[32])
 
-template `as`(address: ethtypes.Address, T: type bellatrix.ExecutionAddress): T =
+template `as`(address: Address, T: type bellatrix.ExecutionAddress): T =
   T(data: distinctBase(address))
 
 template `as`(address: BlockHash, T: type Eth2Digest): T =
@@ -508,24 +509,21 @@ proc doCreateTestnet*(config: CliConfig,
     writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
-proc deployContract(web3: Web3, code: string): Future[ReceiptObject] {.async.} =
-  var code = code
-  if code[1] notin {'x', 'X'}:
-    code = "0x" & code
+proc deployContract(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
   let tr = EthSend(
-    source: web3.defaultAccount,
+    `from`: web3.defaultAccount,
     data: code,
     gas: Quantity(3000000).some,
-    gasPrice: 1.some)
+    gasPrice: Quantity(1).some)
 
   let r = await web3.send(tr)
   result = await web3.getMinedTransactionReceipt(r)
 
 proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
   let tr = EthSend(
-    source: web3.defaultAccount,
+    `from`: web3.defaultAccount,
     gas: Quantity(3000000).some,
-    gasPrice: 1.some,
+    gasPrice: Quantity(1).some,
     value: some(valueEth.u256 * 1000000000000000000.u256),
     to: some(to))
   web3.send(tr)
