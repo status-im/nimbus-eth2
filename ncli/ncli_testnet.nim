@@ -283,7 +283,7 @@ contract(DepositContract):
                signature: SignatureBytes,
                deposit_data_root: FixedBytes[32])
 
-template `as`(address: Address, T: type bellatrix.ExecutionAddress): T =
+template `as`(address: Eth1Address, T: type bellatrix.ExecutionAddress): T =
   T(data: distinctBase(address))
 
 template `as`(address: BlockHash, T: type Eth2Digest): T =
