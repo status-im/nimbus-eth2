@@ -17,7 +17,7 @@ import
   eth/trie/[db, hexary],
   json_rpc/jsonmarshal,
   secp256k1,
-  web3/ethtypes,
+  web3/eth_api_types,
   ../el/el_manager,
   ../spec/eth2_apis/[eth2_rest_serialization, rest_light_client_calls],
   ../spec/[helpers, light_client_sync],
@@ -1501,7 +1501,7 @@ proc ETHTransactionsCreateFromJson(
       doAssert sizeof(int64) == sizeof(data.gasPrice)
       doAssert sizeof(int64) == sizeof(data.maxPriorityFeePerGas.get)
       doAssert sizeof(UInt256) == sizeof(data.maxFeePerBlobGas.get)
-    if data.chainId.get(default(UInt256)) > distinctBase(ChainId.high).u256:
+    if distinctBase(data.chainId.get(0.Quantity)) > distinctBase(ChainId.high):
       return nil
     if distinctBase(data.gasPrice) > int64.high.uint64:
       return nil
@@ -1515,12 +1515,12 @@ proc ETHTransactionsCreateFromJson(
       return nil
     if distinctBase(data.gas) > int64.high.uint64:
       return nil
-    if data.v > int64.high.u256:
+    if data.v.uint64 > int64.high.uint64:
       return nil
     let
       tx = ExecutionTransaction(
         txType: txType,
-        chainId: data.chainId.get(default(UInt256)).truncate(uint64).ChainId,
+        chainId: data.chainId.get(0.Quantity).ChainId,
         nonce: distinctBase(data.nonce),
         gasPrice: data.gasPrice.GasInt,
         maxPriorityFee:
@@ -1549,7 +1549,7 @@ proc ETHTransactionsCreateFromJson(
               ExecutionHash256(data: distinctBase(it)))
           else:
             @[],
-        V: data.v.truncate(uint64).int64,
+        V: data.v.int64,
         R: data.r,
         S: data.s)
       rlpBytes =
@@ -2105,7 +2105,7 @@ proc ETHReceiptsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(ReceiptObject) == 15,
+    static: doAssert totalSerializedFields(ReceiptObject) == 17,
       "Only update this number once code is adjusted to check new fields!"
     static: doAssert totalSerializedFields(LogObject) == 9,
       "Only update this number once code is adjusted to check new fields!"
@@ -2133,16 +2133,26 @@ proc ETHReceiptsCreateFromJson(
     for log in data.logs:
       if log.removed:
         return nil
-      if distinctBase(log.logIndex) != logIndex + 1:
+      if log.logIndex.isNone:
         return nil
-      logIndex = distinctBase(log.logIndex)
-      if log.transactionIndex != data.transactionIndex:
+      if distinctBase(log.logIndex.get) != logIndex + 1:
         return nil
-      if log.transactionHash != data.transactionHash:
+      logIndex = distinctBase(log.logIndex.get)
+      if log.transactionIndex.isNone:
         return nil
-      if log.blockHash != data.blockHash:
+      if log.transactionIndex.get != data.transactionIndex:
         return nil
-      if log.blockNumber != data.blockNumber:
+      if log.transactionHash.isNone:
+        return nil
+      if log.transactionHash.get != data.transactionHash:
+        return nil
+      if log.blockHash.isNone:
+        return nil
+      if log.blockHash.get != data.blockHash:
+        return nil
+      if log.blockNumber.isNone:
+        return nil
+      if log.blockNumber.get != data.blockNumber:
         return nil
       if log.data.len mod 32 != 0:
         return nil

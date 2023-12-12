@@ -20,7 +20,7 @@ import
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
-  json_serialization, web3/[ethtypes, confutils_defs],
+  json_serialization, web3/[primitives, confutils_defs],
   kzg4844/kzg_ex,
   ./spec/[engine_authentication, keystore, network, crypto],
   ./spec/datatypes/base,

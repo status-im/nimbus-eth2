@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  chronicles, chronos, web3/[ethtypes, engine_api_types],
+  chronicles, chronos, web3/[primitives, engine_api_types],
   ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ../el/el_manager,

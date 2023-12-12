@@ -27,8 +27,8 @@ export
   eth2_ssz_serialization, results, peerid, common, serialization, chronicles,
   json_serialization, net, sets, rest_types, slashing_protection_common
 
-from web3/ethtypes import BlockHash
-export ethtypes.BlockHash
+from web3/primitives import BlockHash
+export primitives.BlockHash
 
 func decodeMediaType*(
     contentType: Opt[ContentTypeData]): Result[MediaType, string] =

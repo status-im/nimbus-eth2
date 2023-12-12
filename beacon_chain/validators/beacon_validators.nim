@@ -23,7 +23,7 @@ import
   chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net],
   eth/db/kvstore,
-  web3/ethtypes,
+  web3/primitives,
   kzg4844,
 
   # Local modules
