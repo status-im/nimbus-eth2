@@ -179,7 +179,7 @@ jobs:
 
       - name: Build binaries (with trace logging enabled)
         run: |
-          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${{ matrix.nimflags-extra }} deps"  # ensure generate_makefile is genuinely built
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${{ matrix.nimflags-extra }}" deps  # ensure generate_makefile is genuinely built
           ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="--passC=-fsyntax-only --noLinking:on ${{ matrix.nimflags-extra }}"
           # The Windows image runs out of disk space, so make some room
           rm -rf build nimcache
