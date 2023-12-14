@@ -153,8 +153,6 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
 
     stateIdHead = StateIdent(kind: StateQueryKind.Named,
                              value: StateIdentType.Head)
-    blockIdentHead = BlockIdent(kind: BlockQueryKind.Named,
-                                value: BlockIdentType.Head)
 
   # Before making any REST requests, we'll make sure that the supplied
   # inputs are correct:

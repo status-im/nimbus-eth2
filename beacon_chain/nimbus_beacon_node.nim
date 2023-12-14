@@ -1387,7 +1387,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       GC_fullCollect()
     except Defect as exc:
       raise exc # Reraise to maintain call stack
-    except Exception as exc:
+    except Exception:
       # TODO upstream
       raiseAssert "Unexpected exception during GC collection"
 
