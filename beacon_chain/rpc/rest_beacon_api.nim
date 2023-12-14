@@ -1394,11 +1394,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/beacon/blob_sidecars/{block_id}") do (
     block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
     let
-      bid = block_id.valueOr:
+      blockIdent = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
                                          $error)
-
-      bdata = node.getForkedBlock(bid).valueOr:
+      bid = node.getBlockId(blockIdent).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
       contentType = block:
@@ -1423,7 +1422,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       var blobSidecar = new BlobSidecar
 
-      if node.dag.db.getBlobSidecar(bdata.root, blobIndex, blobSidecar[]):
+      if node.dag.db.getBlobSidecar(bid.root, blobIndex, blobSidecar[]):
         discard data[].add blobSidecar[]
 
     return
