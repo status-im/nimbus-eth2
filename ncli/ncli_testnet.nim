@@ -10,22 +10,22 @@
 import
   std/[json, options],
   chronos, bearssl/rand, chronicles, confutils, stint, json_serialization,
-  web3, web3/confutils_defs, eth/keys, eth/p2p/discoveryv5/random2,
+  web3, eth/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils], json_rpc/jsonmarshal,
-  ../beacon_chain/[conf, filepath],
+  ../beacon_chain/conf,
   ../beacon_chain/el/el_manager,
   ../beacon_chain/networking/eth2_network,
-  ../beacon_chain/spec/[beaconstate, eth2_merkleization],
+  ../beacon_chain/spec/eth2_merkleization,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/validators/keystore_management,
-  ../tests/mocking/mock_genesis,
   ./logtrace
 
 from std/os import changeFileExt, fileExists
 from std/sequtils import mapIt, toSeq
-from std/terminal import readPasswordFromStdin
 from std/times import toUnix
+from ../beacon_chain/spec/beaconstate import initialize_beacon_state_from_eth1
+from ../tests/mocking/mock_genesis import mockEth1BlockHash
 
 # Compiled version of /scripts/depositContract.v.py in this repo
 # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
@@ -583,6 +583,12 @@ proc sendDeposits(deposits: seq[LaunchPadDeposit],
 {.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 
 when isMainModule:
+  import
+    web3/confutils_defs,
+    ../beacon_chain/filepath
+
+  from std/terminal import readPasswordFromStdin
+
   proc main() {.async.} =
     var conf = try: CliConfig.load()
     except CatchableError as exc:
