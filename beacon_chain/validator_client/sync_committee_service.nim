@@ -203,10 +203,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
                                     slot: Slot,
                                     beaconBlockRoot: Eth2Digest,
                                     duties: seq[SyncCommitteeDuty]) {.async.} =
-  let
-    vc = service.client
-    epoch = slot.epoch
-    fork = vc.forkAtEpoch(epoch)
+  let vc = service.client
 
   var (contributions, pendingFutures, contributionsMap) =
     block:

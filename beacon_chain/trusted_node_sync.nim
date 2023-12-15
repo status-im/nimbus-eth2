@@ -247,7 +247,6 @@ proc doTrustedNodeSync*(
               else:
                 break
             startPeriod = periods.a
-            lastPeriod = periods.b
             count = min(periods.len, MAX_REQUEST_LIGHT_CLIENT_UPDATES).uint64
 
           var updates =
