@@ -26,7 +26,7 @@ Select an execution client and install it, configuring it such that that the aut
 
     #### 1. Install Geth
 
-    See the [Installing Geth](https://geth.ethereum.org/docs/install-and-build/installing-geth) for instructions on installing Geth.
+    See the [Installing Geth guide](https://geth.ethereum.org/docs/getting-started/installing-geth) for instructions on installing Geth.
 
     #### 2. Start Geth
 
@@ -44,15 +44,15 @@ Select an execution client and install it, configuring it such that that the aut
 
 === "Nethermind"
 
-    See the [Getting started](https://docs.nethermind.io/nethermind/first-steps-with-nethermind/getting-started) guide to set up Nethermind.
+    See the [Installing Nethermind guide](https://docs.nethermind.io/get-started/installing-nethermind) to set up Nethermind.
 
-    Make sure to enable the [JSON-RPC](https://docs.nethermind.io/nethermind/first-steps-with-nethermind/running-nethermind-post-merge#jsonrpc-configuration-module) interface and pass `--JsonRpc.JwtSecretFile=/tmp/jwtsecret` to select a JWT secret file location.
+    Make sure to enable the [JSON-RPC](https://docs.nethermind.io/interacting/json-rpc-server) interface and pass `--JsonRpc.JwtSecretFile=/tmp/jwtsecret` to select a JWT secret file location.
 
 === "Besu"
 
-    See the [Besu documentation](https://besu.hyperledger.org/en/stable/) for instructions on setting up Besu.
+    See the [Besu documentation](https://besu.hyperledger.org/public-networks/get-started/install) for instructions on setting up Besu.
 
-    Make sure to enable the [JSON-RPC](https://besu.hyperledger.org/en/stable/HowTo/Interact/APIs/Using-JSON-RPC-API/) interface and store the JWT token in `/tmp/jwtsecret`.
+    Make sure to enable the [JSON-RPC](https://besu.hyperledger.org/public-networks/how-to/use-besu-api/json-rpc) interface and store the JWT token in `/tmp/jwtsecret`.
 
 === "Erigon"
 
@@ -97,6 +97,44 @@ You will need to pass the path to the token file to Nimbus together with the web
 !!! info
     When the `--jwt-secret` option is not specified and the execution client is running on the same machine under default setting, Nimbus may be able to connect successfully to it by using the default secret value `0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3`.
     This is a [proposed standard protocol](https://github.com/ethereum/execution-apis/pull/302) that aims to simplify the required user configuration, but it's not yet adopted by all execution clients.
+
+
+
+
+## Upgrade execution client
+
+=== "Nimbus"
+
+    In the `nimbus-eth1` directory, run the following commands:
+    ```
+    git pull
+    make -j4 update
+    make -j4 nimbus
+    ```
+
+
+=== "Geth"
+
+    Following [Geth update instructions](https://geth.ethereum.org/docs/faq#how-to-update-geth), to update Geth you need to:
+    
+
+    1. stop the node, 
+    2. download the latest release (follow [installation instructions](https://geth.ethereum.org/docs/getting-started/installing-geth)),
+    3. restart the node.
+
+
+=== "Nethermind"
+
+    There are several ways of updating Nethermind, depending on the installation method.
+    Follow [Nethermind upgrade instructions](https://docs.nethermind.io/faq/#how-do-i-upgrade-my-node).
+
+
+=== "Besu"
+
+    Follow [Besu upgrade instructions](https://besu.hyperledger.org/public-networks/how-to/upgrade-node).
+
+
+
 
 ## Advanced setups
 
