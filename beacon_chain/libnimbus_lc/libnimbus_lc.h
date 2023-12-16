@@ -795,7 +795,7 @@ typedef struct ETHExecutionPayloadHeader ETHExecutionPayloadHeader;
  *
  * @return Execution payload header.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#executionpayloadheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/beacon-chain.md#executionpayloadheader
  */
 ETH_RESULT_USE_CHECK
 const ETHExecutionPayloadHeader *ETHLightClientHeaderGetExecution(

@@ -88,7 +88,7 @@ func compute_block_signing_root*(
       fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
   compute_signing_root(blck, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#signature
 func get_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     root: Eth2Digest, privkey: ValidatorPrivKey): CookedSig =
@@ -173,7 +173,7 @@ func compute_deposit_signing_root(
     domain = compute_domain(DOMAIN_DEPOSIT, version)
   compute_signing_root(deposit_message, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#deposits
 func get_deposit_signature*(preset: RuntimeConfig,
                             deposit: DepositData,
                             privkey: ValidatorPrivKey): CookedSig =
