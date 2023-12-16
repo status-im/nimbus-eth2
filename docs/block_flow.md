@@ -6,7 +6,7 @@ This is a WIP document to explain the beacon block flows.
 
 Important distinction:
 - We distinguish block `validation` which is defined in the P2P specs:
-  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_block.
+  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_block.
   A validated block can be forwarded on gossipsub.
 - and we distinguish `verification` which is defined in consensus specs:
   https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#block-processing

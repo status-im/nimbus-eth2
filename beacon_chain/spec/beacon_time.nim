@@ -133,13 +133,13 @@ template `+`*(a: TimeDiff, b: Duration): TimeDiff =
 const
   # Offsets from the start of the slot to when the corresponding message should
   # be sent
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#attesting
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#attesting
   attestationSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#broadcast-aggregate
   aggregateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#prepare-sync-committee-message
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#prepare-sync-committee-message
   syncCommitteeMessageSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  div INTERVALS_PER_SLOT)
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#broadcast-sync-committee-contribution
@@ -188,7 +188,7 @@ func epoch*(slot: Slot): Epoch = # aka compute_epoch_at_slot
   if slot == FAR_FUTURE_SLOT: FAR_FUTURE_EPOCH
   else: Epoch(slot div SLOTS_PER_EPOCH)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#compute_slots_since_epoch_start
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#compute_slots_since_epoch_start
 func since_epoch_start*(slot: Slot): uint64 = # aka compute_slots_since_epoch_start
   ## How many slots since the beginning of the epoch (`[0..SLOTS_PER_EPOCH-1]`)
   (slot mod SLOTS_PER_EPOCH)

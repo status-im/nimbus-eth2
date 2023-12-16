@@ -972,7 +972,7 @@ func ETHLightClientHeaderGetExecution(
   ## * Execution payload header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#executionpayloadheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/beacon-chain.md#executionpayloadheader
   addr header[].execution
 
 func ETHExecutionPayloadHeaderGetParentHash(
