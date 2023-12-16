@@ -109,6 +109,7 @@ You will need to pass the path to the token file to Nimbus together with the web
     ```
     git pull
     make -j4 update
+    make -j4 nimbus
     ```
 
 
