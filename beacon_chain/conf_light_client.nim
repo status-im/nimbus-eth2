@@ -170,7 +170,7 @@ proc engineApiUrls*(config: LightClientConf): seq[EngineApiUrl] =
   let elUrls = if config.noEl:
     return newSeq[EngineApiUrl]()
   elif config.elUrls.len == 0 and config.web3Urls.len == 0:
-    @[defaultEngineApiUrl]
+    @[getDefaultEngineApiUrl(config.jwtSecret)]
   else:
     config.elUrls
 

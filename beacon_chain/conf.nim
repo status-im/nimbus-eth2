@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[strutils, os, options, unicode, uri],
+  std/[options, unicode, uri],
   metrics,
 
   chronicles, chronicles/options as chroniclesOptions,
@@ -29,6 +29,8 @@ import
   ./el/el_conf,
   ./filepath
 
+from std/os import getHomeDir, parentDir, `/`
+from std/strutils import parseBiggestUInt, replace
 from fork_choice/fork_choice_types
   import ForkChoiceVersion
 from consensus_object_pools/block_pools_types_light_client
@@ -56,7 +58,7 @@ const
 
   defaultListenAddressDesc* = $defaultListenAddress
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
-  defaultBeaconNodeDesc* = $defaultBeaconNode
+  defaultBeaconNodeDesc = $defaultBeaconNode
 
 when defined(windows):
   {.pragma: windowsOnly.}
@@ -1433,7 +1435,7 @@ func defaultFeeRecipient*(conf: AnyConf): Opt[Eth1Address] =
     # https://github.com/nim-lang/Nim/issues/19802
     (static(Opt.none Eth1Address))
 
-proc loadJwtSecret*(
+proc loadJwtSecret(
     rng: var HmacDrbgContext,
     dataDir: string,
     jwtSecret: Opt[InputFile],
@@ -1468,7 +1470,7 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
   let elUrls = if config.noEl:
     return newSeq[EngineApiUrl]()
   elif config.elUrls.len == 0 and config.web3Urls.len == 0:
-    @[defaultEngineApiUrl]
+    @[getDefaultEngineApiUrl(config.jwtSecret)]
   else:
     config.elUrls
 
