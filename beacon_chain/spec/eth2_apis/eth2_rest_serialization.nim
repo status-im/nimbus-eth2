@@ -10,8 +10,9 @@
 import std/[typetraits, strutils]
 import stew/[assign2, results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization, json_serialization,
-       json_serialization/std/[net, sets], stint,
-       chronicles
+       json_serialization/std/[net, sets],
+       json_serialization/stew/results as jsonSerializationResults,
+       stint, chronicles
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/../consensus_object_pools/block_pools_types,
        ".."/datatypes/[phase0, altair, bellatrix],
@@ -25,7 +26,8 @@ from ".."/datatypes/deneb import BeaconState
 
 export
   eth2_ssz_serialization, results, peerid, common, serialization, chronicles,
-  json_serialization, net, sets, rest_types, slashing_protection_common
+  json_serialization, net, sets, rest_types, slashing_protection_common,
+  jsonSerializationResults
 
 from web3/primitives import BlockHash
 export primitives.BlockHash
@@ -36,7 +38,218 @@ func decodeMediaType*(
     return err("Missing or incorrect Content-Type")
   ok contentType.get.mediaType
 
-Json.createFlavor RestJson
+type
+  EmptyBody* = object
+
+createJsonFlavor RestJson
+
+RestJson.useDefaultSerializationFor(
+  AggregateAndProof,
+  Attestation,
+  AttestationData,
+  AttesterSlashing,
+  BLSToExecutionChange,
+  BeaconBlockHeader,
+  BlobSidecar,
+  BlobsBundle,
+  Checkpoint,
+  ContributionAndProof,
+  DataEnclosedObject,
+  DataMetaEnclosedObject,
+  DataOptimisticAndFinalizedObject,
+  DataOptimisticObject,
+  DataRootEnclosedObject,
+  DataVersionEnclosedObject,
+  DeleteKeystoresBody,
+  DeleteKeystoresResponse,
+  DeleteRemoteKeystoresResponse,
+  DenebSignedBlockContents,
+  Deposit,
+  DepositData,
+  DistributedKeystoreInfo,
+  EmptyBody,
+  Eth1Data,
+  EventBeaconBlockObject,
+  ExecutionPayloadAndBlobsBundle,
+  Fork,
+  GetBlockAttestationsResponse,
+  GetBlockHeaderResponse,
+  GetBlockHeadersResponse,
+  GetDepositContractResponse,
+  GetDepositSnapshotResponse,
+  GetDistributedKeystoresResponse,
+  GetEpochCommitteesResponse,
+  GetEpochSyncCommitteesResponse,
+  GetForkChoiceResponse,
+  GetForkScheduleResponse,
+  GetGenesisResponse,
+  GetHeaderResponseCapella,
+  GetHeaderResponseDeneb,
+  GetKeystoresResponse,
+  GetNextWithdrawalsResponse,
+  GetPoolAttesterSlashingsResponse,
+  GetPoolProposerSlashingsResponse,
+  GetPoolVoluntaryExitsResponse,
+  GetRemoteKeystoresResponse,
+  GetSpecVCResponse,
+  GetStateFinalityCheckpointsResponse,
+  GetStateForkResponse,
+  GetStateRandaoResponse,
+  GetStateRootResponse,
+  GetStateValidatorBalancesResponse,
+  GetStateValidatorResponse,
+  GetStateValidatorsResponse,
+  GetValidatorGasLimitResponse,
+  HistoricalSummary,
+  ImportDistributedKeystoresBody,
+  ImportRemoteKeystoresBody,
+  IndexedAttestation,
+  KeymanagerGenericError,
+  KeystoreInfo,
+  ListFeeRecipientResponse,
+  ListGasLimitResponse,
+  PendingAttestation,
+  PostKeystoresResponse,
+  PrepareBeaconProposer,
+  ProposerSlashing,
+  RemoteKeystoreInfo,
+  RemoteSignerInfo,
+  RequestItemStatus,
+  RestAttesterDuty,
+  RestBeaconCommitteeSelection,
+  RestBeaconStatesCommittees,
+  RestBeaconStatesFinalityCheckpoints,
+  RestBlockHeader,
+  RestBlockHeaderInfo,
+  RestCommitteeSubscription,
+  RestContributionAndProof,
+  RestDepositContract,
+  RestDepositSnapshot,
+  RestEpochRandao,
+  RestEpochSyncCommittee,
+  RestExecutionPayload,
+  RestExtraData,
+  RestGenesis,
+  RestIndexedErrorMessage,
+  RestIndexedErrorMessageItem,
+  RestMetadata,
+  RestNetworkIdentity,
+  RestNimbusTimestamp1,
+  RestNimbusTimestamp2,
+  RestNode,
+  RestNodeExtraData,
+  RestNodePeer,
+  RestNodeVersion,
+  RestPeerCount,
+  RestProposerDuty,
+  RestRoot,
+  RestSignedBlockHeader,
+  RestSignedContributionAndProof,
+  RestSyncCommitteeContribution,
+  RestSyncCommitteeDuty,
+  RestSyncCommitteeMessage,
+  RestSyncCommitteeSelection,
+  RestSyncCommitteeSubscription,
+  RestSyncInfo,
+  RestValidator,
+  RestValidatorBalance,
+  SPDIR,
+  SPDIR_Meta,
+  SPDIR_SignedAttestation,
+  SPDIR_SignedBlock,
+  SPDIR_Validator,
+  SetFeeRecipientRequest,
+  SetGasLimitRequest,
+  SignedAggregateAndProof,
+  SignedBLSToExecutionChange,
+  SignedBeaconBlockHeader,
+  SignedContributionAndProof,
+  SignedValidatorRegistrationV1,
+  SignedVoluntaryExit,
+  SubmitBlindedBlockResponseCapella,
+  SubmitBlindedBlockResponseDeneb,
+  SyncAggregate,
+  SyncAggregatorSelectionData,
+  SyncCommittee,
+  SyncCommitteeContribution,
+  SyncCommitteeMessage,
+  TrustedAttestation,
+  Validator,
+  ValidatorRegistrationV1,
+  VoluntaryExit,
+  Web3SignerAggregationSlotData,
+  Web3SignerDepositData,
+  Web3SignerErrorResponse,
+  Web3SignerForkInfo,
+  Web3SignerMerkleProof,
+  Web3SignerRandaoRevealData,
+  Web3SignerSignatureResponse,
+  Web3SignerStatusResponse,
+  Web3SignerSyncCommitteeMessageData,
+  Web3SignerValidatorRegistration,
+  Withdrawal,
+  altair.BeaconBlock,
+  altair.BeaconBlockBody,
+  altair.BeaconState,
+  altair.LightClientBootstrap,
+  altair.LightClientFinalityUpdate,
+  altair.LightClientHeader,
+  altair.LightClientOptimisticUpdate,
+  altair.LightClientUpdate,
+  altair.SignedBeaconBlock,
+  bellatrix.BeaconBlock,
+  bellatrix.BeaconBlockBody,
+  bellatrix.BeaconState,
+  bellatrix.ExecutionPayload,
+  bellatrix.ExecutionPayloadHeader,
+  bellatrix.SignedBeaconBlock,
+  bellatrix_mev.BlindedBeaconBlock,
+  bellatrix_mev.SignedBlindedBeaconBlock,
+  capella.BeaconBlock,
+  capella.BeaconBlockBody,
+  capella.BeaconState,
+  capella.ExecutionPayload,
+  capella.ExecutionPayloadHeader,
+  capella.LightClientBootstrap,
+  capella.LightClientFinalityUpdate,
+  capella.LightClientHeader,
+  capella.LightClientOptimisticUpdate,
+  capella.LightClientUpdate,
+  capella.SignedBeaconBlock,
+  capella_mev.BlindedBeaconBlock,
+  capella_mev.BlindedBeaconBlockBody,
+  capella_mev.BuilderBid,
+  capella_mev.SignedBlindedBeaconBlock,
+  capella_mev.SignedBuilderBid,
+  deneb.BeaconBlock,
+  deneb.BeaconBlockBody,
+  deneb.BeaconState,
+  deneb.BlockContents,
+  deneb.ExecutionPayload,
+  deneb.ExecutionPayloadHeader,
+  deneb.LightClientBootstrap,
+  deneb.LightClientFinalityUpdate,
+  deneb.LightClientHeader,
+  deneb.LightClientOptimisticUpdate,
+  deneb.LightClientUpdate,
+  deneb.SignedBeaconBlock,
+  deneb_mev.BlindedBeaconBlock,
+  deneb_mev.BlindedBeaconBlockBody,
+  deneb_mev.BuilderBid,
+  deneb_mev.SignedBlindedBeaconBlock,
+  deneb_mev.SignedBuilderBid,
+  phase0.BeaconBlock,
+  phase0.BeaconBlockBody,
+  phase0.BeaconState,
+  phase0.SignedBeaconBlock,
+)
+
+# TODO
+# Tuples are widely used in the responses of the REST server
+# If we switch to concrete types there, it would be possible
+# to remove this overly generic definition.
+template writeValue*(w: JsonWriter[RestJson], value: tuple) =
+  writeRecordValue(w, value)
 
 ## The RestJson format implements JSON serialization in the way specified
 ## by the Beacon API:
@@ -84,8 +297,6 @@ const
   UnexpectedDecodeError = "Unexpected decoding error"
 
 type
-  EmptyBody* = object
-
   EncodeTypes* =
     AttesterSlashing |
     DeleteKeystoresBody |
@@ -3087,36 +3298,11 @@ proc writeValue*(
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
-## EventBeaconBlockObject
-proc writeValue*(
-    writer: var JsonWriter[RestJson], value: EventBeaconBlockObject
-) {.raises: [IOError].} =
-  writer.beginRecord()
-  writer.writeField("slot", value.slot)
-  writer.writeField("block", value.block_root)
-  if value.optimistic.isSome():
-    writer.writeField("execution_optimistic", value.optimistic.get())
-  writer.endRecord()
-
 ## RestNodeValidity
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: RestNodeValidity
 ) {.raises: [IOError].} =
   writer.writeValue($value)
-
-## RestSyncInfo
-proc writeValue*(
-    writer: var JsonWriter[RestJson], value: RestSyncInfo
-) {.raises: [IOError].} =
-  writer.beginRecord()
-  writer.writeField("head_slot", value.head_slot)
-  writer.writeField("sync_distance", value.sync_distance)
-  writer.writeField("is_syncing", value.is_syncing)
-  if value.is_optimistic.isSome():
-    writer.writeField("is_optimistic", value.is_optimistic.get())
-  if value.el_offline.isSome():
-    writer.writeField("el_offline", value.el_offline.get())
-  writer.endRecord()
 
 ## RestErrorMessage
 proc readValue*(reader: var JsonReader[RestJson],
