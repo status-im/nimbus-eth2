@@ -96,7 +96,7 @@ type
   Eth1BlockNumber* = uint64
   Eth1BlockTimestamp* = uint64
 
-  Eth1Block* = ref object
+  Eth1BlockObj* = object
     hash*: Eth2Digest
     number*: Eth1BlockNumber
     timestamp*: Eth1BlockTimestamp
@@ -110,6 +110,8 @@ type
     depositCount*: uint64
       ## Global deposits count and hash tree root of the entire sequence
       ## These are computed when the block is added to the chain (see `addBlock`)
+
+  Eth1Block* = ref Eth1BlockObj
 
   Eth1Chain* = object
     db: BeaconChainDB

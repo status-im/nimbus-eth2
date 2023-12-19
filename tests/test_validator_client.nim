@@ -316,6 +316,11 @@ type
   SyncCommitteeBitsObject = object
     data: SyncCommitteeAggregationBits
 
+RestJson.useDefaultSerializationFor(
+  AttestationBitsObject,
+  SyncCommitteeBitsObject
+)
+
 const
   AttestationDataVectors = [
     # Attestation score with block monitoring enabled (perfect).
