@@ -9,10 +9,7 @@
 
 import chronos
 
-from
-  libp2p/protocols/pubsub/gossipsub
-import
-  TopicParams, validateParameters, init
+from libp2p/protocols/pubsub/gossipsub import TopicParams, validateParameters, init
 
 # inspired by lighthouse research here
 # https://gist.github.com/blacktemplar/5c1862cb3f0e32a1a7fb0b25e79e6e2c#file-generate-scoring-params-py
@@ -31,10 +28,10 @@ const
     meshMessageDeliveriesCap: 2.054757422716966,
     meshMessageDeliveriesActivation: chronos.seconds(384),
     meshMessageDeliveriesWindow: chronos.seconds(2),
-    meshFailurePenaltyWeight: -458.31054878249114 ,
+    meshFailurePenaltyWeight: -458.31054878249114,
     meshFailurePenaltyDecay: 0.9716279515771061,
     invalidMessageDeliveriesWeight: -214.99999999999994,
-    invalidMessageDeliveriesDecay: 0.9971259067705325
+    invalidMessageDeliveriesDecay: 0.9971259067705325,
   )
   aggregateTopicParams* = TopicParams(
     topicWeight: 0.5,
@@ -50,10 +47,10 @@ const
     meshMessageDeliveriesCap: 213.61699380071934,
     meshMessageDeliveriesActivation: chronos.seconds(384),
     meshMessageDeliveriesWindow: chronos.seconds(2),
-    meshFailurePenaltyWeight: -0.07538533073670682 ,
+    meshFailurePenaltyWeight: -0.07538533073670682,
     meshFailurePenaltyDecay: 0.930572040929699,
     invalidMessageDeliveriesWeight: -214.99999999999994,
-    invalidMessageDeliveriesDecay: 0.9971259067705325
+    invalidMessageDeliveriesDecay: 0.9971259067705325,
   )
   basicParams* = TopicParams.init()
 

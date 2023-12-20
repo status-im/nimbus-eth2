@@ -11,7 +11,9 @@ import
   std/osproc,
 
   # Nimble packages
-  chronos, presto, bearssl/rand,
+  chronos,
+  presto,
+  bearssl/rand,
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf, light_client],
@@ -19,23 +21,23 @@ import
   ./networking/eth2_network,
   ./el/el_manager,
   ./consensus_object_pools/[
-    blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    exit_pool, attestation_pool, sync_committee_msg_pool],
+    blockchain_dag, blob_quarantine, block_quarantine, consensus_manager, exit_pool,
+    attestation_pool, sync_committee_msg_pool,
+  ],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./sync/[sync_manager, request_manager],
   ./validators/[
     action_tracker, message_router, validator_monitor, validator_pool,
-    keystore_management],
+    keystore_management,
+  ],
   ./rpc/state_ttl_cache
 
 export
-  osproc, chronos, presto, action_tracker,
-  beacon_clock, beacon_chain_db, conf, light_client,
-  attestation_pool, sync_committee_msg_pool, validator_pool,
-  eth2_network, el_manager, request_manager, sync_manager,
-  eth2_processor, optimistic_processor, blockchain_dag, block_quarantine,
-  base, exit_pool,  message_router, validator_monitor,
+  osproc, chronos, presto, action_tracker, beacon_clock, beacon_chain_db, conf,
+  light_client, attestation_pool, sync_committee_msg_pool, validator_pool, eth2_network,
+  el_manager, request_manager, sync_manager, eth2_processor, optimistic_processor,
+  blockchain_dag, block_quarantine, base, exit_pool, message_router, validator_monitor,
   consensus_manager, dynamic_fee_recipients
 
 type
@@ -43,10 +45,8 @@ type
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
-    finUpdateQueue*: AsyncEventQueue[
-      RestVersioned[ForkedLightClientFinalityUpdate]]
-    optUpdateQueue*: AsyncEventQueue[
-      RestVersioned[ForkedLightClientOptimisticUpdate]]
+    finUpdateQueue*: AsyncEventQueue[RestVersioned[ForkedLightClientFinalityUpdate]]
+    optUpdateQueue*: AsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]]
     attestQueue*: AsyncEventQueue[Attestation]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
@@ -92,14 +92,11 @@ type
     stateTtlCache*: StateTtlCache
     router*: ref MessageRouter
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
-    externalBuilderRegistrations*:
-      Table[ValidatorPubKey, SignedValidatorRegistrationV1]
-    dutyValidatorCount*: int
-      ## Number of validators that we've checked for activation
+    externalBuilderRegistrations*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
+    dutyValidatorCount*: int ## Number of validators that we've checked for activation
     processingDelay*: Opt[Duration]
 
-const
-  MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
+const MaxEmptySlotCount* = uint64(10 * 60) div SECONDS_PER_SLOT
 
 # TODO stew/sequtils2
 template findIt*(s: openArray, predicate: untyped): int =
@@ -122,8 +119,7 @@ func getPayloadBuilderAddress*(config: BeaconNodeConf): Opt[string] =
   else:
     Opt.none(string)
 
-proc getPayloadBuilderAddress*(
-    node: BeaconNode, pubkey: ValidatorPubKey): Opt[string] =
+proc getPayloadBuilderAddress*(node: BeaconNode, pubkey: ValidatorPubKey): Opt[string] =
   let defaultPayloadBuilderAddress = node.config.getPayloadBuilderAddress
   if node.keymanagerHost.isNil:
     defaultPayloadBuilderAddress
@@ -132,7 +128,8 @@ proc getPayloadBuilderAddress*(
       defaultPayloadBuilderAddress
 
 proc getPayloadBuilderClient*(
-    node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
+    node: BeaconNode, validator_index: uint64
+): RestResult[RestClientRef] =
   if not node.config.payloadBuilderEnable:
     return err "Payload builder globally disabled"
 

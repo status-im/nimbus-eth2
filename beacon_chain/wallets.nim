@@ -6,14 +6,12 @@
 
 {.push raises: [].}
 
-import
-  std/os,
-  ./validators/keystore_management,
-  ./conf
+import std/os, ./validators/keystore_management, ./conf
 
-proc doWallets*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
-    raises: [CatchableError].} =
-  case config.walletsCmd:
+proc doWallets*(
+    config: BeaconNodeConf, rng: var HmacDrbgContext
+) {.raises: [CatchableError].} =
+  case config.walletsCmd
   of WalletsCmd.create:
     if config.createdWalletNameFlag.isSome:
       let
@@ -29,20 +27,17 @@ proc doWallets*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
       fatal "Unable to create wallet", err = error
       quit 1
     burnMem(wallet.seed)
-
   of WalletsCmd.list:
     for kind, walletFile in walkDir(config.walletsDir):
-      if kind != pcFile: continue
+      if kind != pcFile:
+        continue
       if checkSensitiveFilePermissions(walletFile):
         let walletRes = loadWallet(walletFile)
         if walletRes.isOk:
           echo walletRes.get.longName
         else:
-          warn "Found corrupt wallet file",
-                wallet = walletFile, error = walletRes.error
+          warn "Found corrupt wallet file", wallet = walletFile, error = walletRes.error
       else:
-        warn "Found wallet file with insecure permissions",
-              wallet = walletFile
-
+        warn "Found wallet file with insecure permissions", wallet = walletFile
   of WalletsCmd.restore:
     restoreWalletInteractively(rng, config)

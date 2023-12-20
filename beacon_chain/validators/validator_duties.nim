@@ -19,24 +19,30 @@ export chronos, results, block_dag, beacon_clock
 ## The validator_duties module contains logic and utilities related to performing
 ## validator duties that are shared between beacon node and validator client.
 
-type
-  RegisteredAttestation* = object
-    # A registered attestation is one that has been successfully registered in
-    # the slashing protection database and is therefore ready to be signed and
-    # sent
-    validator*: AttachedValidator
-    index_in_committee*: uint64
-    committee_len*: int
-    data*: AttestationData
+type RegisteredAttestation* = object
+  # A registered attestation is one that has been successfully registered in
+  # the slashing protection database and is therefore ready to be signed and
+  # sent
+  validator*: AttachedValidator
+  index_in_committee*: uint64
+  committee_len*: int
+  data*: AttestationData
 
 proc toAttestation*(
-    registered: RegisteredAttestation, signature: ValidatorSig): Attestation =
-  Attestation.init(
-    [registered.index_in_committee], registered.committee_len,
-    registered.data, signature).expect("valid data")
+    registered: RegisteredAttestation, signature: ValidatorSig
+): Attestation =
+  Attestation
+  .init(
+    [registered.index_in_committee],
+    registered.committee_len,
+    registered.data,
+    signature,
+  )
+  .expect("valid data")
 
-proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
-                           head: Opt[BlockRef] = Opt.none(BlockRef)) {.async.} =
+proc waitAfterBlockCutoff*(
+    clock: BeaconClock, slot: Slot, head: Opt[BlockRef] = Opt.none(BlockRef)
+) {.async.} =
   # The expected block arrived (or expectBlock was called again which
   # shouldn't happen as this is the only place we use it) - in our async
   # loop however, we might have been doing other processing that caused delays
@@ -57,16 +63,17 @@ proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
   const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
   let
     afterBlockTime = clock.now() + afterBlockDelay
-    afterBlockCutoff = clock.fromNow(
-      min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
+    afterBlockCutoff =
+      clock.fromNow(min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
 
   if afterBlockCutoff.inFuture:
     if head.isSome():
       debug "Got block, waiting to send attestations",
-            head = shortLog(head.get()), slot = slot,
-            afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+        head = shortLog(head.get()),
+        slot = slot,
+        afterBlockCutoff = shortLog(afterBlockCutoff.offset)
     else:
       debug "Got block, waiting to send attestations",
-            slot = slot, afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+        slot = slot, afterBlockCutoff = shortLog(afterBlockCutoff.offset)
 
     await sleepAsync(afterBlockCutoff.offset)

@@ -7,8 +7,7 @@
 
 {.push raises: [].}
 
-import
-  std/[strutils, parseutils, sequtils, terminal, colors]
+import std/[strutils, parseutils, sequtils, terminal, colors]
 
 type
   ContentFragments = seq[tuple[kind: InterpolatedKind, value: string]]
@@ -21,8 +20,7 @@ type
     cellsLeft: seq[StatusBarCell]
     cellsRight: seq[StatusBarCell]
 
-  DataItemResolver* = proc (dataItem: string): string {.
-    gcsafe, raises: [].}
+  DataItemResolver* = proc(dataItem: string): string {.gcsafe, raises: [].}
 
   StatusBarView* = object
     model: DataItemResolver
@@ -30,36 +28,35 @@ type
     consumedLines: int
 
 const
-  sepLeft  = "❯"
+  sepLeft = "❯"
   sepRight = "❮"
 
   # sepLeft  = "|"
   # sepRight = "|"
-
   backgroundColor = rgb(36, 36, 36)
   foregroundColor = colWhiteSmoke
 
-func loadFragmentsLayout(contentLayout: string): ContentFragments {.
-    raises: [ValueError].} =
+func loadFragmentsLayout(
+    contentLayout: string
+): ContentFragments {.raises: [ValueError].} =
   toSeq(interpolatedFragments(strip contentLayout))
 
-func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.
-    raises: [ValueError].} =
+func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.raises: [ValueError].} =
   let cells = cellsLayout.split(';')
   for cell in cells:
     let columns = cell.split(':', maxSplit = 1)
     if columns.len == 2:
       result.add StatusBarCell(
-        label: strip(columns[0]),
-        contentFragments: loadFragmentsLayout(columns[1]))
+        label: strip(columns[0]), contentFragments: loadFragmentsLayout(columns[1])
+      )
     else:
-      result.add StatusBarCell(
-        contentFragments: loadFragmentsLayout(columns[0]))
+      result.add StatusBarCell(contentFragments: loadFragmentsLayout(columns[0]))
 
 func loadLayout(layout: string): Layout {.raises: [ValueError].} =
   let sections = layout.split('|', maxSplit = 1)
   result.cellsLeft = loadCellsLayout(sections[0])
-  if sections.len == 2: result.cellsRight = loadCellsLayout(sections[1])
+  if sections.len == 2:
+    result.cellsRight = loadCellsLayout(sections[1])
 
 proc updateContent(cell: var StatusBarCell, model: DataItemResolver) =
   cell.content.setLen 0
@@ -83,7 +80,8 @@ func width(cell: StatusBarCell): int =
 
 func width(cells: seq[StatusBarCell]): int =
   result = max(0, cells.len - 1) # the number of separators
-  for cell in cells: result += cell.width
+  for cell in cells:
+    result += cell.width
 
 var complained = false
 template ignoreException(body: untyped) =
@@ -101,7 +99,8 @@ proc renderCells(cells: seq[StatusBarCell], sep: string) =
       stdout.setBackgroundColor backgroundColor
       stdout.setForegroundColor foregroundColor
       stdout.setStyle {styleDim}
-      if i > 0: stdout.write sep
+      if i > 0:
+        stdout.write sep
       stdout.write " ", cell.label, ": "
       stdout.setStyle {styleBright}
       stdout.write cell.content, " "
@@ -129,11 +128,13 @@ proc render*(s: var StatusBarView) {.raises: [ValueError].} =
 
 proc erase*(s: var StatusBarView) =
   ignoreException:
-    for i in 1 ..< s.consumedLines: cursorUp()
-    for i in 0 ..< s.consumedLines: eraseLine()
+    for i in 1 ..< s.consumedLines:
+      cursorUp()
+    for i in 0 ..< s.consumedLines:
+      eraseLine()
     s.consumedLines = 0
 
-func init*(T: type StatusBarView,
-           layout: string,
-           model: DataItemResolver): T {.raises: [ValueError].} =
+func init*(
+    T: type StatusBarView, layout: string, model: DataItemResolver
+): T {.raises: [ValueError].} =
   StatusBarView(model: model, consumedLines: 1, layout: loadLayout(layout))

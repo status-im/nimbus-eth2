@@ -28,8 +28,7 @@ func getFuture(peer: PeerTest): Future[void] =
 func `<`(a, b: PeerTest): bool =
   `<`(a.weight, b.weight)
 
-proc init*(t: typedesc[PeerTest], id: string = "",
-           weight: int = 0): PeerTest =
+proc init*(t: typedesc[PeerTest], id: string = "", weight: int = 0): PeerTest =
   PeerTest(id: id, weight: weight, future: newFuture[void]())
 
 proc close(peer: PeerTest) =
@@ -37,11 +36,8 @@ proc close(peer: PeerTest) =
 
 suite "PeerPool testing suite":
   test "addPeerNoWait() test":
-    const peersCount = [
-      [10, 5, 5, 10, 5, 5],
-      [-1, 5, 5, 10, 5, 5],
-      [-1, -1, -1, 10, 5, 5]
-    ]
+    const peersCount =
+      [[10, 5, 5, 10, 5, 5], [-1, 5, 5, 10, 5, 5], [-1, -1, -1, 10, 5, 5]]
     for item in peersCount:
       var pool = newPeerPool[PeerTest, PeerTestID](item[0], item[1], item[2])
       for i in 0 ..< item[4]:
@@ -55,12 +51,10 @@ suite "PeerPool testing suite":
       var peer = PeerTest.init("idCheck")
       if item[1] != -1:
         for i in 0 ..< item[3]:
-          check pool.addPeerNoWait(peer, PeerType.Incoming) ==
-            PeerStatus.NoSpaceError
+          check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.NoSpaceError
       if item[2] != -1:
         for i in 0 ..< item[3]:
-          check pool.addPeerNoWait(peer, PeerType.Outgoing) ==
-            PeerStatus.NoSpaceError
+          check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.NoSpaceError
       check:
         pool.lenAvailable == item[3]
         pool.lenAvailable({PeerType.Incoming}) == item[4]
@@ -68,9 +62,9 @@ suite "PeerPool testing suite":
 
   test "addPeer() test":
     proc testAddPeer1(): Future[bool] {.async.} =
-      var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 1,
-                                                   maxIncomingPeers = 1,
-                                                   maxOutgoingPeers = 0)
+      var pool = newPeerPool[PeerTest, PeerTestID](
+        maxPeers = 1, maxIncomingPeers = 1, maxOutgoingPeers = 0
+      )
       var peer0 = PeerTest.init("idInc0")
       var peer1 = PeerTest.init("idOut0")
       var peer2 = PeerTest.init("idInc1")
@@ -87,9 +81,9 @@ suite "PeerPool testing suite":
       result = true
 
     proc testAddPeer2(): Future[bool] {.async.} =
-      var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 2,
-                                                   maxIncomingPeers = 1,
-                                                   maxOutgoingPeers = 1)
+      var pool = newPeerPool[PeerTest, PeerTestID](
+        maxPeers = 2, maxIncomingPeers = 1, maxOutgoingPeers = 1
+      )
       var peer0 = PeerTest.init("idInc0")
       var peer1 = PeerTest.init("idOut0")
       var peer2 = PeerTest.init("idInc1")
@@ -112,9 +106,9 @@ suite "PeerPool testing suite":
       result = true
 
     proc testAddPeer3(): Future[bool] {.async.} =
-      var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 3,
-                                                   maxIncomingPeers = 1,
-                                                   maxOutgoingPeers = 1)
+      var pool = newPeerPool[PeerTest, PeerTestID](
+        maxPeers = 3, maxIncomingPeers = 1, maxOutgoingPeers = 1
+      )
       var peer0 = PeerTest.init("idInc0")
       var peer1 = PeerTest.init("idInc1")
       var peer2 = PeerTest.init("idOut0")
@@ -237,74 +231,75 @@ suite "PeerPool testing suite":
       itemFut23.finished == false
       itemFut24.finished == false
 
-  test "Acquire/Sorting and consistency test": closureScope:
-    const
-      TestsCount = 1000
-      MaxNumber = 1_000_000
+  test "Acquire/Sorting and consistency test":
+    closureScope:
+      const
+        TestsCount = 1000
+        MaxNumber = 1_000_000
 
-    var pool = newPeerPool[PeerTest, PeerTestID]()
+      var pool = newPeerPool[PeerTest, PeerTestID]()
 
-    proc testAcquireRelease(): Future[int] {.async, gcsafe.} =
-      var weight: int
-      var incoming, outgoing, total: seq[PeerTest]
-      var incWeight1, outWeight1, totWeight1: int
+      proc testAcquireRelease(): Future[int] {.async, gcsafe.} =
+        var weight: int
+        var incoming, outgoing, total: seq[PeerTest]
+        var incWeight1, outWeight1, totWeight1: int
 
-      incoming.setLen(0)
-      for i in 0 ..< pool.lenAvailable({PeerType.Incoming}):
-        var peer = await pool.acquire({PeerType.Incoming})
-        incoming.add(peer)
+        incoming.setLen(0)
+        for i in 0 ..< pool.lenAvailable({PeerType.Incoming}):
+          var peer = await pool.acquire({PeerType.Incoming})
+          incoming.add(peer)
 
-      outgoing.setLen(0)
-      for i in 0 ..< pool.lenAvailable({PeerType.Outgoing}):
-        var peer = await pool.acquire({PeerType.Outgoing})
-        outgoing.add(peer)
+        outgoing.setLen(0)
+        for i in 0 ..< pool.lenAvailable({PeerType.Outgoing}):
+          var peer = await pool.acquire({PeerType.Outgoing})
+          outgoing.add(peer)
 
-      weight = MaxNumber + 1
-      incWeight1 = 0
-      for i in 0 ..< len(incoming):
-        incWeight1 = incWeight1 + incoming[i].weight
-        if incoming[i].weight > weight:
-          raise newException(ValueError, "Incoming items are not sorted")
-        weight = incoming[i].weight
-        pool.release(incoming[i])
+        weight = MaxNumber + 1
+        incWeight1 = 0
+        for i in 0 ..< len(incoming):
+          incWeight1 = incWeight1 + incoming[i].weight
+          if incoming[i].weight > weight:
+            raise newException(ValueError, "Incoming items are not sorted")
+          weight = incoming[i].weight
+          pool.release(incoming[i])
 
-      weight = MaxNumber + 1
-      outWeight1 = 0
-      for i in 0..<len(outgoing):
-        outWeight1 = outWeight1 + outgoing[i].weight
-        if outgoing[i].weight > weight:
-          raise newException(ValueError, "Outgoing items are not sorted")
-        weight = outgoing[i].weight
-        pool.release(outgoing[i])
+        weight = MaxNumber + 1
+        outWeight1 = 0
+        for i in 0 ..< len(outgoing):
+          outWeight1 = outWeight1 + outgoing[i].weight
+          if outgoing[i].weight > weight:
+            raise newException(ValueError, "Outgoing items are not sorted")
+          weight = outgoing[i].weight
+          pool.release(outgoing[i])
 
-      for i in 0 ..< pool.lenAvailable():
-        var peer = await pool.acquire()
-        total.add(peer)
+        for i in 0 ..< pool.lenAvailable():
+          var peer = await pool.acquire()
+          total.add(peer)
 
-      weight = MaxNumber + 1
-      totWeight1 = 0
-      for i in 0 ..< len(total):
-        totWeight1 = totWeight1 + total[i].weight
-        if total[i].weight > weight:
-          raise newException(ValueError, "Outgoing items are not sorted")
-        weight = total[i].weight
-        pool.release(total[i])
+        weight = MaxNumber + 1
+        totWeight1 = 0
+        for i in 0 ..< len(total):
+          totWeight1 = totWeight1 + total[i].weight
+          if total[i].weight > weight:
+            raise newException(ValueError, "Outgoing items are not sorted")
+          weight = total[i].weight
+          pool.release(total[i])
 
-      doAssert(totWeight1 == incWeight1 + outWeight1)
-      doAssert(len(total) == len(incoming) + len(outgoing))
+        doAssert(totWeight1 == incWeight1 + outWeight1)
+        doAssert(len(total) == len(incoming) + len(outgoing))
 
-      result = TestsCount
+        result = TestsCount
 
-    randomize()
-    for i in 0 ..< TestsCount:
-      var peer = PeerTest.init("peer" & $i, rand(MaxNumber))
-      # echo repr peer
-      if rand(100) mod 2 == 0:
-        check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
-      else:
-        check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
+      randomize()
+      for i in 0 ..< TestsCount:
+        var peer = PeerTest.init("peer" & $i, rand(MaxNumber))
+        # echo repr peer
+        if rand(100) mod 2 == 0:
+          check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+        else:
+          check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
 
-    check waitFor(testAcquireRelease()) == TestsCount
+      check waitFor(testAcquireRelease()) == TestsCount
 
   test "deletePeer() test":
     proc testDeletePeer(): Future[bool] {.async.} =
@@ -312,8 +307,7 @@ suite "PeerPool testing suite":
       var peer = PeerTest.init("deletePeer")
 
       ## Delete available peer
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
+      doAssert(pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -326,8 +320,7 @@ suite "PeerPool testing suite":
 
       ## Delete acquired peer
       peer = PeerTest.init("closingPeer")
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
+      doAssert(pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -346,8 +339,7 @@ suite "PeerPool testing suite":
 
       ## Force delete acquired peer
       peer = PeerTest.init("closingPeer")
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
+      doAssert(pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -360,6 +352,7 @@ suite "PeerPool testing suite":
       doAssert(pool.lenAvailable({PeerType.Incoming}) == 0)
 
       result = true
+
     check waitFor(testDeletePeer()) == true
 
   test "Peer lifetime test":
@@ -368,8 +361,7 @@ suite "PeerPool testing suite":
       var peer = PeerTest.init("closingPeer")
 
       ## Close available peer
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
+      doAssert(pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -384,8 +376,7 @@ suite "PeerPool testing suite":
 
       ## Close acquired peer
       peer = PeerTest.init("closingPeer")
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
+      doAssert(pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -411,81 +402,83 @@ suite "PeerPool testing suite":
 
     check waitFor(testPeerLifetime()) == true
 
-  test "Safe/Clear test": closureScope:
-    var pool = newPeerPool[PeerTest, PeerTestID]()
-    var peer1 = PeerTest.init("peer1", 10)
-    var peer2 = PeerTest.init("peer2", 9)
-    var peer3 = PeerTest.init("peer3", 8)
+  test "Safe/Clear test":
+    closureScope:
+      var pool = newPeerPool[PeerTest, PeerTestID]()
+      var peer1 = PeerTest.init("peer1", 10)
+      var peer2 = PeerTest.init("peer2", 9)
+      var peer3 = PeerTest.init("peer3", 8)
 
-    check:
-      pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
-      pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
-      pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
-      pool.lenAvailable == 3
-      pool.lenAvailable({PeerType.Outgoing}) == 1
-      pool.lenAvailable({PeerType.Incoming}) == 2
-      pool.lenAcquired == 0
-      pool.len == 3
+      check:
+        pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
+        pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
+        pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
+        pool.lenAvailable == 3
+        pool.lenAvailable({PeerType.Outgoing}) == 1
+        pool.lenAvailable({PeerType.Incoming}) == 2
+        pool.lenAcquired == 0
+        pool.len == 3
 
-    pool.clear()
+      pool.clear()
 
-    check:
-      pool.lenAvailable == 0
-      pool.lenAvailable({PeerType.Outgoing}) == 0
-      pool.lenAvailable({PeerType.Incoming}) == 0
-      pool.lenAcquired == 0
-      pool.len == 0
+      check:
+        pool.lenAvailable == 0
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 0
+        pool.lenAcquired == 0
+        pool.len == 0
 
-    check:
-      pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
-      pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
-      pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
-      pool.lenAvailable == 3
-      pool.lenAvailable({PeerType.Outgoing}) == 1
-      pool.lenAvailable({PeerType.Incoming}) == 2
-      pool.lenAcquired == 0
-      pool.len == 3
+      check:
+        pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
+        pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
+        pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
+        pool.lenAvailable == 3
+        pool.lenAvailable({PeerType.Outgoing}) == 1
+        pool.lenAvailable({PeerType.Incoming}) == 2
+        pool.lenAcquired == 0
+        pool.len == 3
 
-    proc testConsumer() {.async.} =
-      var p = await pool.acquire()
-      await sleepAsync(100.milliseconds)
-      pool.release(p)
+      proc testConsumer() {.async.} =
+        var p = await pool.acquire()
+        await sleepAsync(100.milliseconds)
+        pool.release(p)
 
-    proc testClose(): Future[bool] {.async.} =
-      await pool.clearSafe()
-      result = true
+      proc testClose(): Future[bool] {.async.} =
+        await pool.clearSafe()
+        result = true
 
-    asyncSpawn testConsumer()
-    check waitFor(testClose()) == true
+      asyncSpawn testConsumer()
+      check waitFor(testClose()) == true
 
-  test "Access peers by key test": closureScope:
-    var pool = newPeerPool[PeerTest, PeerTestID]()
-    var peer1 = PeerTest.init("peer1", 10)
-    var peer2 = PeerTest.init("peer2", 9)
-    var peer3 = PeerTest.init("peer3", 8)
+  test "Access peers by key test":
+    closureScope:
+      var pool = newPeerPool[PeerTest, PeerTestID]()
+      var peer1 = PeerTest.init("peer1", 10)
+      var peer2 = PeerTest.init("peer2", 9)
+      var peer3 = PeerTest.init("peer3", 8)
 
-    check:
-      pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
-      pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
-      pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
-      pool.hasPeer("peer4") == false
-      pool.hasPeer("peer1") == true
-      pool.hasPeer("peer2") == true
-      pool.hasPeer("peer3") == true
-      pool.getOrDefault("peer4").id == ""
-      pool.getOrDefault("peer4", PeerTest.init("peer5")).id == "peer5"
-      pool.getOrDefault("peer1").id == "peer1"
-      pool.getOrDefault("peer1", PeerTest.init("peer5")).id == "peer1"
-      pool["peer1"].id == "peer1"
-      pool["peer1"].weight == 10
-      pool["peer2"].id == "peer2"
-      pool["peer2"].weight == 9
-      pool["peer3"].id == "peer3"
-      pool["peer3"].weight == 8
+      check:
+        pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
+        pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
+        pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
+        pool.hasPeer("peer4") == false
+        pool.hasPeer("peer1") == true
+        pool.hasPeer("peer2") == true
+        pool.hasPeer("peer3") == true
+        pool.getOrDefault("peer4").id == ""
+        pool.getOrDefault("peer4", PeerTest.init("peer5")).id == "peer5"
+        pool.getOrDefault("peer1").id == "peer1"
+        pool.getOrDefault("peer1", PeerTest.init("peer5")).id == "peer1"
+        pool["peer1"].id == "peer1"
+        pool["peer1"].weight == 10
+        pool["peer2"].id == "peer2"
+        pool["peer2"].weight == 9
+        pool["peer3"].id == "peer3"
+        pool["peer3"].weight == 8
 
-    var ppeer = addr(pool["peer1"])
-    ppeer[].weight = 100
-    check pool["peer1"].weight == 100
+      var ppeer = addr(pool["peer1"])
+      ppeer[].weight = 100
+      check pool["peer1"].weight == 100
 
   test "Iterators test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
@@ -551,9 +544,15 @@ suite "PeerPool testing suite":
     discard waitFor(pool.acquire({PeerType.Incoming}))
     discard waitFor(pool.acquire({PeerType.Outgoing}))
 
-    total1.setLen(0); total2.setLen(0); total3.setLen(0)
-    avail1.setLen(0); avail2.setLen(0); avail3.setLen(0)
-    acqui1.setLen(0); acqui2.setLen(0); acqui3.setLen(0)
+    total1.setLen(0)
+    total2.setLen(0)
+    total3.setLen(0)
+    avail1.setLen(0)
+    avail2.setLen(0)
+    avail3.setLen(0)
+    acqui1.setLen(0)
+    acqui2.setLen(0)
+    acqui3.setLen(0)
 
     for item in pool.peers():
       total1.add(item)
@@ -612,10 +611,8 @@ suite "PeerPool testing suite":
       lenAvailable(pool) == 3
 
     check:
-      waitFor(pool.addPeer(peer4, PeerType.Incoming)) ==
-        PeerStatus.LowScoreError
-      waitFor(pool.addPeer(peer5, PeerType.Outgoing)) ==
-        PeerStatus.LowScoreError
+      waitFor(pool.addPeer(peer4, PeerType.Incoming)) == PeerStatus.LowScoreError
+      waitFor(pool.addPeer(peer5, PeerType.Outgoing)) == PeerStatus.LowScoreError
       len(pool) == 3
       lenAvailable(pool) == 3
 
@@ -657,9 +654,9 @@ suite "PeerPool testing suite":
         else:
           result = false
 
-      var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 1,
-                                                   maxIncomingPeers = 1,
-                                                   maxOutgoingPeers = 0)
+      var pool = newPeerPool[PeerTest, PeerTestID](
+        maxPeers = 1, maxIncomingPeers = 1, maxOutgoingPeers = 0
+      )
       pool.setScoreCheck(scoreCheck)
 
       var peer0 = PeerTest.init("idInc0", 100)
@@ -685,19 +682,17 @@ suite "PeerPool testing suite":
 
   test "Space tests":
     var pool1 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79)
-    var pool2 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
-                                                  maxIncomingPeers = 39)
-    var pool3 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
-                                                  maxOutgoingPeers = 40)
-    var pool4 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
-                                                  maxOutgoingPeers = 40,
-                                                  maxIncomingPeers = 0)
-    var pool5 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
-                                                  maxIncomingPeers = 39,
-                                                  maxOutgoingPeers = 0)
-    var pool6 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
-                                                  maxIncomingPeers = 39,
-                                                  maxOutgoingPeers = 40)
+    var pool2 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79, maxIncomingPeers = 39)
+    var pool3 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79, maxOutgoingPeers = 40)
+    var pool4 = newPeerPool[PeerTest, PeerTestID](
+      maxPeers = 79, maxOutgoingPeers = 40, maxIncomingPeers = 0
+    )
+    var pool5 = newPeerPool[PeerTest, PeerTestID](
+      maxPeers = 79, maxIncomingPeers = 39, maxOutgoingPeers = 0
+    )
+    var pool6 = newPeerPool[PeerTest, PeerTestID](
+      maxPeers = 79, maxIncomingPeers = 39, maxOutgoingPeers = 40
+    )
     var pool7 = newPeerPool[PeerTest, PeerTestID](maxIncomingPeers = 39)
     var pool8 = newPeerPool[PeerTest, PeerTestID](maxOutgoingPeers = 40)
     var pool9 = newPeerPool[PeerTest, PeerTestID]()
@@ -734,42 +729,42 @@ suite "PeerPool testing suite":
     # POOL 1
     for i in 0 ..< 79:
       if i mod 2 == 0:
-        check pool1.addPeerNoWait(PeerTest.init("idInc" & $i),
-                                  PeerType.Incoming) == PeerStatus.Success
+        check pool1.addPeerNoWait(PeerTest.init("idInc" & $i), PeerType.Incoming) ==
+          PeerStatus.Success
       else:
-        check pool1.addPeerNoWait(PeerTest.init("idOut" & $i),
-                                  PeerType.Outgoing) == PeerStatus.Success
+        check pool1.addPeerNoWait(PeerTest.init("idOut" & $i), PeerType.Outgoing) ==
+          PeerStatus.Success
       check pool1.lenSpace() == 79 - (i + 1)
 
     # POOL 2
     for i in 0 ..< 39:
       check:
-        pool2.addPeerNoWait(PeerTest.init("idInc" & $i),
-                            PeerType.Incoming) == PeerStatus.Success
+        pool2.addPeerNoWait(PeerTest.init("idInc" & $i), PeerType.Incoming) ==
+          PeerStatus.Success
         pool2.lenSpace() == 79 - (i + 1)
         pool2.lenSpace({PeerType.Incoming}) == 39 - (i + 1)
         pool2.lenSpace({PeerType.Outgoing}) == 79 - (i + 1)
 
     check:
-      pool2.addPeerNoWait(PeerTest.init("idInc39"),
-                          PeerType.Incoming) == PeerStatus.NoSpaceError
+      pool2.addPeerNoWait(PeerTest.init("idInc39"), PeerType.Incoming) ==
+        PeerStatus.NoSpaceError
       pool2.lenSpace({PeerType.Incoming}) == 0
 
     for i in 39 ..< 79:
       check:
-        pool2.addPeerNoWait(PeerTest.init("idOut" & $i),
-                            PeerType.Outgoing) == PeerStatus.Success
-        pool2.addPeerNoWait(PeerTest.init("idIncSome"),
-                            PeerType.Incoming) == PeerStatus.NoSpaceError
+        pool2.addPeerNoWait(PeerTest.init("idOut" & $i), PeerType.Outgoing) ==
+          PeerStatus.Success
+        pool2.addPeerNoWait(PeerTest.init("idIncSome"), PeerType.Incoming) ==
+          PeerStatus.NoSpaceError
         pool2.lenSpace() == 79 - (i + 1)
         pool2.lenSpace({PeerType.Incoming}) == 0
         pool2.lenSpace({PeerType.Outgoing}) == 79 - (i + 1)
 
     check:
-      pool2.addPeerNoWait(PeerTest.init("idOut79"),
-                          PeerType.Outgoing) == PeerStatus.NoSpaceError
-      pool2.addPeerNoWait(PeerTest.init("idInc79"),
-                          PeerType.Incoming) == PeerStatus.NoSpaceError
+      pool2.addPeerNoWait(PeerTest.init("idOut79"), PeerType.Outgoing) ==
+        PeerStatus.NoSpaceError
+      pool2.addPeerNoWait(PeerTest.init("idInc79"), PeerType.Incoming) ==
+        PeerStatus.NoSpaceError
       pool2.lenSpace() == 0
       pool2.lenSpace({PeerType.Incoming}) == 0
       pool2.lenSpace({PeerType.Outgoing}) == 0
@@ -777,32 +772,32 @@ suite "PeerPool testing suite":
     # POOL 3
     for i in 0 ..< 40:
       check:
-        pool3.addPeerNoWait(PeerTest.init("idOut" & $i),
-                            PeerType.Outgoing) == PeerStatus.Success
+        pool3.addPeerNoWait(PeerTest.init("idOut" & $i), PeerType.Outgoing) ==
+          PeerStatus.Success
         pool3.lenSpace() == 79 - (i + 1)
         pool3.lenSpace({PeerType.Outgoing}) == 40 - (i + 1)
         pool3.lenSpace({PeerType.Incoming}) == 79 - (i + 1)
 
     check:
-      pool3.addPeerNoWait(PeerTest.init("idInc40"),
-                          PeerType.Outgoing) == PeerStatus.NoSpaceError
+      pool3.addPeerNoWait(PeerTest.init("idInc40"), PeerType.Outgoing) ==
+        PeerStatus.NoSpaceError
       pool3.lenSpace({PeerType.Outgoing}) == 0
 
     for i in 40 ..< 79:
       check:
-        pool3.addPeerNoWait(PeerTest.init("idInc" & $i),
-                            PeerType.Incoming) == PeerStatus.Success
-        pool3.addPeerNoWait(PeerTest.init("idOutSome"),
-                            PeerType.Outgoing) == PeerStatus.NoSpaceError
+        pool3.addPeerNoWait(PeerTest.init("idInc" & $i), PeerType.Incoming) ==
+          PeerStatus.Success
+        pool3.addPeerNoWait(PeerTest.init("idOutSome"), PeerType.Outgoing) ==
+          PeerStatus.NoSpaceError
         pool3.lenSpace() == 79 - (i + 1)
         pool3.lenSpace({PeerType.Outgoing}) == 0
         pool3.lenSpace({PeerType.Incoming}) == 79 - (i + 1)
 
     check:
-      pool3.addPeerNoWait(PeerTest.init("idInc79"),
-                          PeerType.Incoming) == PeerStatus.NoSpaceError
-      pool3.addPeerNoWait(PeerTest.init("idOut79"),
-                          PeerType.Outgoing) == PeerStatus.NoSpaceError
+      pool3.addPeerNoWait(PeerTest.init("idInc79"), PeerType.Incoming) ==
+        PeerStatus.NoSpaceError
+      pool3.addPeerNoWait(PeerTest.init("idOut79"), PeerType.Outgoing) ==
+        PeerStatus.NoSpaceError
       pool3.lenSpace() == 0
       pool3.lenSpace({PeerType.Incoming}) == 0
       pool3.lenSpace({PeerType.Outgoing}) == 0
@@ -810,19 +805,19 @@ suite "PeerPool testing suite":
     # POOL 4
     for i in 0 ..< 40:
       check:
-        pool4.addPeerNoWait(PeerTest.init("idOut" & $i),
-                            PeerType.Outgoing) == PeerStatus.Success
-        pool4.addPeerNoWait(PeerTest.init("idIncSome"),
-                            PeerType.Incoming) == PeerStatus.NoSpaceError
+        pool4.addPeerNoWait(PeerTest.init("idOut" & $i), PeerType.Outgoing) ==
+          PeerStatus.Success
+        pool4.addPeerNoWait(PeerTest.init("idIncSome"), PeerType.Incoming) ==
+          PeerStatus.NoSpaceError
         pool4.lenSpace() == 40 - (i + 1)
         pool4.lenSpace({PeerType.Incoming}) == 0
         pool4.lenSpace({PeerType.Outgoing}) == 40 - (i + 1)
 
     check:
-      pool4.addPeerNoWait(PeerTest.init("idOut40"),
-                          PeerType.Outgoing) == PeerStatus.NoSpaceError
-      pool4.addPeerNoWait(PeerTest.init("idInc40"),
-                          PeerType.Incoming) == PeerStatus.NoSpaceError
+      pool4.addPeerNoWait(PeerTest.init("idOut40"), PeerType.Outgoing) ==
+        PeerStatus.NoSpaceError
+      pool4.addPeerNoWait(PeerTest.init("idInc40"), PeerType.Incoming) ==
+        PeerStatus.NoSpaceError
       pool4.lenSpace() == 0
       pool4.lenSpace({PeerType.Incoming}) == 0
       pool4.lenSpace({PeerType.Outgoing}) == 0
@@ -830,19 +825,19 @@ suite "PeerPool testing suite":
     # POOL 5
     for i in 0 ..< 39:
       check:
-        pool5.addPeerNoWait(PeerTest.init("idInc" & $i),
-                            PeerType.Incoming) == PeerStatus.Success
-        pool5.addPeerNoWait(PeerTest.init("idOutSome"),
-                            PeerType.Outgoing) == PeerStatus.NoSpaceError
+        pool5.addPeerNoWait(PeerTest.init("idInc" & $i), PeerType.Incoming) ==
+          PeerStatus.Success
+        pool5.addPeerNoWait(PeerTest.init("idOutSome"), PeerType.Outgoing) ==
+          PeerStatus.NoSpaceError
         pool5.lenSpace() == 39 - (i + 1)
         pool5.lenSpace({PeerType.Incoming}) == 39 - (i + 1)
         pool5.lenSpace({PeerType.Outgoing}) == 0
 
     check:
-      pool5.addPeerNoWait(PeerTest.init("idOut39"),
-                          PeerType.Outgoing) == PeerStatus.NoSpaceError
-      pool5.addPeerNoWait(PeerTest.init("idInc39"),
-                          PeerType.Incoming) == PeerStatus.NoSpaceError
+      pool5.addPeerNoWait(PeerTest.init("idOut39"), PeerType.Outgoing) ==
+        PeerStatus.NoSpaceError
+      pool5.addPeerNoWait(PeerTest.init("idInc39"), PeerType.Incoming) ==
+        PeerStatus.NoSpaceError
       pool5.lenSpace() == 0
       pool5.lenSpace({PeerType.Incoming}) == 0
       pool5.lenSpace({PeerType.Outgoing}) == 0
@@ -850,21 +845,21 @@ suite "PeerPool testing suite":
     # POOL 6
     for i in 0 ..< 39:
       check:
-        pool6.addPeerNoWait(PeerTest.init("idInc" & $i),
-                            PeerType.Incoming) == PeerStatus.Success
-        pool6.addPeerNoWait(PeerTest.init("idOut" & $(i + 39)),
-                            PeerType.Outgoing) == PeerStatus.Success
+        pool6.addPeerNoWait(PeerTest.init("idInc" & $i), PeerType.Incoming) ==
+          PeerStatus.Success
+        pool6.addPeerNoWait(PeerTest.init("idOut" & $(i + 39)), PeerType.Outgoing) ==
+          PeerStatus.Success
         pool6.lenSpace() == 79 - (i + 1) * 2
         pool6.lenSpace({PeerType.Incoming}) == 39 - (i + 1)
         pool6.lenSpace({PeerType.Outgoing}) == 40 - (i + 1)
 
     check:
-      pool6.addPeerNoWait(PeerTest.init("idInc39"),
-                          PeerType.Incoming) == PeerStatus.NoSpaceError
-      pool6.addPeerNoWait(PeerTest.init("idOut79"),
-                          PeerType.Outgoing) == PeerStatus.Success
-      pool6.addPeerNoWait(PeerTest.init("idOut80"),
-                          PeerType.Outgoing) == PeerStatus.NoSpaceError
+      pool6.addPeerNoWait(PeerTest.init("idInc39"), PeerType.Incoming) ==
+        PeerStatus.NoSpaceError
+      pool6.addPeerNoWait(PeerTest.init("idOut79"), PeerType.Outgoing) ==
+        PeerStatus.Success
+      pool6.addPeerNoWait(PeerTest.init("idOut80"), PeerType.Outgoing) ==
+        PeerStatus.NoSpaceError
       pool6.lenSpace() == 0
       pool6.lenSpace({PeerType.Incoming}) == 0
       pool6.lenSpace({PeerType.Outgoing}) == 0
@@ -872,15 +867,15 @@ suite "PeerPool testing suite":
     # POOL 7
     for i in 0 ..< 39:
       check:
-        pool7.addPeerNoWait(PeerTest.init("idInc" & $i),
-                            PeerType.Incoming) == PeerStatus.Success
+        pool7.addPeerNoWait(PeerTest.init("idInc" & $i), PeerType.Incoming) ==
+          PeerStatus.Success
         pool7.lenSpace() == high(int) - (i + 1)
         pool7.lenSpace({PeerType.Incoming}) == 39 - (i + 1)
         pool7.lenSpace({PeerType.Outgoing}) == high(int) - (i + 1)
 
     check:
-      pool7.addPeerNoWait(PeerTest.init("idInc39"),
-                          PeerType.Incoming) == PeerStatus.NoSpaceError
+      pool7.addPeerNoWait(PeerTest.init("idInc39"), PeerType.Incoming) ==
+        PeerStatus.NoSpaceError
       pool7.lenSpace() == high(int) - 39
       pool7.lenSpace({PeerType.Incoming}) == 0
       pool7.lenSpace({PeerType.Outgoing}) == high(int) - 39
@@ -888,8 +883,8 @@ suite "PeerPool testing suite":
     # We could not check whole high(int), so we check 10_000 items
     for i in 0 ..< 10_000:
       check:
-        pool7.addPeerNoWait(PeerTest.init("idOut" & $i),
-                            PeerType.Outgoing) == PeerStatus.Success
+        pool7.addPeerNoWait(PeerTest.init("idOut" & $i), PeerType.Outgoing) ==
+          PeerStatus.Success
         pool7.lenSpace() == high(int) - 39 - (i + 1)
         pool7.lenSpace({PeerType.Incoming}) == 0
         pool7.lenSpace({PeerType.Outgoing}) == high(int) - 39 - (i + 1)
@@ -897,15 +892,15 @@ suite "PeerPool testing suite":
     # POOL 8
     for i in 0 ..< 40:
       check:
-        pool8.addPeerNoWait(PeerTest.init("idOut" & $i),
-                            PeerType.Outgoing) == PeerStatus.Success
+        pool8.addPeerNoWait(PeerTest.init("idOut" & $i), PeerType.Outgoing) ==
+          PeerStatus.Success
         pool8.lenSpace() == high(int) - (i + 1)
         pool8.lenSpace({PeerType.Outgoing}) == 40 - (i + 1)
         pool8.lenSpace({PeerType.Incoming}) == high(int) - (i + 1)
 
     check:
-      pool8.addPeerNoWait(PeerTest.init("idOut40"),
-                          PeerType.Outgoing) == PeerStatus.NoSpaceError
+      pool8.addPeerNoWait(PeerTest.init("idOut40"), PeerType.Outgoing) ==
+        PeerStatus.NoSpaceError
       pool8.lenSpace() == high(int) - 40
       pool8.lenSpace({PeerType.Outgoing}) == 0
       pool8.lenSpace({PeerType.Incoming}) == high(int) - 40
@@ -913,8 +908,8 @@ suite "PeerPool testing suite":
     # We could not check whole high(int), so we check 10_000 items
     for i in 0 ..< 10_000:
       check:
-        pool8.addPeerNoWait(PeerTest.init("idInc" & $i),
-                            PeerType.Incoming) == PeerStatus.Success
+        pool8.addPeerNoWait(PeerTest.init("idInc" & $i), PeerType.Incoming) ==
+          PeerStatus.Success
         pool8.lenSpace() == high(int) - 40 - (i + 1)
         pool8.lenSpace({PeerType.Outgoing}) == 0
         pool8.lenSpace({PeerType.Incoming}) == high(int) - 40 - (i + 1)
@@ -923,10 +918,10 @@ suite "PeerPool testing suite":
     # We could not check whole high(int), so we check 10_000 items
     for i in 0 ..< 10_000:
       check:
-        pool9.addPeerNoWait(PeerTest.init("idInc" & $i),
-                            PeerType.Incoming) == PeerStatus.Success
-        pool9.addPeerNoWait(PeerTest.init("idOut" & $i),
-                            PeerType.Outgoing) == PeerStatus.Success
+        pool9.addPeerNoWait(PeerTest.init("idInc" & $i), PeerType.Incoming) ==
+          PeerStatus.Success
+        pool9.addPeerNoWait(PeerTest.init("idOut" & $i), PeerType.Outgoing) ==
+          PeerStatus.Success
         pool9.lenSpace() == high(int) - (i + 1) * 2
         pool9.lenSpace({PeerType.Outgoing}) == high(int) - (i + 1) * 2
         pool9.lenSpace({PeerType.Incoming}) == high(int) - (i + 1) * 2

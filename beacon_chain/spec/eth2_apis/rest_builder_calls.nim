@@ -7,14 +7,19 @@
 {.push raises: [].}
 
 import
-  chronos, presto/client, chronicles,
+  chronos,
+  presto/client,
+  chronicles,
   ".."/[helpers, forks, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 
-proc getNextWithdrawals*(state_id: StateIdent
-             ): RestResponse[GetNextWithdrawalsResponse] {.
-     rest, endpoint: "/eth/v1/builder/states/{state_id}/expected_withdrawals",
-     meth: MethodGet.}
+proc getNextWithdrawals*(
+  state_id: StateIdent
+): RestResponse[GetNextWithdrawalsResponse] {.
+  rest,
+  endpoint: "/eth/v1/builder/states/{state_id}/expected_withdrawals",
+  meth: MethodGet
+.}
   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.0#/Builder/getNextWithdrawals

@@ -32,9 +32,9 @@ func fakeValidator(index: SomeInteger): ValidatorPubKey =
   result.blob[0 ..< 8] = (1'u64 shl 48 + index.uint64).toBytesBE()
 
 proc sqlite3db_delete(basepath, dbname: string) =
-  removeFile(basepath / dbname&".sqlite3-shm")
-  removeFile(basepath / dbname&".sqlite3-wal")
-  removeFile(basepath / dbname&".sqlite3")
+  removeFile(basepath / dbname & ".sqlite3-shm")
+  removeFile(basepath / dbname & ".sqlite3-wal")
+  removeFile(basepath / dbname & ".sqlite3")
 
 const TestDir = ""
 const TestDbName = "test_slashprot"
@@ -58,22 +58,20 @@ suite "Slashing Protection DB" & preset():
       sqlite3db_delete(TestDir, TestDbName)
 
     check:
-      db.checkSlashableBlockProposal(
-        ValidatorIndex(1234),
-        fakeValidator(1234),
-        slot = Slot 1
-      ).isOk()
+      db
+      .checkSlashableBlockProposal(
+        ValidatorIndex(1234), fakeValidator(1234), slot = Slot 1
+      )
+      .isOk()
+
+      db
+      .checkSlashableAttestation(
+        ValidatorIndex(1234), fakeValidator(1234), source = Epoch 1, target = Epoch 2
+      )
+      .isOk()
+
       db.checkSlashableAttestation(
-        ValidatorIndex(1234),
-        fakeValidator(1234),
-        source = Epoch 1,
-        target = Epoch 2
-      ).isOk()
-      db.checkSlashableAttestation(
-        ValidatorIndex(1234),
-        fakeValidator(1234),
-        source = Epoch 2,
-        target = Epoch 1
+        ValidatorIndex(1234), fakeValidator(1234), source = Epoch 2, target = Epoch 1
       ).error.kind == TargetPrecedesSource
 
   test "SP for block proposal - linear append":
@@ -84,83 +82,82 @@ suite "Slashing Protection DB" & preset():
       sqlite3db_delete(TestDir, TestDbName)
 
     check:
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 10,
-        fakeRoot(100)
-      ).isOk()
-      db.registerBlock(
-        ValidatorIndex(111),
-        fakeValidator(111),
-        Slot 15,
-        fakeRoot(111)
-      ).isOk()
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 10, fakeRoot(100))
+      .isOk()
+
+      db
+      .registerBlock(ValidatorIndex(111), fakeValidator(111), Slot 15, fakeRoot(111))
+      .isOk()
 
       # Slot occupied by same validator
-      db.checkSlashableBlockProposal(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        slot = Slot 10
-      ).isErr()
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        slot = Slot 10,
-        fakeRoot(101)
-      ).isErr()
+
+      db
+      .checkSlashableBlockProposal(
+        ValidatorIndex(100), fakeValidator(100), slot = Slot 10
+      )
+      .isErr()
+
+      db
+      .registerBlock(
+        ValidatorIndex(100), fakeValidator(100), slot = Slot 10, fakeRoot(101)
+      )
+      .isErr()
       # Slot occupied by another validator
-      db.checkSlashableBlockProposal(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        slot = Slot 15
-      ).isOk()
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        slot = Slot 15,
-        fakeRoot(150)
-      ).isOk()
+
+      db
+      .checkSlashableBlockProposal(
+        ValidatorIndex(100), fakeValidator(100), slot = Slot 15
+      )
+      .isOk()
+
+      db
+      .registerBlock(
+        ValidatorIndex(100), fakeValidator(100), slot = Slot 15, fakeRoot(150)
+      )
+      .isOk()
       # Slot occupied by same validator
-      db.checkSlashableBlockProposal(
-        ValidatorIndex(111),
-        fakeValidator(111),
-        slot = Slot 15
-      ).isErr()
-      db.registerBlock(
-        ValidatorIndex(111),
-        fakeValidator(111),
-        slot = Slot 15,
-        fakeRoot(151)
-      ).isErr()
+
+      db
+      .checkSlashableBlockProposal(
+        ValidatorIndex(111), fakeValidator(111), slot = Slot 15
+      )
+      .isErr()
+
+      db
+      .registerBlock(
+        ValidatorIndex(111), fakeValidator(111), slot = Slot 15, fakeRoot(151)
+      )
+      .isErr()
 
       # Slot inoccupied
-      db.checkSlashableBlockProposal(
-        ValidatorIndex(255),
-        fakeValidator(255),
-        slot = Slot 20
-      ).isOk()
 
-      db.registerBlock(
-        ValidatorIndex(255),
-        fakeValidator(255),
-        slot = Slot 20,
-        fakeRoot(4321)
-      ).isOk()
+      db
+      .checkSlashableBlockProposal(
+        ValidatorIndex(255), fakeValidator(255), slot = Slot 20
+      )
+      .isOk()
+
+      db
+      .registerBlock(
+        ValidatorIndex(255), fakeValidator(255), slot = Slot 20, fakeRoot(4321)
+      )
+      .isOk()
 
     check:
       # Slot now occupied
-      db.checkSlashableBlockProposal(
-        ValidatorIndex(255),
-        fakeValidator(255),
-        slot = Slot 20
-      ).isErr()
-      db.registerBlock(
-        ValidatorIndex(255),
-        fakeValidator(255),
-        slot = Slot 20,
-        fakeRoot(4322)
-      ).isErr()
+
+      db
+      .checkSlashableBlockProposal(
+        ValidatorIndex(255), fakeValidator(255), slot = Slot 20
+      )
+      .isErr()
+
+      db
+      .registerBlock(
+        ValidatorIndex(255), fakeValidator(255), slot = Slot 20, fakeRoot(4322)
+      )
+      .isErr()
 
   test "SP for block proposal - backtracking append":
     sqlite3db_delete(TestDir, TestDbName)
@@ -171,126 +168,90 @@ suite "Slashing Protection DB" & preset():
 
     # last finalized block
     check:
-      db.registerBlock(
-        ValidatorIndex(0),
-        fakeValidator(0),
-        Slot 0,
-        fakeRoot(0)
-      ).isOk()
+      db.registerBlock(ValidatorIndex(0), fakeValidator(0), Slot 0, fakeRoot(0)).isOk()
 
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 10,
-        fakeRoot(10)
-      ).isOk()
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 20,
-        fakeRoot(20)
-      ).isOk()
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 10, fakeRoot(10))
+      .isOk()
+
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 20, fakeRoot(20))
+      .isOk()
     for i in 0 ..< 30:
-      let status = db.checkSlashableBlockProposal(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot i
-      )
+      let status =
+        db.checkSlashableBlockProposal(ValidatorIndex(100), fakeValidator(100), Slot i)
       if i > 10 and i != 20: # MinSlotViolation and DupSlot
         doAssert status.isOk, "error: " & $status
       else:
         doAssert status.isErr, "error: " & $status
     check:
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 15,
-        fakeRoot(15)
-      ).isOk()
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 15, fakeRoot(15))
+      .isOk()
     for i in 0 ..< 30:
       if i > 10 and i notin {15, 20}: # MinSlotViolation and DupSlot
         let status = db.checkSlashableBlockProposal(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Slot i
+          ValidatorIndex(100), fakeValidator(100), Slot i
         )
         doAssert status.isOk, "error: " & $status
       else:
         let status = db.checkSlashableBlockProposal(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Slot i
+          ValidatorIndex(100), fakeValidator(100), Slot i
         )
         doAssert status.isErr, "error: " & $status
         check:
-          db.checkSlashableBlockProposal(
-            ValidatorIndex(0xDEADBEEF),
-            fakeValidator(0xDEADBEEF),
-            Slot i
-          ).isOk()
+          db
+          .checkSlashableBlockProposal(
+            ValidatorIndex(0xDEADBEEF), fakeValidator(0xDEADBEEF), Slot i
+          )
+          .isOk()
     check:
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 12,
-        fakeRoot(12)
-      ).isOk()
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 17,
-        fakeRoot(17)
-      ).isOk()
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 12, fakeRoot(12))
+      .isOk()
+
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 17, fakeRoot(17))
+      .isOk()
     for i in 0 ..< 30:
       if i > 10 and i notin {12, 15, 17, 20}:
         let status = db.checkSlashableBlockProposal(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Slot i
+          ValidatorIndex(100), fakeValidator(100), Slot i
         )
         doAssert status.isOk, "error: " & $status
       else:
         let status = db.checkSlashableBlockProposal(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Slot i
+          ValidatorIndex(100), fakeValidator(100), Slot i
         )
         doAssert status.isErr, "error: " & $status
         check:
-          db.checkSlashableBlockProposal(
-            ValidatorIndex(0xDEADBEEF),
-            fakeValidator(0xDEADBEEF),
-            Slot i
-          ).isOk()
+          db
+          .checkSlashableBlockProposal(
+            ValidatorIndex(0xDEADBEEF), fakeValidator(0xDEADBEEF), Slot i
+          )
+          .isOk()
     check:
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 29,
-        fakeRoot(29)
-      ).isOk()
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 29, fakeRoot(29))
+      .isOk()
 
     for i in 0 ..< 30:
       if i > 10 and i notin {12, 15, 17, 20, 29}:
         let status = db.checkSlashableBlockProposal(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Slot i
+          ValidatorIndex(100), fakeValidator(100), Slot i
         )
         doAssert status.isOk, "error: " & $status
       else:
         let status = db.checkSlashableBlockProposal(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Slot i
+          ValidatorIndex(100), fakeValidator(100), Slot i
         )
         doAssert status.isErr, "error: " & $status
         check:
-          db.checkSlashableBlockProposal(
-            ValidatorIndex(0xDEADBEEF),
-            fakeValidator(0xDEADBEEF),
-            Slot i
-          ).isOk()
+          db
+          .checkSlashableBlockProposal(
+            ValidatorIndex(0xDEADBEEF), fakeValidator(0xDEADBEEF), Slot i
+          )
+          .isOk()
 
   test "SP for same epoch attestation target - linear append":
     sqlite3db_delete(TestDir, TestDbName)
@@ -300,77 +261,74 @@ suite "Slashing Protection DB" & preset():
       sqlite3db_delete(TestDir, TestDbName)
 
     check:
-      db.registerAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 0, Epoch 10,
-        fakeRoot(100)
-      ).isOk()
-      db.registerAttestation(
-        ValidatorIndex(111),
-        fakeValidator(111),
-        Epoch 0, Epoch 15,
-        fakeRoot(111)
-      ).isOk()
+      db
+      .registerAttestation(
+        ValidatorIndex(100), fakeValidator(100), Epoch 0, Epoch 10, fakeRoot(100)
+      )
+      .isOk()
+
+      db
+      .registerAttestation(
+        ValidatorIndex(111), fakeValidator(111), Epoch 0, Epoch 15, fakeRoot(111)
+      )
+      .isOk()
 
       # Epoch occupied by same validator
+
       db.checkSlashableAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 0, Epoch 10,
+        ValidatorIndex(100), fakeValidator(100), Epoch 0, Epoch 10
       ).error.kind == DoubleVote
+
       db.registerAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 0, Epoch 10, fakeRoot(101)
+        ValidatorIndex(100), fakeValidator(100), Epoch 0, Epoch 10, fakeRoot(101)
       ).error.kind == DoubleVote
 
       # Epoch occupied by another validator
-      db.checkSlashableAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 0, Epoch 15
-      ).isOk()
-      db.registerAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 0, Epoch 15, fakeRoot(151)
-      ).isOk()
+
+      db
+      .checkSlashableAttestation(
+        ValidatorIndex(100), fakeValidator(100), Epoch 0, Epoch 15
+      )
+      .isOk()
+
+      db
+      .registerAttestation(
+        ValidatorIndex(100), fakeValidator(100), Epoch 0, Epoch 15, fakeRoot(151)
+      )
+      .isOk()
 
       # Epoch occupied by same validator
+
       db.checkSlashableAttestation(
-        ValidatorIndex(111),
-        fakeValidator(111),
-        Epoch 0, Epoch 15
+        ValidatorIndex(111), fakeValidator(111), Epoch 0, Epoch 15
       ).error.kind == DoubleVote
+
       db.registerAttestation(
-        ValidatorIndex(111),
-        fakeValidator(111),
-        Epoch 0, Epoch 15, fakeRoot(161)
+        ValidatorIndex(111), fakeValidator(111), Epoch 0, Epoch 15, fakeRoot(161)
       ).error.kind == DoubleVote
 
       # Epoch inoccupied
-      db.checkSlashableAttestation(
-        ValidatorIndex(255),
-        fakeValidator(255),
-        Epoch 0, Epoch 20
-      ).isOk()
-      db.registerAttestation(
-        ValidatorIndex(255),
-        fakeValidator(255),
-        Epoch 0, Epoch 20, fakeRoot(4321)
-      ).isOk()
+
+      db
+      .checkSlashableAttestation(
+        ValidatorIndex(255), fakeValidator(255), Epoch 0, Epoch 20
+      )
+      .isOk()
+
+      db
+      .registerAttestation(
+        ValidatorIndex(255), fakeValidator(255), Epoch 0, Epoch 20, fakeRoot(4321)
+      )
+      .isOk()
 
       # Epoch now occupied
+
       db.checkSlashableAttestation(
-        ValidatorIndex(255),
-        fakeValidator(255),
-        Epoch 0, Epoch 20
+        ValidatorIndex(255), fakeValidator(255), Epoch 0, Epoch 20
       ).error.kind == DoubleVote
+
       db.registerAttestation(
-        ValidatorIndex(255),
-        fakeValidator(255),
-        Epoch 0, Epoch 20, fakeRoot(4322)
+        ValidatorIndex(255), fakeValidator(255), Epoch 0, Epoch 20, fakeRoot(4322)
       ).error.kind == DoubleVote
 
   test "SP for surrounded attestations":
@@ -382,27 +340,22 @@ suite "Slashing Protection DB" & preset():
         sqlite3db_delete(TestDir, TestDbName)
 
       check:
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 10, Epoch 20,
-          fakeRoot(20)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 10, Epoch 20, fakeRoot(20)
+        )
+        .isOk()
 
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 11, Epoch 19
+          ValidatorIndex(100), fakeValidator(100), Epoch 11, Epoch 19
         ).error.kind == SurroundVote
+
         db.checkSlashableAttestation(
-          ValidatorIndex(200),
-          fakeValidator(200),
-          Epoch 11, Epoch 19
+          ValidatorIndex(200), fakeValidator(200), Epoch 11, Epoch 19
         ).isOk
+
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 11, Epoch 21
+          ValidatorIndex(100), fakeValidator(100), Epoch 11, Epoch 21
         ).isOk
 
     block:
@@ -413,40 +366,33 @@ suite "Slashing Protection DB" & preset():
         sqlite3db_delete(TestDir, TestDbName)
 
       check:
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 0, Epoch 1,
-          fakeRoot(1)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 0, Epoch 1, fakeRoot(1)
+        )
+        .isOk()
 
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 10, Epoch 20,
-          fakeRoot(20)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 10, Epoch 20, fakeRoot(20)
+        )
+        .isOk()
 
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 11, Epoch 19
+          ValidatorIndex(100), fakeValidator(100), Epoch 11, Epoch 19
         ).error.kind == SurroundVote
+
         db.checkSlashableAttestation(
-          ValidatorIndex(200),
-          fakeValidator(200),
-          Epoch 11, Epoch 19
+          ValidatorIndex(200), fakeValidator(200), Epoch 11, Epoch 19
         ).isOk
+
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 11, Epoch 21
+          ValidatorIndex(100), fakeValidator(100), Epoch 11, Epoch 21
         ).isOk
         # TODO: is that possible?
+
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 9, Epoch 19
+          ValidatorIndex(100), fakeValidator(100), Epoch 9, Epoch 19
         ).isOk
 
   test "SP for surrounding attestations":
@@ -457,22 +403,18 @@ suite "Slashing Protection DB" & preset():
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
       check:
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 10, Epoch 20,
-          fakeRoot(20)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 10, Epoch 20, fakeRoot(20)
+        )
+        .isOk()
 
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 9, Epoch 21
+          ValidatorIndex(100), fakeValidator(100), Epoch 9, Epoch 21
         ).error.kind == SurroundVote
+
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 0, Epoch 21
+          ValidatorIndex(100), fakeValidator(100), Epoch 0, Epoch 21
         ).error.kind == SurroundVote
 
     block:
@@ -483,30 +425,25 @@ suite "Slashing Protection DB" & preset():
         sqlite3db_delete(TestDir, TestDbName)
 
       check:
-        db.registerAttestation(
-         ValidatorIndex(100),
-         fakeValidator(100),
-          Epoch 0, Epoch 1,
-          fakeRoot(1)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 0, Epoch 1, fakeRoot(1)
+        )
+        .isOk()
 
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 10, Epoch 20,
-          fakeRoot(20)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 10, Epoch 20, fakeRoot(20)
+        )
+        .isOk()
 
       check:
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 9, Epoch 21
+          ValidatorIndex(100), fakeValidator(100), Epoch 9, Epoch 21
         ).error.kind == SurroundVote
+
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 0, Epoch 21
+          ValidatorIndex(100), fakeValidator(100), Epoch 0, Epoch 21
         ).error.kind == SurroundVote
 
   test "Attestation ordering #1698":
@@ -518,43 +455,37 @@ suite "Slashing Protection DB" & preset():
         sqlite3db_delete(TestDir, TestDbName)
 
       check:
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 1, Epoch 2,
-          fakeRoot(2)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 1, Epoch 2, fakeRoot(2)
+        )
+        .isOk()
 
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 8, Epoch 10,
-          fakeRoot(10)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 8, Epoch 10, fakeRoot(10)
+        )
+        .isOk()
 
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 14, Epoch 15,
-          fakeRoot(15)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 14, Epoch 15, fakeRoot(15)
+        )
+        .isOk()
 
         # The current list is, 2 -> 10 -> 15
 
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 3, Epoch 6,
-          fakeRoot(6)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 3, Epoch 6, fakeRoot(6)
+        )
+        .isOk()
 
         # The current list is 2 -> 6 -> 10 -> 15
 
       check:
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 7, Epoch 11
+          ValidatorIndex(100), fakeValidator(100), Epoch 7, Epoch 11
         ).error.kind == SurroundVote
 
   test "Test valid attestation #1699":
@@ -566,25 +497,21 @@ suite "Slashing Protection DB" & preset():
         sqlite3db_delete(TestDir, TestDbName)
 
       check:
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 10, Epoch 20,
-          fakeRoot(20)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 10, Epoch 20, fakeRoot(20)
+        )
+        .isOk()
 
-        db.registerAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 40, Epoch 50,
-          fakeRoot(50)
-        ).isOk()
+        db
+        .registerAttestation(
+          ValidatorIndex(100), fakeValidator(100), Epoch 40, Epoch 50, fakeRoot(50)
+        )
+        .isOk()
 
       check:
         db.checkSlashableAttestation(
-          ValidatorIndex(100),
-          fakeValidator(100),
-          Epoch 20, Epoch 30
+          ValidatorIndex(100), fakeValidator(100), Epoch 20, Epoch 30
         ).isOk
 
   test "Pruning blocks works":
@@ -595,34 +522,23 @@ suite "Slashing Protection DB" & preset():
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
 
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 10,
-        fakeRoot(10)
-      ).expect("registered block")
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 1000,
-        fakeRoot(20)
-      ).expect("registered block")
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 10, fakeRoot(10))
+      .expect("registered block")
+
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 1000, fakeRoot(20))
+      .expect("registered block")
 
       # After pruning, duplicate becomes a min slot violation
       doAssert db.checkSlashableBlockProposal(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 10,
+        ValidatorIndex(100), fakeValidator(100), Slot 10
       ).error.kind == DoubleProposal
 
-      db.pruneAfterFinalization(
-        epoch(Slot 1000)
-      )
+      db.pruneAfterFinalization(epoch(Slot 1000))
 
       doAssert db.checkSlashableBlockProposal(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 10,
+        ValidatorIndex(100), fakeValidator(100), Slot 10
       ).error.kind == MinSlotViolation
 
   test "Don't prune the very last block even by mistake":
@@ -633,35 +549,24 @@ suite "Slashing Protection DB" & preset():
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
 
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 10,
-        fakeRoot(10)
-      ).expect("registered block")
-      db.registerBlock(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 1000,
-        fakeRoot(20)
-      ).expect("registered block")
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 10, fakeRoot(10))
+      .expect("registered block")
+
+      db
+      .registerBlock(ValidatorIndex(100), fakeValidator(100), Slot 1000, fakeRoot(20))
+      .expect("registered block")
 
       doAssert db.checkSlashableBlockProposal(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 1000,
+        ValidatorIndex(100), fakeValidator(100), Slot 1000
       ).error.kind == DoubleProposal
 
       # Pruning far in the future
-      db.pruneAfterFinalization(
-        epoch(Slot 10000)
-      )
+      db.pruneAfterFinalization(epoch(Slot 10000))
 
       # Last block is still there
       doAssert db.checkSlashableBlockProposal(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Slot 1000,
+        ValidatorIndex(100), fakeValidator(100), Slot 1000
       ).error.kind == DoubleProposal
 
   test "Pruning attestations works":
@@ -672,64 +577,47 @@ suite "Slashing Protection DB" & preset():
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
 
+      db
+      .registerAttestation(
+        ValidatorIndex(100), fakeValidator(100), Epoch 10, Epoch 20, fakeRoot(20)
+      )
+      .expect("registered block")
 
-      db.registerAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 10, Epoch 20,
-        fakeRoot(20)
-      ).expect("registered block")
-
-      db.registerAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 40, Epoch 50,
-        fakeRoot(50)
-      ).expect("registered block")
+      db
+      .registerAttestation(
+        ValidatorIndex(100), fakeValidator(100), Epoch 40, Epoch 50, fakeRoot(50)
+      )
+      .expect("registered block")
 
       # After pruning, duplicate becomes a min source epoch violation
       doAssert db.checkSlashableAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 10, Epoch 20
+        ValidatorIndex(100), fakeValidator(100), Epoch 10, Epoch 20
       ).error.kind == DoubleVote
 
       # After pruning, surrounding vote becomes a min source epoch violation
       doAssert db.checkSlashableAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 9, Epoch 21
+        ValidatorIndex(100), fakeValidator(100), Epoch 9, Epoch 21
       ).error.kind == SurroundVote
 
       # After pruning, surrounded vote becomes a min source epoch violation
       doAssert db.checkSlashableAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 11, Epoch 19
+        ValidatorIndex(100), fakeValidator(100), Epoch 11, Epoch 19
       ).error.kind == SurroundVote
 
       # --------------------------------
-      db.pruneAfterFinalization(
-        Epoch 40
-      )
+      db.pruneAfterFinalization(Epoch 40)
       # --------------------------------
 
       doAssert db.checkSlashableAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 10, Epoch 20
+        ValidatorIndex(100), fakeValidator(100), Epoch 10, Epoch 20
       ).error.kind == MinSourceViolation
 
       doAssert db.checkSlashableAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 9, Epoch 21
+        ValidatorIndex(100), fakeValidator(100), Epoch 9, Epoch 21
       ).error.kind == MinSourceViolation
 
       doAssert db.checkSlashableAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 11, Epoch 19
+        ValidatorIndex(100), fakeValidator(100), Epoch 11, Epoch 19
       ).error.kind == MinSourceViolation
 
       # TODO is it possible to actually trigger MinTargetViolation
@@ -743,30 +631,24 @@ suite "Slashing Protection DB" & preset():
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
 
-      db.registerAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 10, Epoch 20,
-        fakeRoot(20)
-      ).expect("registered block")
+      db
+      .registerAttestation(
+        ValidatorIndex(100), fakeValidator(100), Epoch 10, Epoch 20, fakeRoot(20)
+      )
+      .expect("registered block")
 
-      db.registerAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 40, Epoch 50,
-        fakeRoot(50)
-      ).expect("registered block")
+      db
+      .registerAttestation(
+        ValidatorIndex(100), fakeValidator(100), Epoch 40, Epoch 50, fakeRoot(50)
+      )
+      .expect("registered block")
 
       # --------------------------------
-      db.pruneAfterFinalization(
-        epoch(Slot 10000)
-      )
+      db.pruneAfterFinalization(epoch(Slot 10000))
       # --------------------------------
 
       doAssert db.checkSlashableAttestation(
-        ValidatorIndex(100),
-        fakeValidator(100),
-        Epoch 40, Epoch 50
+        ValidatorIndex(100), fakeValidator(100), Epoch 40, Epoch 50
       ).error.kind == DoubleVote
 
       # TODO is it possible to actually to have

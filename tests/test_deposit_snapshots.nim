@@ -9,7 +9,10 @@
 
 import
   std/[os, random, strutils, times],
-  chronos, stew/results, unittest2, chronicles,
+  chronos,
+  stew/results,
+  unittest2,
+  chronicles,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/spec/deposit_snapshots
 
@@ -20,16 +23,19 @@ from stew/byteutils import hexToSeqByte
 
 const ROOT = "342cecb5a18945fbbda7c62ede3016f3"
 
-template databaseRoot: string = getTempDir().joinPath(ROOT)
-template key1: array[1, byte] = [byte(kOldDepositContractSnapshot)]
-template key2: array[1, byte] = [byte(kDepositTreeSnapshot)]
+template databaseRoot(): string =
+  getTempDir().joinPath(ROOT)
 
-type
-  DepositSnapshotUpgradeProc = proc(old: OldDepositContractSnapshot): DepositTreeSnapshot
-                                   {.gcsafe, raises: [].}
+template key1(): array[1, byte] =
+  [byte(kOldDepositContractSnapshot)]
 
-proc ifNecessaryMigrateDCS(db: BeaconChainDB,
-                           upgradeProc: DepositSnapshotUpgradeProc) =
+template key2(): array[1, byte] =
+  [byte(kDepositTreeSnapshot)]
+
+type DepositSnapshotUpgradeProc =
+  proc(old: OldDepositContractSnapshot): DepositTreeSnapshot {.gcsafe, raises: [].}
+
+proc ifNecessaryMigrateDCS(db: BeaconChainDB, upgradeProc: DepositSnapshotUpgradeProc) =
   if not db.hasDepositTreeSnapshot():
     let oldSnapshot = db.getUpgradableDepositSnapshot()
     if oldSnapshot.isSome:
@@ -69,11 +75,13 @@ let ds1: seq[byte] = hexToSeqByte(
   0000000000000000000000000000000000000000000000000000000000000000000000000
   0000000000000000000000000000000000000000000000000000000000000000000000000
   00000000000000000000000000000000000000000000000000000005251
-  """.replace(" ", "").replace("\n", "")
+  """
+  .replace(" ", "")
+  .replace("\n", "")
 )
 
-const
-  ds1Root = toDigest("1a4c3cce02935defd159e4e207890ae26a325bf03e205c9ee94ca040ecce008a")
+const ds1Root =
+  toDigest("1a4c3cce02935defd159e4e207890ae26a325bf03e205c9ee94ca040ecce008a")
 
 proc fixture1() =
   ## Inserts a OldDepositContractSnapshot fixture.
@@ -87,8 +95,10 @@ proc fixture1() =
 proc inspectDCS(snapshot: OldDepositContractSnapshot | DepositTreeSnapshot) =
   ## Inspects a DCS and checks if all of its data corresponds to
   ## what's encoded in ds1.
-  const zero = toDigest("0000000000000000000000000000000000000000000000000000000000000000")
-  const root = toDigest("1a4c3cce02935defd159e4e207890ae26a325bf03e205c9ee94ca040ecce008a")
+  const zero =
+    toDigest("0000000000000000000000000000000000000000000000000000000000000000")
+  const root =
+    toDigest("1a4c3cce02935defd159e4e207890ae26a325bf03e205c9ee94ca040ecce008a")
   const want = [
     "ca3bfce2c304c4f52e0c83f96daf8c98a05f80281b62cf08f6be9c1bc10c0adb",
     "abcf2f74605a9eb36cf243bb5009259a3717d44df3caf02acc53ab49cfd2eeb6",
@@ -107,11 +117,14 @@ proc inspectDCS(snapshot: OldDepositContractSnapshot | DepositTreeSnapshot) =
     "57aa502116cb72c9347d10dca1b64a342b41a829cc7ba95e71499f57be2be3cd",
   ]
   # Check eth1Block.
-  check($snapshot.eth1Block == "eeea1373d4aa9e099d7c9deddb694db9aeb4577755ef83f9b6345ce4357d9abf")
+  check(
+    $snapshot.eth1Block ==
+      "eeea1373d4aa9e099d7c9deddb694db9aeb4577755ef83f9b6345ce4357d9abf"
+  )
   # Check branch.
-  for i in 0..want.high():
+  for i in 0 .. want.high():
     check($snapshot.depositContractState.branch[i] == want[i])
-  for i in (want.high() + 1)..31:
+  for i in (want.high() + 1) .. 31:
     check(snapshot.depositContractState.branch[i] == zero)
   # Check deposit_count.
   check(snapshot.getDepositCountU64() == 21073)
@@ -140,7 +153,7 @@ suite "DepositTreeSnapshot":
     removeDir(databaseRoot)
     createDir(databaseRoot)
     # Make sure there's no DepositTreeSnapshot yet.
-    let db = BeaconChainDB.new(databaseRoot, inMemory=false)
+    let db = BeaconChainDB.new(databaseRoot, inMemory = false)
     check(db.getDepositTreeSnapshot().isErr())
     # Setup fixture.
     fixture1()
@@ -148,7 +161,7 @@ suite "DepositTreeSnapshot":
     # BeaconChainDB::getDepositTreeSnapshot() checks only for DCSv2.
     check(db.getDepositTreeSnapshot().isErr())
     # Migrate DB.
-    db.ifNecessaryMigrateDCS do (d: OldDepositContractSnapshot) -> DepositTreeSnapshot:
+    db.ifNecessaryMigrateDCS do(d: OldDepositContractSnapshot) -> DepositTreeSnapshot:
       d.toDepositTreeSnapshot(11052984)
     # Make sure now there actually is a snapshot.
     check(db.getDepositTreeSnapshot().isOk())
@@ -159,13 +172,14 @@ suite "DepositTreeSnapshot":
   test "depositCount":
     let now = getTime()
     var rand = initRand(12345678)
-    for i in 1..1000:
+    for i in 1 .. 1000:
       let n = rand.next()
       let m = n mod 4294967296'u64
       check(depositCountU64(depositCountBytes(m)) == m)
 
   test "isValid":
-    const ZERO = toDigest("0000000000000000000000000000000000000000000000000000000000000000")
+    const ZERO =
+      toDigest("0000000000000000000000000000000000000000000000000000000000000000")
     # Use our hard-coded ds1 as a model.
     var model: OldDepositContractSnapshot
     check(decodeSSZ(ds1, model))
@@ -180,13 +194,13 @@ suite "DepositTreeSnapshot":
     dcs.eth1Block = model.eth1Block
     check(dcs.isValid(ds1Root))
     # Check branch.
-    for i in 0..len(dcs.depositContractState.branch)-1:
+    for i in 0 .. len(dcs.depositContractState.branch) - 1:
       dcs.depositContractState.branch[i] = ZERO
     check(not dcs.isValid(ds1Root))
     dcs.depositContractState.branch = model.depositContractState.branch
     check(dcs.isValid(ds1Root))
     # Check deposit count.
-    for i in 0..len(dcs.depositContractState.deposit_count)-1:
+    for i in 0 .. len(dcs.depositContractState.deposit_count) - 1:
       dcs.depositContractState.deposit_count[i] = 0
     check(not dcs.isValid(ds1Root))
     dcs.depositContractState.deposit_count = model.depositContractState.deposit_count

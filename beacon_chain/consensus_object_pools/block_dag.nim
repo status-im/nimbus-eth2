@@ -7,10 +7,7 @@
 
 {.push raises: [].}
 
-import
-  chronicles,
-  ../spec/datatypes/[phase0, altair, bellatrix],
-  ../spec/forks
+import chronicles, ../spec/datatypes/[phase0, altair, bellatrix], ../spec/forks
 
 from ../spec/datatypes/capella import SomeBeaconBlock, TrustedBeaconBlock
 from ../spec/datatypes/deneb import SomeBeaconBlock, TrustedBeaconBlock
@@ -30,14 +27,15 @@ type
     ## they are not valid across `await` calls.
     ##
     ## Block graph forms a tree - in particular, there are no cycles.
-
-    bid*: BlockId ##\
+    bid*: BlockId
+      ##\
       ## Root that can be used to retrieve block data from database
 
     executionBlockHash*: Opt[Eth2Digest]
     executionValid*: bool
 
-    parent*: BlockRef ##\
+    parent*: BlockRef
+      ##\
       ## Not nil, except for the finalized head
 
   BlockSlot* = object
@@ -46,39 +44,57 @@ type
     ## produced, the chain progresses anyway, producing a new state for every
     ## slot.
     blck*: BlockRef
-    slot*: Slot ##\
+    slot*: Slot
+      ##\
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
 
-template root*(blck: BlockRef): Eth2Digest = blck.bid.root
-template slot*(blck: BlockRef): Slot = blck.bid.slot
+template root*(blck: BlockRef): Eth2Digest =
+  blck.bid.root
+
+template slot*(blck: BlockRef): Slot =
+  blck.bid.slot
 
 func init*(
-    T: type BlockRef, root: Eth2Digest,
-    executionBlockHash: Opt[Eth2Digest], executionValid: bool, slot: Slot):
-    BlockRef =
+    T: type BlockRef,
+    root: Eth2Digest,
+    executionBlockHash: Opt[Eth2Digest],
+    executionValid: bool,
+    slot: Slot,
+): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
-    executionBlockHash: executionBlockHash, executionValid: executionValid)
+    executionBlockHash: executionBlockHash,
+    executionValid: executionValid,
+  )
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, executionValid: bool,
-    blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
-          phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
+    T: type BlockRef,
+    root: Eth2Digest,
+    executionValid: bool,
+    blck:
+      phase0.SomeBeaconBlock | altair.SomeBeaconBlock | phase0.TrustedBeaconBlock |
+      altair.TrustedBeaconBlock,
+): BlockRef =
   # Use same formal parameters for simplicity, but it's impossible for these
   # blocks to be optimistic.
   BlockRef.init(root, Opt.some ZERO_HASH, executionValid = true, blck.slot)
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, executionValid: bool,
-    blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock |
-          capella.SomeBeaconBlock | capella.TrustedBeaconBlock |
-          deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock): BlockRef =
+    T: type BlockRef,
+    root: Eth2Digest,
+    executionValid: bool,
+    blck:
+      bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock | capella.SomeBeaconBlock |
+      capella.TrustedBeaconBlock | deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock,
+): BlockRef =
   BlockRef.init(
-    root, Opt.some Eth2Digest(blck.body.execution_payload.block_hash),
+    root,
+    Opt.some Eth2Digest(blck.body.execution_payload.block_hash),
     executionValid =
       executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
-    blck.slot)
+    blck.slot,
+  )
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
@@ -87,8 +103,7 @@ func parent*(bs: BlockSlot): BlockSlot =
     BlockSlot(blck: nil, slot: Slot(0))
   else:
     BlockSlot(
-      blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent,
-      slot: bs.slot - 1
+      blck: if bs.slot > bs.blck.slot: bs.blck else: bs.blck.parent, slot: bs.slot - 1
     )
 
 func parentOrSlot*(bs: BlockSlot): BlockSlot =
@@ -125,19 +140,21 @@ func isAncestorOf*(a, b: BlockRef): bool =
   isAncestor
 
 func link*(parent, child: BlockRef) =
-  doAssert (not (parent.root.isZero or child.root.isZero)),
-    "blocks missing root!"
+  doAssert (not (parent.root.isZero or child.root.isZero)), "blocks missing root!"
   doAssert parent.root != child.root, "self-references not allowed"
 
   child.parent = parent
 
-func get_ancestor*(blck: BlockRef, slot: Slot,
-    maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
-    BlockRef =
+func get_ancestor*(
+    blck: BlockRef,
+    slot: Slot,
+    maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int,
+): BlockRef =
   ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
-  if isNil(blck): return nil
+  if isNil(blck):
+    return nil
 
   var blck = blck
 
@@ -228,5 +245,7 @@ func shortLog*(v: BlockSlot): string =
   else: # There was a gap - log it
     shortLog(v.blck) & "@" & $v.slot
 
-chronicles.formatIt BlockSlot: shortLog(it)
-chronicles.formatIt BlockRef: shortLog(it)
+chronicles.formatIt BlockSlot:
+  shortLog(it)
+chronicles.formatIt BlockRef:
+  shortLog(it)

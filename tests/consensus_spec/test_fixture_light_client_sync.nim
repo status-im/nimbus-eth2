@@ -18,7 +18,8 @@ import
   ../../beacon_chain/spec/[forks, light_client_sync],
   # Test utilities
   ../testutil,
-  ./fixtures_utils, ./os_ops
+  ./fixtures_utils,
+  ./os_ops
 
 type
   TestMeta = object
@@ -53,25 +54,24 @@ type
     checks: TestChecks
 
 proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
-  let stepsYAML = os_ops.readFile(path/"steps.yaml")
+  let stepsYAML = os_ops.readFile(path / "steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
   result = @[]
   for step in steps[0]:
     func getChecks(c: JsonNode): TestChecks =
       TestChecks(
-        finalized_slot:
-          c["finalized_header"]["slot"].getInt().Slot,
+        finalized_slot: c["finalized_header"]["slot"].getInt().Slot,
         finalized_beacon_root:
           Eth2Digest.fromHex(c["finalized_header"]["beacon_root"].getStr()),
         finalized_execution_root:
           Eth2Digest.fromHex(c["finalized_header"]{"execution_root"}.getStr()),
-        optimistic_slot:
-          c["optimistic_header"]["slot"].getInt().Slot,
+        optimistic_slot: c["optimistic_header"]["slot"].getInt().Slot,
         optimistic_beacon_root:
           Eth2Digest.fromHex(c["optimistic_header"]["beacon_root"].getStr()),
         optimistic_execution_root:
-          Eth2Digest.fromHex(c["optimistic_header"]{"execution_root"}.getStr()))
+          Eth2Digest.fromHex(c["optimistic_header"]{"execution_root"}.getStr()),
+      )
 
     if step.hasKey"force_update":
       let s = step["force_update"]
@@ -79,45 +79,51 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
       result.add TestStep(
         kind: TestStepKind.ForceUpdate,
         current_slot: s["current_slot"].getInt().Slot,
-        checks: s["checks"].getChecks())
+        checks: s["checks"].getChecks(),
+      )
     elif step.hasKey"process_update":
       let
         s = step["process_update"]
-        update_fork_digest =
-          distinctBase(ForkDigest).fromHex(s{"update_fork_digest"}.getStr(
-            distinctBase(fork_digests.altair).toHex())).ForkDigest
-        update_consensus_fork =
-          fork_digests.consensusForkForDigest(update_fork_digest)
-            .expect("Unknown update fork " & $update_fork_digest)
+        update_fork_digest = distinctBase(ForkDigest)
+          .fromHex(
+            s{"update_fork_digest"}.getStr(distinctBase(fork_digests.altair).toHex())
+          ).ForkDigest
+        update_consensus_fork = fork_digests
+          .consensusForkForDigest(update_fork_digest)
+          .expect("Unknown update fork " & $update_fork_digest)
         update_filename = s["update"].getStr()
 
       var update {.noinit.}: ForkedLightClientUpdate
       withLcDataFork(lcDataForkAtConsensusFork(update_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
-          update = ForkedLightClientUpdate.init(parseTest(
-            path/update_filename & ".ssz_snappy", SSZ,
-            lcDataFork.LightClientUpdate))
-        else: raiseAssert "Unreachable update fork " & $update_fork_digest
+          update = ForkedLightClientUpdate.init(
+            parseTest(
+              path / update_filename & ".ssz_snappy", SSZ, lcDataFork.LightClientUpdate
+            )
+          )
+        else:
+          raiseAssert "Unreachable update fork " & $update_fork_digest
 
       result.add TestStep(
         kind: TestStepKind.ProcessUpdate,
         update: update,
         current_slot: s["current_slot"].getInt().Slot,
-        checks: s["checks"].getChecks())
+        checks: s["checks"].getChecks(),
+      )
     elif step.hasKey"upgrade_store":
       let
         s = step["upgrade_store"]
         store_fork_digest =
-          distinctBase(ForkDigest).fromHex(
-            s["store_fork_digest"].getStr()).ForkDigest
-        store_consensus_fork =
-          fork_digests.consensusForkForDigest(store_fork_digest)
-            .expect("Unknown store fork " & $store_fork_digest)
+          distinctBase(ForkDigest).fromHex(s["store_fork_digest"].getStr()).ForkDigest
+        store_consensus_fork = fork_digests
+          .consensusForkForDigest(store_fork_digest)
+          .expect("Unknown store fork " & $store_fork_digest)
 
       result.add TestStep(
         kind: TestStepKind.UpgradeStore,
         store_data_fork: lcDataForkAtConsensusFork(store_consensus_fork),
-        checks: s["checks"].getChecks())
+        checks: s["checks"].getChecks(),
+      )
     else:
       doAssert false, "Unknown test step: " & $step
 
@@ -125,7 +131,7 @@ proc runTest(suiteName, path: string) =
   test "Light client - Sync - " & path.relativePath(SszTestsDir):
     # Reduce stack size by making this a `proc`
     proc loadTestMeta(): (RuntimeConfig, TestMeta) =
-      let (cfg, unknowns) = readRuntimeConfig(path/"config.yaml")
+      let (cfg, unknowns) = readRuntimeConfig(path / "config.yaml")
 
       when false:
         # TODO evaluate whether this is useful and if so, fix it
@@ -137,32 +143,37 @@ proc runTest(suiteName, path: string) =
         trusted_block_root: string
         bootstrap_fork_digest: Option[string]
         store_fork_digest: Option[string]
+
       let
         meta = block:
-          var s = openFileStream(path/"meta.yaml")
-          defer: close(s)
+          var s = openFileStream(path / "meta.yaml")
+          defer:
+            close(s)
           var res: TestMetaYaml
           yaml.load(s, res)
           res
-        genesis_validators_root =
-          Eth2Digest.fromHex(meta.genesis_validators_root)
-        trusted_block_root =
-          Eth2Digest.fromHex(meta.trusted_block_root)
-        fork_digests =
-          ForkDigests.init(cfg, genesis_validators_root)
-        bootstrap_fork_digest =
-          distinctBase(ForkDigest).fromHex(meta.bootstrap_fork_digest.get(
-            distinctBase(fork_digests.altair).toHex())).ForkDigest
-        store_fork_digest =
-          distinctBase(ForkDigest).fromHex(meta.store_fork_digest.get(
-            distinctBase(fork_digests.altair).toHex())).ForkDigest
+        genesis_validators_root = Eth2Digest.fromHex(meta.genesis_validators_root)
+        trusted_block_root = Eth2Digest.fromHex(meta.trusted_block_root)
+        fork_digests = ForkDigests.init(cfg, genesis_validators_root)
+        bootstrap_fork_digest = distinctBase(ForkDigest)
+          .fromHex(
+            meta.bootstrap_fork_digest.get(distinctBase(fork_digests.altair).toHex())
+          ).ForkDigest
+        store_fork_digest = distinctBase(ForkDigest)
+          .fromHex(
+            meta.store_fork_digest.get(distinctBase(fork_digests.altair).toHex())
+          ).ForkDigest
 
-      (cfg, TestMeta(
-        genesis_validators_root: genesis_validators_root,
-        trusted_block_root: trusted_block_root,
-        fork_digests: fork_digests,
-        bootstrap_fork_digest: bootstrap_fork_digest,
-        store_fork_digest: store_fork_digest))
+      (
+        cfg,
+        TestMeta(
+          genesis_validators_root: genesis_validators_root,
+          trusted_block_root: trusted_block_root,
+          fork_digests: fork_digests,
+          bootstrap_fork_digest: bootstrap_fork_digest,
+          store_fork_digest: store_fork_digest,
+        ),
+      )
 
     let
       (cfg, meta) = loadTestMeta()
@@ -170,32 +181,39 @@ proc runTest(suiteName, path: string) =
 
     # Reduce stack size by making this a `proc`
     proc loadBootstrap(): ForkedLightClientBootstrap =
-      let bootstrap_consensus_fork =
-        meta.fork_digests.consensusForkForDigest(meta.bootstrap_fork_digest)
-          .expect("Unknown bootstrap fork " & $meta.bootstrap_fork_digest)
+      let bootstrap_consensus_fork = meta.fork_digests
+        .consensusForkForDigest(meta.bootstrap_fork_digest)
+        .expect("Unknown bootstrap fork " & $meta.bootstrap_fork_digest)
       var bootstrap {.noinit.}: ForkedLightClientBootstrap
       withLcDataFork(lcDataForkAtConsensusFork(bootstrap_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
-          bootstrap = ForkedLightClientBootstrap.init(parseTest(
-            path/"bootstrap.ssz_snappy", SSZ,
-            lcDataFork.LightClientBootstrap))
+          bootstrap = ForkedLightClientBootstrap.init(
+            parseTest(
+              path / "bootstrap.ssz_snappy", SSZ, lcDataFork.LightClientBootstrap
+            )
+          )
         else:
           raiseAssert "Unknown bootstrap fork " & $meta.bootstrap_fork_digest
       bootstrap
 
     # Reduce stack size by making this a `proc`
     proc initializeStore(
-        bootstrap: ref ForkedLightClientBootstrap): ForkedLightClientStore =
-      let store_consensus_fork =
-        meta.fork_digests.consensusForkForDigest(meta.store_fork_digest)
-          .expect("Unknown store fork " & $meta.store_fork_digest)
+        bootstrap: ref ForkedLightClientBootstrap
+    ): ForkedLightClientStore =
+      let store_consensus_fork = meta.fork_digests
+        .consensusForkForDigest(meta.store_fork_digest)
+        .expect("Unknown store fork " & $meta.store_fork_digest)
       var store {.noinit.}: ForkedLightClientStore
       withLcDataFork(lcDataForkAtConsensusFork(store_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
           bootstrap[].migrateToDataFork(lcDataFork)
-          store = ForkedLightClientStore.init(initialize_light_client_store(
-            meta.trusted_block_root, bootstrap[].forky(lcDataFork), cfg).get)
-        else: raiseAssert "Unreachable store fork " & $meta.store_fork_digest
+          store = ForkedLightClientStore.init(
+            initialize_light_client_store(
+              meta.trusted_block_root, bootstrap[].forky(lcDataFork), cfg
+            ).get
+          )
+        else:
+          raiseAssert "Unreachable store fork " & $meta.store_fork_digest
       store
 
     let bootstrap = newClone(loadBootstrap())
@@ -207,39 +225,39 @@ proc runTest(suiteName, path: string) =
         when lcDataFork > LightClientDataFork.None:
           case step.kind
           of TestStepKind.ForceUpdate:
-            process_light_client_store_force_update(
-              forkyStore, step.current_slot)
+            process_light_client_store_force_update(forkyStore, step.current_slot)
           of TestStepKind.ProcessUpdate:
             check step.update.kind <= lcDataFork
             let
               upgradedUpdate = step.update.migratingToDataFork(lcDataFork)
               res = process_light_client_update(
-                forkyStore, upgradedUpdate.forky(lcDataFork), step.current_slot,
-                cfg, meta.genesis_validators_root)
+                forkyStore,
+                upgradedUpdate.forky(lcDataFork),
+                step.current_slot,
+                cfg,
+                meta.genesis_validators_root,
+              )
             check res.isOk
           of TestStepKind.UpgradeStore:
             check step.store_data_fork >= lcDataFork
             withLcDataFork(step.store_data_fork):
               when lcDataFork > LightClientDataFork.None:
                 store.migrateToDataFork(lcDataFork)
-        else: raiseAssert "Unreachable"
+        else:
+          raiseAssert "Unreachable"
 
       withForkyStore(store):
         when lcDataFork > LightClientDataFork.None:
           let
-            finalized_slot =
-              forkyStore.finalized_header.beacon.slot
-            finalized_beacon_root =
-              hash_tree_root(forkyStore.finalized_header.beacon)
+            finalized_slot = forkyStore.finalized_header.beacon.slot
+            finalized_beacon_root = hash_tree_root(forkyStore.finalized_header.beacon)
             finalized_execution_root =
               when lcDataFork >= LightClientDataFork.Capella:
                 get_lc_execution_root(forkyStore.finalized_header, cfg)
               else:
                 ZERO_HASH
-            optimistic_slot =
-              forkyStore.optimistic_header.beacon.slot
-            optimistic_beacon_root =
-              hash_tree_root(forkyStore.optimistic_header.beacon)
+            optimistic_slot = forkyStore.optimistic_header.beacon.slot
+            optimistic_beacon_root = hash_tree_root(forkyStore.optimistic_header.beacon)
             optimistic_execution_root =
               when lcDataFork >= LightClientDataFork.Capella:
                 get_lc_execution_root(forkyStore.optimistic_header, cfg)
@@ -252,18 +270,18 @@ proc runTest(suiteName, path: string) =
             optimistic_slot == step.checks.optimistic_slot
             optimistic_beacon_root == step.checks.optimistic_beacon_root
             optimistic_execution_root == step.checks.optimistic_execution_root
-        else: raiseAssert "Unreachable"
+        else:
+          raiseAssert "Unreachable"
 
     for step in steps:
       processStep(step)
 
 suite "EF - Light client - Sync" & preset():
-  const presetPath = SszTestsDir/const_preset
+  const presetPath = SszTestsDir / const_preset
   for kind, path in walkDir(presetPath, relative = true, checkDir = true):
-    let basePath =
-      presetPath/path/"light_client"/"sync"/"pyspec_tests"
+    let basePath = presetPath / path / "light_client" / "sync" / "pyspec_tests"
     if kind != pcDir or not dirExists(basePath):
       continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
-      let combinedPath = basePath/path
-      runTest(suiteName, basePath/path)
+      let combinedPath = basePath / path
+      runTest(suiteName, basePath / path)

@@ -45,8 +45,9 @@ import
   stew/results,
   ../extras,
   "."/[
-    beaconstate, eth2_merkleization, forks, helpers, signatures,
-    state_transition_block, state_transition_epoch, validator]
+    beaconstate, eth2_merkleization, forks, helpers, signatures, state_transition_block,
+    state_transition_epoch, validator,
+  ]
 
 export results, extras
 
@@ -55,26 +56,28 @@ logScope:
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
-    state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
-    Result[void, cstring] =
-  let
-    proposer_index = signed_block.message.proposer_index
+    state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock
+): Result[void, cstring] =
+  let proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.lenu64:
-   return err("block: invalid proposer index")
+    return err("block: invalid proposer index")
 
   if not verify_block_signature(
-      state.fork, state.genesis_validators_root, signed_block.message.slot,
-      signed_block.root, state.validators[proposer_index].pubkey,
-      signed_block.signature):
+    state.fork,
+    state.genesis_validators_root,
+    signed_block.message.slot,
+    signed_block.root,
+    state.validators[proposer_index].pubkey,
+    signed_block.signature,
+  ):
     return err("block: signature verification failed")
 
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
-    state: ForkyBeaconState,
-    blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
-    Result[void, cstring] =
+    state: ForkyBeaconState, blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock
+): Result[void, cstring] =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
@@ -83,15 +86,14 @@ func verifyStateRoot(
     ok()
 
 func verifyStateRoot(
-    state: ForkyBeaconState, blck: ForkyTrustedBeaconBlock):
-    Result[void, cstring] =
+    state: ForkyBeaconState, blck: ForkyTrustedBeaconBlock
+): Result[void, cstring] =
   # This is inlined in state_transition(...) in spec.
   ok()
 
 type
   RollbackProc* = proc() {.gcsafe, noSideEffect, raises: [].}
-  RollbackHashedProc*[T] =
-    proc(state: var T) {.gcsafe, noSideEffect, raises: [].}
+  RollbackHashedProc*[T] = proc(state: var T) {.gcsafe, noSideEffect, raises: [].}
   RollbackForkedHashedProc* = RollbackHashedProc[ForkedHashedBeaconState]
 
 func noRollback*() =
@@ -101,8 +103,7 @@ func noRollback*() =
 # ---------------------------------------------------------------
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-func process_slot*(
-    state: var ForkyBeaconState, pre_state_root: Eth2Digest) =
+func process_slot*(state: var ForkyBeaconState, pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
   # number! `pre_state_root` refers to the state root of the incoming
@@ -129,9 +130,12 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
     cfg: RuntimeConfig,
-    state: var ForkyBeaconState, previous_slot_state_root: Eth2Digest,
-    flags: UpdateFlags, cache: var StateCache, info: var ForkyEpochInfo):
-    Result[void, cstring] =
+    state: var ForkyBeaconState,
+    previous_slot_state_root: Eth2Digest,
+    flags: UpdateFlags,
+    cache: var StateCache,
+    info: var ForkyEpochInfo,
+): Result[void, cstring] =
   # Do the per-slot and potentially the per-epoch processing, then bump the
   # slot number - we've now arrived at the slot state on top of which a block
   # optionally can be applied.
@@ -143,7 +147,7 @@ proc advance_slot(
   let is_epoch_transition = (state.slot + 1).is_epoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    ? process_epoch(cfg, state, flags, cache, info)
+    ?process_epoch(cfg, state, flags, cache, info)
     clear_epoch_from_cache(cache, (state.slot + 1).epoch)
 
   state.slot += 1
@@ -160,8 +164,7 @@ func noRollback*(state: var bellatrix.HashedBeaconState) =
   trace "Skipping rollback of broken Bellatrix state"
 
 from ./datatypes/capella import
-  ExecutionPayload, HashedBeaconState, SignedBLSToExecutionChangeList,
-  asSigVerified
+  ExecutionPayload, HashedBeaconState, SignedBLSToExecutionChangeList, asSigVerified
 
 func noRollback*(state: var capella.HashedBeaconState) =
   trace "Skipping rollback of broken Capella state"
@@ -171,8 +174,7 @@ from ./datatypes/deneb import HashedBeaconState
 func noRollback*(state: var deneb.HashedBeaconState) =
   trace "Skipping rollback of broken Deneb state"
 
-func maybeUpgradeStateToAltair(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+func maybeUpgradeStateToAltair(cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.ALTAIR_FORK_EPOCH and
@@ -180,11 +182,13 @@ func maybeUpgradeStateToAltair(
     let newState = upgrade_to_altair(cfg, state.phase0Data.data)
     state = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.Altair,
-      altairData: altair.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
+      altairData:
+        altair.HashedBeaconState(root: hash_tree_root(newState[]), data: newState[]),
+    )[]
 
 func maybeUpgradeStateToBellatrix(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState
+) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.BELLATRIX_FORK_EPOCH and
@@ -192,11 +196,13 @@ func maybeUpgradeStateToBellatrix(
     let newState = upgrade_to_bellatrix(cfg, state.altairData.data)
     state = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.Bellatrix,
-      bellatrixData: bellatrix.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
+      bellatrixData:
+        bellatrix.HashedBeaconState(root: hash_tree_root(newState[]), data: newState[]),
+    )[]
 
 func maybeUpgradeStateToCapella(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState
+) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.CAPELLA_FORK_EPOCH and
@@ -204,11 +210,11 @@ func maybeUpgradeStateToCapella(
     let newState = upgrade_to_capella(cfg, state.bellatrixData.data)
     state = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.Capella,
-      capellaData: capella.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
+      capellaData:
+        capella.HashedBeaconState(root: hash_tree_root(newState[]), data: newState[]),
+    )[]
 
-func maybeUpgradeStateToDeneb(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+func maybeUpgradeStateToDeneb(cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.DENEB_FORK_EPOCH and
@@ -216,20 +222,24 @@ func maybeUpgradeStateToDeneb(
     let newState = upgrade_to_deneb(cfg, state.capellaData.data)
     state = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.Deneb,
-      denebData: deneb.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))[]
+      denebData:
+        deneb.HashedBeaconState(root: hash_tree_root(newState[]), data: newState[]),
+    )[]
 
-func maybeUpgradeState*(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+func maybeUpgradeState*(cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   cfg.maybeUpgradeStateToAltair(state)
   cfg.maybeUpgradeStateToBellatrix(state)
   cfg.maybeUpgradeStateToCapella(state)
   cfg.maybeUpgradeStateToDeneb(state)
 
 proc process_slots*(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
-    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags):
-    Result[void, cstring] =
+    cfg: RuntimeConfig,
+    state: var ForkedHashedBeaconState,
+    slot: Slot,
+    cache: var StateCache,
+    info: var ForkedEpochInfo,
+    flags: UpdateFlags,
+): Result[void, cstring] =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
       return err("process_slots: cannot rewind state to past slot")
@@ -238,11 +248,9 @@ proc process_slots*(
   while getStateField(state, slot) < slot:
     withState(state):
       withEpochInfo(forkyState.data, info):
-        ? advance_slot(
-          cfg, forkyState.data, forkyState.root, flags, cache, info)
+        ?advance_slot(cfg, forkyState.data, forkyState.root, flags, cache, info)
 
-      if skipLastStateRootCalculation notin flags or
-          forkyState.data.slot < slot:
+      if skipLastStateRootCalculation notin flags or forkyState.data.slot < slot:
         # Don't update state root for the slot of the block if going to process
         # block after
         forkyState.root = hash_tree_root(forkyState.data)
@@ -255,22 +263,23 @@ proc state_transition_block_aux(
     cfg: RuntimeConfig,
     state: var ForkyHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags): Result[void, cstring] =
+    cache: var StateCache,
+    flags: UpdateFlags,
+): Result[void, cstring] =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
   # that the block is sane.
   if skipBlsValidation notin flags:
-    ? verify_block_signature(state.data, signedBlock)
+    ?verify_block_signature(state.data, signedBlock)
 
   trace "state_transition: processing block, signature passed",
-    signature = shortLog(signedBlock.signature),
-    blockRoot = shortLog(signedBlock.root)
+    signature = shortLog(signedBlock.signature), blockRoot = shortLog(signedBlock.root)
 
-  ? process_block(cfg, state.data, signedBlock.message, flags, cache)
+  ?process_block(cfg, state.data, signedBlock.message, flags, cache)
 
   if skipStateRootValidation notin flags:
-    ? verifyStateRoot(state.data, signedBlock.message)
+    ?verifyStateRoot(state.data, signedBlock.message)
 
   # only blocks currently being produced have an empty state root - we use a
   # separate function for those
@@ -287,8 +296,10 @@ proc state_transition_block*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): Result[void, cstring] =
+    cache: var StateCache,
+    flags: UpdateFlags,
+    rollback: RollbackForkedHashedProc,
+): Result[void, cstring] =
   ## `rollback` is called if the transition fails and the given state has been
   ## partially changed. If a temporary state was given to `state_transition`,
   ## it is safe to use `noRollback` and leave it broken, else the state
@@ -311,8 +322,11 @@ proc state_transition*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock,
-    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): Result[void, cstring] =
+    cache: var StateCache,
+    info: var ForkedEpochInfo,
+    flags: UpdateFlags,
+    rollback: RollbackForkedHashedProc,
+): Result[void, cstring] =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
@@ -328,12 +342,16 @@ proc state_transition*(
   ## it is safe to use `noRollback` and leave it broken, else the state
   ## object should be rolled back to a consistent state. If the transition fails
   ## before the state has been updated, `rollback` will not be called.
-  ? process_slots(
-      cfg, state, signedBlock.message.slot, cache, info,
-      flags + {skipLastStateRootCalculation})
+  ?process_slots(
+    cfg,
+    state,
+    signedBlock.message.slot,
+    cache,
+    info,
+    flags + {skipLastStateRootCalculation},
+  )
 
-  state_transition_block(
-    cfg, state, signedBlock, cache, flags, rollback)
+  state_transition_block(cfg, state, signedBlock, cache, flags, rollback)
 
 func partialBeaconBlock*(
     cfg: RuntimeConfig,
@@ -346,7 +364,7 @@ func partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: ForkyExecutionPayloadForSigning
+    execution_payload: ForkyExecutionPayloadForSigning,
 ): auto =
   const consensusFork = typeof(state).kind
 
@@ -363,7 +381,9 @@ func partialBeaconBlock*(
       attester_slashings: validator_changes.attester_slashings,
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits))
+      voluntary_exits: validator_changes.voluntary_exits,
+    ),
+  )
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#preparing-a-beaconblock
   when consensusFork >= ConsensusFork.Altair:
@@ -375,8 +395,7 @@ func partialBeaconBlock*(
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/validator.md#block-proposal
   when consensusFork >= ConsensusFork.Capella:
-    res.body.bls_to_execution_changes =
-      validator_changes.bls_to_execution_changes
+    res.body.bls_to_execution_changes = validator_changes.bls_to_execution_changes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
   when consensusFork >= ConsensusFork.Deneb:
@@ -404,8 +423,8 @@ proc makeBeaconBlock*(
     verificationFlags: UpdateFlags,
     transactions_root: Opt[Eth2Digest],
     execution_payload_root: Opt[Eth2Digest],
-    kzg_commitments: Opt[KzgCommitments]):
-    Result[ForkedBeaconBlock, cstring] =
+    kzg_commitments: Opt[KzgCommitments],
+): Result[ForkedBeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -415,16 +434,20 @@ proc makeBeaconBlock*(
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
 
-    var blck =
-      ForkedBeaconBlock.init(
-        partialBeaconBlock(
-          cfg, state.`kind Data`, proposer_index, randao_reveal, eth1_data,
-          graffiti, attestations, deposits, validator_changes, sync_aggregate,
-          executionPayload))
+    var blck = ForkedBeaconBlock.init(
+      partialBeaconBlock(
+        cfg, state.`kind Data`, proposer_index, randao_reveal, eth1_data, graffiti,
+        attestations, deposits, validator_changes, sync_aggregate, executionPayload,
+      )
+    )
 
     let res = process_block(
-      cfg, state.`kind Data`.data, blck.`kind Data`.asSigVerified(),
-      verificationFlags, cache)
+      cfg,
+      state.`kind Data`.data,
+      blck.`kind Data`.asSigVerified(),
+      verificationFlags,
+      cache,
+    )
     if res.isErr:
       rollback(state)
       return err(res.error())
@@ -444,17 +467,20 @@ proc makeBeaconBlock*(
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
           forkyState.data.latest_block_header.body_root = hash_tree_root(
-            [hash_tree_root(randao_reveal),
-             hash_tree_root(eth1_data),
-             hash_tree_root(graffiti),
-             hash_tree_root(validator_changes.proposer_slashings),
-             hash_tree_root(validator_changes.attester_slashings),
-             hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
-             hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
-             hash_tree_root(validator_changes.voluntary_exits),
-             hash_tree_root(sync_aggregate),
-             execution_payload_root.get,
-             hash_tree_root(validator_changes.bls_to_execution_changes)])
+            [
+              hash_tree_root(randao_reveal),
+              hash_tree_root(eth1_data),
+              hash_tree_root(graffiti),
+              hash_tree_root(validator_changes.proposer_slashings),
+              hash_tree_root(validator_changes.attester_slashings),
+              hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
+              hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
+              hash_tree_root(validator_changes.voluntary_exits),
+              hash_tree_root(sync_aggregate),
+              execution_payload_root.get,
+              hash_tree_root(validator_changes.bls_to_execution_changes),
+            ]
+          )
         elif consensusFork == ConsensusFork.Deneb:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
@@ -462,24 +488,26 @@ proc makeBeaconBlock*(
           when executionPayload is deneb.ExecutionPayloadForSigning:
             # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
-              [hash_tree_root(randao_reveal),
-               hash_tree_root(eth1_data),
-               hash_tree_root(graffiti),
-               hash_tree_root(validator_changes.proposer_slashings),
-               hash_tree_root(validator_changes.attester_slashings),
-               hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
-               hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
-               hash_tree_root(validator_changes.voluntary_exits),
-               hash_tree_root(sync_aggregate),
-               execution_payload_root.get,
-               hash_tree_root(validator_changes.bls_to_execution_changes),
-               hash_tree_root(kzg_commitments.get)
-            ])
+              [
+                hash_tree_root(randao_reveal),
+                hash_tree_root(eth1_data),
+                hash_tree_root(graffiti),
+                hash_tree_root(validator_changes.proposer_slashings),
+                hash_tree_root(validator_changes.attester_slashings),
+                hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
+                hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
+                hash_tree_root(validator_changes.voluntary_exits),
+                hash_tree_root(sync_aggregate),
+                execution_payload_root.get,
+                hash_tree_root(validator_changes.bls_to_execution_changes),
+                hash_tree_root(kzg_commitments.get),
+              ]
+            )
           else:
             raiseAssert "Attempt to use non-Deneb payload with post-Deneb state"
         else:
-          static: raiseAssert "Unreachable"
-
+          static:
+            raiseAssert "Unreachable"
 
     state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)
     blck.`kind Data`.state_root = state.`kind Data`.root
@@ -489,55 +517,96 @@ proc makeBeaconBlock*(
   const payloadFork = typeof(executionPayload).kind
   when payloadFork == ConsensusFork.Bellatrix:
     case state.kind
-    of ConsensusFork.Phase0:    makeBeaconBlock(phase0)
-    of ConsensusFork.Altair:    makeBeaconBlock(altair)
-    of ConsensusFork.Bellatrix: makeBeaconBlock(bellatrix)
-    else: raiseAssert "Attempt to use Bellatrix payload with post-Bellatrix state"
+    of ConsensusFork.Phase0:
+      makeBeaconBlock(phase0)
+    of ConsensusFork.Altair:
+      makeBeaconBlock(altair)
+    of ConsensusFork.Bellatrix:
+      makeBeaconBlock(bellatrix)
+    else:
+      raiseAssert "Attempt to use Bellatrix payload with post-Bellatrix state"
   elif payloadFork == ConsensusFork.Capella:
     case state.kind
-    of ConsensusFork.Capella:   makeBeaconBlock(capella)
-    else: raiseAssert "Attempt to use Capella payload with non-Capella state"
+    of ConsensusFork.Capella:
+      makeBeaconBlock(capella)
+    else:
+      raiseAssert "Attempt to use Capella payload with non-Capella state"
   elif payloadFork == ConsensusFork.Deneb:
     case state.kind
-    of ConsensusFork.Deneb:     makeBeaconBlock(deneb)
-    else: raiseAssert "Attempt to use Deneb payload with non-Deneb state"
+    of ConsensusFork.Deneb:
+      makeBeaconBlock(deneb)
+    else:
+      raiseAssert "Attempt to use Deneb payload with non-Deneb state"
   else:
     {.error: "Unsupported fork".}
 
 proc makeBeaconBlock*(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
-    proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data, graffiti: GraffitiBytes,
-    attestations: seq[Attestation], deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    executionPayload: ForkyExecutionPayloadForSigning,
-    rollback: RollbackForkedHashedProc, cache: var StateCache):
-    Result[ForkedBeaconBlock, cstring] =
-  makeBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, validator_changes, sync_aggregate,
-    executionPayload, rollback, cache,
-    verificationFlags = {}, transactions_root = Opt.none Eth2Digest,
-    execution_payload_root = Opt.none Eth2Digest,
-    kzg_commitments = Opt.none KzgCommitments)
-
-proc makeBeaconBlock*(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
-    proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data, graffiti: GraffitiBytes,
-    attestations: seq[Attestation], deposits: seq[Deposit],
+    cfg: RuntimeConfig,
+    state: var ForkedHashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: ForkyExecutionPayloadForSigning,
     rollback: RollbackForkedHashedProc,
-    cache: var StateCache, verificationFlags: UpdateFlags):
-    Result[ForkedBeaconBlock, cstring] =
+    cache: var StateCache,
+): Result[ForkedBeaconBlock, cstring] =
   makeBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, validator_changes, sync_aggregate,
-    executionPayload, rollback, cache,
+    cfg,
+    state,
+    proposer_index,
+    randao_reveal,
+    eth1_data,
+    graffiti,
+    attestations,
+    deposits,
+    validator_changes,
+    sync_aggregate,
+    executionPayload,
+    rollback,
+    cache,
+    verificationFlags = {},
+    transactions_root = Opt.none Eth2Digest,
+    execution_payload_root = Opt.none Eth2Digest,
+    kzg_commitments = Opt.none KzgCommitments,
+  )
+
+proc makeBeaconBlock*(
+    cfg: RuntimeConfig,
+    state: var ForkedHashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    validator_changes: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate,
+    executionPayload: ForkyExecutionPayloadForSigning,
+    rollback: RollbackForkedHashedProc,
+    cache: var StateCache,
+    verificationFlags: UpdateFlags,
+): Result[ForkedBeaconBlock, cstring] =
+  makeBeaconBlock(
+    cfg,
+    state,
+    proposer_index,
+    randao_reveal,
+    eth1_data,
+    graffiti,
+    attestations,
+    deposits,
+    validator_changes,
+    sync_aggregate,
+    executionPayload,
+    rollback,
+    cache,
     verificationFlags = verificationFlags,
     transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest,
-    kzg_commitments = Opt.none KzgCommitments)
+    kzg_commitments = Opt.none KzgCommitments,
+  )

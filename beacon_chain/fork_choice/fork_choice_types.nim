@@ -56,24 +56,17 @@ type
     fcInvalidEpochRef
 
   Index* = int
-  Delta* = int64
-    ## Delta balances
+  Delta* = int64 ## Delta balances
 
   ForkChoiceError* = object
     case kind*: fcKind
-    of fcFinalizedNodeUnknown,
-       fcJustifiedNodeUnknown:
-         blockRoot*: Eth2Digest
+    of fcFinalizedNodeUnknown, fcJustifiedNodeUnknown:
+      blockRoot*: Eth2Digest
     of fcInconsistentTick, fcInvalidEpochRef:
       discard
-    of fcInvalidNodeIndex,
-       fcInvalidJustifiedIndex,
-       fcInvalidBestDescendant,
-       fcInvalidParentDelta,
-       fcInvalidNodeDelta,
-       fcDeltaUnderflow,
-       fcDeltaOverflow:
-         index*: Index
+    of fcInvalidNodeIndex, fcInvalidJustifiedIndex, fcInvalidBestDescendant,
+        fcInvalidParentDelta, fcInvalidNodeDelta, fcDeltaUnderflow, fcDeltaOverflow:
+      index*: Index
     of fcInvalidDeltaLen:
       deltasLen*: int
       indicesLen*: int
@@ -156,8 +149,10 @@ func shortLog*(vote: VoteTracker): auto =
   (
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
-    next_epoch: vote.next_epoch
+    next_epoch: vote.next_epoch,
   )
 
-chronicles.formatIt VoteTracker: it.shortLog
-chronicles.formatIt ForkChoiceError: $it
+chronicles.formatIt VoteTracker:
+  it.shortLog
+chronicles.formatIt ForkChoiceError:
+  $it

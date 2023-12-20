@@ -13,12 +13,10 @@ const
   # 2**4 (= 16)
   MAX_BLS_TO_EXECUTION_CHANGES* = 16
 
-
   # Execution
   # ---------------------------------------------------------------
   # [customized] 2**2 (= 4)
   MAX_WITHDRAWALS_PER_PAYLOAD* = 4
-
 
   # Withdrawals processing
   # ---------------------------------------------------------------

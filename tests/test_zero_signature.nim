@@ -37,8 +37,7 @@ suite "Zero signature sanity checks":
         allZeros
 
     let sszDefaultBlockHeader = SSZ.encode(defaultBlockHeader)
-    let deserBlockHeader =
-      SSZ.decode(sszDefaultBlockHeader, SignedBeaconBlockHeader)
+    let deserBlockHeader = SSZ.decode(sszDefaultBlockHeader, SignedBeaconBlockHeader)
 
     check(defaultBlockHeader == deserBlockHeader)
 
@@ -56,7 +55,7 @@ suite "Zero signature sanity checks":
       doAssert sig.toHex() == '0'.repeat(192)
 
   test "Zero signatures cannot be loaded into a BLS signature object":
-
     let zeroSig = ValidatorSig()
     let s = zeroSig.load()
-    check: s.isNone()
+    check:
+      s.isNone()

@@ -9,33 +9,37 @@
 
 import
   # Standard library
-  std/[algorithm, math, parseutils, strformat, strutils, typetraits, unicode,
-       uri, hashes],
+  std/
+    [algorithm, math, parseutils, strformat, strutils, typetraits, unicode, uri, hashes],
   # Third-party libraries
   normalize,
   # Status libraries
-  stew/[results, bitops2, base10, io2, endians2], stew/shims/macros,
-  eth/keyfile/uuid, blscurve,
-  json_serialization, json_serialization/std/options,
+  stew/[results, bitops2, base10, io2, endians2],
+  stew/shims/macros,
+  eth/keyfile/uuid,
+  blscurve,
+  json_serialization,
+  json_serialization/std/options,
   chronos/timer,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
-  ./datatypes/base,  ./signatures
+  ./datatypes/base,
+  ./signatures
 
 export base, uri, io2, options
 
 # We use `ncrutils` for constant-time hexadecimal encoding/decoding procedures.
 import nimcrypto/utils as ncrutils
 
-export
-  results, burnMem, writeValue, readValue
+export results, burnMem, writeValue, readValue
 
 {.localPassC: "-fno-lto".} # no LTO for crypto
 
 type
   KeystoreMode* = enum
-    Secure, Fast
+    Secure
+    Fast
 
   ChecksumFunctionKind* = enum
     sha256Checksum = "sha256"
@@ -99,7 +103,7 @@ type
     uuid*: UUID
     name*: WalletName
     version*: uint
-    walletType* {.serializedFieldName: "type"}: string
+    walletType* {.serializedFieldName: "type".}: string
     # TODO: The use of `JsonString` can be removed once we
     #       solve the serialization problem for `Crypto[T]`
     crypto*: Crypto
@@ -127,10 +131,12 @@ type
     version*: int
 
   KeystoreKind* = enum
-    Local, Remote
+    Local
+    Remote
 
   RemoteKeystoreFlag* {.pure.} = enum
-    IgnoreSSLVerification, DynamicKeystore
+    IgnoreSSLVerification
+    DynamicKeystore
 
   HttpHostUri* = distinct Uri
 
@@ -144,7 +150,8 @@ type
     opened*: bool
 
   RemoteSignerType* {.pure.} = enum
-    Web3Signer, VerifyingWeb3Signer
+    Web3Signer
+    VerifyingWeb3Signer
 
   ProvenProperty* = object
     path*: string
@@ -215,10 +222,11 @@ type
     signingKey*: ValidatorPrivKey
     withdrawalKey*: ValidatorPrivKey
 
-  SimpleHexEncodedTypes* = ScryptSalt|ChecksumBytes|CipherBytes
+  SimpleHexEncodedTypes* = ScryptSalt | ChecksumBytes | CipherBytes
 
   CacheItemFlag {.pure.} = enum
-    Missing, Present
+    Missing
+    Present
 
   KeystoreCacheItem = object
     flag: CacheItemFlag
@@ -238,18 +246,9 @@ type
 const
   keyLen = 32
 
-  scryptParams = ScryptParams(
-    dklen: uint64 keyLen,
-    n: 2^18,
-    p: 1,
-    r: 8
-  )
+  scryptParams = ScryptParams(dklen: uint64 keyLen, n: 2 ^ 18, p: 1, r: 8)
 
-  pbkdf2Params = Pbkdf2Params(
-    dklen: uint64 keyLen,
-    c: uint64(2^18),
-    prf: HmacSha256
-  )
+  pbkdf2Params = Pbkdf2Params(dklen: uint64 keyLen, c: uint64(2 ^ 18), prf: HmacSha256)
 
   # https://eips.ethereum.org/EIPS/eip-2334
   eth2KeyPurpose = 12381
@@ -291,7 +290,7 @@ template `$`*(x: WalletName): string =
 
 # TODO: `burnMem` in nimcrypto could use distinctBase
 #       to make its usage less error-prone.
-template burnMem*(m: var (Mnemonic|string)) =
+template burnMem*(m: var (Mnemonic | string)) =
   ncrutils.burnMem(string m)
 
 template burnMem*(m: var KeySeed) =
@@ -306,10 +305,12 @@ func longName*(wallet: Wallet): string =
   else:
     wallet.name.string & " (" & wallet.uuid.string & ")"
 
-macro wordListArray*(filename: static string,
-                     maxWords: static int = 0,
-                     minWordLen: static int = 0,
-                     maxWordLen: static int = high(int)): untyped =
+macro wordListArray*(
+    filename: static string,
+    maxWords: static int = 0,
+    minWordLen: static int = 0,
+    maxWordLen: static int = high(int),
+): untyped =
   result = newTree(nnkBracket)
   let words = slurp(filename.replace('\\', '/')).splitLines()
   for word in words:
@@ -319,9 +320,9 @@ macro wordListArray*(filename: static string,
         return
 
 const
-  englishWords = wordListArray("english_word_list.txt",
-                                maxWords = wordListLen,
-                                maxWordLen = maxWordLen)
+  englishWords = wordListArray(
+    "english_word_list.txt", maxWords = wordListLen, maxWordLen = maxWordLen
+  )
   englishWordsDigest =
     "AD90BF3BEB7B0EB7E5ACD74727DC0DA96E0A280A258354E7293FB7E211AC03DB".toDigest
 
@@ -362,17 +363,18 @@ iterator pathNodes(path: KeyPath): Natural =
   # if we fail we want to scrub secrets from memory
   try:
     for elem in path.string.split("/"):
-      if elem == "m": continue
+      if elem == "m":
+        continue
       yield parseBiggestUInt(elem)
   except ValueError:
     doAssert false, "Make sure you've validated the key path with `validateKeyPath`"
 
-func makeKeyPath*(validatorIdx: Natural,
-                  keyType: Eth2KeyKind): KeyPath =
+func makeKeyPath*(validatorIdx: Natural, keyType: Eth2KeyKind): KeyPath =
   # https://eips.ethereum.org/EIPS/eip-2334
-  let use = case keyType
-            of withdrawalKeyKind: "0"
-            of signingKeyKind: "0/0"
+  let use =
+    case keyType
+    of withdrawalKeyKind: "0"
+    of signingKeyKind: "0/0"
 
   try:
     KeyPath &"m/{eth2KeyPurpose}/{eth2CoinType}/{validatorIdx}/{use}"
@@ -399,16 +401,16 @@ template add(m: var Mnemonic, s: cstring) =
 proc generateMnemonic*(
     rng: var HmacDrbgContext,
     words: openArray[cstring] = englishWords,
-    entropyParam: openArray[byte] = @[]): Mnemonic =
+    entropyParam: openArray[byte] = @[],
+): Mnemonic =
   ## Generates a valid BIP-0039 mnenomic:
   ## https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
   var entropy =
     if entropyParam.len == 0:
       rng.generateBytes(32)
     else:
-      doAssert entropyParam.len >= 128 and
-               entropyParam.len <= 256 and
-               entropyParam.len mod 32 == 0
+      doAssert entropyParam.len >= 128 and entropyParam.len <= 256 and
+        entropyParam.len mod 32 == 0
       @entropyParam
 
   let
@@ -421,22 +423,21 @@ proc generateMnemonic*(
   # Make sure the string won't be reallocated as this may
   # leave partial copies of the mnemonic in memory:
   result = Mnemonic newStringOfCap(mnemonicWordCount * maxWordLen)
-  result.add words[entropy.getBitsBE(0..10)]
+  result.add words[entropy.getBitsBE(0 .. 10)]
 
   for i in 1 ..< mnemonicWordCount:
     let
-      firstBit = i*11
+      firstBit = i * 11
       lastBit = firstBit + 10
     result.add " "
-    result.add words[entropy.getBitsBE(firstBit..lastBit)]
+    result.add words[entropy.getBitsBE(firstBit .. lastBit)]
 
 proc cmpIgnoreCase(lhs: cstring, rhs: string): int =
   # TODO: This is a bit silly.
   # Nim should have a `cmp` function for C strings.
   cmpIgnoreCase($lhs, rhs)
 
-proc validateMnemonic*(inputWords: string,
-                       outputMnemonic: var Mnemonic): bool =
+proc validateMnemonic*(inputWords: string, outputMnemonic: var Mnemonic): bool =
   ## Accept a case-insensitive input string and returns `true`
   ## if it represents a valid mnenomic. The `outputMnemonic`
   ## value will be populated with a normalized lower-case
@@ -466,36 +467,32 @@ proc validateMnemonic*(inputWords: string,
 
   return true
 
-proc deriveChildKey*(parentKey: ValidatorPrivKey,
-                     index: Natural): ValidatorPrivKey =
-  let success = derive_child_secretKey(SecretKey result,
-                                       SecretKey parentKey,
-                                       uint32 index)
+proc deriveChildKey*(parentKey: ValidatorPrivKey, index: Natural): ValidatorPrivKey =
+  let success =
+    derive_child_secretKey(SecretKey result, SecretKey parentKey, uint32 index)
   # TODO `derive_child_secretKey` is reporting pre-condition
   #       failures with return values. We should turn the checks
   #       into asserts inside the function.
   doAssert success
 
 proc deriveMasterKey*(seed: KeySeed): ValidatorPrivKey =
-  let success = derive_master_secretKey(SecretKey result,
-                                        seq[byte] seed)
+  let success = derive_master_secretKey(SecretKey result, seq[byte] seed)
   # TODO `derive_master_secretKey` is reporting pre-condition
   #       failures with return values. We should turn the checks
   #       into asserts inside the function.
   doAssert success
 
-proc deriveMasterKey*(mnemonic: Mnemonic,
-                      password: KeystorePass): ValidatorPrivKey =
+proc deriveMasterKey*(mnemonic: Mnemonic, password: KeystorePass): ValidatorPrivKey =
   deriveMasterKey(getSeed(mnemonic, password))
 
-proc deriveChildKey*(masterKey: ValidatorPrivKey,
-                     path: KeyPath): ValidatorPrivKey =
+proc deriveChildKey*(masterKey: ValidatorPrivKey, path: KeyPath): ValidatorPrivKey =
   result = masterKey
   for idx in pathNodes(path):
     result = deriveChildKey(result, idx)
 
-proc deriveChildKey*(masterKey: ValidatorPrivKey,
-                     path: openArray[Natural]): ValidatorPrivKey =
+proc deriveChildKey*(
+    masterKey: ValidatorPrivKey, path: openArray[Natural]
+): ValidatorPrivKey =
   result = masterKey
   for idx in path:
     # TODO: we have exceptions in pathNodes unless `validateKeyPath`
@@ -504,9 +501,9 @@ proc deriveChildKey*(masterKey: ValidatorPrivKey,
     # if we fail we want to scrub secrets from memory
     result = deriveChildKey(result, idx)
 
-proc keyFromPath*(mnemonic: Mnemonic,
-                  password: KeystorePass,
-                  path: KeyPath): ValidatorPrivKey =
+proc keyFromPath*(
+    mnemonic: Mnemonic, password: KeystorePass, path: KeyPath
+): ValidatorPrivKey =
   deriveChildKey(deriveMasterKey(mnemonic, password), path)
 
 proc shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
@@ -517,41 +514,41 @@ proc shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   result = ctx.finish()
   ctx.clear()
 
-proc writeJsonHexString(s: OutputStream, data: openArray[byte])
-                       {.raises: [IOError].} =
+proc writeJsonHexString(s: OutputStream, data: openArray[byte]) {.raises: [IOError].} =
   s.write '"'
   s.write ncrutils.toHex(data, {HexFlags.LowerCase})
   s.write '"'
 
-proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
-               {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    r: var JsonReader, value: var Pbkdf2Salt
+) {.raises: [SerializationError, IOError].} =
   let s = r.readValue(string)
 
   if s.len == 0 or s.len mod 16 != 0:
     r.raiseUnexpectedValue(
-      "The Pbkdf2Salt salt must have a non-zero length divisible by 16")
+      "The Pbkdf2Salt salt must have a non-zero length divisible by 16"
+    )
 
   value = Pbkdf2Salt ncrutils.fromHex(s)
   let length = len(seq[byte](value))
   if length == 0 or (length mod 8) != 0:
-    r.raiseUnexpectedValue(
-      "The Pbkdf2Salt must be a valid hex string")
+    r.raiseUnexpectedValue("The Pbkdf2Salt must be a valid hex string")
 
-proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
-               {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    r: var JsonReader, value: var Aes128CtrIv
+) {.raises: [SerializationError, IOError].} =
   let s = r.readValue(string)
 
   if s.len != 32:
-    r.raiseUnexpectedValue(
-      "The aes-128-ctr IV must be a string of length 32")
+    r.raiseUnexpectedValue("The aes-128-ctr IV must be a string of length 32")
 
   value = Aes128CtrIv ncrutils.fromHex(s)
   if len(seq[byte](value)) != 16:
-    r.raiseUnexpectedValue(
-      "The aes-128-ctr IV must be a valid hex string")
+    r.raiseUnexpectedValue("The aes-128-ctr IV must be a valid hex string")
 
-proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T) {.
-     raises: [SerializationError, IOError].} =
+proc readValue*[T: SimpleHexEncodedTypes](
+    r: var JsonReader, value: var T
+) {.raises: [SerializationError, IOError].} =
   value = T ncrutils.fromHex(r.readValue(string))
   if len(seq[byte](value)) == 0:
     r.raiseUnexpectedValue("Valid hex string expected")
@@ -567,7 +564,6 @@ template readValueImpl(r: var JsonReader, value: var Checksum) =
     of "function":
       value = Checksum(function: r.readValue(ChecksumFunctionKind))
       functionSpecified = true
-
     of "params":
       if functionSpecified:
         case value.function
@@ -575,9 +571,9 @@ template readValueImpl(r: var JsonReader, value: var Checksum) =
           r.readValue(value.params)
       else:
         r.raiseUnexpectedValue(
-          "The 'params' field must be specified after the 'function' field")
+          "The 'params' field must be specified after the 'function' field"
+        )
       paramsSpecified = true
-
     of "message":
       if functionSpecified:
         case value.function
@@ -585,21 +581,24 @@ template readValueImpl(r: var JsonReader, value: var Checksum) =
           r.readValue(value.message)
       else:
         r.raiseUnexpectedValue(
-          "The 'message' field must be specified after the 'function' field")
+          "The 'message' field must be specified after the 'function' field"
+        )
       messageSpecified = true
-
     else:
       r.raiseUnexpectedField(fieldName, "Checksum")
 
   if not (functionSpecified and paramsSpecified and messageSpecified):
     r.raiseUnexpectedValue(
       "The Checksum value should have sub-fields named " &
-      "'function', 'params', and 'message'")
+        "'function', 'params', and 'message'"
+    )
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc readValue*(r: var JsonReader[DefaultFlavor], value: var Checksum)
-    {.raises: [SerializationError, IOError].} =
+{.push warning[ProveField]: off.} # https://github.com/nim-lang/Nim/issues/22060
+proc readValue*(
+    r: var JsonReader[DefaultFlavor], value: var Checksum
+) {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
+
 {.pop.}
 
 template readValueImpl(r: var JsonReader, value: var Cipher) =
@@ -611,10 +610,8 @@ template readValueImpl(r: var JsonReader, value: var Cipher) =
   for fieldName in readObjectFields(r):
     case fieldName
     of "function":
-      value = Cipher(
-        function: r.readValue(CipherFunctionKind), message: value.message)
+      value = Cipher(function: r.readValue(CipherFunctionKind), message: value.message)
       functionSpecified = true
-
     of "params":
       if functionSpecified:
         case value.function
@@ -622,25 +619,27 @@ template readValueImpl(r: var JsonReader, value: var Cipher) =
           r.readValue(value.params)
       else:
         r.raiseUnexpectedValue(
-          "The 'params' field must be specified after the 'function' field")
+          "The 'params' field must be specified after the 'function' field"
+        )
       paramsSpecified = true
-
     of "message":
       r.readValue(value.message)
       messageSpecified = true
-
     else:
       r.raiseUnexpectedField(fieldName, "Cipher")
 
   if not (functionSpecified and paramsSpecified and messageSpecified):
     r.raiseUnexpectedValue(
       "The Cipher value should have sub-fields named " &
-      "'function', 'params', and 'message'")
+        "'function', 'params', and 'message'"
+    )
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc readValue*(r: var JsonReader[DefaultFlavor], value: var Cipher)
-    {.raises: [SerializationError, IOError].} =
+{.push warning[ProveField]: off.} # https://github.com/nim-lang/Nim/issues/22060
+proc readValue*(
+    r: var JsonReader[DefaultFlavor], value: var Cipher
+) {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
+
 {.pop.}
 
 template readValueImpl(r: var JsonReader, value: var Kdf) =
@@ -653,7 +652,6 @@ template readValueImpl(r: var JsonReader, value: var Kdf) =
     of "function":
       value = Kdf(function: r.readValue(KdfKind), message: value.message)
       functionSpecified = true
-
     of "params":
       if functionSpecified:
         case value.function
@@ -663,32 +661,36 @@ template readValueImpl(r: var JsonReader, value: var Kdf) =
           r.readValue(value.scryptParams)
       else:
         r.raiseUnexpectedValue(
-          "The 'params' field must be specified after the 'function' field")
+          "The 'params' field must be specified after the 'function' field"
+        )
       paramsSpecified = true
-
     of "message":
       r.readValue(value.message)
-
     else:
       r.raiseUnexpectedField(fieldName, "Kdf")
 
   if not (functionSpecified and paramsSpecified):
     r.raiseUnexpectedValue(
-      "The Kdf value should have sub-fields named 'function' and 'params'")
+      "The Kdf value should have sub-fields named 'function' and 'params'"
+    )
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc readValue*(r: var JsonReader[DefaultFlavor], value: var Kdf)
-    {.raises: [SerializationError, IOError].} =
+{.push warning[ProveField]: off.} # https://github.com/nim-lang/Nim/issues/22060
+proc readValue*(
+    r: var JsonReader[DefaultFlavor], value: var Kdf
+) {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
+
 {.pop.}
 
-proc readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
-  static: raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
-    "]` for `readValue` of `" & $typeof(value) & "`"
+proc readValue*(r: var JsonReader, value: var (Checksum | Cipher | Kdf)) =
+  static:
+    raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
+      "]` for `readValue` of `" & $typeof(value) & "`"
 
 # HttpHostUri
-proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
-     raises: [IOError, SerializationError].} =
+proc readValue*(
+    reader: var JsonReader, value: var HttpHostUri
+) {.raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = parseUri(svalue)
   if res.scheme != "http" and res.scheme != "https":
@@ -697,13 +699,11 @@ proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
     reader.raiseUnexpectedValue("Missing URL hostname")
   value = HttpHostUri(res)
 
-proc writeValue*(
-    writer: var JsonWriter, value: HttpHostUri) {.raises: [IOError].} =
+proc writeValue*(writer: var JsonWriter, value: HttpHostUri) {.raises: [IOError].} =
   writer.writeValue($distinctBase(value))
 
 # RemoteKeystore
-proc writeValue*(
-    writer: var JsonWriter, value: RemoteKeystore) {.raises: [IOError].} =
+proc writeValue*(writer: var JsonWriter, value: RemoteKeystore) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("version", value.version)
   writer.writeField("pubkey", "0x" & value.pubkey.toHex())
@@ -721,8 +721,9 @@ proc writeValue*(
     writer.writeField("ignore_ssl_verification", true)
   writer.endRecord()
 
-template writeValue*(w: var JsonWriter,
-                     value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
+template writeValue*(
+    w: var JsonWriter, value: Pbkdf2Salt | SimpleHexEncodedTypes | Aes128CtrIv
+) =
   writeJsonHexString(w.stream, distinctBase value)
 
 func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, string] =
@@ -731,7 +732,8 @@ func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, str
       path: propertyPath,
       bellatrixIndex: some GeneralizedIndex(401),
       capellaIndex: some GeneralizedIndex(401),
-      denebIndex: some GeneralizedIndex(801))
+      denebIndex: some GeneralizedIndex(801),
+    )
   elif propertyPath == ".graffiti":
     ok ProvenProperty(
       path: propertyPath,
@@ -739,14 +741,18 @@ func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, str
       #       forks can be supplied here
       bellatrixIndex: some GeneralizedIndex(18),
       capellaIndex: some GeneralizedIndex(18),
-      denebIndex: some GeneralizedIndex(18))
+      denebIndex: some GeneralizedIndex(18),
+    )
   else:
-    err("Keystores with proven properties different than " &
+    err(
+      "Keystores with proven properties different than " &
         "`.execution_payload.fee_recipient` and `.graffiti` " &
-        "require a more recent version of Nimbus")
+        "require a more recent version of Nimbus"
+    )
 
-proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
-               {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader, value: var RemoteKeystore
+) {.raises: [SerializationError, IOError].} =
   var
     version: Option[uint64]
     description: Option[string]
@@ -762,60 +768,65 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
   #       manually is extremely error-prone. This should use
   #       the auto-generated deserializer from nim-json-serialization
   for fieldName in readObjectFields(reader):
-    case fieldName:
+    case fieldName
     of "pubkey":
       if pubkey.isSome:
-        reader.raiseUnexpectedField("Multiple `pubkey` fields found",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField("Multiple `pubkey` fields found", "RemoteKeystore")
       pubkey = some(reader.readValue(ValidatorPubKey))
     of "remote":
       if remote.isSome:
-        reader.raiseUnexpectedField("Multiple `remote` fields found",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField("Multiple `remote` fields found", "RemoteKeystore")
       if remotes.isSome:
-        reader.raiseUnexpectedField("The `remote` field cannot be specified together with `remotes`",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField(
+          "The `remote` field cannot be specified together with `remotes`",
+          "RemoteKeystore",
+        )
       remote = some(reader.readValue(HttpHostUri))
     of "remotes":
       if remotes.isSome:
-        reader.raiseUnexpectedField("Multiple `remote` fields found",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField("Multiple `remote` fields found", "RemoteKeystore")
       if remote.isSome:
-        reader.raiseUnexpectedField("The `remotes` field cannot be specified together with `remote`",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField(
+          "The `remotes` field cannot be specified together with `remote`",
+          "RemoteKeystore",
+        )
       if version.isNone:
         reader.raiseUnexpectedField(
           "The `remotes` field should be specified after the `version` field of the keystore",
-          "RemoteKeystore")
+          "RemoteKeystore",
+        )
       if version.get < 2:
         reader.raiseUnexpectedField(
           "The `remotes` field is valid only past version 2 of the remote keystore format",
-          "RemoteKeystore")
+          "RemoteKeystore",
+        )
       remotes = some(reader.readValue(seq[RemoteSignerInfo]))
     of "version":
       if version.isSome:
-        reader.raiseUnexpectedField("Multiple `version` fields found",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField("Multiple `version` fields found", "RemoteKeystore")
       version = some(reader.readValue(uint64))
       if version.get > 3'u64:
         reader.raiseUnexpectedValue(
           "Remote keystore version " & $version.get &
-          " requires a more recent version of Nimbus")
+            " requires a more recent version of Nimbus"
+        )
     of "description":
       if description.isSome:
-        reader.raiseUnexpectedField("Multiple `description` fields found",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField(
+          "Multiple `description` fields found", "RemoteKeystore"
+        )
       description = some(reader.readValue(string))
     of "ignore_ssl_verification":
       if ignoreSslVerification.isSome:
-        reader.raiseUnexpectedField("Multiple conflicting options found",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField(
+          "Multiple conflicting options found", "RemoteKeystore"
+        )
       ignoreSslVerification = some(reader.readValue(bool))
     of "type":
       if remoteType.isSome:
-        reader.raiseUnexpectedField("Multiple `type` fields found",
-                                    "RemoteKeystore")
-      let remoteTypeValue = case reader.readValue(string).toLowerAscii()
+        reader.raiseUnexpectedField("Multiple `type` fields found", "RemoteKeystore")
+      let remoteTypeValue =
+        case reader.readValue(string).toLowerAscii()
         of "web3signer":
           RemoteSignerType.Web3Signer
         of "verifying-web3signer":
@@ -825,24 +836,29 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       remoteType = some remoteTypeValue
     of "proven_block_properties":
       if provenBlockProperties.isSome:
-        reader.raiseUnexpectedField("Multiple `proven_block_properties` fields found",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField(
+          "Multiple `proven_block_properties` fields found", "RemoteKeystore"
+        )
       if version.isNone:
         reader.raiseUnexpectedField(
           "The `proven_block_properties` field should be specified after the `version` field of the keystore",
-          "RemoteKeystore")
+          "RemoteKeystore",
+        )
       if version.get < 3:
         reader.raiseUnexpectedField(
           "The `proven_block_properties` field is valid only past version 3 of the remote keystore format",
-          "RemoteKeystore")
+          "RemoteKeystore",
+        )
       if remoteType.isNone:
         reader.raiseUnexpectedField(
           "The `proven_block_properties` field should be specified after the `type` field of the keystore",
-          "RemoteKeystore")
+          "RemoteKeystore",
+        )
       if remoteType.get != RemoteSignerType.VerifyingWeb3Signer:
         reader.raiseUnexpectedField(
           "The `proven_block_properties` field can be specified only when the remote signer type is 'verifying-web3signer'",
-          "RemoteKeystore")
+          "RemoteKeystore",
+        )
       var provenProperties = reader.readValue(seq[ProvenProperty])
       for prop in provenProperties.mitems:
         if prop.path == ".execution_payload.fee_recipient":
@@ -856,22 +872,27 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
           prop.capellaIndex = some GeneralizedIndex(18)
           prop.denebIndex = some GeneralizedIndex(18)
         else:
-          reader.raiseUnexpectedValue("Keystores with proven properties different than " &
-                                      "`.execution_payload.fee_recipient` and `.graffiti` " &
-                                      "require a more recent version of Nimbus")
+          reader.raiseUnexpectedValue(
+            "Keystores with proven properties different than " &
+              "`.execution_payload.fee_recipient` and `.graffiti` " &
+              "require a more recent version of Nimbus"
+          )
       provenBlockProperties = some provenProperties
     of "threshold":
       if threshold.isSome:
-        reader.raiseUnexpectedField("Multiple `threshold` fields found",
-                                    "RemoteKeystore")
+        reader.raiseUnexpectedField(
+          "Multiple `threshold` fields found", "RemoteKeystore"
+        )
       if version.isNone:
         reader.raiseUnexpectedField(
           "The `threshold` field should be specified after the `version` field of the keystore",
-          "RemoteKeystore")
+          "RemoteKeystore",
+        )
       if version.get < 2:
         reader.raiseUnexpectedField(
           "The `threshold` field is valid only past version 2 of the remote keystore format",
-          "RemoteKeystore")
+          "RemoteKeystore",
+        )
       threshold = some(reader.readValue(uint32))
     else:
       # Ignore unknown field names.
@@ -881,20 +902,20 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
     reader.raiseUnexpectedValue("The required field `version` is missing")
   if remotes.isNone():
     if remote.isSome and pubkey.isSome:
-      remotes = some @[RemoteSignerInfo(
-        pubkey: pubkey.get,
-        id: 0,
-        url: remote.get
-      )]
+      remotes = some @[RemoteSignerInfo(pubkey: pubkey.get, id: 0, url: remote.get)]
     else:
       reader.raiseUnexpectedValue("The required field `remotes` is missing")
 
   if threshold.isNone:
     if remotes.get.len > 1:
-      reader.raiseUnexpectedValue("The `threshold` field must be specified when using distributed keystores")
+      reader.raiseUnexpectedValue(
+        "The `threshold` field must be specified when using distributed keystores"
+      )
   else:
     if threshold.get.uint64 > remotes.get.lenu64:
-      reader.raiseUnexpectedValue("The specified `threshold` must be lower than the number of remote signers")
+      reader.raiseUnexpectedValue(
+        "The specified `threshold` must be lower than the number of remote signers"
+      )
 
   if pubkey.isNone():
     reader.raiseUnexpectedValue("Field `pubkey` is missing")
@@ -907,9 +928,12 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       discard
     of RemoteSignerType.VerifyingWeb3Signer:
       if provenBlockProperties.isNone:
-        reader.raiseUnexpectedValue("The required field `proven_block_properties` is missing")
+        reader.raiseUnexpectedValue(
+          "The required field `proven_block_properties` is missing"
+        )
 
-  value = case remoteType.get(RemoteSignerType.Web3Signer)
+  value =
+    case remoteType.get(RemoteSignerType.Web3Signer)
     of RemoteSignerType.Web3Signer:
       RemoteKeystore(
         version: 2'u64,
@@ -917,7 +941,8 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
         description: description,
         remoteType: RemoteSignerType.Web3Signer,
         remotes: remotes.get,
-        threshold: threshold.get(1))
+        threshold: threshold.get(1),
+      )
     of RemoteSignerType.VerifyingWeb3Signer:
       RemoteKeystore(
         version: 2'u64,
@@ -926,13 +951,15 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
         remoteType: RemoteSignerType.VerifyingWeb3Signer,
         provenBlockProperties: provenBlockProperties.get,
         remotes: remotes.get,
-        threshold: threshold.get(1))
+        threshold: threshold.get(1),
+      )
 
-template bytes(value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv): seq[byte] =
+template bytes(value: Pbkdf2Salt | SimpleHexEncodedTypes | Aes128CtrIv): seq[byte] =
   distinctBase value
 
-func scrypt(password: openArray[char], salt: openArray[byte],
-            N, r, p: int; keyLen: static[int]): array[keyLen, byte] =
+func scrypt(
+    password: openArray[char], salt: openArray[byte], N, r, p: int, keyLen: static[int]
+): array[keyLen, byte] =
   let (xyvLen, bLen) = scryptCalc(N, r, p)
   var xyv = newSeq[uint32](xyvLen)
   var b = newSeq[byte](bLen)
@@ -943,21 +970,23 @@ func areValid(params: Pbkdf2Params): bool =
     return false
 
   # https://www.ietf.org/rfc/rfc2898.txt
-  let hLen = case params.prf
-    of HmacSha256: 256 / 8
+  let hLen =
+    case params.prf
+    of HmacSha256:
+      256 / 8
   params.dklen <= high(uint32).uint64 * hLen.uint64
 
 func areValid(params: ScryptParams): bool =
-  static: doAssert scryptParams.dklen >= 32
+  static:
+    doAssert scryptParams.dklen >= 32
 
-  params.dklen == scryptParams.dklen and
-  params.n == scryptParams.n and
-  params.r == scryptParams.r and
-  params.p == scryptParams.p and
-  params.salt.bytes.len > 0
+  params.dklen == scryptParams.dklen and params.n == scryptParams.n and
+    params.r == scryptParams.r and params.p == scryptParams.p and
+    params.salt.bytes.len > 0
 
-proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
-                         outSecret: var seq[byte]): DecryptionStatus =
+proc decryptCryptoField*(
+    crypto: Crypto, decKey: openArray[byte], outSecret: var seq[byte]
+): DecryptionStatus =
   if crypto.cipher.message.bytes.len == 0:
     return DecryptionStatus.InvalidKeystore
   if len(decKey) < keyLen:
@@ -965,16 +994,21 @@ proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
   let valid =
     case crypto.checksum.function
     of sha256Checksum:
-      template params: auto {.used.} = crypto.checksum.params
-      template message: auto = crypto.checksum.message
-      message == shaChecksum(decKey.toOpenArray(16, 31),
-                             crypto.cipher.message.bytes)
+      template params(): auto {.used.} =
+        crypto.checksum.params
+
+      template message(): auto =
+        crypto.checksum.message
+
+      message == shaChecksum(decKey.toOpenArray(16, 31), crypto.cipher.message.bytes)
   if not valid:
     return DecryptionStatus.InvalidPassword
 
   case crypto.cipher.function
   of aes128CtrCipher:
-    template params: auto = crypto.cipher.params
+    template params(): auto =
+      crypto.cipher.params
+
     var aesCipher: CTR[aes128]
     outSecret.setLen(crypto.cipher.message.bytes.len)
     aesCipher.init(decKey.toOpenArray(0, 15), params.iv.bytes)
@@ -982,28 +1016,42 @@ proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
     aesCipher.clear()
   DecryptionStatus.Success
 
-proc getDecryptionKey*(crypto: Crypto, password: KeystorePass,
-                       decKey: var seq[byte]): DecryptionStatus =
+proc getDecryptionKey*(
+    crypto: Crypto, password: KeystorePass, decKey: var seq[byte]
+): DecryptionStatus =
   let res =
     case crypto.kdf.function
     of kdfPbkdf2:
-      template params: auto = crypto.kdf.pbkdf2Params
+      template params(): auto =
+        crypto.kdf.pbkdf2Params
+
       if not params.areValid or params.c > high(int).uint64:
         return DecryptionStatus.InvalidKeystore
-      Eth2DigestCtx.pbkdf2(password.str, params.salt.bytes, int(params.c),
-                           int(params.dklen))
+      Eth2DigestCtx.pbkdf2(
+        password.str, params.salt.bytes, int(params.c), int(params.dklen)
+      )
     of kdfScrypt:
-      template params: auto = crypto.kdf.scryptParams
+      template params(): auto =
+        crypto.kdf.scryptParams
+
       if not params.areValid:
         return DecryptionStatus.InvalidKeystore
-      @(scrypt(password.str, params.salt.bytes, scryptParams.n,
-               scryptParams.r, scryptParams.p, int(scryptParams.dklen)))
+      @(
+        scrypt(
+          password.str,
+          params.salt.bytes,
+          scryptParams.n,
+          scryptParams.r,
+          scryptParams.p,
+          int(scryptParams.dklen),
+        )
+      )
   decKey = res
   DecryptionStatus.Success
 
-proc decryptCryptoField*(crypto: Crypto,
-                         password: KeystorePass,
-                         outSecret: var seq[byte]): DecryptionStatus =
+proc decryptCryptoField*(
+    crypto: Crypto, password: KeystorePass, outSecret: var seq[byte]
+): DecryptionStatus =
   # https://github.com/ethereum/wiki/wiki/Web3-Secret-Storage-Definition
   var decKey: seq[byte]
   if crypto.cipher.message.bytes.len == 0:
@@ -1015,28 +1063,29 @@ proc decryptCryptoField*(crypto: Crypto,
 
   decryptCryptoField(crypto, decKey, outSecret)
 
-func cstringToStr(v: cstring): string = $v
+func cstringToStr(v: cstring): string =
+  $v
 
 template parseKeystore*(jsonContent: string): Keystore =
-  Json.decode(jsonContent, Keystore,
-              requireAllFields = true,
-              allowUnknownFields = true)
+  Json.decode(jsonContent, Keystore, requireAllFields = true, allowUnknownFields = true)
 
 template parseNetKeystore*(jsonContent: string): NetKeystore =
-  Json.decode(jsonContent, NetKeystore,
-              requireAllFields = true,
-              allowUnknownFields = true)
+  Json.decode(
+    jsonContent, NetKeystore, requireAllFields = true, allowUnknownFields = true
+  )
 
 template parseRemoteKeystore*(jsonContent: string): RemoteKeystore =
-  Json.decode(jsonContent, RemoteKeystore,
-              requireAllFields = false,
-              allowUnknownFields = true)
+  Json.decode(
+    jsonContent, RemoteKeystore, requireAllFields = false, allowUnknownFields = true
+  )
 
 proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
   let digest =
     case keystore.crypto.kdf.function
     of kdfPbkdf2:
-      template params: auto = keystore.crypto.kdf.pbkdf2Params
+      template params(): auto =
+        keystore.crypto.kdf.pbkdf2Params
+
       withEth2Hash:
         h.update(seq[byte](params.salt))
         h.update(password.str.toOpenArrayByte(0, len(password.str) - 1))
@@ -1045,7 +1094,9 @@ proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
         let prf = $params.prf
         h.update(prf.toOpenArrayByte(0, len(prf) - 1))
     of kdfScrypt:
-      template params: auto = keystore.crypto.kdf.scryptParams
+      template params(): auto =
+        keystore.crypto.kdf.scryptParams
+
       withEth2Hash:
         h.update(seq[byte](params.salt))
         h.update(password.str.toOpenArrayByte(0, len(password.str) - 1))
@@ -1058,25 +1109,33 @@ proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
 proc `==`*(a, b: KdfSaltKey): bool {.borrow.}
 proc hash*(salt: KdfSaltKey): Hash {.borrow.}
 
-{.push warning[ProveField]:off.}
+{.push warning[ProveField]: off.}
 func `==`*(a, b: Kdf): bool =
   # We do not care about `message` field.
   if a.function != b.function:
     return false
   case a.function
   of kdfPbkdf2:
-    template aparams: auto = a.pbkdf2Params
-    template bparams: auto = b.pbkdf2Params
+    template aparams(): auto =
+      a.pbkdf2Params
+
+    template bparams(): auto =
+      b.pbkdf2Params
+
     (aparams.dklen == bparams.dklen) and (aparams.c == bparams.c) and
-    (aparams.prf == bparams.prf) and (len(seq[byte](aparams.salt)) > 0) and
-    (seq[byte](aparams.salt) == seq[byte](bparams.salt))
+      (aparams.prf == bparams.prf) and (len(seq[byte](aparams.salt)) > 0) and
+      (seq[byte](aparams.salt) == seq[byte](bparams.salt))
   of kdfScrypt:
-    template aparams: auto = a.scryptParams
-    template bparams: auto = b.scryptParams
+    template aparams(): auto =
+      a.scryptParams
+
+    template bparams(): auto =
+      b.scryptParams
+
     (aparams.dklen == bparams.dklen) and (aparams.n == bparams.n) and
-    (aparams.p == bparams.p) and (aparams.r == bparams.r) and
-    (len(seq[byte](aparams.salt)) > 0) and
-    (seq[byte](aparams.salt) == seq[byte](bparams.salt))
+      (aparams.p == bparams.p) and (aparams.r == bparams.r) and
+      (len(seq[byte](aparams.salt)) > 0) and
+      (seq[byte](aparams.salt) == seq[byte](bparams.salt))
 {.pop.}
 
 func `==`*(a, b: Cipher): bool =
@@ -1084,14 +1143,13 @@ func `==`*(a, b: Cipher): bool =
   a.function == b.function
 
 func `==`*(a, b: KeystoreCacheItem): bool =
-  (a.kdf == b.kdf) and (a.cipher == b.cipher) and
-  (a.decryptionKey == b.decryptionKey)
+  (a.kdf == b.kdf) and (a.cipher == b.cipher) and (a.decryptionKey == b.decryptionKey)
 
-func init*(t: typedesc[KeystoreCacheRef],
-           expireTime = KeystoreCachePruningTime): KeystoreCacheRef =
+func init*(
+    t: typedesc[KeystoreCacheRef], expireTime = KeystoreCachePruningTime
+): KeystoreCacheRef =
   KeystoreCacheRef(
-    table: initTable[KdfSaltKey, KeystoreCacheItem](),
-    expireTime: expireTime
+    table: initTable[KdfSaltKey, KeystoreCacheItem](), expireTime: expireTime
   )
 
 proc clear*(cache: KeystoreCacheRef) =
@@ -1109,53 +1167,68 @@ proc pruneExpiredKeys*(cache: KeystoreCacheRef) =
   for item in keys:
     cache.table.del(item)
 
-proc init*(t: typedesc[KeystoreCacheItem], keystore: Keystore,
-           key: openArray[byte]): KeystoreCacheItem =
-  KeystoreCacheItem(flag: CacheItemFlag.Present, kdf: keystore.crypto.kdf,
-                    cipher: keystore.crypto.cipher, decryptionKey: @key,
-                    timestamp: Moment.now())
+proc init*(
+    t: typedesc[KeystoreCacheItem], keystore: Keystore, key: openArray[byte]
+): KeystoreCacheItem =
+  KeystoreCacheItem(
+    flag: CacheItemFlag.Present,
+    kdf: keystore.crypto.kdf,
+    cipher: keystore.crypto.cipher,
+    decryptionKey: @key,
+    timestamp: Moment.now(),
+  )
 
-proc getCachedKey*(cache: KeystoreCacheRef,
-                   keystore: Keystore, password: KeystorePass): Opt[seq[byte]] =
-  if isNil(cache): return Opt.none(seq[byte])
+proc getCachedKey*(
+    cache: KeystoreCacheRef, keystore: Keystore, password: KeystorePass
+): Opt[seq[byte]] =
+  if isNil(cache):
+    return Opt.none(seq[byte])
   let
     saltKey = keystore.getSaltKey(password)
     item = cache.table.getOrDefault(saltKey)
   case item.flag
   of CacheItemFlag.Present:
-    if (item.kdf == keystore.crypto.kdf) and
-       (item.cipher == keystore.crypto.cipher):
+    if (item.kdf == keystore.crypto.kdf) and (item.cipher == keystore.crypto.cipher):
       Opt.some(item.decryptionKey)
     else:
       Opt.none(seq[byte])
   else:
     Opt.none(seq[byte])
 
-proc setCachedKey*(cache: KeystoreCacheRef, keystore: Keystore,
-                   password: KeystorePass, key: openArray[byte]) =
-  if isNil(cache): return
+proc setCachedKey*(
+    cache: KeystoreCacheRef,
+    keystore: Keystore,
+    password: KeystorePass,
+    key: openArray[byte],
+) =
+  if isNil(cache):
+    return
   let saltKey = keystore.getSaltKey(password)
   cache.table[saltKey] = KeystoreCacheItem.init(keystore, key)
 
-proc destroyCacheKey*(cache: KeystoreCacheRef,
-                      keystore: Keystore, password: KeystorePass) =
-  if isNil(cache): return
+proc destroyCacheKey*(
+    cache: KeystoreCacheRef, keystore: Keystore, password: KeystorePass
+) =
+  if isNil(cache):
+    return
   let saltKey = keystore.getSaltKey(password)
   cache.table.withValue(saltKey, item):
     burnMem(item[].decryptionKey)
   cache.table.del(saltKey)
 
-proc decryptKeystore*(keystore: Keystore,
-                      password: KeystorePass,
-                      cache: KeystoreCacheRef): KsResult[ValidatorPrivKey] =
+proc decryptKeystore*(
+    keystore: Keystore, password: KeystorePass, cache: KeystoreCacheRef
+): KsResult[ValidatorPrivKey] =
   var secret: seq[byte]
-  defer: burnMem(secret)
+  defer:
+    burnMem(secret)
 
   while true:
     let res = cache.getCachedKey(keystore, password)
     if res.isNone():
       var decKey: seq[byte]
-      defer: burnMem(decKey)
+      defer:
+        burnMem(decKey)
 
       let kres = getDecryptionKey(keystore.crypto, password, decKey)
       if kres != DecryptionStatus.Success:
@@ -1167,7 +1240,8 @@ proc decryptKeystore*(keystore: Keystore,
       break
     else:
       var decKey = res.get()
-      defer: burnMem(decKey)
+      defer:
+        burnMem(decKey)
 
       let dres = decryptCryptoField(keystore.crypto, decKey, secret)
       if dres == DecryptionStatus.Success:
@@ -1177,9 +1251,9 @@ proc decryptKeystore*(keystore: Keystore,
 
   ValidatorPrivKey.fromRaw(secret).mapErr(cstringToStr)
 
-proc decryptKeystore*(keystore: JsonString,
-                      password: KeystorePass,
-                      cache: KeystoreCacheRef): KsResult[ValidatorPrivKey] =
+proc decryptKeystore*(
+    keystore: JsonString, password: KeystorePass, cache: KeystoreCacheRef
+): KsResult[ValidatorPrivKey] =
   let keystore =
     try:
       parseKeystore(string(keystore))
@@ -1188,22 +1262,24 @@ proc decryptKeystore*(keystore: JsonString,
 
   decryptKeystore(keystore, password, cache)
 
-proc decryptKeystore*(keystore: Keystore,
-                      password: KeystorePass): KsResult[ValidatorPrivKey] =
+proc decryptKeystore*(
+    keystore: Keystore, password: KeystorePass
+): KsResult[ValidatorPrivKey] =
   decryptKeystore(keystore, password, nil)
 
-proc decryptKeystore*(keystore: JsonString,
-                      password: KeystorePass): KsResult[ValidatorPrivKey] =
+proc decryptKeystore*(
+    keystore: JsonString, password: KeystorePass
+): KsResult[ValidatorPrivKey] =
   decryptKeystore(keystore, password, nil)
 
 proc writeValue*(
     writer: var JsonWriter, value: lcrypto.PublicKey
 ) {.inline, raises: [IOError].} =
-  writer.writeValue(ncrutils.toHex(value.getBytes().get(),
-                                   {HexFlags.LowerCase}))
+  writer.writeValue(ncrutils.toHex(value.getBytes().get(), {HexFlags.LowerCase}))
 
-proc readValue*(reader: var JsonReader, value: var lcrypto.PublicKey) {.
-     raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader, value: var lcrypto.PublicKey
+) {.raises: [SerializationError, IOError].} =
   let res = init(lcrypto.PublicKey, reader.readValue(string))
   if res.isOk():
     value = res.get()
@@ -1211,10 +1287,12 @@ proc readValue*(reader: var JsonReader, value: var lcrypto.PublicKey) {.
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
-proc decryptNetKeystore*(nkeystore: NetKeystore,
-                         password: KeystorePass): KsResult[lcrypto.PrivateKey] =
+proc decryptNetKeystore*(
+    nkeystore: NetKeystore, password: KeystorePass
+): KsResult[lcrypto.PrivateKey] =
   var secret: seq[byte]
-  defer: burnMem(secret)
+  defer:
+    burnMem(secret)
   let status = decryptCryptoField(nkeystore.crypto, password, secret)
   case status
   of Success:
@@ -1226,8 +1304,9 @@ proc decryptNetKeystore*(nkeystore: NetKeystore,
   else:
     err $status
 
-proc decryptNetKeystore*(nkeystore: JsonString,
-                         password: KeystorePass): KsResult[lcrypto.PrivateKey] =
+proc decryptNetKeystore*(
+    nkeystore: JsonString, password: KeystorePass
+): KsResult[lcrypto.PrivateKey] =
   try:
     let keystore = parseNetKeystore(string nkeystore)
     return decryptNetKeystore(keystore, password)
@@ -1237,13 +1316,15 @@ proc decryptNetKeystore*(nkeystore: JsonString,
 proc generateKeystoreSalt*(rng: var HmacDrbgContext): seq[byte] =
   rng.generateBytes(keyLen)
 
-proc createCryptoField(kdfKind: KdfKind,
-                       rng: var HmacDrbgContext,
-                       secret: openArray[byte],
-                       password = KeystorePass.init "",
-                       salt: openArray[byte] = @[],
-                       iv: openArray[byte] = @[],
-                       mode = Secure): Crypto =
+proc createCryptoField(
+    kdfKind: KdfKind,
+    rng: var HmacDrbgContext,
+    secret: openArray[byte],
+    password = KeystorePass.init "",
+    salt: openArray[byte] = @[],
+    iv: openArray[byte] = @[],
+    mode = Secure,
+): Crypto =
   type AES = aes128
 
   let kdfSalt =
@@ -1253,29 +1334,29 @@ proc createCryptoField(kdfKind: KdfKind,
     else:
       rng.generateBytes(keyLen)
 
-  let aesIv = if iv.len > 0:
-    doAssert iv.len == AES.sizeBlock
-    @iv
-  else:
-    rng.generateBytes(AES.sizeBlock)
+  let aesIv =
+    if iv.len > 0:
+      doAssert iv.len == AES.sizeBlock
+      @iv
+    else:
+      rng.generateBytes(AES.sizeBlock)
 
   var decKey: seq[byte]
-  let kdf = case kdfKind
+  let kdf =
+    case kdfKind
     of kdfPbkdf2:
       var params = pbkdf2Params
       params.salt = Pbkdf2Salt kdfSalt
-      if mode == Fast: params.c = 1
-      decKey = sha256.pbkdf2(password.str,
-                             kdfSalt,
-                             int params.c,
-                             int params.dklen)
+      if mode == Fast:
+        params.c = 1
+      decKey = sha256.pbkdf2(password.str, kdfSalt, int params.c, int params.dklen)
       Kdf(function: kdfPbkdf2, pbkdf2Params: params, message: "")
     of kdfScrypt:
       var params = scryptParams
       params.salt = ScryptSalt kdfSalt
-      if mode == Fast: params.n = 1
-      decKey = @(scrypt(password.str, kdfSalt,
-                        params.n, params.r, params.p, keyLen))
+      if mode == Fast:
+        params.n = 1
+      decKey = @(scrypt(password.str, kdfSalt, params.n, params.r, params.p, keyLen))
       Kdf(function: kdfScrypt, scryptParams: params, message: "")
 
   var
@@ -1290,21 +1371,23 @@ proc createCryptoField(kdfKind: KdfKind,
 
   Crypto(
     kdf: kdf,
-    checksum: Checksum(
-      function: sha256Checksum,
-      message: sum),
+    checksum: Checksum(function: sha256Checksum, message: sum),
     cipher: Cipher(
       function: aes128CtrCipher,
       params: Aes128CtrParams(iv: Aes128CtrIv aesIv),
-      message: CipherBytes cipherMsg))
+      message: CipherBytes cipherMsg,
+    ),
+  )
 
-proc createNetKeystore*(kdfKind: KdfKind,
-                        rng: var HmacDrbgContext,
-                        privKey: lcrypto.PrivateKey,
-                        password = KeystorePass.init "",
-                        description = "",
-                        salt: openArray[byte] = @[],
-                        iv: openArray[byte] = @[]): NetKeystore =
+proc createNetKeystore*(
+    kdfKind: KdfKind,
+    rng: var HmacDrbgContext,
+    privKey: lcrypto.PrivateKey,
+    password = KeystorePass.init "",
+    description = "",
+    salt: openArray[byte] = @[],
+    iv: openArray[byte] = @[],
+): NetKeystore =
   let
     secret = privKey.getBytes().get()
     cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv)
@@ -1314,23 +1397,28 @@ proc createNetKeystore*(kdfKind: KdfKind,
   NetKeystore(
     crypto: cryptoField,
     pubkey: pubkey,
-    description: if len(description) > 0: some(description)
-                 else: none[string](),
+    description:
+      if len(description) > 0:
+        some(description)
+      else:
+        none[string](),
     uuid: $uuid,
-    version: 1
+    version: 1,
   )
 
-proc createKeystore*(kdfKind: KdfKind,
-                     rng: var HmacDrbgContext,
-                     privKey: ValidatorPrivKey,
-                     password = KeystorePass.init "",
-                     path = KeyPath "",
-                     description = "",
-                     salt: openArray[byte] = @[],
-                     iv: openArray[byte] = @[],
-                     mode = Secure): Keystore =
+proc createKeystore*(
+    kdfKind: KdfKind,
+    rng: var HmacDrbgContext,
+    privKey: ValidatorPrivKey,
+    password = KeystorePass.init "",
+    path = KeyPath "",
+    description = "",
+    salt: openArray[byte] = @[],
+    iv: openArray[byte] = @[],
+    mode = Secure,
+): Keystore =
   let
-    secret = privKey.toRaw[^32..^1]
+    secret = privKey.toRaw[^32 ..^ 1]
     cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv, mode)
     pubkey = privKey.toPubKey()
     uuid = uuidGenerate().expect("Random bytes should be available")
@@ -1339,51 +1427,63 @@ proc createKeystore*(kdfKind: KdfKind,
     crypto: cryptoField,
     pubkey: pubkey.toPubKey(),
     path: path,
-    description: if len(description) > 0: some(description)
-                 else: none[string](),
+    description:
+      if len(description) > 0:
+        some(description)
+      else:
+        none[string](),
     uuid: $uuid,
-    version: 4)
-
-proc createRemoteKeystore*(pubKey: ValidatorPubKey, remoteUri: HttpHostUri,
-                           version = 1'u64, description = "",
-                           remoteType = RemoteSignerType.Web3Signer,
-                          flags: set[RemoteKeystoreFlag] = {}): RemoteKeystore =
-  let signerInfo = RemoteSignerInfo(
-    url: remoteUri,
-    pubkey: pubKey,
-    id: 0
+    version: 4,
   )
+
+proc createRemoteKeystore*(
+    pubKey: ValidatorPubKey,
+    remoteUri: HttpHostUri,
+    version = 1'u64,
+    description = "",
+    remoteType = RemoteSignerType.Web3Signer,
+    flags: set[RemoteKeystoreFlag] = {},
+): RemoteKeystore =
+  let signerInfo = RemoteSignerInfo(url: remoteUri, pubkey: pubKey, id: 0)
   RemoteKeystore(
     version: version,
-    description: if len(description) > 0: some(description)
-                 else: none[string](),
+    description:
+      if len(description) > 0:
+        some(description)
+      else:
+        none[string](),
     remoteType: remoteType,
     pubkey: pubKey,
     remotes: @[signerInfo],
-    flags: flags
+    flags: flags,
   )
 
-proc createWallet*(kdfKind: KdfKind,
-                   rng: var HmacDrbgContext,
-                   seed: KeySeed,
-                   name = WalletName "",
-                   salt: openArray[byte] = @[],
-                   iv: openArray[byte] = @[],
-                   password = KeystorePass.init "",
-                   nextAccount = none(Natural),
-                   pretty = true): Wallet =
+proc createWallet*(
+    kdfKind: KdfKind,
+    rng: var HmacDrbgContext,
+    seed: KeySeed,
+    name = WalletName "",
+    salt: openArray[byte] = @[],
+    iv: openArray[byte] = @[],
+    password = KeystorePass.init "",
+    nextAccount = none(Natural),
+    pretty = true,
+): Wallet =
   let
     uuid = UUID $(uuidGenerate().expect("Random bytes should be available"))
-    crypto = createCryptoField(kdfKind, rng, distinctBase seed,
-                               password, salt, iv)
+    crypto = createCryptoField(kdfKind, rng, distinctBase seed, password, salt, iv)
   Wallet(
     uuid: uuid,
-    name: if name.string.len > 0: name
-          else: WalletName(uuid),
+    name:
+      if name.string.len > 0:
+        name
+      else:
+        WalletName(uuid),
     version: 1,
     walletType: "hierarchical deterministic",
     crypto: crypto,
-    nextAccount: nextAccount.get(0))
+    nextAccount: nextAccount.get(0),
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#bls_withdrawal_prefix
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
@@ -1395,14 +1495,18 @@ func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 
-proc prepareDeposit*(cfg: RuntimeConfig,
-                     withdrawalPubKey: CookedPubKey,
-                     signingKey: ValidatorPrivKey, signingPubKey: CookedPubKey,
-                     amount = MAX_EFFECTIVE_BALANCE.Gwei): DepositData =
+proc prepareDeposit*(
+    cfg: RuntimeConfig,
+    withdrawalPubKey: CookedPubKey,
+    signingKey: ValidatorPrivKey,
+    signingPubKey: CookedPubKey,
+    amount = MAX_EFFECTIVE_BALANCE.Gwei,
+): DepositData =
   var res = DepositData(
     amount: amount,
     pubkey: signingPubKey.toPubKey(),
-    withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
+    withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey),
+  )
 
   res.signature = get_deposit_signature(cfg, res, signingKey).toValidatorSig()
   return res

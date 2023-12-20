@@ -27,7 +27,6 @@ const
   # 5 (plus 1.25)
   HYSTERESIS_UPWARD_MULTIPLIER*: uint64 = 5
 
-
   # Gwei values
   # ---------------------------------------------------------------
   # 2**0 * 10**9 (= 1,000,000,000) Gwei
@@ -36,7 +35,6 @@ const
   MAX_EFFECTIVE_BALANCE*: uint64 = 32000000000'u64
   # 2**0 * 10**9 (= 1,000,000,000) Gwei
   EFFECTIVE_BALANCE_INCREMENT*: uint64 = 1000000000
-
 
   # Time parameters
   # ---------------------------------------------------------------
@@ -55,7 +53,6 @@ const
   # 2**2 (= 4) epochs 25.6 minutes
   MIN_EPOCHS_TO_INACTIVITY_PENALTY*: uint64 = 4
 
-
   # State list lengths
   # ---------------------------------------------------------------
   # [customized] smaller state
@@ -66,7 +63,6 @@ const
   HISTORICAL_ROOTS_LIMIT*: uint64 = 16777216
   # 2**40 (= 1,099,511,627,776) validator spots
   VALIDATOR_REGISTRY_LIMIT*: uint64 = 1099511627776'u64
-
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
@@ -82,7 +78,6 @@ const
   MIN_SLASHING_PENALTY_QUOTIENT*: uint64 = 64
   # [customized] 2 (lower safety margin than Phase 0 genesis but different than mainnet config for testing)
   PROPORTIONAL_SLASHING_MULTIPLIER*: uint64 = 2
-
 
   # Max operations per block
   # ---------------------------------------------------------------

@@ -13,7 +13,8 @@ import
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
   stew/[results, byteutils],
-  chronicles, chronicles/timings,
+  chronicles,
+  chronicles/timings,
   # Internal
   ../spec/datatypes/base,
   ./slashing_protection_common,
@@ -45,7 +46,7 @@ export chronicles
 type
   SlashProtDBMode* = enum
     kCompleteArchive # Complete Format V2 backend (saves all attestations)
-    kLowWatermark    # Low-Watermark Format V2 backend (prunes attestations)
+    kLowWatermark # Low-Watermark Format V2 backend (prunes attestations)
 
   SlashingProtectionDB* = ref object
     ## Database storing the blocks attested
@@ -65,27 +66,25 @@ func version*(_: type SlashingProtectionDB): static int =
 # -------------------------------------------------------------
 
 proc init*(
-       T: type SlashingProtectionDB,
-       genesis_validators_root: Eth2Digest,
-       basePath, dbname: string,
-       modes: set[SlashProtDBMode]
-    ): T =
+    T: type SlashingProtectionDB,
+    genesis_validators_root: Eth2Digest,
+    basePath, dbname: string,
+    modes: set[SlashProtDBMode],
+): T =
   ## Initialize or load a slashing protection DB
   ## This is for Beacon Node usage
   ## Handles DB version migration
 
-  doAssert modes.card >= 1, "No slashing protection mode chosen. Choose a v1, a v2 or v1 and v2 slashing DB mode."
-  doAssert not(
-    kCompleteArchive in modes and
-    kLowWatermark in modes), "Mode(s): " & $modes & ". Choose only one of V2 DB modes."
+  doAssert modes.card >= 1,
+    "No slashing protection mode chosen. Choose a v1, a v2 or v1 and v2 slashing DB mode."
+  doAssert not (kCompleteArchive in modes and kLowWatermark in modes),
+    "Mode(s): " & $modes & ". Choose only one of V2 DB modes."
 
   new result
   result.modes = modes
 
-  let (db, requiresMigration) = SlashingProtectionDB_v2.initCompatV1(
-    genesis_validators_root,
-    basePath, dbname
-  )
+  let (db, requiresMigration) =
+    SlashingProtectionDB_v2.initCompatV1(genesis_validators_root, basePath, dbname)
   result.db_v2 = db
 
   if requiresMigration:
@@ -98,24 +97,20 @@ proc init*(
     quit 1
 
 proc init*(
-       T: type SlashingProtectionDB,
-       genesis_validators_root: Eth2Digest,
-       basePath, dbname: string
-     ): T =
+    T: type SlashingProtectionDB,
+    genesis_validators_root: Eth2Digest,
+    basePath, dbname: string,
+): T =
   ## Initialize or load a slashing protection DB
   ## With defaults
   ## - v2 DB only, low watermark (regular pruning)
   ##
   ## Does not handle migration
-  init(
-    T, genesis_validators_root, basePath, dbname,
-    modes = {kLowWatermark}
-  )
+  init(T, genesis_validators_root, basePath, dbname, modes = {kLowWatermark})
 
 proc loadUnchecked*(
-       T: type SlashingProtectionDB,
-       basePath, dbname: string, readOnly: bool
-     ): SlashingProtectionDB {.raises:[IOError].}=
+    T: type SlashingProtectionDB, basePath, dbname: string, readOnly: bool
+): SlashingProtectionDB {.raises: [IOError].} =
   ## Load a slashing protection DB
   ## Note: This is for CLI tool usage
   ##       this doesn't check the genesis validator root
@@ -125,9 +120,7 @@ proc loadUnchecked*(
 
   result.modes = {}
   try:
-    result.db_v2 = SlashingProtectionDB_v2.loadUnchecked(
-      basePath, dbname, readOnly
-    )
+    result.db_v2 = SlashingProtectionDB_v2.loadUnchecked(basePath, dbname, readOnly)
     result.modes.incl(kCompleteArchive)
   except CatchableError as err:
     error "Failed to load the Slashing protection database", err = err.msg
@@ -143,11 +136,11 @@ proc close*(db: SlashingProtectionDB) =
 # --------------------------------------------
 
 proc checkSlashableBlockProposal*(
-       db: SlashingProtectionDB,
-       index: ValidatorIndex,
-       validator: ValidatorPubKey,
-       slot: Slot
-     ): Result[void, BadProposal] =
+    db: SlashingProtectionDB,
+    index: ValidatorIndex,
+    validator: ValidatorPubKey,
+    slot: Slot,
+): Result[void, BadProposal] =
   ## Returns an error if the specified validator
   ## already proposed a block for the specified slot.
   ## This would lead to slashing.
@@ -157,12 +150,12 @@ proc checkSlashableBlockProposal*(
   checkSlashableBlockProposal(db.db_v2, Opt.some(index), validator, slot)
 
 proc checkSlashableAttestation*(
-       db: SlashingProtectionDB,
-       index: ValidatorIndex,
-       validator: ValidatorPubKey,
-       source: Epoch,
-       target: Epoch
-     ): Result[void, BadVote] =
+    db: SlashingProtectionDB,
+    index: ValidatorIndex,
+    validator: ValidatorPubKey,
+    source: Epoch,
+    target: Epoch,
+): Result[void, BadVote] =
   ## Returns an error if the specified validator
   ## already voted for the specified slot
   ## or would vote in a contradiction to previous votes
@@ -175,10 +168,12 @@ proc checkSlashableAttestation*(
 # --------------------------------------------
 
 proc registerBlock*(
-       db: SlashingProtectionDB,
-       index: ValidatorIndex,
-       validator: ValidatorPubKey,
-       slot: Slot, block_signing_root: Eth2Digest): Result[void, BadProposal] =
+    db: SlashingProtectionDB,
+    index: ValidatorIndex,
+    validator: ValidatorPubKey,
+    slot: Slot,
+    block_signing_root: Eth2Digest,
+): Result[void, BadProposal] =
   ## Add a block to the slashing protection DB - the registration will
   ## fail if it would violate a slashing protection rule.
   ##
@@ -187,29 +182,35 @@ proc registerBlock*(
   registerBlock(db.db_v2, Opt.some(index), validator, slot, block_signing_root)
 
 proc registerAttestation*(
-       db: SlashingProtectionDB,
-       index: ValidatorIndex,
-       validator: ValidatorPubKey,
-       source, target: Epoch,
-       attestation_signing_root: Eth2Digest): Result[void, BadVote] =
+    db: SlashingProtectionDB,
+    index: ValidatorIndex,
+    validator: ValidatorPubKey,
+    source, target: Epoch,
+    attestation_signing_root: Eth2Digest,
+): Result[void, BadVote] =
   ## Add an attestation to the slashing protection DB - the registration will
   ## fail if it would violate a slashing protection rule.
   ##
   ## attestation_signing_root is the output of
   ## compute_signing_root(attestation, domain)
-  registerAttestation(db.db_v2, Opt.some(index), validator,
-      source, target, attestation_signing_root)
+  registerAttestation(
+    db.db_v2, Opt.some(index), validator, source, target, attestation_signing_root
+  )
 
 template withContext*(db: SlashingProtectionDB, body: untyped): untyped =
   ## Perform multiple slashing database operations within a single database
   ## context
   db.db_v2.withContext:
     template registerAttestationInContext(
-      index: ValidatorIndex,
+        index: ValidatorIndex,
         validator: ValidatorPubKey,
         source, target: Epoch,
-        attestation_signing_root: Eth2Digest): Result[void, BadVote] =
-      registerAttestationInContextV2(Opt.some(index), validator, source, target, attestation_signing_root)
+        attestation_signing_root: Eth2Digest,
+    ): Result[void, BadVote] =
+      registerAttestationInContextV2(
+        Opt.some(index), validator, source, target, attestation_signing_root
+      )
+
     block:
       body
 
@@ -218,9 +219,8 @@ template withContext*(db: SlashingProtectionDB, body: untyped): untyped =
 # private for now
 
 proc pruneBlocks*(
-       db: SlashingProtectionDB,
-       validator: ValidatorPubKey,
-       newMinSlot: Slot) =
+    db: SlashingProtectionDB, validator: ValidatorPubKey, newMinSlot: Slot
+) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import to ensure
   ## that in case of a gap, we don't allow signing in that gap.
@@ -232,10 +232,11 @@ proc pruneBlocks*(
   quit 1
 
 proc pruneAttestations*(
-       db: SlashingProtectionDB,
-       validator: ValidatorPubKey,
-       newMinSourceEpoch: int64,
-       newMinTargetEpoch: int64) =
+    db: SlashingProtectionDB,
+    validator: ValidatorPubKey,
+    newMinSourceEpoch: int64,
+    newMinTargetEpoch: int64,
+) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import to ensure
   ## that in case of a gap, we don't allow signing in that gap.
@@ -246,10 +247,7 @@ proc pruneAttestations*(
   fatal "This is a backend specific proc"
   quit 1
 
-proc pruneAfterFinalization*(
-       db: SlashingProtectionDB,
-       finalizedEpoch: Epoch
-     ) =
+proc pruneAfterFinalization*(db: SlashingProtectionDB, finalizedEpoch: Epoch) =
   ## Prune blocks and attestations after a specified `finalizedEpoch`
   ## The block with the highest slot
   ## and the attestation(s) with the highest source and target epochs
@@ -276,24 +274,25 @@ proc pruneAfterFinalization*(
 # That builds on a DB backend inclSPDIR and toSPDIR
 # SPDIR being a common Intermediate Representation
 
-proc registerSyntheticAttestation*(db: SlashingProtectionDB,
-       validator: ValidatorPubKey,
-       source, target: Epoch) =
+proc registerSyntheticAttestation*(
+    db: SlashingProtectionDB, validator: ValidatorPubKey, source, target: Epoch
+) =
   db.db_v2.registerSyntheticAttestation(validator, source, target)
 
-proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
-             {.raises: [SerializationError, IOError].} =
+proc inclSPDIR*(
+    db: SlashingProtectionDB, spdir: SPDIR
+): SlashingImportStatus {.raises: [SerializationError, IOError].} =
   db.db_v2.inclSPDIR(spdir)
 
-proc toSPDIR*(db: SlashingProtectionDB): SPDIR
-             {.raises: [IOError].} =
+proc toSPDIR*(db: SlashingProtectionDB): SPDIR {.raises: [IOError].} =
   db.db_v2.toSPDIR()
 
 proc exportSlashingInterchange*(
-       db: SlashingProtectionDB,
-       path: string,
-       validatorsWhiteList: seq[PubKey0x] = @[],
-       prettify = true) {.raises: [IOError].} =
+    db: SlashingProtectionDB,
+    path: string,
+    validatorsWhiteList: seq[PubKey0x] = @[],
+    prettify = true,
+) {.raises: [IOError].} =
   ## Export a database to the Slashing Protection Database Interchange Format
   # We could modify toSPDIR to do the filtering directly
   # but this is not a performance sensitive operation.
@@ -311,7 +310,7 @@ proc exportSlashingInterchange*(
       for v in validators:
         if exportedKeys.binarySearch(v) == -1:
           warn "Specified validator key not found in the slashing database",
-                key = v.PubKeyBytes.toHex
+            key = v.PubKeyBytes.toHex
 
   Json.saveFile(path, spdir, prettify)
   echo "Exported slashing protection DB to '", path, "'"

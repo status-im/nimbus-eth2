@@ -10,12 +10,16 @@
 import
   std/tables,
   stew/results,
-  chronicles, chronos, metrics, taskpools,
+  chronicles,
+  chronos,
+  metrics,
+  taskpools,
   ../spec/[helpers, forks],
   ../spec/datatypes/[altair, phase0, deneb],
   ../consensus_object_pools/[
-    blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    exit_pool, attestation_pool, light_client_pool, sync_committee_msg_pool],
+    blob_quarantine, block_clearance, block_quarantine, blockchain_dag, exit_pool,
+    attestation_pool, light_client_pool, sync_committee_msg_pool,
+  ],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -26,23 +30,23 @@ export
   light_client_pool, sync_committee_msg_pool, validator_pool, beacon_clock,
   gossip_validation, block_processor, batch_validation, block_quarantine
 
-logScope: topics = "gossip_eth2"
+logScope:
+  topics = "gossip_eth2"
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,
   "Number of valid unaggregated attestations processed by this node"
 declareCounter beacon_attestations_dropped,
-  "Number of invalid unaggregated attestations dropped by this node", labels = ["reason"]
+  "Number of invalid unaggregated attestations dropped by this node",
+  labels = ["reason"]
 declareCounter beacon_aggregates_received,
   "Number of valid aggregated attestations processed by this node"
 declareCounter beacon_aggregates_dropped,
   "Number of invalid aggregated attestations dropped by this node", labels = ["reason"]
-declareCounter beacon_blocks_received,
-  "Number of valid blocks processed by this node"
+declareCounter beacon_blocks_received, "Number of valid blocks processed by this node"
 declareCounter beacon_blocks_dropped,
   "Number of invalid blocks dropped by this node", labels = ["reason"]
-declareCounter blob_sidecars_received,
-  "Number of valid blobs processed by this node"
+declareCounter blob_sidecars_received, "Number of valid blobs processed by this node"
 declareCounter blob_sidecars_dropped,
   "Number of invalid blobs dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
@@ -68,15 +72,18 @@ declareCounter beacon_sync_committee_messages_dropped,
 declareCounter beacon_sync_committee_contributions_received,
   "Number of valid sync committee contributions processed by this node"
 declareCounter beacon_sync_committee_contributions_dropped,
-  "Number of invalid sync committee contributions dropped by this node", labels = ["reason"]
+  "Number of invalid sync committee contributions dropped by this node",
+  labels = ["reason"]
 declareCounter beacon_light_client_finality_update_received,
   "Number of valid light client finality update processed by this node"
 declareCounter beacon_light_client_finality_update_dropped,
-  "Number of invalid light client finality update dropped by this node", labels = ["reason"]
+  "Number of invalid light client finality update dropped by this node",
+  labels = ["reason"]
 declareCounter beacon_light_client_optimistic_update_received,
   "Number of valid light client optimistic update processed by this node"
 declareCounter beacon_light_client_optimistic_update_dropped,
-  "Number of invalid light client optimistic update dropped by this node", labels = ["reason"]
+  "Number of invalid light client optimistic update dropped by this node",
+  labels = ["reason"]
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -94,7 +101,7 @@ declareHistogram blob_sidecar_delay,
 
 type
   DoppelgangerProtection = object
-    broadcastStartEpoch*: Epoch  ##\
+    broadcastStartEpoch*: Epoch ##\
     ## Set anew, each time gossip is re-enabled after syncing completes, so
     ## might reset multiple times per instance. This allows some safe level
     ## of gossip interleaving between nodes so long as they don't gossip at
@@ -153,31 +160,34 @@ type
   ValidationRes* = Result[void, ValidationError]
 
 func toValidationResult*(res: ValidationRes): ValidationResult =
-  if res.isOk(): ValidationResult.Accept else: res.error()[0]
+  if res.isOk():
+    ValidationResult.Accept
+  else:
+    res.error()[0]
 
 # Initialization
 # ------------------------------------------------------------------------------
 
-proc new*(T: type Eth2Processor,
-          doppelgangerDetectionEnabled: bool,
-          blockProcessor: ref BlockProcessor,
-          validatorMonitor: ref ValidatorMonitor,
-          dag: ChainDAGRef,
-          attestationPool: ref AttestationPool,
-          validatorChangePool: ref ValidatorChangePool,
-          validatorPool: ref ValidatorPool,
-          syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
-          lightClientPool: ref LightClientPool,
-          quarantine: ref Quarantine,
-          blobQuarantine: ref BlobQuarantine,
-          rng: ref HmacDrbgContext,
-          getBeaconTime: GetBeaconTimeFn,
-          taskpool: TaskPoolPtr
-         ): ref Eth2Processor =
+proc new*(
+    T: type Eth2Processor,
+    doppelgangerDetectionEnabled: bool,
+    blockProcessor: ref BlockProcessor,
+    validatorMonitor: ref ValidatorMonitor,
+    dag: ChainDAGRef,
+    attestationPool: ref AttestationPool,
+    validatorChangePool: ref ValidatorChangePool,
+    validatorPool: ref ValidatorPool,
+    syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
+    lightClientPool: ref LightClientPool,
+    quarantine: ref Quarantine,
+    blobQuarantine: ref BlobQuarantine,
+    rng: ref HmacDrbgContext,
+    getBeaconTime: GetBeaconTimeFn,
+    taskpool: TaskPoolPtr,
+): ref Eth2Processor =
   (ref Eth2Processor)(
     doppelgangerDetectionEnabled: doppelgangerDetectionEnabled,
-    doppelgangerDetection: DoppelgangerProtection(
-      broadcastStartEpoch: FAR_FUTURE_EPOCH),
+    doppelgangerDetection: DoppelgangerProtection(broadcastStartEpoch: FAR_FUTURE_EPOCH),
     blockProcessor: blockProcessor,
     validatorMonitor: validatorMonitor,
     dag: dag,
@@ -189,13 +199,17 @@ proc new*(T: type Eth2Processor,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     getCurrentBeaconTime: getBeaconTime,
-    batchCrypto: BatchCrypto.new(
-      rng = rng,
-      # Only run eager attestation signature verification if we're not
-      # processing blocks in order to give priority to block processing
-      eager = proc(): bool = not blockProcessor[].hasBlocks(),
-      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
-        "working batcher")
+    batchCrypto: BatchCrypto
+      .new(
+        rng = rng,
+        # Only run eager attestation signature verification if we're not
+        # processing blocks in order to give priority to block processing
+        eager = proc(): bool =
+          not blockProcessor[].hasBlocks(),
+        genesis_validators_root = dag.genesis_validators_root,
+        taskpool,
+      )
+      .expect("working batcher"),
   )
 
 # Each validator logs, validates then passes valid data to its destination
@@ -204,9 +218,11 @@ proc new*(T: type Eth2Processor,
 # could be used to push out valid messages.
 
 proc processSignedBeaconBlock*(
-    self: var Eth2Processor, src: MsgSource,
+    self: var Eth2Processor,
+    src: MsgSource,
     signedBlock: ForkySignedBeaconBlock,
-    maybeFinalized: bool = false): ValidationRes =
+    maybeFinalized: bool = false,
+): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -228,8 +244,7 @@ proc processSignedBeaconBlock*(
   # decoding at this stage, which may be significant
   debug "Block received", delay
 
-  let v =
-    self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {})
+  let v = self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {})
 
   if v.isOk():
     # Block passed validation - enqueue it for processing. The block processing
@@ -244,8 +259,7 @@ proc processSignedBeaconBlock*(
         if self.blobQuarantine[].hasBlobs(signedBlock):
           Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
         else:
-          if not self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                               signedBlock):
+          if not self.quarantine[].addBlobless(self.dag.finalizedHead.slot, signedBlock):
             notice "Block quarantine full (blobless)",
               blockRoot = shortLog(signedBlock.root),
               blck = shortLog(signedBlock.message),
@@ -255,11 +269,12 @@ proc processSignedBeaconBlock*(
         Opt.none(BlobSidecars)
 
     self.blockProcessor[].enqueueBlock(
-      src, ForkedSignedBeaconBlock.init(signedBlock),
+      src,
+      ForkedSignedBeaconBlock.init(signedBlock),
       blobs,
       maybeFinalized = maybeFinalized,
-      validationDur = nanoseconds(
-        (self.getCurrentBeaconTime() - wallTime).nanoseconds))
+      validationDur = nanoseconds((self.getCurrentBeaconTime() - wallTime).nanoseconds),
+    )
 
     # Validator monitor registration for blocks is done by the processor
     beacon_blocks_received.inc()
@@ -274,9 +289,13 @@ proc processSignedBeaconBlock*(
   v
 
 proc processBlobSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId): ValidationRes =
-  template block_header: untyped = blobSidecar.signed_block_header.message
+    self: var Eth2Processor,
+    src: MsgSource,
+    blobSidecar: deneb.BlobSidecar,
+    subnet_id: BlobId,
+): ValidationRes =
+  template block_header(): untyped =
+    blobSidecar.signed_block_header.message
 
   let
     wallTime = self.getCurrentBeaconTime()
@@ -290,9 +309,9 @@ proc processBlobSidecar*(
   let delay = wallTime - block_header.slot.start_beacon_time
   debug "Blob received", delay
 
-  let v =
-    self.dag.validateBlobSidecar(self.quarantine, self.blobQuarantine,
-                                 blobSidecar, wallTime, subnet_id)
+  let v = self.dag.validateBlobSidecar(
+    self.quarantine, self.blobQuarantine, blobSidecar, wallTime, subnet_id
+  )
 
   if v.isErr():
     debug "Dropping blob", error = v.error()
@@ -310,10 +329,10 @@ proc processBlobSidecar*(
       self.blockProcessor[].enqueueBlock(
         MsgSource.gossip,
         ForkedSignedBeaconBlock.init(blobless),
-        Opt.some(self.blobQuarantine[].popBlobs(block_root, blobless)))
+        Opt.some(self.blobQuarantine[].popBlobs(block_root, blobless)),
+      )
     else:
-      discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                            blobless)
+      discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot, blobless)
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
@@ -330,8 +349,7 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # the epoch delay to one's perceived risk.
 
   # Round up to ensure that we cover the entire epoch - used by rest api also
-  self.doppelgangerDetection.broadcastStartEpoch =
-    (slot + SLOTS_PER_EPOCH - 1).epoch
+  self.doppelgangerDetection.broadcastStartEpoch = (slot + SLOTS_PER_EPOCH - 1).epoch
 
   if self.doppelgangerDetectionEnabled:
     notice "Setting up doppelganger detection",
@@ -342,8 +360,10 @@ proc clearDoppelgangerProtection*(self: var Eth2Processor) =
   self.doppelgangerDetection.broadcastStartEpoch = FAR_FUTURE_EPOCH
 
 proc checkForPotentialDoppelganger(
-    self: var Eth2Processor, attestation: Attestation,
-    attesterIndices: openArray[ValidatorIndex]) =
+    self: var Eth2Processor,
+    attestation: Attestation,
+    attesterIndices: openArray[ValidatorIndex],
+) =
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
   # the service of avoiding more likely false positives.
@@ -351,11 +371,9 @@ proc checkForPotentialDoppelganger(
     return
 
   for validatorIndex in attesterIndices:
-    let
-      pubkey = self.dag.validatorKey(validatorIndex).get().toPubKey()
+    let pubkey = self.dag.validatorKey(validatorIndex).get().toPubKey()
 
-    if self.validatorPool[].triggersDoppelganger(
-        pubkey, attestation.data.slot.epoch):
+    if self.validatorPool[].triggersDoppelganger(pubkey, attestation.data.slot.epoch):
       warn "Doppelganger attestation",
         validator = shortLog(pubkey),
         validator_index = validatorIndex,
@@ -363,9 +381,12 @@ proc checkForPotentialDoppelganger(
       quitDoppelganger()
 
 proc processAttestation*(
-    self: ref Eth2Processor, src: MsgSource,
-    attestation: Attestation, subnet_id: SubnetId,
-    checkSignature: bool = true): Future[ValidationRes] {.async.} =
+    self: ref Eth2Processor,
+    src: MsgSource,
+    attestation: Attestation,
+    subnet_id: SubnetId,
+    checkSignature: bool = true,
+): Future[ValidationRes] {.async.} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 
@@ -383,37 +404,43 @@ proc processAttestation*(
   debug "Attestation received", delay
 
   # Now proceed to validation
-  let v =
-    await self.attestationPool.validateAttestation(
-      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
-  return if v.isOk():
-    # Due to async validation the wallTime here might have changed
-    wallTime = self.getCurrentBeaconTime()
+  let v = await self.attestationPool.validateAttestation(
+    self.batchCrypto, attestation, wallTime, subnet_id, checkSignature
+  )
+  return
+    if v.isOk():
+      # Due to async validation the wallTime here might have changed
+      wallTime = self.getCurrentBeaconTime()
 
-    let (attester_index, sig) = v.get()
+      let (attester_index, sig) = v.get()
 
-    self[].checkForPotentialDoppelganger(attestation, [attester_index])
+      self[].checkForPotentialDoppelganger(attestation, [attester_index])
 
-    trace "Attestation validated"
-    self.attestationPool[].addAttestation(
-      attestation, [attester_index], sig, wallTime)
+      trace "Attestation validated"
+      self.attestationPool[].addAttestation(
+        attestation, [attester_index], sig, wallTime
+      )
 
-    self.validatorMonitor[].registerAttestation(
-      src, wallTime, attestation, attester_index)
+      self.validatorMonitor[].registerAttestation(
+        src, wallTime, attestation, attester_index
+      )
 
-    beacon_attestations_received.inc()
-    beacon_attestation_delay.observe(delay.toFloatSeconds())
+      beacon_attestations_received.inc()
+      beacon_attestation_delay.observe(delay.toFloatSeconds())
 
-    ok()
-  else:
-    debug "Dropping attestation", validationError = v.error
-    beacon_attestations_dropped.inc(1, [$v.error[0]])
-    err(v.error())
+      ok()
+    else:
+      debug "Dropping attestation", validationError = v.error
+      beacon_attestations_dropped.inc(1, [$v.error[0]])
+      err(v.error())
 
 proc processSignedAggregateAndProof*(
-    self: ref Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor,
+    src: MsgSource,
     signedAggregateAndProof: SignedAggregateAndProof,
-    checkSignature = true, checkCover = true): Future[ValidationRes] {.async.} =
+    checkSignature = true,
+    checkCover = true,
+): Future[ValidationRes] {.async.} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 
@@ -433,57 +460,63 @@ proc processSignedAggregateAndProof*(
     wallTime - signedAggregateAndProof.message.aggregate.data.slot.start_beacon_time
   debug "Aggregate received", delay
 
-  let v =
-    await self.attestationPool.validateAggregate(
-      self.batchCrypto, signedAggregateAndProof, wallTime,
-      checkSignature = checkSignature, checkCover = checkCover)
+  let v = await self.attestationPool.validateAggregate(
+    self.batchCrypto,
+    signedAggregateAndProof,
+    wallTime,
+    checkSignature = checkSignature,
+    checkCover = checkCover,
+  )
 
-  return if v.isOk():
-    # Due to async validation the wallTime here might have changed
-    wallTime = self.getCurrentBeaconTime()
+  return
+    if v.isOk():
+      # Due to async validation the wallTime here might have changed
+      wallTime = self.getCurrentBeaconTime()
 
-    let (attesting_indices, sig) = v.get()
+      let (attesting_indices, sig) = v.get()
 
-    self[].checkForPotentialDoppelganger(
-      signedAggregateAndProof.message.aggregate, attesting_indices)
+      self[].checkForPotentialDoppelganger(
+        signedAggregateAndProof.message.aggregate, attesting_indices
+      )
 
-    trace "Aggregate validated"
+      trace "Aggregate validated"
 
-    self.attestationPool[].addAttestation(
-      signedAggregateAndProof.message.aggregate, attesting_indices, sig,
-      wallTime)
+      self.attestationPool[].addAttestation(
+        signedAggregateAndProof.message.aggregate, attesting_indices, sig, wallTime
+      )
 
-    self.validatorMonitor[].registerAggregate(
-      src, wallTime, signedAggregateAndProof.message, attesting_indices)
+      self.validatorMonitor[].registerAggregate(
+        src, wallTime, signedAggregateAndProof.message, attesting_indices
+      )
 
-    beacon_aggregates_received.inc()
-    beacon_aggregate_delay.observe(delay.toFloatSeconds())
+      beacon_aggregates_received.inc()
+      beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
-    ok()
-  else:
-    debug "Dropping aggregate", error = v.error
-    beacon_aggregates_dropped.inc(1, [$v.error[0]])
+      ok()
+    else:
+      debug "Dropping aggregate", error = v.error
+      beacon_aggregates_dropped.inc(1, [$v.error[0]])
 
-    err(v.error())
+      err(v.error())
 
 proc processBlsToExecutionChange*(
-    self: ref Eth2Processor, src: MsgSource,
-    blsToExecutionChange: SignedBLSToExecutionChange):
-    Future[ValidationRes] {.async.} =
+    self: ref Eth2Processor,
+    src: MsgSource,
+    blsToExecutionChange: SignedBLSToExecutionChange,
+): Future[ValidationRes] {.async.} =
   logScope:
     blsToExecutionChange = shortLog(blsToExecutionChange)
 
   debug "BLS to execution change received"
 
   let v = await self.validatorChangePool[].validateBlsToExecutionChange(
-    self.batchCrypto, blsToExecutionChange,
-    self.getCurrentBeaconTime().slotOrZero.epoch)
+    self.batchCrypto, blsToExecutionChange, self.getCurrentBeaconTime().slotOrZero.epoch
+  )
 
   if v.isOk():
     trace "BLS to execution change validated"
     # Prioritize API-provided messages
-    self.validatorChangePool[].addMessage(
-      blsToExecutionChange, src == MsgSource.api)
+    self.validatorChangePool[].addMessage(blsToExecutionChange, src == MsgSource.api)
   else:
     debug "Dropping BLS to execution change", validationError = v.error
     beacon_attester_slashings_dropped.inc(1, [$v.error[0]])
@@ -491,8 +524,8 @@ proc processBlsToExecutionChange*(
   return v
 
 proc processAttesterSlashing*(
-    self: var Eth2Processor, src: MsgSource,
-    attesterSlashing: AttesterSlashing): ValidationRes =
+    self: var Eth2Processor, src: MsgSource, attesterSlashing: AttesterSlashing
+): ValidationRes =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)
 
@@ -515,8 +548,8 @@ proc processAttesterSlashing*(
   v
 
 proc processProposerSlashing*(
-    self: var Eth2Processor, src: MsgSource,
-    proposerSlashing: ProposerSlashing): Result[void, ValidationError] =
+    self: var Eth2Processor, src: MsgSource, proposerSlashing: ProposerSlashing
+): Result[void, ValidationError] =
   logScope:
     proposerSlashing = shortLog(proposerSlashing)
 
@@ -538,8 +571,8 @@ proc processProposerSlashing*(
   v
 
 proc processSignedVoluntaryExit*(
-    self: var Eth2Processor, src: MsgSource,
-    signedVoluntaryExit: SignedVoluntaryExit): Result[void, ValidationError] =
+    self: var Eth2Processor, src: MsgSource, signedVoluntaryExit: SignedVoluntaryExit
+): Result[void, ValidationError] =
   logScope:
     signedVoluntaryExit = shortLog(signedVoluntaryExit)
 
@@ -551,8 +584,7 @@ proc processSignedVoluntaryExit*(
 
     self.validatorChangePool[].addMessage(signedVoluntaryExit)
 
-    self.validatorMonitor[].registerVoluntaryExit(
-      src, signedVoluntaryExit.message)
+    self.validatorMonitor[].registerVoluntaryExit(src, signedVoluntaryExit.message)
 
     beacon_voluntary_exits_received.inc()
   else:
@@ -562,10 +594,12 @@ proc processSignedVoluntaryExit*(
   v
 
 proc processSyncCommitteeMessage*(
-    self: ref Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor,
+    src: MsgSource,
     syncCommitteeMsg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
+    checkSignature: bool = true,
+): Future[Result[void, ValidationError]] {.async.} =
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -582,34 +616,36 @@ proc processSyncCommitteeMessage*(
   # Now proceed to validation
   let v = await validateSyncCommitteeMessage(
     self.dag, self.quarantine, self.batchCrypto, self.syncCommitteeMsgPool,
-    syncCommitteeMsg, subcommitteeIdx, wallTime, checkSignature)
-  return if v.isOk():
-    trace "Sync committee message validated"
-    let (bid, cookedSig, positions) = v.get()
+    syncCommitteeMsg, subcommitteeIdx, wallTime, checkSignature,
+  )
+  return
+    if v.isOk():
+      trace "Sync committee message validated"
+      let (bid, cookedSig, positions) = v.get()
 
-    self.syncCommitteeMsgPool[].addSyncCommitteeMessage(
-      syncCommitteeMsg.slot,
-      bid,
-      syncCommitteeMsg.validator_index,
-      cookedSig,
-      subcommitteeIdx,
-      positions)
+      self.syncCommitteeMsgPool[].addSyncCommitteeMessage(
+        syncCommitteeMsg.slot, bid, syncCommitteeMsg.validator_index, cookedSig,
+        subcommitteeIdx, positions,
+      )
 
-    self.validatorMonitor[].registerSyncCommitteeMessage(
-      src, wallTime, syncCommitteeMsg)
+      self.validatorMonitor[].registerSyncCommitteeMessage(
+        src, wallTime, syncCommitteeMsg
+      )
 
-    beacon_sync_committee_messages_received.inc()
+      beacon_sync_committee_messages_received.inc()
 
-    ok()
-  else:
-    debug "Dropping sync committee message", error = v.error
-    beacon_sync_committee_messages_dropped.inc(1, [$v.error[0]])
-    err(v.error())
+      ok()
+    else:
+      debug "Dropping sync committee message", error = v.error
+      beacon_sync_committee_messages_dropped.inc(1, [$v.error[0]])
+      err(v.error())
 
 proc processSignedContributionAndProof*(
-    self: ref Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor,
+    src: MsgSource,
     contributionAndProof: SignedContributionAndProof,
-    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
+    checkSignature: bool = true,
+): Future[Result[void, ValidationError]] {.async.} =
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -622,43 +658,48 @@ proc processSignedContributionAndProof*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - contributionAndProof.message.contribution.slot.start_beacon_time
+  let delay =
+    wallTime - contributionAndProof.message.contribution.slot.start_beacon_time
   debug "Contribution received", delay
 
   # Now proceed to validation
   let v = await validateContribution(
     self.dag, self.quarantine, self.batchCrypto, self.syncCommitteeMsgPool,
-    contributionAndProof, wallTime, checkSignature)
+    contributionAndProof, wallTime, checkSignature,
+  )
 
-  return if v.isOk():
-    trace "Contribution validated"
+  return
+    if v.isOk():
+      trace "Contribution validated"
 
-    let (bid, sig, participants) = v.get
+      let (bid, sig, participants) = v.get
 
-    self.syncCommitteeMsgPool[].addContribution(
-      contributionAndProof, bid, sig)
+      self.syncCommitteeMsgPool[].addContribution(contributionAndProof, bid, sig)
 
-    self.validatorMonitor[].registerSyncContribution(
-      src, wallTime, contributionAndProof.message, participants)
+      self.validatorMonitor[].registerSyncContribution(
+        src, wallTime, contributionAndProof.message, participants
+      )
 
-    beacon_sync_committee_contributions_received.inc()
+      beacon_sync_committee_contributions_received.inc()
 
-    ok()
-  else:
-    debug "Dropping contribution", error = v.error
-    beacon_sync_committee_contributions_dropped.inc(1, [$v.error[0]])
+      ok()
+    else:
+      debug "Dropping contribution", error = v.error
+      beacon_sync_committee_contributions_dropped.inc(1, [$v.error[0]])
 
-    err(v.error())
+      err(v.error())
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
-    self: var Eth2Processor, src: MsgSource,
-    finality_update: ForkedLightClientFinalityUpdate
+    self: var Eth2Processor,
+    src: MsgSource,
+    finality_update: ForkedLightClientFinalityUpdate,
 ): Result[void, ValidationError] =
   let
     wallTime = self.getCurrentBeaconTime()
     v = validateLightClientFinalityUpdate(
-      self.lightClientPool[], self.dag, finality_update, wallTime)
+      self.lightClientPool[], self.dag, finality_update, wallTime
+    )
 
   if v.isOk():
     beacon_light_client_finality_update_received.inc()
@@ -668,13 +709,15 @@ proc processLightClientFinalityUpdate*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
-    self: var Eth2Processor, src: MsgSource,
-    optimistic_update: ForkedLightClientOptimisticUpdate
+    self: var Eth2Processor,
+    src: MsgSource,
+    optimistic_update: ForkedLightClientOptimisticUpdate,
 ): Result[void, ValidationError] =
   let
     wallTime = self.getCurrentBeaconTime()
     v = validateLightClientOptimisticUpdate(
-      self.lightClientPool[], self.dag, optimistic_update, wallTime)
+      self.lightClientPool[], self.dag, optimistic_update, wallTime
+    )
   if v.isOk():
     beacon_light_client_optimistic_update_received.inc()
   else:

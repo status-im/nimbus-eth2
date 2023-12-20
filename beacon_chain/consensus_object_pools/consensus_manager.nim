@@ -8,14 +8,15 @@
 {.push raises: [].}
 
 import
-  chronicles, chronos, web3/[primitives, engine_api_types],
+  chronicles,
+  chronos,
+  web3/[primitives, engine_api_types],
   ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ../el/el_manager,
   ../beacon_clock
 
-from ../spec/beaconstate import
-  get_expected_withdrawals, has_eth1_withdrawal_credential
+from ../spec/beaconstate import get_expected_withdrawals, has_eth1_withdrawal_credential
 from ../spec/datatypes/capella import Withdrawal
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
@@ -24,53 +25,53 @@ from ../validators/keystore_management import
   getSuggestedGasLimit
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 
-type
-  ConsensusManager* = object
-    expectedSlot: Slot
-    expectedBlockReceived: Future[bool]
+type ConsensusManager* = object
+  expectedSlot: Slot
+  expectedBlockReceived: Future[bool]
 
-    # Validated & Verified
-    # ----------------------------------------------------------------
-    dag*: ChainDAGRef
-    attestationPool*: ref AttestationPool
+  # Validated & Verified
+  # ----------------------------------------------------------------
+  dag*: ChainDAGRef
+  attestationPool*: ref AttestationPool
 
-    # Missing info
-    # ----------------------------------------------------------------
-    quarantine*: ref Quarantine
+  # Missing info
+  # ----------------------------------------------------------------
+  quarantine*: ref Quarantine
 
-    # Execution layer integration
-    # ----------------------------------------------------------------
-    elManager*: ELManager
+  # Execution layer integration
+  # ----------------------------------------------------------------
+  elManager*: ELManager
 
-    # Allow determination of whether there's an upcoming proposal
-    # ----------------------------------------------------------------
-    actionTracker*: ActionTracker
+  # Allow determination of whether there's an upcoming proposal
+  # ----------------------------------------------------------------
+  actionTracker*: ActionTracker
 
-    # Allow determination of preferred fee recipient during proposals
-    # ----------------------------------------------------------------
-    dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
-    validatorsDir: string
-    defaultFeeRecipient: Opt[Eth1Address]
-    defaultGasLimit: uint64
+  # Allow determination of preferred fee recipient during proposals
+  # ----------------------------------------------------------------
+  dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
+  validatorsDir: string
+  defaultFeeRecipient: Opt[Eth1Address]
+  defaultGasLimit: uint64
 
-    # Tracking last proposal forkchoiceUpdated payload information
-    # ----------------------------------------------------------------
-    optimisticHead: tuple[bid: BlockId, execution_block_hash: Eth2Digest]
+  # Tracking last proposal forkchoiceUpdated payload information
+  # ----------------------------------------------------------------
+  optimisticHead: tuple[bid: BlockId, execution_block_hash: Eth2Digest]
 
 # Initialization
 # ------------------------------------------------------------------------------
 
-func new*(T: type ConsensusManager,
-          dag: ChainDAGRef,
-          attestationPool: ref AttestationPool,
-          quarantine: ref Quarantine,
-          elManager: ELManager,
-          actionTracker: ActionTracker,
-          dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
-          validatorsDir: string,
-          defaultFeeRecipient: Opt[Eth1Address],
-          defaultGasLimit: uint64
-         ): ref ConsensusManager =
+func new*(
+    T: type ConsensusManager,
+    dag: ChainDAGRef,
+    attestationPool: ref AttestationPool,
+    quarantine: ref Quarantine,
+    elManager: ELManager,
+    actionTracker: ActionTracker,
+    dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
+    validatorsDir: string,
+    defaultFeeRecipient: Opt[Eth1Address],
+    defaultGasLimit: uint64,
+): ref ConsensusManager =
   (ref ConsensusManager)(
     dag: dag,
     attestationPool: attestationPool,
@@ -80,7 +81,7 @@ func new*(T: type ConsensusManager,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
     validatorsDir: validatorsDir,
     defaultFeeRecipient: defaultFeeRecipient,
-    defaultGasLimit: defaultGasLimit
+    defaultGasLimit: defaultGasLimit,
   )
 
 # Consensus Management
@@ -114,18 +115,17 @@ proc expectBlock*(self: var ConsensusManager, expectedSlot: Slot): Future[bool] 
 
   return fut
 
-func shouldSyncOptimistically*(
-    optimisticSlot, dagSlot, wallSlot: Slot): bool =
+func shouldSyncOptimistically*(optimisticSlot, dagSlot, wallSlot: Slot): bool =
   ## Determine whether an optimistic execution block hash should be reported
   ## to the EL client instead of the current head as determined by fork choice.
 
   # Check whether optimistic head is sufficiently ahead of DAG
-  const minProgress = 8 * SLOTS_PER_EPOCH  # Set arbitrarily
+  const minProgress = 8 * SLOTS_PER_EPOCH # Set arbitrarily
   if optimisticSlot < dagSlot or optimisticSlot - dagSlot < minProgress:
     return false
 
   # Check whether optimistic head has synced sufficiently close to wall slot
-  const maxAge = 2 * SLOTS_PER_EPOCH  # Set arbitrarily
+  const maxAge = 2 * SLOTS_PER_EPOCH # Set arbitrarily
   if optimisticSlot < max(wallSlot, maxAge.Slot) - maxAge:
     return false
 
@@ -138,7 +138,8 @@ func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
   shouldSyncOptimistically(
     optimisticSlot = self.optimisticHead.bid.slot,
     dagSlot = getStateField(self.dag.headState, slot),
-    wallSlot = wallSlot)
+    wallSlot = wallSlot,
+  )
 
 func optimisticHead*(self: ConsensusManager): BlockId =
   self.optimisticHead.bid
@@ -147,12 +148,13 @@ func optimisticExecutionPayloadHash*(self: ConsensusManager): Eth2Digest =
   self.optimisticHead.execution_block_hash
 
 func setOptimisticHead*(
-    self: var ConsensusManager,
-    bid: BlockId, execution_block_hash: Eth2Digest) =
+    self: var ConsensusManager, bid: BlockId, execution_block_hash: Eth2Digest
+) =
   self.optimisticHead = (bid: bid, execution_block_hash: execution_block_hash)
 
-proc updateExecutionClientHead(self: ref ConsensusManager,
-                               newHead: BeaconHead): Future[Opt[void]] {.async.} =
+proc updateExecutionClientHead(
+    self: ref ConsensusManager, newHead: BeaconHead
+): Future[Opt[void]] {.async.} =
   let headExecutionPayloadHash = self.dag.loadExecutionBlockHash(newHead.blck)
 
   if headExecutionPayloadHash.isZero:
@@ -165,12 +167,12 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
       headBlockHash = headExecutionPayloadHash,
       safeBlockHash = newHead.safeExecutionPayloadHash,
       finalizedBlockHash = newHead.finalizedExecutionPayloadHash,
-      payloadAttributes = none attributes)
+      payloadAttributes = none attributes,
+    )
 
   # Can't use dag.head here because it hasn't been updated yet
   let
-    consensusFork =
-      self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
+    consensusFork = self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
     (payloadExecutionStatus, _) = withConsensusFork(consensusFork):
       when consensusFork >= ConsensusFork.Bellatrix:
         callForkchoiceUpdated(consensusFork.PayloadAttributes)
@@ -200,14 +202,16 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
   return Opt[void].ok()
 
 func getKnownValidatorsForBlsChangeTracking(
-    self: ConsensusManager, newHead: BlockRef): seq[ValidatorIndex] =
+    self: ConsensusManager, newHead: BlockRef
+): seq[ValidatorIndex] =
   # Ensure that large nodes won't be overloaded by a nice-to-have, but
   # inessential cosmetic feature.
   const MAX_CHECKED_INDICES = 64
 
   if newHead.bid.slot.epoch >= self.dag.cfg.CAPELLA_FORK_EPOCH:
-    var res = newSeqOfCap[ValidatorIndex](min(
-      len(self.actionTracker.knownValidators), MAX_CHECKED_INDICES))
+    var res = newSeqOfCap[ValidatorIndex](
+      min(len(self.actionTracker.knownValidators), MAX_CHECKED_INDICES)
+    )
     for vi in self.actionTracker.knownValidators.keys():
       res.add vi
       if res.len >= MAX_CHECKED_INDICES:
@@ -227,8 +231,8 @@ proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
   self.dag.updateHead(
-    newHead, self.quarantine[],
-    self.getKnownValidatorsForBlsChangeTracking(newHead))
+    newHead, self.quarantine[], self.getKnownValidatorsForBlsChangeTracking(newHead)
+  )
 
   self.checkExpectedBlock()
 
@@ -238,8 +242,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   ## `pruneFinalized` must be called for pruning.
 
   # Grab the new head according to our latest attestation data
-  let newHead = self.attestationPool[].selectOptimisticHead(
-      wallSlot.start_beacon_time).valueOr:
+  let newHead = self.attestationPool[].selectOptimisticHead(wallSlot.start_beacon_time).valueOr:
     warn "Head selection failed, using previous head",
       head = shortLog(self.dag.head), wallSlot
     return
@@ -261,16 +264,14 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   # not yet be updated) won't be visible.
   const defaultSyncHorizon = 50
 
-  if dag.head.slot + defaultSyncHorizon < wallSlot:
-    false
-  else:
-    dag.head.executionValid
+  if dag.head.slot + defaultSyncHorizon < wallSlot: false else: dag.head.executionValid
 
 proc checkNextProposer(
-    dag: ChainDAGRef, actionTracker: ActionTracker,
+    dag: ChainDAGRef,
+    actionTracker: ActionTracker,
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
-    wallSlot: Slot):
-    Opt[(ValidatorIndex, ValidatorPubKey)] =
+    wallSlot: Slot,
+): Opt[(ValidatorIndex, ValidatorPubKey)] =
   let nextWallSlot = wallSlot + 1
 
   # Avoid long rewinds during syncing, when it's not going to propose. Though
@@ -279,28 +280,32 @@ proc checkNextProposer(
   if not dag.isSynced(wallSlot):
     return Opt.none((ValidatorIndex, ValidatorPubKey))
 
-  let proposer = ? dag.getProposer(dag.head, nextWallSlot)
+  let proposer = ?dag.getProposer(dag.head, nextWallSlot)
 
-  if  actionTracker.getNextProposalSlot(wallSlot) != nextWallSlot and
-      dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-        proposer, nextWallSlot.epoch).isNone:
+  if actionTracker.getNextProposalSlot(wallSlot) != nextWallSlot and
+      dynamicFeeRecipientsStore[].getDynamicFeeRecipient(proposer, nextWallSlot.epoch).isNone:
     return Opt.none((ValidatorIndex, ValidatorPubKey))
   let proposerKey = dag.validatorKey(proposer).get().toPubKey
   Opt.some((proposer, proposerKey))
 
-proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
-    Opt[(ValidatorIndex, ValidatorPubKey)] =
+proc checkNextProposer*(
+    self: ref ConsensusManager, wallSlot: Slot
+): Opt[(ValidatorIndex, ValidatorPubKey)] =
   self.dag.checkNextProposer(
-    self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot)
+    self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot
+  )
 
 proc getFeeRecipient*(
-    self: ConsensusManager, pubkey: ValidatorPubKey,
-    validatorIdx: Opt[ValidatorIndex], epoch: Epoch): Eth1Address =
-  let dynFeeRecipient = if validatorIdx.isSome:
-    self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-      validatorIdx.get(), epoch)
-  else:
-    Opt.none(Eth1Address)
+    self: ConsensusManager,
+    pubkey: ValidatorPubKey,
+    validatorIdx: Opt[ValidatorIndex],
+    epoch: Epoch,
+): Eth1Address =
+  let dynFeeRecipient =
+    if validatorIdx.isSome:
+      self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx.get(), epoch)
+    else:
+      Opt.none(Eth1Address)
 
   dynFeeRecipient.valueOr:
     let
@@ -311,7 +316,7 @@ proc getFeeRecipient*(
               let validator = forkyState.data.validators.item(validatorIdx.get)
               if has_eth1_withdrawal_credential(validator):
                 var address: distinctBase(Eth1Address)
-                address[0..^1] = validator.withdrawal_credentials.data[12..^1]
+                address[0 ..^ 1] = validator.withdrawal_credentials.data[12 ..^ 1]
                 Opt.some Eth1Address address
               else:
                 Opt.none Eth1Address
@@ -319,23 +324,22 @@ proc getFeeRecipient*(
               Opt.none Eth1Address
         else:
           Opt.none Eth1Address
-      defaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
-        self.defaultFeeRecipient, withdrawalAddress)
-    self.validatorsDir.getSuggestedFeeRecipient(
-        pubkey, defaultFeeRecipient).valueOr:
+      defaultFeeRecipient =
+        getPerValidatorDefaultFeeRecipient(self.defaultFeeRecipient, withdrawalAddress)
+
+    self.validatorsDir.getSuggestedFeeRecipient(pubkey, defaultFeeRecipient).valueOr:
       # Ignore errors and use default - errors are logged in gsfr
       defaultFeeRecipient
 
-proc getGasLimit*(
-    self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
-  self.validatorsDir.getSuggestedGasLimit(
-      pubkey, self.defaultGasLimit).valueOr:
+proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
+  self.validatorsDir.getSuggestedGasLimit(pubkey, self.defaultGasLimit).valueOr:
     self.defaultGasLimit
 
 from ../spec/datatypes/bellatrix import PayloadID
 
 proc runProposalForkchoiceUpdated*(
-    self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async.} =
+    self: ref ConsensusManager, wallSlot: Slot
+): Future[Opt[void]] {.async.} =
   let
     nextWallSlot = wallSlot + 1
     (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
@@ -360,8 +364,8 @@ proc runProposalForkchoiceUpdated*(
     # constant until the next block.
     randomData = withState(self.dag.headState):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
-    feeRecipient = self[].getFeeRecipient(
-      nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
+    feeRecipient =
+      self[].getFeeRecipient(nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
     headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck)
 
@@ -374,40 +378,52 @@ proc runProposalForkchoiceUpdated*(
     withState(self.dag.headState):
       template callForkchoiceUpdated(fcPayloadAttributes: auto) =
         let (status, _) = await self.elManager.forkchoiceUpdated(
-          headBlockHash, safeBlockHash,
+          headBlockHash,
+          safeBlockHash,
           beaconHead.finalizedExecutionPayloadHash,
-          payloadAttributes = some fcPayloadAttributes)
+          payloadAttributes = some fcPayloadAttributes,
+        )
         debug "Fork-choice updated for proposal", status
 
-      static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+      static:
+        doAssert high(ConsensusFork) == ConsensusFork.Deneb
       when consensusFork >= ConsensusFork.Deneb:
-        callForkchoiceUpdated(PayloadAttributesV3(
-          timestamp: Quantity timestamp,
-          prevRandao: FixedBytes[32] randomData,
-          suggestedFeeRecipient: feeRecipient,
-          withdrawals:
-            toEngineWithdrawals get_expected_withdrawals(forkyState.data),
-          parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
+        callForkchoiceUpdated(
+          PayloadAttributesV3(
+            timestamp: Quantity timestamp,
+            prevRandao: FixedBytes[32] randomData,
+            suggestedFeeRecipient: feeRecipient,
+            withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+            parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash,
+          )
+        )
       elif consensusFork >= ConsensusFork.Capella:
-        callForkchoiceUpdated(PayloadAttributesV2(
-          timestamp: Quantity timestamp,
-          prevRandao: FixedBytes[32] randomData,
-          suggestedFeeRecipient: feeRecipient,
-          withdrawals:
-            toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
+        callForkchoiceUpdated(
+          PayloadAttributesV2(
+            timestamp: Quantity timestamp,
+            prevRandao: FixedBytes[32] randomData,
+            suggestedFeeRecipient: feeRecipient,
+            withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+          )
+        )
       else:
-        callForkchoiceUpdated(PayloadAttributesV1(
-          timestamp: Quantity timestamp,
-          prevRandao: FixedBytes[32] randomData,
-          suggestedFeeRecipient: feeRecipient))
+        callForkchoiceUpdated(
+          PayloadAttributesV1(
+            timestamp: Quantity timestamp,
+            prevRandao: FixedBytes[32] randomData,
+            suggestedFeeRecipient: feeRecipient,
+          )
+        )
   except CatchableError as err:
     error "Engine API fork-choice update failed", err = err.msg
 
   ok()
 
 proc updateHeadWithExecution*(
-    self: ref ConsensusManager, initialNewHead: BeaconHead,
-    getBeaconTimeFn: GetBeaconTimeFn) {.async.} =
+    self: ref ConsensusManager,
+    initialNewHead: BeaconHead,
+    getBeaconTimeFn: GetBeaconTimeFn,
+) {.async.} =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.
@@ -441,8 +457,10 @@ proc updateHeadWithExecution*(
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
     self.dag.updateHead(
-      newHead.blck, self.quarantine[],
-      self[].getKnownValidatorsForBlsChangeTracking(newHead.blck))
+      newHead.blck,
+      self.quarantine[],
+      self[].getKnownValidatorsForBlsChangeTracking(newHead.blck),
+    )
 
     # If this node should propose next slot, start preparing payload. Both
     # fcUs are useful: the updateExecutionClientHead(newHead) call updates
@@ -454,8 +472,7 @@ proc updateHeadWithExecution*(
 
     self[].checkExpectedBlock()
   except CatchableError as exc:
-    debug "updateHeadWithExecution error",
-      error = exc.msg
+    debug "updateHeadWithExecution error", error = exc.msg
 
 proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   ## Prune unneeded and invalidated data after finalization

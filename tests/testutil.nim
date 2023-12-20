@@ -7,10 +7,7 @@
 
 {.push raises: [].}
 
-import
-  testutils/markdown_reports,
-  unittest2,
-  ../beacon_chain/spec/presets
+import testutils/markdown_reports, unittest2, ../beacon_chain/spec/presets
 
 from std/algorithm import SortOrder, sort
 from std/strformat import `&`
@@ -19,8 +16,7 @@ from std/times import Duration, inNanoseconds
 
 export unittest2
 
-type
-  TestDuration = tuple[duration: float, label: string]
+type TestDuration = tuple[duration: float, label: string]
 
 func preset*(): string {.compileTime.} =
   " [Preset: " & const_preset & ']'
@@ -34,13 +30,16 @@ func toFloatSeconds(duration: Duration): float =
   duration.inNanoseconds().float / 1_000_000_000.0
 
 method testEnded*(formatter: TimingCollector, testResult: TestResult) =
-  {.gcsafe.}: # Lie!
-    status.mgetOrPut(testResult.suiteName, initOrderedTable[string, Status]())[testResult.testName] =
+  {.gcsafe.}:
+    status.mgetOrPut(testResult.suiteName, initOrderedTable[string, Status]())[
+      testResult.testName
+    ] =
       case testResult.status
       of TestStatus.OK: Status.OK
       of TestStatus.FAILED: Status.Fail
       of TestStatus.SKIPPED: Status.Skip
     testTimes.add (testResult.duration.toFloatSeconds, testResult.testName)
+    # Lie!
 
 proc summarizeLongTests*(name: string) =
   # TODO clean-up and make machine-readable/storable the output
@@ -55,10 +54,13 @@ proc summarizeLongTests*(name: string) =
       if i >= 10:
         break
 
-    status.sort do (a: (string, OrderedTable[string, Status]),
-                    b: (string, OrderedTable[string, Status])) -> int: cmp(a[0], b[0])
+    status.sort do(
+      a: (string, OrderedTable[string, Status]),
+      b: (string, OrderedTable[string, Status])
+    ) -> int:
+      cmp(a[0], b[0])
 
-    generateReport(name & "-" & const_preset, status, width=90)
+    generateReport(name & "-" & const_preset, status, width = 90)
   except CatchableError as exc:
     raiseAssert exc.msg
 

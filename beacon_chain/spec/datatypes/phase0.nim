@@ -15,16 +15,13 @@
 
 {.push raises: [].}
 
-import
-  chronicles,
-  ./base
+import chronicles, ./base
 
 export base
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#beaconstate
-  BeaconState* = object
-    # Versioning
+  BeaconState* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -64,11 +61,9 @@ type
       HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
-    previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
+    previous_justified_checkpoint*: Checkpoint ## Previous epoch snapshot
 
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
@@ -118,15 +113,12 @@ type
     ## validators that will have a chance to vote on it through attestations.
     ## Each block collects attestations, or votes, on past blocks, thus a chain
     ## is formed.
-
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+    parent_root*: Eth2Digest ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest ## The state root, _after_ this block has been processed
 
     body*: BeaconBlockBody
 
@@ -136,11 +128,9 @@ type
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+    parent_root*: Eth2Digest ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest ## The state root, _after_ this block has been processed
 
     body*: SigVerifiedBeaconBlockBody
 
@@ -170,11 +160,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
+    eth1_data*: Eth1Data ## Eth1 data vote
 
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
+    graffiti*: GraffitiBytes ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -206,8 +194,7 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
-  TrustedBeaconBlockBody* = object
-    ## A full verified block
+  TrustedBeaconBlockBody* = object ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
@@ -258,25 +245,18 @@ type
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
   SomeSignedBeaconBlock* =
-    SignedBeaconBlock |
-    SigVerifiedSignedBeaconBlock |
-    MsgTrustedSignedBeaconBlock |
+    SignedBeaconBlock | SigVerifiedSignedBeaconBlock | MsgTrustedSignedBeaconBlock |
     TrustedSignedBeaconBlock
-  SomeBeaconBlock* =
-    BeaconBlock |
-    SigVerifiedBeaconBlock |
-    TrustedBeaconBlock
+  SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* =
-    BeaconBlockBody |
-    SigVerifiedBeaconBlockBody |
-    TrustedBeaconBlockBody
+    BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
-  EpochInfo* = object
-    ## Information about the outcome of epoch processing
+  EpochInfo* = object ## Information about the outcome of epoch processing
     validators*: seq[RewardStatus]
     balances*: TotalBalances
 
-chronicles.formatIt BeaconBlock: it.shortLog
+chronicles.formatIt BeaconBlock:
+  it.shortLog
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
@@ -297,11 +277,11 @@ func shortLog*(v: SomeBeaconBlock): auto =
     voluntary_exits_len: v.body.voluntary_exits.len(),
     sync_committee_participants: -1, # Altair logging compatibility
     block_number: 0'u64, # Bellatrix compat
-    block_hash: "",      # Bellatrix compat
-    parent_hash: "",     # Bellatrix compat
-    fee_recipient: "",   # Bellatrix compat
-    bls_to_execution_changes_len: 0,  # Capella compat
-    blob_kzg_commitments_len: 0,  # Deneb compat
+    block_hash: "", # Bellatrix compat
+    parent_hash: "", # Bellatrix compat
+    fee_recipient: "", # Bellatrix compat
+    bls_to_execution_changes_len: 0, # Capella compat
+    blob_kzg_commitments_len: 0, # Deneb compat
   )
 
 # TODO: There should be only a single generic HashedBeaconState definition
@@ -309,35 +289,29 @@ func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
-  (
-    blck: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
+  (blck: shortLog(v.message), signature: shortLog(v.signature))
 
 template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
+    x:
+      SigVerifiedSignedBeaconBlock | MsgTrustedSignedBeaconBlock |
+      TrustedSignedBeaconBlock
+): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
 template asSigVerified*(
-    x: SignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+    x: SignedBeaconBlock | MsgTrustedSignedBeaconBlock | TrustedSignedBeaconBlock
+): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+template asSigVerified*(x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
   isomorphicCast[SigVerifiedBeaconBlock](x)
 
 template asMsgTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
+    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
+): MsgTrustedSignedBeaconBlock =
   isomorphicCast[MsgTrustedSignedBeaconBlock](x)
 
 template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
+    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock | MsgTrustedSignedBeaconBlock
+): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)

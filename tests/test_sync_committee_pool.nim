@@ -32,15 +32,12 @@ suite "Sync committee pool":
     var pool = SyncCommitteeMsgPool.init(rng, cfg)
 
   test "An empty pool is safe to use":
-    let headBid =
-      BlockId(slot: Slot(1), root: eth2digest(@[1.byte, 2, 3]))
+    let headBid = BlockId(slot: Slot(1), root: eth2digest(@[1.byte, 2, 3]))
 
     var outContribution: SyncCommitteeContribution
     let success = pool.produceContribution(
-      Slot(1),
-      headBid,
-      SyncSubcommitteeIndex(0),
-      outContribution)
+      Slot(1), headBid, SyncSubcommitteeIndex(0), outContribution
+    )
 
     check(success == false)
 
@@ -66,25 +63,34 @@ suite "Sync committee pool":
       nextPeriod = cfg.BELLATRIX_FORK_EPOCH.sync_committee_period + 1
 
       bid1 = BlockId(
-        slot: Slot(nextPeriod.start_slot - 2),  # Committee based on `slot + 1`
-        root: eth2digest(@[1.byte]))
+        slot: Slot(nextPeriod.start_slot - 2), # Committee based on `slot + 1`
+        root: eth2digest(@[1.byte]),
+      )
 
       sig1 = get_sync_committee_message_signature(
-        bellatrixFork(cfg), genesis_validators_root,
-        bid1.slot, bid1.root, privkey1)
+        bellatrixFork(cfg), genesis_validators_root, bid1.slot, bid1.root, privkey1
+      )
       sig2 = get_sync_committee_message_signature(
-        bellatrixFork(cfg), genesis_validators_root,
-        bid1.slot + 1, bid1.root, privkey2)
+        bellatrixFork(cfg), genesis_validators_root, bid1.slot + 1, bid1.root, privkey2
+      )
 
     pool.addSyncCommitteeMessage(
-      bid1.slot, bid1, 1, sig1, SyncSubcommitteeIndex(0), @[1'u64])
+      bid1.slot, bid1, 1, sig1, SyncSubcommitteeIndex(0), @[1'u64]
+    )
     pool.addSyncCommitteeMessage(
       # Same participant index in next period represents different validator
-      bid1.slot + 1, bid1, 2, sig2, SyncSubcommitteeIndex(0), @[1'u64])
+      bid1.slot + 1,
+      bid1,
+      2,
+      sig2,
+      SyncSubcommitteeIndex(0),
+      @[1'u64],
+    )
 
     var contribution: SyncCommitteeContribution
     let success = pool.produceContribution(
-      bid1.slot + 1, bid1, SyncSubcommitteeIndex(0), contribution)
+      bid1.slot + 1, bid1, SyncSubcommitteeIndex(0), contribution
+    )
     check:
       success
       contribution.slot == bid1.slot + 1
@@ -102,24 +108,27 @@ suite "Sync committee pool":
       privkey2 = MockPrivKeys[1.ValidatorIndex]
 
       bid1 = BlockId(
-        slot: Slot(cfg.BELLATRIX_FORK_EPOCH.start_slot - 1),
-        root: eth2digest(@[1.byte]))
+        slot: Slot(cfg.BELLATRIX_FORK_EPOCH.start_slot - 1), root: eth2digest(@[1.byte])
+      )
 
       sig1 = get_sync_committee_message_signature(
-        altairFork(cfg), genesis_validators_root,
-        bid1.slot, bid1.root, privkey1)
+        altairFork(cfg), genesis_validators_root, bid1.slot, bid1.root, privkey1
+      )
       sig2 = get_sync_committee_message_signature(
-        bellatrixFork(cfg), genesis_validators_root,
-        bid1.slot + 1, bid1.root, privkey2)
+        bellatrixFork(cfg), genesis_validators_root, bid1.slot + 1, bid1.root, privkey2
+      )
 
     pool.addSyncCommitteeMessage(
-      bid1.slot, bid1, 1, sig1, SyncSubcommitteeIndex(0), @[1'u64])
+      bid1.slot, bid1, 1, sig1, SyncSubcommitteeIndex(0), @[1'u64]
+    )
     pool.addSyncCommitteeMessage(
-      bid1.slot + 1, bid1, 2, sig2, SyncSubcommitteeIndex(0), @[2'u64])
+      bid1.slot + 1, bid1, 2, sig2, SyncSubcommitteeIndex(0), @[2'u64]
+    )
 
     var contribution: SyncCommitteeContribution
     let success = pool.produceContribution(
-      bid1.slot + 1, bid1, SyncSubcommitteeIndex(0), contribution)
+      bid1.slot + 1, bid1, SyncSubcommitteeIndex(0), contribution
+    )
     check:
       success
       contribution.slot == bid1.slot + 1
@@ -140,33 +149,39 @@ suite "Sync committee pool":
       bid2 = BlockId(slot: Slot(101), root: eth2digest(@[1.byte, 2]))
 
       sig1 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid2.slot, bid1.root, privkey1)
+        fork, genesis_validators_root, bid2.slot, bid1.root, privkey1
+      )
       sig2 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid2.slot, bid2.root, privkey1)
+        fork, genesis_validators_root, bid2.slot, bid2.root, privkey1
+      )
 
       msg1 = SyncCommitteeMessage(
         slot: bid2.slot,
         beacon_block_root: bid1.root,
         validator_index: 1,
-        signature: sig1.toValidatorSig)
+        signature: sig1.toValidatorSig,
+      )
       msg2 = SyncCommitteeMessage(
         slot: bid2.slot,
         beacon_block_root: bid2.root,
         validator_index: 1,
-        signature: sig2.toValidatorSig)
+        signature: sig2.toValidatorSig,
+      )
 
     check:
       not pool.isSeen(msg1, SyncSubcommitteeIndex(0), bid2)
       not pool.isSeen(msg2, SyncSubcommitteeIndex(0), bid2)
 
     pool.addSyncCommitteeMessage(
-      bid2.slot, bid1, 1, sig1, SyncSubcommitteeIndex(0), @[1'u64])
+      bid2.slot, bid1, 1, sig1, SyncSubcommitteeIndex(0), @[1'u64]
+    )
     check:
       pool.isSeen(msg1, SyncSubcommitteeIndex(0), bid2)
       not pool.isSeen(msg2, SyncSubcommitteeIndex(0), bid2)
 
     pool.addSyncCommitteeMessage(
-      bid2.slot, bid2, 1, sig1, SyncSubcommitteeIndex(0), @[1'u64])
+      bid2.slot, bid2, 1, sig1, SyncSubcommitteeIndex(0), @[1'u64]
+    )
     check:
       pool.isSeen(msg1, SyncSubcommitteeIndex(0), bid2)
       pool.isSeen(msg2, SyncSubcommitteeIndex(0), bid2)
@@ -189,39 +204,35 @@ suite "Sync committee pool":
       subcommittee2 = SyncSubcommitteeIndex(1)
 
       sig1 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid1.slot, bid1.root, privkey1)
+        fork, genesis_validators_root, bid1.slot, bid1.root, privkey1
+      )
       sig2 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid2.slot, bid2.root, privkey1)
+        fork, genesis_validators_root, bid2.slot, bid2.root, privkey1
+      )
       sig3 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid3.slot, bid3.root, privkey1)
+        fork, genesis_validators_root, bid3.slot, bid3.root, privkey1
+      )
       sig4 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid3.slot, bid2.root, privkey1)
+        fork, genesis_validators_root, bid3.slot, bid2.root, privkey1
+      )
 
     # Inserting sync committee messages
     #
-    pool.addSyncCommitteeMessage(
-      bid1.slot, bid1, 1, sig1, subcommittee1, @[1'u64])
-    pool.addSyncCommitteeMessage(
-      bid1.slot, bid1, 2, sig2, subcommittee1, @[10'u64])
-    pool.addSyncCommitteeMessage(
-      bid2.slot, bid1, 3, sig3, subcommittee2, @[7'u64])
-    pool.addSyncCommitteeMessage(
-      bid2.slot, bid2, 4, sig4, subcommittee2, @[3'u64])
+    pool.addSyncCommitteeMessage(bid1.slot, bid1, 1, sig1, subcommittee1, @[1'u64])
+    pool.addSyncCommitteeMessage(bid1.slot, bid1, 2, sig2, subcommittee1, @[10'u64])
+    pool.addSyncCommitteeMessage(bid2.slot, bid1, 3, sig3, subcommittee2, @[7'u64])
+    pool.addSyncCommitteeMessage(bid2.slot, bid2, 4, sig4, subcommittee2, @[3'u64])
 
     # Insert a duplicate message (this should be handled gracefully)
-    pool.addSyncCommitteeMessage(
-      bid1.slot, bid1, 1, sig1, subcommittee1, @[1'u64])
+    pool.addSyncCommitteeMessage(bid1.slot, bid1, 1, sig1, subcommittee1, @[1'u64])
 
     # Producing contributions
     #
     block:
       # Checking a committee where there was no activity:
       var outContribution: SyncCommitteeContribution
-      let success = pool.produceContribution(
-        bid2.slot,
-        bid2,
-        subcommittee1,
-        outContribution)
+      let success =
+        pool.produceContribution(bid2.slot, bid2, subcommittee1, outContribution)
 
       check:
         not success
@@ -229,12 +240,11 @@ suite "Sync committee pool":
     block:
       # Checking a committee where 2 signatures should have been aggregated:
       var outContribution: SignedContributionAndProof
-      template contribution: untyped = outContribution.message.contribution
-      let success = pool.produceContribution(
-        bid1.slot,
-        bid1,
-        subcommittee1,
-        contribution)
+      template contribution(): untyped =
+        outContribution.message.contribution
+
+      let success =
+        pool.produceContribution(bid1.slot, bid1, subcommittee1, contribution)
 
       let sig = aggregate [sig1, sig2]
       check:
@@ -259,12 +269,11 @@ suite "Sync committee pool":
     block:
       # Checking a committee with a signle participant:
       var outContribution: SignedContributionAndProof
-      template contribution: untyped = outContribution.message.contribution
-      let success = pool.produceContribution(
-        bid1.slot,
-        bid1,
-        subcommittee2,
-        contribution)
+      template contribution(): untyped =
+        outContribution.message.contribution
+
+      let success =
+        pool.produceContribution(bid1.slot, bid1, subcommittee2, contribution)
 
       check:
         success
@@ -286,12 +295,11 @@ suite "Sync committee pool":
       # Checking another committee with a signle participant
       # voting for a different block:
       var outContribution: SignedContributionAndProof
-      template contribution: untyped = outContribution.message.contribution
-      let success = pool.produceContribution(
-        bid2.slot,
-        bid2,
-        subcommittee2,
-        contribution)
+      template contribution(): untyped =
+        outContribution.message.contribution
+
+      let success =
+        pool.produceContribution(bid2.slot, bid2, subcommittee2, contribution)
 
       check:
         success
@@ -313,12 +321,11 @@ suite "Sync committee pool":
     block:
       # Checking a block root nobody voted for
       var outContribution: SignedContributionAndProof
-      template contribution: untyped = outContribution.message.contribution
-      let success = pool.produceContribution(
-        bid3.slot,
-        bid3,
-        subcommittee2,
-        contribution)
+      template contribution(): untyped =
+        outContribution.message.contribution
+
+      let success =
+        pool.produceContribution(bid3.slot, bid3, subcommittee2, contribution)
 
       check:
         not success
@@ -354,11 +361,8 @@ suite "Sync committee pool":
     block:
       # After pruning, all votes are gone
       var outContribution: SyncCommitteeContribution
-      let success = pool.produceContribution(
-        bid1.slot,
-        bid1,
-        subcommittee1,
-        outContribution)
+      let success =
+        pool.produceContribution(bid1.slot, bid1, subcommittee1, outContribution)
 
       check:
         not success

@@ -9,31 +9,37 @@
 
 import
   # Standard library
-  strutils, streams, strformat, strscans,
-  macros, typetraits,
+  strutils,
+  streams,
+  strformat,
+  strscans,
+  macros,
+  typetraits,
   # Status libraries
-  faststreams, snappy, stint, ../testutil,
+  faststreams,
+  snappy,
+  stint,
+  ../testutil,
   # Third-party
   yaml,
   # Beacon chain internals
   ../../beacon_chain/spec/digest,
   ../../beacon_chain/spec/datatypes/base,
   # Test utilities
-  ./fixtures_utils, ./os_ops
+  ./fixtures_utils,
+  ./os_ops
 
 # Parsing definitions
 # ------------------------------------------------------------------------
 
-const
-  SSZDir = SszTestsDir/"general"/"phase0"/"ssz_generic"
+const SSZDir = SszTestsDir / "general" / "phase0" / "ssz_generic"
 
-type
-  SSZHashTreeRoot = object
-    # The test files have the values at the "root"
-    # so we **must** use "root" as a field name
-    root: string
-    # Containers have a root (thankfully) and signing_root field
-    signing_root {.defaultVal: "".}: string
+type SSZHashTreeRoot = object
+  # The test files have the values at the "root"
+  # so we **must** use "root" as a field name
+  root: string
+  # Containers have a root (thankfully) and signing_root field
+  signing_root {.defaultVal: "".}: string
 
 type
   # Heterogeneous containers
@@ -81,10 +87,9 @@ type
 # Type specific checks
 # ------------------------------------------------------------------------
 
-proc checkBasic(T: typedesc,
-                dir: string,
-                expectedHash: SSZHashTreeRoot) =
-  let fileContents = snappy.decode(readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
+proc checkBasic(T: typedesc, dir: string, expectedHash: SSZHashTreeRoot) =
+  let fileContents =
+    snappy.decode(readFileBytes(dir / "serialized.ssz_snappy"), MaxObjectSize)
   let deserialized = newClone(sszDecodeEntireInput(fileContents, T))
 
   let expectedHash = expectedHash.root
@@ -113,30 +118,36 @@ macro testVector(typeIdent: string, size: int): untyped =
     for s in sizes:
       # if size == s // elif size == s
       let T = nnkBracketExpr.newTree(
-        ident"array", newLit(s),
+        ident"array",
+        newLit(s),
         case t
-        of "uint128": ident("UInt128")
-        of "uint256": ident("UInt256")
-        else: ident(t)
+        of "uint128":
+          ident("UInt128")
+        of "uint256":
+          ident("UInt256")
+        else:
+          ident(t),
       )
-      let testStmt = quote do:
+      let testStmt = quote:
         checkBasic(`T`, dir, expectedHash)
       sizeDispatch.add nnkElifBranch.newTree(
-        newCall(ident"==", size, newLit(s)),
-        testStmt
+        newCall(ident"==", size, newLit(s)), testStmt
       )
     sizeDispatch.add nnkElse.newTree quote do:
-      raise newException(TestSizeError,
-        "Unsupported **size** in type/size combination: array[" &
-        $size & "," & typeIdent & ']')
+      raise newException(
+        TestSizeError,
+        "Unsupported **size** in type/size combination: array[" & $size & "," & typeIdent &
+          ']',
+      )
     dispatcher.add nnkElifBranch.newTree(
-      newCall(ident"==", typeIdent, newLit(t)),
-      sizeDispatch
+      newCall(ident"==", typeIdent, newLit(t)), sizeDispatch
     )
   dispatcher.add nnkElse.newTree quote do:
-    raise newException(ValueError,
-      "Unsupported **type** in type/size combination: array[" &
-      $`size` & ", " & `typeIdent` & ']')
+    raise newException(
+      ValueError,
+      "Unsupported **type** in type/size combination: array[" & $`size` & ", " &
+        `typeIdent` & ']',
+    )
 
   result = dispatcher
   # echo result.toStrLit() # view the generated code
@@ -153,18 +164,30 @@ proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   let wasMatched = scanf(sszSubType, "bitvec_$i", size)
   doAssert wasMatched
   case size
-  of 1: checkBasic(BitArray[1], dir, expectedHash)
-  of 2: checkBasic(BitArray[2], dir, expectedHash)
-  of 3: checkBasic(BitArray[3], dir, expectedHash)
-  of 4: checkBasic(BitArray[4], dir, expectedHash)
-  of 5: checkBasic(BitArray[5], dir, expectedHash)
-  of 8: checkBasic(BitArray[8], dir, expectedHash)
-  of 9: checkBasic(BitArray[9], dir, expectedHash)
-  of 16: checkBasic(BitArray[16], dir, expectedHash)
-  of 31: checkBasic(BitArray[31], dir, expectedHash)
-  of 32: checkBasic(BitArray[32], dir, expectedHash)
-  of 512: checkBasic(BitArray[512], dir, expectedHash)
-  of 513: checkBasic(BitArray[513], dir, expectedHash)
+  of 1:
+    checkBasic(BitArray[1], dir, expectedHash)
+  of 2:
+    checkBasic(BitArray[2], dir, expectedHash)
+  of 3:
+    checkBasic(BitArray[3], dir, expectedHash)
+  of 4:
+    checkBasic(BitArray[4], dir, expectedHash)
+  of 5:
+    checkBasic(BitArray[5], dir, expectedHash)
+  of 8:
+    checkBasic(BitArray[8], dir, expectedHash)
+  of 9:
+    checkBasic(BitArray[9], dir, expectedHash)
+  of 16:
+    checkBasic(BitArray[16], dir, expectedHash)
+  of 31:
+    checkBasic(BitArray[31], dir, expectedHash)
+  of 32:
+    checkBasic(BitArray[32], dir, expectedHash)
+  of 512:
+    checkBasic(BitArray[512], dir, expectedHash)
+  of 513:
+    checkBasic(BitArray[513], dir, expectedHash)
   else:
     raise newException(TestSizeError, "Unsupported BitVector of size " & $size)
 
@@ -172,18 +195,30 @@ proc checkBitList(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var maxLen: int
   discard scanf(sszSubType, "bitlist_$i", maxLen)
   case maxLen
-  of 0: checkBasic(BitList[0], dir, expectedHash)
-  of 1: checkBasic(BitList[1], dir, expectedHash)
-  of 2: checkBasic(BitList[2], dir, expectedHash)
-  of 3: checkBasic(BitList[3], dir, expectedHash)
-  of 4: checkBasic(BitList[4], dir, expectedHash)
-  of 5: checkBasic(BitList[5], dir, expectedHash)
-  of 8: checkBasic(BitList[8], dir, expectedHash)
-  of 16: checkBasic(BitList[16], dir, expectedHash)
-  of 31: checkBasic(BitList[31], dir, expectedHash)
-  of 32: checkBasic(BitList[32], dir, expectedHash)
-  of 512: checkBasic(BitList[512], dir, expectedHash)
-  of 513: checkBasic(BitList[513], dir, expectedHash)
+  of 0:
+    checkBasic(BitList[0], dir, expectedHash)
+  of 1:
+    checkBasic(BitList[1], dir, expectedHash)
+  of 2:
+    checkBasic(BitList[2], dir, expectedHash)
+  of 3:
+    checkBasic(BitList[3], dir, expectedHash)
+  of 4:
+    checkBasic(BitList[4], dir, expectedHash)
+  of 5:
+    checkBasic(BitList[5], dir, expectedHash)
+  of 8:
+    checkBasic(BitList[8], dir, expectedHash)
+  of 16:
+    checkBasic(BitList[16], dir, expectedHash)
+  of 31:
+    checkBasic(BitList[31], dir, expectedHash)
+  of 32:
+    checkBasic(BitList[32], dir, expectedHash)
+  of 512:
+    checkBasic(BitList[512], dir, expectedHash)
+  of 513:
+    checkBasic(BitList[513], dir, expectedHash)
   else:
     raise newException(ValueError, "Unsupported Bitlist of max length " & $maxLen)
 
@@ -191,47 +226,63 @@ proc checkBitList(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
 # ------------------------------------------------------------------------
 
 proc sszCheck(baseDir, sszType, sszSubType: string) =
-  let dir = baseDir/sszSubType
+  let dir = baseDir / sszSubType
 
   # Hash tree root
   var expectedHash: SSZHashTreeRoot
-  if fileExists(dir/"meta.yaml"):
-    let s = openFileStream(dir/"meta.yaml")
-    defer: close(s)
+  if fileExists(dir / "meta.yaml"):
+    let s = openFileStream(dir / "meta.yaml")
+    defer:
+      close(s)
     yaml.load(s, expectedHash)
 
   # Deserialization and checks
   case sszType
-  of "boolean": checkBasic(bool, dir, expectedHash)
+  of "boolean":
+    checkBasic(bool, dir, expectedHash)
   of "uints":
     var bitsize: int
     let wasMatched = scanf(sszSubType, "uint_$i", bitsize)
     doAssert wasMatched
     case bitsize
-    of 8:   checkBasic(uint8, dir, expectedHash)
-    of 16:  checkBasic(uint16, dir, expectedHash)
-    of 32:  checkBasic(uint32, dir, expectedHash)
-    of 64:  checkBasic(uint64, dir, expectedHash)
-    of 128: checkBasic(UInt128, dir, expectedHash)
-    of 256: checkBasic(UInt256, dir, expectedHash)
+    of 8:
+      checkBasic(uint8, dir, expectedHash)
+    of 16:
+      checkBasic(uint16, dir, expectedHash)
+    of 32:
+      checkBasic(uint32, dir, expectedHash)
+    of 64:
+      checkBasic(uint64, dir, expectedHash)
+    of 128:
+      checkBasic(UInt128, dir, expectedHash)
+    of 256:
+      checkBasic(UInt256, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
-  of "basic_vector": checkVector(sszSubType, dir, expectedHash)
-  of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
-  of "bitlist": checkBitList(sszSubType, dir, expectedHash)
+  of "basic_vector":
+    checkVector(sszSubType, dir, expectedHash)
+  of "bitvector":
+    checkBitVector(sszSubType, dir, expectedHash)
+  of "bitlist":
+    checkBitList(sszSubType, dir, expectedHash)
   of "containers":
     var name: string
     let wasMatched = scanf(sszSubType, "$+_", name)
     doAssert wasMatched
     case name
-    of "SingleFieldTestStruct": checkBasic(SingleFieldTestStruct, dir, expectedHash)
-    of "SmallTestStruct": checkBasic(SmallTestStruct, dir, expectedHash)
-    of "FixedTestStruct": checkBasic(FixedTestStruct, dir, expectedHash)
-    of "VarTestStruct": checkBasic(VarTestStruct, dir, expectedHash)
+    of "SingleFieldTestStruct":
+      checkBasic(SingleFieldTestStruct, dir, expectedHash)
+    of "SmallTestStruct":
+      checkBasic(SmallTestStruct, dir, expectedHash)
+    of "FixedTestStruct":
+      checkBasic(FixedTestStruct, dir, expectedHash)
+    of "VarTestStruct":
+      checkBasic(VarTestStruct, dir, expectedHash)
     of "ComplexTestStruct":
       checkBasic(ComplexTestStruct, dir, expectedHash)
       checkBasic(HashArrayComplexTestStruct, dir, expectedHash)
-    of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
+    of "BitsStruct":
+      checkBasic(BitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
   else:
@@ -246,7 +297,8 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
 # ------------------------------------------------------------------------
 
 suite "EF - SSZ generic types":
-  doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
+  doAssert dirExists(SSZDir),
+    "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
@@ -256,17 +308,17 @@ suite "EF - SSZ generic types":
       skipped = " - skipping BitsStruct"
 
     test &"Testing {sszType:12} inputs - valid" & skipped:
-      let path = SSZDir/sszType/"valid"
-      for pathKind, sszSubType in walkDir(
-          path, relative = true, checkDir = true):
-        if pathKind != pcDir: continue
+      let path = SSZDir / sszType / "valid"
+      for pathKind, sszSubType in walkDir(path, relative = true, checkDir = true):
+        if pathKind != pcDir:
+          continue
         sszCheck(path, sszType, sszSubType)
 
     test &"Testing {sszType:12} inputs - invalid" & skipped:
-      let path = SSZDir/sszType/"invalid"
-      for pathKind, sszSubType in walkDir(
-          path, relative = true, checkDir = true):
-        if pathKind != pcDir: continue
+      let path = SSZDir / sszType / "invalid"
+      for pathKind, sszSubType in walkDir(path, relative = true, checkDir = true):
+        if pathKind != pcDir:
+          continue
         try:
           sszCheck(path, sszType, sszSubType)
         except SszError, UnconsumedInput:

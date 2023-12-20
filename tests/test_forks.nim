@@ -7,9 +7,7 @@
 
 {.used.}
 
-import
-  unittest2,
-  ../beacon_chain/spec/forks
+import unittest2, ../beacon_chain/spec/forks
 
 template testHashedBeaconState(T: type, s: Slot) =
   let state = (ref T)()
@@ -59,151 +57,169 @@ suite "Forked SSZ readers":
     cfg
 
   test "load phase0 state":
-    testHashedBeaconState(phase0.BeaconState,      0.Slot)
+    testHashedBeaconState(phase0.BeaconState, 0.Slot)
 
     expect(SszError):
-      testHashedBeaconState(altair.BeaconState,    0.Slot)
+      testHashedBeaconState(altair.BeaconState, 0.Slot)
     expect(SszError):
       testHashedBeaconState(bellatrix.BeaconState, 0.Slot)
     expect(SszError):
-      testHashedBeaconState(capella.BeaconState,   0.Slot)
+      testHashedBeaconState(capella.BeaconState, 0.Slot)
     expect(SszError):
-      testHashedBeaconState(deneb.BeaconState,     0.Slot)
+      testHashedBeaconState(deneb.BeaconState, 0.Slot)
 
   test "load altair state":
-    testHashedBeaconState(altair.BeaconState,      cfg.ALTAIR_FORK_EPOCH.start_slot)
+    testHashedBeaconState(altair.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
 
     expect(SszError):
-      testHashedBeaconState(phase0.BeaconState,    cfg.ALTAIR_FORK_EPOCH.start_slot)
+      testHashedBeaconState(phase0.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
     expect(SszError):
       testHashedBeaconState(bellatrix.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(capella.BeaconState,   cfg.ALTAIR_FORK_EPOCH.start_slot)
+      testHashedBeaconState(capella.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(deneb.BeaconState,     cfg.ALTAIR_FORK_EPOCH.start_slot)
+      testHashedBeaconState(deneb.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
 
   test "load bellatrix state":
-    testHashedBeaconState(bellatrix.BeaconState,   cfg.BELLATRIX_FORK_EPOCH.start_slot)
+    testHashedBeaconState(bellatrix.BeaconState, cfg.BELLATRIX_FORK_EPOCH.start_slot)
 
     expect(SszError):
-      testHashedBeaconState(phase0.BeaconState,    cfg.BELLATRIX_FORK_EPOCH.start_slot)
+      testHashedBeaconState(phase0.BeaconState, cfg.BELLATRIX_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(altair.BeaconState,    cfg.BELLATRIX_FORK_EPOCH.start_slot)
+      testHashedBeaconState(altair.BeaconState, cfg.BELLATRIX_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(capella.BeaconState,   cfg.BELLATRIX_FORK_EPOCH.start_slot)
+      testHashedBeaconState(capella.BeaconState, cfg.BELLATRIX_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(deneb.BeaconState,     cfg.BELLATRIX_FORK_EPOCH.start_slot)
+      testHashedBeaconState(deneb.BeaconState, cfg.BELLATRIX_FORK_EPOCH.start_slot)
 
   test "load capella state":
-    testHashedBeaconState(capella.BeaconState,     cfg.CAPELLA_FORK_EPOCH.start_slot)
+    testHashedBeaconState(capella.BeaconState, cfg.CAPELLA_FORK_EPOCH.start_slot)
 
     expect(SszError):
-      testHashedBeaconState(phase0.BeaconState,    cfg.CAPELLA_FORK_EPOCH.start_slot)
+      testHashedBeaconState(phase0.BeaconState, cfg.CAPELLA_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(altair.BeaconState,    cfg.CAPELLA_FORK_EPOCH.start_slot)
+      testHashedBeaconState(altair.BeaconState, cfg.CAPELLA_FORK_EPOCH.start_slot)
     expect(SszError):
       testHashedBeaconState(bellatrix.BeaconState, cfg.CAPELLA_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(deneb.BeaconState,     cfg.CAPELLA_FORK_EPOCH.start_slot)
+      testHashedBeaconState(deneb.BeaconState, cfg.CAPELLA_FORK_EPOCH.start_slot)
 
   test "load deneb state":
-    testHashedBeaconState(deneb.BeaconState,        cfg.DENEB_FORK_EPOCH.start_slot)
+    testHashedBeaconState(deneb.BeaconState, cfg.DENEB_FORK_EPOCH.start_slot)
 
     expect(SszError):
-      testHashedBeaconState(phase0.BeaconState,    cfg.DENEB_FORK_EPOCH.start_slot)
+      testHashedBeaconState(phase0.BeaconState, cfg.DENEB_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(altair.BeaconState,    cfg.DENEB_FORK_EPOCH.start_slot)
+      testHashedBeaconState(altair.BeaconState, cfg.DENEB_FORK_EPOCH.start_slot)
     expect(SszError):
       testHashedBeaconState(bellatrix.BeaconState, cfg.DENEB_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(capella.BeaconState,   cfg.DENEB_FORK_EPOCH.start_slot)
+      testHashedBeaconState(capella.BeaconState, cfg.DENEB_FORK_EPOCH.start_slot)
 
   test "should raise on unknown data":
-    let
-      bytes = SSZ.encode(AttestationData())
+    let bytes = SSZ.encode(AttestationData())
     expect(SszError):
       discard newClone(readSszForkedHashedBeaconState(cfg, bytes))
 
   test "load phase0 block":
-    testTrustedSignedBeaconBlock(phase0.TrustedSignedBeaconBlock,      0.Slot)
+    testTrustedSignedBeaconBlock(phase0.TrustedSignedBeaconBlock, 0.Slot)
     expect(SszError):
-      testTrustedSignedBeaconBlock(altair.TrustedSignedBeaconBlock,    0.Slot)
+      testTrustedSignedBeaconBlock(altair.TrustedSignedBeaconBlock, 0.Slot)
     expect(SszError):
       testTrustedSignedBeaconBlock(bellatrix.TrustedSignedBeaconBlock, 0.Slot)
     expect(SszError):
-      testTrustedSignedBeaconBlock(capella.TrustedSignedBeaconBlock,   0.Slot)
+      testTrustedSignedBeaconBlock(capella.TrustedSignedBeaconBlock, 0.Slot)
     expect(SszError):
-      testTrustedSignedBeaconBlock(deneb.TrustedSignedBeaconBlock,     0.Slot)
+      testTrustedSignedBeaconBlock(deneb.TrustedSignedBeaconBlock, 0.Slot)
 
   test "load altair block":
     testTrustedSignedBeaconBlock(
-      altair.TrustedSignedBeaconBlock,      cfg.ALTAIR_FORK_EPOCH.start_slot)
+      altair.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot
+    )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        phase0.TrustedSignedBeaconBlock,    cfg.ALTAIR_FORK_EPOCH.start_slot)
+        phase0.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        bellatrix.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot)
+        bellatrix.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        capella.TrustedSignedBeaconBlock,   cfg.ALTAIR_FORK_EPOCH.start_slot)
+        capella.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        deneb.TrustedSignedBeaconBlock,     cfg.ALTAIR_FORK_EPOCH.start_slot)
+        deneb.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot
+      )
 
   test "load bellatrix block":
     testTrustedSignedBeaconBlock(
-      bellatrix.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot)
+      bellatrix.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot
+    )
 
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        phase0.TrustedSignedBeaconBlock,  cfg.BELLATRIX_FORK_EPOCH.start_slot)
+        phase0.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        altair.TrustedSignedBeaconBlock,  cfg.BELLATRIX_FORK_EPOCH.start_slot)
+        altair.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        capella.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot)
+        capella.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        deneb.TrustedSignedBeaconBlock,   cfg.BELLATRIX_FORK_EPOCH.start_slot)
+        deneb.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot
+      )
 
   test "load capella block":
     testTrustedSignedBeaconBlock(
-      capella.TrustedSignedBeaconBlock,     cfg.CAPELLA_FORK_EPOCH.start_slot)
+      capella.TrustedSignedBeaconBlock, cfg.CAPELLA_FORK_EPOCH.start_slot
+    )
 
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        phase0.TrustedSignedBeaconBlock,    cfg.CAPELLA_FORK_EPOCH.start_slot)
+        phase0.TrustedSignedBeaconBlock, cfg.CAPELLA_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        altair.TrustedSignedBeaconBlock,    cfg.CAPELLA_FORK_EPOCH.start_slot)
+        altair.TrustedSignedBeaconBlock, cfg.CAPELLA_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        bellatrix.TrustedSignedBeaconBlock, cfg.CAPELLA_FORK_EPOCH.start_slot)
+        bellatrix.TrustedSignedBeaconBlock, cfg.CAPELLA_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        deneb.TrustedSignedBeaconBlock,     cfg.CAPELLA_FORK_EPOCH.start_slot)
+        deneb.TrustedSignedBeaconBlock, cfg.CAPELLA_FORK_EPOCH.start_slot
+      )
 
   test "load deneb block":
     testTrustedSignedBeaconBlock(
-      deneb.TrustedSignedBeaconBlock,       cfg.DENEB_FORK_EPOCH.start_slot)
+      deneb.TrustedSignedBeaconBlock, cfg.DENEB_FORK_EPOCH.start_slot
+    )
 
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        phase0.TrustedSignedBeaconBlock,    cfg.DENEB_FORK_EPOCH.start_slot)
+        phase0.TrustedSignedBeaconBlock, cfg.DENEB_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        altair.TrustedSignedBeaconBlock,    cfg.DENEB_FORK_EPOCH.start_slot)
+        altair.TrustedSignedBeaconBlock, cfg.DENEB_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        bellatrix.TrustedSignedBeaconBlock, cfg.DENEB_FORK_EPOCH.start_slot)
+        bellatrix.TrustedSignedBeaconBlock, cfg.DENEB_FORK_EPOCH.start_slot
+      )
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        capella.TrustedSignedBeaconBlock,   cfg.DENEB_FORK_EPOCH.start_slot)
+        capella.TrustedSignedBeaconBlock, cfg.DENEB_FORK_EPOCH.start_slot
+      )
 
   test "should raise on unknown data":
-    let
-      bytes = SSZ.encode(AttestationData())
+    let bytes = SSZ.encode(AttestationData())
     expect(SszError):
       discard newClone(readSszForkedSignedBeaconBlock(cfg, bytes))

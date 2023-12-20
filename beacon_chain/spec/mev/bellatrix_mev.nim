@@ -31,12 +31,9 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     block_hash: "",
     parent_hash: "",
     fee_recipient: "",
-    bls_to_execution_changes_len: 0,  # Capella compat
-    blob_kzg_commitments_len: 0,  # Deneb compat
+    bls_to_execution_changes_len: 0, # Capella compat
+    blob_kzg_commitments_len: 0, # Deneb compat
   )
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =
-  (
-    blck: shortLog(default(BlindedBeaconBlock)),
-    signature: ""
-  )
+  (blck: shortLog(default(BlindedBeaconBlock)), signature: "")

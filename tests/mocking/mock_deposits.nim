@@ -23,10 +23,7 @@ import
   # Test utilities
   ../testblockutil
 
-func mockDepositData(
-        pubkey: ValidatorPubKey,
-        amount: uint64,
-      ): DepositData =
+func mockDepositData(pubkey: ValidatorPubKey, amount: uint64): DepositData =
   # Insecurely use pubkey as withdrawal key
   DepositData(
     pubkey: pubkey,
@@ -35,24 +32,25 @@ func mockDepositData(
   )
 
 func mockDepositData(
-        pubkey: ValidatorPubKey,
-        privkey: ValidatorPrivKey,
-        amount: uint64,
-        # withdrawal_credentials: Eth2Digest,
-        flags: UpdateFlags = {}
-      ): DepositData =
+    pubkey: ValidatorPubKey,
+    privkey: ValidatorPrivKey,
+    amount: uint64,
+    # withdrawal_credentials: Eth2Digest,
+    flags: UpdateFlags = {},
+): DepositData =
   var ret = mockDepositData(pubkey, amount)
   if skipBlsValidation notin flags:
-    ret.signature = defaultRuntimeConfig.get_deposit_signature(ret, privkey).toValidatorSig()
+    ret.signature =
+      defaultRuntimeConfig.get_deposit_signature(ret, privkey).toValidatorSig()
   ret
 
 template mockGenesisDepositsImpl(
-        result: seq[DepositData],
-        validatorCount: uint64,
-        amount: untyped,
-        flags: UpdateFlags = {},
-        updateAmount: untyped,
-      ) =
+    result: seq[DepositData],
+    validatorCount: uint64,
+    amount: untyped,
+    flags: UpdateFlags = {},
+    updateAmount: untyped,
+) =
   # Genesis deposits with varying amounts
 
   # NOTE: prefer to er on the side of caution and generate a valid Deposit
@@ -66,8 +64,7 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] =
-        mockDepositData(MockPubKeys[valIdx.ValidatorIndex], amount)
+      result[valIdx] = mockDepositData(MockPubKeys[valIdx.ValidatorIndex], amount)
   else: # With signing
     var depositsDataHash: seq[Eth2Digest]
     var depositsData: seq[DepositData]
@@ -80,20 +77,19 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] =
-        mockDepositData(
-          MockPubKeys[valIdx.ValidatorIndex],
-          MockPrivKeys[valIdx.ValidatorIndex],
-          amount, flags)
+      result[valIdx] = mockDepositData(
+        MockPubKeys[valIdx.ValidatorIndex],
+        MockPrivKeys[valIdx.ValidatorIndex],
+        amount,
+        flags,
+      )
 
       depositsData.add result[valIdx]
       depositsDataHash.add hash_tree_root(result[valIdx])
 
 proc mockGenesisBalancedDeposits*(
-        validatorCount: uint64,
-        amountInEth: Positive,
-        flags: UpdateFlags = {}
-      ): seq[DepositData] =
+    validatorCount: uint64, amountInEth: Positive, flags: UpdateFlags = {}
+): seq[DepositData] =
   ## The amount should be strictly positive
   ## - 1 is the minimum deposit amount (MIN_DEPOSIT_AMOUNT)
   ## - 16 is the ejection balance (EJECTION_BALANCE)
@@ -102,19 +98,17 @@ proc mockGenesisBalancedDeposits*(
   ##
   ## Only validators with 32 ETH will be active at genesis
 
-  let amount = amountInEth.uint64 * 10'u64^9
-  mockGenesisDepositsImpl(result, validatorCount,amount,flags):
+  let amount = amountInEth.uint64 * 10'u64 ^ 9
+  mockGenesisDepositsImpl(result, validatorCount, amount, flags):
     discard
 
 proc mockUpdateStateForNewDeposit*(
-       state: var ForkyBeaconState,
-       validator_index: uint64,
-       amount: uint64,
-       # withdrawal_credentials: Eth2Digest
-       flags: UpdateFlags
-    ): Deposit =
-
-
+    state: var ForkyBeaconState,
+    validator_index: uint64,
+    amount: uint64,
+    # withdrawal_credentials: Eth2Digest
+    flags: UpdateFlags,
+): Deposit =
   # TODO withdrawal credentials
 
   result.data = mockDepositData(
@@ -122,7 +116,7 @@ proc mockUpdateStateForNewDeposit*(
     MockPrivKeys[validator_index.ValidatorIndex],
     amount,
     # withdrawal_credentials: Eth2Digest
-    flags
+    flags,
   )
 
   var result_seq = @[result]

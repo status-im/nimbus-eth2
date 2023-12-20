@@ -10,7 +10,8 @@
 import
   std/[algorithm, sequtils],
   chronos/unittest2/asynctests,
-  presto, confutils,
+  presto,
+  confutils,
   ../beacon_chain/validators/[validator_pool, keystore_management],
   ../beacon_chain/[conf, beacon_node]
 
@@ -26,18 +27,20 @@ func createRemote(pubkey: ValidatorPubKey): KeystoreData =
   KeystoreData(kind: KeystoreKind.Remote, pubkey: pubkey)
 
 func createDynamic(url: Uri, pubkey: ValidatorPubKey): KeystoreData =
-  KeystoreData(kind: KeystoreKind.Remote, pubkey: pubkey,
-               remotes: @[RemoteSignerInfo(url: HttpHostUri(url))],
-               flags: {RemoteKeystoreFlag.DynamicKeystore})
+  KeystoreData(
+    kind: KeystoreKind.Remote,
+    pubkey: pubkey,
+    remotes: @[RemoteSignerInfo(url: HttpHostUri(url))],
+    flags: {RemoteKeystoreFlag.DynamicKeystore},
+  )
 
-const
-  remoteSignerUrl = Web3SignerUrl(url: parseUri("http://nimbus.team/signer1"))
+const remoteSignerUrl = Web3SignerUrl(url: parseUri("http://nimbus.team/signer1"))
 
 func makeValidatorAndIndex(
-    index: ValidatorIndex, activation_epoch: Epoch): Opt[ValidatorAndIndex] =
+    index: ValidatorIndex, activation_epoch: Epoch
+): Opt[ValidatorAndIndex] =
   Opt.some ValidatorAndIndex(
-    index: index,
-    validator: Validator(activation_epoch: activation_epoch)
+    index: index, validator: Validator(activation_epoch: activation_epoch)
   )
 
 func cmp(a, b: array[48, byte]): int =
@@ -61,7 +64,8 @@ func cmp(a, b: KeystoreData): int =
     cmp(a.pubkey.blob, b.pubkey.blob)
 
 func checkResponse(a, b: openArray[KeystoreData]): bool =
-  if len(a) != len(b): return false
+  if len(a) != len(b):
+    return false
   for index, item in a.pairs():
     if cmp(item, b[index]) != 0:
       return false
@@ -69,8 +73,7 @@ func checkResponse(a, b: openArray[KeystoreData]): bool =
 
 suite "Validator pool":
   test "Doppelganger for genesis validator":
-    let
-      v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
+    let v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
 
     check:
       not v.triggersDoppelganger(GENESIS_EPOCH) # no check
@@ -96,7 +99,7 @@ suite "Validator pool":
       v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
       now = Epoch(10).start_slot()
 
-    check: # We don't know when validator activates so we wouldn't trigger
+    check:
       not v.triggersDoppelganger(GENESIS_EPOCH)
       not v.triggersDoppelganger(now.epoch())
 
@@ -105,7 +108,7 @@ suite "Validator pool":
 
     v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), FAR_FUTURE_EPOCH))
 
-    check: # We still don't know when validator activates so we wouldn't trigger
+    check:
       not v.triggersDoppelganger(GENESIS_EPOCH)
       not v.triggersDoppelganger(now.epoch())
 
@@ -114,7 +117,7 @@ suite "Validator pool":
 
     v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch()))
 
-    check: # No check done yet
+    check:
       not v.triggersDoppelganger(GENESIS_EPOCH)
       not v.triggersDoppelganger(now.epoch())
 
@@ -138,9 +141,11 @@ suite "Validator pool":
       res
 
     var testStage = 0
-    proc testValidate(pattern: string, value: string): int = 0
+    proc testValidate(pattern: string, value: string): int =
+      0
+
     var router = RestRouter.init(testValidate)
-    router.api(MethodGet, "/api/v1/eth2/publicKeys") do () -> RestApiResponse:
+    router.api(MethodGet, "/api/v1/eth2/publicKeys") do() -> RestApiResponse:
       case testStage
       of 0:
         let data = [createPubKey(1), createPubKey(2)].makeJson()
@@ -150,11 +155,9 @@ suite "Validator pool":
         return RestApiResponse.response(data, Http200, "application/json")
       of 2:
         var data: seq[ValidatorPubKey]
-        return RestApiResponse.response(data.makeJson(), Http200,
-                                        "application/json")
+        return RestApiResponse.response(data.makeJson(), Http200, "application/json")
       else:
-        return RestApiResponse.response("INCORRECT TEST STAGE", Http400,
-                                        "text/plain")
+        return RestApiResponse.response("INCORRECT TEST STAGE", Http400, "text/plain")
 
     var sres = RestServerRef.new(router, initTAddress("127.0.0.1:0"))
     let
@@ -162,8 +165,9 @@ suite "Validator pool":
       serverAddress = server.server.instance.localAddress()
       config =
         try:
-          BeaconNodeConf.load(cmdLine =
-            mapIt(["--web3-signer-url=http://" & $serverAddress], it))
+          BeaconNodeConf.load(
+            cmdLine = mapIt(["--web3-signer-url=http://" & $serverAddress], it)
+          )
         except Exception as exc:
           raiseAssert exc.msg
       web3SignerUrls = config.web3SignerUrls
@@ -179,14 +183,17 @@ suite "Validator pool":
             res.get(),
             [
               createDynamic(remoteSignerUrl.url, createPubKey(1)),
-              createDynamic(remoteSignerUrl.url, createPubKey(2))
-            ])
+              createDynamic(remoteSignerUrl.url, createPubKey(2)),
+            ],
+          )
       block:
         testStage = 1
         let res = await queryValidatorsSource(web3SignerUrls[0])
         check:
           res.isOk()
-          checkResponse(res.get(), [createDynamic(remoteSignerUrl.url, createPubKey(1))])
+          checkResponse(
+            res.get(), [createDynamic(remoteSignerUrl.url, createPubKey(1))]
+          )
       block:
         testStage = 2
         let res = await queryValidatorsSource(web3SignerUrls[0])
@@ -208,12 +215,11 @@ suite "Validator pool":
 
     proc checkPool(pool: ValidatorPool, expected: openArray[KeystoreData]) =
       let
-        attachedKeystores =
-          block:
-            var res: seq[KeystoreData]
-            for validator in pool:
-              res.add(validator.data)
-            sorted(res, cmp)
+        attachedKeystores = block:
+          var res: seq[KeystoreData]
+          for validator in pool:
+            res.add(validator.data)
+          sorted(res, cmp)
         sortedExpected = sorted(expected, cmp)
 
       for index, value in attachedKeystores:
@@ -222,7 +228,8 @@ suite "Validator pool":
     var pool = (ref ValidatorPool)()
     discard pool[].addValidator(createLocal(createPubKey(1)), fee, gas)
     discard pool[].addValidator(createRemote(createPubKey(2)), fee, gas)
-    discard pool[].addValidator(createDynamic(remoteSignerUrl.url, createPubKey(3)), fee, gas)
+    discard
+      pool[].addValidator(createDynamic(remoteSignerUrl.url, createPubKey(3)), fee, gas)
 
     proc addValidator(data: KeystoreData) {.gcsafe.} =
       discard pool[].addValidator(data, fee, gas)
@@ -235,12 +242,12 @@ suite "Validator pool":
           createRemote(createPubKey(2)),
           createDynamic(remoteSignerUrl.url, createPubKey(3)),
           createDynamic(remoteSignerUrl.url, createPubKey(4)),
-          createDynamic(remoteSignerUrl.url, createPubKey(5))
+          createDynamic(remoteSignerUrl.url, createPubKey(5)),
         ]
         keystores = [
           createDynamic(remoteSignerUrl.url, createPubKey(3)),
           createDynamic(remoteSignerUrl.url, createPubKey(4)),
-          createDynamic(remoteSignerUrl.url, createPubKey(5))
+          createDynamic(remoteSignerUrl.url, createPubKey(5)),
         ]
       pool.updateDynamicValidators(remoteSignerUrl, keystores, addValidator)
       pool[].checkPool(expected)
@@ -251,11 +258,9 @@ suite "Validator pool":
         expected = [
           createLocal(createPubKey(1)),
           createRemote(createPubKey(2)),
-          createDynamic(remoteSignerUrl.url, createPubKey(3))
-        ]
-        keystores = [
           createDynamic(remoteSignerUrl.url, createPubKey(3)),
         ]
+        keystores = [createDynamic(remoteSignerUrl.url, createPubKey(3))]
       pool.updateDynamicValidators(remoteSignerUrl, keystores, addValidator)
       pool[].checkPool(expected)
 
@@ -266,11 +271,11 @@ suite "Validator pool":
           createLocal(createPubKey(1)),
           createRemote(createPubKey(2)),
           createDynamic(remoteSignerUrl.url, createPubKey(4)),
-          createDynamic(remoteSignerUrl.url, createPubKey(5))
+          createDynamic(remoteSignerUrl.url, createPubKey(5)),
         ]
         keystores = [
           createDynamic(remoteSignerUrl.url, createPubKey(4)),
-          createDynamic(remoteSignerUrl.url, createPubKey(5))
+          createDynamic(remoteSignerUrl.url, createPubKey(5)),
         ]
       pool.updateDynamicValidators(remoteSignerUrl, keystores, addValidator)
       pool[].checkPool(expected)
@@ -281,7 +286,7 @@ suite "Validator pool":
         expected = [
           createLocal(createPubKey(1)),
           createRemote(createPubKey(2)),
-          createDynamic(remoteSignerUrl.url, createPubKey(3))
+          createDynamic(remoteSignerUrl.url, createPubKey(3)),
         ]
         keystores = [
           createDynamic(remoteSignerUrl.url, createPubKey(1)),
@@ -293,11 +298,7 @@ suite "Validator pool":
 
     # Empty response
     block:
-      let
-        expected = [
-          createLocal(createPubKey(1)),
-          createRemote(createPubKey(2))
-        ]
+      let expected = [createLocal(createPubKey(1)), createRemote(createPubKey(2))]
       var keystores: seq[KeystoreData]
       pool.updateDynamicValidators(remoteSignerUrl, keystores, addValidator)
       pool[].checkPool(expected)

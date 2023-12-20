@@ -7,11 +7,10 @@
 
 {.push raises: [].}
 
-import
-  chronicles, web3/engine_api_types,
-  ./beacon_node
+import chronicles, web3/engine_api_types, ./beacon_node
 
-logScope: topics = "beacnde"
+logScope:
+  topics = "beacnde"
 
 func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
   let optimisticHeader = node.lightClient.optimisticHeader
@@ -20,7 +19,8 @@ func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
       shouldSyncOptimistically(
         optimisticSlot = forkyHeader.beacon.slot,
         dagSlot = getStateField(node.dag.headState, slot),
-        wallSlot = wallSlot)
+        wallSlot = wallSlot,
+      )
     else:
       false
 
@@ -30,16 +30,19 @@ proc initLightClient*(
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests,
     getBeaconTime: GetBeaconTimeFn,
-    genesis_validators_root: Eth2Digest) =
-  template config(): auto = node.config
+    genesis_validators_root: Eth2Digest,
+) =
+  template config(): auto =
+    node.config
 
   # Creating a light client is not dependent on `syncLightClient`
   # because the light client module also handles gossip subscriptions
   # for broadcasting light client data as a server.
 
   let
-    optimisticHandler = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
-                             Future[void] {.async.} =
+    optimisticHandler = proc(
+        signedBlock: ForkedMsgTrustedSignedBeaconBlock
+    ): Future[void] {.async.} =
       debug "New LC optimistic block",
         opt = signedBlock.toBlockId(),
         dag = node.dag.head.bid,
@@ -52,8 +55,7 @@ proc initLightClient*(
 
             if not blckPayload.block_hash.isZero:
               # engine_newPayloadV1
-              discard await node.elManager.newExecutionPayload(
-                forkyBlck.message)
+              discard await node.elManager.newExecutionPayload(forkyBlck.message)
 
               # Retain optimistic head for other `forkchoiceUpdated` callers.
               # May temporarily block `forkchoiceUpdatedV1` calls, e.g., Geth:
@@ -62,7 +64,8 @@ proc initLightClient*(
               # Once DAG sync catches up or as new optimistic heads are fetched
               # the situation recovers
               node.consensusManager[].setOptimisticHead(
-                forkyBlck.toBlockId(), blckPayload.block_hash)
+                forkyBlck.toBlockId(), blckPayload.block_hash
+              )
 
               # engine_forkchoiceUpdatedV1 or engine_forkchoiceUpdatedV2,
               # depending on pre or post-Shapella
@@ -73,10 +76,10 @@ proc initLightClient*(
                   headBlockHash = blckPayload.block_hash,
                   safeBlockHash = beaconHead.safeExecutionPayloadHash,
                   finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash,
-                  payloadAttributes = none attributes)
+                  payloadAttributes = none attributes,
+                )
 
-              case node.dag.cfg.consensusForkAtEpoch(
-                  forkyBlck.message.slot.epoch)
+              case node.dag.cfg.consensusForkAtEpoch(forkyBlck.message.slot.epoch)
               of ConsensusFork.Deneb:
                 callForkchoiceUpdated(PayloadAttributesV3)
               of ConsensusFork.Capella:
@@ -91,26 +94,26 @@ proc initLightClient*(
                 callForkchoiceUpdated(PayloadAttributesV1)
               of ConsensusFork.Phase0, ConsensusFork.Altair:
                 discard
-          else: discard
+          else:
+            discard
 
-    optimisticProcessor = initOptimisticProcessor(
-      getBeaconTime, optimisticHandler)
+    optimisticProcessor = initOptimisticProcessor(getBeaconTime, optimisticHandler)
 
     lightClient = createLightClient(
       node.network, rng, config, cfg, forkDigests, getBeaconTime,
-      genesis_validators_root, LightClientFinalizationMode.Strict)
+      genesis_validators_root, LightClientFinalizationMode.Strict,
+    )
 
   if config.syncLightClient:
     proc onOptimisticHeader(
-        lightClient: LightClient,
-        optimisticHeader: ForkedLightClientHeader) =
+        lightClient: LightClient, optimisticHeader: ForkedLightClientHeader
+    ) =
       withForkyHeader(optimisticHeader):
         when lcDataFork > LightClientDataFork.None:
           optimisticProcessor.setOptimisticHeader(forkyHeader.beacon)
 
     lightClient.onOptimisticHeader = onOptimisticHeader
     lightClient.trustedBlockRoot = config.trustedBlockRoot
-
   elif config.trustedBlockRoot.isSome:
     warn "Ignoring `trustedBlockRoot`, light client not enabled",
       syncLightClient = config.syncLightClient,
@@ -139,8 +142,7 @@ proc installLightClientMessageValidators*(node: BeaconNode) =
 
   node.lightClient.installMessageValidators(eth2Processor)
 
-proc updateLightClientGossipStatus*(
-    node: BeaconNode, slot: Slot, dagIsBehind: bool) =
+proc updateLightClientGossipStatus*(node: BeaconNode, slot: Slot, dagIsBehind: bool) =
   let isBehind =
     if node.config.lightClientDataServe:
       # Forward DAG's readiness to handle light client gossip
@@ -175,9 +177,9 @@ proc updateLightClientFromDag*(node: BeaconNode) =
   withBlck(bdata):
     const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
     when lcDataFork > LightClientDataFork.None:
-      header = ForkedLightClientHeader.init(
-        forkyBlck.toLightClientHeader(lcDataFork))
-    else: raiseAssert "Unreachable"
+      header = ForkedLightClientHeader.init(forkyBlck.toLightClientHeader(lcDataFork))
+    else:
+      raiseAssert "Unreachable"
   let current_sync_committee = block:
     let tmpState = assignClone(node.dag.headState)
     node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:

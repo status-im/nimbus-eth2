@@ -18,18 +18,19 @@ const mockEth1BlockHash* =
   Eth2Digest.fromHex("0x4242424242424242424242424242424242424242")
 
 proc initGenesisState*(
-    num_validators = 8'u64 * SLOTS_PER_EPOCH,
-    cfg = defaultRuntimeConfig): ref ForkedHashedBeaconState =
+    num_validators = 8'u64 * SLOTS_PER_EPOCH, cfg = defaultRuntimeConfig
+): ref ForkedHashedBeaconState =
   let deposits = mockGenesisBalancedDeposits(
-      validatorCount = num_validators,
-      amountInEth = 32, # We create canonical validators with 32 Eth
-      flags = {}
-    )
+    validatorCount = num_validators,
+    amountInEth = 32, # We create canonical validators with 32 Eth
+    flags = {},
+  )
 
   result = (ref ForkedHashedBeaconState)(
     kind: ConsensusFork.Phase0,
-    phase0Data: initialize_hashed_beacon_state_from_eth1(
-      cfg, mockEth1BlockHash, 0, deposits, {}))
+    phase0Data:
+      initialize_hashed_beacon_state_from_eth1(cfg, mockEth1BlockHash, 0, deposits, {}),
+  )
 
   maybeUpgradeState(cfg, result[])
 

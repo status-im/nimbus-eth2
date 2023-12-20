@@ -13,8 +13,7 @@ import
   eth/db/[kvstore, kvstore_sqlite3],
   ./testblockutil
 
-from ../beacon_chain/spec/beaconstate import
-  initialize_hashed_beacon_state_from_eth1
+from ../beacon_chain/spec/beaconstate import initialize_hashed_beacon_state_from_eth1
 
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
@@ -22,7 +21,8 @@ proc makeTestDB*(
     validators: Natural,
     eth1Data = Opt.none(Eth1Data),
     flags: UpdateFlags = {},
-    cfg = defaultRuntimeConfig): BeaconChainDB =
+    cfg = defaultRuntimeConfig,
+): BeaconChainDB =
   # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
   var cfg = cfg
   cfg.CAPELLA_FORK_EPOCH = 90000.Epoch
@@ -31,11 +31,9 @@ proc makeTestDB*(
   var genState = (ref ForkedHashedBeaconState)(
     kind: ConsensusFork.Phase0,
     phase0Data: initialize_hashed_beacon_state_from_eth1(
-      cfg,
-      ZERO_HASH,
-      0,
-      makeInitialDeposits(validators.uint64, flags),
-      flags))
+      cfg, ZERO_HASH, 0, makeInitialDeposits(validators.uint64, flags), flags
+    ),
+  )
 
   # Override Eth1Data on request, skipping the lengthy Eth1 voting process
   if eth1Data.isOk:
@@ -47,8 +45,7 @@ proc makeTestDB*(
   cfg.maybeUpgradeState(genState[])
   withState(genState[]):
     when consensusFork > ConsensusFork.Phase0:
-      forkyState.data.fork.previous_version =
-        forkyState.data.fork.current_version
+      forkyState.data.fork.previous_version = forkyState.data.fork.current_version
       forkyState.data.latest_block_header.body_root =
         hash_tree_root(default(BeaconBlockBody(consensusFork)))
       forkyState.root = hash_tree_root(forkyState.data)
@@ -57,9 +54,11 @@ proc makeTestDB*(
   ChainDAGRef.preInit(result, genState[])
 
 proc getEarliestInvalidBlockRoot*(
-    dag: ChainDAGRef, initialSearchRoot: Eth2Digest,
-    latestValidHash: Eth2Digest, defaultEarliestInvalidBlockRoot: Eth2Digest):
-    Eth2Digest =
+    dag: ChainDAGRef,
+    initialSearchRoot: Eth2Digest,
+    latestValidHash: Eth2Digest,
+    defaultEarliestInvalidBlockRoot: Eth2Digest,
+): Eth2Digest =
   # Earliest within a chain/fork in question, per LVH definition. Intended to
   # be called with `initialRoot` as the parent of the block regarding which a
   # newPayload or forkchoiceUpdated execution_status has been received as the
@@ -76,20 +75,19 @@ proc getEarliestInvalidBlockRoot*(
 
   # Only allow this special case outside loop; it's when the LVH is the direct
   # parent of the reported invalid block
-  if  curBlck.executionBlockHash.isSome and
+  if curBlck.executionBlockHash.isSome and
       curBlck.executionBlockHash.get == latestValidHash:
     return defaultEarliestInvalidBlockRoot
 
   while true:
     # This was supposed to have been either caught by the pre-loop check or the
     # parent check.
-    if  curBlck.executionBlockHash.isSome and
+    if curBlck.executionBlockHash.isSome and
         curBlck.executionBlockHash.get == latestValidHash:
       doAssert false, "getEarliestInvalidBlockRoot: unexpected LVH in loop body"
 
     if (curBlck.parent.isNil) or
-       curBlck.parent.executionBlockHash.get(latestValidHash) ==
-         latestValidHash:
+        curBlck.parent.executionBlockHash.get(latestValidHash) == latestValidHash:
       break
     curBlck = curBlck.parent
 

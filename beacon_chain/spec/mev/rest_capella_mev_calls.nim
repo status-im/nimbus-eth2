@@ -6,29 +6,36 @@
 
 {.push raises: [].}
 
-import
-  chronos, presto/client,
-  ".."/eth2_apis/[rest_types, eth2_rest_serialization]
+import chronos, presto/client, ".."/eth2_apis/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 
-proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
-                       ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/builder/validators",
-     meth: MethodPost, connection: {Dedicated, Close}.}
+proc registerValidator*(
+  body: seq[SignedValidatorRegistrationV1]
+): RestPlainResponse {.
+  rest,
+  endpoint: "/eth/v1/builder/validators",
+  meth: MethodPost,
+  connection: {Dedicated, Close}
+.}
   ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/validators.yaml
   ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
 
-proc getHeaderCapella*(slot: Slot,
-                       parent_hash: Eth2Digest,
-                       pubkey: ValidatorPubKey
-                      ): RestResponse[GetHeaderResponseCapella] {.
-     rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
-     meth: MethodGet, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/header.yaml
+proc getHeaderCapella*(
+  slot: Slot, parent_hash: Eth2Digest, pubkey: ValidatorPubKey
+): RestResponse[GetHeaderResponseCapella] {.
+  rest,
+  endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
+  meth: MethodGet,
+  connection: {Dedicated, Close}
+.} ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/header.yaml
 
-proc submitBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock
-                        ): RestResponse[SubmitBlindedBlockResponseCapella] {.
-     rest, endpoint: "/eth/v1/builder/blinded_blocks",
-     meth: MethodPost, connection: {Dedicated, Close}.}
+proc submitBlindedBlock*(
+  body: capella_mev.SignedBlindedBeaconBlock
+): RestResponse[SubmitBlindedBlockResponseCapella] {.
+  rest,
+  endpoint: "/eth/v1/builder/blinded_blocks",
+  meth: MethodPost,
+  connection: {Dedicated, Close}
+.}
   ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/blinded_blocks.yaml

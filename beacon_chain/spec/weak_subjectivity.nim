@@ -7,15 +7,15 @@
 
 {.push raises: [].}
 
-import
-  ./datatypes/base, ./beaconstate, ./forks, ./helpers
+import ./datatypes/base, ./beaconstate, ./forks, ./helpers
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/weak-subjectivity.md#configuration
 const SAFETY_DECAY* = 10'u64
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/weak-subjectivity.md#compute_weak_subjectivity_period
 func compute_weak_subjectivity_period(
-    cfg: RuntimeConfig, state: ForkyBeaconState): uint64 =
+    cfg: RuntimeConfig, state: ForkyBeaconState
+): uint64 =
   ## Returns the weak subjectivity period for the current ``state``.
   ## This computation takes into account the effect of:
   ##     - validator set churn
@@ -39,10 +39,8 @@ func compute_weak_subjectivity_period(
   if T * (200 + 3 * D) < t * (200 + 12 * D):
     let
       epochs_for_validator_set_churn =
-        N * (t * (200 + 12 * D) - T * (200 + 3 * D)) div
-          (600 * delta * (2 * t + T))
-      epochs_for_balance_top_ups =
-        N * (200 + 3 * D) div (600 * Delta)
+        N * (t * (200 + 12 * D) - T * (200 + 3 * D)) div (600 * delta * (2 * t + T))
+      epochs_for_balance_top_ups = N * (200 + 3 * D) div (600 * Delta)
     ws_period += max(epochs_for_validator_set_churn, epochs_for_balance_top_ups)
   else:
     ws_period += 3 * N * D * t div (200 * Delta * (T - t))
@@ -50,12 +48,14 @@ func compute_weak_subjectivity_period(
   ws_period
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/weak-subjectivity.md#is_within_weak_subjectivity_period
-func is_within_weak_subjectivity_period*(cfg: RuntimeConfig, current_slot: Slot,
-                                         ws_state: ForkedHashedBeaconState,
-                                         ws_checkpoint: Checkpoint): bool =
+func is_within_weak_subjectivity_period*(
+    cfg: RuntimeConfig,
+    current_slot: Slot,
+    ws_state: ForkedHashedBeaconState,
+    ws_checkpoint: Checkpoint,
+): bool =
   ## Clients may choose to validate the input state against the input Weak Subjectivity Checkpoint
-  doAssert getStateField(ws_state, latest_block_header).state_root ==
-    ws_checkpoint.root
+  doAssert getStateField(ws_state, latest_block_header).state_root == ws_checkpoint.root
   doAssert epoch(getStateField(ws_state, slot)) == ws_checkpoint.epoch
 
   let

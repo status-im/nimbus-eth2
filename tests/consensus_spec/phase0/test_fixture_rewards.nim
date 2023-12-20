@@ -14,13 +14,14 @@ import
   ../../../beacon_chain/spec/datatypes/phase0,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils, ../os_ops
+  ../fixtures_utils,
+  ../os_ops
 
 const
-  RewardsDirBase = SszTestsDir/const_preset/"phase0"/"rewards"
-  RewardsDirBasic = RewardsDirBase/"basic"/"pyspec_tests"
-  RewardsDirLeak = RewardsDirBase/"leak"/"pyspec_tests"
-  RewardsDirRandom = RewardsDirBase/"random"/"pyspec_tests"
+  RewardsDirBase = SszTestsDir / const_preset / "phase0" / "rewards"
+  RewardsDirBasic = RewardsDirBase / "basic" / "pyspec_tests"
+  RewardsDirLeak = RewardsDirBase / "leak" / "pyspec_tests"
+  RewardsDirRandom = RewardsDirBase / "random" / "pyspec_tests"
 
 func add(v: var Deltas, idx: int, delta: RewardDelta) =
   v.rewards[idx] += delta.rewards
@@ -36,17 +37,14 @@ proc runTest(rewardsDir, identifier: string) =
   let testDir = rewardsDir / identifier
 
   let
-    state = newClone(
-      parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
-    sourceDeltas =
-      parseTest(testDir/"source_deltas.ssz_snappy", SSZ, Deltas)
-    targetDeltas =
-      parseTest(testDir/"target_deltas.ssz_snappy", SSZ, Deltas)
-    headDeltas = parseTest(testDir/"head_deltas.ssz_snappy", SSZ, Deltas)
+    state = newClone(parseTest(testDir / "pre.ssz_snappy", SSZ, phase0.BeaconState))
+    sourceDeltas = parseTest(testDir / "source_deltas.ssz_snappy", SSZ, Deltas)
+    targetDeltas = parseTest(testDir / "target_deltas.ssz_snappy", SSZ, Deltas)
+    headDeltas = parseTest(testDir / "head_deltas.ssz_snappy", SSZ, Deltas)
     inclusionDelayDeltas =
-      parseTest(testDir/"inclusion_delay_deltas.ssz_snappy", SSZ, Deltas)
+      parseTest(testDir / "inclusion_delay_deltas.ssz_snappy", SSZ, Deltas)
     inactivityPenaltyDeltas =
-      parseTest(testDir/"inactivity_penalty_deltas.ssz_snappy", SSZ, Deltas)
+      parseTest(testDir / "inactivity_penalty_deltas.ssz_snappy", SSZ, Deltas)
 
   var
     cache = StateCache()
@@ -70,24 +68,26 @@ proc runTest(rewardsDir, identifier: string) =
     if not is_eligible_validator(validator):
       continue
 
-    let
-      base_reward = get_base_reward_sqrt(
-        state[], index.ValidatorIndex, total_balance_sqrt)
+    let base_reward =
+      get_base_reward_sqrt(state[], index.ValidatorIndex, total_balance_sqrt)
 
-    sourceDeltas2.add(index, get_source_delta(
-      validator, base_reward, info.balances, finality_delay))
-    targetDeltas2.add(index, get_target_delta(
-      validator, base_reward, info.balances, finality_delay))
-    headDeltas2.add(index, get_head_delta(
-      validator, base_reward, info.balances, finality_delay))
+    sourceDeltas2.add(
+      index, get_source_delta(validator, base_reward, info.balances, finality_delay)
+    )
+    targetDeltas2.add(
+      index, get_target_delta(validator, base_reward, info.balances, finality_delay)
+    )
+    headDeltas2.add(
+      index, get_head_delta(validator, base_reward, info.balances, finality_delay)
+    )
 
-    let
-      (inclusion_delay_delta, proposer_delta) =
-        get_inclusion_delay_delta(validator, base_reward)
+    let (inclusion_delay_delta, proposer_delta) =
+      get_inclusion_delay_delta(validator, base_reward)
     inclusionDelayDeltas2.add(index, inclusion_delay_delta)
 
-    inactivityPenaltyDeltas2.add(index, get_inactivity_penalty_delta(
-      validator, base_reward, finality_delay))
+    inactivityPenaltyDeltas2.add(
+      index, get_inactivity_penalty_delta(validator, base_reward, finality_delay)
+    )
 
     if proposer_delta.isSome:
       let proposer_index = proposer_delta.get()[0]

@@ -1,13 +1,16 @@
 import std/os
 import stew/io2
 
-export walkDir, PathComponent, walkDirRec, walkPattern, `/`, relativePath,
-       os.DirSep, os.splitPath
+export
+  walkDir, PathComponent, walkDirRec, walkPattern, `/`, relativePath, os.DirSep,
+  os.splitPath
 export io2.readAllBytes
 
-proc fileExists*(path: string): bool = io2.isFile(path)
+proc fileExists*(path: string): bool =
+  io2.isFile(path)
 
-proc dirExists*(path: string): bool = io2.isDir(path)
+proc dirExists*(path: string): bool =
+  io2.isDir(path)
 
 proc readFile*(filename: string): string =
   let res = io2.readAllChars(filename)

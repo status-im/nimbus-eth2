@@ -7,9 +7,7 @@
 
 {.push raises: [].}
 
-import
-  "."/[helpers, forks],
-  "."/datatypes/base
+import "."/[helpers, forks], "."/datatypes/base
 
 export base
 
@@ -31,8 +29,7 @@ const
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#configuration
-  MAX_REQUEST_BLOB_SIDECARS*: uint64 =
-    MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
+  MAX_REQUEST_BLOB_SIDECARS*: uint64 = MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
 
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
@@ -69,29 +66,29 @@ func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
-    committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
-    SubnetId =
+    committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex
+): SubnetId =
   ## Compute the correct subnet for an attestation for Phase 0.
   # Note, this mimics expected future behavior where attestations will be
   # mapped to their shard subnet.
   let
     slots_since_epoch_start = slot.since_epoch_start()
-    committees_since_epoch_start =
-      committees_per_slot * slots_since_epoch_start
+    committees_since_epoch_start = committees_per_slot * slots_since_epoch_start
 
   SubnetId(
     (committees_since_epoch_start + committee_index.asUInt64) mod
-    ATTESTATION_SUBNET_COUNT)
+      ATTESTATION_SUBNET_COUNT
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#broadcast-attestation
-func getAttestationTopic*(forkDigest: ForkDigest,
-                          subnetId: SubnetId): string =
+func getAttestationTopic*(forkDigest: ForkDigest, subnetId: SubnetId): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "beacon_attestation_" & $(subnetId) & "/ssz_snappy"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/p2p-interface.md#topics-and-messages
-func getSyncCommitteeTopic*(forkDigest: ForkDigest,
-                            subcommitteeIdx: SyncSubcommitteeIndex): string =
+func getSyncCommitteeTopic*(
+    forkDigest: ForkDigest, subcommitteeIdx: SyncSubcommitteeIndex
+): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $subcommitteeIdx & "/ssz_snappy"
 
@@ -101,8 +98,7 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
-func getBlobSidecarTopic*(forkDigest: ForkDigest,
-                          subnet_id: BlobId): string =
+func getBlobSidecarTopic*(forkDigest: ForkDigest, subnet_id: BlobId): string =
   eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/validator.md#sidecar
@@ -119,43 +115,46 @@ func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
   eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"
 
-func getENRForkID*(cfg: RuntimeConfig,
-                   epoch: Epoch,
-                   genesis_validators_root: Eth2Digest): ENRForkID =
+func getENRForkID*(
+    cfg: RuntimeConfig, epoch: Epoch, genesis_validators_root: Eth2Digest
+): ENRForkID =
   let
     current_fork_version = cfg.forkVersionAtEpoch(epoch)
-    next_fork_version = if cfg.nextForkEpochAtEpoch(epoch) == FAR_FUTURE_EPOCH:
-      current_fork_version
-    else:
-      cfg.forkVersionAtEpoch(cfg.nextForkEpochAtEpoch(epoch))
-    fork_digest = compute_fork_digest(current_fork_version,
-                                      genesis_validators_root)
+    next_fork_version =
+      if cfg.nextForkEpochAtEpoch(epoch) == FAR_FUTURE_EPOCH:
+        current_fork_version
+      else:
+        cfg.forkVersionAtEpoch(cfg.nextForkEpochAtEpoch(epoch))
+    fork_digest = compute_fork_digest(current_fork_version, genesis_validators_root)
   ENRForkID(
     fork_digest: fork_digest,
     next_fork_version: next_fork_version,
-    next_fork_epoch: cfg.nextForkEpochAtEpoch(epoch))
+    next_fork_epoch: cfg.nextForkEpochAtEpoch(epoch),
+  )
 
-func getDiscoveryForkID*(cfg: RuntimeConfig,
-                         epoch: Epoch,
-                         genesis_validators_root: Eth2Digest): ENRForkID =
+func getDiscoveryForkID*(
+    cfg: RuntimeConfig, epoch: Epoch, genesis_validators_root: Eth2Digest
+): ENRForkID =
   # Until 1 epoch from fork, return pre-fork value.
   if cfg.nextForkEpochAtEpoch(epoch) - epoch <= 1:
     getENRForkID(cfg, epoch, genesis_validators_root)
   else:
     let
       current_fork_version = cfg.forkVersionAtEpoch(epoch)
-      fork_digest = compute_fork_digest(current_fork_version,
-                                        genesis_validators_root)
+      fork_digest = compute_fork_digest(current_fork_version, genesis_validators_root)
     ENRForkID(
       fork_digest: fork_digest,
       next_fork_version: current_fork_version,
-      next_fork_epoch: FAR_FUTURE_EPOCH)
+      next_fork_epoch: FAR_FUTURE_EPOCH,
+    )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/p2p-interface.md#transitioning-the-gossip
 type GossipState* = set[ConsensusFork]
 func getTargetGossipState*(
-    epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
-    DENEB_FORK_EPOCH: Epoch, isBehind: bool): GossipState =
+    epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH, DENEB_FORK_EPOCH:
+      Epoch,
+    isBehind: bool,
+): GossipState =
   if isBehind:
     return {}
 
@@ -172,22 +171,17 @@ func getTargetGossipState*(
   var targetForks: GossipState
 
   template maybeIncludeFork(
-      targetFork: ConsensusFork, targetForkEpoch: Epoch,
-      successiveForkEpoch: Epoch) =
+      targetFork: ConsensusFork, targetForkEpoch: Epoch, successiveForkEpoch: Epoch
+  ) =
     # Subscribe one epoch ahead
     if epoch + 1 >= targetForkEpoch and epoch < successiveForkEpoch:
       targetForks.incl targetFork
 
-  maybeIncludeFork(
-    ConsensusFork.Phase0,    GENESIS_EPOCH,        ALTAIR_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Altair,    ALTAIR_FORK_EPOCH,    BELLATRIX_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Capella,   CAPELLA_FORK_EPOCH,   DENEB_FORK_EPOCH)
-  maybeIncludeFork(
-    ConsensusFork.Deneb,     DENEB_FORK_EPOCH,     FAR_FUTURE_EPOCH)
+  maybeIncludeFork(ConsensusFork.Phase0, GENESIS_EPOCH, ALTAIR_FORK_EPOCH)
+  maybeIncludeFork(ConsensusFork.Altair, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH)
+  maybeIncludeFork(ConsensusFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
+  maybeIncludeFork(ConsensusFork.Capella, CAPELLA_FORK_EPOCH, DENEB_FORK_EPOCH)
+  maybeIncludeFork(ConsensusFork.Deneb, DENEB_FORK_EPOCH, FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks
@@ -204,9 +198,9 @@ func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =
   Opt.none(uint64)
 
 func getSyncSubnets*(
-    nodeHasPubkey: proc(pubkey: ValidatorPubKey):
-      bool {.noSideEffect, raises: [].},
-    syncCommittee: SyncCommittee): SyncnetBits =
+    nodeHasPubkey: proc(pubkey: ValidatorPubKey): bool {.noSideEffect, raises: [].},
+    syncCommittee: SyncCommittee,
+): SyncnetBits =
   var res: SyncnetBits
   for i, pubkey in syncCommittee.pubkeys:
     if not nodeHasPubkey(pubkey):

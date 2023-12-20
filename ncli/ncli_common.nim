@@ -16,7 +16,8 @@ import
     beaconstate,
     state_transition_epoch,
     state_transition_block,
-    signatures],
+    signatures,
+  ],
   ../beacon_chain/consensus_object_pools/blockchain_dag
 
 from ../beacon_chain/spec/datatypes/capella import BeaconState
@@ -53,15 +54,16 @@ const
   epochInfoFileNameDigitsCount = 8
   epochFileNameExtension = ".epoch"
 
-func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
-                             forkedState: ForkedHashedBeaconState) =
+func copyParticipationFlags*(
+    auxiliaryState: var AuxiliaryState, forkedState: ForkedHashedBeaconState
+) =
   withState(forkedState):
     when consensusFork > ConsensusFork.Phase0:
-      template flags: untyped = auxiliaryState.epochParticipationFlags
-      flags.currentEpochParticipation =
-        forkyState.data.current_epoch_participation
-      flags.previousEpochParticipation =
-        forkyState.data.previous_epoch_participation
+      template flags(): untyped =
+        auxiliaryState.epochParticipationFlags
+
+      flags.currentEpochParticipation = forkyState.data.current_epoch_participation
+      flags.previousEpochParticipation = forkyState.data.previous_epoch_participation
 
 from std/sequtils import allIt
 
@@ -76,20 +78,24 @@ func matchFilenameUnaggregatedFiles(filename: string): bool =
 
 static:
   for filename in [
-      "00000000.epoch", "00243929.epoch", "04957024.epoch", "39820353.epoch",
-      "82829191.epoch", "85740966.epoch", "93321944.epoch", "98928899.epoch"]:
+    "00000000.epoch", "00243929.epoch", "04957024.epoch", "39820353.epoch",
+    "82829191.epoch", "85740966.epoch", "93321944.epoch", "98928899.epoch",
+  ]:
     doAssert filename.matchFilenameUnaggregatedFiles
 
   for filename in [
-      # Valid aggregated, not unaggregated
-      "03820350_13372742.epoch", "04117778_69588614.epoch",
-      "25249017_64218993.epoch", "34265267_41589365.epoch",
-      "57926659_59282297.epoch", "67699314_92835461.epoch",
-
-      "0000000.epoch",     # Too short
-      "000000000.epoch",   # Too long
-      "75787x73.epoch",    # Incorrect number format
-      "00000000.ecpoh"]:   # Wrong extension
+    # Valid aggregated, not unaggregated
+    "03820350_13372742.epoch",
+    "04117778_69588614.epoch",
+    "25249017_64218993.epoch",
+    "34265267_41589365.epoch",
+    "57926659_59282297.epoch",
+    "67699314_92835461.epoch",
+    "0000000.epoch", # Too short
+    "000000000.epoch", # Too long
+    "75787x73.epoch", # Incorrect number format
+    "00000000.ecpoh",
+  ]: # Wrong extension
     doAssert not filename.matchFilenameUnaggregatedFiles
 
 func matchFilenameAggregatedFiles(filename: string): bool =
@@ -102,30 +108,38 @@ func matchFilenameAggregatedFiles(filename: string): bool =
     allIt(filename[0 ..< epochInfoFileNameDigitsCount], it.isDigit) and
     filename[epochInfoFileNameDigitsCount] == '_' and
     allIt(
-      filename[epochInfoFileNameDigitsCount + 1 ..< 2 * epochInfoFileNameDigitsCount + 1],
-      it.isDigit)
+      filename[
+        epochInfoFileNameDigitsCount + 1 ..< 2 * epochInfoFileNameDigitsCount + 1
+      ],
+      it.isDigit,
+    )
 
 static:
   for filename in [
-      "03820350_13372742.epoch", "04117778_69588614.epoch",
-      "25249017_64218993.epoch", "34265267_41589365.epoch",
-      "57926659_59282297.epoch", "67699314_92835461.epoch"]:
+    "03820350_13372742.epoch", "04117778_69588614.epoch", "25249017_64218993.epoch",
+    "34265267_41589365.epoch", "57926659_59282297.epoch", "67699314_92835461.epoch",
+  ]:
     doAssert filename.matchFilenameAggregatedFiles
 
   for filename in [
-      # Valid unaggregated, not aggregated
-      "00000000.epoch", "00243929.epoch", "04957024.epoch", "39820353.epoch",
-      "82829191.epoch", "85740966.epoch", "93321944.epoch", "98928899.epoch",
-
-      "00000000_0000000.epoch",   # Too short
-      "31x85971_93149672.epoch",  # Incorrect number format, first field
-      "18049105&72034596.epoch",  # No underscore separator
-      "31485971_931496x2.epoch",  # Incorrect number format, second field
-      "15227487_86601706.echop"]: # Wrong extension
+    # Valid unaggregated, not aggregated
+    "00000000.epoch",
+    "00243929.epoch",
+    "04957024.epoch",
+    "39820353.epoch",
+    "82829191.epoch",
+    "85740966.epoch",
+    "93321944.epoch",
+    "98928899.epoch",
+    "00000000_0000000.epoch", # Too short
+    "31x85971_93149672.epoch", # Incorrect number format, first field
+    "18049105&72034596.epoch", # No underscore separator
+    "31485971_931496x2.epoch", # Incorrect number format, second field
+    "15227487_86601706.echop",
+  ]: # Wrong extension
     doAssert not filename.matchFilenameAggregatedFiles
 
-proc getUnaggregatedFilesEpochRange*(dir: string):
-    tuple[firstEpoch, lastEpoch: Epoch] =
+proc getUnaggregatedFilesEpochRange*(dir: string): tuple[firstEpoch, lastEpoch: Epoch] =
   var smallestEpochFileName =
     '9'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   var largestEpochFileName =
@@ -136,10 +150,10 @@ proc getUnaggregatedFilesEpochRange*(dir: string):
         smallestEpochFileName = fn
       if fn > largestEpochFileName:
         largestEpochFileName = fn
-  result.firstEpoch = parseUInt(
-    smallestEpochFileName[0 ..< epochInfoFileNameDigitsCount]).Epoch
-  result.lastEpoch = parseUInt(
-    largestEpochFileName[0 ..< epochInfoFileNameDigitsCount]).Epoch
+  result.firstEpoch =
+    parseUInt(smallestEpochFileName[0 ..< epochInfoFileNameDigitsCount]).Epoch
+  result.lastEpoch =
+    parseUInt(largestEpochFileName[0 ..< epochInfoFileNameDigitsCount]).Epoch
 
 proc getUnaggregatedFilesLastEpoch*(dir: string): Epoch =
   dir.getUnaggregatedFilesEpochRange.lastEpoch
@@ -149,7 +163,8 @@ proc getAggregatedFilesLastEpoch*(dir: string): Epoch =
   for (_, fn) in walkDir(dir.string, relative = true):
     if fn.matchFilenameAggregatedFiles:
       let fileLastEpoch = parseUInt(
-        fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])
+        fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount]
+      )
       if fileLastEpoch > largestEpochInFileName:
         largestEpochInFileName = fileLastEpoch
   largestEpochInFileName.Epoch
@@ -162,8 +177,8 @@ func getFilePathForEpoch*(epoch: Epoch, dir: string): string =
   dir / epochAsString(epoch) & epochFileNameExtension
 
 func getFilePathForEpochs*(startEpoch, endEpoch: Epoch, dir: string): string =
-  let fileName = epochAsString(startEpoch) & "_"  &
-                 epochAsString(endEpoch) & epochFileNameExtension
+  let fileName =
+    epochAsString(startEpoch) & "_" & epochAsString(endEpoch) & epochFileNameExtension
   dir / fileName
 
 func getBlockRange*(dag: ChainDAGRef, start, ends: Slot): seq[BlockId] =
@@ -187,23 +202,27 @@ func getOutcome(delta: RewardDelta): int64 =
 
 func collectSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: ForkyBeaconState, total_balance: Gwei) =
+    state: ForkyBeaconState,
+    total_balance: Gwei,
+) =
   let
     epoch = get_current_epoch(state)
-    adjusted_total_slashing_balance = get_adjusted_total_slashing_balance(
-      state, total_balance)
+    adjusted_total_slashing_balance =
+      get_adjusted_total_slashing_balance(state, total_balance)
 
   for index in 0 ..< state.validators.len:
     let validator = unsafeAddr state.validators[index]
     if slashing_penalty_applies(validator[], epoch):
       rewardsAndPenalties[index].slashing_outcome +=
-        validator[].get_slashing_penalty(
-          adjusted_total_slashing_balance, total_balance).int64
+        validator[].get_slashing_penalty(adjusted_total_slashing_balance, total_balance).int64
 
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: var phase0.BeaconState, cache: var StateCache, cfg: RuntimeConfig,
-    flags: UpdateFlags) =
+    state: var phase0.BeaconState,
+    cache: var StateCache,
+    cfg: RuntimeConfig,
+    flags: UpdateFlags,
+) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
 
@@ -225,38 +244,43 @@ proc collectEpochRewardsAndPenalties*(
     if not is_eligible_validator(validator):
       continue
 
-    let base_reward  = get_base_reward_sqrt(
-      state, index.ValidatorIndex, total_balance_sqrt)
+    let base_reward =
+      get_base_reward_sqrt(state, index.ValidatorIndex, total_balance_sqrt)
 
     template get_attestation_component_reward_helper(attesting_balance: Gwei): Gwei =
-      get_attestation_component_reward(attesting_balance,
-        info.balances.current_epoch, base_reward.uint64, finality_delay)
+      get_attestation_component_reward(
+        attesting_balance, info.balances.current_epoch, base_reward.uint64,
+        finality_delay,
+      )
 
-    template rp: untyped = rewardsAndPenalties[index]
+    template rp(): untyped =
+      rewardsAndPenalties[index]
 
-    rp.source_outcome = get_source_delta(
-      validator, base_reward, info.balances, finality_delay).getOutcome
-    rp.max_source_reward = get_attestation_component_reward_helper(
-      info.balances.previous_epoch_attesters)
+    rp.source_outcome =
+      get_source_delta(validator, base_reward, info.balances, finality_delay).getOutcome
+    rp.max_source_reward =
+      get_attestation_component_reward_helper(info.balances.previous_epoch_attesters)
 
-    rp.target_outcome = get_target_delta(
-      validator, base_reward, info.balances, finality_delay).getOutcome
+    rp.target_outcome =
+      get_target_delta(validator, base_reward, info.balances, finality_delay).getOutcome
     rp.max_target_reward = get_attestation_component_reward_helper(
-      info.balances.previous_epoch_target_attesters)
+      info.balances.previous_epoch_target_attesters
+    )
 
-    rp.head_outcome = get_head_delta(
-       validator, base_reward, info.balances, finality_delay).getOutcome
+    rp.head_outcome =
+      get_head_delta(validator, base_reward, info.balances, finality_delay).getOutcome
     rp.max_head_reward = get_attestation_component_reward_helper(
-      info.balances.previous_epoch_head_attesters)
+      info.balances.previous_epoch_head_attesters
+    )
 
-    let (inclusion_delay_delta, proposer_delta) = get_inclusion_delay_delta(
-      validator, base_reward)
+    let (inclusion_delay_delta, proposer_delta) =
+      get_inclusion_delay_delta(validator, base_reward)
     rp.inclusion_delay_outcome = inclusion_delay_delta.getOutcome
     rp.max_inclusion_delay_reward =
       base_reward - state_transition_epoch.get_proposer_reward(base_reward)
 
-    rp.inactivity_penalty = get_inactivity_penalty_delta(
-      validator, base_reward, finality_delay).penalties
+    rp.inactivity_penalty =
+      get_inactivity_penalty_delta(validator, base_reward, finality_delay).penalties
 
     if proposer_delta.isSome:
       let proposer_index = proposer_delta.get[0]
@@ -268,9 +292,15 @@ proc collectEpochRewardsAndPenalties*(
 
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState),
-    cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
+    state:
+      var (
+        altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+        deneb.BeaconState
+      ),
+    cache: var StateCache,
+    cfg: RuntimeConfig,
+    flags: UpdateFlags,
+) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
 
@@ -284,110 +314,120 @@ proc collectEpochRewardsAndPenalties*(
 
   let
     total_active_balance = info.balances.current_epoch
-    base_reward_per_increment = get_base_reward_per_increment(
-      total_active_balance)
+    base_reward_per_increment = get_base_reward_per_increment(total_active_balance)
     finality_delay = get_finality_delay(state)
 
-  for validator_index, reward_source, reward_target, reward_head,
-      penalty_source, penalty_target, penalty_inactivity in
-      get_flag_and_inactivity_deltas(
-        cfg, state, base_reward_per_increment, info, finality_delay):
-    template rp: untyped = rewardsAndPenalties[validator_index]
+  for validator_index, reward_source, reward_target, reward_head, penalty_source,
+    penalty_target, penalty_inactivity in get_flag_and_inactivity_deltas(
+    cfg, state, base_reward_per_increment, info, finality_delay
+  ):
+    template rp(): untyped =
+      rewardsAndPenalties[validator_index]
 
     let
-      base_reward = get_base_reward_increment(
-        state, validator_index, base_reward_per_increment)
+      base_reward =
+        get_base_reward_increment(state, validator_index, base_reward_per_increment)
       active_increments = get_active_increments(info)
 
     template unslashed_participating_increment(flag_index: untyped): untyped =
       get_unslashed_participating_increment(info, flag_index)
+
     template max_flag_index_reward(flag_index: untyped): untyped =
       get_flag_index_reward(
-        state, base_reward, active_increments,
+        state,
+        base_reward,
+        active_increments,
         unslashed_participating_increment(flag_index),
-        PARTICIPATION_FLAG_WEIGHTS[flag_index], finality_delay)
+        PARTICIPATION_FLAG_WEIGHTS[flag_index],
+        finality_delay,
+      )
 
     rp.source_outcome = reward_source.int64 - penalty_source.int64
-    rp.max_source_reward =
-      max_flag_index_reward(TimelyFlag.TIMELY_SOURCE_FLAG_INDEX)
+    rp.max_source_reward = max_flag_index_reward(TimelyFlag.TIMELY_SOURCE_FLAG_INDEX)
     rp.target_outcome = reward_target.int64 - penalty_target.int64
-    rp.max_target_reward =
-      max_flag_index_reward(TimelyFlag.TIMELY_TARGET_FLAG_INDEX)
+    rp.max_target_reward = max_flag_index_reward(TimelyFlag.TIMELY_TARGET_FLAG_INDEX)
     rp.head_outcome = reward_head.int64
-    rp.max_head_reward =
-      max_flag_index_reward(TimelyFlag.TIMELY_HEAD_FLAG_INDEX)
+    rp.max_head_reward = max_flag_index_reward(TimelyFlag.TIMELY_HEAD_FLAG_INDEX)
 
-    rewardsAndPenalties[validator_index].inactivity_penalty +=
-      penalty_inactivity
+    rewardsAndPenalties[validator_index].inactivity_penalty += penalty_inactivity
 
   rewardsAndPenalties.collectSlashings(state, info.balances.current_epoch)
 
 func collectFromSlashedValidator(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: ForkyBeaconState, slashedIndex, proposerIndex: ValidatorIndex) =
-  template slashed_validator: untyped = state.validators[slashedIndex]
+    state: ForkyBeaconState,
+    slashedIndex, proposerIndex: ValidatorIndex,
+) =
+  template slashed_validator(): untyped =
+    state.validators[slashedIndex]
+
   let slashingPenalty = get_slashing_penalty(state, slashed_validator.effective_balance)
-  let whistleblowerReward = get_whistleblower_reward(slashed_validator.effective_balance)
+  let whistleblowerReward =
+    get_whistleblower_reward(slashed_validator.effective_balance)
   rewardsAndPenalties[slashedIndex].slashing_outcome -= slashingPenalty.int64
   rewardsAndPenalties[proposerIndex].slashing_outcome += whistleblowerReward.int64
 
 func collectFromProposerSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
-    forkedBlock: ForkedTrustedSignedBeaconBlock) =
+    forkedBlock: ForkedTrustedSignedBeaconBlock,
+) =
   withStateAndBlck(forkedState, forkedBlock):
     for proposer_slashing in forkyBlck.message.body.proposer_slashings:
-      doAssert check_proposer_slashing(
-        forkyState.data, proposer_slashing, {}).isOk
-      let slashedIndex =
-        proposer_slashing.signed_header_1.message.proposer_index
+      doAssert check_proposer_slashing(forkyState.data, proposer_slashing, {}).isOk
+      let slashedIndex = proposer_slashing.signed_header_1.message.proposer_index
       rewardsAndPenalties.collectFromSlashedValidator(
         forkyState.data, slashedIndex.ValidatorIndex,
-        forkyBlck.message.proposer_index.ValidatorIndex)
+        forkyBlck.message.proposer_index.ValidatorIndex,
+      )
 
 func collectFromAttesterSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
-    forkedBlock: ForkedTrustedSignedBeaconBlock) =
+    forkedBlock: ForkedTrustedSignedBeaconBlock,
+) =
   withStateAndBlck(forkedState, forkedBlock):
     for attester_slashing in forkyBlck.message.body.attester_slashings:
-      let attester_slashing_validity = check_attester_slashing(
-        forkyState.data, attester_slashing, {})
+      let attester_slashing_validity =
+        check_attester_slashing(forkyState.data, attester_slashing, {})
       doAssert attester_slashing_validity.isOk
       for slashedIndex in attester_slashing_validity.value:
         rewardsAndPenalties.collectFromSlashedValidator(
-          forkyState.data, slashedIndex,
-          forkyBlck.message.proposer_index.ValidatorIndex)
+          forkyState.data, slashedIndex, forkyBlck.message.proposer_index.ValidatorIndex
+        )
 
 func collectFromAttestations(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock,
     epochParticipationFlags: var ParticipationFlags,
-    cache: var StateCache) =
+    cache: var StateCache,
+) =
   withStateAndBlck(forkedState, forkedBlock):
     when consensusFork > ConsensusFork.Phase0:
-      let base_reward_per_increment = get_base_reward_per_increment(
-        get_total_active_balance(forkyState.data, cache))
+      let base_reward_per_increment =
+        get_base_reward_per_increment(get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0
       for attestation in forkyBlck.message.body.attestations:
-        doAssert check_attestation(
-          forkyState.data, attestation, {}, cache).isOk
+        doAssert check_attestation(forkyState.data, attestation, {}, cache).isOk
         let proposerReward =
           if attestation.data.target.epoch == get_current_epoch(forkyState.data):
             get_proposer_reward(
               forkyState.data, attestation, base_reward_per_increment, cache,
-              epochParticipationFlags.currentEpochParticipation)
+              epochParticipationFlags.currentEpochParticipation,
+            )
           else:
             get_proposer_reward(
               forkyState.data, attestation, base_reward_per_increment, cache,
-              epochParticipationFlags.previousEpochParticipation)
-        rewardsAndPenalties[forkyBlck.message.proposer_index]
-          .proposer_outcome += proposerReward.int64
+              epochParticipationFlags.previousEpochParticipation,
+            )
+
+        rewardsAndPenalties[forkyBlck.message.proposer_index].proposer_outcome +=
+          proposerReward.int64
         let inclusionDelay = forkyState.data.slot - attestation.data.slot
         for index in get_attesting_indices(
-            forkyState.data, attestation.data, attestation.aggregation_bits,
-            cache):
+          forkyState.data, attestation.data, attestation.aggregation_bits, cache
+        ):
           rewardsAndPenalties[index].inclusion_delay = some(inclusionDelay.uint64)
 
 proc collectFromDeposits(
@@ -395,7 +435,8 @@ proc collectFromDeposits(
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock,
     pubkeyToIndex: var PubkeyToIndexTable,
-    cfg: RuntimeConfig) =
+    cfg: RuntimeConfig,
+) =
   withStateAndBlck(forkedState, forkedBlock):
     for deposit in forkyBlck.message.body.deposits:
       let pubkey = deposit.data.pubkey
@@ -408,39 +449,38 @@ proc collectFromDeposits(
         rewardsAndPenalties[index.get()].deposits += amount
       elif verify_deposit_signature(cfg, deposit.data):
         pubkeyToIndex[pubkey] = ValidatorIndex(rewardsAndPenalties.len)
-        rewardsAndPenalties.add(
-          RewardsAndPenalties(deposits: amount))
+        rewardsAndPenalties.add(RewardsAndPenalties(deposits: amount))
 
 func collectFromSyncAggregate(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock,
-    cache: var StateCache) =
+    cache: var StateCache,
+) =
   withStateAndBlck(forkedState, forkedBlock):
     when consensusFork > ConsensusFork.Phase0:
       let
         total_active_balance = get_total_active_balance(forkyState.data, cache)
         participant_reward = get_participant_reward(total_active_balance)
-        proposer_reward =
-          state_transition_block.get_proposer_reward(participant_reward)
-        indices = get_sync_committee_cache(
-          forkyState.data, cache).current_sync_committee
+        proposer_reward = state_transition_block.get_proposer_reward(participant_reward)
+        indices =
+          get_sync_committee_cache(forkyState.data, cache).current_sync_committee
 
-      template aggregate: untyped = forkyBlck.message.body.sync_aggregate
+      template aggregate(): untyped =
+        forkyBlck.message.body.sync_aggregate
 
       doAssert indices.len == SYNC_COMMITTEE_SIZE
       doAssert aggregate.sync_committee_bits.len == SYNC_COMMITTEE_SIZE
-      doAssert forkyState.data.current_sync_committee.pubkeys.len ==
-        SYNC_COMMITTEE_SIZE
+      doAssert forkyState.data.current_sync_committee.pubkeys.len == SYNC_COMMITTEE_SIZE
 
       for i in 0 ..< SYNC_COMMITTEE_SIZE:
-        rewardsAndPenalties[indices[i]].max_sync_committee_reward +=
-          participant_reward
+        rewardsAndPenalties[indices[i]].max_sync_committee_reward += participant_reward
         if aggregate.sync_committee_bits[i]:
           rewardsAndPenalties[indices[i]].sync_committee_outcome +=
             participant_reward.int64
-          rewardsAndPenalties[forkyBlck.message.proposer_index]
-            .proposer_outcome += proposer_reward.int64
+
+          rewardsAndPenalties[forkyBlck.message.proposer_index].proposer_outcome +=
+            proposer_reward.int64
         else:
           rewardsAndPenalties[indices[i]].sync_committee_outcome -=
             participant_reward.int64
@@ -450,20 +490,23 @@ proc collectBlockRewardsAndPenalties*(
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock,
     auxiliaryState: var AuxiliaryState,
-    cache: var StateCache, cfg: RuntimeConfig) =
+    cache: var StateCache,
+    cfg: RuntimeConfig,
+) =
   rewardsAndPenalties.collectFromProposerSlashings(forkedState, forkedBlock)
   rewardsAndPenalties.collectFromAttesterSlashings(forkedState, forkedBlock)
   rewardsAndPenalties.collectFromAttestations(
-    forkedState, forkedBlock, auxiliaryState.epochParticipationFlags, cache)
+    forkedState, forkedBlock, auxiliaryState.epochParticipationFlags, cache
+  )
   rewardsAndPenalties.collectFromDeposits(
-    forkedState, forkedBlock, auxiliaryState.pubkeyToIndex, cfg)
+    forkedState, forkedBlock, auxiliaryState.pubkeyToIndex, cfg
+  )
   # This table is needed only to resolve double deposits in the same block, so
   # it can be cleared after processing all deposits for the current block.
   auxiliaryState.pubkeyToIndex.clear
   rewardsAndPenalties.collectFromSyncAggregate(forkedState, forkedBlock, cache)
 
-func serializeToCsv*(rp: RewardsAndPenalties,
-                     avgInclusionDelay = none(float)): string =
+func serializeToCsv*(rp: RewardsAndPenalties, avgInclusionDelay = none(float)): string =
   for name, value in fieldPairs(rp):
     if value isnot Option:
       result &= $value & ","

@@ -12,5 +12,6 @@ import spec/datatypes/constants
 # No `uint64` support in Sqlite
 template isSupportedBySQLite*(slot: Slot): bool =
   slot <= int64.high.Slot
+
 template isSupportedBySQLite*(period: SyncCommitteePeriod): bool =
   period <= int64.high.SyncCommitteePeriod

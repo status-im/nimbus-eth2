@@ -21,14 +21,17 @@ proc processLinkCmd(cmd, linkerArgs: string): string =
 
   if cmd.len > 0 and cmd[0] == '"':
     inc i
-    while i < cmd.len and cmd[i] != '"': inc i
+    while i < cmd.len and cmd[i] != '"':
+      inc i
     last = i
     inc i
   else:
-    while i < cmd.len and cmd[i] != ' ': inc i
+    while i < cmd.len and cmd[i] != ' ':
+      inc i
     last = i
 
-  while i < cmd.len and cmd[i] == ' ': inc i
+  while i < cmd.len and cmd[i] == ' ':
+    inc i
 
   let args = cmd.substr(i)
   writeFile(linkerArgs, args.replace('\\', '/'))
@@ -75,7 +78,9 @@ proc main() =
     if found == false or objectPath == "":
       echo "Could not find the object file in this command: ", cmd
       quit(QuitFailure)
-    makefile.writeLine("$#: $#" % [objectPath.replace('\\', '/'), compile[0].getStr().replace('\\', '/')])
+    makefile.writeLine(
+      "$#: $#" % [objectPath.replace('\\', '/'), compile[0].getStr().replace('\\', '/')]
+    )
     makefile.writeLine("\t+ $#\n" % cmd)
 
   var objects: seq[string]
@@ -85,10 +90,14 @@ proc main() =
 
   makefile.writeLine(".PHONY: build")
   makefile.writeLine("build: $(OBJECTS)")
-  makefile.writeLine("\t+ $#" % processLinkCmd(data["linkcmd"].getStr().replace('\\', '/'), makefilePath & ".linkerArgs"))
+  makefile.writeLine(
+    "\t+ $#" %
+      processLinkCmd(
+        data["linkcmd"].getStr().replace('\\', '/'), makefilePath & ".linkerArgs"
+      )
+  )
   if data.hasKey("extraCmds"):
     for cmd in data["extraCmds"]:
       makefile.writeLine("\t+ $#" % cmd.getStr().replace('\\', '/'))
 
 main()
-

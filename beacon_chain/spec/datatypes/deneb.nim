@@ -32,7 +32,8 @@ export json_serialization, base, kzg4844
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
-  BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
+  BLS_MODULUS* =
+    "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/beacon-chain.md#beaconblockbody
@@ -50,12 +51,10 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
-    index*: BlobIndex
-      ## Index of blob in block
+    index*: BlobIndex ## Index of blob in block
     blob*: Blob
     kzg_commitment*: KzgCommitment
-    kzg_proof*: KzgProof
-      ## Allows for quick verification of kzg_commitment
+    kzg_proof*: KzgProof ## Allows for quick verification of kzg_commitment
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitment_inclusion_proof*:
       array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
@@ -66,18 +65,14 @@ type
     index*: BlobIndex
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/beacon-chain.md#executionpayload
-  ExecutionPayload* = object
-    # Execution block header fields
+  ExecutionPayload* = object # Execution block header fields
     parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-      ## 'beneficiary' in the yellow paper
+    fee_recipient*: ExecutionAddress ## 'beneficiary' in the yellow paper
     state_root*: Eth2Digest
     receipts_root*: Eth2Digest
     logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest
-      ## 'difficulty' in the yellow paper
-    block_number*: uint64
-      ## 'number' in the yellow paper
+    prev_randao*: Eth2Digest ## 'difficulty' in the yellow paper
+    block_number*: uint64 ## 'number' in the yellow paper
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
@@ -88,7 +83,7 @@ type
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
-    blob_gas_used*: uint64   # [New in Deneb]
+    blob_gas_used*: uint64 # [New in Deneb]
     excess_blob_gas*: uint64 # [New in Deneb]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/validator.md#blobsbundle
@@ -107,8 +102,7 @@ type
     blobsBundle*: BlobsBundle
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/beacon-chain.md#executionpayloadheader
-  ExecutionPayloadHeader* = object
-    # Execution block header fields
+  ExecutionPayloadHeader* = object # Execution block header fields
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
     state_root*: Eth2Digest
@@ -123,20 +117,18 @@ type
     base_fee_per_gas*: UInt256
 
     # Extra payload fields
-    block_hash*: Eth2Digest
-      ## Hash of execution block
+    block_hash*: Eth2Digest ## Hash of execution block
     transactions_root*: Eth2Digest
     withdrawals_root*: Eth2Digest
-    blob_gas_used*: uint64   # [New in Deneb:EIP4844]
+    blob_gas_used*: uint64 # [New in Deneb:EIP4844]
     excess_blob_gas*: uint64 # [New in Deneb:EIP4844]
 
-  ExecutePayload* = proc(
-    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
+  ExecutePayload* =
+    proc(execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
-    beacon*: BeaconBlockHeader
-      ## Beacon block header
+    beacon*: BeaconBlockHeader ## Beacon block header
 
     execution*: ExecutionPayloadHeader
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
@@ -144,8 +136,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
-    header*: LightClientHeader
-      ## Header matching the requested beacon block root
+    header*: LightClientHeader ## Header matching the requested beacon block root
 
     current_sync_committee*: SyncCommittee
       ## Current sync committee corresponding to `header.beacon.state_root`
@@ -153,8 +144,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
-    attested_header*: LightClientHeader
-      ## Header attested to by the sync committee
+    attested_header*: LightClientHeader ## Header attested to by the sync committee
 
     next_sync_committee*: SyncCommittee
       ## Next sync committee corresponding to
@@ -165,14 +155,12 @@ type
     finalized_header*: LightClientHeader
     finality_branch*: altair.FinalityBranch
 
-    sync_aggregate*: SyncAggregate
-      ## Sync committee aggregate signature
+    sync_aggregate*: SyncAggregate ## Sync committee aggregate signature
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
-  LightClientFinalityUpdate* = object
-    # Header attested to by the sync committee
+  LightClientFinalityUpdate* = object # Header attested to by the sync committee
     attested_header*: LightClientHeader
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
@@ -185,8 +173,7 @@ type
     signature_slot*: Slot
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
-  LightClientOptimisticUpdate* = object
-    # Header attested to by the sync committee
+  LightClientOptimisticUpdate* = object # Header attested to by the sync committee
     attested_header*: LightClientHeader
 
     # Sync committee aggregate signature
@@ -194,26 +181,18 @@ type
     # Slot at which the aggregate signature was created (untrusted)
     signature_slot*: Slot
 
-  SomeLightClientUpdateWithSyncCommittee* =
-    LightClientUpdate
+  SomeLightClientUpdateWithSyncCommittee* = LightClientUpdate
 
-  SomeLightClientUpdateWithFinality* =
-    LightClientUpdate |
-    LightClientFinalityUpdate
+  SomeLightClientUpdateWithFinality* = LightClientUpdate | LightClientFinalityUpdate
 
   SomeLightClientUpdate* =
-    LightClientUpdate |
-    LightClientFinalityUpdate |
-    LightClientOptimisticUpdate
+    LightClientUpdate | LightClientFinalityUpdate | LightClientOptimisticUpdate
 
-  SomeLightClientObject* =
-    LightClientBootstrap |
-    SomeLightClientUpdate
+  SomeLightClientObject* = LightClientBootstrap | SomeLightClientUpdate
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientstore
   LightClientStore* = object
-    finalized_header*: LightClientHeader
-      ## Header that is finalized
+    finalized_header*: LightClientHeader ## Header that is finalized
 
     current_sync_committee*: SyncCommittee
       ## Sync committees corresponding to the finalized header
@@ -223,8 +202,7 @@ type
       ## Best available header to switch finalized head to
       ## if we see nothing else
 
-    optimistic_header*: LightClientHeader
-      ## Most recent available reasonably-safe header
+    optimistic_header*: LightClientHeader ## Most recent available reasonably-safe header
 
     previous_max_active_participants*: uint64
       ## Max number of active participants in a sync committee
@@ -233,8 +211,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
   # changes indirectly via ExecutionPayloadHeader
-  BeaconState* = object
-    # Versioning
+  BeaconState* = object # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
@@ -273,8 +250,7 @@ type
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
-    justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
+    justification_bits*: JustificationBits ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
@@ -295,8 +271,7 @@ type
     next_withdrawal_validator_index*: uint64
 
     # Deep history valid from Capella onwards
-    historical_summaries*:
-      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -316,30 +291,24 @@ type
     ## validators that will have a chance to vote on it through attestations.
     ## Each block collects attestations, or votes, on past blocks, thus a chain
     ## is formed.
-
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+    parent_root*: Eth2Digest ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest ## The state root, _after_ this block has been processed
 
     body*: BeaconBlockBody
 
   SigVerifiedBeaconBlock* = object
     ## A BeaconBlock that contains verified signatures
     ## but that has not been verified for state transition
-
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+    parent_root*: Eth2Digest ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest ## The state root, _after_ this block has been processed
 
     body*: SigVerifiedBeaconBlockBody
 
@@ -369,11 +338,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
+    eth1_data*: Eth1Data ## Eth1 data vote
 
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
+    graffiti*: GraffitiBytes ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -385,9 +352,9 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [Modified in Deneb]
+    execution_payload*: ExecutionPayload # [Modified in Deneb]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -404,11 +371,9 @@ type
     ##
     ## The block state transition has NOT been verified
     randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
+    eth1_data*: Eth1Data ## Eth1 data vote
 
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
+    graffiti*: GraffitiBytes ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -420,18 +385,15 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [Modified in Deneb]
+    execution_payload*: ExecutionPayload # [Modified in Deneb]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
-  TrustedBeaconBlockBody* = object
-    ## A full verified block
+  TrustedBeaconBlockBody* = object ## A full verified block
     randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
+    eth1_data*: Eth1Data ## Eth1 data vote
 
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
+    graffiti*: GraffitiBytes ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -443,9 +405,9 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [Modified in Deneb]
+    execution_payload*: ExecutionPayload # [Modified in Deneb]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -486,18 +448,11 @@ type
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
   SomeSignedBeaconBlock* =
-    SignedBeaconBlock |
-    SigVerifiedSignedBeaconBlock |
-    MsgTrustedSignedBeaconBlock |
+    SignedBeaconBlock | SigVerifiedSignedBeaconBlock | MsgTrustedSignedBeaconBlock |
     TrustedSignedBeaconBlock
-  SomeBeaconBlock* =
-    BeaconBlock |
-    SigVerifiedBeaconBlock |
-    TrustedBeaconBlock
+  SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* =
-    BeaconBlockBody |
-    SigVerifiedBeaconBlockBody |
-    TrustedBeaconBlockBody
+    BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
   BlockContents* = object
     `block`*: BeaconBlock
@@ -545,10 +500,7 @@ func shortLog*(v: seq[ref BlobSidecar]): auto =
   "[" & v.mapIt(shortLog(it[])).join(", ") & "]"
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
-  (
-    blck: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
+  (blck: shortLog(v.message), signature: shortLog(v.signature))
 
 func shortLog*(v: ExecutionPayload): auto =
   (
@@ -566,40 +518,38 @@ func shortLog*(v: ExecutionPayload): auto =
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals),
-    excess_blob_gas: $(v.excess_blob_gas)
+    excess_blob_gas: $(v.excess_blob_gas),
   )
 
 func shortLog*(x: seq[BlobIdentifier]): string =
   "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
 
-func kzg_commitment_inclusion_proof_gindex*(
-    index: BlobIndex): GeneralizedIndex =
+func kzg_commitment_inclusion_proof_gindex*(index: BlobIndex): GeneralizedIndex =
   # This index is rooted in `BeaconBlockBody`.
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/ssz/merkle-proofs.md
   const
     # blob_kzg_commitments
-    BLOB_KZG_COMMITMENTS_GINDEX =
-      27.GeneralizedIndex
+    BLOB_KZG_COMMITMENTS_GINDEX = 27.GeneralizedIndex
     # List + 0 = items, + 1 = len
-    BLOB_KZG_COMMITMENTS_BASE_GINDEX =
-      (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
+    BLOB_KZG_COMMITMENTS_BASE_GINDEX = (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
     # List depth
     BLOB_KZG_COMMITMENTS_PROOF_DEPTH =
       log2trunc(nextPow2(deneb.KzgCommitments.maxLen.uint64))
     # First item
     BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
       (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)
-  static: doAssert(
-    log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX) ==
-    KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)
+  static:
+    doAssert(
+      log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX) ==
+        KZG_COMMITMENT_INCLUSION_PROOF_DEPTH
+    )
 
   BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
-func get_lc_execution_root*(
-    header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
+func get_lc_execution_root*(header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
 
   if epoch >= cfg.DENEB_FORK_EPOCH:
@@ -621,19 +571,20 @@ func get_lc_execution_root*(
       base_fee_per_gas: header.execution.base_fee_per_gas,
       block_hash: header.execution.block_hash,
       transactions_root: header.execution.transactions_root,
-      withdrawals_root: header.execution.withdrawals_root)
+      withdrawals_root: header.execution.withdrawals_root,
+    )
     return hash_tree_root(execution_header)
 
   ZERO_HASH
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
-    header: LightClientHeader, cfg: RuntimeConfig): bool =
+    header: LightClientHeader, cfg: RuntimeConfig
+): bool =
   let epoch = header.beacon.slot.epoch
 
   if epoch < cfg.DENEB_FORK_EPOCH:
-    if header.execution.blob_gas_used != 0 or
-        header.execution.excess_blob_gas != 0:
+    if header.execution.blob_gas_used != 0 or header.execution.excess_blob_gas != 0:
       return false
 
   if epoch < cfg.CAPELLA_FORK_EPOCH:
@@ -646,44 +597,47 @@ func is_valid_light_client_header*(
     header.execution_branch,
     log2trunc(EXECUTION_PAYLOAD_GINDEX),
     get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
-    header.beacon.body_root)
+    header.beacon.body_root,
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/light-client/fork.md#upgrading-light-client-data
-func upgrade_lc_header_to_deneb*(
-    pre: capella.LightClientHeader): LightClientHeader =
+func upgrade_lc_header_to_deneb*(pre: capella.LightClientHeader): LightClientHeader =
   LightClientHeader(
     beacon: pre.beacon,
     execution: ExecutionPayloadHeader(
-        parent_hash: pre.execution.parent_hash,
-        fee_recipient: pre.execution.fee_recipient,
-        state_root: pre.execution.state_root,
-        receipts_root: pre.execution.receipts_root,
-        logs_bloom: pre.execution.logs_bloom,
-        prev_randao: pre.execution.prev_randao,
-        block_number: pre.execution.block_number,
-        gas_limit: pre.execution.gas_limit,
-        gas_used: pre.execution.gas_used,
-        timestamp: pre.execution.timestamp,
-        extra_data: pre.execution.extra_data,
-        base_fee_per_gas: pre.execution.base_fee_per_gas,
-        block_hash: pre.execution.block_hash,
-        transactions_root: pre.execution.transactions_root,
-        withdrawals_root: pre.execution.withdrawals_root,
-        blob_gas_used: 0,     # [New in Deneb:EIP4844]
-        excess_blob_gas: 0),  # [New in Deneb:EIP4844]
-    execution_branch: pre.execution_branch)
+      parent_hash: pre.execution.parent_hash,
+      fee_recipient: pre.execution.fee_recipient,
+      state_root: pre.execution.state_root,
+      receipts_root: pre.execution.receipts_root,
+      logs_bloom: pre.execution.logs_bloom,
+      prev_randao: pre.execution.prev_randao,
+      block_number: pre.execution.block_number,
+      gas_limit: pre.execution.gas_limit,
+      gas_used: pre.execution.gas_used,
+      timestamp: pre.execution.timestamp,
+      extra_data: pre.execution.extra_data,
+      base_fee_per_gas: pre.execution.base_fee_per_gas,
+      block_hash: pre.execution.block_hash,
+      transactions_root: pre.execution.transactions_root,
+      withdrawals_root: pre.execution.withdrawals_root,
+      blob_gas_used: 0, # [New in Deneb:EIP4844]
+      excess_blob_gas: 0,
+    ), # [New in Deneb:EIP4844]
+    execution_branch: pre.execution_branch,
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_deneb*(
-    pre: capella.LightClientBootstrap): LightClientBootstrap =
+    pre: capella.LightClientBootstrap
+): LightClientBootstrap =
   LightClientBootstrap(
     header: upgrade_lc_header_to_deneb(pre.header),
     current_sync_committee: pre.current_sync_committee,
-    current_sync_committee_branch: pre.current_sync_committee_branch)
+    current_sync_committee_branch: pre.current_sync_committee_branch,
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/light-client/fork.md#upgrading-light-client-data
-func upgrade_lc_update_to_deneb*(
-    pre: capella.LightClientUpdate): LightClientUpdate =
+func upgrade_lc_update_to_deneb*(pre: capella.LightClientUpdate): LightClientUpdate =
   LightClientUpdate(
     attested_header: upgrade_lc_header_to_deneb(pre.attested_header),
     next_sync_committee: pre.next_sync_committee,
@@ -691,38 +645,40 @@ func upgrade_lc_update_to_deneb*(
     finalized_header: upgrade_lc_header_to_deneb(pre.finalized_header),
     finality_branch: pre.finality_branch,
     sync_aggregate: pre.sync_aggregate,
-    signature_slot: pre.signature_slot)
+    signature_slot: pre.signature_slot,
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_finality_update_to_deneb*(
-    pre: capella.LightClientFinalityUpdate): LightClientFinalityUpdate =
+    pre: capella.LightClientFinalityUpdate
+): LightClientFinalityUpdate =
   LightClientFinalityUpdate(
     attested_header: upgrade_lc_header_to_deneb(pre.attested_header),
     finalized_header: upgrade_lc_header_to_deneb(pre.finalized_header),
     finality_branch: pre.finality_branch,
     sync_aggregate: pre.sync_aggregate,
-    signature_slot: pre.signature_slot)
+    signature_slot: pre.signature_slot,
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_optimistic_update_to_deneb*(
-    pre: capella.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
+    pre: capella.LightClientOptimisticUpdate
+): LightClientOptimisticUpdate =
   LightClientOptimisticUpdate(
     attested_header: upgrade_lc_header_to_deneb(pre.attested_header),
     sync_aggregate: pre.sync_aggregate,
-    signature_slot: pre.signature_slot)
+    signature_slot: pre.signature_slot,
+  )
 
 func shortLog*(v: LightClientHeader): auto =
   (
     beacon: shortLog(v.beacon),
-    execution: (
-      block_hash: v.execution.block_hash,
-      block_number: v.execution.block_number)
+    execution:
+      (block_hash: v.execution.block_hash, block_number: v.execution.block_number),
   )
 
 func shortLog*(v: LightClientBootstrap): auto =
-  (
-    header: shortLog(v.header)
-  )
+  (header: shortLog(v.header))
 
 func shortLog*(v: LightClientUpdate): auto =
   (
@@ -731,7 +687,7 @@ func shortLog*(v: LightClientUpdate): auto =
       v.next_sync_committee != default(typeof(v.next_sync_committee)),
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
-    signature_slot: v.signature_slot
+    signature_slot: v.signature_slot,
   )
 
 func shortLog*(v: LightClientFinalityUpdate): auto =
@@ -739,7 +695,7 @@ func shortLog*(v: LightClientFinalityUpdate): auto =
     attested: shortLog(v.attested_header),
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
-    signature_slot: v.signature_slot
+    signature_slot: v.signature_slot,
   )
 
 func shortLog*(v: LightClientOptimisticUpdate): auto =
@@ -749,14 +705,17 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
     signature_slot: v.signature_slot,
   )
 
-chronicles.formatIt LightClientBootstrap: shortLog(it)
-chronicles.formatIt LightClientUpdate: shortLog(it)
-chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
-chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+chronicles.formatIt LightClientBootstrap:
+  shortLog(it)
+chronicles.formatIt LightClientUpdate:
+  shortLog(it)
+chronicles.formatIt LightClientFinalityUpdate:
+  shortLog(it)
+chronicles.formatIt LightClientOptimisticUpdate:
+  shortLog(it)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/light-client/fork.md#upgrading-the-store
-func upgrade_lc_store_to_deneb*(
-    pre: capella.LightClientStore): LightClientStore =
+func upgrade_lc_store_to_deneb*(pre: capella.LightClientStore): LightClientStore =
   let best_valid_update =
     if pre.best_valid_update.isNone:
       Opt.none(LightClientUpdate)
@@ -769,32 +728,30 @@ func upgrade_lc_store_to_deneb*(
     best_valid_update: best_valid_update,
     optimistic_header: upgrade_lc_header_to_deneb(pre.optimistic_header),
     previous_max_active_participants: pre.previous_max_active_participants,
-    current_max_active_participants: pre.current_max_active_participants)
+    current_max_active_participants: pre.current_max_active_participants,
+  )
 
 template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
+    x:
+      SigVerifiedSignedBeaconBlock | MsgTrustedSignedBeaconBlock |
+      TrustedSignedBeaconBlock
+): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
 template asSigVerified*(
-    x: SignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+    x: SignedBeaconBlock | MsgTrustedSignedBeaconBlock | TrustedSignedBeaconBlock
+): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+template asSigVerified*(x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
   isomorphicCast[SigVerifiedBeaconBlock](x)
 
 template asMsgTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
+    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
+): MsgTrustedSignedBeaconBlock =
   isomorphicCast[MsgTrustedSignedBeaconBlock](x)
 
 template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
+    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock | MsgTrustedSignedBeaconBlock
+): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)

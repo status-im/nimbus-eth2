@@ -10,13 +10,15 @@
 import
   # Status libraries
   stew/bitops2,
-  eth/common/eth_types as commonEthTypes, eth/common/eth_types_rlp,
+  eth/common/eth_types as commonEthTypes,
+  eth/common/eth_types_rlp,
   web3/primitives,
   # Beacon chain internals
   ../beacon_chain/spec/[forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/[bellatrix, capella],
   # Test utilities
-  unittest2, mocking/mock_genesis
+  unittest2,
+  mocking/mock_genesis
 
 suite "Spec helpers":
   test "integer_squareroot":
@@ -33,9 +35,9 @@ suite "Spec helpers":
       forked = newClone(initGenesisState())
       cache = StateCache()
       info = ForkedEpochInfo()
-    process_slots(
-      defaultRuntimeConfig, forked[], Slot(100), cache, info,
-      flags = {}).expect("no failure")
+
+    process_slots(defaultRuntimeConfig, forked[], Slot(100), cache, info, flags = {})
+    .expect("no failure")
 
     let
       state = forked[].phase0Data.data
@@ -52,12 +54,14 @@ suite "Spec helpers":
         state.build_proof(i, proof).get
         check:
           hash_tree_root(fieldVar) == hash_tree_root(state, i).get
-          is_valid_merkle_branch(hash_tree_root(fieldVar), proof,
-                                 depth, get_subtree_index(i), root)
+          is_valid_merkle_branch(
+            hash_tree_root(fieldVar), proof, depth, get_subtree_index(i), root
+          )
         when fieldVar is object and not (fieldVar is Eth2Digest):
           let
             numChildLeaves = fieldVar.numLeaves
             childDepth = log2trunc(numChildLeaves)
           process(fieldVar, i shl childDepth)
         i += 1
+
     process(state, state.numLeaves)

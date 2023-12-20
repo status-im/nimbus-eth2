@@ -13,13 +13,14 @@ import
   ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils, ../os_ops
+  ../fixtures_utils,
+  ../os_ops
 
 const
-  RewardsDirBase = SszTestsDir/const_preset/"altair"/"rewards"
-  RewardsDirBasic = RewardsDirBase/"basic"/"pyspec_tests"
-  RewardsDirLeak = RewardsDirBase/"leak"/"pyspec_tests"
-  RewardsDirRandom = RewardsDirBase/"random"/"pyspec_tests"
+  RewardsDirBase = SszTestsDir / const_preset / "altair" / "rewards"
+  RewardsDirBasic = RewardsDirBase / "basic" / "pyspec_tests"
+  RewardsDirLeak = RewardsDirBase / "leak" / "pyspec_tests"
+  RewardsDirRandom = RewardsDirBase / "random" / "pyspec_tests"
 
 func init(T: type Deltas, len: int): T =
   if not result.rewards.setLen(len):
@@ -33,14 +34,14 @@ proc runTest(rewardsDir, identifier: string) =
   var info: altair.EpochInfo
 
   let
-    state = newClone(
-      parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
+    state = newClone(parseTest(testDir / "pre.ssz_snappy", SSZ, altair.BeaconState))
     flagDeltas = [
-      parseTest(testDir/"source_deltas.ssz_snappy", SSZ, Deltas),
-      parseTest(testDir/"target_deltas.ssz_snappy", SSZ, Deltas),
-      parseTest(testDir/"head_deltas.ssz_snappy", SSZ, Deltas)]
+      parseTest(testDir / "source_deltas.ssz_snappy", SSZ, Deltas),
+      parseTest(testDir / "target_deltas.ssz_snappy", SSZ, Deltas),
+      parseTest(testDir / "head_deltas.ssz_snappy", SSZ, Deltas),
+    ]
     inactivityPenaltyDeltas =
-      parseTest(testDir/"inactivity_penalty_deltas.ssz_snappy", SSZ, Deltas)
+      parseTest(testDir / "inactivity_penalty_deltas.ssz_snappy", SSZ, Deltas)
 
   info.init(state[])
   let
@@ -51,29 +52,25 @@ proc runTest(rewardsDir, identifier: string) =
     flagDeltas2: array[TimelyFlag, Deltas] = [
       Deltas.init(state[].validators.len),
       Deltas.init(state[].validators.len),
-      Deltas.init(state[].validators.len)]
+      Deltas.init(state[].validators.len),
+    ]
     inactivityPenaltyDeltas2 = Deltas.init(state[].validators.len)
 
   let finality_delay = get_finality_delay(state[])
 
-  for validator_index, reward0, reward1, reward2, penalty0, penalty1, penalty2
-      in get_flag_and_inactivity_deltas(
-        defaultRuntimeConfig, state[], base_reward_per_increment, info,
-        finality_delay):
+  for validator_index, reward0, reward1, reward2, penalty0, penalty1, penalty2 in get_flag_and_inactivity_deltas(
+    defaultRuntimeConfig, state[], base_reward_per_increment, info, finality_delay
+  ):
     if not is_eligible_validator(info.validators[validator_index]):
       continue
-    flagDeltas2[TimelyFlag.TIMELY_SOURCE_FLAG_INDEX].rewards[validator_index] =
-      reward0
-    flagDeltas2[TimelyFlag.TIMELY_TARGET_FLAG_INDEX].rewards[validator_index] =
-      reward1
-    flagDeltas2[TimelyFlag.TIMELY_HEAD_FLAG_INDEX].rewards[validator_index] =
-      reward2
+    flagDeltas2[TimelyFlag.TIMELY_SOURCE_FLAG_INDEX].rewards[validator_index] = reward0
+    flagDeltas2[TimelyFlag.TIMELY_TARGET_FLAG_INDEX].rewards[validator_index] = reward1
+    flagDeltas2[TimelyFlag.TIMELY_HEAD_FLAG_INDEX].rewards[validator_index] = reward2
     flagDeltas2[TimelyFlag.TIMELY_SOURCE_FLAG_INDEX].penalties[validator_index] =
       penalty0
     flagDeltas2[TimelyFlag.TIMELY_TARGET_FLAG_INDEX].penalties[validator_index] =
       penalty1
-    flagDeltas2[TimelyFlag.TIMELY_HEAD_FLAG_INDEX].penalties[validator_index] =
-      0
+    flagDeltas2[TimelyFlag.TIMELY_HEAD_FLAG_INDEX].penalties[validator_index] = 0
     inactivityPenaltyDeltas2.penalties[validator_index] = penalty2
 
   check:

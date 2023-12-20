@@ -6,58 +6,66 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import
   std/[tables, sequtils, json, times, streams, os, strutils, options, typetraits],
-  confutils, chronicles, json_serialization
+  confutils,
+  chronicles,
+  json_serialization
 
 from stew/io2 import IoErrorCode
 
 type
   StartUpCommand* {.pure.} = enum
-    pubsub, asl, asr, aggasr, scmsr, csr, lat, traceAll, localSimChecks
+    pubsub
+    asl
+    asr
+    aggasr
+    scmsr
+    csr
+    lat
+    traceAll
+    localSimChecks
 
   LogTraceConf* = object
-    logFiles* {.
-      desc: "Specifies one or more log files",
-      abbr: "f",
-      name: "log-file" .}: seq[string]
+    logFiles* {.desc: "Specifies one or more log files", abbr: "f", name: "log-file".}:
+      seq[string]
 
     simDir* {.
       desc: "Specifies path to eth2_network_simulation directory",
       defaultValue: "",
-      name: "sim-dir" .}: string
+      name: "sim-dir"
+    .}: string
 
     netDir* {.
       desc: "Specifies path to network build directory",
       defaultValue: "",
-      name: "net-dir" .}: string
+      name: "net-dir"
+    .}: string
 
     logDir* {.
-      desc: "Specifies path with bunch of logs",
-      defaultValue: "",
-      name: "log-dir" .}: string
+      desc: "Specifies path with bunch of logs", defaultValue: "", name: "log-dir"
+    .}: string
 
     ignoreSerializationErrors* {.
       desc: "Ignore serialization errors while parsing log files",
       defaultValue: true,
-      name: "ignore-errors" .}: bool
+      name: "ignore-errors"
+    .}: bool
 
     dumpSerializationErrors* {.
       desc: "Dump full serialization errors while parsing log files",
-      defaultValue: false ,
-      name: "dump-errors" .}: bool
+      defaultValue: false,
+      name: "dump-errors"
+    .}: bool
 
-    nodes* {.
-      desc: "Specifies node names which logs will be used",
-      name: "nodes" .}: seq[string]
+    nodes* {.desc: "Specifies node names which logs will be used", name: "nodes".}:
+      seq[string]
 
     allowedLag* {.
-      desc: "Allowed latency lag multiplier",
-      defaultValue: 2.0,
-      name: "lag" .}: float
+      desc: "Allowed latency lag multiplier", defaultValue: 2.0, name: "lag"
+    .}: float
 
     constPreset* {.
-      desc: "The const preset being used"
-      defaultValue: "mainnet"
-      name: "const-preset" .}: string
+      desc: "The const preset being used", defaultValue: "mainnet", name: "const-preset"
+    .}: string
 
     case cmd* {.command.}: StartUpCommand
     of pubsub:
@@ -97,7 +105,9 @@ type
     enabledVisitors: seq[LogVisitorFactory]
 
   GossipDirection = enum
-    None, Incoming, Outgoing
+    None
+    Incoming
+    Outgoing
 
   NodeDirectory = object
     name: string
@@ -105,8 +115,8 @@ type
     logs: seq[string]
 
   LogMessage = object of RootObj
-    level {.serializedFieldName: "lvl" .}: string
-    timestamp {.serializedFieldName: "ts" .}: DateTime
+    level {.serializedFieldName: "lvl".}: string
+    timestamp {.serializedFieldName: "ts".}: DateTime
     msg: string
     topics: string
     tid: int
@@ -239,7 +249,9 @@ type
     processed: bool
 
   SMessageType {.pure.} = enum
-    AttestationSent, SCMSent, SlotStart
+    AttestationSent
+    SCMSent
+    SlotStart
 
   SlotMessage = object
     case kind: SMessageType
@@ -256,7 +268,6 @@ type
   #     scmsmsg: SCMSentMessage
   #   of SMessageType.SlotStart:
   #     ssmsg: SlotStartMessage
-
   SRANode = object
     directory: NodeDirectory
     sends: seq[AttestationSentMessage]
@@ -271,7 +282,7 @@ type
     contributionSends: seq[ContributionSentMessage]
     contributionRecvs: TableRef[string, ContributionReceivedMessage]
 
-template noIssues: FileReport =
+template noIssues(): FileReport =
   FileReport()
 
 template hasIssues(issuesCategories: varargs[IssuesGroup]): FileReport =
@@ -322,12 +333,11 @@ proc writeValue*(writer: var JsonWriter, value: IoErrorCode) =
 proc readValue*(reader: var JsonReader, value: var IoErrorCode) =
   IoErrorCode reader.readValue(distinctBase IoErrorCode)
 
-proc init(t: typedesc[GossipMessage], kind: GossipDirection, id,
-          datestr: string): GossipMessage =
+proc init(
+    t: typedesc[GossipMessage], kind: GossipDirection, id, datestr: string
+): GossipMessage =
   GossipMessage(
-    kind: kind,
-    id: id,
-    datetime: parse(datestr, "YYYY-MM-dd HH:mm:ss'.'fffzzz")
+    kind: kind, id: id, datetime: parse(datestr, "YYYY-MM-dd HH:mm:ss'.'fffzzz")
   )
 
 func `$`(msg: GossipMessage): string =
@@ -337,26 +347,25 @@ proc readLogFile(file: string): seq[JsonNode] =
   var res = newSeq[JsonNode]()
   var stream = newFileStream(file)
   try:
-    while not(stream.atEnd()):
+    while not (stream.atEnd()):
       var line = stream.readLine()
       let node = parseJson(line)
       res.add(node)
     result = res
   except CatchableError as exc:
-    warn "Error reading JSON data from file", file = file,
-         errorMsg = exc.msg
+    warn "Error reading JSON data from file", file = file, errorMsg = exc.msg
   finally:
     stream.close()
 
-proc readLogFileForAttsMessages(file: string,
-                                ignoreErrors = true,
-                                dumpErrors = false): seq[SlotMessage] =
+proc readLogFileForAttsMessages(
+    file: string, ignoreErrors = true, dumpErrors = false
+): seq[SlotMessage] =
   var res = newSeq[SlotMessage]()
   var stream = newFileStream(file)
   var line: string
   var counter = 0
   try:
-    while not(stream.atEnd()):
+    while not (stream.atEnd()):
       line = stream.readLine()
       inc(counter)
       var m: LogMessage
@@ -364,47 +373,44 @@ proc readLogFileForAttsMessages(file: string,
         m = Json.decode(line, LogMessage, allowUnknownFields = true)
       except SerializationError as exc:
         if dumpErrors:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter, errorMsg = exc.formatMsg(line)
+          error "Serialization error while reading file, ignoring",
+            file = file, line_number = counter, errorMsg = exc.formatMsg(line)
         else:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter
-        if not(ignoreErrors):
+          error "Serialization error while reading file, ignoring",
+            file = file, line_number = counter
+        if not (ignoreErrors):
           raise exc
         else:
           continue
 
       if m.msg == "Attestation sent":
-        let am = Json.decode(line, AttestationSentMessage,
-                             allowUnknownFields = true)
-        let m = SlotMessage(kind: SMessageType.AttestationSent,
-                               asmsg: am)
+        let am = Json.decode(line, AttestationSentMessage, allowUnknownFields = true)
+        let m = SlotMessage(kind: SMessageType.AttestationSent, asmsg: am)
         res.add(m)
       elif m.msg == "Slot start":
-        let sm = Json.decode(line, SlotStartMessage,
-                             allowUnknownFields = true)
-        let m = SlotMessage(kind: SMessageType.SlotStart,
-                               ssmsg: sm)
+        let sm = Json.decode(line, SlotStartMessage, allowUnknownFields = true)
+        let m = SlotMessage(kind: SMessageType.SlotStart, ssmsg: sm)
         res.add(m)
 
       if counter mod 10_000 == 0:
-        info "Processing file", file = extractFilename(file),
-                                lines_processed = counter,
-                                lines_filtered = len(res)
+        info "Processing file",
+          file = extractFilename(file),
+          lines_processed = counter,
+          lines_filtered = len(res)
     result = res
-
   except CatchableError as exc:
     warn "Error reading data from file", file = file, errorMsg = exc.msg
   finally:
     stream.close()
 
-proc readLogFileForASRMessages(file: string, srnode: var SRANode,
-                               ignoreErrors = true, dumpErrors = false) =
+proc readLogFileForASRMessages(
+    file: string, srnode: var SRANode, ignoreErrors = true, dumpErrors = false
+) =
   var stream = newFileStream(file)
   var line: string
   var counter = 0
   try:
-    while not(stream.atEnd()):
+    while not (stream.atEnd()):
       var m: LogMessage
       line = stream.readLine()
       inc(counter)
@@ -412,51 +418,52 @@ proc readLogFileForASRMessages(file: string, srnode: var SRANode,
         m = Json.decode(line, LogMessage, allowUnknownFields = true)
       except SerializationError as exc:
         if dumpErrors:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter, errorMsg = exc.formatMsg(line)
+          error "Serialization error while reading file, ignoring",
+            file = file, line_number = counter, errorMsg = exc.formatMsg(line)
         else:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter
-        if not(ignoreErrors):
+          error "Serialization error while reading file, ignoring",
+            file = file, line_number = counter
+        if not (ignoreErrors):
           raise exc
         else:
           continue
 
       if m.msg == "Attestation sent":
-        let sm = Json.decode(line, AttestationSentMessage,
-                             allowUnknownFields = true)
+        let sm = Json.decode(line, AttestationSentMessage, allowUnknownFields = true)
         srnode.sends.add(sm)
       elif m.msg == "Attestation received":
-        let rm = Json.decode(line, AttestationReceivedMessage,
-                             allowUnknownFields = true)
+        let rm =
+          Json.decode(line, AttestationReceivedMessage, allowUnknownFields = true)
         discard srnode.recvs.hasKeyOrPut(rm.attestation.signature, rm)
       elif m.msg == "Aggregate received":
-        let rm = Json.decode(line, AggregatedAttestationReceivedMessage,
-                             allowUnknownFields = true)
+        let rm = Json.decode(
+          line, AggregatedAttestationReceivedMessage, allowUnknownFields = true
+        )
         discard srnode.aggRecvs.hasKeyOrPut(rm.signature, rm)
       elif m.msg == "Aggregated attestation sent":
-        let sm = Json.decode(line, AggregatedAttestationSentMessage,
-                             allowUnknownFields = true)
+        let sm =
+          Json.decode(line, AggregatedAttestationSentMessage, allowUnknownFields = true)
         srnode.aggSends.add(sm)
 
       if counter mod 10_000 == 0:
-        info "Processing file", file = extractFilename(file),
-                                lines_processed = counter,
-                                sends_filtered = len(srnode.sends),
-                                recvs_filtered = len(srnode.recvs)
-
+        info "Processing file",
+          file = extractFilename(file),
+          lines_processed = counter,
+          sends_filtered = len(srnode.sends),
+          recvs_filtered = len(srnode.recvs)
   except CatchableError as exc:
     warn "Error reading data from file", file = file, errorMsg = exc.msg
   finally:
     stream.close()
 
-proc readLogFileForSCMSRMessages(file: string, srnode: var SRSCNode,
-                                 ignoreErrors = true, dumpErrors = false) =
+proc readLogFileForSCMSRMessages(
+    file: string, srnode: var SRSCNode, ignoreErrors = true, dumpErrors = false
+) =
   var stream = newFileStream(file)
   var line: string
   var counter = 0
   try:
-    while not(stream.atEnd()):
+    while not (stream.atEnd()):
       var m: LogMessage
       line = stream.readLine()
       inc(counter)
@@ -464,41 +471,36 @@ proc readLogFileForSCMSRMessages(file: string, srnode: var SRSCNode,
         m = Json.decode(line, LogMessage, allowUnknownFields = true)
       except SerializationError as exc:
         if dumpErrors:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter, errorMsg = exc.formatMsg(line)
+          error "Serialization error while reading file, ignoring",
+            file = file, line_number = counter, errorMsg = exc.formatMsg(line)
         else:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter
-        if not(ignoreErrors):
+          error "Serialization error while reading file, ignoring",
+            file = file, line_number = counter
+        if not (ignoreErrors):
           raise exc
         else:
           continue
 
       if m.msg == "Sync committee message sent":
-        let sm = Json.decode(line, SCMSentMessage,
-                             allowUnknownFields = true)
+        let sm = Json.decode(line, SCMSentMessage, allowUnknownFields = true)
         srnode.sends.add(sm)
       elif m.msg == "Sync committee message received":
-        let rm = Json.decode(line, SCMReceivedMessage,
-                             allowUnknownFields = true)
+        let rm = Json.decode(line, SCMReceivedMessage, allowUnknownFields = true)
         discard srnode.recvs.hasKeyOrPut(rm.syncCommitteeMsg.signature, rm)
-
       elif m.msg == "Contribution received":
-        let rm = Json.decode(line, ContributionReceivedMessage,
-                             allowUnknownFields = true)
+        let rm =
+          Json.decode(line, ContributionReceivedMessage, allowUnknownFields = true)
         discard srnode.contributionRecvs.hasKeyOrPut(rm.signature, rm)
-
       elif m.msg == "Contribution sent":
-        let sm = Json.decode(line, ContributionSentMessage,
-                             allowUnknownFields = true)
+        let sm = Json.decode(line, ContributionSentMessage, allowUnknownFields = true)
         srnode.contributionSends.add(sm)
 
       if counter mod 10_000 == 0:
-        info "Processing file", file = extractFilename(file),
-                                lines_processed = counter,
-                                sends_filtered = len(srnode.sends),
-                                recvs_filtered = len(srnode.recvs)
-
+        info "Processing file",
+          file = extractFilename(file),
+          lines_processed = counter,
+          sends_filtered = len(srnode.sends),
+          recvs_filtered = len(srnode.recvs)
   except CatchableError as exc:
     warn "Error reading data from file", file = file, errorMsg = exc.msg
   finally:
@@ -530,16 +532,16 @@ proc processFile(tracer: LogTracer, file: string): FileReport =
     if not report.isEmpty:
       report.copyEntriesTo result
 
-proc failedValidationsChecker: LogVisitorFactory =
-  return proc (): LogVisitor =
+proc failedValidationsChecker(): LogVisitorFactory =
+  return proc(): LogVisitor =
     var failedValidations = initCountTable[string]()
 
     LogVisitor(
-      visitLine: proc (msg, line: string) =
+      visitLine: proc(msg, line: string) =
         if msg.endsWith("failed validation"):
           failedValidations.inc msg
       ,
-      produceReport: proc (): FileReport =
+      produceReport: proc(): FileReport =
         if failedValidations.len > 0:
           let issues = IssuesGroup.new "Failed Validations"
           for msg, count in failedValidations:
@@ -547,29 +549,27 @@ proc failedValidationsChecker: LogVisitorFactory =
 
           return hasIssues(issues)
         else:
-          return noIssues()
+          return noIssues(),
     )
 
 proc syncAggregateChecker(constPreset: string): LogVisitorFactory =
-  return proc (): LogVisitor =
+  return proc(): LogVisitor =
     var totalBlocks = 0
     var minSyncAggregate = 512
     var syncAggregatesCombinedSize = 0
 
-    let minExpectedAggregateSize = if constPreset == "mainnet":
-      450
-    else:
-      20
+    let minExpectedAggregateSize = if constPreset == "mainnet": 450 else: 20
 
     LogVisitor(
-      visitLine: proc (msgLabel, line: string) =
+      visitLine: proc(msgLabel, line: string) =
         if msgLabel == "Block sent":
-          let msg = try:
-            Json.decode(line, BlockSentMessage, allowUnknownFields = true)
-          except SerializationError as err:
-            echo "Failure to parse a 'Block sent' message:"
-            echo err.formatMsg("<msg>")
-            quit 1
+          let msg =
+            try:
+              Json.decode(line, BlockSentMessage, allowUnknownFields = true)
+            except SerializationError as err:
+              echo "Failure to parse a 'Block sent' message:"
+              echo err.formatMsg("<msg>")
+              quit 1
 
           let syncAggregateSize = msg.blck.sync_committee_participants
           if syncAggregateSize != -1:
@@ -578,7 +578,7 @@ proc syncAggregateChecker(constPreset: string): LogVisitorFactory =
             if minSyncAggregate > syncAggregateSize:
               minSyncAggregate = syncAggregateSize
       ,
-      produceReport: proc (): FileReport =
+      produceReport: proc(): FileReport =
         let avgSyncAggregateSize = syncAggregatesCombinedSize div totalBlocks
         if avgSyncAggregateSize < minExpectedAggregateSize:
           let issues = IssuesGroup.new "SyncAggregate Stats"
@@ -588,11 +588,12 @@ proc syncAggregateChecker(constPreset: string): LogVisitorFactory =
 
           return hasIssues(issues)
         else:
-          return noIssues()
+          return noIssues(),
     )
 
-proc readLogFileForSecondMessages(file: string, ignoreErrors = true,
-                                  dumpErrors = false): seq[LogMessage] =
+proc readLogFileForSecondMessages(
+    file: string, ignoreErrors = true, dumpErrors = false
+): seq[LogMessage] =
   var stream = newFileStream(file)
   var line: string
   var counter = 0
@@ -605,12 +606,12 @@ proc readLogFileForSecondMessages(file: string, ignoreErrors = true,
         m = Json.decode(line, LogMessage, allowUnknownFields = true)
       except SerializationError as exc:
         if dumpErrors:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter, errorMsg = exc.formatMsg(line)
+          error "Serialization error while reading file, ignoring",
+            file = file, line_number = counter, errorMsg = exc.formatMsg(line)
         else:
-          error "Serialization error while reading file, ignoring", file = file,
-                 line_number = counter
-        if not(ignoreErrors):
+          error "Serialization error while reading file, ignoring",
+            file = file, line_number = counter
+        if not (ignoreErrors):
           raise exc
         else:
           continue
@@ -618,9 +619,10 @@ proc readLogFileForSecondMessages(file: string, ignoreErrors = true,
         result.add(m)
 
       if counter mod 10_000 == 0:
-        info "Processing file", file = extractFilename(file),
-                                lines_processed = counter,
-                                seconds_filtered = len(result)
+        info "Processing file",
+          file = extractFilename(file),
+          lines_processed = counter,
+          seconds_filtered = len(result)
   except CatchableError as exc:
     warn "Error reading data from file", file = file, errorMsg = exc.msg
   finally:
@@ -636,20 +638,19 @@ proc filterGossipMessages(log: seq[JsonNode]): seq[GossipMessage] =
     if ("msg" in node) and ("message_id" in node) and ("ts" in node):
       let message = node["msg"].getStr()
       if message == "Incoming pubsub message received":
-        let msg = GossipMessage.init(Incoming, node["message_id"].getStr(),
-                                     node["ts"].getStr())
+        let msg =
+          GossipMessage.init(Incoming, node["message_id"].getStr(), node["ts"].getStr())
         result.add(msg)
       elif message == "Outgoing pubsub message has been sent":
-        let msg = GossipMessage.init(Outgoing, node["message_id"].getStr(),
-                                     node["ts"].getStr())
+        let msg =
+          GossipMessage.init(Outgoing, node["message_id"].getStr(), node["ts"].getStr())
         result.add(msg)
 
 iterator simDirectoryLogFiles(simdir: string): string =
   let absPath = absolutePath(simdir)
   let dataPath = absPath & DirSep & "data"
   if not dirExists(dataPath):
-    error "Invalid `eth2_network_simulation` data directory structure",
-          path = dataPath
+    error "Invalid `eth2_network_simulation` data directory structure", path = dataPath
     quit(1)
   var index = 0
   while true:
@@ -664,29 +665,25 @@ iterator simDirectoryLogFiles(simdir: string): string =
       break
     inc(index)
 
-proc getDirectoryLogFiles(builddir: string,
-                          filter: seq[string]): seq[NodeDirectory] =
+proc getDirectoryLogFiles(builddir: string, filter: seq[string]): seq[NodeDirectory] =
   var res = newSeq[NodeDirectory]()
   let absPath = absolutePath(builddir)
   let dataPath = absPath & DirSep & "data"
   if not dirExists(dataPath):
-    error "Invalid `network` data directory structure",
-          path = dataPath
+    error "Invalid `network` data directory structure", path = dataPath
     quit(1)
 
   for dirPath in walkDirs(dataPath & DirSep & "*"):
     let name = extractFilename(dirPath)
     if (len(filter) == 0) or (name in filter):
-      var nodeDir = NodeDirectory(name: extractFilename(dirPath),
-                                  path: dirPath)
+      var nodeDir = NodeDirectory(name: extractFilename(dirPath), path: dirPath)
       for filePath in walkFiles(dirPath & DirSep & "*.log"):
         nodeDir.logs.add(extractFilename(filePath))
       if len(nodeDir.logs) > 0:
         res.add(nodeDir)
   return res
 
-proc getLogFiles(builddir: string,
-                 filter: seq[string]): seq[NodeDirectory] =
+proc getLogFiles(builddir: string, filter: seq[string]): seq[NodeDirectory] =
   var res = newSeq[NodeDirectory]()
   let dataPath = absolutePath(builddir)
   if not dirExists(dataPath):
@@ -695,14 +692,15 @@ proc getLogFiles(builddir: string,
   for filePath in walkFiles(dataPath & DirSep & "*.*"):
     let name = extractFilename(filePath)
     if (len(filter) == 0) or (name in filter):
-      let nodeDir = NodeDirectory(name: extractFilename(filePath),
-                                  path: dataPath,
-                                  logs: @[extractFilename(filePath)])
+      let nodeDir = NodeDirectory(
+        name: extractFilename(filePath),
+        path: dataPath,
+        logs: @[extractFilename(filePath)],
+      )
       res.add(nodeDir)
   return res
 
-func getMessage(logs: seq[GossipMessage],
-                msg: GossipMessage): Option[GossipMessage] =
+func getMessage(logs: seq[GossipMessage], msg: GossipMessage): Option[GossipMessage] =
   {.push warning[ProveInit]: off.}
   result = none[GossipMessage]()
   {.pop.}
@@ -717,7 +715,7 @@ proc runPubsub(logConf: LogTraceConf, logFiles: seq[string]) =
 
   if len(logFiles) < 2:
     error "Number of log files insufficient to process pubsub messages",
-          logs_count = len(logFiles)
+      logs_count = len(logFiles)
     quit(1)
 
   for item in logFiles:
@@ -743,9 +741,9 @@ proc runPubsub(logConf: LogTraceConf, logFiles: seq[string]) =
 
         for z in 1 ..< len(checks):
           let index = (i + z) mod len(logs)
-          if not(checks[index].isSome()):
-            warn "Message not found in log", logfile = logs[index].name,
-                                             message_id = $item
+          if not (checks[index].isSome()):
+            warn "Message not found in log",
+              logfile = logs[index].name, message_id = $item
             inc(misses)
 
   if misses == 0:
@@ -757,7 +755,7 @@ proc runAttSend(logConf: LogTraceConf, logFiles: seq[string]) =
   info "Check for late `attestation sent` messages"
   if len(logFiles) < 1:
     error "Number of log files insufficient to process pubsub messages",
-          logs_count = len(logFiles)
+      logs_count = len(logFiles)
     quit(1)
 
   let minDuration = initDuration(seconds = 4)
@@ -767,9 +765,9 @@ proc runAttSend(logConf: LogTraceConf, logFiles: seq[string]) =
 
   for item in logFiles:
     info "Processing log file", logFile = item
-    let data = readLogFileForAttsMessages(item,
-                                          logConf.ignoreSerializationErrors,
-                                          logConf.dumpSerializationErrors)
+    let data = readLogFileForAttsMessages(
+      item, logConf.ignoreSerializationErrors, logConf.dumpSerializationErrors
+    )
 
     var currentSlot: Option[SlotStartMessage]
     for item in data:
@@ -778,20 +776,21 @@ proc runAttSend(logConf: LogTraceConf, logFiles: seq[string]) =
         inc(slotMessagesCount)
       elif item.kind == SMessageType.AttestationSent:
         if currentSlot.isSome():
-          let attestationTime = currentSlot.get().timestamp -
-                                item.asmsg.timestamp
+          let attestationTime = currentSlot.get().timestamp - item.asmsg.timestamp
           if attestationTime > minDuration:
             warn "Found an attestation that was sent later than necessary",
-                 lateness = $attestationTime, slot = currentSlot.get(),
-                 attestation = item.asmsg
+              lateness = $attestationTime,
+              slot = currentSlot.get(),
+              attestation = item.asmsg
             inc(lateAttsMessagesCount)
           inc(attsMessagesCount)
         else:
           warn "`Attestation sent` message appears before `Start slot` message",
-               attestation = item.asmsg
-  info "Check finished", attestation_sent_messages = attsMessagesCount,
-                         slot_messages = slotMessagesCount,
-                         late_attestation_messages = lateAttsMessagesCount
+            attestation = item.asmsg
+  info "Check finished",
+    attestation_sent_messages = attsMessagesCount,
+    slot_messages = slotMessagesCount,
+    late_attestation_messages = lateAttsMessagesCount
 
 func toSimple(s: seq[string]): string =
   "[" & s.mapIt("'" & it & "'").join(", ") & "]"
@@ -809,15 +808,15 @@ proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
       sends: newSeq[AttestationSentMessage](),
       recvs: newTable[string, AttestationReceivedMessage](),
       aggSends: newSeq[AggregatedAttestationSentMessage](),
-      aggRecvs: newTable[string, AggregatedAttestationReceivedMessage]()
+      aggRecvs: newTable[string, AggregatedAttestationReceivedMessage](),
     )
     info "Processing node", node = node.name
     for logfile in node.logs:
       let path = node.path & DirSep & logfile
       info "Processing node's logfile", node = node.name, logfile = path
-      readLogFileForASRMessages(path, srnode,
-                                logConf.ignoreSerializationErrors,
-                                logConf.dumpSerializationErrors)
+      readLogFileForASRMessages(
+        path, srnode, logConf.ignoreSerializationErrors, logConf.dumpSerializationErrors
+      )
     srnodes.add(srnode)
 
   if len(nodes) < 2:
@@ -839,13 +838,17 @@ proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
         inc(success)
       else:
         inc(failed)
-        info "Attestation was not received", sender = srnodes[i].directory.name,
-             signature = item.attestation.signature,
-             receivers = misses.toSimple(), send_stamp = item.timestamp
+        info "Attestation was not received",
+          sender = srnodes[i].directory.name,
+          signature = item.attestation.signature,
+          receivers = misses.toSimple(),
+          send_stamp = item.timestamp
 
-    info "Statistics for sender node", sender = srnodes[i].directory.name,
-         successful_broadcasts = success, failed_broadcasts = failed,
-         total_broadcasts = len(srnodes[i].sends)
+    info "Statistics for sender node",
+      sender = srnodes[i].directory.name,
+      successful_broadcasts = success,
+      failed_broadcasts = failed,
+      total_broadcasts = len(srnodes[i].sends)
 
 proc runAggAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
   info "Check for aggregate attestation sent/received messages"
@@ -860,15 +863,15 @@ proc runAggAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
       sends: newSeq[AttestationSentMessage](),
       recvs: newTable[string, AttestationReceivedMessage](),
       aggSends: newSeq[AggregatedAttestationSentMessage](),
-      aggRecvs: newTable[string, AggregatedAttestationReceivedMessage]()
+      aggRecvs: newTable[string, AggregatedAttestationReceivedMessage](),
     )
     info "Processing node", node = node.name
     for logfile in node.logs:
       let path = node.path & DirSep & logfile
       info "Processing node's logfile", node = node.name, logfile = path
-      readLogFileForASRMessages(path, srnode,
-                                logConf.ignoreSerializationErrors,
-                                logConf.dumpSerializationErrors)
+      readLogFileForASRMessages(
+        path, srnode, logConf.ignoreSerializationErrors, logConf.dumpSerializationErrors
+      )
     srnodes.add(srnode)
 
   if len(nodes) < 2:
@@ -891,13 +894,16 @@ proc runAggAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
       else:
         inc(failed)
         info "Aggregate attestation was not received",
-           sender = srnodes[i].directory.name,
-           signature = item.signature,
-           receivers = misses.toSimple(), send_stamp = item.timestamp
+          sender = srnodes[i].directory.name,
+          signature = item.signature,
+          receivers = misses.toSimple(),
+          send_stamp = item.timestamp
 
-    info "Statistics for sender node", sender = srnodes[i].directory.name,
-       successful_broadcasts = success, failed_broadcasts = failed,
-       total_broadcasts = len(srnodes[i].aggSends)
+    info "Statistics for sender node",
+      sender = srnodes[i].directory.name,
+      successful_broadcasts = success,
+      failed_broadcasts = failed,
+      total_broadcasts = len(srnodes[i].aggSends)
 
 proc runSCMSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
   info "Check for Sync Committee Message sent/received messages"
@@ -912,15 +918,15 @@ proc runSCMSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
       sends: newSeq[SCMSentMessage](),
       recvs: newTable[string, SCMReceivedMessage](),
       contributionSends: newSeq[ContributionSentMessage](),
-      contributionRecvs: newTable[string, ContributionReceivedMessage]()
+      contributionRecvs: newTable[string, ContributionReceivedMessage](),
     )
     info "Processing node", node = node.name
     for logfile in node.logs:
       let path = node.path & DirSep & logfile
       info "Processing node's logfile", node = node.name, logfile = path
-      readLogFileForSCMSRMessages(path, srnode,
-                                  logConf.ignoreSerializationErrors,
-                                  logConf.dumpSerializationErrors)
+      readLogFileForSCMSRMessages(
+        path, srnode, logConf.ignoreSerializationErrors, logConf.dumpSerializationErrors
+      )
     srnodes.add(srnode)
 
   if len(nodes) < 2:
@@ -942,13 +948,17 @@ proc runSCMSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
         inc(success)
       else:
         inc(failed)
-        info "Sync committee message was not received", sender = srnodes[i].directory.name,
-             signature = item.message.signature,
-             receivers = misses.toSimple(), send_stamp = item.timestamp
+        info "Sync committee message was not received",
+          sender = srnodes[i].directory.name,
+          signature = item.message.signature,
+          receivers = misses.toSimple(),
+          send_stamp = item.timestamp
 
-    info "Statistics for sender node", sender = srnodes[i].directory.name,
-         successful_broadcasts = success, failed_broadcasts = failed,
-         total_broadcasts = len(srnodes[i].sends)
+    info "Statistics for sender node",
+      sender = srnodes[i].directory.name,
+      successful_broadcasts = success,
+      failed_broadcasts = failed,
+      total_broadcasts = len(srnodes[i].sends)
 
 proc runContributionSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
   info "Check for contribution sent/received messages"
@@ -963,15 +973,15 @@ proc runContributionSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]
       sends: newSeq[SCMSentMessage](),
       recvs: newTable[string, SCMReceivedMessage](),
       contributionSends: newSeq[ContributionSentMessage](),
-      contributionRecvs: newTable[string, ContributionReceivedMessage]()
+      contributionRecvs: newTable[string, ContributionReceivedMessage](),
     )
     info "Processing node", node = node.name
     for logfile in node.logs:
       let path = node.path & DirSep & logfile
       info "Processing node's logfile", node = node.name, logfile = path
-      readLogFileForSCMSRMessages(path, srnode,
-                                  logConf.ignoreSerializationErrors,
-                                  logConf.dumpSerializationErrors)
+      readLogFileForSCMSRMessages(
+        path, srnode, logConf.ignoreSerializationErrors, logConf.dumpSerializationErrors
+      )
     srnodes.add(srnode)
 
   if len(nodes) < 2:
@@ -994,29 +1004,33 @@ proc runContributionSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]
       else:
         inc(failed)
         info "Contribution was not received",
-           sender = srnodes[i].directory.name,
-           signature = item.contribution.signature,
-           receivers = misses.toSimple(), send_stamp = item.timestamp
+          sender = srnodes[i].directory.name,
+          signature = item.contribution.signature,
+          receivers = misses.toSimple(),
+          send_stamp = item.timestamp
 
-    info "Statistics for sender node", sender = srnodes[i].directory.name,
-       successful_broadcasts = success, failed_broadcasts = failed,
-       total_broadcasts = len(srnodes[i].contributionSends)
+    info "Statistics for sender node",
+      sender = srnodes[i].directory.name,
+      successful_broadcasts = success,
+      failed_broadcasts = failed,
+      total_broadcasts = len(srnodes[i].contributionSends)
 
-proc runLatencyCheck(logConf: LogTraceConf, logFiles: seq[string],
-                     nodes: seq[NodeDirectory]) =
+proc runLatencyCheck(
+    logConf: LogTraceConf, logFiles: seq[string], nodes: seq[NodeDirectory]
+) =
   info "Check for async responsiveness"
   if len(nodes) == 0 and len(logFiles) == 0:
     error "Number of log files insufficient", nodes_count = len(nodes)
     quit(1)
 
-  let allowedTime = int64(float(initDuration(seconds = 1).inMilliseconds()) *
-                          logConf.allowedLag)
+  let allowedTime =
+    int64(float(initDuration(seconds = 1).inMilliseconds()) * logConf.allowedLag)
 
   for logFile in logFiles:
     info "Processing log file", logfile = logFile
-    let msgs = readLogFileForSecondMessages(logFile,
-                                            logConf.ignoreSerializationErrors,
-                                            logConf.dumpSerializationErrors)
+    let msgs = readLogFileForSecondMessages(
+      logFile, logConf.ignoreSerializationErrors, logConf.dumpSerializationErrors
+    )
     var lastSecond: Option[LogMessage]
     var minEntry: Option[LogMessage]
     var maxEntry: Option[LogMessage]
@@ -1033,9 +1047,9 @@ proc runLatencyCheck(logConf: LogTraceConf, logFiles: seq[string],
         let finish_time = item.timestamp
         if time.inMilliseconds() > allowedTime:
           info "Found time lag ",
-               start_time = start_time.format("yyyy-MM-dd HH:mm:ss'.'fff"),
-               finish_time = finish_time.format("yyyy-MM-dd HH:mm:ss'.'fff"),
-               lag_time = time
+            start_time = start_time.format("yyyy-MM-dd HH:mm:ss'.'fff"),
+            finish_time = finish_time.format("yyyy-MM-dd HH:mm:ss'.'fff"),
+            lag_time = time
         if time < minTime:
           minTime = time
           minEntry = some(item)
@@ -1045,8 +1059,11 @@ proc runLatencyCheck(logConf: LogTraceConf, logFiles: seq[string],
         sumMilliseconds += time.inMilliseconds()
         lastSecond = some(item)
     let avgTime = initDuration(milliseconds = sumMilliseconds div len(msgs))
-    info "Latency statistics", min_time = minTime, max_time = maxTime,
-                               avg_time = avgTime, seconds_count = len(msgs)
+    info "Latency statistics",
+      min_time = minTime,
+      max_time = maxTime,
+      avg_time = avgTime,
+      seconds_count = len(msgs)
 
 proc run*(conf: LogTraceConf) =
   var logFiles: seq[string]
@@ -1130,13 +1147,11 @@ when isMainModule:
     LogTraceMajor: int = 0
     LogTraceMinor: int = 0
     LogTracePatch: int = 4
-    LogTraceVersion = $LogTraceMajor & "." & $LogTraceMinor & "." &
-                        $LogTracePatch
-    LogTraceCopyright = "Copyright(C) 2021-2023" &
-                         " Status Research & Development GmbH"
-    LogTraceHeader = LogTraceName & ", Version " & LogTraceVersion &
-                      " [" & hostOS & ": " & hostCPU & "]\r\n" &
-                      LogTraceCopyright & "\r\n"
+    LogTraceVersion = $LogTraceMajor & "." & $LogTraceMinor & "." & $LogTracePatch
+    LogTraceCopyright = "Copyright(C) 2021-2023" & " Status Research & Development GmbH"
+    LogTraceHeader =
+      LogTraceName & ", Version " & LogTraceVersion & " [" & hostOS & ": " & hostCPU &
+      "]\r\n" & LogTraceCopyright & "\r\n"
 
   echo LogTraceHeader
   var conf = LogTraceConf.load(version = LogTraceVersion)

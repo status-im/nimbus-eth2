@@ -13,12 +13,16 @@ import
   # Status
   stew/[byteutils, results],
   serialization,
-  json_serialization, json_serialization/std/options,
+  json_serialization,
+  json_serialization/std/options,
   chronicles,
   # Internal
   ../spec/datatypes/base
 
-export options, serialization, json_serialization # Generic sandwich https://github.com/nim-lang/Nim/issues/11225
+export
+  options,
+  serialization,
+  json_serialization # Generic sandwich https://github.com/nim-lang/Nim/issues/11225
 
 # Slashing Protection Interop
 # --------------------------------------------
@@ -32,8 +36,7 @@ export options, serialization, json_serialization # Generic sandwich https://git
 # SPDIF: Cross-client, JSON, Slashing Protection Database Interchange Format
 
 type
-  SPDIR* = object
-    ## Slashing Protection Database Interchange Format
+  SPDIR* = object ## Slashing Protection Database Interchange Format
     metadata*: SPDIR_Meta
     data*: seq[SPDIR_Validator]
 
@@ -77,9 +80,8 @@ type
     target_epoch*: EpochString
     signing_root*: Option[Eth2Digest0x] # compute_signing_root(attestation, domain)
 
-# Slashing Protection types
-# --------------------------------------------
-
+  # Slashing Protection types
+  # --------------------------------------------
   SlashingImportStatus* = enum
     siSuccess
     siFailure
@@ -94,16 +96,16 @@ type
     # 2: candidate attestation
 
     # Spec slashing condition
-    DoubleVote   # h(t1) == h(t2)
+    DoubleVote # h(t1) == h(t2)
     SurroundVote # h(s1) < h(s2) < h(t2) < h(t1) or h(s2) < h(s1) < h(t1) < h(t2)
 
     # Non-spec, should never happen in a well functioning client
     TargetPrecedesSource # h(t1) < h(s1) - current epoch precedes last justified epoch
 
     # EIP-3067 (https://eips.ethereum.org/EIPS/eip-3076)
-    MinSourceViolation   # h(s2) < h(s1) - EIP3067 condition 4 (strict inequality)
-    MinTargetViolation   # h(t2) <= h(t1) - EIP3067 condition 5
-    DatabaseError          # Cannot read/write the slashing protection db
+    MinSourceViolation # h(s2) < h(s1) - EIP3067 condition 4 (strict inequality)
+    MinTargetViolation # h(t2) <= h(t1) - EIP3067 condition 5
+    DatabaseError # Cannot read/write the slashing protection db
 
   BadVote* {.pure.} = object
     case kind*: BadVoteKind
@@ -126,10 +128,10 @@ type
 
   BadProposalKind* {.pure.} = enum
     # Spec slashing condition
-    DoubleProposal         # h(t1) == h(t2)
+    DoubleProposal # h(t1) == h(t2)
     # EIP-3067 (https://eips.ethereum.org/EIPS/eip-3076)
-    MinSlotViolation       # h(t2) <= h(t1)
-    DatabaseError          # Cannot read/write the slashing protection db
+    MinSlotViolation # h(t2) <= h(t1)
+    DatabaseError # Cannot read/write the slashing protection db
 
   BadProposal* = object
     case kind*: BadProposalKind
@@ -141,7 +143,7 @@ type
     of BadProposalKind.DatabaseError:
       message*: string
 
-{.push warning[ProveField]:off.}
+{.push warning[ProveField]: off.}
 func `==`*(a, b: BadVote): bool =
   ## Comparison operator.
   ## Used implictily by Result when comparing the
@@ -154,18 +156,16 @@ func `==`*(a, b: BadVote): bool =
       a.existingAttestation == b.existingAttestation
     of SurroundVote:
       (a.existingAttestationRoot == b.existingAttestationRoot) and
-        (a.sourceExisting == b.sourceExisting) and
-        (a.targetExisting == b.targetExisting) and
-        (a.sourceSlashable == b.sourceSlashable) and
+        (a.sourceExisting == b.sourceExisting) and (
+        a.targetExisting == b.targetExisting
+      ) and (a.sourceSlashable == b.sourceSlashable) and
         (a.targetSlashable == b.targetSlashable)
     of TargetPrecedesSource:
       true
     of MinSourceViolation:
-      (a.minSource == b.minSource) and
-        (a.candidateSource == b.candidateSource)
+      (a.minSource == b.minSource) and (a.candidateSource == b.candidateSource)
     of MinTargetViolation:
-      (a.minTarget == b.minTarget) and
-        (a.candidateTarget == b.candidateTarget)
+      (a.minTarget == b.minTarget) and (a.candidateTarget == b.candidateTarget)
     of BadVoteKind.DatabaseError:
       true
 {.pop.}
@@ -179,7 +179,7 @@ template `<`*(a, b: PubKey0x): bool =
 template cmp*(a, b: PubKey0x): bool =
   cmp(PubKeyBytes(a), PubKeyBytes(b))
 
-{.push warning[ProveField]:off.}
+{.push warning[ProveField]: off.}
 func `==`*(a, b: BadProposal): bool =
   ## Comparison operator.
   ## Used implictily by Result when comparing the
@@ -191,8 +191,7 @@ func `==`*(a, b: BadProposal): bool =
   elif a.kind == DoubleProposal:
     a.existingBlock == b.existingBlock
   elif a.kind == MinSlotViolation:
-    a.minSlot == b.minSlot and
-      a.candidateSlot == b.candidateSlot
+    a.minSlot == b.minSlot and a.candidateSlot == b.candidateSlot
   else: # Unreachable
     false
 {.pop.}
@@ -201,22 +200,24 @@ func `==`*(a, b: BadProposal): bool =
 # --------------------------------------------
 
 proc writeValue*(
-    writer: var JsonWriter, value: PubKey0x) {.inline, raises: [IOError].} =
+    writer: var JsonWriter, value: PubKey0x
+) {.inline, raises: [IOError].} =
   writer.writeValue("0x" & value.PubKeyBytes.toHex())
 
-proc readValue*(reader: var JsonReader, value: var PubKey0x)
-               {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader, value: var PubKey0x
+) {.raises: [SerializationError, IOError].} =
   try:
     value = PubKey0x hexToByteArray(reader.readValue(string), RawPubKeySize)
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string expected")
 
-proc writeValue*(
-    w: var JsonWriter, a: Eth2Digest0x) {.inline, raises: [IOError].} =
+proc writeValue*(w: var JsonWriter, a: Eth2Digest0x) {.inline, raises: [IOError].} =
   w.writeValue "0x" & a.Eth2Digest.data.toHex()
 
-proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
-               {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    r: var JsonReader, a: var Eth2Digest0x
+) {.raises: [SerializationError, IOError].} =
   try:
     a = Eth2Digest0x fromHex(Eth2Digest, r.readValue(string))
   except ValueError:
@@ -227,16 +228,17 @@ proc writeValue*(
 ) {.inline, raises: [IOError].} =
   w.writeValue $distinctBase(a)
 
-proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
-               {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    r: var JsonReader, a: var (SlotString or EpochString)
+) {.raises: [SerializationError, IOError].} =
   try:
     a = (typeof a)(r.readValue(string).parseBiggestUInt())
   except ValueError:
     raiseUnexpectedValue(r, "Integer in a string expected")
 
 proc importSlashingInterchange*(
-       db: auto,
-       path: string): SlashingImportStatus {.raises: [IOError, SerializationError].} =
+    db: auto, path: string
+): SlashingImportStatus {.raises: [IOError, SerializationError].} =
   ## Import a Slashing Protection Database Interchange Format
   ## into a Nimbus DB.
   ## This adds data to already existing data.
@@ -247,39 +249,34 @@ proc importSlashingInterchange*(
 # --------------------------------------------
 
 func shortLog*(v: Option[Eth2Digest0x]): auto =
-  (
-    if v.isSome:
-      v.get.Eth2Digest.shortLog
-    else:
-      "none"
-  )
+  (if v.isSome: v.get.Eth2Digest.shortLog else: "none")
 
 func shortLog*(v: SPDIR_SignedBlock): auto =
-  (
-    slot: shortLog(v.slot.Slot),
-    signing_root: shortLog(v.signing_root)
-  )
+  (slot: shortLog(v.slot.Slot), signing_root: shortLog(v.signing_root))
 func shortLog*(v: SPDIR_SignedAttestation): auto =
   (
     source_epoch: shortLog(v.source_epoch.Epoch),
     target_epoch: shortLog(v.target_epoch.Epoch),
-    signing_root: shortLog(v.signing_root)
+    signing_root: shortLog(v.signing_root),
   )
 
-chronicles.formatIt SlotString: it.Slot.shortLog
-chronicles.formatIt EpochString: it.Slot.shortLog
-chronicles.formatIt Eth2Digest0x: it.Eth2Digest.shortLog
-chronicles.formatIt SPDIR_SignedBlock: it.shortLog
-chronicles.formatIt SPDIR_SignedAttestation: it.shortLog
+chronicles.formatIt SlotString:
+  it.Slot.shortLog
+chronicles.formatIt EpochString:
+  it.Slot.shortLog
+chronicles.formatIt Eth2Digest0x:
+  it.Eth2Digest.shortLog
+chronicles.formatIt SPDIR_SignedBlock:
+  it.shortLog
+chronicles.formatIt SPDIR_SignedAttestation:
+  it.shortLog
 
 # Interchange import
 # --------------------------------------------
 
 proc importInterchangeV5Impl*(
-       db: auto,
-       spdir: var SPDIR
-     ): SlashingImportStatus
-      {.raises: [SerializationError, IOError].} =
+    db: auto, spdir: var SPDIR
+): SlashingImportStatus {.raises: [SerializationError, IOError].} =
   ## Common implementation of interchange import
   ## according to https://eips.ethereum.org/EIPS/eip-3076
   ## spdir needs to be `var` as it will be sorted in-place
@@ -309,10 +306,10 @@ proc importInterchangeV5Impl*(
 
     # TODO: with minification sorting is unnecessary, cleanup
     # Sort by ascending minimum slot so that we don't trigger MinSlotViolation
-    spdir.data[v].signed_blocks.sort do (a, b: SPDIR_SignedBlock) -> int:
+    spdir.data[v].signed_blocks.sort do(a, b: SPDIR_SignedBlock) -> int:
       result = cmp(a.slot.int, b.slot.int)
 
-    spdir.data[v].signed_attestations.sort do (a, b: SPDIR_SignedAttestation) -> int:
+    spdir.data[v].signed_attestations.sort do(a, b: SPDIR_SignedAttestation) -> int:
       result = cmp(a.source_epoch.int, b.source_epoch.int)
       if result == 0: # Same epoch
         result = cmp(a.target_epoch.int, b.target_epoch.int)
@@ -333,7 +330,9 @@ proc importInterchangeV5Impl*(
 
     if spdir.data[v].signed_blocks.len >= 1:
       # Minification, to limit SQLite IO we only import the last block after sorting
-      template B: untyped = spdir.data[v].signed_blocks[^1]
+      template B(): untyped =
+        spdir.data[v].signed_blocks[^1]
+
       let
         signing_root =
           if B.signing_root.isSome:
@@ -357,12 +356,10 @@ proc importInterchangeV5Impl*(
         # Note: rule 2 mentions repeat signing in the MinSlotViolation case
         #       having 2 blocks with the same signing root and different slots
         #       would break the blockchain so we only check for exact slot.
-        if status.error.kind == DoubleProposal and
-            signing_root != ZeroDigest and
+        if status.error.kind == DoubleProposal and signing_root != ZeroDigest and
             status.error.existingBlock == signing_root:
           warn "Block already exists in the DB",
-            pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
-            candidateBlock = B
+            pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(), candidateBlock = B
         else:
           error "Slashable block. Skipping its import.",
             pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
@@ -394,7 +391,8 @@ proc importInterchangeV5Impl*(
 
     # We do a first pass over the data to find the max source/target seen
     for a in 0 ..< spdir.data[v].signed_attestations.len:
-      template A: untyped = spdir.data[v].signed_attestations[a]
+      template A(): untyped =
+        spdir.data[v].signed_attestations[a]
 
       if A.source_epoch.int > maxValidSourceEpochSeen:
         maxValidSourceEpochSeen = A.source_epoch.int
@@ -409,8 +407,8 @@ proc importInterchangeV5Impl*(
 
     # See formal proof https://github.com/michaelsproul/slashing-proofs
     # of synthetic attestation
-    if not(maxValidSourceEpochSeen < maxValidTargetEpochSeen) and
-       not(maxValidSourceEpochSeen == 0 and maxValidTargetEpochSeen == 0):
+    if not (maxValidSourceEpochSeen < maxValidTargetEpochSeen) and
+        not (maxValidSourceEpochSeen == 0 and maxValidTargetEpochSeen == 0):
       # Special-case genesis (Slashing prot is deactivated anyway)
       warn "Invalid attestation(s), source epochs should be less than target epochs, skipping import",
         pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
@@ -420,9 +418,7 @@ proc importInterchangeV5Impl*(
       continue
 
     db.registerSyntheticAttestation(
-      parsedKey,
-      Epoch maxValidSourceEpochSeen,
-      Epoch maxValidTargetEpochSeen
+      parsedKey, Epoch maxValidSourceEpochSeen, Epoch maxValidTargetEpochSeen
     )
 
     db.pruneAttestations(parsedKey, maxValidSourceEpochSeen, maxValidTargetEpochSeen)

@@ -10,7 +10,9 @@
 import
   std/[strutils, parseutils, tables, typetraits],
   chronos/timer,
-  stew/[byteutils], stint, web3/primitives as web3types,
+  stew/[byteutils],
+  stint,
+  web3/primitives as web3types,
   ./datatypes/constants
 
 export constants
@@ -43,7 +45,8 @@ type
     # Transition
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
     TERMINAL_BLOCK_HASH*: BlockHash
-    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch  # Not actively used, but part of the spec
+    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch
+      # Not actively used, but part of the spec
 
     # Genesis
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
@@ -122,9 +125,11 @@ const
 
   # No-longer used values from legacy config files
   ignoredValues = [
-    "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-    "RANDOM_SUBNETS_PER_VALIDATOR",    # Removed in consensus-specs v1.4.0
+    "TRANSITION_TOTAL_DIFFICULTY",
+      # Name that appears in some altair alphas, obsolete, remove when no more testnets
+    "MIN_ANCHOR_POW_BLOCK_DIFFICULTY",
+      # Name that appears in some altair alphas, obsolete, remove when no more testnets
+    "RANDOM_SUBNETS_PER_VALIDATOR", # Removed in consensus-specs v1.4.0
   ]
 
 when const_preset == "mainnet":
@@ -163,7 +168,8 @@ when const_preset == "mainnet":
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
-      "0x0000000000000000000000000000000000000000000000000000000000000000"),
+      "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ),
 
     # Genesis
     # ---------------------------------------------------------------
@@ -207,7 +213,6 @@ when const_preset == "mainnet":
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
     ETH1_FOLLOW_DISTANCE: 2048,
-
 
     # Validator cycle
     # ---------------------------------------------------------------
@@ -267,10 +272,9 @@ when const_preset == "mainnet":
     # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
     # `2**12` (= 4096 epochs, ~18 days)
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 4096,
-    # `6`
-    # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+      # `6`
+      # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
   )
-
 elif const_preset == "gnosis":
   import ./presets/gnosis
   export gnosis
@@ -307,7 +311,8 @@ elif const_preset == "gnosis":
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
-      "0x0000000000000000000000000000000000000000000000000000000000000000"),
+      "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ),
 
     # Genesis
     # ---------------------------------------------------------------
@@ -339,7 +344,6 @@ elif const_preset == "gnosis":
     DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x64],
     DENEB_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
-
     # Time parameters
     # ---------------------------------------------------------------
     # 12 seconds
@@ -352,7 +356,6 @@ elif const_preset == "gnosis":
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
     ETH1_FOLLOW_DISTANCE: 2048,
-
 
     # Validator cycle
     # ---------------------------------------------------------------
@@ -412,10 +415,9 @@ elif const_preset == "gnosis":
     # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
     # `2**12` (= 4096 epochs, ~18 days)
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 16384,
-    # `6`
-    # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+      # `6`
+      # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
   )
-
 elif const_preset == "minimal":
   import ./presets/minimal
   export minimal
@@ -446,8 +448,8 @@ elif const_preset == "minimal":
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
-      "0x0000000000000000000000000000000000000000000000000000000000000000"),
-
+      "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ),
 
     # Genesis
     # ---------------------------------------------------------------
@@ -459,7 +461,6 @@ elif const_preset == "minimal":
     GENESIS_FORK_VERSION: Version [byte 0x00, 0x00, 0x00, 0x01],
     # [customized] Faster to spin up testnets, but does not give validator reasonable warning time for genesis
     GENESIS_DELAY: 300,
-
 
     # Forking
     # ---------------------------------------------------------------
@@ -479,7 +480,6 @@ elif const_preset == "minimal":
     DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x01],
     DENEB_FORK_EPOCH: Epoch(uint64.high),
 
-
     # Time parameters
     # ---------------------------------------------------------------
     # [customized] Faster for testing purposes
@@ -492,7 +492,6 @@ elif const_preset == "minimal":
     SHARD_COMMITTEE_PERIOD: 64,
     # [customized] process deposits more quickly, but insecure
     ETH1_FOLLOW_DISTANCE: 16,
-
 
     # Validator cycle
     # ---------------------------------------------------------------
@@ -508,7 +507,6 @@ elif const_preset == "minimal":
     CHURN_LIMIT_QUOTIENT: 32,
     # [New in Deneb:EIP7514] [customized]
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 4,
-
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -554,10 +552,9 @@ elif const_preset == "minimal":
     # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
     # `2**12` (= 4096 epochs, ~18 days)
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 4096,
-    # `6`
-    # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+      # `6`
+      # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
   )
-
 else:
   {.error: "Only mainnet and minimal presets supported".}
   # macro createConstantsFromPreset*(path: static string): untyped =
@@ -597,19 +594,19 @@ func parse(T: type uint64, input: string): T {.raises: [ValueError].} =
       raise newException(ValueError, "The constant value should be a valid hex integer")
   else:
     if parseBiggestUInt(input, res) != input.len:
-      raise newException(ValueError, "The constant value should be a valid unsigned integer")
+      raise newException(
+        ValueError, "The constant value should be a valid unsigned integer"
+      )
 
   uint64(res)
 
 template parse(T: type byte, input: string): T =
   byte parse(uint64, input)
 
-func parse(T: type array[4, byte], input: string): T
-           {.raises: [ValueError].} =
+func parse(T: type array[4, byte], input: string): T {.raises: [ValueError].} =
   hexToByteArray(input, 4)
 
-func parse(T: type Version, input: string): T
-           {.raises: [ValueError].} =
+func parse(T: type Version, input: string): T {.raises: [ValueError].} =
   Version hexToByteArray(input, 4)
 
 template parse(T: type Slot, input: string): T =
@@ -630,20 +627,21 @@ template parse(T: type BlockHash, input: string): T =
 template parse(T: type UInt256, input: string): T =
   parse(input, UInt256, 10)
 
-func parse(T: type DomainType, input: string): T
-           {.raises: [ValueError].} =
+func parse(T: type DomainType, input: string): T {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
 proc readRuntimeConfig*(
-    fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
-    raises: [PresetFileError, PresetIncompatibleError].} =
+    fileContent: string, path: string
+): (RuntimeConfig, seq[string]) {.raises: [PresetFileError, PresetIncompatibleError].} =
   var
     lineNum = 0
     cfg = defaultRuntimeConfig
 
-  template lineinfo: string =
-    try: "$1($2) " % [path, $lineNum]
-    except ValueError: path
+  template lineinfo(): string =
+    try:
+      "$1($2) " % [path, $lineNum]
+    except ValueError:
+      path
 
   template fail(msg) =
     raise newException(PresetFileError, lineinfo() & msg)
@@ -655,43 +653,48 @@ proc readRuntimeConfig*(
   var values: Table[string, string]
   for line in splitLines(fileContent):
     inc lineNum
-    if line.len == 0 or line[0] == '#': continue
+    if line.len == 0 or line[0] == '#':
+      continue
     # remove any trailing comments
     let line = line.split("#")[0]
     let lineParts = line.split(":")
     if lineParts.len != 2:
       fail "Invalid syntax: A preset file should include only assignments in the form 'ConstName: Value'"
 
-    if lineParts[0] in ignoredValues: continue
+    if lineParts[0] in ignoredValues:
+      continue
 
     values[lineParts[0]] = lineParts[1].strip
 
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
   template checkCompatibility(
-      constValue: untyped, name: string, operator: untyped = `==`): untyped =
+      constValue: untyped, name: string, operator: untyped = `==`
+  ): untyped =
     if values.hasKey(name):
       const opDesc = astToStr(operator)
       try:
         let value = parse(typeof(constValue), values[name])
         when constValue is distinct:
           if not operator(distinctBase(value), distinctBase(constValue)):
-            raise (ref PresetFileError)(msg:
-              "Cannot override config" &
-              " (required: " & name & opDesc & $distinctBase(constValue) &
-              " - config: " & name & "=" & values[name] & ")")
+            raise (ref PresetFileError)(
+              msg:
+                "Cannot override config" & " (required: " & name & opDesc &
+                $distinctBase(constValue) & " - config: " & name & "=" & values[name] &
+                ")"
+            )
         else:
           if not operator(value, constValue):
-            raise (ref PresetFileError)(msg:
-              "Cannot override config" &
-              " (required: " & name & opDesc & $constValue &
-              " - config: " & name & "=" & values[name] & ")")
+            raise (ref PresetFileError)(
+              msg:
+                "Cannot override config" & " (required: " & name & opDesc & $constValue &
+                " - config: " & name & "=" & values[name] & ")"
+            )
         values.del name
       except ValueError:
         raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
-  template checkCompatibility(
-      constValue: untyped, operator: untyped = `==`): untyped =
+  template checkCompatibility(constValue: untyped, operator: untyped = `==`): untyped =
     block:
       const name = astToStr(constValue)
       checkCompatibility(constValue, name, operator)
@@ -755,7 +758,7 @@ proc readRuntimeConfig*(
   checkCompatibility RESP_TIMEOUT
   checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
   checkCompatibility MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64,
-                     "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
+    "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
   checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
   checkCompatibility MESSAGE_DOMAIN_VALID_SNAPPY
   checkCompatibility SUBNETS_PER_NODE
@@ -765,7 +768,7 @@ proc readRuntimeConfig*(
 
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK,
-                     "MAX_REQUEST_BLOB_SIDECARS"
+    "MAX_REQUEST_BLOB_SIDECARS"
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
@@ -785,11 +788,14 @@ proc readRuntimeConfig*(
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(
-      msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
+      msg:
+        "Config not compatible with binary, compile with -d:const_preset=" &
+        cfg.PRESET_BASE
+    )
 
   # Requires initialized `cfg`
   checkCompatibility cfg.safeMinEpochsForBlockRequests(),
-                     "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
+    "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
 
   var unknowns: seq[string]
   for name in values.keys:
@@ -798,15 +804,14 @@ proc readRuntimeConfig*(
   (cfg, unknowns)
 
 proc readRuntimeConfig*(
-    path: string): (RuntimeConfig, seq[string]) {.
-    raises: [IOError, PresetFileError, PresetIncompatibleError].} =
+    path: string
+): (RuntimeConfig, seq[string]) {.
+    raises: [IOError, PresetFileError, PresetIncompatibleError]
+.} =
   readRuntimeConfig(readFile(path), path)
 
 template name*(cfg: RuntimeConfig): string =
-  if cfg.CONFIG_NAME.len() > 0:
-    cfg.CONFIG_NAME
-  else:
-    const_preset
+  if cfg.CONFIG_NAME.len() > 0: cfg.CONFIG_NAME else: const_preset
 
 func defaultLightClientDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
   const epochsPerPeriod = EPOCHS_PER_SYNC_COMMITTEE_PERIOD

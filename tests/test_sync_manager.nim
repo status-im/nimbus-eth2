@@ -10,14 +10,14 @@
 import std/[strutils, sequtils]
 import unittest2
 import chronos
-import ../beacon_chain/gossip_processing/block_processor,
-       ../beacon_chain/sync/sync_manager,
-       ../beacon_chain/spec/datatypes/phase0,
-       ../beacon_chain/spec/forks
+import
+  ../beacon_chain/gossip_processing/block_processor,
+  ../beacon_chain/sync/sync_manager,
+  ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/spec/forks
 
-type
-  SomeTPeer = ref object
-    score: int
+type SomeTPeer = ref object
+  score: int
 
 proc `$`(peer: SomeTPeer): string =
   "SomeTPeer"
@@ -37,24 +37,28 @@ proc getStats(peer: SomeTPeer, index: SyncResponseKind): uint64 =
 func getStaticSlotCb(slot: Slot): GetSlotCallback =
   proc getSlot(): Slot =
     slot
+
   getSlot
 
-type
-  BlockEntry = object
-    blck*: ForkedSignedBeaconBlock
-    resfut*: Future[Result[void, VerifierError]]
+type BlockEntry = object
+  blck*: ForkedSignedBeaconBlock
+  resfut*: Future[Result[void, VerifierError]]
 
 proc collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   # This sets up a fake block verifiation collector that simply puts the blocks
   # in the async queue, similar to how BlockProcessor does it - as far as
   # testing goes, this is risky because it might introduce differences between
   # the BlockProcessor and this test
-  proc verify(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
-              maybeFinalized: bool):
-      Future[Result[void, VerifierError]] =
+  proc verify(
+      signedBlock: ForkedSignedBeaconBlock,
+      blobs: Opt[BlobSidecars],
+      maybeFinalized: bool,
+  ): Future[Result[void, VerifierError]] =
     let fut = newFuture[Result[void, VerifierError]]()
-    try: queue.addLastNoWait(BlockEntry(blck: signedBlock, resfut: fut))
-    except CatchableError as exc: raiseAssert exc.msg
+    try:
+      queue.addLastNoWait(BlockEntry(blck: signedBlock, resfut: fut))
+    except CatchableError as exc:
+      raiseAssert exc.msg
     return fut
 
   return verify
@@ -78,13 +82,16 @@ suite "SyncManager test suite":
       item[].signed_block_header.message.slot = slots[i]
     res
 
-  proc getSlice(chain: openArray[ref ForkedSignedBeaconBlock], startSlot: Slot,
-                request: SyncRequest[SomeTPeer]): seq[ref ForkedSignedBeaconBlock] =
+  proc getSlice(
+      chain: openArray[ref ForkedSignedBeaconBlock],
+      startSlot: Slot,
+      request: SyncRequest[SomeTPeer],
+  ): seq[ref ForkedSignedBeaconBlock] =
     let
       startIndex = int(request.slot - startSlot)
       finishIndex = int(request.slot - startSlot) + int(request.count) - 1
     var res = newSeq[ref ForkedSignedBeaconBlock](1 + finishIndex - startIndex)
-    for i in 0..<res.len:
+    for i in 0 ..< res.len:
       res[i] = newClone(chain[i + startIndex][])
     res
 
@@ -92,10 +99,9 @@ suite "SyncManager test suite":
     let p1 = SomeTPeer()
     let aq = newAsyncQueue[BlockEntry]()
 
-    var queue = SyncQueue.init(SomeTPeer, kind,
-                               Slot(0), Slot(0), 1'u64,
-                               getStaticSlotCb(Slot(0)),
-                               collector(aq))
+    var queue = SyncQueue.init(
+      SomeTPeer, kind, Slot(0), Slot(0), 1'u64, getStaticSlotCb(Slot(0)), collector(aq)
+    )
     check:
       len(queue) == 1
       pendingLen(queue) == 0
@@ -130,68 +136,313 @@ suite "SyncManager test suite":
       of SyncQueueKind.Forward:
         @[
           # Tests with zero start.
-          (Slot(0), Slot(0), 1'u64, (Slot(0), 1'u64),
-           1'u64, 0'u64, 0'u64, 1'u64, 1'u64, 0'u64),
-          (Slot(0), Slot(0), 16'u64, (Slot(0), 1'u64),
-           1'u64, 0'u64, 0'u64, 1'u64, 1'u64, 0'u64),
-          (Slot(0), Slot(1), 2'u64, (Slot(0), 2'u64),
-           2'u64, 0'u64, 0'u64, 2'u64, 2'u64, 0'u64),
-          (Slot(0), Slot(1), 16'u64, (Slot(0), 2'u64),
-           2'u64, 0'u64, 0'u64, 2'u64, 2'u64, 0'u64),
-          (Slot(0), Slot(15), 16'u64, (Slot(0), 16'u64),
-           16'u64, 0'u64, 0'u64, 16'u64, 16'u64, 0'u64),
-          (Slot(0), Slot(15), 32'u64, (Slot(0), 16'u64),
-           16'u64, 0'u64, 0'u64, 16'u64, 16'u64, 0'u64),
+          (
+            Slot(0),
+            Slot(0),
+            1'u64,
+            (Slot(0), 1'u64),
+            1'u64,
+            0'u64,
+            0'u64,
+            1'u64,
+            1'u64,
+            0'u64,
+          ),
+          (
+            Slot(0),
+            Slot(0),
+            16'u64,
+            (Slot(0), 1'u64),
+            1'u64,
+            0'u64,
+            0'u64,
+            1'u64,
+            1'u64,
+            0'u64,
+          ),
+          (
+            Slot(0),
+            Slot(1),
+            2'u64,
+            (Slot(0), 2'u64),
+            2'u64,
+            0'u64,
+            0'u64,
+            2'u64,
+            2'u64,
+            0'u64,
+          ),
+          (
+            Slot(0),
+            Slot(1),
+            16'u64,
+            (Slot(0), 2'u64),
+            2'u64,
+            0'u64,
+            0'u64,
+            2'u64,
+            2'u64,
+            0'u64,
+          ),
+          (
+            Slot(0),
+            Slot(15),
+            16'u64,
+            (Slot(0), 16'u64),
+            16'u64,
+            0'u64,
+            0'u64,
+            16'u64,
+            16'u64,
+            0'u64,
+          ),
+          (
+            Slot(0),
+            Slot(15),
+            32'u64,
+            (Slot(0), 16'u64),
+            16'u64,
+            0'u64,
+            0'u64,
+            16'u64,
+            16'u64,
+            0'u64,
+          ),
           # Tests with non-zero start.
-          (Slot(1021), Slot(1021), 1'u64, (Slot(1021), 1'u64),
-           1'u64, 0'u64, 0'u64, 1'u64, 1'u64, 0'u64),
-          (Slot(1021), Slot(1021), 16'u64, (Slot(1021), 1'u64),
-           1'u64, 0'u64, 0'u64, 1'u64, 1'u64, 0'u64),
-          (Slot(1021), Slot(1022), 2'u64, (Slot(1021), 2'u64),
-           2'u64, 0'u64, 0'u64, 2'u64, 2'u64, 0'u64),
-          (Slot(1021), Slot(1022), 16'u64, (Slot(1021), 2'u64),
-           2'u64, 0'u64, 0'u64, 2'u64, 2'u64, 0'u64),
-          (Slot(1021), Slot(1036), 16'u64, (Slot(1021), 16'u64),
-           16'u64, 0'u64, 0'u64, 16'u64, 16'u64, 0'u64),
-          (Slot(1021), Slot(1036), 32'u64, (Slot(1021), 16'u64),
-           16'u64, 0'u64, 0'u64, 16'u64, 16'u64, 0'u64),
+          (
+            Slot(1021),
+            Slot(1021),
+            1'u64,
+            (Slot(1021), 1'u64),
+            1'u64,
+            0'u64,
+            0'u64,
+            1'u64,
+            1'u64,
+            0'u64,
+          ),
+          (
+            Slot(1021),
+            Slot(1021),
+            16'u64,
+            (Slot(1021), 1'u64),
+            1'u64,
+            0'u64,
+            0'u64,
+            1'u64,
+            1'u64,
+            0'u64,
+          ),
+          (
+            Slot(1021),
+            Slot(1022),
+            2'u64,
+            (Slot(1021), 2'u64),
+            2'u64,
+            0'u64,
+            0'u64,
+            2'u64,
+            2'u64,
+            0'u64,
+          ),
+          (
+            Slot(1021),
+            Slot(1022),
+            16'u64,
+            (Slot(1021), 2'u64),
+            2'u64,
+            0'u64,
+            0'u64,
+            2'u64,
+            2'u64,
+            0'u64,
+          ),
+          (
+            Slot(1021),
+            Slot(1036),
+            16'u64,
+            (Slot(1021), 16'u64),
+            16'u64,
+            0'u64,
+            0'u64,
+            16'u64,
+            16'u64,
+            0'u64,
+          ),
+          (
+            Slot(1021),
+            Slot(1036),
+            32'u64,
+            (Slot(1021), 16'u64),
+            16'u64,
+            0'u64,
+            0'u64,
+            16'u64,
+            16'u64,
+            0'u64,
+          ),
         ]
       of SyncQueueKind.Backward:
         @[
           # Tests with zero finish.
-          (Slot(0), Slot(0), 1'u64, (Slot(0), 1'u64),
-           1'u64, 0'u64, 0'u64, 1'u64, 1'u64, 0'u64),
-          (Slot(0), Slot(0), 16'u64, (Slot(0), 1'u64),
-           1'u64, 0'u64, 0'u64, 1'u64, 1'u64, 0'u64),
-          (Slot(1), Slot(0), 2'u64, (Slot(0), 2'u64),
-           2'u64, 0'u64, 0'u64, 2'u64, 2'u64, 0'u64),
-          (Slot(1), Slot(0), 16'u64, (Slot(0), 2'u64),
-           2'u64, 0'u64, 0'u64, 2'u64, 2'u64, 0'u64),
-          (Slot(15), Slot(0), 16'u64, (Slot(0), 16'u64),
-           16'u64, 0'u64, 0'u64, 16'u64, 16'u64, 0'u64),
-          (Slot(15), Slot(0), 32'u64, (Slot(0), 16'u64),
-           16'u64, 0'u64, 0'u64, 16'u64, 16'u64, 0'u64),
+          (
+            Slot(0),
+            Slot(0),
+            1'u64,
+            (Slot(0), 1'u64),
+            1'u64,
+            0'u64,
+            0'u64,
+            1'u64,
+            1'u64,
+            0'u64,
+          ),
+          (
+            Slot(0),
+            Slot(0),
+            16'u64,
+            (Slot(0), 1'u64),
+            1'u64,
+            0'u64,
+            0'u64,
+            1'u64,
+            1'u64,
+            0'u64,
+          ),
+          (
+            Slot(1),
+            Slot(0),
+            2'u64,
+            (Slot(0), 2'u64),
+            2'u64,
+            0'u64,
+            0'u64,
+            2'u64,
+            2'u64,
+            0'u64,
+          ),
+          (
+            Slot(1),
+            Slot(0),
+            16'u64,
+            (Slot(0), 2'u64),
+            2'u64,
+            0'u64,
+            0'u64,
+            2'u64,
+            2'u64,
+            0'u64,
+          ),
+          (
+            Slot(15),
+            Slot(0),
+            16'u64,
+            (Slot(0), 16'u64),
+            16'u64,
+            0'u64,
+            0'u64,
+            16'u64,
+            16'u64,
+            0'u64,
+          ),
+          (
+            Slot(15),
+            Slot(0),
+            32'u64,
+            (Slot(0), 16'u64),
+            16'u64,
+            0'u64,
+            0'u64,
+            16'u64,
+            16'u64,
+            0'u64,
+          ),
           # Tests with non-zero finish.
-          (Slot(1021), Slot(1021), 1'u64, (Slot(1021), 1'u64),
-           1'u64, 0'u64, 0'u64, 1'u64, 1'u64, 0'u64),
-          (Slot(1021), Slot(1021), 16'u64, (Slot(1021), 1'u64),
-           1'u64, 0'u64, 0'u64, 1'u64, 1'u64, 0'u64),
-          (Slot(1022), Slot(1021), 2'u64, (Slot(1021), 2'u64),
-           2'u64, 0'u64, 0'u64, 2'u64, 2'u64, 0'u64),
-          (Slot(1022), Slot(1021), 16'u64, (Slot(1021), 2'u64),
-           2'u64, 0'u64, 0'u64, 2'u64, 2'u64, 0'u64),
-          (Slot(1036), Slot(1021), 16'u64, (Slot(1021), 16'u64),
-           16'u64, 0'u64, 0'u64, 16'u64, 16'u64, 0'u64),
-          (Slot(1036), Slot(1021), 32'u64, (Slot(1021), 16'u64),
-           16'u64, 0'u64, 0'u64, 16'u64, 16'u64, 0'u64),
+          (
+            Slot(1021),
+            Slot(1021),
+            1'u64,
+            (Slot(1021), 1'u64),
+            1'u64,
+            0'u64,
+            0'u64,
+            1'u64,
+            1'u64,
+            0'u64,
+          ),
+          (
+            Slot(1021),
+            Slot(1021),
+            16'u64,
+            (Slot(1021), 1'u64),
+            1'u64,
+            0'u64,
+            0'u64,
+            1'u64,
+            1'u64,
+            0'u64,
+          ),
+          (
+            Slot(1022),
+            Slot(1021),
+            2'u64,
+            (Slot(1021), 2'u64),
+            2'u64,
+            0'u64,
+            0'u64,
+            2'u64,
+            2'u64,
+            0'u64,
+          ),
+          (
+            Slot(1022),
+            Slot(1021),
+            16'u64,
+            (Slot(1021), 2'u64),
+            2'u64,
+            0'u64,
+            0'u64,
+            2'u64,
+            2'u64,
+            0'u64,
+          ),
+          (
+            Slot(1036),
+            Slot(1021),
+            16'u64,
+            (Slot(1021), 16'u64),
+            16'u64,
+            0'u64,
+            0'u64,
+            16'u64,
+            16'u64,
+            0'u64,
+          ),
+          (
+            Slot(1036),
+            Slot(1021),
+            32'u64,
+            (Slot(1021), 16'u64),
+            16'u64,
+            0'u64,
+            0'u64,
+            16'u64,
+            16'u64,
+            0'u64,
+          ),
         ]
 
     for item in Checks:
       let aq = newAsyncQueue[BlockEntry]()
-      var queue = SyncQueue.init(SomeTPeer, kind,
-                                 item[0], item[1], item[2],
-                                 getStaticSlotCb(item[0]),
-                                 collector(aq))
+      var queue = SyncQueue.init(
+        SomeTPeer,
+        kind,
+        item[0],
+        item[1],
+        item[2],
+        getStaticSlotCb(item[0]),
+        collector(aq),
+      )
       check:
         len(queue) == item[4]
         pendingLen(queue) == item[5]
@@ -213,13 +464,25 @@ suite "SyncManager test suite":
     var queue =
       case kkind
       of SyncQueueKind.Forward:
-        SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                       Slot(0), Slot(1), 1'u64,
-                       getStaticSlotCb(Slot(0)), collector(aq))
+        SyncQueue.init(
+          SomeTPeer,
+          SyncQueueKind.Forward,
+          Slot(0),
+          Slot(1),
+          1'u64,
+          getStaticSlotCb(Slot(0)),
+          collector(aq),
+        )
       of SyncQueueKind.Backward:
-        SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                       Slot(1), Slot(0), 1'u64,
-                       getStaticSlotCb(Slot(1)), collector(aq))
+        SyncQueue.init(
+          SomeTPeer,
+          SyncQueueKind.Backward,
+          Slot(1),
+          Slot(0),
+          1'u64,
+          getStaticSlotCb(Slot(1)),
+          collector(aq),
+        )
 
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
@@ -275,11 +538,11 @@ suite "SyncManager test suite":
 
   template done(b: BlockEntry) =
     b.resfut.complete(Result[void, VerifierError].ok())
+
   template fail(b: BlockEntry, e: untyped) =
     b.resfut.complete(Result[void, VerifierError].err(e))
 
-  template smokeTest(kkind: SyncQueueKind, start, finish: Slot,
-                     chunkSize: uint64) =
+  template smokeTest(kkind: SyncQueueKind, start, finish: Slot, chunkSize: uint64) =
     let aq = newAsyncQueue[BlockEntry]()
 
     var counter =
@@ -311,13 +574,25 @@ suite "SyncManager test suite":
       queue =
         case kkind
         of SyncQueueKind.Forward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                         start, finish, chunkSize,
-                         getStaticSlotCb(start), collector(aq))
+          SyncQueue.init(
+            SomeTPeer,
+            SyncQueueKind.Forward,
+            start,
+            finish,
+            chunkSize,
+            getStaticSlotCb(start),
+            collector(aq),
+          )
         of SyncQueueKind.Backward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                         finish, start, chunkSize,
-                         getStaticSlotCb(finish), collector(aq))
+          SyncQueue.init(
+            SomeTPeer,
+            SyncQueueKind.Backward,
+            finish,
+            start,
+            chunkSize,
+            getStaticSlotCb(finish),
+            collector(aq),
+          )
       chain = createChain(start, finish)
       validatorFut =
         case kkind
@@ -333,8 +608,9 @@ suite "SyncManager test suite":
         var request = queue.pop(finish, p1)
         if request.isEmpty():
           break
-        await queue.push(request, getSlice(chain, start, request),
-                         Opt.none(seq[BlobSidecars]))
+        await queue.push(
+          request, getSlice(chain, start, request), Opt.none(seq[BlobSidecars])
+        )
       await validatorFut.cancelAndWait()
 
     waitFor runSmokeTest()
@@ -382,15 +658,27 @@ suite "SyncManager test suite":
       queue =
         case kkind
         of SyncQueueKind.Forward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                         startSlot, finishSlot, chunkSize,
-                         getStaticSlotCb(startSlot), collector(aq),
-                         queueSize)
+          SyncQueue.init(
+            SomeTPeer,
+            SyncQueueKind.Forward,
+            startSlot,
+            finishSlot,
+            chunkSize,
+            getStaticSlotCb(startSlot),
+            collector(aq),
+            queueSize,
+          )
         of SyncQueueKind.Backward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                         finishSlot, startSlot, chunkSize,
-                         getStaticSlotCb(finishSlot), collector(aq),
-                         queueSize)
+          SyncQueue.init(
+            SomeTPeer,
+            SyncQueueKind.Backward,
+            finishSlot,
+            startSlot,
+            chunkSize,
+            getStaticSlotCb(finishSlot),
+            collector(aq),
+            queueSize,
+          )
       validatorFut =
         case kkind
         of SyncQueueKind.Forward:
@@ -408,35 +696,41 @@ suite "SyncManager test suite":
       var r12 = queue.pop(finishSlot, p2)
       var r13 = queue.pop(finishSlot, p3)
 
-      var f13 = queue.push(r13, chain.getSlice(startSlot, r13),
-                           Opt.none(seq[BlobSidecars]))
+      var f13 =
+        queue.push(r13, chain.getSlice(startSlot, r13), Opt.none(seq[BlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         f13.finished == false
         case kkind
-        of SyncQueueKind.Forward: counter == int(startSlot)
-        of SyncQueueKind.Backward: counter == int(finishSlot)
+        of SyncQueueKind.Forward:
+          counter == int(startSlot)
+        of SyncQueueKind.Backward:
+          counter == int(finishSlot)
 
-      var f11 = queue.push(r11, chain.getSlice(startSlot, r11),
-                           Opt.none(seq[BlobSidecars]))
+      var f11 =
+        queue.push(r11, chain.getSlice(startSlot, r11), Opt.none(seq[BlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         case kkind
-        of SyncQueueKind.Forward: counter == int(startSlot + chunkSize)
-        of SyncQueueKind.Backward: counter == int(finishSlot - chunkSize)
+        of SyncQueueKind.Forward:
+          counter == int(startSlot + chunkSize)
+        of SyncQueueKind.Backward:
+          counter == int(finishSlot - chunkSize)
         f11.finished == true and f11.failed == false
         f13.finished == false
 
-      var f12 = queue.push(r12, chain.getSlice(startSlot, r12),
-                           Opt.none(seq[BlobSidecars]))
+      var f12 =
+        queue.push(r12, chain.getSlice(startSlot, r12), Opt.none(seq[BlobSidecars]))
       await allFutures(f11, f12, f13)
       check:
         f12.finished == true and f12.failed == false
         f13.finished == true and f13.failed == false
       check:
         case kkind
-        of SyncQueueKind.Forward: counter == int(finishSlot) + 1
-        of SyncQueueKind.Backward: counter == int(startSlot) - 1
+        of SyncQueueKind.Forward:
+          counter == int(finishSlot) + 1
+        of SyncQueueKind.Backward:
+          counter == int(startSlot) - 1
         r11.item == p1
         r12.item == p2
         r13.item == p3
@@ -445,8 +739,9 @@ suite "SyncManager test suite":
 
     check waitFor(runTest()) == true
 
-  template partialGoodResponseTest(kkind: SyncQueueKind, start, finish: Slot,
-                                   chunkSize: uint64) =
+  template partialGoodResponseTest(
+      kkind: SyncQueueKind, start, finish: Slot, chunkSize: uint64
+  ) =
     let aq = newAsyncQueue[BlockEntry]()
 
     var counter =
@@ -490,13 +785,25 @@ suite "SyncManager test suite":
       queue =
         case kkind
         of SyncQueueKind.Forward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                         start, finish, chunkSize,
-                         getFowardSafeSlotCb, collector(aq))
+          SyncQueue.init(
+            SomeTPeer,
+            SyncQueueKind.Forward,
+            start,
+            finish,
+            chunkSize,
+            getFowardSafeSlotCb,
+            collector(aq),
+          )
         of SyncQueueKind.Backward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                         finish, start, chunkSize,
-                         getBackwardSafeSlotCb, collector(aq))
+          SyncQueue.init(
+            SomeTPeer,
+            SyncQueueKind.Backward,
+            finish,
+            start,
+            chunkSize,
+            getBackwardSafeSlotCb,
+            collector(aq),
+          )
       chain = createChain(start, finish)
       validatorFut =
         case kkind
@@ -542,8 +849,9 @@ suite "SyncManager test suite":
       check (counter + 1) == int(start)
     check p1.score >= expectedScore
 
-  template outOfBandAdvancementTest(kkind: SyncQueueKind, start, finish: Slot,
-                                    chunkSize: uint64) =
+  template outOfBandAdvancementTest(
+      kkind: SyncQueueKind, start, finish: Slot, chunkSize: uint64
+  ) =
     let aq = newAsyncQueue[BlockEntry]()
 
     var counter =
@@ -583,13 +891,25 @@ suite "SyncManager test suite":
       queue =
         case kkind
         of SyncQueueKind.Forward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                         start, finish, chunkSize,
-                         getFowardSafeSlotCb, collector(aq))
+          SyncQueue.init(
+            SomeTPeer,
+            SyncQueueKind.Forward,
+            start,
+            finish,
+            chunkSize,
+            getFowardSafeSlotCb,
+            collector(aq),
+          )
         of SyncQueueKind.Backward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                         finish, start, chunkSize,
-                         getBackwardSafeSlotCb, collector(aq))
+          SyncQueue.init(
+            SomeTPeer,
+            SyncQueueKind.Backward,
+            finish,
+            start,
+            chunkSize,
+            getBackwardSafeSlotCb,
+            collector(aq),
+          )
       chain = createChain(start, finish)
       validatorFut = failingValidator(aq)
 
@@ -682,29 +1002,24 @@ suite "SyncManager test suite":
       const SmokeTests = [
         (Slot(0), Slot(547), 61'u64),
         (Slot(193), Slot(389), 79'u64),
-        (Slot(1181), Slot(1399), 41'u64)
+        (Slot(1181), Slot(1399), 41'u64),
       ]
       for item in SmokeTests:
         smokeTest(k, item[0], item[1], item[2])
 
     test prefix & "Async unordered push test":
-      const UnorderedTests = [
-        Slot(0), Slot(100)
-      ]
+      const UnorderedTests = [Slot(0), Slot(100)]
       for item in UnorderedTests:
         unorderedAsyncTest(k, item)
 
     test prefix & "Good response with missing values towards end":
-      const PartialGoodResponseTests = [
-        (Slot(0), Slot(200), (SLOTS_PER_EPOCH + 3).uint64)
-      ]
+      const PartialGoodResponseTests =
+        [(Slot(0), Slot(200), (SLOTS_PER_EPOCH + 3).uint64)]
       for item in PartialGoodResponseTests:
         partialGoodResponseTest(k, item[0], item[1], item[2])
 
     test prefix & "Handle out-of-band sync progress advancement":
-      const OutOfBandAdvancementTests = [
-        (Slot(0), Slot(500), SLOTS_PER_EPOCH.uint64)
-      ]
+      const OutOfBandAdvancementTests = [(Slot(0), Slot(500), SLOTS_PER_EPOCH.uint64)]
       for item in OutOfBandAdvancementTests:
         outOfBandAdvancementTest(k, item[0], item[1], item[2])
 
@@ -734,10 +1049,16 @@ suite "SyncManager test suite":
 
     var
       chain = createChain(startSlot, finishSlot)
-      queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                             startSlot, finishSlot, chunkSize,
-                             getStaticSlotCb(startSlot), collector(aq),
-                             queueSize)
+      queue = SyncQueue.init(
+        SomeTPeer,
+        SyncQueueKind.Forward,
+        startSlot,
+        finishSlot,
+        chunkSize,
+        getStaticSlotCb(startSlot),
+        collector(aq),
+        queueSize,
+      )
       validatorFut = forwardValidator(aq)
 
     let
@@ -756,23 +1077,23 @@ suite "SyncManager test suite":
       var r13 = queue.pop(finishSlot, p3)
       var r14 = queue.pop(finishSlot, p4)
 
-      var f14 = queue.push(r14, chain.getSlice(startSlot, r14),
-                           Opt.none(seq[BlobSidecars]))
+      var f14 =
+        queue.push(r14, chain.getSlice(startSlot, r14), Opt.none(seq[BlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         f14.finished == false
         counter == int(startSlot)
 
-      var f12 = queue.push(r12, chain.getSlice(startSlot, r12),
-                           Opt.none(seq[BlobSidecars]))
+      var f12 =
+        queue.push(r12, chain.getSlice(startSlot, r12), Opt.none(seq[BlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         counter == int(startSlot)
         f12.finished == false
         f14.finished == false
 
-      var f11 = queue.push(r11, chain.getSlice(startSlot, r11),
-                           Opt.none(seq[BlobSidecars]))
+      var f11 =
+        queue.push(r11, chain.getSlice(startSlot, r11), Opt.none(seq[BlobSidecars]))
       await allFutures(f11, f12)
       check:
         counter == int(startSlot + chunkSize + chunkSize)
@@ -783,8 +1104,7 @@ suite "SyncManager test suite":
       var missingSlice = chain.getSlice(startSlot, r13)
       withBlck(missingSlice[0][]):
         forkyBlck.message.proposer_index = 0xDEADBEAF'u64
-      var f13 = queue.push(r13, missingSlice,
-                           Opt.none(seq[BlobSidecars]))
+      var f13 = queue.push(r13, missingSlice, Opt.none(seq[BlobSidecars]))
       await allFutures(f13, f14)
       check:
         f11.finished == true and f11.failed == false
@@ -805,18 +1125,18 @@ suite "SyncManager test suite":
 
       check r18.isEmpty() == true
 
-      var f17 = queue.push(r17, chain.getSlice(startSlot, r17),
-                           Opt.none(seq[BlobSidecars]))
+      var f17 =
+        queue.push(r17, chain.getSlice(startSlot, r17), Opt.none(seq[BlobSidecars]))
       await sleepAsync(100.milliseconds)
       check f17.finished == false
 
-      var f16 = queue.push(r16, chain.getSlice(startSlot, r16),
-                           Opt.none(seq[BlobSidecars]))
+      var f16 =
+        queue.push(r16, chain.getSlice(startSlot, r16), Opt.none(seq[BlobSidecars]))
       await sleepAsync(100.milliseconds)
       check f16.finished == false
 
-      var f15 = queue.push(r15, chain.getSlice(startSlot, r15),
-                           Opt.none(seq[BlobSidecars]))
+      var f15 =
+        queue.push(r15, chain.getSlice(startSlot, r15), Opt.none(seq[BlobSidecars]))
       await allFutures(f15, f16, f17)
       check:
         f15.finished == true and f15.failed == false
@@ -849,21 +1169,26 @@ suite "SyncManager test suite":
 
     var
       chain = createChain(startSlot, finishSlot)
-      queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                             startSlot, finishSlot, chunkSize,
-                             getStaticSlotCb(startSlot), collector(aq),
-                             queueSize)
+      queue = SyncQueue.init(
+        SomeTPeer,
+        SyncQueueKind.Forward,
+        startSlot,
+        finishSlot,
+        chunkSize,
+        getStaticSlotCb(startSlot),
+        collector(aq),
+        queueSize,
+      )
       validatorFut = forwardValidator(aq)
 
-    let
-      p1 = SomeTPeer()
+    let p1 = SomeTPeer()
 
     proc runTest(): Future[bool] {.async.} =
       var r11 = queue.pop(finishSlot, p1)
 
       # Push a single request that will fail with all blocks being unviable
-      var f11 = queue.push(r11, chain.getSlice(startSlot, r11),
-                           Opt.none(seq[BlobSidecars]))
+      var f11 =
+        queue.push(r11, chain.getSlice(startSlot, r11), Opt.none(seq[BlobSidecars]))
       discard await f11.withTimeout(100.milliseconds)
 
       check:
@@ -908,9 +1233,16 @@ suite "SyncManager test suite":
 
     var
       chain = createChain(startSlot, finishSlot)
-      queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                             finishSlot, startSlot, chunkSize,
-                             getSafeSlot, collector(aq), queueSize)
+      queue = SyncQueue.init(
+        SomeTPeer,
+        SyncQueueKind.Backward,
+        finishSlot,
+        startSlot,
+        chunkSize,
+        getSafeSlot,
+        collector(aq),
+        queueSize,
+      )
       validatorFut = backwardValidator(aq)
 
     let
@@ -928,23 +1260,23 @@ suite "SyncManager test suite":
       var r13 = queue.pop(finishSlot, p3)
       var r14 = queue.pop(finishSlot, p4)
 
-      var f14 = queue.push(r14, chain.getSlice(startSlot, r14),
-                           Opt.none(seq[BlobSidecars]))
+      var f14 =
+        queue.push(r14, chain.getSlice(startSlot, r14), Opt.none(seq[BlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         f14.finished == false
         counter == int(finishSlot)
 
-      var f12 = queue.push(r12, chain.getSlice(startSlot, r12),
-                           Opt.none(seq[BlobSidecars]))
+      var f12 =
+        queue.push(r12, chain.getSlice(startSlot, r12), Opt.none(seq[BlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         counter == int(finishSlot)
         f12.finished == false
         f14.finished == false
 
-      var f11 = queue.push(r11, chain.getSlice(startSlot, r11),
-                           Opt.none(seq[BlobSidecars]))
+      var f11 =
+        queue.push(r11, chain.getSlice(startSlot, r11), Opt.none(seq[BlobSidecars]))
       await allFutures(f11, f12)
       check:
         counter == int(finishSlot - chunkSize - chunkSize)
@@ -972,13 +1304,13 @@ suite "SyncManager test suite":
 
       check r17.isEmpty() == true
 
-      var f16 = queue.push(r16, chain.getSlice(startSlot, r16),
-                           Opt.none(seq[BlobSidecars]))
+      var f16 =
+        queue.push(r16, chain.getSlice(startSlot, r16), Opt.none(seq[BlobSidecars]))
       await sleepAsync(100.milliseconds)
       check f16.finished == false
 
-      var f15 = queue.push(r15, chain.getSlice(startSlot, r15),
-                           Opt.none(seq[BlobSidecars]))
+      var f15 =
+        queue.push(r15, chain.getSlice(startSlot, r15), Opt.none(seq[BlobSidecars]))
       await allFutures(f15, f16)
       check:
         f15.finished == true and f15.failed == false
@@ -1024,7 +1356,7 @@ suite "SyncManager test suite":
       var slot = req.slot
       var counter = 0'u64
       while counter < req.count:
-        if not(req.contains(slot)):
+        if not (req.contains(slot)):
           return false
         slot = slot + 1
         counter = counter + 1'u64
@@ -1115,15 +1447,19 @@ suite "SyncManager test suite":
     check:
       groupedRes3.isErr()
 
-
-
   test "[SyncQueue#Forward] getRewindPoint() test":
     let aq = newAsyncQueue[BlockEntry]()
     block:
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getStaticSlotCb(Slot(0)),
-                                 collector(aq), 2)
+      var queue = SyncQueue.init(
+        SomeTPeer,
+        SyncQueueKind.Forward,
+        Slot(0),
+        Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+        1'u64,
+        getStaticSlotCb(Slot(0)),
+        collector(aq),
+        2,
+      )
       let finalizedSlot = start_slot(Epoch(0'u64))
       let startSlot = start_slot(Epoch(0'u64)) + 1'u64
       let finishSlot = start_slot(Epoch(2'u64))
@@ -1132,22 +1468,34 @@ suite "SyncManager test suite":
         check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
 
     block:
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getStaticSlotCb(Slot(0)),
-                                 collector(aq), 2)
+      var queue = SyncQueue.init(
+        SomeTPeer,
+        SyncQueueKind.Forward,
+        Slot(0),
+        Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+        1'u64,
+        getStaticSlotCb(Slot(0)),
+        collector(aq),
+        2,
+      )
       let finalizedSlot = start_slot(Epoch(1'u64))
       let startSlot = start_slot(Epoch(1'u64)) + 1'u64
       let finishSlot = start_slot(Epoch(3'u64))
 
-      for i in uint64(startSlot) ..< uint64(finishSlot) :
+      for i in uint64(startSlot) ..< uint64(finishSlot):
         check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
 
     block:
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getStaticSlotCb(Slot(0)),
-                                 collector(aq), 2)
+      var queue = SyncQueue.init(
+        SomeTPeer,
+        SyncQueueKind.Forward,
+        Slot(0),
+        Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+        1'u64,
+        getStaticSlotCb(Slot(0)),
+        collector(aq),
+        2,
+      )
       let finalizedSlot = start_slot(Epoch(0'u64))
       let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
       let failEpoch = epoch(failSlot)
@@ -1162,10 +1510,16 @@ suite "SyncManager test suite":
         counter = counter shl 1
 
     block:
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getStaticSlotCb(Slot(0)),
-                                 collector(aq), 2)
+      var queue = SyncQueue.init(
+        SomeTPeer,
+        SyncQueueKind.Forward,
+        Slot(0),
+        Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+        1'u64,
+        getStaticSlotCb(Slot(0)),
+        collector(aq),
+        2,
+      )
       let finalizedSlot = start_slot(Epoch(1'u64))
       let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
       let failEpoch = epoch(failSlot)
@@ -1182,9 +1536,16 @@ suite "SyncManager test suite":
     let aq = newAsyncQueue[BlockEntry]()
     block:
       let getSafeSlot = getStaticSlotCb(Slot(1024))
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                                 Slot(1024), Slot(0),
-                                 1'u64, getSafeSlot, collector(aq), 2)
+      var queue = SyncQueue.init(
+        SomeTPeer,
+        SyncQueueKind.Backward,
+        Slot(1024),
+        Slot(0),
+        1'u64,
+        getSafeSlot,
+        collector(aq),
+        2,
+      )
       let safeSlot = getSafeSlot()
       for i in countdown(1023, 0):
         check queue.getRewindPoint(Slot(i), safeSlot) == safeSlot

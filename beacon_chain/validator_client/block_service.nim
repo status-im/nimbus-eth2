@@ -9,7 +9,9 @@ import
   chronicles,
   ".."/validators/activity_metrics,
   ".."/spec/forks,
-  common, api, fallback_service
+  common,
+  api,
+  fallback_service
 
 const
   ServiceName = "block_service"
@@ -18,7 +20,8 @@ const
   BlockPollOffset2 = TimeDiff(nanoseconds: BlockPollInterval * 2)
   BlockPollOffset3 = TimeDiff(nanoseconds: BlockPollInterval * 3)
 
-logScope: service = ServiceName
+logScope:
+  service = ServiceName
 
 type
   PreparedBeaconBlock = object
@@ -31,77 +34,96 @@ type
     blockRoot*: Eth2Digest
     data*: ForkedBlindedBeaconBlock
 
-proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
-                  proposerKey: ValidatorPubKey) {.async.}
+proc proposeBlock(
+  vc: ValidatorClientRef, slot: Slot, proposerKey: ValidatorPubKey
+) {.async.}
 
 proc produceBlock(
-       vc: ValidatorClientRef,
-       currentSlot, slot: Slot,
-       randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes,
-       validator: AttachedValidator
-     ): Future[Opt[PreparedBeaconBlock]] {.async.} =
+    vc: ValidatorClientRef,
+    currentSlot, slot: Slot,
+    randao_reveal: ValidatorSig,
+    graffiti: GraffitiBytes,
+    validator: AttachedValidator,
+): Future[Opt[PreparedBeaconBlock]] {.async.} =
   logScope:
     slot = slot
     wall_slot = currentSlot
     validator = shortLog(validator)
-  let
-    produceBlockResponse =
-      try:
-        await vc.produceBlockV2(slot, randao_reveal, graffiti,
-                                ApiStrategyKind.Best)
-      except ValidatorApiError as exc:
-        warn "Unable to retrieve block data", reason = exc.getFailureReason()
-        return Opt.none(PreparedBeaconBlock)
-      except CancelledError as exc:
-        debug "Block data production has been interrupted"
-        raise exc
-      except CatchableError as exc:
-        error "An unexpected error occurred while getting block data",
-              error_name = exc.name, error_msg = exc.msg
-        return Opt.none(PreparedBeaconBlock)
+  let produceBlockResponse =
+    try:
+      await vc.produceBlockV2(slot, randao_reveal, graffiti, ApiStrategyKind.Best)
+    except ValidatorApiError as exc:
+      warn "Unable to retrieve block data", reason = exc.getFailureReason()
+      return Opt.none(PreparedBeaconBlock)
+    except CancelledError as exc:
+      debug "Block data production has been interrupted"
+      raise exc
+    except CatchableError as exc:
+      error "An unexpected error occurred while getting block data",
+        error_name = exc.name, error_msg = exc.msg
+      return Opt.none(PreparedBeaconBlock)
   case produceBlockResponse.kind
   of ConsensusFork.Phase0:
     let blck = produceBlockResponse.phase0Data
-    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
-                                        data: ForkedBeaconBlock.init(blck),
-                                        kzgProofsOpt: Opt.none(deneb.KzgProofs),
-                                        blobsOpt: Opt.none(deneb.Blobs)))
+    return Opt.some(
+      PreparedBeaconBlock(
+        blockRoot: hash_tree_root(blck),
+        data: ForkedBeaconBlock.init(blck),
+        kzgProofsOpt: Opt.none(deneb.KzgProofs),
+        blobsOpt: Opt.none(deneb.Blobs),
+      )
+    )
   of ConsensusFork.Altair:
     let blck = produceBlockResponse.altairData
-    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
-                                        data: ForkedBeaconBlock.init(blck),
-                                        kzgProofsOpt: Opt.none(deneb.KzgProofs),
-                                        blobsOpt: Opt.none(deneb.Blobs)))
+    return Opt.some(
+      PreparedBeaconBlock(
+        blockRoot: hash_tree_root(blck),
+        data: ForkedBeaconBlock.init(blck),
+        kzgProofsOpt: Opt.none(deneb.KzgProofs),
+        blobsOpt: Opt.none(deneb.Blobs),
+      )
+    )
   of ConsensusFork.Bellatrix:
     let blck = produceBlockResponse.bellatrixData
-    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
-                                        data: ForkedBeaconBlock.init(blck),
-                                        kzgProofsOpt: Opt.none(deneb.KzgProofs),
-                                        blobsOpt: Opt.none(deneb.Blobs)))
+    return Opt.some(
+      PreparedBeaconBlock(
+        blockRoot: hash_tree_root(blck),
+        data: ForkedBeaconBlock.init(blck),
+        kzgProofsOpt: Opt.none(deneb.KzgProofs),
+        blobsOpt: Opt.none(deneb.Blobs),
+      )
+    )
   of ConsensusFork.Capella:
     let blck = produceBlockResponse.capellaData
-    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
-                                        data: ForkedBeaconBlock.init(blck),
-                                        kzgProofsOpt: Opt.none(deneb.KzgProofs),
-                                        blobsOpt: Opt.none(deneb.Blobs)))
+    return Opt.some(
+      PreparedBeaconBlock(
+        blockRoot: hash_tree_root(blck),
+        data: ForkedBeaconBlock.init(blck),
+        kzgProofsOpt: Opt.none(deneb.KzgProofs),
+        blobsOpt: Opt.none(deneb.Blobs),
+      )
+    )
   of ConsensusFork.Deneb:
     let
       blck = produceBlockResponse.denebData.`block`
       kzgProofs = produceBlockResponse.denebData.kzg_proofs
       blobs = produceBlockResponse.denebData.blobs
-    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
-                                        data: ForkedBeaconBlock.init(blck),
-                                        kzgProofsOpt: Opt.some(kzgProofs),
-                                        blobsOpt: Opt.some(blobs)))
+    return Opt.some(
+      PreparedBeaconBlock(
+        blockRoot: hash_tree_root(blck),
+        data: ForkedBeaconBlock.init(blck),
+        kzgProofsOpt: Opt.some(kzgProofs),
+        blobsOpt: Opt.some(blobs),
+      )
+    )
 
 proc produceBlindedBlock(
-       vc: ValidatorClientRef,
-       currentSlot, slot: Slot,
-       randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes,
-       validator: AttachedValidator
-     ): Future[Opt[PreparedBlindedBeaconBlock]] {.async.} =
+    vc: ValidatorClientRef,
+    currentSlot, slot: Slot,
+    randao_reveal: ValidatorSig,
+    graffiti: GraffitiBytes,
+    validator: AttachedValidator,
+): Future[Opt[PreparedBlindedBeaconBlock]] {.async.} =
   logScope:
     slot = slot
     wall_slot = currentSlot
@@ -109,23 +131,24 @@ proc produceBlindedBlock(
   let
     beaconBlock =
       try:
-        await vc.produceBlindedBlock(slot, randao_reveal, graffiti,
-                                     ApiStrategyKind.Best)
+        await vc.produceBlindedBlock(
+          slot, randao_reveal, graffiti, ApiStrategyKind.Best
+        )
       except ValidatorApiError as exc:
-        warn "Unable to retrieve blinded block data", error_msg = exc.msg,
-             reason = exc.getFailureReason()
+        warn "Unable to retrieve blinded block data",
+          error_msg = exc.msg, reason = exc.getFailureReason()
         return Opt.none(PreparedBlindedBeaconBlock)
       except CancelledError as exc:
         debug "Blinded block data production has been interrupted"
         raise exc
       except CatchableError as exc:
         error "An unexpected error occurred while getting blinded block data",
-              error_name = exc.name, error_msg = exc.msg
+          error_name = exc.name, error_msg = exc.msg
         return Opt.none(PreparedBlindedBeaconBlock)
-    blockRoot = withBlck(beaconBlock): hash_tree_root(forkyBlck)
+    blockRoot = withBlck(beaconBlock):
+      hash_tree_root(forkyBlck)
 
-  return Opt.some(
-    PreparedBlindedBeaconBlock(blockRoot: blockRoot, data: beaconBlock))
+  return Opt.some(PreparedBlindedBeaconBlock(blockRoot: blockRoot, data: beaconBlock))
 
 proc lazyWait[T](fut: Future[T]) {.async.} =
   try:
@@ -133,8 +156,9 @@ proc lazyWait[T](fut: Future[T]) {.async.} =
   except CatchableError:
     discard
 
-proc prepareRandao(vc: ValidatorClientRef, slot: Slot,
-                   proposerKey: ValidatorPubKey) {.async.} =
+proc prepareRandao(
+    vc: ValidatorClientRef, slot: Slot, proposerKey: ValidatorPubKey
+) {.async.} =
   if slot == GENESIS_SLOT:
     return
 
@@ -145,13 +169,12 @@ proc prepareRandao(vc: ValidatorClientRef, slot: Slot,
     epoch = slot.epoch()
     # We going to wait to T - (T / 4 * 2), where T is proposer's
     # duty slot.
-    currentSlot = (await vc.checkedWaitForSlot(destSlot, destOffset,
-                   false)).valueOr:
+    currentSlot = (await vc.checkedWaitForSlot(destSlot, destOffset, false)).valueOr:
       debug "Unable to perform RANDAO signature preparation because of " &
-            "system time failure"
+        "system time failure"
       return
-    validator =
-      vc.getValidatorForDuties(proposerKey, slot, true).valueOr: return
+    validator = vc.getValidatorForDuties(proposerKey, slot, true).valueOr:
+      return
 
   if currentSlot <= destSlot:
     # We do not need result, because we want it to be cached.
@@ -162,31 +185,39 @@ proc prepareRandao(vc: ValidatorClientRef, slot: Slot,
       rsig = await validator.getEpochSignature(fork, genesisRoot, epoch)
       timeElapsed = Moment.now() - start
     if rsig.isErr():
-      debug "Unable to prepare RANDAO signature", epoch = epoch,
-            validator = shortLog(validator), elapsed_time = timeElapsed,
-            current_slot = currentSlot, destination_slot = destSlot,
-            delay = vc.getDelay(deadline)
+      debug "Unable to prepare RANDAO signature",
+        epoch = epoch,
+        validator = shortLog(validator),
+        elapsed_time = timeElapsed,
+        current_slot = currentSlot,
+        destination_slot = destSlot,
+        delay = vc.getDelay(deadline)
     else:
-      debug "RANDAO signature has been prepared", epoch = epoch,
-            validator = shortLog(validator), elapsed_time = timeElapsed,
-            current_slot = currentSlot, destination_slot = destSlot,
-            delay = vc.getDelay(deadline)
+      debug "RANDAO signature has been prepared",
+        epoch = epoch,
+        validator = shortLog(validator),
+        elapsed_time = timeElapsed,
+        current_slot = currentSlot,
+        destination_slot = destSlot,
+        delay = vc.getDelay(deadline)
   else:
-    debug "RANDAO signature preparation timed out", epoch = epoch,
-          validator = shortLog(validator),
-          current_slot = currentSlot, destination_slot = destSlot,
-          delay = vc.getDelay(deadline)
+    debug "RANDAO signature preparation timed out",
+      epoch = epoch,
+      validator = shortLog(validator),
+      current_slot = currentSlot,
+      destination_slot = destSlot,
+      delay = vc.getDelay(deadline)
 
-proc spawnProposalTask(vc: ValidatorClientRef,
-                       duty: RestProposerDuty): ProposerTask =
+proc spawnProposalTask(vc: ValidatorClientRef, duty: RestProposerDuty): ProposerTask =
   ProposerTask(
     randaoFut: prepareRandao(vc, duty.slot, duty.pubkey),
     proposeFut: proposeBlock(vc, duty.slot, duty.pubkey),
-    duty: duty
+    duty: duty,
   )
 
-proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
-                  validator: AttachedValidator) {.async.} =
+proc publishBlock(
+    vc: ValidatorClientRef, currentSlot, slot: Slot, validator: AttachedValidator
+) {.async.} =
   let
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     graffiti =
@@ -203,77 +234,74 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     slot = slot
     wall_slot = currentSlot
 
-  debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
-                            genesis_root = genesisRoot,
-                            graffiti = graffiti, fork = fork
+  debug "Publishing block",
+    delay = vc.getDelay(slot.block_deadline()),
+    genesis_root = genesisRoot,
+    graffiti = graffiti,
+    fork = fork
 
-  let
-    randaoReveal =
-      try:
-        (await validator.getEpochSignature(fork, genesisRoot,
-                                           slot.epoch())).valueOr:
-          warn "Unable to generate RANDAO reveal using remote signer",
-               reason = error
-          return
-      except CancelledError as exc:
-        debug "RANDAO reveal production has been interrupted"
-        raise exc
-      except CatchableError as exc:
-        error "An unexpected error occurred while receiving RANDAO data",
-              error_name = exc.name, error_msg = exc.msg
+  let randaoReveal =
+    try:
+      (await validator.getEpochSignature(fork, genesisRoot, slot.epoch())).valueOr:
+        warn "Unable to generate RANDAO reveal using remote signer", reason = error
         return
+    except CancelledError as exc:
+      debug "RANDAO reveal production has been interrupted"
+      raise exc
+    except CatchableError as exc:
+      error "An unexpected error occurred while receiving RANDAO data",
+        error_name = exc.name, error_msg = exc.msg
+      return
 
-  var beaconBlocks =
-    block:
-      let blindedBlockFut =
-        if vc.config.payloadBuilderEnable:
-          vc.produceBlindedBlock(currentSlot, slot, randaoReveal, graffiti,
-                                 validator)
-        else:
-          nil
-      let normalBlockFut = vc.produceBlock(currentSlot, slot, randaoReveal,
-                                           graffiti, validator)
-      let blindedBlock =
-        if isNil(blindedBlockFut):
+  var beaconBlocks = block:
+    let blindedBlockFut =
+      if vc.config.payloadBuilderEnable:
+        vc.produceBlindedBlock(currentSlot, slot, randaoReveal, graffiti, validator)
+      else:
+        nil
+    let normalBlockFut =
+      vc.produceBlock(currentSlot, slot, randaoReveal, graffiti, validator)
+    let blindedBlock =
+      if isNil(blindedBlockFut):
+        Opt.none(PreparedBlindedBeaconBlock)
+      else:
+        try:
+          await blindedBlockFut
+        except CancelledError as exc:
+          if not (normalBlockFut.finished()):
+            await normalBlockFut.cancelAndWait()
+          raise exc
+        except CatchableError:
+          # This should not happen, because all the exceptions are handled.
           Opt.none(PreparedBlindedBeaconBlock)
-        else:
-          try:
-            await blindedBlockFut
-          except CancelledError as exc:
-            if not(normalBlockFut.finished()):
-              await normalBlockFut.cancelAndWait()
-            raise exc
-          except CatchableError:
-            # This should not happen, because all the exceptions are handled.
-            Opt.none(PreparedBlindedBeaconBlock)
 
-      let normalBlock =
-        if blindedBlock.isNone():
-          try:
-            await normalBlockFut
-          except CancelledError as exc:
-            raise exc
-          except CatchableError:
-            # This should not happen, because all the exceptions are handled.
-            Opt.none(PreparedBeaconBlock)
-        else:
-          if not(normalBlockFut.finished()):
-            asyncSpawn lazyWait(normalBlockFut)
+    let normalBlock =
+      if blindedBlock.isNone():
+        try:
+          await normalBlockFut
+        except CancelledError as exc:
+          raise exc
+        except CatchableError:
+          # This should not happen, because all the exceptions are handled.
           Opt.none(PreparedBeaconBlock)
+      else:
+        if not (normalBlockFut.finished()):
+          asyncSpawn lazyWait(normalBlockFut)
+        Opt.none(PreparedBeaconBlock)
 
-      if blindedBlock.isNone() and normalBlock.isNone():
-        return
+    if blindedBlock.isNone() and normalBlock.isNone():
+      return
 
-      (blindedBlock: blindedBlock, normalBlock: normalBlock)
+    (blindedBlock: blindedBlock, normalBlock: normalBlock)
 
   if beaconBlocks.blindedBlock.isSome():
     let
       preparedBlock = beaconBlocks.blindedBlock.get()
-      signingRoot = compute_block_signing_root(fork, genesisRoot, slot,
-                                               preparedBlock.blockRoot)
-      notSlashable = vc.attachedValidators[]
-        .slashingProtection
-        .registerBlock(vindex, validator.pubkey, slot, signingRoot)
+      signingRoot =
+        compute_block_signing_root(fork, genesisRoot, slot, preparedBlock.blockRoot)
+      notSlashable = vc.attachedValidators[].slashingProtection.registerBlock(
+        vindex, validator.pubkey, slot, signingRoot
+      )
 
     logScope:
       blck = shortLog(preparedBlock.data)
@@ -281,46 +309,44 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
       signing_root = shortLog(signingRoot)
 
     if notSlashable.isOk():
-      let
-        signature =
-          try:
-            let res = await validator.getBlockSignature(fork, genesisRoot,
-                                                        slot,
-                                                        preparedBlock.blockRoot,
-                                                        preparedBlock.data)
-            if res.isErr():
-              warn "Unable to sign blinded block proposal using remote signer",
-                   reason = res.error()
-              return
-            res.get()
-          except CancelledError as exc:
-            debug "Blinded block signature process has been interrupted"
-            raise exc
-          except CatchableError as exc:
-            error "An unexpected error occurred while signing blinded block",
-                error_name = exc.name, error_msg = exc.msg
+      let signature =
+        try:
+          let res = await validator.getBlockSignature(
+            fork, genesisRoot, slot, preparedBlock.blockRoot, preparedBlock.data
+          )
+          if res.isErr():
+            warn "Unable to sign blinded block proposal using remote signer",
+              reason = res.error()
             return
+          res.get()
+        except CancelledError as exc:
+          debug "Blinded block signature process has been interrupted"
+          raise exc
+        except CatchableError as exc:
+          error "An unexpected error occurred while signing blinded block",
+            error_name = exc.name, error_msg = exc.msg
+          return
 
       logScope:
         signature = shortLog(signature)
 
       let
-        signedBlock = ForkedSignedBlindedBeaconBlock.init(preparedBlock.data,
-                        preparedBlock.blockRoot, signature)
+        signedBlock = ForkedSignedBlindedBeaconBlock.init(
+          preparedBlock.data, preparedBlock.blockRoot, signature
+        )
         res =
           try:
             debug "Sending blinded block"
             await vc.publishBlindedBlock(signedBlock, ApiStrategyKind.First)
           except ValidatorApiError as exc:
-            warn "Unable to publish blinded block",
-                 reason = exc.getFailureReason()
+            warn "Unable to publish blinded block", reason = exc.getFailureReason()
             return
           except CancelledError as exc:
             debug "Blinded block publication has been interrupted"
             raise exc
           except CatchableError as exc:
             error "An unexpected error occurred while publishing blinded block",
-                  error_name = exc.name, error_msg = exc.msg
+              error_name = exc.name, error_msg = exc.msg
             return
 
       if res:
@@ -335,11 +361,11 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
   else:
     let
       preparedBlock = beaconBlocks.normalBlock.get()
-      signingRoot = compute_block_signing_root(fork, genesisRoot, slot,
-                                               preparedBlock.blockRoot)
-      notSlashable = vc.attachedValidators[]
-        .slashingProtection
-        .registerBlock(vindex, validator.pubkey, slot, signingRoot)
+      signingRoot =
+        compute_block_signing_root(fork, genesisRoot, slot, preparedBlock.blockRoot)
+      notSlashable = vc.attachedValidators[].slashingProtection.registerBlock(
+        vindex, validator.pubkey, slot, signingRoot
+      )
 
     logScope:
       blck = shortLog(preparedBlock.data)
@@ -350,13 +376,12 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
       let
         signature =
           try:
-            let res = await validator.getBlockSignature(fork,
-                                                        genesisRoot, slot,
-                                                        preparedBlock.blockRoot,
-                                                        preparedBlock.data)
+            let res = await validator.getBlockSignature(
+              fork, genesisRoot, slot, preparedBlock.blockRoot, preparedBlock.data
+            )
             if res.isErr():
               warn "Unable to sign block proposal using remote signer",
-                   reason = res.error()
+                reason = res.error()
               return
             res.get()
           except CancelledError as exc:
@@ -364,44 +389,60 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             raise exc
           except CatchableError as exc:
             error "An unexpected error occurred while signing block",
-                error_name = exc.name, error_msg = exc.msg
+              error_name = exc.name, error_msg = exc.msg
             return
 
         signedBlockContents =
           case preparedBlock.data.kind
           of ConsensusFork.Phase0:
-            RestPublishedSignedBlockContents(kind: ConsensusFork.Phase0,
+            RestPublishedSignedBlockContents(
+              kind: ConsensusFork.Phase0,
               phase0Data: phase0.SignedBeaconBlock(
                 message: preparedBlock.data.phase0Data,
                 root: preparedBlock.blockRoot,
-                signature: signature))
+                signature: signature,
+              ),
+            )
           of ConsensusFork.Altair:
-            RestPublishedSignedBlockContents(kind: ConsensusFork.Altair,
+            RestPublishedSignedBlockContents(
+              kind: ConsensusFork.Altair,
               altairData: altair.SignedBeaconBlock(
                 message: preparedBlock.data.altairData,
                 root: preparedBlock.blockRoot,
-                signature: signature))
+                signature: signature,
+              ),
+            )
           of ConsensusFork.Bellatrix:
-            RestPublishedSignedBlockContents(kind: ConsensusFork.Bellatrix,
+            RestPublishedSignedBlockContents(
+              kind: ConsensusFork.Bellatrix,
               bellatrixData: bellatrix.SignedBeaconBlock(
                 message: preparedBlock.data.bellatrixData,
                 root: preparedBlock.blockRoot,
-                signature: signature))
+                signature: signature,
+              ),
+            )
           of ConsensusFork.Capella:
-            RestPublishedSignedBlockContents(kind: ConsensusFork.Capella,
+            RestPublishedSignedBlockContents(
+              kind: ConsensusFork.Capella,
               capellaData: capella.SignedBeaconBlock(
                 message: preparedBlock.data.capellaData,
                 root: preparedBlock.blockRoot,
-                signature: signature))
+                signature: signature,
+              ),
+            )
           of ConsensusFork.Deneb:
-            RestPublishedSignedBlockContents(kind: ConsensusFork.Deneb,
+            RestPublishedSignedBlockContents(
+              kind: ConsensusFork.Deneb,
               denebData: DenebSignedBlockContents(
                 signed_block: deneb.SignedBeaconBlock(
                   message: preparedBlock.data.denebData,
                   root: preparedBlock.blockRoot,
-                  signature: signature),
+                  signature: signature,
+                ),
                 kzg_proofs: preparedBlock.kzgProofsOpt.get,
-                blobs: preparedBlock.blobsOpt.get))
+                blobs: preparedBlock.blobsOpt.get,
+              ),
+            )
 
         res =
           try:
@@ -415,7 +456,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             raise exc
           except CatchableError as exc:
             error "An unexpected error occurred while publishing block",
-                  error_name = exc.name, error_msg = exc.msg
+              error_name = exc.name, error_msg = exc.msg
             return
 
       if res:
@@ -428,30 +469,30 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     else:
       warn "Slashing protection activated for block proposal"
 
-proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
-                  proposerKey: ValidatorPubKey) {.async.} =
-  let
-    currentSlot = (await vc.checkedWaitForSlot(slot, ZeroTimeDiff,
-                                               false)).valueOr:
-      error "Unable to perform block production because of system time"
-      return
+proc proposeBlock(
+    vc: ValidatorClientRef, slot: Slot, proposerKey: ValidatorPubKey
+) {.async.} =
+  let currentSlot = (await vc.checkedWaitForSlot(slot, ZeroTimeDiff, false)).valueOr:
+    error "Unable to perform block production because of system time"
+    return
 
   if currentSlot > slot:
     warn "Skip block production for expired slot",
-         current_slot = currentSlot, duties_slot = slot
+      current_slot = currentSlot, duties_slot = slot
     return
 
-  let validator = vc.getValidatorForDuties(proposerKey, slot).valueOr: return
+  let validator = vc.getValidatorForDuties(proposerKey, slot).valueOr:
+    return
 
   try:
     await vc.publishBlock(currentSlot, slot, validator)
   except CancelledError as exc:
     debug "Block proposing process was interrupted",
-          slot = slot, validator = shortLog(proposerKey)
+      slot = slot, validator = shortLog(proposerKey)
     raise exc
   except CatchableError:
     error "Unexpected error encountered while proposing block",
-          slot = slot, validator = shortLog(validator)
+      slot = slot, validator = shortLog(validator)
 
 proc contains(data: openArray[RestProposerDuty], task: ProposerTask): bool =
   for item in data:
@@ -472,87 +513,93 @@ proc checkDuty(duty: RestProposerDuty, epoch: Epoch, slot: Slot): bool =
       true
     else:
       warn "Block proposal duty is in the far future, ignoring",
-           duty_slot = duty.slot, validator = shortLog(duty.pubkey),
-           wall_slot = slot, last_slot_in_epoch = (lastSlot - 1'u64)
+        duty_slot = duty.slot,
+        validator = shortLog(duty.pubkey),
+        wall_slot = slot,
+        last_slot_in_epoch = (lastSlot - 1'u64)
       false
   else:
-    warn "Block proposal duty is in the past, ignoring", duty_slot = duty.slot,
-         validator = shortLog(duty.pubkey), wall_slot = slot
+    warn "Block proposal duty is in the past, ignoring",
+      duty_slot = duty.slot, validator = shortLog(duty.pubkey), wall_slot = slot
     false
 
-proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
-                            dependentRoot: Eth2Digest,
-                            duties: openArray[RestProposerDuty]) =
+proc addOrReplaceProposers*(
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    dependentRoot: Eth2Digest,
+    duties: openArray[RestProposerDuty],
+) =
   let
     default = ProposedData(epoch: FAR_FUTURE_EPOCH)
     currentSlot = vc.getCurrentSlot().get(Slot(0))
     epochDuties = vc.proposers.getOrDefault(epoch, default)
 
-  if not(epochDuties.isDefault()):
+  if not (epochDuties.isDefault()):
     if epochDuties.dependentRoot != dependentRoot:
-      warn "Proposer duties re-organization", duties_count = len(duties),
-           wall_slot = currentSlot, epoch = epoch,
-           prior_dependent_root = epochDuties.dependentRoot,
-           dependent_root = dependentRoot
-      let tasks =
-        block:
-          var res: seq[ProposerTask]
-          var hashset = initHashSet[Slot]()
+      warn "Proposer duties re-organization",
+        duties_count = len(duties),
+        wall_slot = currentSlot,
+        epoch = epoch,
+        prior_dependent_root = epochDuties.dependentRoot,
+        dependent_root = dependentRoot
+      let tasks = block:
+        var res: seq[ProposerTask]
+        var hashset = initHashSet[Slot]()
 
-          for task in epochDuties.duties:
-            if task notin duties:
-              # Task is no more relevant, so cancel it.
-              debug "Cancelling running proposal duty tasks",
-                    slot = task.duty.slot,
-                    validator = shortLog(task.duty.pubkey)
-              task.proposeFut.cancelSoon()
-              task.randaoFut.cancelSoon()
-            else:
-              # If task is already running for proper slot, we keep it alive.
-              debug "Keep running previous proposal duty tasks",
-                    slot = task.duty.slot,
-                    validator = shortLog(task.duty.pubkey)
+        for task in epochDuties.duties:
+          if task notin duties:
+            # Task is no more relevant, so cancel it.
+            debug "Cancelling running proposal duty tasks",
+              slot = task.duty.slot, validator = shortLog(task.duty.pubkey)
+            task.proposeFut.cancelSoon()
+            task.randaoFut.cancelSoon()
+          else:
+            # If task is already running for proper slot, we keep it alive.
+            debug "Keep running previous proposal duty tasks",
+              slot = task.duty.slot, validator = shortLog(task.duty.pubkey)
+            res.add(task)
+
+        for duty in duties:
+          if duty notin res:
+            debug "New proposal duty received",
+              slot = duty.slot, validator = shortLog(duty.pubkey)
+            if checkDuty(duty, epoch, currentSlot):
+              let task = vc.spawnProposalTask(duty)
+              if duty.slot in hashset:
+                error "Multiple block proposers for this slot, " &
+                  "producing blocks for all proposers", slot = duty.slot
+              else:
+                hashset.incl(duty.slot)
               res.add(task)
-
-          for duty in duties:
-            if duty notin res:
-              debug "New proposal duty received", slot = duty.slot,
-                    validator = shortLog(duty.pubkey)
-              if checkDuty(duty, epoch, currentSlot):
-                let task = vc.spawnProposalTask(duty)
-                if duty.slot in hashset:
-                  error "Multiple block proposers for this slot, " &
-                        "producing blocks for all proposers", slot = duty.slot
-                else:
-                  hashset.incl(duty.slot)
-                res.add(task)
-          res
+        res
       vc.proposers[epoch] = ProposedData.init(epoch, dependentRoot, tasks)
   else:
     debug "New block proposal duties received",
-          dependent_root = dependentRoot, duties_count = len(duties),
-          wall_slot = currentSlot, epoch = epoch
+      dependent_root = dependentRoot,
+      duties_count = len(duties),
+      wall_slot = currentSlot,
+      epoch = epoch
     # Spawn new proposer tasks and modify proposers map.
-    let tasks =
-      block:
-        var hashset = initHashSet[Slot]()
-        var res: seq[ProposerTask]
-        for duty in duties:
-          debug "New proposal duty received", slot = duty.slot,
-                validator = shortLog(duty.pubkey)
-          if checkDuty(duty, epoch, currentSlot):
-            let task = vc.spawnProposalTask(duty)
-            if duty.slot in hashset:
-              error "Multiple block proposers for this slot, " &
-                    "producing blocks for all proposers", slot = duty.slot
-            else:
-              hashset.incl(duty.slot)
-            res.add(task)
-        res
+    let tasks = block:
+      var hashset = initHashSet[Slot]()
+      var res: seq[ProposerTask]
+      for duty in duties:
+        debug "New proposal duty received",
+          slot = duty.slot, validator = shortLog(duty.pubkey)
+        if checkDuty(duty, epoch, currentSlot):
+          let task = vc.spawnProposalTask(duty)
+          if duty.slot in hashset:
+            error "Multiple block proposers for this slot, " &
+              "producing blocks for all proposers", slot = duty.slot
+          else:
+            hashset.incl(duty.slot)
+          res.add(task)
+      res
     vc.proposers[epoch] = ProposedData.init(epoch, dependentRoot, tasks)
 
-proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
-                   response: RestHttpResponseRef) {.async.} =
+proc pollForEvents(
+    service: BlockServiceRef, node: BeaconNodeServerRef, response: RestHttpResponseRef
+) {.async.} =
   let vc = service.client
 
   logScope:
@@ -568,8 +615,8 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
       except CancelledError as exc:
         raise exc
       except CatchableError as exc:
-        warn "Got an unexpected error, " &
-             "while reading server-sent event stream", reason = $exc.msg
+        warn "Got an unexpected error, " & "while reading server-sent event stream",
+          reason = $exc.msg
         return
 
     for event in events:
@@ -581,16 +628,17 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
         vc.registerBlock(blck, node)
       of "event":
         if event.data != "block":
-          debug "Got unexpected event name field", event_name = event.name,
-                event_data = event.data
+          debug "Got unexpected event name field",
+            event_name = event.name, event_data = event.data
       else:
         debug "Got some unexpected event field", event_name = event.name
 
     if len(events) == 0:
       break
 
-proc runBlockEventMonitor(service: BlockServiceRef,
-                          node: BeaconNodeServerRef) {.async.} =
+proc runBlockEventMonitor(
+    service: BlockServiceRef, node: BeaconNodeServerRef
+) {.async.} =
   let
     vc = service.client
     roles = {BeaconNodeRole.BlockProposalData}
@@ -603,36 +651,38 @@ proc runBlockEventMonitor(service: BlockServiceRef,
     while node.status notin statuses:
       await vc.waitNodes(nil, statuses, roles, true)
 
-    let response =
-      block:
-        var resp: HttpClientResponseRef
-        try:
-          resp = await node.client.subscribeEventStream({EventTopic.Block})
-          if resp.status == 200:
-            Opt.some(resp)
-          else:
-            let body = await resp.getBodyBytes()
-            await resp.closeWait()
-            let
-              plain = RestPlainResponse(status: resp.status,
-                        contentType: resp.contentType, data: body)
-              reason = plain.getErrorMessage()
-            debug "Unable to to obtain events stream", code = resp.status,
-                  reason = reason
-            Opt.none(HttpClientResponseRef)
-        except RestError as exc:
-          if not(isNil(resp)): await resp.closeWait()
-          debug "Unable to obtain events stream", reason = $exc.msg
+    let response = block:
+      var resp: HttpClientResponseRef
+      try:
+        resp = await node.client.subscribeEventStream({EventTopic.Block})
+        if resp.status == 200:
+          Opt.some(resp)
+        else:
+          let body = await resp.getBodyBytes()
+          await resp.closeWait()
+          let
+            plain = RestPlainResponse(
+              status: resp.status, contentType: resp.contentType, data: body
+            )
+            reason = plain.getErrorMessage()
+          debug "Unable to to obtain events stream", code = resp.status, reason = reason
           Opt.none(HttpClientResponseRef)
-        except CancelledError as exc:
-          if not(isNil(resp)): await resp.closeWait()
-          debug "Block monitoring loop has been interrupted"
-          raise exc
-        except CatchableError as exc:
-          if not(isNil(resp)): await resp.closeWait()
-          warn "Got an unexpected error while trying to establish event stream",
-               reason = $exc.msg
-          Opt.none(HttpClientResponseRef)
+      except RestError as exc:
+        if not (isNil(resp)):
+          await resp.closeWait()
+        debug "Unable to obtain events stream", reason = $exc.msg
+        Opt.none(HttpClientResponseRef)
+      except CancelledError as exc:
+        if not (isNil(resp)):
+          await resp.closeWait()
+        debug "Block monitoring loop has been interrupted"
+        raise exc
+      except CatchableError as exc:
+        if not (isNil(resp)):
+          await resp.closeWait()
+        warn "Got an unexpected error while trying to establish event stream",
+          reason = $exc.msg
+        Opt.none(HttpClientResponseRef)
 
     if response.isSome():
       debug "Block monitoring connection has been established"
@@ -641,15 +691,18 @@ proc runBlockEventMonitor(service: BlockServiceRef,
       except CancelledError as exc:
         raise exc
       except CatchableError as exc:
-        warn "Got an unexpected error while receiving block events",
-             reason = $exc.msg
+        warn "Got an unexpected error while receiving block events", reason = $exc.msg
       finally:
         debug "Block monitoring connection has been lost"
         await response.get().closeWait()
 
-proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
-                         slot: Slot, waitTime: Duration,
-                         index: int): Future[bool] {.async.} =
+proc pollForBlockHeaders(
+    service: BlockServiceRef,
+    node: BeaconNodeServerRef,
+    slot: Slot,
+    waitTime: Duration,
+    index: int,
+): Future[bool] {.async.} =
   let vc = service.client
 
   logScope:
@@ -665,18 +718,17 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
       await sleepAsync(waitTime)
       await node.client.getBlockHeader(BlockIdent.init(slot))
     except RestError as exc:
-      debug "Unable to obtain block header",
-            reason = $exc.msg, error = $exc.name
+      debug "Unable to obtain block header", reason = $exc.msg, error = $exc.name
       return false
     except RestResponseError as exc:
       debug "Got an error while trying to obtain block header",
-            reason = exc.message, status = exc.status
+        reason = exc.message, status = exc.status
       return false
     except CancelledError as exc:
       raise exc
     except CatchableError as exc:
       warn "Unexpected error encountered while receiving block header",
-           reason = $exc.msg, error = $exc.name
+        reason = $exc.msg, error = $exc.name
       return false
 
   if bres.isNone():
@@ -688,13 +740,14 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
   let eventBlock = EventBeaconBlockObject(
     slot: blockHeader.data.header.message.slot,
     block_root: blockHeader.data.root,
-    optimistic: blockHeader.execution_optimistic
+    optimistic: blockHeader.execution_optimistic,
   )
   vc.registerBlock(eventBlock, node)
   return true
 
-proc runBlockPollMonitor(service: BlockServiceRef,
-                         node: BeaconNodeServerRef) {.async.} =
+proc runBlockPollMonitor(
+    service: BlockServiceRef, node: BeaconNodeServerRef
+) {.async.} =
   let
     vc = service.client
     roles = {BeaconNodeRole.BlockProposalData}
@@ -704,11 +757,11 @@ proc runBlockPollMonitor(service: BlockServiceRef,
     node = node
 
   while true:
-    let currentSlot =
-      block:
-        let res = await vc.checkedWaitForNextSlot(ZeroTimeDiff, false)
-        if res.isNone(): continue
-        res.geT()
+    let currentSlot = block:
+      let res = await vc.checkedWaitForNextSlot(ZeroTimeDiff, false)
+      if res.isNone():
+        continue
+      res.geT()
 
     while node.status notin statuses:
       await vc.waitNodes(nil, statuses, roles, true)
@@ -726,57 +779,54 @@ proc runBlockPollMonitor(service: BlockServiceRef,
       pollTime2 = afterSlot.start_beacon_time() + BlockPollOffset2
       pollTime3 = afterSlot.start_beacon_time() + BlockPollOffset3
 
-    var pendingTasks =
-      block:
-        var res: seq[FutureBase]
-        if currentTime <= pollTime1:
-          let stime = nanoseconds((pollTime1 - currentTime).nanoseconds)
-          res.add(FutureBase(
-            service.pollForBlockHeaders(node, afterSlot, stime, 0)))
-        if currentTime <= pollTime2:
-          let stime = nanoseconds((pollTime2 - currentTime).nanoseconds)
-          res.add(FutureBase(
-            service.pollForBlockHeaders(node, afterSlot, stime, 1)))
-        if currentTime <= pollTime3:
-          let stime = nanoseconds((pollTime3 - currentTime).nanoseconds)
-          res.add(FutureBase(
-            service.pollForBlockHeaders(node, afterSlot, stime, 2)))
-        res
+    var pendingTasks = block:
+      var res: seq[FutureBase]
+      if currentTime <= pollTime1:
+        let stime = nanoseconds((pollTime1 - currentTime).nanoseconds)
+        res.add(FutureBase(service.pollForBlockHeaders(node, afterSlot, stime, 0)))
+      if currentTime <= pollTime2:
+        let stime = nanoseconds((pollTime2 - currentTime).nanoseconds)
+        res.add(FutureBase(service.pollForBlockHeaders(node, afterSlot, stime, 1)))
+      if currentTime <= pollTime3:
+        let stime = nanoseconds((pollTime3 - currentTime).nanoseconds)
+        res.add(FutureBase(service.pollForBlockHeaders(node, afterSlot, stime, 2)))
+      res
     try:
       while true:
         let completedFuture = await race(pendingTasks)
-        let blockReceived =
-          block:
-            var res = false
-            for future in pendingTasks:
-              if not(future.completed()): continue
-              if not(cast[Future[bool]](future).read()): continue
-              res = true
-              break
-            res
+        let blockReceived = block:
+          var res = false
+          for future in pendingTasks:
+            if not (future.completed()):
+              continue
+            if not (cast[Future[bool]](future).read()):
+              continue
+            res = true
+            break
+          res
         if blockReceived:
           let pending =
-            pendingTasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+            pendingTasks.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
           # We use `noCancel` here because its cleanup and we have `break`
           # after it.
           await noCancel allFutures(pending)
           break
         pendingTasks.keepItIf(it != completedFuture)
-        if len(pendingTasks) == 0: break
+        if len(pendingTasks) == 0:
+          break
     except CancelledError as exc:
-      let pending =
-        pendingTasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+      let pending = pendingTasks.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
       await noCancel allFutures(pending)
       raise exc
     except CatchableError as exc:
       warn "An unexpected error occurred while running block monitoring",
-           reason = $exc.msg, error = $exc.name
+        reason = $exc.msg, error = $exc.name
 
 proc runBlockMonitor(service: BlockServiceRef) {.async.} =
   let
     vc = service.client
-    blockNodes = vc.filterNodes(ResolvedBeaconNodeStatuses,
-                                {BeaconNodeRole.BlockProposalData})
+    blockNodes =
+      vc.filterNodes(ResolvedBeaconNodeStatuses, {BeaconNodeRole.BlockProposalData})
   let pendingTasks =
     case vc.config.monitoringType
     of BlockMonitoringType.Disabled:
@@ -796,13 +846,12 @@ proc runBlockMonitor(service: BlockServiceRef) {.async.} =
   try:
     await allFutures(pendingTasks)
   except CancelledError as exc:
-    let pending =
-      pendingTasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    let pending = pendingTasks.filterIt(not (it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
     raise exc
   except CatchableError as exc:
     warn "An unexpected error occurred while running block monitoring",
-         reason = $exc.msg, error = $exc.name
+      reason = $exc.msg, error = $exc.name
     return
 
 proc mainLoop(service: BlockServiceRef) {.async.} =
@@ -817,24 +866,26 @@ proc mainLoop(service: BlockServiceRef) {.async.} =
   except CancelledError:
     debug "Service interrupted"
   except CatchableError as exc:
-    error "Service crashed with unexpected error", err_name = exc.name,
-          err_msg = exc.msg
+    error "Service crashed with unexpected error",
+      err_name = exc.name, err_msg = exc.msg
 
   # We going to cleanup all the pending proposer tasks.
   var res: seq[FutureBase]
   for epoch, data in vc.proposers.pairs():
     for duty in data.duties.items():
-      if not(duty.proposeFut.finished()):
+      if not (duty.proposeFut.finished()):
         res.add(duty.proposeFut.cancelAndWait())
-      if not(duty.randaoFut.finished()):
+      if not (duty.randaoFut.finished()):
         res.add(duty.randaoFut.cancelAndWait())
   await noCancel allFutures(res)
 
-proc init*(t: typedesc[BlockServiceRef],
-           vc: ValidatorClientRef): Future[BlockServiceRef] {.async.} =
-  logScope: service = ServiceName
-  var res = BlockServiceRef(name: ServiceName, client: vc,
-                            state: ServiceState.Initialized)
+proc init*(
+    t: typedesc[BlockServiceRef], vc: ValidatorClientRef
+): Future[BlockServiceRef] {.async.} =
+  logScope:
+    service = ServiceName
+  var res =
+    BlockServiceRef(name: ServiceName, client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
   return res
 

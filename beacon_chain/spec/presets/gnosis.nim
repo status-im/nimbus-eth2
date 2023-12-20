@@ -6,10 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  ./gnosis/[
-    phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-    deneb_preset]
+  ./gnosis/
+    [phase0_preset, altair_preset, bellatrix_preset, capella_preset, deneb_preset]
 
-export
-  phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-  deneb_preset
+export phase0_preset, altair_preset, bellatrix_preset, capella_preset, deneb_preset

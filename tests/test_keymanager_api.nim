@@ -9,19 +9,26 @@
 
 import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
-  testutils/unittests, chronicles, stint, json_serialization, confutils,
-  chronos, blscurve, libp2p/crypto/crypto as lcrypto,
-  stew/[byteutils, io2], stew/shims/net,
-
+  testutils/unittests,
+  chronicles,
+  stint,
+  json_serialization,
+  confutils,
+  chronos,
+  blscurve,
+  libp2p/crypto/crypto as lcrypto,
+  stew/[byteutils, io2],
+  stew/shims/net,
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/[rest_keymanager_calls, rest_keymanager_types],
   ../beacon_chain/validators/[keystore_management, slashing_protection_common],
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/rpc/rest_key_management_api,
-  ../beacon_chain/[conf, filepath, beacon_node,
-                   nimbus_beacon_node, beacon_node_status,
-                   nimbus_validator_client],
+  ../beacon_chain/[
+    conf, filepath, beacon_node, nimbus_beacon_node, beacon_node_status,
+    nimbus_validator_client,
+  ],
   ../beacon_chain/validator_client/common,
   ../ncli/ncli_testnet,
   ./testutil
@@ -35,9 +42,9 @@ type
 
   # Individual port numbers derived by adding `ord` to configurable base port
   PortKind {.pure.} = enum
-    PeerToPeer,
-    Metrics,
-    KeymanagerBN,
+    PeerToPeer
+    Metrics
+    KeymanagerBN
     KeymanagerVC
 
 const
@@ -53,7 +60,8 @@ const
   tokenFilePath = dataDir / "keymanager-token.txt"
   defaultBasePort = 49000
   correctTokenValue = "some secret token"
-  defaultFeeRecipient = Eth1Address.fromHex("0x000000000000000000000000000000000000DEAD")
+  defaultFeeRecipient =
+    Eth1Address.fromHex("0x000000000000000000000000000000000000DEAD")
   defaultGasLimit = 30_000_000
 
   newPrivateKeys = [
@@ -64,7 +72,7 @@ const
     "0x71fd9bb8eadcf64df9cc8e716652709492c16518f73f87c770a54fe8c80ac5ae",
     "0x4be74b7b0b0058dea2d4744e0069486500770f68296ac9b9bbd26df6749ed0ca",
     "0x10052305a5fda7805fb1e762fe6cbc47e43c5a54f34f008fa79c48fee1749db7",
-    "0x3630f086fb9f1136fe077751031a16630e43d65ff64bb9fd3708adff81df5926"
+    "0x3630f086fb9f1136fe077751031a16630e43d65ff64bb9fd3708adff81df5926",
   ]
 
   oldPublicKeys = [
@@ -88,12 +96,12 @@ const
     "0x8893a6f03de181cc93537ebb89ed242f65f3722fe22cd7aaab71a4149a792b231e23e1575c12efb0d2934e6d7b755431",
     "0x88c475e022971f0698b50aa2c9dd91df8b1c9f1079cbe7b2243bb5dee3a5cb5c46e170f90165efecdc794e14ae5b8fd9",
     "0xa782e5161ba8e9ac135b0db3203a8c23aa61e19be6b9c198393d8b2b902bad8139863d9cf26bc2cbdc3b747bafc64606",
-    "0xb33f17216dda29dba1a9257e75b3dd8446c9ea217b563c20950c43f64300f7bd3d5f0dfa02274cab988e594552b7189e"
+    "0xb33f17216dda29dba1a9257e75b3dd8446c9ea217b563c20950c43f64300f7bd3d5f0dfa02274cab988e594552b7189e",
   ]
 
   unusedPublicKeys = [
     "0xc22f17216dda29dba1a9257e75b3dd8446c9ea217b563c20950c43f64300f7bd3d5f0dfa02274cab988e594552b7232d",
-    "0x0bbca63e35c7a159fc2f187d300cad9ef5f5e73e55f78c391e7bc2c2feabc2d9d63dfe99edd7058ad0ab9d7f14aade5f"
+    "0x0bbca63e35c7a159fc2f187d300cad9ef5f5e73e55f78c391e7bc2c2feabc2d9d63dfe99edd7058ad0ab9d7f14aade5f",
   ]
 
   newPublicKeysUrl = HttpHostUri(parseUri("http://127.0.0.1/remote"))
@@ -119,7 +127,7 @@ func contains*(keylist: openArray[KeystoreInfo], key: string): bool =
   let pubkey = ValidatorPubKey.fromHex(key).tryGet()
   contains(keylist, pubkey)
 
-proc prepareNetwork =
+proc prepareNetwork() =
   let
     rng = HmacDrbgContext.new()
     mnemonic = generateMnemonic(rng[])
@@ -129,39 +137,43 @@ proc prepareNetwork =
   let vres = secureCreatePath(validatorsDir)
   if vres.isErr():
     warn "Could not create validators folder",
-          path = validatorsDir, err = ioErrorMsg(vres.error)
+      path = validatorsDir, err = ioErrorMsg(vres.error)
 
   let sres = secureCreatePath(secretsDir)
   if sres.isErr():
     warn "Could not create secrets folder",
-          path = secretsDir, err = ioErrorMsg(sres.error)
+      path = secretsDir, err = ioErrorMsg(sres.error)
 
   let deposits = generateDeposits(
     cfg,
     rng[],
     seed,
-    0, simulationDepositsCount,
+    0,
+    simulationDepositsCount,
     validatorsDir,
     secretsDir,
     @[],
     0,
     0,
-    KeystoreMode.Fast)
+    KeystoreMode.Fast,
+  )
 
   if deposits.isErr:
     fatal "Failed to generate deposits", err = deposits.error
     quit 1
 
-  let launchPadDeposits =
-    mapIt(deposits.value, LaunchPadDeposit.init(cfg, it))
+  let launchPadDeposits = mapIt(deposits.value, LaunchPadDeposit.init(cfg, it))
 
   Json.saveFile(depositsFile, launchPadDeposits)
   notice "Deposit data written", filename = depositsFile
 
-  let runtimeConfigWritten = secureWriteFile(runtimeConfigFile, """
+  let runtimeConfigWritten = secureWriteFile(
+    runtimeConfigFile,
+    """
 ALTAIR_FORK_EPOCH: 0
 BELLATRIX_FORK_EPOCH: 0
-""")
+""",
+  )
 
   if runtimeConfigWritten.isOk:
     notice "Run-time config written", filename = runtimeConfigFile
@@ -169,19 +181,27 @@ BELLATRIX_FORK_EPOCH: 0
     fatal "Failed to write run-time config", filename = runtimeConfigFile
     quit 1
 
-  let createTestnetConf = try: ncli_testnet.CliConfig.load(cmdLine = mapIt([
-    "createTestnet",
-    "--data-dir=" & dataDir,
-    "--total-validators=" & $simulationDepositsCount,
-    "--deposits-file=" & depositsFile,
-    "--output-genesis=" & genesisFile,
-    "--output-deposit-tree-snapshot=" & depositTreeSnapshotFile,
-    "--output-bootstrap-file=" & bootstrapEnrFile,
-    "--netkey-file=network_key.json",
-    "--insecure-netkey-password=true",
-    "--genesis-offset=0"], it))
-  except Exception as exc: # TODO Fix confutils exceptions
-    raiseAssert exc.msg
+  let createTestnetConf =
+    try:
+      ncli_testnet.CliConfig.load(
+        cmdLine = mapIt(
+          [
+            "createTestnet",
+            "--data-dir=" & dataDir,
+            "--total-validators=" & $simulationDepositsCount,
+            "--deposits-file=" & depositsFile,
+            "--output-genesis=" & genesisFile,
+            "--output-deposit-tree-snapshot=" & depositTreeSnapshotFile,
+            "--output-bootstrap-file=" & bootstrapEnrFile,
+            "--netkey-file=network_key.json",
+            "--insecure-netkey-password=true",
+            "--genesis-offset=0",
+          ],
+          it,
+        )
+      )
+    except Exception as exc: # TODO Fix confutils exceptions
+      raiseAssert exc.msg
 
   doCreateTestnet(createTestnetConf, rng[])
 
@@ -197,7 +217,7 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
     let status = secureCreatePath(dstValidatorsDir)
     if status.isErr():
       fatal "Could not create node validators folder",
-             path = dstValidatorsDir, err = ioErrorMsg(status.error)
+        path = dstValidatorsDir, err = ioErrorMsg(status.error)
       quit 1
 
   let dstSecretsDir = dstDataDir / "secrets"
@@ -206,7 +226,7 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
     let status = secureCreatePath(dstSecretsDir)
     if status.isErr():
       fatal "Could not create node secrets folder",
-             path = dstSecretsDir, err = ioErrorMsg(status.error)
+        path = dstSecretsDir, err = ioErrorMsg(status.error)
       quit 1
 
   var validatorIdx = 0
@@ -218,8 +238,7 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
         secretRes = readAllChars(secretFile)
 
       if secretRes.isErr:
-        fatal "Failed to read secret file",
-               path = secretFile, err = $secretRes.error
+        fatal "Failed to read secret file", path = secretFile, err = $secretRes.error
         quit 1
 
       let
@@ -228,7 +247,7 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
 
       if secretFileStatus.isErr:
         fatal "Failed to write secret file",
-               path = dstSecretFile, err = $secretFileStatus.error
+          path = dstSecretFile, err = $secretFileStatus.error
         quit 1
 
       let
@@ -237,7 +256,7 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
 
       if validatorDirRes.isErr:
         fatal "Failed to create validator dir",
-               path = dstValidatorDir, err = $validatorDirRes.error
+          path = dstValidatorDir, err = $validatorDirRes.error
         quit 1
 
       let
@@ -246,7 +265,7 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
 
       if readKeystoreRes.isErr:
         fatal "Failed to read keystore file",
-               path = keystoreFile, err = $readKeystoreRes.error
+          path = keystoreFile, err = $readKeystoreRes.error
         quit 1
 
       let
@@ -255,7 +274,7 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
 
       if writeKeystoreRes.isErr:
         fatal "Failed to write keystore file",
-               path = dstKeystore, err = $writeKeystoreRes.error
+          path = dstKeystore, err = $writeKeystoreRes.error
         quit 1
 
     inc validatorIdx
@@ -266,8 +285,7 @@ proc addPreTestRemoteKeystores(validatorsDir: string) =
     let res = saveKeystore(validatorsDir, key, oldPublicKeysUrl)
     if res.isErr():
       fatal "Failed to create remote keystore file",
-            validatorsDir = nodeValidatorsDir, key,
-            err = res.error
+        validatorsDir = nodeValidatorsDir, key, err = res.error
       quit 1
 
 proc startBeaconNode(basePort: int) {.raises: [CatchableError].} =
@@ -276,36 +294,45 @@ proc startBeaconNode(basePort: int) {.raises: [CatchableError].} =
   copyHalfValidators(nodeDataDir, true)
   addPreTestRemoteKeystores(nodeValidatorsDir)
 
-  let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
-    "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
-    "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
-    "--discv5=off",
-    "--network=" & dataDir,
-    "--data-dir=" & nodeDataDir,
-    "--validators-dir=" & nodeValidatorsDir,
-    "--secrets-dir=" & nodeSecretsDir,
-    "--metrics-address=127.0.0.1",
-    "--metrics-port=" & $(basePort + PortKind.Metrics.ord),
-    "--rest=true",
-    "--rest-address=127.0.0.1",
-    "--rest-port=" & $(basePort + PortKind.KeymanagerBN.ord),
-    "--no-el",
-    "--keymanager=true",
-    "--keymanager-address=127.0.0.1",
-    "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
-    "--keymanager-token-file=" & tokenFilePath,
-    "--suggested-fee-recipient=" & $defaultFeeRecipient,
-    "--doppelganger-detection=off",
-    "--debug-forkchoice-version=stable"], it))
-  except Exception as exc: # TODO fix confutils exceptions
-    raiseAssert exc.msg
+  let runNodeConf =
+    try:
+      BeaconNodeConf.load(
+        cmdLine = mapIt(
+          [
+            "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
+            "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
+            "--discv5=off",
+            "--network=" & dataDir,
+            "--data-dir=" & nodeDataDir,
+            "--validators-dir=" & nodeValidatorsDir,
+            "--secrets-dir=" & nodeSecretsDir,
+            "--metrics-address=127.0.0.1",
+            "--metrics-port=" & $(basePort + PortKind.Metrics.ord),
+            "--rest=true",
+            "--rest-address=127.0.0.1",
+            "--rest-port=" & $(basePort + PortKind.KeymanagerBN.ord),
+            "--no-el",
+            "--keymanager=true",
+            "--keymanager-address=127.0.0.1",
+            "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
+            "--keymanager-token-file=" & tokenFilePath,
+            "--suggested-fee-recipient=" & $defaultFeeRecipient,
+            "--doppelganger-detection=off",
+            "--debug-forkchoice-version=stable",
+          ],
+          it,
+        )
+      )
+    except Exception as exc: # TODO fix confutils exceptions
+      raiseAssert exc.msg
 
   let
     metadata = loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
     node = waitFor BeaconNode.init(rng, runNodeConf, metadata)
 
-  node.start() # This will run until the node is terminated by
-               #  setting its `bnStatus` to `Stopping`.
+  node.start()
+    # This will run until the node is terminated by
+    #  setting its `bnStatus` to `Stopping`.
 
   # os.removeDir dataDir
 
@@ -315,74 +342,75 @@ proc startValidatorClient(basePort: int) {.async, thread.} =
   copyHalfValidators(vcDataDir, false)
   addPreTestRemoteKeystores(vcValidatorsDir)
 
-  let runValidatorClientConf = try: ValidatorClientConf.load(cmdLine = mapIt([
-    "--beacon-node=http://127.0.0.1:" & $(basePort + PortKind.KeymanagerBN.ord),
-    "--data-dir=" & vcDataDir,
-    "--validators-dir=" & vcValidatorsDir,
-    "--secrets-dir=" & vcSecretsDir,
-    "--suggested-fee-recipient=" & $defaultFeeRecipient,
-    "--keymanager=true",
-    "--keymanager-address=127.0.0.1",
-    "--keymanager-port=" & $(basePort + PortKind.KeymanagerVC.ord),
-    "--keymanager-token-file=" & tokenFilePath], it))
-  except:
-    quit 1
+  let runValidatorClientConf =
+    try:
+      ValidatorClientConf.load(
+        cmdLine = mapIt(
+          [
+            "--beacon-node=http://127.0.0.1:" & $(basePort + PortKind.KeymanagerBN.ord),
+            "--data-dir=" & vcDataDir,
+            "--validators-dir=" & vcValidatorsDir,
+            "--secrets-dir=" & vcSecretsDir,
+            "--suggested-fee-recipient=" & $defaultFeeRecipient,
+            "--keymanager=true",
+            "--keymanager-address=127.0.0.1",
+            "--keymanager-port=" & $(basePort + PortKind.KeymanagerVC.ord),
+            "--keymanager-token-file=" & tokenFilePath,
+          ],
+          it,
+        )
+      )
+    except:
+      quit 1
 
   await runValidatorClient(runValidatorClientConf, rng)
 
 const
   password = "7465737470617373776f7264f09f9491"
   # This is taken from the offical test vectors in test_keystores.nim
-  secretBytes = hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+  secretBytes =
+    hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
   salt = hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
   iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
   secretNetBytes = hexToSeqByte "08021220fe442379443d6e2d7d75d3a58f96fbb35f0a9c7217796825fc9040e3b89c5736"
 
-proc listLocalValidators(validatorsDir,
-                         secretsDir: string): seq[ValidatorPubKey] {.
-     raises: [].} =
+proc listLocalValidators(
+    validatorsDir, secretsDir: string
+): seq[ValidatorPubKey] {.raises: [].} =
   var validators: seq[ValidatorPubKey]
   try:
-    for el in listLoadableKeys(validatorsDir, secretsDir,
-                               {KeystoreKind.Local}):
+    for el in listLoadableKeys(validatorsDir, secretsDir, {KeystoreKind.Local}):
       validators.add el.toPubKey()
   except OSError as err:
     error "Failure to list the validator directories",
-          validatorsDir, secretsDir, err = err.msg
+      validatorsDir, secretsDir, err = err.msg
   validators
 
-proc listRemoteValidators(validatorsDir,
-                          secretsDir: string): seq[ValidatorPubKey] {.
-     raises: [].} =
+proc listRemoteValidators(
+    validatorsDir, secretsDir: string
+): seq[ValidatorPubKey] {.raises: [].} =
   var validators: seq[ValidatorPubKey]
   try:
-    for el in listLoadableKeys(validatorsDir, secretsDir,
-                               {KeystoreKind.Remote}):
+    for el in listLoadableKeys(validatorsDir, secretsDir, {KeystoreKind.Remote}):
       validators.add el.toPubKey()
   except OSError as err:
     error "Failure to list the validator directories",
-          validatorsDir, secretsDir, err = err.msg
+      validatorsDir, secretsDir, err = err.msg
   validators
 
-func `==`(a: seq[ValidatorPubKey],
-          b: seq[KeystoreInfo | RemoteKeystoreInfo]): bool =
+func `==`(a: seq[ValidatorPubKey], b: seq[KeystoreInfo | RemoteKeystoreInfo]): bool =
   if len(a) != len(b):
     return false
   var indices: seq[int]
   for publicKey in a:
-    let index =
-      block:
-        var res = -1
-        for k, v in b.pairs():
-          let key =
-            when b is seq[KeystoreInfo]:
-              v.validating_pubkey
-            else:
-              v.pubkey
-          if key == publicKey:
-            res = k
-            break
-        res
+    let index = block:
+      var res = -1
+      for k, v in b.pairs():
+        let key = when b is seq[KeystoreInfo]: v.validating_pubkey else: v.pubkey
+        if key == publicKey:
+          res = k
+          break
+      res
     if (index == -1) or (index in indices):
       return false
     indices.add(index)
@@ -394,116 +422,110 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     rng = HmacDrbgContext.new()
     privateKey = ValidatorPrivKey.fromRaw(secretBytes).get
 
-    allValidators = listLocalValidators(
-      keymanager.validatorsDir, keymanager.secretsDir)
+    allValidators = listLocalValidators(keymanager.validatorsDir, keymanager.secretsDir)
 
   let
     newKeystore = createKeystore(
-      kdfPbkdf2, rng[], privateKey,
+      kdfPbkdf2,
+      rng[],
+      privateKey,
       KeystorePass.init password,
-      salt = salt, iv = iv,
+      salt = salt,
+      iv = iv,
       description = "This is a test keystore that uses PBKDF2 to secure the secret",
-      path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
-
-    importKeystoresBody1 =
-      block:
-        var
-          res1: seq[Keystore]
-          res2: seq[string]
-        for key in newPrivateKeys:
-          let privateKey = ValidatorPrivKey.fromHex(key).tryGet()
-          let store = createKeystore(kdfPbkdf2, rng[], privateKey,
-            KeystorePass.init password, salt = salt, iv = iv,
-            description = "Test keystore",
-            path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
-          res1.add(store)
-          res2.add(password)
-        KeystoresAndSlashingProtection(
-          keystores: res1,
-          passwords: res2,
-        )
-
-    deleteKeysBody1 =
-      block:
-        var res: seq[ValidatorPubKey]
-        for item in newPrivateKeys:
-          let privateKey = ValidatorPrivKey.fromHex(item).tryGet()
-          let publicKey = privateKey.toPubKey().toPubKey()
-          res.add(publicKey)
-        DeleteKeystoresBody(
-          pubkeys: res
-        )
-
-    importKeystoresBody = KeystoresAndSlashingProtection(
-      keystores: @[newKeystore],
-      passwords: @[password],
+      path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"),
     )
 
-    deleteKeysBody = DeleteKeystoresBody(
-      pubkeys: @[privateKey.toPubKey.toPubKey])
+    importKeystoresBody1 = block:
+      var
+        res1: seq[Keystore]
+        res2: seq[string]
+      for key in newPrivateKeys:
+        let privateKey = ValidatorPrivKey.fromHex(key).tryGet()
+        let store = createKeystore(
+          kdfPbkdf2,
+          rng[],
+          privateKey,
+          KeystorePass.init password,
+          salt = salt,
+          iv = iv,
+          description = "Test keystore",
+          path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"),
+        )
+        res1.add(store)
+        res2.add(password)
+      KeystoresAndSlashingProtection(keystores: res1, passwords: res2)
 
-    importRemoteKeystoresBody =
-      block:
-        var res: seq[RemoteKeystoreInfo]
-        # Adding keys which are already present in filesystem
-        for item in oldPublicKeys:
-          let key = ValidatorPubKey.fromHex(item).tryGet()
-          res.add(RemoteKeystoreInfo(pubkey: key, url: newPublicKeysUrl))
-        # Adding keys which are new
-        for item in newPublicKeys:
-          let key = ValidatorPubKey.fromHex(item).tryGet()
-          res.add(RemoteKeystoreInfo(pubkey: key, url: newPublicKeysUrl))
-        # Adding non-remote keys which are already present in filesystem
-        res.add(RemoteKeystoreInfo(pubkey: allValidators[0],
-                                   url: newPublicKeysUrl))
-        res.add(RemoteKeystoreInfo(pubkey: allValidators[1],
-                                   url: newPublicKeysUrl))
-        ImportRemoteKeystoresBody(remote_keys: res)
+    deleteKeysBody1 = block:
+      var res: seq[ValidatorPubKey]
+      for item in newPrivateKeys:
+        let privateKey = ValidatorPrivKey.fromHex(item).tryGet()
+        let publicKey = privateKey.toPubKey().toPubKey()
+        res.add(publicKey)
+      DeleteKeystoresBody(pubkeys: res)
+
+    importKeystoresBody =
+      KeystoresAndSlashingProtection(keystores: @[newKeystore], passwords: @[password])
+
+    deleteKeysBody = DeleteKeystoresBody(pubkeys: @[privateKey.toPubKey.toPubKey])
+
+    importRemoteKeystoresBody = block:
+      var res: seq[RemoteKeystoreInfo]
+      # Adding keys which are already present in filesystem
+      for item in oldPublicKeys:
+        let key = ValidatorPubKey.fromHex(item).tryGet()
+        res.add(RemoteKeystoreInfo(pubkey: key, url: newPublicKeysUrl))
+      # Adding keys which are new
+      for item in newPublicKeys:
+        let key = ValidatorPubKey.fromHex(item).tryGet()
+        res.add(RemoteKeystoreInfo(pubkey: key, url: newPublicKeysUrl))
+      # Adding non-remote keys which are already present in filesystem
+      res.add(RemoteKeystoreInfo(pubkey: allValidators[0], url: newPublicKeysUrl))
+      res.add(RemoteKeystoreInfo(pubkey: allValidators[1], url: newPublicKeysUrl))
+      ImportRemoteKeystoresBody(remote_keys: res)
 
   template expectedImportStatus(i: int): string =
-      if i < 8:
-        "duplicate"
-      elif i == 16 or i == 17:
-        "duplicate"
-      else:
-        "imported"
+    if i < 8:
+      "duplicate"
+    elif i == 16 or i == 17:
+      "duplicate"
+    else:
+      "imported"
 
   let
-    deleteRemoteKeystoresBody1 =
-      block:
-        var res: seq[ValidatorPubKey]
-        for item in oldPublicKeys:
-          let key = ValidatorPubKey.fromHex(item).tryGet()
-          res.add(key)
-        DeleteKeystoresBody(pubkeys: res)
+    deleteRemoteKeystoresBody1 = block:
+      var res: seq[ValidatorPubKey]
+      for item in oldPublicKeys:
+        let key = ValidatorPubKey.fromHex(item).tryGet()
+        res.add(key)
+      DeleteKeystoresBody(pubkeys: res)
 
-    deleteRemoteKeystoresBody2 =
-      block:
-        var res: seq[ValidatorPubKey]
-        for item in newPublicKeys:
-          let key = ValidatorPubKey.fromHex(item).tryGet()
-          res.add(key)
-        DeleteKeystoresBody(pubkeys: res)
+    deleteRemoteKeystoresBody2 = block:
+      var res: seq[ValidatorPubKey]
+      for item in newPublicKeys:
+        let key = ValidatorPubKey.fromHex(item).tryGet()
+        res.add(key)
+      DeleteKeystoresBody(pubkeys: res)
 
-    deleteRemoteKeystoresBody3 =
-      block:
-        DeleteKeystoresBody(
-          pubkeys: @[
+    deleteRemoteKeystoresBody3 = block:
+      DeleteKeystoresBody(
+        pubkeys:
+          @[
             ValidatorPubKey.fromHex(newPublicKeys[0]).tryGet(),
-            ValidatorPubKey.fromHex(newPublicKeys[1]).tryGet()
+            ValidatorPubKey.fromHex(newPublicKeys[1]).tryGet(),
           ]
-        )
+      )
 
-    deleteRemoteKeystoresBody4 =
-      block:
-        DeleteKeystoresBody(
-          pubkeys: @[
+    deleteRemoteKeystoresBody4 = block:
+      DeleteKeystoresBody(
+        pubkeys:
+          @[
             ValidatorPubKey.fromHex(oldPublicKeys[0]).tryGet(),
             ValidatorPubKey.fromHex(oldPublicKeys[1]).tryGet(),
             allValidators[0],
-            allValidators[1]
+            allValidators[1],
           ]
-        )
+      )
 
     testFlavour = " [" & keymanager.ident & "]" & preset()
 
@@ -532,22 +554,19 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         a.message.data == b.message.data
 
     func `==`(a, b: Cipher): bool =
-      if (a.function != b.function) or
-         (seq[byte](a.message) != seq[byte](b.message)):
+      if (a.function != b.function) or (seq[byte](a.message) != seq[byte](b.message)):
         return false
       case a.function
       of CipherFunctionKind.aes128CtrCipher:
         seq[byte](a.params.iv) == seq[byte](b.params.iv)
 
     func `==`(a, b: Crypto): bool =
-      (a.kdf == b.kdf) and (a.checksum == b.checksum) and
-        (a.cipher == b.cipher)
+      (a.kdf == b.kdf) and (a.checksum == b.checksum) and (a.cipher == b.cipher)
 
     func `==`(a, b: Keystore): bool =
       (a.crypto == b.crypto) and (a.pubkey == b.pubkey) and
-        (string(a.path) == string(b.path)) and
-        (a.description == b.description) and (a.uuid == b.uuid) and
-        (a.version == b.version)
+        (string(a.path) == string(b.path)) and (a.description == b.description) and
+        (a.uuid == b.uuid) and (a.version == b.version)
 
     test "Deserialization test vectors":
       let
@@ -557,113 +576,196 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
             dklen: 32'u64,
             c: 262144'u64,
             prf: PrfKind.HmacSha256,
-            salt: Pbkdf2Salt(hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"))
+            salt: Pbkdf2Salt(
+              hexToSeqByte(
+                "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
+              )
+            ),
           ),
-          message: ""
+          message: "",
         )
         kdf2 = Kdf(
           function: KdfKind.kdfScrypt,
           scryptParams: ScryptParams(
-            dklen: 32'u64, n: 262144, p: 1, r: 8,
-            salt: ScryptSalt(hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"))),
-          message: ""
+            dklen: 32'u64,
+            n: 262144,
+            p: 1,
+            r: 8,
+            salt: ScryptSalt(
+              hexToSeqByte(
+                "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
+              )
+            ),
+          ),
+          message: "",
         )
         checksum1 = Checksum(
           function: ChecksumFunctionKind.sha256Checksum,
           params: Sha256Params(),
-          message: Sha256Digest(MDigest[256].fromHex("0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e"))
+          message: Sha256Digest(
+            MDigest[256].fromHex(
+              "0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e"
+            )
+          ),
         )
         checksum2 = Checksum(
           function: ChecksumFunctionKind.sha256Checksum,
           params: Sha256Params(),
-          message: Sha256Digest(MDigest[256].fromHex("0xadb59d10d2436c12f2fe229f27ec598739da92686485e9fed5255d3ed9bb1c1f"))
+          message: Sha256Digest(
+            MDigest[256].fromHex(
+              "0xadb59d10d2436c12f2fe229f27ec598739da92686485e9fed5255d3ed9bb1c1f"
+            )
+          ),
         )
         checksum3 = Checksum(
           function: ChecksumFunctionKind.sha256Checksum,
           params: Sha256Params(),
-          message: Sha256Digest(MDigest[256].fromHex("0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90"))
+          message: Sha256Digest(
+            MDigest[256].fromHex(
+              "0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90"
+            )
+          ),
         )
         checksum4 = Checksum(
           function: ChecksumFunctionKind.sha256Checksum,
           params: Sha256Params(),
-          message: Sha256Digest(MDigest[256].fromHex("0x71ed99dab563f1e9f1190b0de9d92d3266df2223036e7dc3ca9d9599478fe5a4"))
+          message: Sha256Digest(
+            MDigest[256].fromHex(
+              "0x71ed99dab563f1e9f1190b0de9d92d3266df2223036e7dc3ca9d9599478fe5a4"
+            )
+          ),
         )
         cipher1 = Cipher(
           function: CipherFunctionKind.aes128CtrCipher,
-          params: Aes128CtrParams(iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))),
-          message: CipherBytes(hexToSeqByte("c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64"))
+          params: Aes128CtrParams(
+            iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))
+          ),
+          message: CipherBytes(
+            hexToSeqByte(
+              "c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64"
+            )
+          ),
         )
         cipher2 = Cipher(
           function: CipherFunctionKind.aes128CtrCipher,
-          params: Aes128CtrParams(iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))),
-          message: CipherBytes(hexToSeqByte("8d192da5a06c001eca9c954812ce165d007c889d7711b12faa7a9d6f4d5cc6ae"))
+          params: Aes128CtrParams(
+            iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))
+          ),
+          message: CipherBytes(
+            hexToSeqByte(
+              "8d192da5a06c001eca9c954812ce165d007c889d7711b12faa7a9d6f4d5cc6ae"
+            )
+          ),
         )
         cipher3 = Cipher(
           function: CipherFunctionKind.aes128CtrCipher,
-          params: Aes128CtrParams(iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))),
-          message: CipherBytes(hexToSeqByte("c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f"))
+          params: Aes128CtrParams(
+            iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))
+          ),
+          message: CipherBytes(
+            hexToSeqByte(
+              "c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f"
+            )
+          ),
         )
         cipher4 = Cipher(
           function: CipherFunctionKind.aes128CtrCipher,
-          params: Aes128CtrParams(iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))),
-          message: CipherBytes(hexToSeqByte("896298820832505128a09f51d72e4fa143b40997c3bafc40e213bf52cc6da4f5"))
+          params: Aes128CtrParams(
+            iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))
+          ),
+          message: CipherBytes(
+            hexToSeqByte(
+              "896298820832505128a09f51d72e4fa143b40997c3bafc40e213bf52cc6da4f5"
+            )
+          ),
         )
         keystore1 = Keystore(
           crypto: Crypto(kdf: kdf1, checksum: checksum1, cipher: cipher1),
-          pubkey: ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get(),
+          pubkey: ValidatorPubKey
+            .fromHex(
+              "0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798"
+            )
+            .get(),
           path: KeyPath("m/12381/60/0/0"),
           description: some "Test keystore",
           uuid: "a3331c0c-a013-4754-a122-9988b3381fec",
-          version: 4
+          version: 4,
         )
         keystore2 = Keystore(
           crypto: Crypto(kdf: kdf1, checksum: checksum2, cipher: cipher2),
-          pubkey: ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get(),
+          pubkey: ValidatorPubKey
+            .fromHex(
+              "0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228"
+            )
+            .get(),
           path: KeyPath("m/12381/60/0/0"),
           description: some "Test keystore",
           uuid: "905dd873-48af-416a-8c80-4283d5af84f9",
-          version: 4
+          version: 4,
         )
         keystore3 = Keystore(
           crypto: Crypto(kdf: kdf2, checksum: checksum3, cipher: cipher3),
-          pubkey: ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get(),
+          pubkey: ValidatorPubKey
+            .fromHex(
+              "0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798"
+            )
+            .get(),
           path: KeyPath("m/12381/60/0/0"),
           description: some "Test keystore",
           uuid: "ad1bf334-faaa-4257-8e28-81a45722e87b",
-          version: 4
+          version: 4,
         )
         keystore4 = Keystore(
           crypto: Crypto(kdf: kdf2, checksum: checksum4, cipher: cipher4),
-          pubkey: ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get(),
+          pubkey: ValidatorPubKey
+            .fromHex(
+              "0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228"
+            )
+            .get(),
           path: KeyPath("m/12381/60/0/0"),
           description: some "Test keystore",
           uuid: "d91bcde8-8bf5-45c6-b04d-c10d99ae9b6b",
-          version: 4
+          version: 4,
         )
 
       const
-        Vector1 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""a3331c0c-a013-4754-a122-9988b3381fec\"",\""name\"":\""named-a3331c0c-a013-4754-a122-9988b3381fec\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491""]}"
-        Vector2 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""a3331c0c-a013-4754-a122-9988b3381fec\"",\""version\"":4}"",""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xadb59d10d2436c12f2fe229f27ec598739da92686485e9fed5255d3ed9bb1c1f\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""8d192da5a06c001eca9c954812ce165d007c889d7711b12faa7a9d6f4d5cc6ae\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""905dd873-48af-416a-8c80-4283d5af84f9\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491"",""7465737470617373776f7264f09f9491""]}"
-        Vector3 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""ad1bf334-faaa-4257-8e28-81a45722e87b\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491""]}"
-        Vector4 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""ad1bf334-faaa-4257-8e28-81a45722e87b\"",\""version\"":4}"",""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x71ed99dab563f1e9f1190b0de9d92d3266df2223036e7dc3ca9d9599478fe5a4\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""896298820832505128a09f51d72e4fa143b40997c3bafc40e213bf52cc6da4f5\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""d91bcde8-8bf5-45c6-b04d-c10d99ae9b6b\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491"",""7465737470617373776f7264f09f9491""]}"
-        Vector5 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""a3331c0c-a013-4754-a122-9988b3381fec\"",\""version\"":4}"",""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""ad1bf334-faaa-4257-8e28-81a45722e87b\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491"", ""7465737470617373776f7264f09f9491""]}"
+        Vector1 =
+          r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""a3331c0c-a013-4754-a122-9988b3381fec\"",\""name\"":\""named-a3331c0c-a013-4754-a122-9988b3381fec\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491""]}"
+        Vector2 =
+          r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""a3331c0c-a013-4754-a122-9988b3381fec\"",\""version\"":4}"",""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xadb59d10d2436c12f2fe229f27ec598739da92686485e9fed5255d3ed9bb1c1f\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""8d192da5a06c001eca9c954812ce165d007c889d7711b12faa7a9d6f4d5cc6ae\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""905dd873-48af-416a-8c80-4283d5af84f9\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491"",""7465737470617373776f7264f09f9491""]}"
+        Vector3 =
+          r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""ad1bf334-faaa-4257-8e28-81a45722e87b\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491""]}"
+        Vector4 =
+          r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""ad1bf334-faaa-4257-8e28-81a45722e87b\"",\""version\"":4}"",""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x71ed99dab563f1e9f1190b0de9d92d3266df2223036e7dc3ca9d9599478fe5a4\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""896298820832505128a09f51d72e4fa143b40997c3bafc40e213bf52cc6da4f5\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""d91bcde8-8bf5-45c6-b04d-c10d99ae9b6b\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491"",""7465737470617373776f7264f09f9491""]}"
+        Vector5 =
+          r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""a3331c0c-a013-4754-a122-9988b3381fec\"",\""version\"":4}"",""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""ad1bf334-faaa-4257-8e28-81a45722e87b\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491"", ""7465737470617373776f7264f09f9491""]}"
 
       let
-        r1 = decodeBytes(KeystoresAndSlashingProtection,
-                         Vector1.toOpenArrayByte(0, len(Vector1) - 1),
-                         Opt.some(getContentType("application/json").get()))
-        r2 = decodeBytes(KeystoresAndSlashingProtection,
-                         Vector2.toOpenArrayByte(0, len(Vector2) - 1),
-                         Opt.some(getContentType("application/json").get()))
-        r3 = decodeBytes(KeystoresAndSlashingProtection,
-                         Vector3.toOpenArrayByte(0, len(Vector3) - 1),
-                         Opt.some(getContentType("application/json").get()))
-        r4 = decodeBytes(KeystoresAndSlashingProtection,
-                         Vector4.toOpenArrayByte(0, len(Vector4) - 1),
-                         Opt.some(getContentType("application/json").get()))
-        r5 = decodeBytes(KeystoresAndSlashingProtection,
-                         Vector5.toOpenArrayByte(0, len(Vector5) - 1),
-                         Opt.some(getContentType("application/json").get()))
+        r1 = decodeBytes(
+          KeystoresAndSlashingProtection,
+          Vector1.toOpenArrayByte(0, len(Vector1) - 1),
+          Opt.some(getContentType("application/json").get()),
+        )
+        r2 = decodeBytes(
+          KeystoresAndSlashingProtection,
+          Vector2.toOpenArrayByte(0, len(Vector2) - 1),
+          Opt.some(getContentType("application/json").get()),
+        )
+        r3 = decodeBytes(
+          KeystoresAndSlashingProtection,
+          Vector3.toOpenArrayByte(0, len(Vector3) - 1),
+          Opt.some(getContentType("application/json").get()),
+        )
+        r4 = decodeBytes(
+          KeystoresAndSlashingProtection,
+          Vector4.toOpenArrayByte(0, len(Vector4) - 1),
+          Opt.some(getContentType("application/json").get()),
+        )
+        r5 = decodeBytes(
+          KeystoresAndSlashingProtection,
+          Vector5.toOpenArrayByte(0, len(Vector5) - 1),
+          Opt.some(getContentType("application/json").get()),
+        )
 
       check:
         r1.isOk() == true
@@ -699,19 +801,19 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         len(d4.passwords) == 2
         len(d5.passwords) == 2
         d1.passwords == @["7465737470617373776f7264f09f9491"]
-        d2.passwords == @["7465737470617373776f7264f09f9491",
-                          "7465737470617373776f7264f09f9491"]
+        d2.passwords ==
+          @["7465737470617373776f7264f09f9491", "7465737470617373776f7264f09f9491"]
         d3.passwords == @["7465737470617373776f7264f09f9491"]
-        d4.passwords == @["7465737470617373776f7264f09f9491",
-                          "7465737470617373776f7264f09f9491"]
-        d5.passwords == @["7465737470617373776f7264f09f9491",
-                          "7465737470617373776f7264f09f9491"]
+        d4.passwords ==
+          @["7465737470617373776f7264f09f9491", "7465737470617373776f7264f09f9491"]
+        d5.passwords ==
+          @["7465737470617373776f7264f09f9491", "7465737470617373776f7264f09f9491"]
 
   suite "ListKeys requests" & testFlavour:
     asyncTest "Correct token provided" & testFlavour:
       let
-        filesystemKeys = sorted listLocalValidators(keymanager.validatorsDir,
-                                                    keymanager.secretsDir)
+        filesystemKeys =
+          sorted listLocalValidators(keymanager.validatorsDir, keymanager.secretsDir)
         apiKeys = sorted (await client.listKeys(correctTokenValue)).data
 
       check filesystemKeys == apiKeys
@@ -728,7 +830,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.listKeysPlain(
-          extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          extraHeaders = @[("Authorization", "UnknownAuthScheme X")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -738,7 +841,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.listKeysPlain(
-          extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          extraHeaders = @[("Authorization", "Bearer InvalidToken")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -753,7 +857,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         response1 = await client.importKeystoresPlain(
           importKeystoresBody1,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)],
+        )
         responseJson1 = Json.decode(response1.data, JsonNode)
 
       check response1.status == 200
@@ -763,9 +868,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           responseJson1["data"][i]["message"].getStr() == ""
 
       let
-        filesystemKeys1 = sorted(
-          listLocalValidators(keymanager.validatorsDir,
-                              keymanager.secretsDir))
+        filesystemKeys1 =
+          sorted(listLocalValidators(keymanager.validatorsDir, keymanager.secretsDir))
         apiKeystores1 = sorted((await client.listKeys(correctTokenValue)).data)
 
       check:
@@ -782,7 +886,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         response2 = await client.importKeystoresPlain(
           importKeystoresBody1,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)],
+        )
         responseJson2 = Json.decode(response2.data, JsonNode)
 
       check response2.status == 200
@@ -794,7 +899,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         response3 = await client.deleteKeysPlain(
           deleteKeysBody1,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)],
+        )
         responseJson3 = Json.decode(response3.data, JsonNode)
 
       check response3.status == 200
@@ -804,9 +910,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           responseJson3["data"][i]["message"].getStr() == ""
 
       let
-        filesystemKeys2 = sorted(
-          listLocalValidators(keymanager.validatorsDir,
-                              keymanager.secretsDir))
+        filesystemKeys2 =
+          sorted(listLocalValidators(keymanager.validatorsDir, keymanager.secretsDir))
         apiKeystores2 = sorted((await client.listKeys(correctTokenValue)).data)
 
       check:
@@ -832,8 +937,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.importKeystoresPlain(
-          importKeystoresBody,
-          extraHeaders = @[("Authorization", "Basic XYZ")])
+          importKeystoresBody, extraHeaders = @[("Authorization", "Basic XYZ")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -844,7 +949,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         response = await client.importKeystoresPlain(
           importKeystoresBody,
-          extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          extraHeaders = @[("Authorization", "Bearer InvalidToken")],
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -856,7 +962,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         response = await client.deleteKeysPlain(
           deleteKeysBody,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)],
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -876,8 +983,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.deleteKeysPlain(
-          deleteKeysBody,
-          extraHeaders = @[("Authorization", "Basic XYZ")])
+          deleteKeysBody, extraHeaders = @[("Authorization", "Basic XYZ")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -887,8 +994,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.deleteKeysPlain(
-          deleteKeysBody,
-          extraHeaders = @[("Authorization", "Bearer XYZ")])
+          deleteKeysBody, extraHeaders = @[("Authorization", "Bearer XYZ")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -898,11 +1005,9 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
   suite "ListRemoteKeys requests" & testFlavour:
     asyncTest "Correct token provided" & testFlavour:
       let
-        filesystemKeys = sorted(
-          listRemoteValidators(keymanager.validatorsDir,
-                               keymanager.secretsDir))
-        apiKeystores = sorted((
-          await client.listRemoteKeys(correctTokenValue)).data)
+        filesystemKeys =
+          sorted(listRemoteValidators(keymanager.validatorsDir, keymanager.secretsDir))
+        apiKeystores = sorted((await client.listRemoteKeys(correctTokenValue)).data)
 
       check filesystemKeys == apiKeystores
 
@@ -918,7 +1023,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.listRemoteKeysPlain(
-          extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          extraHeaders = @[("Authorization", "UnknownAuthScheme X")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -928,7 +1034,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.listRemoteKeysPlain(
-          extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          extraHeaders = @[("Authorization", "Bearer InvalidToken")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -953,9 +1060,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
       block:
         let
-          response = await client.setFeeRecipientPlain(
-            pubkey,
-            default SetFeeRecipientRequest)
+          response =
+            await client.setFeeRecipientPlain(pubkey, default SetFeeRecipientRequest)
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -977,8 +1083,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       block:
         let
           response = await client.listFeeRecipientPlain(
-            pubkey,
-            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+            pubkey, extraHeaders = @[("Authorization", "UnknownAuthScheme X")]
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -990,20 +1096,21 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           response = await client.setFeeRecipientPlain(
             pubkey,
             default SetFeeRecipientRequest,
-            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")],
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
           response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
-
       block:
         let
           response = await client.deleteFeeRecipientPlain(
             pubkey,
             EmptyBody(),
-            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")],
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -1016,8 +1123,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       block:
         let
           response = await client.listFeeRecipientPlain(
-            pubkey,
-            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+            pubkey, extraHeaders = @[("Authorization", "Bearer InvalidToken")]
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -1029,7 +1136,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           response = await client.setFeeRecipientPlain(
             pubkey,
             default SetFeeRecipientRequest,
-            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")],
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -1041,24 +1149,27 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           response = await client.deleteFeeRecipientPlain(
             pubkey,
             EmptyBody(),
-            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")],
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
           response.status == 403
           responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Obtaining the fee recipient of a missing validator returns 404" & testFlavour:
+    asyncTest "Obtaining the fee recipient of a missing validator returns 404" &
+      testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(unusedPublicKeys[0]).expect("valid key")
         response = await client.listFeeRecipientPlain(
-          pubkey,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          pubkey, extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)]
+        )
 
       check:
         response.status == 404
 
-    asyncTest "Setting the fee recipient on a missing validator creates a record for it" & testFlavour:
+    asyncTest "Setting the fee recipient on a missing validator creates a record for it" &
+      testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(unusedPublicKeys[1]).expect("valid key")
         feeRecipient = specifiedFeeRecipient(1)
@@ -1069,7 +1180,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       check:
         resultFromApi == feeRecipient
 
-    asyncTest "Obtaining the fee recipient of an unconfigured validator returns the suggested default" & testFlavour:
+    asyncTest "Obtaining the fee recipient of an unconfigured validator returns the suggested default" &
+      testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
         resultFromApi = await client.listFeeRecipient(pubkey, correctTokenValue)
@@ -1115,9 +1227,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
       block:
         let
-          response = await client.setGasLimitPlain(
-            pubkey,
-            default SetGasLimitRequest)
+          response = await client.setGasLimitPlain(pubkey, default SetGasLimitRequest)
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -1139,8 +1249,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       block:
         let
           response = await client.listGasLimitPlain(
-            pubkey,
-            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+            pubkey, extraHeaders = @[("Authorization", "UnknownAuthScheme X")]
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -1152,20 +1262,21 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           response = await client.setGasLimitPlain(
             pubkey,
             default SetGasLimitRequest,
-            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")],
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
           response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
-
       block:
         let
           response = await client.deleteGasLimitPlain(
             pubkey,
             EmptyBody(),
-            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")],
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -1178,8 +1289,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       block:
         let
           response = await client.listGasLimitPlain(
-            pubkey,
-            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+            pubkey, extraHeaders = @[("Authorization", "Bearer InvalidToken")]
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -1191,7 +1302,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           response = await client.setGasLimitPlain(
             pubkey,
             default SetGasLimitRequest,
-            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")],
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -1203,7 +1315,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           response = await client.deleteGasLimitPlain(
             pubkey,
             EmptyBody(),
-            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")],
+          )
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
@@ -1214,13 +1327,14 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         pubkey = ValidatorPubKey.fromHex(unusedPublicKeys[0]).expect("valid key")
         response = await client.listGasLimitPlain(
-          pubkey,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          pubkey, extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)]
+        )
 
       check:
         response.status == 404
 
-    asyncTest "Setting the gas limit on a missing validator creates a record for it" & testFlavour:
+    asyncTest "Setting the gas limit on a missing validator creates a record for it" &
+      testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(unusedPublicKeys[1]).expect("valid key")
         gasLimit = 20_000_000'u64
@@ -1231,7 +1345,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       check:
         resultFromApi == gasLimit
 
-    asyncTest "Obtaining the gas limit of an unconfigured validator returns the suggested default" & testFlavour:
+    asyncTest "Obtaining the gas limit of an unconfigured validator returns the suggested default" &
+      testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
         resultFromApi = await client.listGasLimit(pubkey, correctTokenValue)
@@ -1267,7 +1382,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         response1 = await client.importRemoteKeysPlain(
           importRemoteKeystoresBody,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)],
+        )
         responseJson1 = Json.decode(response1.data, JsonNode)
 
       check:
@@ -1279,31 +1395,29 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           responseJson1["data"][i]["message"].getStr() == ""
 
       let
-        filesystemKeys1 = sorted(
-          listRemoteValidators(keymanager.validatorsDir,
-                               keymanager.secretsDir))
-        apiKeystores1 = sorted((
-          await client.listRemoteKeys(correctTokenValue)).data)
+        filesystemKeys1 =
+          sorted(listRemoteValidators(keymanager.validatorsDir, keymanager.secretsDir))
+        apiKeystores1 = sorted((await client.listRemoteKeys(correctTokenValue)).data)
 
       check:
         filesystemKeys1 == apiKeystores1
 
       for item in newPublicKeys:
         let key = ValidatorPubKey.fromHex(item).tryGet()
-        let found =
-          block:
-            var res = false
-            for keystore in filesystemKeys1:
-              if keystore == key:
-                res = true
-                break
-            res
+        let found = block:
+          var res = false
+          for keystore in filesystemKeys1:
+            if keystore == key:
+              res = true
+              break
+          res
         check found == true
 
       let
         response2 = await client.deleteRemoteKeysPlain(
           deleteRemoteKeystoresBody2,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)],
+        )
         responseJson2 = Json.decode(response2.data, JsonNode)
 
       check:
@@ -1318,11 +1432,9 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         responseJson2["data"][7]["status"].getStr() == "deleted"
 
       let
-        filesystemKeys2 = sorted(
-          listRemoteValidators(keymanager.validatorsDir,
-                               keymanager.secretsDir))
-        apiKeystores2 = sorted((
-          await client.listRemoteKeys(correctTokenValue)).data)
+        filesystemKeys2 =
+          sorted(listRemoteValidators(keymanager.validatorsDir, keymanager.secretsDir))
+        apiKeystores2 = sorted((await client.listRemoteKeys(correctTokenValue)).data)
 
       check:
         filesystemKeys2 == apiKeystores2
@@ -1344,8 +1456,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.importRemoteKeysPlain(
-          importRemoteKeystoresBody,
-          extraHeaders = @[("Authorization", "Basic XYZ")])
+          importRemoteKeystoresBody, extraHeaders = @[("Authorization", "Basic XYZ")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -1356,7 +1468,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         response = await client.importRemoteKeysPlain(
           importRemoteKeystoresBody,
-          extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          extraHeaders = @[("Authorization", "Bearer InvalidToken")],
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -1368,7 +1481,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         response = await client.deleteRemoteKeysPlain(
           deleteRemoteKeystoresBody3,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)],
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -1380,7 +1494,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         response = await client.deleteRemoteKeysPlain(
           deleteRemoteKeystoresBody4,
-          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)],
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -1391,10 +1506,9 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         responseJson["data"][3]["status"].getStr() == "not_found"
 
       let
-        filesystemKeystores = sorted(
-          listRemoteValidators(nodeValidatorsDir, nodeSecretsDir))
-        apiKeystores = sorted((
-          await client.listRemoteKeys(correctTokenValue)).data)
+        filesystemKeystores =
+          sorted(listRemoteValidators(nodeValidatorsDir, nodeSecretsDir))
+        apiKeystores = sorted((await client.listRemoteKeys(correctTokenValue)).data)
 
       check:
         filesystemKeystores == apiKeystores
@@ -1410,8 +1524,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
     asyncTest "Missing Authorization header" & testFlavour:
       let
-        response = await client.deleteRemoteKeysPlain(
-          deleteRemoteKeystoresBody1)
+        response = await client.deleteRemoteKeysPlain(deleteRemoteKeystoresBody1)
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -1421,8 +1534,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.deleteRemoteKeysPlain(
-          deleteRemoteKeystoresBody1,
-          extraHeaders = @[("Authorization", "Basic XYZ")])
+          deleteRemoteKeystoresBody1, extraHeaders = @[("Authorization", "Basic XYZ")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -1432,8 +1545,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.deleteRemoteKeysPlain(
-          deleteRemoteKeystoresBody1,
-          extraHeaders = @[("Authorization", "Bearer XYZ")])
+          deleteRemoteKeystoresBody1, extraHeaders = @[("Authorization", "Bearer XYZ")]
+        )
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
@@ -1446,13 +1559,15 @@ proc delayedTests(basePort: int) {.async.} =
       ident: "Beacon Node",
       port: basePort + PortKind.KeymanagerBN.ord,
       validatorsDir: nodeValidatorsDir,
-      secretsDir: nodeSecretsDir)
+      secretsDir: nodeSecretsDir,
+    )
 
     validatorClientKeymanager = KeymanagerToTest(
       ident: "Validator Client",
       port: basePort + PortKind.KeymanagerVC.ord,
       validatorsDir: vcValidatorsDir,
-      secretsDir: vcSecretsDir)
+      secretsDir: vcSecretsDir,
+    )
 
   while bnStatus != BeaconNodeStatus.Running:
     await sleepAsync(1.seconds)
@@ -1494,9 +1609,10 @@ let
       quit 1
 
 for topicName in [
-    "libp2p", "gossipsub", "gossip_eth2", "message_router", "batch_validation",
-    "syncpool", "syncman", "fork_choice", "attpool", "val_pool", "consens",
-    "state_transition"]:
+  "libp2p", "gossipsub", "gossip_eth2", "message_router", "batch_validation",
+  "syncpool", "syncman", "fork_choice", "attpool", "val_pool", "consens",
+  "state_transition",
+]:
   doAssert setTopicState(topicName, Disabled)
 
 waitFor main(basePort)

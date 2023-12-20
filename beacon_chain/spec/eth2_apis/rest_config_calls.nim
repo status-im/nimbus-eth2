@@ -6,24 +6,22 @@
 
 {.push raises: [].}
 
-import
-  chronos, presto/client,
-  "."/[rest_types, eth2_rest_serialization]
+import chronos, presto/client, "."/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 
 proc getForkSchedule*(): RestResponse[GetForkScheduleResponse] {.
-     rest, endpoint: "/eth/v1/config/fork_schedule", meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule
+  rest, endpoint: "/eth/v1/config/fork_schedule", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule
 
 proc getForkSchedulePlain*(): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/config/fork_schedule", meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule
+  rest, endpoint: "/eth/v1/config/fork_schedule", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule
 
 proc getSpecVC*(): RestResponse[GetSpecVCResponse] {.
-     rest, endpoint: "/eth/v1/config/spec", meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Config/getSpec
+  rest, endpoint: "/eth/v1/config/spec", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Config/getSpec
 
 proc getDepositContract*(): RestResponse[GetDepositContractResponse] {.
-     rest, endpoint: "/eth/v1/config/deposit_contract", meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Config/getDepositContract
+  rest, endpoint: "/eth/v1/config/deposit_contract", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Config/getDepositContract

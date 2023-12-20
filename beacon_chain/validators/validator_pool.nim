@@ -9,33 +9,34 @@
 
 import
   std/[tables, json, streams, sequtils, uri],
-  chronos, chronicles, metrics,
+  chronos,
+  chronicles,
+  metrics,
   json_serialization/std/net,
-  presto, presto/client,
-
+  presto,
+  presto/client,
   ../spec/[keystore, signatures, helpers, crypto],
   ../spec/datatypes/[phase0, altair],
-  ../spec/eth2_apis/[rest_types, eth2_rest_serialization,
-                     rest_remote_signer_calls],
-  ../filepath, ../conf,
+  ../spec/eth2_apis/[rest_types, eth2_rest_serialization, rest_remote_signer_calls],
+  ../filepath,
+  ../conf,
   ./slashing_protection
 
 export
-  streams, keystore, phase0, altair, tables, uri, crypto,
-  rest_types, eth2_rest_serialization, rest_remote_signer_calls,
-  slashing_protection
+  streams, keystore, phase0, altair, tables, uri, crypto, rest_types,
+  eth2_rest_serialization, rest_remote_signer_calls, slashing_protection
 
-const
-  WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
+const WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
 
-declareGauge validators,
-  "Number of validators attached to the beacon node"
+declareGauge validators, "Number of validators attached to the beacon node"
 
-logScope: topics = "val_pool"
+logScope:
+  topics = "val_pool"
 
 type
   ValidatorKind* {.pure.} = enum
-    Local, Remote
+    Local
+    Remote
 
   ValidatorAndIndex* = object
     index*: ValidatorIndex
@@ -103,29 +104,35 @@ func shortLog*(v: AttachedValidator): string =
   of ValidatorKind.Remote:
     shortLog(v.pubkey)
 
-func init*(T: type ValidatorPool,
-           slashingProtectionDB: SlashingProtectionDB,
-           doppelgangerDetectionEnabled: bool): T =
+func init*(
+    T: type ValidatorPool,
+    slashingProtectionDB: SlashingProtectionDB,
+    doppelgangerDetectionEnabled: bool,
+): T =
   ## Initialize the validator pool and the slashing protection service
   ## `genesis_validators_root` is used as an unique ID for the
   ## blockchain
   ## `backend` is the KeyValue Store backend
   T(
     slashingProtection: slashingProtectionDB,
-    doppelgangerDetectionEnabled: doppelgangerDetectionEnabled)
+    doppelgangerDetectionEnabled: doppelgangerDetectionEnabled,
+  )
 
 template count*(pool: ValidatorPool): int =
   len(pool.validators)
 
 proc addLocalValidator(
-    pool: var ValidatorPool, keystore: KeystoreData,
-    feeRecipient: Eth1Address, gasLimit: uint64): AttachedValidator =
+    pool: var ValidatorPool,
+    keystore: KeystoreData,
+    feeRecipient: Eth1Address,
+    gasLimit: uint64,
+): AttachedValidator =
   doAssert keystore.kind == KeystoreKind.Local
   let v = AttachedValidator(
     kind: ValidatorKind.Local,
     data: keystore,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
-    activationEpoch: FAR_FUTURE_EPOCH
+    activationEpoch: FAR_FUTURE_EPOCH,
   )
   pool.validators[v.pubkey] = v
 
@@ -139,10 +146,13 @@ proc addLocalValidator(
 
   v
 
-proc addRemoteValidator(pool: var ValidatorPool, keystore: KeystoreData,
-                        clients: seq[(RestClientRef, RemoteSignerInfo)],
-                        feeRecipient: Eth1Address,
-                        gasLimit: uint64): AttachedValidator =
+proc addRemoteValidator(
+    pool: var ValidatorPool,
+    keystore: KeystoreData,
+    clients: seq[(RestClientRef, RemoteSignerInfo)],
+    feeRecipient: Eth1Address,
+    gasLimit: uint64,
+): AttachedValidator =
   doAssert keystore.kind == KeystoreKind.Remote
   let v = AttachedValidator(
     kind: ValidatorKind.Remote,
@@ -153,24 +163,30 @@ proc addRemoteValidator(pool: var ValidatorPool, keystore: KeystoreData,
   )
   pool.validators[v.pubkey] = v
   if RemoteKeystoreFlag.DynamicKeystore in keystore.flags:
-    notice "Dynamic remote validator attached", pubkey = v.pubkey,
-           validator = shortLog(v), remote_signer = $keystore.remotes,
-           initial_fee_recipient = feeRecipient.toHex(),
-           initial_gas_limit = gasLimit
+    notice "Dynamic remote validator attached",
+      pubkey = v.pubkey,
+      validator = shortLog(v),
+      remote_signer = $keystore.remotes,
+      initial_fee_recipient = feeRecipient.toHex(),
+      initial_gas_limit = gasLimit
   else:
-    notice "Remote validator attached", pubkey = v.pubkey,
-           validator = shortLog(v), remote_signer = $keystore.remotes,
-           initial_fee_recipient = feeRecipient.toHex(),
-           initial_gas_limit = gasLimit
+    notice "Remote validator attached",
+      pubkey = v.pubkey,
+      validator = shortLog(v),
+      remote_signer = $keystore.remotes,
+      initial_fee_recipient = feeRecipient.toHex(),
+      initial_gas_limit = gasLimit
 
   validators.set(pool.count().int64)
 
   v
 
-proc addRemoteValidator(pool: var ValidatorPool,
-                        keystore: KeystoreData,
-                        feeRecipient: Eth1Address,
-                        gasLimit: uint64): AttachedValidator =
+proc addRemoteValidator(
+    pool: var ValidatorPool,
+    keystore: KeystoreData,
+    feeRecipient: Eth1Address,
+    gasLimit: uint64,
+): AttachedValidator =
   let
     httpFlags =
       if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
@@ -179,26 +195,28 @@ proc addRemoteValidator(pool: var ValidatorPool,
         {}
     prestoFlags = {RestClientFlag.CommaSeparatedArray}
     socketFlags = {SocketFlags.TcpNoDelay}
-    clients =
-      block:
-        var res: seq[(RestClientRef, RemoteSignerInfo)]
-        for remote in keystore.remotes:
-          let client = RestClientRef.new(
-            $remote.url, prestoFlags, httpFlags, socketFlags = socketFlags)
-          if client.isErr():
-            # TODO keep trying in case of temporary network failure
-            warn "Unable to resolve distributed signer address",
-                  remote_url = $remote.url, validator = $remote.pubkey
-          else:
-            res.add((client.get(), remote))
-        res
+    clients = block:
+      var res: seq[(RestClientRef, RemoteSignerInfo)]
+      for remote in keystore.remotes:
+        let client = RestClientRef.new(
+          $remote.url, prestoFlags, httpFlags, socketFlags = socketFlags
+        )
+        if client.isErr():
+          # TODO keep trying in case of temporary network failure
+          warn "Unable to resolve distributed signer address",
+            remote_url = $remote.url, validator = $remote.pubkey
+        else:
+          res.add((client.get(), remote))
+      res
 
   pool.addRemoteValidator(keystore, clients, feeRecipient, gasLimit)
 
-proc addValidator*(pool: var ValidatorPool,
-                   keystore: KeystoreData,
-                   feeRecipient: Eth1Address,
-                   gasLimit: uint64): AttachedValidator =
+proc addValidator*(
+    pool: var ValidatorPool,
+    keystore: KeystoreData,
+    feeRecipient: Eth1Address,
+    gasLimit: uint64,
+): AttachedValidator =
   pool.validators.withValue(keystore.pubkey, v):
     notice "Adding already-known validator", validator = shortLog(v[])
     return v[]
@@ -209,10 +227,14 @@ proc addValidator*(pool: var ValidatorPool,
   of KeystoreKind.Remote:
     pool.addRemoteValidator(keystore, feeRecipient, gasLimit)
 
-func getValidator*(pool: ValidatorPool,
-                   validatorKey: ValidatorPubKey): Opt[AttachedValidator] =
+func getValidator*(
+    pool: ValidatorPool, validatorKey: ValidatorPubKey
+): Opt[AttachedValidator] =
   let v = pool.validators.getOrDefault(validatorKey)
-  if v == nil: Opt.none(AttachedValidator) else: Opt.some(v)
+  if v == nil:
+    Opt.none(AttachedValidator)
+  else:
+    Opt.some(v)
 
 func contains*(pool: ValidatorPool, pubkey: ValidatorPubKey): bool =
   ## Returns ``true`` if validator with key ``pubkey`` present in ``pool``.
@@ -221,26 +243,27 @@ func contains*(pool: ValidatorPool, pubkey: ValidatorPubKey): bool =
 proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
   ## Delete validator with public key ``pubkey`` from ``pool``.
   let validator = pool.validators.getOrDefault(pubkey)
-  if not(isNil(validator)):
+  if not (isNil(validator)):
     pool.validators.del(pubkey)
     case validator.kind
     of ValidatorKind.Local:
       notice "Local validator detached", pubkey, validator = shortLog(validator)
     of ValidatorKind.Remote:
       if RemoteKeystoreFlag.DynamicKeystore in validator.data.flags:
-        notice "Dynamic remote validator detached", pubkey,
-               validator = shortLog(validator)
+        notice "Dynamic remote validator detached",
+          pubkey, validator = shortLog(validator)
       else:
-        notice "Remote validator detached", pubkey,
-               validator = shortLog(validator)
+        notice "Remote validator detached", pubkey, validator = shortLog(validator)
     validators.set(pool.count().int64)
 
 func needsUpdate*(validator: AttachedValidator): bool =
   validator.index.isNone() or validator.activationEpoch == FAR_FUTURE_EPOCH
 
 proc updateValidator*(
-    validator: AttachedValidator, validatorData: Opt[ValidatorAndIndex]) =
-  defer: validator.updated = true
+    validator: AttachedValidator, validatorData: Opt[ValidatorAndIndex]
+) =
+  defer:
+    validator.updated = true
 
   let
     data = validatorData.valueOr:
@@ -260,8 +283,7 @@ proc updateValidator*(
     # In theory, activation epoch could change but that's rare enough that it
     # shouldn't practically matter for the current uses
     info "Validator activation updated",
-      validator = shortLog(validator), pubkey = validator.pubkey, index,
-      activationEpoch
+      validator = shortLog(validator), pubkey = validator.pubkey, index, activationEpoch
 
     validator.activationEpoch = activationEpoch
 
@@ -271,7 +293,7 @@ proc close*(pool: var ValidatorPool) =
     let res = validator.data.handle.closeLockedFile()
     if res.isErr():
       notice "Could not unlock validator's keystore file",
-             pubkey = validator.pubkey, validator = shortLog(validator)
+        pubkey = validator.pubkey, validator = shortLog(validator)
   pool.validators.clear()
 
 iterator indices*(pool: ValidatorPool): ValidatorIndex =
@@ -287,8 +309,7 @@ proc doppelgangerChecked*(validator: AttachedValidator, epoch: Epoch) =
   ## Call when the validator was checked for activity in the given epoch
 
   if validator.doppelCheck.isNone():
-    debug "Doppelganger first check",
-      validator = shortLog(validator), epoch
+    debug "Doppelganger first check", validator = shortLog(validator), epoch
   else:
     let check = validator.doppelCheck.get()
     if check > epoch:
@@ -299,16 +320,14 @@ proc doppelgangerChecked*(validator: AttachedValidator, epoch: Epoch) =
       return
 
     if check - epoch > 1:
-      debug "Doppelganger stale check",
-        validator = shortLog(validator), check, epoch
+      debug "Doppelganger stale check", validator = shortLog(validator), check, epoch
 
   validator.doppelCheck = Opt.some epoch
 
 proc doppelgangerActivity*(validator: AttachedValidator, epoch: Epoch) =
   ## Call when we performed a doppelganger-monitored activity in the epoch
   if validator.doppelActivity.isNone():
-    debug "Doppelganger first activity",
-      validator = shortLog(validator), epoch
+    debug "Doppelganger first activity", validator = shortLog(validator), epoch
   else:
     let activity = validator.doppelActivity.get()
     if activity > epoch:
@@ -347,46 +366,49 @@ func doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
   ## a race condition where the check for epoch N is ongoing and block
   ## block production for slot_start(N+1) is about to happen
   let epoch = slot.epoch
-  epoch == validator.activationEpoch or
-    (validator.doppelCheck.isSome and
-      (((validator.doppelCheck.get() + 1) == epoch) or
-      (((validator.doppelCheck.get() + 2).start_slot) == slot)))
+  epoch == validator.activationEpoch or (
+    validator.doppelCheck.isSome and (
+      ((validator.doppelCheck.get() + 1) == epoch) or
+      (((validator.doppelCheck.get() + 2).start_slot) == slot)
+    )
+  )
 
 proc getValidatorForDuties*(
-    pool: ValidatorPool, key: ValidatorPubKey, slot: Slot,
-    slashingSafe: bool):
-    Opt[AttachedValidator] =
+    pool: ValidatorPool, key: ValidatorPubKey, slot: Slot, slashingSafe: bool
+): Opt[AttachedValidator] =
   ## Return validator only if it is ready for duties (has index and has passed
   ## doppelganger check where applicable)
-  let validator = ? pool.getValidator(key)
+  let validator = ?pool.getValidator(key)
   if validator.index.isNone():
     return Opt.none(AttachedValidator)
 
   # Sync committee duties are not slashable, so we perform them even during
   # doppelganger detection
-  if pool.doppelgangerDetectionEnabled and
-      not validator.doppelgangerReady(slot) and
+  if pool.doppelgangerDetectionEnabled and not validator.doppelgangerReady(slot) and
       not slashingSafe:
     notice "Doppelganger detection active - " &
-          "skipping validator duties while observing the network",
-            validator = shortLog(validator),
-            slot,
-            doppelCheck = validator.doppelCheck,
-            activationEpoch = shortLog(validator.activationEpoch)
+      "skipping validator duties while observing the network",
+      validator = shortLog(validator),
+      slot,
+      doppelCheck = validator.doppelCheck,
+      activationEpoch = shortLog(validator.activationEpoch)
 
     return Opt.none(AttachedValidator)
 
   return Opt.some(validator)
 
 func triggersDoppelganger*(
-    pool: ValidatorPool, pubkey: ValidatorPubKey, epoch: Epoch): bool =
+    pool: ValidatorPool, pubkey: ValidatorPubKey, epoch: Epoch
+): bool =
   let v = pool.getValidator(pubkey)
   v.isSome() and v[].triggersDoppelganger(epoch)
 
-proc updateDynamicValidators*(pool: ref ValidatorPool,
-                              web3signerUrl: Web3SignerUrl,
-                              keystores: openArray[KeystoreData],
-                              addProc: AddValidatorProc) =
+proc updateDynamicValidators*(
+    pool: ref ValidatorPool,
+    web3signerUrl: Web3SignerUrl,
+    keystores: openArray[KeystoreData],
+    addProc: AddValidatorProc,
+) =
   var
     keystoresTable: Table[ValidatorPubKey, Opt[KeystoreData]]
     deleteValidators: seq[ValidatorPubKey]
@@ -421,42 +443,45 @@ proc updateDynamicValidators*(pool: ref ValidatorPool,
     if res.isSome():
       let validator = res.get()
       if validator.kind != ValidatorKind.Remote or
-         RemoteKeystoreFlag.DynamicKeystore notin validator.data.flags:
+          RemoteKeystoreFlag.DynamicKeystore notin validator.data.flags:
         warn "Attempt to replace local validator with dynamic remote validator",
-             pubkey = validator.pubkey, validator = shortLog(validator),
-             remote_signer = $keystore.remotes,
-             local_validator_kind = validator.kind
+          pubkey = validator.pubkey,
+          validator = shortLog(validator),
+          remote_signer = $keystore.remotes,
+          local_validator_kind = validator.kind
     else:
       addProc(keystore)
 
-proc signWithDistributedKey(v: AttachedValidator,
-                            request: Web3SignerRequest): Future[SignatureResult]
-                           {.async.} =
+proc signWithDistributedKey(
+    v: AttachedValidator, request: Web3SignerRequest
+): Future[SignatureResult] {.async.} =
   doAssert v.data.threshold <= uint32(v.clients.len)
 
   let
     deadline = sleepAsync(WEB3_SIGNER_DELAY_TOLERANCE)
-    signatureReqs = mapIt(v.clients, it[0].signData(it[1].pubkey, deadline,
-                                                    2, request))
+    signatureReqs = mapIt(v.clients, it[0].signData(it[1].pubkey, deadline, 2, request))
 
   await allFutures(signatureReqs)
 
-  if not(deadline.finished()): await cancelAndWait(deadline)
+  if not (deadline.finished()):
+    await cancelAndWait(deadline)
 
   var shares: seq[SignatureShare]
   var neededShares = v.data.threshold
 
   for i, req in signatureReqs:
-    template shareInfo: untyped = v.clients[i][1]
+    template shareInfo(): untyped =
+      v.clients[i][1]
+
     if req.completed() and req.read.isOk:
       shares.add req.read.get.toSignatureShare(shareInfo.id)
       neededShares = neededShares - 1
     else:
       warn "Failed to obtain signature from remote signer",
-           pubkey = shareInfo.pubkey,
-           signerUrl = $(v.clients[i][0].address),
-           reason = req.read.error.message,
-           kind = req.read.error.kind
+        pubkey = shareInfo.pubkey,
+        signerUrl = $(v.clients[i][0].address),
+        reason = req.read.error.message,
+        kind = req.read.error.kind
 
     if neededShares == 0:
       let recovered = shares.recoverSignature()
@@ -464,23 +489,25 @@ proc signWithDistributedKey(v: AttachedValidator,
 
   return SignatureResult.err "Not enough shares to recover the signature"
 
-proc signWithSingleKey(v: AttachedValidator,
-                       request: Web3SignerRequest): Future[SignatureResult] {.
-     async.} =
+proc signWithSingleKey(
+    v: AttachedValidator, request: Web3SignerRequest
+): Future[SignatureResult] {.async.} =
   doAssert v.clients.len == 1
   let
     deadline = sleepAsync(WEB3_SIGNER_DELAY_TOLERANCE)
     (client, info) = v.clients[0]
     res = await client.signData(info.pubkey, deadline, 2, request)
 
-  if not(deadline.finished()): await cancelAndWait(deadline)
+  if not (deadline.finished()):
+    await cancelAndWait(deadline)
   if res.isErr():
     return SignatureResult.err(res.error.message)
   else:
     return SignatureResult.ok(res.get().toValidatorSig())
 
-proc signData(v: AttachedValidator,
-              request: Web3SignerRequest): Future[SignatureResult] =
+proc signData(
+    v: AttachedValidator, request: Web3SignerRequest
+): Future[SignatureResult] =
   doAssert v.kind == ValidatorKind.Remote
   debug "Signing request with remote signer",
     validator = shortLog(v), kind = request.kind
@@ -490,22 +517,23 @@ proc signData(v: AttachedValidator,
     v.signWithDistributedKey(request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#signature
-proc getBlockSignature*(v: AttachedValidator, fork: Fork,
-                        genesis_validators_root: Eth2Digest, slot: Slot,
-                        block_root: Eth2Digest,
-                        blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock |
-                              capella_mev.BlindedBeaconBlock |
-                              deneb_mev.BlindedBeaconBlock
-                       ): Future[SignatureResult] {.async.} =
+proc getBlockSignature*(
+    v: AttachedValidator,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    slot: Slot,
+    block_root: Eth2Digest,
+    blck:
+      ForkedBeaconBlock | ForkedBlindedBeaconBlock | capella_mev.BlindedBeaconBlock |
+      deneb_mev.BlindedBeaconBlock,
+): Future[SignatureResult] {.async.} =
   type SomeBlockBody =
-    bellatrix.BeaconBlockBody |
-    capella.BeaconBlockBody |
-    deneb.BeaconBlockBody |
-    capella_mev.BlindedBeaconBlockBody |
-    deneb_mev.BlindedBeaconBlockBody
+    bellatrix.BeaconBlockBody | capella.BeaconBlockBody | deneb.BeaconBlockBody |
+    capella_mev.BlindedBeaconBlockBody | deneb_mev.BlindedBeaconBlockBody
 
-  template blockPropertiesProofs(blockBody: SomeBlockBody,
-                                 forkIndexField: untyped): seq[Web3SignerMerkleProof] =
+  template blockPropertiesProofs(
+      blockBody: SomeBlockBody, forkIndexField: untyped
+  ): seq[Web3SignerMerkleProof] =
     var proofs: seq[Web3SignerMerkleProof]
     for prop in v.data.provenBlockProperties:
       if prop.forkIndexField.isSome:
@@ -514,9 +542,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           proofRes = build_proof(blockBody, idx)
         if proofRes.isErr:
           return err proofRes.error
-        proofs.add Web3SignerMerkleProof(
-          index: idx,
-          proof: proofRes.get)
+        proofs.add Web3SignerMerkleProof(index: idx, proof: proofRes.get)
     proofs
 
   return
@@ -524,8 +550,10 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
     of ValidatorKind.Local:
       SignatureResult.ok(
         get_block_signature(
-          fork, genesis_validators_root, slot, block_root,
-          v.data.privateKey).toValidatorSig())
+          fork, genesis_validators_root, slot, block_root, v.data.privateKey
+        )
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
       let web3signerRequest =
         when blck is ForkedBlindedBeaconBlock:
@@ -535,55 +563,85 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           of ConsensusFork.Capella:
             case v.data.remoteType
             of RemoteSignerType.Web3Signer:
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                  data: blck.capellaData.toBeaconBlockHeader))
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Capella,
+                  data: blck.capellaData.toBeaconBlockHeader,
+                ),
+              )
             of RemoteSignerType.VerifyingWeb3Signer:
-              let proofs = blockPropertiesProofs(
-                blck.capellaData.body, capellaIndex)
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                  data: blck.capellaData.toBeaconBlockHeader),
-                proofs)
+              let proofs = blockPropertiesProofs(blck.capellaData.body, capellaIndex)
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Capella,
+                  data: blck.capellaData.toBeaconBlockHeader,
+                ),
+                proofs,
+              )
           of ConsensusFork.Deneb:
             case v.data.remoteType
             of RemoteSignerType.Web3Signer:
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
-                  data: blck.denebData.toBeaconBlockHeader))
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Deneb, data: blck.denebData.toBeaconBlockHeader
+                ),
+              )
             of RemoteSignerType.VerifyingWeb3Signer:
-              let proofs = blockPropertiesProofs(
-                blck.denebData.body, denebIndex)
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
-                  data: blck.denebData.toBeaconBlockHeader),
-                proofs)
+              let proofs = blockPropertiesProofs(blck.denebData.body, denebIndex)
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Deneb, data: blck.denebData.toBeaconBlockHeader
+                ),
+                proofs,
+              )
         elif blck is capella_mev.BlindedBeaconBlock:
           case v.data.remoteType
           of RemoteSignerType.Web3Signer:
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                data: blck.toBeaconBlockHeader))
+            Web3SignerRequest.init(
+              fork,
+              genesis_validators_root,
+              Web3SignerForkedBeaconBlock(
+                kind: ConsensusFork.Capella, data: blck.toBeaconBlockHeader
+              ),
+            )
           of RemoteSignerType.VerifyingWeb3Signer:
-            let proofs = blockPropertiesProofs(
-              blck.body, capellaIndex)
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                data: blck.toBeaconBlockHeader),
-              proofs)
+            let proofs = blockPropertiesProofs(blck.body, capellaIndex)
+            Web3SignerRequest.init(
+              fork,
+              genesis_validators_root,
+              Web3SignerForkedBeaconBlock(
+                kind: ConsensusFork.Capella, data: blck.toBeaconBlockHeader
+              ),
+              proofs,
+            )
         elif blck is deneb_mev.BlindedBeaconBlock:
           case v.data.remoteType
           of RemoteSignerType.Web3Signer:
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
-                data: blck.toBeaconBlockHeader))
+            Web3SignerRequest.init(
+              fork,
+              genesis_validators_root,
+              Web3SignerForkedBeaconBlock(
+                kind: ConsensusFork.Deneb, data: blck.toBeaconBlockHeader
+              ),
+            )
           of RemoteSignerType.VerifyingWeb3Signer:
-            let proofs = blockPropertiesProofs(
-              blck.body, denebIndex)
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
-                data: blck.toBeaconBlockHeader),
-              proofs)
+            let proofs = blockPropertiesProofs(blck.body, denebIndex)
+            Web3SignerRequest.init(
+              fork,
+              genesis_validators_root,
+              Web3SignerForkedBeaconBlock(
+                kind: ConsensusFork.Deneb, data: blck.toBeaconBlockHeader
+              ),
+              proofs,
+            )
         else:
           case blck.kind
           of ConsensusFork.Phase0, ConsensusFork.Altair:
@@ -591,162 +649,209 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           of ConsensusFork.Bellatrix:
             case v.data.remoteType
             of RemoteSignerType.Web3Signer:
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
-                  data: blck.bellatrixData.toBeaconBlockHeader))
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Bellatrix,
+                  data: blck.bellatrixData.toBeaconBlockHeader,
+                ),
+              )
             of RemoteSignerType.VerifyingWeb3Signer:
-              let proofs = blockPropertiesProofs(
-                blck.bellatrixData.body, bellatrixIndex)
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
-                  data: blck.bellatrixData.toBeaconBlockHeader),
-                proofs)
+              let proofs =
+                blockPropertiesProofs(blck.bellatrixData.body, bellatrixIndex)
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Bellatrix,
+                  data: blck.bellatrixData.toBeaconBlockHeader,
+                ),
+                proofs,
+              )
           of ConsensusFork.Capella:
             case v.data.remoteType
             of RemoteSignerType.Web3Signer:
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                  data: blck.capellaData.toBeaconBlockHeader))
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Capella,
+                  data: blck.capellaData.toBeaconBlockHeader,
+                ),
+              )
             of RemoteSignerType.VerifyingWeb3Signer:
-              let proofs = blockPropertiesProofs(
-                blck.capellaData.body, capellaIndex)
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                  data: blck.capellaData.toBeaconBlockHeader),
-                proofs)
+              let proofs = blockPropertiesProofs(blck.capellaData.body, capellaIndex)
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Capella,
+                  data: blck.capellaData.toBeaconBlockHeader,
+                ),
+                proofs,
+              )
           of ConsensusFork.Deneb:
             case v.data.remoteType
             of RemoteSignerType.Web3Signer:
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
-                  data: blck.denebData.toBeaconBlockHeader))
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Deneb, data: blck.denebData.toBeaconBlockHeader
+                ),
+              )
             of RemoteSignerType.VerifyingWeb3Signer:
-              let proofs = blockPropertiesProofs(
-                blck.denebData.body, denebIndex)
-              Web3SignerRequest.init(fork, genesis_validators_root,
-                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
-                  data: blck.denebData.toBeaconBlockHeader),
-                proofs)
+              let proofs = blockPropertiesProofs(blck.denebData.body, denebIndex)
+              Web3SignerRequest.init(
+                fork,
+                genesis_validators_root,
+                Web3SignerForkedBeaconBlock(
+                  kind: ConsensusFork.Deneb, data: blck.denebData.toBeaconBlockHeader
+                ),
+                proofs,
+              )
       await v.signData(web3signerRequest)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#aggregate-signature
-proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
-                              genesis_validators_root: Eth2Digest,
-                              data: AttestationData
-                             ): Future[SignatureResult] {.async.} =
+proc getAttestationSignature*(
+    v: AttachedValidator,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: AttestationData,
+): Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
       SignatureResult.ok(
         get_attestation_signature(
-          fork, genesis_validators_root, data,
-          v.data.privateKey).toValidatorSig())
+          fork, genesis_validators_root, data, v.data.privateKey
+        )
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
       let request = Web3SignerRequest.init(fork, genesis_validators_root, data)
       await v.signData(request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#broadcast-aggregate
-proc getAggregateAndProofSignature*(v: AttachedValidator,
-                                    fork: Fork,
-                                    genesis_validators_root: Eth2Digest,
-                                    aggregate_and_proof: AggregateAndProof
-                                   ): Future[SignatureResult] {.async.} =
+proc getAggregateAndProofSignature*(
+    v: AttachedValidator,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    aggregate_and_proof: AggregateAndProof,
+): Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
       SignatureResult.ok(
         get_aggregate_and_proof_signature(
-          fork, genesis_validators_root, aggregate_and_proof,
-          v.data.privateKey).toValidatorSig()
+          fork, genesis_validators_root, aggregate_and_proof, v.data.privateKey
+        )
+        .toValidatorSig()
       )
     of ValidatorKind.Remote:
-      let request = Web3SignerRequest.init(
-        fork, genesis_validators_root, aggregate_and_proof)
+      let request =
+        Web3SignerRequest.init(fork, genesis_validators_root, aggregate_and_proof)
       await v.signData(request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#prepare-sync-committee-message
-proc getSyncCommitteeMessage*(v: AttachedValidator,
-                              fork: Fork,
-                              genesis_validators_root: Eth2Digest,
-                              slot: Slot,
-                              beacon_block_root: Eth2Digest
-                             ): Future[SyncCommitteeMessageResult] {.async.} =
+proc getSyncCommitteeMessage*(
+    v: AttachedValidator,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    slot: Slot,
+    beacon_block_root: Eth2Digest,
+): Future[SyncCommitteeMessageResult] {.async.} =
   let signature =
     case v.kind
     of ValidatorKind.Local:
-      SignatureResult.ok(get_sync_committee_message_signature(
-        fork, genesis_validators_root, slot, beacon_block_root,
-        v.data.privateKey).toValidatorSig())
+      SignatureResult.ok(
+        get_sync_committee_message_signature(
+          fork, genesis_validators_root, slot, beacon_block_root, v.data.privateKey
+        )
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
-      let request = Web3SignerRequest.init(
-        fork, genesis_validators_root, beacon_block_root, slot)
+      let request =
+        Web3SignerRequest.init(fork, genesis_validators_root, beacon_block_root, slot)
       await v.signData(request)
 
   if signature.isErr:
     return SyncCommitteeMessageResult.err("Failed to obtain signature")
 
-  return
-    SyncCommitteeMessageResult.ok(
-      SyncCommitteeMessage(
-        slot: slot,
-        beacon_block_root: beacon_block_root,
-        validator_index: uint64(v.index.get()),
-        signature: signature.get()
-      )
+  return SyncCommitteeMessageResult.ok(
+    SyncCommitteeMessage(
+      slot: slot,
+      beacon_block_root: beacon_block_root,
+      validator_index: uint64(v.index.get()),
+      signature: signature.get(),
     )
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#aggregation-selection
-proc getSyncCommitteeSelectionProof*(v: AttachedValidator, fork: Fork,
-                                     genesis_validators_root: Eth2Digest,
-                                     slot: Slot,
-                                     subcommittee_index: SyncSubcommitteeIndex
-                                    ): Future[SignatureResult] {.async.} =
+proc getSyncCommitteeSelectionProof*(
+    v: AttachedValidator,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    slot: Slot,
+    subcommittee_index: SyncSubcommitteeIndex,
+): Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      SignatureResult.ok(get_sync_committee_selection_proof(
-        fork, genesis_validators_root, slot, subcommittee_index,
-        v.data.privateKey).toValidatorSig())
+      SignatureResult.ok(
+        get_sync_committee_selection_proof(
+          fork, genesis_validators_root, slot, subcommittee_index, v.data.privateKey
+        )
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
       let request = Web3SignerRequest.init(
-        fork, genesis_validators_root,
+        fork,
+        genesis_validators_root,
         SyncAggregatorSelectionData(
-          slot: slot, subcommittee_index: uint64 subcommittee_index)
+          slot: slot, subcommittee_index: uint64 subcommittee_index
+        ),
       )
       await v.signData(request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#broadcast-sync-committee-contribution
-proc getContributionAndProofSignature*(v: AttachedValidator, fork: Fork,
-                                       genesis_validators_root: Eth2Digest,
-                                       contribution_and_proof: ContributionAndProof
-                                      ): Future[SignatureResult] {.async.} =
+proc getContributionAndProofSignature*(
+    v: AttachedValidator,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    contribution_and_proof: ContributionAndProof,
+): Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      SignatureResult.ok(get_contribution_and_proof_signature(
-        fork, genesis_validators_root, contribution_and_proof,
-        v.data.privateKey).toValidatorSig())
+      SignatureResult.ok(
+        get_contribution_and_proof_signature(
+          fork, genesis_validators_root, contribution_and_proof, v.data.privateKey
+        )
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
-      let request = Web3SignerRequest.init(
-        fork, genesis_validators_root, contribution_and_proof)
+      let request =
+        Web3SignerRequest.init(fork, genesis_validators_root, contribution_and_proof)
       await v.signData(request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#randao-reveal
-proc getEpochSignature*(v: AttachedValidator, fork: Fork,
-                        genesis_validators_root: Eth2Digest, epoch: Epoch
-                       ): Future[SignatureResult] {.async.} =
+proc getEpochSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch
+): Future[SignatureResult] {.async.} =
   if v.epochSignature.isSome and v.epochSignature.get.epoch == epoch:
     return SignatureResult.ok(v.epochSignature.get.signature)
 
   let signature =
     case v.kind
     of ValidatorKind.Local:
-      SignatureResult.ok(get_epoch_signature(
-        fork, genesis_validators_root, epoch,
-        v.data.privateKey).toValidatorSig())
+      SignatureResult.ok(
+        get_epoch_signature(fork, genesis_validators_root, epoch, v.data.privateKey)
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
-      let request = Web3SignerRequest.init(
-        fork, genesis_validators_root, epoch)
+      let request = Web3SignerRequest.init(fork, genesis_validators_root, epoch)
       await v.signData(request)
 
   if signature.isErr:
@@ -756,18 +861,19 @@ proc getEpochSignature*(v: AttachedValidator, fork: Fork,
   signature
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#aggregation-selection
-proc getSlotSignature*(v: AttachedValidator, fork: Fork,
-                       genesis_validators_root: Eth2Digest, slot: Slot
-                      ): Future[SignatureResult] {.async.} =
+proc getSlotSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot
+): Future[SignatureResult] {.async.} =
   if v.slotSignature.isSome and v.slotSignature.get.slot == slot:
     return SignatureResult.ok(v.slotSignature.get.signature)
 
   let signature =
     case v.kind
     of ValidatorKind.Local:
-      SignatureResult.ok(get_slot_signature(
-        fork, genesis_validators_root, slot,
-        v.data.privateKey).toValidatorSig())
+      SignatureResult.ok(
+        get_slot_signature(fork, genesis_validators_root, slot, v.data.privateKey)
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
       let request = Web3SignerRequest.init(fork, genesis_validators_root, slot)
       await v.signData(request)
@@ -778,44 +884,51 @@ proc getSlotSignature*(v: AttachedValidator, fork: Fork,
   v.slotSignature = Opt.some((slot, signature.get))
   return signature
 
-proc getValidatorExitSignature*(v: AttachedValidator, fork: Fork,
-                                genesis_validators_root: Eth2Digest,
-                                voluntary_exit: VoluntaryExit
-                               ): Future[SignatureResult] {.async.} =
+proc getValidatorExitSignature*(
+    v: AttachedValidator,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    voluntary_exit: VoluntaryExit,
+): Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      SignatureResult.ok(get_voluntary_exit_signature(
-        fork, genesis_validators_root, voluntary_exit,
-        v.data.privateKey).toValidatorSig())
+      SignatureResult.ok(
+        get_voluntary_exit_signature(
+          fork, genesis_validators_root, voluntary_exit, v.data.privateKey
+        )
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
-      let request = Web3SignerRequest.init(fork, genesis_validators_root,
-                                           voluntary_exit)
+      let request =
+        Web3SignerRequest.init(fork, genesis_validators_root, voluntary_exit)
       await v.signData(request)
 
-proc getDepositMessageSignature*(v: AttachedValidator, version: Version,
-                                 deposit_message: DepositMessage
-                                ): Future[SignatureResult] {.async.} =
+proc getDepositMessageSignature*(
+    v: AttachedValidator, version: Version, deposit_message: DepositMessage
+): Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      SignatureResult.ok(get_deposit_signature(
-        deposit_message, version,
-        v.data.privateKey).toValidatorSig())
+      SignatureResult.ok(
+        get_deposit_signature(deposit_message, version, v.data.privateKey)
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
       let request = Web3SignerRequest.init(version, deposit_message)
       await v.signData(request)
 
 # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signing
-proc getBuilderSignature*(v: AttachedValidator, fork: Fork,
-    validatorRegistration: ValidatorRegistrationV1):
-    Future[SignatureResult] {.async.} =
+proc getBuilderSignature*(
+    v: AttachedValidator, fork: Fork, validatorRegistration: ValidatorRegistrationV1
+): Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      SignatureResult.ok(get_builder_signature(
-        fork, validatorRegistration, v.data.privateKey).toValidatorSig())
+      SignatureResult.ok(
+        get_builder_signature(fork, validatorRegistration, v.data.privateKey)
+        .toValidatorSig()
+      )
     of ValidatorKind.Remote:
-      let request = Web3SignerRequest.init(
-        fork, ZERO_HASH, validatorRegistration)
+      let request = Web3SignerRequest.init(fork, ZERO_HASH, validatorRegistration)
       await v.signData(request)

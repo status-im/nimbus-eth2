@@ -8,7 +8,9 @@
 {.push raises: [].}
 
 import
-  chronicles, stew/shims/net, stew/results,
+  chronicles,
+  stew/shims/net,
+  stew/results,
   eth/p2p/discoveryv5/[enr, protocol, node],
   ".."/[conf, conf_light_client]
 
@@ -22,11 +24,10 @@ type
   Eth2DiscoveryId* = NodeId
 
 export
-  Eth2DiscoveryProtocol, open, start, close, closeWait, queryRandom,
-    updateRecord, results
+  Eth2DiscoveryProtocol, open, start, close, closeWait, queryRandom, updateRecord,
+  results
 
-func parseBootstrapAddress*(address: string):
-    Result[enr.Record, cstring] =
+func parseBootstrapAddress*(address: string): Result[enr.Record, cstring] =
   let lowerCaseAddress = toLowerAscii(string address)
   if lowerCaseAddress.startsWith("enr:"):
     var enrRec: enr.Record
@@ -47,8 +48,7 @@ iterator strippedLines(filename: string): string {.raises: [ref IOError].} =
     if stripped.len > 0:
       yield stripped
 
-proc addBootstrapNode*(bootstrapAddr: string,
-                       bootstrapEnrs: var seq[enr.Record]) =
+proc addBootstrapNode*(bootstrapAddr: string, bootstrapEnrs: var seq[enr.Record]) =
   # Ignore empty lines or lines starting with #
   if bootstrapAddr.len == 0 or bootstrapAddr[0] == '#':
     return
@@ -59,14 +59,13 @@ proc addBootstrapNode*(bootstrapAddr: string,
   if enrRes.isOk:
     bootstrapEnrs.add enrRes.value
   else:
-    warn "Ignoring invalid bootstrap address",
-          bootstrapAddr, reason = enrRes.error
+    warn "Ignoring invalid bootstrap address", bootstrapAddr, reason = enrRes.error
 
-proc loadBootstrapFile*(bootstrapFile: string,
-                        bootstrapEnrs: var seq[enr.Record]) =
-  if bootstrapFile.len == 0: return
+proc loadBootstrapFile*(bootstrapFile: string, bootstrapEnrs: var seq[enr.Record]) =
+  if bootstrapFile.len == 0:
+    return
   let ext = splitFile(bootstrapFile).ext
-  if cmpIgnoreCase(ext, ".txt") == 0 or cmpIgnoreCase(ext, ".enr") == 0 :
+  if cmpIgnoreCase(ext, ".txt") == 0 or cmpIgnoreCase(ext, ".enr") == 0:
     try:
       for ln in strippedLines(bootstrapFile):
         addBootstrapNode(ln, bootstrapEnrs)
@@ -77,12 +76,15 @@ proc loadBootstrapFile*(bootstrapFile: string,
     error "Unknown bootstrap file format", ext
     quit 1
 
-proc new*(T: type Eth2DiscoveryProtocol,
-          config: BeaconNodeConf | LightClientConf,
-          enrIp: Option[IpAddress], enrTcpPort, enrUdpPort: Option[Port],
-          pk: PrivateKey,
-          enrFields: openArray[(string, seq[byte])], rng: ref HmacDrbgContext):
-          T =
+proc new*(
+    T: type Eth2DiscoveryProtocol,
+    config: BeaconNodeConf | LightClientConf,
+    enrIp: Option[IpAddress],
+    enrTcpPort, enrUdpPort: Option[Port],
+    pk: PrivateKey,
+    enrFields: openArray[(string, seq[byte])],
+    rng: ref HmacDrbgContext,
+): T =
   # TODO
   # Implement more configuration options:
   # * for setting up a specific key
@@ -97,6 +99,15 @@ proc new*(T: type Eth2DiscoveryProtocol,
     if fileExists(persistentBootstrapFile):
       loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
-  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
-    bindPort = config.udpPort, bindIp = config.listenAddress,
-    enrAutoUpdate = config.enrAutoUpdate, rng = rng)
+  newProtocol(
+    pk,
+    enrIp,
+    enrTcpPort,
+    enrUdpPort,
+    enrFields,
+    bootstrapEnrs,
+    bindPort = config.udpPort,
+    bindIp = config.listenAddress,
+    enrAutoUpdate = config.enrAutoUpdate,
+    rng = rng,
+  )

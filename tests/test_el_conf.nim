@@ -8,27 +8,28 @@
 {.used.}
 
 import
-  unittest2, confutils,
+  unittest2,
+  confutils,
   stew/byteutils,
   ../beacon_chain/el/el_conf,
   ../beacon_chain/spec/engine_authentication
 
-type
-  ExampleConfigFile = object
-    dataDir* {.name: "data-dir".}: string
-    el* {.name: "el".}: seq[EngineApiUrlConfigValue]
+type ExampleConfigFile = object
+  dataDir* {.name: "data-dir".}: string
+  el* {.name: "el".}: seq[EngineApiUrlConfigValue]
 
 proc loadExampleConfig(content: string, cmdLine = newSeq[string]()): ExampleConfigFile =
   ExampleConfigFile.load(
     cmdLine = cmdLine,
-    secondarySources = proc (
+    secondarySources = proc(
         config: ExampleConfigFile, sources: ref SecondarySources
     ) {.raises: [ConfigurationError].} =
-      sources.addConfigFileContent(Toml, content))
+      sources.addConfigFileContent(Toml, content),
+  )
 
-const
-  validJwtToken = parseJwtTokenValue(
-    "aa95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098cc").get
+const validJwtToken = parseJwtTokenValue(
+  "aa95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098cc"
+).get
 
 suite "EL Configuration":
   test "URL parsing":
@@ -55,7 +56,8 @@ suite "EL Configuration":
       url1Final2.get.roles == defaultEngineApiRoles
 
     let url2 = EngineApiUrlConfigValue.parseCmdArg(
-      "https://eth-node.io:2020#jwt-secret-file=tests/media/jwt.hex")
+      "https://eth-node.io:2020#jwt-secret-file=tests/media/jwt.hex"
+    )
     check:
       url2.url == "https://eth-node.io:2020"
       url2.roles.isNone
@@ -63,25 +65,30 @@ suite "EL Configuration":
       url2.jwtSecretFile.get.string == "tests/media/jwt.hex"
 
     let url3 = EngineApiUrlConfigValue.parseCmdArg(
-      "http://localhost/#roles=sync-deposits&jwt-secret=ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba")
+      "http://localhost/#roles=sync-deposits&jwt-secret=ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba"
+    )
     check:
       url3.url == "http://localhost/"
       url3.roles == some({DepositSyncing})
-      url3.jwtSecret == some("ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba")
+      url3.jwtSecret ==
+        some("ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba")
       url3.jwtSecretFile.isNone
 
     let url3Final = url3.toFinalUrl(Opt.some validJwtToken)
     check:
       url3Final.isOk
-      url3Final.get.jwtSecret.get.toHex == "ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba"
+      url3Final.get.jwtSecret.get.toHex ==
+        "ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba"
       url3Final.get.roles == {DepositSyncing}
 
     let url4 = EngineApiUrlConfigValue.parseCmdArg(
-      "localhost#roles=sync-deposits,validate-blocks&jwt-secret=ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba23")
+      "localhost#roles=sync-deposits,validate-blocks&jwt-secret=ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba23"
+    )
     check:
       url4.url == "localhost"
       url4.roles == some({DepositSyncing, BlockValidation})
-      url4.jwtSecret == some("ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba23")
+      url4.jwtSecret ==
+        some("ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba23")
       url4.jwtSecretFile.isNone
 
     let url4Final = url4.toFinalUrl(Opt.some validJwtToken)
@@ -89,7 +96,8 @@ suite "EL Configuration":
       not url4Final.isOk # the JWT secret is invalid
 
     let url5 = EngineApiUrlConfigValue.parseCmdArg(
-      "http://127.0.0.1:9090/#roles=sync-deposits,validate-blocks,produce-blocks,sync-deposits")
+      "http://127.0.0.1:9090/#roles=sync-deposits,validate-blocks,produce-blocks,sync-deposits"
+    )
     check:
       url5.url == "http://127.0.0.1:9090/"
       url5.roles == some({DepositSyncing, BlockValidation, BlockProduction})
@@ -154,7 +162,8 @@ suite "EL Configuration":
 
       cfg.el[2].url == "wss://eth-nodes.io/21312432"
       cfg.el[2].roles.isNone
-      cfg.el[2].jwtSecret.get == "0xee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba"
+      cfg.el[2].jwtSecret.get ==
+        "0xee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba"
       cfg.el[2].jwtSecretFile.isNone
 
   test "Empty config file":

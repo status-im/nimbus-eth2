@@ -8,10 +8,10 @@
 import chronicles
 import common, api
 
-const
-  ServiceName = "doppelganger_service"
+const ServiceName = "doppelganger_service"
 
-logScope: service = ServiceName
+logScope:
+  service = ServiceName
 
 proc getCheckingList*(vc: ValidatorClientRef, epoch: Epoch): seq[ValidatorIndex] =
   var res: seq[ValidatorIndex]
@@ -21,8 +21,11 @@ proc getCheckingList*(vc: ValidatorClientRef, epoch: Epoch): seq[ValidatorIndex]
       res.add validator.index.get()
   res
 
-proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
-                       activities: GetValidatorsLivenessResponse) =
+proc processActivities(
+    service: DoppelgangerServiceRef,
+    epoch: Epoch,
+    activities: GetValidatorsLivenessResponse,
+) =
   let vc = service.client
   if len(activities.data) == 0:
     debug "Unable to monitor validator's activity for epoch", epoch = epoch
@@ -55,16 +58,13 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   debug "Doppelganger detection loop is waiting for initialization"
   try:
     await allFutures(
-      vc.preGenesisEvent.wait(),
-      vc.genesisEvent.wait(),
-      vc.indicesAvailable.wait()
+      vc.preGenesisEvent.wait(), vc.genesisEvent.wait(), vc.indicesAvailable.wait()
     )
   except CancelledError:
     debug "Service interrupted"
     return
   except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+    warn "Service crashed with unexpected error", err_name = exc.name, err_msg = exc.msg
     return
 
   # On (re)start, we skip the remainder of the epoch before we start monitoring
@@ -88,8 +88,7 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
           currentEpoch - 1'u64
       validators = vc.getCheckingList(previousEpoch)
     if len(validators) > 0:
-      let activities = await vc.getValidatorsLiveness(previousEpoch,
-                                                      validators)
+      let activities = await vc.getValidatorsLiveness(previousEpoch, validators)
       service.processActivities(previousEpoch, activities)
     else:
       debug "No validators found that require doppelganger protection"
@@ -99,17 +98,22 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
     debug "Service interrupted"
     false
   except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-          err_msg = exc.msg
+    warn "Service crashed with unexpected error", err_name = exc.name, err_msg = exc.msg
     false
-  : discard
+  :
+    discard
 
-proc init*(t: type DoppelgangerServiceRef,
-           vc: ValidatorClientRef): Future[DoppelgangerServiceRef] {.async.} =
-  logScope: service = ServiceName
-  let res = DoppelgangerServiceRef(name: ServiceName,
-                                   client: vc, state: ServiceState.Initialized,
-                                   enabled: vc.config.doppelgangerDetection)
+proc init*(
+    t: type DoppelgangerServiceRef, vc: ValidatorClientRef
+): Future[DoppelgangerServiceRef] {.async.} =
+  logScope:
+    service = ServiceName
+  let res = DoppelgangerServiceRef(
+    name: ServiceName,
+    client: vc,
+    state: ServiceState.Initialized,
+    enabled: vc.config.doppelgangerDetection,
+  )
   debug "Initializing service"
   return res
 

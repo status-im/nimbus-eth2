@@ -18,9 +18,12 @@ import
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager],
+    block_clearance, consensus_manager,
+  ],
   ../beacon_chain/el/el_manager,
-  ./testutil, ./testdbutil, ./testblockutil
+  ./testutil,
+  ./testdbutil,
+  ./testblockutil
 
 from chronos/unittest2/asynctests import asyncTest
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
@@ -48,26 +51,35 @@ suite "Block processor" & preset():
       actionTracker: ActionTracker
       keymanagerHost: ref KeymanagerHost
       consensusManager = ConsensusManager.new(
-        dag, attestationPool, quarantine, elManager, actionTracker,
-        newClone(DynamicFeeRecipientsStore.init()), "",
-        Opt.some default(Eth1Address), defaultGasLimit)
+        dag,
+        attestationPool,
+        quarantine,
+        elManager,
+        actionTracker,
+        newClone(DynamicFeeRecipientsStore.init()),
+        "",
+        Opt.some default(Eth1Address),
+        defaultGasLimit,
+      )
       state = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data
       b2 = addTestBlock(state[], cache).phase0Data
-      getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
+      getTimeFn = proc(): BeaconTime =
+        b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
-        false, "", "", rng, taskpool, consensusManager,
-        validatorMonitor, blobQuarantine, getTimeFn)
+        false, "", "", rng, taskpool, consensusManager, validatorMonitor,
+        blobQuarantine, getTimeFn,
+      )
       processorFut = processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
-    let
-      missing = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+    let missing = await processor[].addBlock(
+      MsgSource.gossip, ForkedSignedBeaconBlock.init(b2), Opt.none(BlobSidecars)
+    )
 
-    check: missing.error == VerifierError.MissingParent
+    check:
+      missing.error == VerifierError.MissingParent
 
     check:
       not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up
@@ -76,8 +88,8 @@ suite "Block processor" & preset():
 
     let
       status = await processor[].addBlock(
-        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
-        Opt.none(BlobSidecars))
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1), Opt.none(BlobSidecars)
+      )
       b1Get = dag.getBlockRef(b1.root)
 
     check:
@@ -89,8 +101,7 @@ suite "Block processor" & preset():
     while processor[].hasBlocks():
       poll()
 
-    let
-      b2Get = dag.getBlockRef(b2.root)
+    let b2Get = dag.getBlockRef(b2.root)
 
     check:
       b2Get.isSome()

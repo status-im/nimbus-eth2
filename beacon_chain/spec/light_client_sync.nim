@@ -7,10 +7,7 @@
 
 {.push raises: [].}
 
-import
-  stew/[bitops2, bitseqs, objects],
-  datatypes/altair,
-  helpers
+import stew/[bitops2, bitseqs, objects], datatypes/altair, helpers
 
 from ../consensus_object_pools/block_pools_types import VerifierError
 export block_pools_types.VerifierError
@@ -19,10 +16,9 @@ export block_pools_types.VerifierError
 func initialize_light_client_store*(
     trusted_block_root: Eth2Digest,
     bootstrap: ForkyLightClientBootstrap,
-    cfg: RuntimeConfig
+    cfg: RuntimeConfig,
 ): auto =
-  type ResultType =
-    Result[typeof(bootstrap).kind.LightClientStore, VerifierError]
+  type ResultType = Result[typeof(bootstrap).kind.LightClientStore, VerifierError]
 
   if not is_valid_light_client_header(bootstrap.header, cfg):
     return ResultType.err(VerifierError.Invalid)
@@ -30,17 +26,21 @@ func initialize_light_client_store*(
     return ResultType.err(VerifierError.Invalid)
 
   if not is_valid_merkle_branch(
-      hash_tree_root(bootstrap.current_sync_committee),
-      bootstrap.current_sync_committee_branch,
-      log2trunc(altair.CURRENT_SYNC_COMMITTEE_GINDEX),
-      get_subtree_index(altair.CURRENT_SYNC_COMMITTEE_GINDEX),
-      bootstrap.header.beacon.state_root):
+    hash_tree_root(bootstrap.current_sync_committee),
+    bootstrap.current_sync_committee_branch,
+    log2trunc(altair.CURRENT_SYNC_COMMITTEE_GINDEX),
+    get_subtree_index(altair.CURRENT_SYNC_COMMITTEE_GINDEX),
+    bootstrap.header.beacon.state_root,
+  ):
     return ResultType.err(VerifierError.Invalid)
 
-  return ResultType.ok(typeof(bootstrap).kind.LightClientStore(
-    finalized_header: bootstrap.header,
-    current_sync_committee: bootstrap.current_sync_committee,
-    optimistic_header: bootstrap.header))
+  return ResultType.ok(
+    typeof(bootstrap).kind.LightClientStore(
+      finalized_header: bootstrap.header,
+      current_sync_committee: bootstrap.current_sync_committee,
+      optimistic_header: bootstrap.header,
+    )
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(
@@ -48,10 +48,15 @@ proc validate_light_client_update*(
     update: SomeForkyLightClientUpdate,
     current_slot: Slot,
     cfg: RuntimeConfig,
-    genesis_validators_root: Eth2Digest): Result[void, VerifierError] =
+    genesis_validators_root: Eth2Digest,
+): Result[void, VerifierError] =
   # Verify sync committee has sufficient participants
-  template sync_aggregate(): auto = update.sync_aggregate
-  template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
+  template sync_aggregate(): auto =
+    update.sync_aggregate
+
+  template sync_committee_bits(): auto =
+    sync_aggregate.sync_committee_bits
+
   let num_active_participants = countOnes(sync_committee_bits).uint64
   if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     return err(VerifierError.Invalid)
@@ -110,30 +115,31 @@ proc validate_light_client_update*(
       else:
         return err(VerifierError.Invalid)
       if not is_valid_merkle_branch(
-          finalized_root,
-          update.finality_branch,
-          log2trunc(altair.FINALIZED_ROOT_GINDEX),
-          get_subtree_index(altair.FINALIZED_ROOT_GINDEX),
-          update.attested_header.beacon.state_root):
+        finalized_root,
+        update.finality_branch,
+        log2trunc(altair.FINALIZED_ROOT_GINDEX),
+        get_subtree_index(altair.FINALIZED_ROOT_GINDEX),
+        update.attested_header.beacon.state_root,
+      ):
         return err(VerifierError.Invalid)
 
   # Verify that the `next_sync_committee`, if present, actually is the
   # next sync committee saved in the state of the `attested_header`
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
     if not is_sync_committee_update:
-      if update.next_sync_committee !=
-          default(typeof(update.next_sync_committee)):
+      if update.next_sync_committee != default(typeof(update.next_sync_committee)):
         return err(VerifierError.Invalid)
     else:
       if attested_period == store_period and is_next_sync_committee_known:
         if update.next_sync_committee != store.next_sync_committee:
           return err(VerifierError.UnviableFork)
       if not is_valid_merkle_branch(
-          hash_tree_root(update.next_sync_committee),
-          update.next_sync_committee_branch,
-          log2trunc(altair.NEXT_SYNC_COMMITTEE_GINDEX),
-          get_subtree_index(altair.NEXT_SYNC_COMMITTEE_GINDEX),
-          update.attested_header.beacon.state_root):
+        hash_tree_root(update.next_sync_committee),
+        update.next_sync_committee_branch,
+        log2trunc(altair.NEXT_SYNC_COMMITTEE_GINDEX),
+        get_subtree_index(altair.NEXT_SYNC_COMMITTEE_GINDEX),
+        update.attested_header.beacon.state_root,
+      ):
         return err(VerifierError.Invalid)
 
   # Verify sync committee aggregate signature
@@ -145,24 +151,25 @@ proc validate_light_client_update*(
   let
     fork_version_slot = max(update.signature_slot, 1.Slot) - 1
     fork_version = cfg.forkVersionAtEpoch(fork_version_slot.epoch)
-    domain = compute_domain(
-      DOMAIN_SYNC_COMMITTEE, fork_version, genesis_validators_root)
+    domain =
+      compute_domain(DOMAIN_SYNC_COMMITTEE, fork_version, genesis_validators_root)
     signing_root = compute_signing_root(update.attested_header.beacon, domain)
   const maxParticipants = typeof(sync_aggregate.sync_committee_bits).bits
   if not blsFastAggregateVerify(
-      allPublicKeys = sync_committee.pubkeys.data,
-      fullParticipationAggregatePublicKey = sync_committee.aggregate_pubkey,
-      bitseqs.BitArray[maxParticipants](
-        bytes: sync_aggregate.sync_committee_bits.bytes),
-      signing_root.data, sync_aggregate.sync_committee_signature):
+    allPublicKeys = sync_committee.pubkeys.data,
+    fullParticipationAggregatePublicKey = sync_committee.aggregate_pubkey,
+    bitseqs.BitArray[maxParticipants](bytes: sync_aggregate.sync_committee_bits.bytes),
+    signing_root.data,
+    sync_aggregate.sync_committee_signature,
+  ):
     return err(VerifierError.UnviableFork)
 
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
-    store: var ForkyLightClientStore,
-    update: SomeForkyLightClientUpdate): bool =
+    store: var ForkyLightClientStore, update: SomeForkyLightClientUpdate
+): bool =
   var didProgress = false
   let
     store_period = store.finalized_header.beacon.slot.sync_committee_period
@@ -179,8 +186,7 @@ func apply_light_client_update(
       store.next_sync_committee = update.next_sync_committee
     else:
       store.next_sync_committee.reset()
-    store.previous_max_active_participants =
-      store.current_max_active_participants
+    store.previous_max_active_participants = store.current_max_active_participants
     store.current_max_active_participants = 0
     didProgress = true
   if update.finalized_header.beacon.slot > store.finalized_header.beacon.slot:
@@ -191,15 +197,14 @@ func apply_light_client_update(
   didProgress
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_store_force_update
-type
-  ForceUpdateResult* = enum
-    NoUpdate,
-    DidUpdateWithoutSupermajority,
-    DidUpdateWithoutFinality
+type ForceUpdateResult* = enum
+  NoUpdate
+  DidUpdateWithoutSupermajority
+  DidUpdateWithoutFinality
 
 func process_light_client_store_force_update*(
-    store: var ForkyLightClientStore,
-    current_slot: Slot): ForceUpdateResult {.discardable.} =
+    store: var ForkyLightClientStore, current_slot: Slot
+): ForceUpdateResult {.discardable.} =
   var res = NoUpdate
   if store.best_valid_update.isSome and
       current_slot > store.finalized_header.beacon.slot + UPDATE_TIMEOUT:
@@ -209,12 +214,18 @@ func process_light_client_store_force_update*(
     # treated as `finalized_header` in extended periods of non-finality
     # to guarantee progression into later sync committee periods according
     # to `is_better_update`.
-    template best(): auto = store.best_valid_update.get
+    template best(): auto =
+      store.best_valid_update.get
+
     if best.finalized_header.beacon.slot <= store.finalized_header.beacon.slot:
       best.finalized_header = best.attested_header
     if apply_light_client_update(store, best):
-      template sync_aggregate(): auto = best.sync_aggregate
-      template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
+      template sync_aggregate(): auto =
+        best.sync_aggregate
+
+      template sync_committee_bits(): auto =
+        sync_aggregate.sync_committee_bits
+
       let num_active_participants = countOnes(sync_committee_bits).uint64
       if num_active_participants * 3 < static(sync_committee_bits.len * 2):
         res = DidUpdateWithoutSupermajority
@@ -229,9 +240,11 @@ proc process_light_client_update*(
     update: SomeForkyLightClientUpdate,
     current_slot: Slot,
     cfg: RuntimeConfig,
-    genesis_validators_root: Eth2Digest): Result[void, VerifierError] =
-  ? validate_light_client_update(
-    store, update, current_slot, cfg, genesis_validators_root)
+    genesis_validators_root: Eth2Digest,
+): Result[void, VerifierError] =
+  ?validate_light_client_update(
+    store, update, current_slot, cfg, genesis_validators_root
+  )
 
   var didProgress = false
 
@@ -243,8 +256,12 @@ proc process_light_client_update*(
     didProgress = true
 
   # Track the maximum number of active participants in the committee signatures
-  template sync_aggregate(): auto = update.sync_aggregate
-  template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
+  template sync_aggregate(): auto =
+    update.sync_aggregate
+
+  template sync_committee_bits(): auto =
+    sync_aggregate.sync_committee_bits
+
   let num_active_participants = countOnes(sync_committee_bits).uint64
   if num_active_participants > store.current_max_active_participants:
     store.current_max_active_participants = num_active_participants

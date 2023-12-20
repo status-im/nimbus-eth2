@@ -6,7 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  chronicles, confutils/defs,
+  chronicles,
+  confutils/defs,
   bearssl/rand,
   nimcrypto/[hmac, utils],
   stew/[byteutils, results]
@@ -20,8 +21,7 @@ export rand, results
 
 {.push raises: [].}
 
-const
-  JWT_SECRET_LEN = 32
+const JWT_SECRET_LEN = 32
 
 proc base64urlEncode(x: auto): string =
   # The only strings this gets are internally generated, and don't have
@@ -39,7 +39,7 @@ func getIatToken*(time: int64): JsonNode =
   #
   # https://pyjwt.readthedocs.io/en/stable/usage.html#issued-at-claim-iat shows
   # an example of an iat claim: {"iat": 1371720939}
-  %* {"iat": time}
+  %*{"iat": time}
 
 proc getSignedToken*(key: openArray[byte], payload: string): string =
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#jwt-specifications
@@ -47,12 +47,12 @@ proc getSignedToken*(key: openArray[byte], payload: string): string =
   # `HMAC + SHA256` (`HS256`)"
 
   # https://datatracker.ietf.org/doc/html/rfc7515#appendix-A.1.1
-  const jwsProtectedHeader =
-    base64urlEncode($ %* {"typ": "JWT", "alg": "HS256"}) & "."
+  const jwsProtectedHeader = base64urlEncode($ %*{"typ": "JWT", "alg": "HS256"}) & "."
   # In theory, std/json might change how it encodes, and it doesn't per-se
   # matter but can also simply specify the base64-encoded form directly if
   # useful, since it's never checked here on its own.
-  static: doAssert jwsProtectedHeader == "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
+  static:
+    doAssert jwsProtectedHeader == "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
   let signingInput = jwsProtectedHeader & base64urlEncode(payload)
 
   signingInput & "." & base64urlEncode(sha256.hmac(key, signingInput).data)
@@ -82,8 +82,8 @@ proc loadJwtSecretFile*(jwtSecretFile: InputFile): Result[seq[byte], cstring] =
     err("invalid JWT hex string")
 
 proc checkJwtSecret*(
-    rng: var HmacDrbgContext, dataDir: string, jwtSecret: Opt[InputFile]):
-    Result[seq[byte], cstring] =
+    rng: var HmacDrbgContext, dataDir: string, jwtSecret: Opt[InputFile]
+): Result[seq[byte], cstring] =
   # If such a parameter is given, but the file cannot be read, or does not
   # contain a hex-encoded key of 256 bits, the client should treat this as an
   # error: either abort the startup, or show error and continue without
@@ -104,9 +104,7 @@ proc checkJwtSecret*(
     except IOError as exc:
       # Allow continuing to run, though this is effectively fatal for a merge
       # client using authentication. This keeps it lower-risk initially.
-      warn "Could not write JWT secret to data directory",
-        jwtSecretPath,
-        err = exc.msg
+      warn "Could not write JWT secret to data directory", jwtSecretPath, err = exc.msg
     return ok(newSecret)
 
   loadJwtSecretFile(jwtSecret.get)

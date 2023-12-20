@@ -7,52 +7,44 @@
 
 import std/sequtils
 import chronicles
-import ".."/beacon_node,
-       ".."/spec/forks,
-       "."/[rest_utils, state_ttl_cache]
+import ".."/beacon_node, ".."/spec/forks, "."/[rest_utils, state_ttl_cache]
 
 from ../fork_choice/proto_array import ProtoArrayItem, items
 
 export rest_utils
 
-logScope: topics = "rest_debug"
+logScope:
+  topics = "rest_debug"
 
 proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Debug/getState
-  router.api(MethodGet,
-             "/eth/v1/debug/beacon/states/{state_id}") do (
-    state_id: StateIdent) -> RestApiResponse:
-    return RestApiResponse.jsonError(
-      Http410, DeprecatedRemovalBeaconBlocksDebugStateV1)
+  router.api(MethodGet, "/eth/v1/debug/beacon/states/{state_id}") do(
+    state_id: StateIdent
+  ) -> RestApiResponse:
+    return RestApiResponse.jsonError(Http410, DeprecatedRemovalBeaconBlocksDebugStateV1)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
-  router.api(MethodGet,
-             "/eth/v2/debug/beacon/states/{state_id}") do (
-    state_id: StateIdent) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let bres = node.getBlockSlotId(state_id.get())
-        if bres.isErr():
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
+  router.api(MethodGet, "/eth/v2/debug/beacon/states/{state_id}") do(
+    state_id: StateIdent
+  ) -> RestApiResponse:
+    let bslot = block:
+      if state_id.isErr():
+        return RestApiResponse.jsonError(
+          Http400, InvalidStateIdValueError, $state_id.error()
+        )
+      let bres = node.getBlockSlotId(state_id.get())
+      if bres.isErr():
+        return RestApiResponse.jsonError(Http404, StateNotFoundError, $bres.error())
+      bres.get()
+    let contentType = block:
+      let res = preferredContentType(jsonMediaType, sszMediaType)
+      if res.isErr():
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      res.get()
     node.withStateForBlockSlotId(bslot):
       return
         if contentType == jsonMediaType:
-          RestApiResponse.jsonResponseState(
-            state,
-            node.getStateOptimistic(state)
-          )
+          RestApiResponse.jsonResponseState(state, node.getStateOptimistic(state))
         elif contentType == sszMediaType:
           let headers = [("eth-consensus-version", state.kind.toString())]
           withState(state):
@@ -62,34 +54,27 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeads
-  router.api(MethodGet,
-             "/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
-    return RestApiResponse.jsonError(
-      Http410, DeprecatedRemovalGetDebugChainHeadsV1)
+  router.api(MethodGet, "/eth/v1/debug/beacon/heads") do() -> RestApiResponse:
+    return RestApiResponse.jsonError(Http410, DeprecatedRemovalGetDebugChainHeadsV1)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeadsV2
-  router.api(MethodGet,
-             "/eth/v2/debug/beacon/heads") do () -> RestApiResponse:
+  router.api(MethodGet, "/eth/v2/debug/beacon/heads") do() -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       node.dag.heads.mapIt(
-        (
-          root: it.root,
-          slot: it.slot,
-          execution_optimistic: not it.executionValid
-        )
+        (root: it.root, slot: it.slot, execution_optimistic: not it.executionValid)
       )
     )
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugForkChoice
-  router.api(MethodGet,
-             "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
-    template forkChoice: auto = node.attestationPool[].forkChoice
+  router.api(MethodGet, "/eth/v1/debug/fork_choice") do() -> RestApiResponse:
+    template forkChoice(): auto =
+      node.attestationPool[].forkChoice
 
     var response = GetForkChoiceResponse(
       justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
       finalized_checkpoint: forkChoice.checkpoints.finalized,
-      extra_data: RestExtraData(
-        version: some($forkChoice.backend.proto_array.version)))
+      extra_data: RestExtraData(version: some($forkChoice.backend.proto_array.version)),
+    )
 
     for item in forkChoice.backend.proto_array:
       let
@@ -133,6 +118,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           u_justified_checkpoint: u_justified_checkpoint,
           u_finalized_checkpoint: u_finalized_checkpoint,
           best_child: item.bestChild,
-          bestDescendant: item.bestDescendant))
+          bestDescendant: item.bestDescendant,
+        ),
+      )
 
     return RestApiResponse.jsonResponsePlain(response)

@@ -10,11 +10,9 @@
 import
   std/[os, strformat],
   chronicles,
-  ./spec/[
-    beaconstate, eth2_ssz_serialization, eth2_merkleization, forks, helpers]
+  ./spec/[beaconstate, eth2_ssz_serialization, eth2_merkleization, forks, helpers]
 
-export
-  beaconstate, eth2_ssz_serialization, eth2_merkleization, forks
+export beaconstate, eth2_ssz_serialization, eth2_merkleization, forks
 
 # Dump errors are generally not fatal where used currently - the code calling
 # these functions, like most code, is not exception safe
@@ -41,7 +39,8 @@ proc dump*(dir: string, v: ForkyHashedBeaconState) =
   logErrors:
     SSZ.saveFile(
       dir / &"state-{v.data.slot}-{shortLog(v.latest_block_root)}-{shortLog(v.root)}.ssz",
-      v.data)
+      v.data,
+    )
 
 proc dump*(dir: string, v: SyncCommitteeMessage, validator: ValidatorPubKey) =
   logErrors:
@@ -54,8 +53,7 @@ proc dump*(dir: string, v: ForkyLightClientBootstrap) =
       slot = v.header.beacon.slot
       blck = shortLog(v.header.beacon.hash_tree_root())
       root = shortLog(v.hash_tree_root())
-    SSZ.saveFile(
-      dir / &"{prefix}-{slot}-{blck}-{root}.ssz", v)
+    SSZ.saveFile(dir / &"{prefix}-{slot}-{blck}-{root}.ssz", v)
 
 proc dump*(dir: string, v: SomeForkyLightClientUpdate) =
   logErrors:
@@ -71,21 +69,14 @@ proc dump*(dir: string, v: SomeForkyLightClientUpdate) =
       attestedBlck = shortLog(v.attested_header.beacon.hash_tree_root())
       syncCommitteeSuffix =
         when v is SomeForkyLightClientUpdateWithSyncCommittee:
-          if v.is_sync_committee_update:
-            "s"
-          else:
-            "x"
+          if v.is_sync_committee_update: "s" else: "x"
         else:
           ""
       finalitySuffix =
         when v is SomeForkyLightClientUpdateWithFinality:
-          if v.is_finality_update:
-            "f"
-          else:
-            "x"
+          if v.is_finality_update: "f" else: "x"
         else:
           ""
       suffix = syncCommitteeSuffix & finalitySuffix
       root = shortLog(v.hash_tree_root())
-    SSZ.saveFile(
-      dir / &"{prefix}-{attestedSlot}-{attestedBlck}-{suffix}-{root}.ssz", v)
+    SSZ.saveFile(dir / &"{prefix}-{attestedSlot}-{attestedBlck}-{suffix}-{root}.ssz", v)

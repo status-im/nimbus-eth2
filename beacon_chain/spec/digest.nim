@@ -36,10 +36,10 @@ from nimcrypto/utils import burnMem
 export
   # Exports from sha2 / hash are explicit to avoid exporting upper-case `$` and
   # constant-time `==`
-  hash.fromHex, json_serialization
+  hash.fromHex,
+  json_serialization
 
-type
-  Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
+type Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
 
 const PREFER_BLST_SHA256* {.booldefine.} = true
 
@@ -59,14 +59,17 @@ when USE_BLST_SHA256:
   type Eth2DigestCtx* = BLST_SHA256_CTX
 
   # HMAC support
-  template hmacSizeBlock*(_: type BLST_SHA256_CTX): untyped = 64
-  template sizeDigest*(_: BLST_SHA256_CTX): untyped = 32
+  template hmacSizeBlock*(_: type BLST_SHA256_CTX): untyped =
+    64
 
-  proc finish*(ctx: var BLST_SHA256_CTX,
-               data: var openArray[byte]): uint =
-      var tmp {.noinit.}: array[32, byte]
-      finalize(tmp, ctx)
-      data.copyFrom(tmp).uint * 8
+  template sizeDigest*(_: BLST_SHA256_CTX): untyped =
+    32
+
+  proc finish*(ctx: var BLST_SHA256_CTX, data: var openArray[byte]): uint =
+    var tmp {.noinit.}: array[32, byte]
+    finalize(tmp, ctx)
+    data.copyFrom(tmp).uint * 8
+
   proc clear*(ctx: var BLST_SHA256_CTX) =
     burnMem(ctx)
 
@@ -148,14 +151,17 @@ func isZero*(x: Eth2Digest): bool =
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a
 
-proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [IOError, SerializationError].} =
+proc readValue*(
+    r: var JsonReader, a: var Eth2Digest
+) {.raises: [IOError, SerializationError].} =
   try:
     a = fromHex(type(a), r.readValue(string))
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
-func strictParse*(T: type Eth2Digest, hexStr: openArray[char]): T
-                 {.raises: [ValueError].} =
+func strictParse*(
+    T: type Eth2Digest, hexStr: openArray[char]
+): T {.raises: [ValueError].} =
   ## TODO We use this local definition because the string parsing functions
   ##      provided by nimcrypto are currently too lax in their requirements
   ##      for the input string. Invalid strings are silently ignored.

@@ -12,5 +12,4 @@
 
 # Tests that do not depend on `mainnet` vs `minimal` compile-time configuration
 
-import
-  ./test_fixture_ssz_generic_types
+import ./test_fixture_ssz_generic_types

@@ -6,45 +6,38 @@
 
 {.push raises: [].}
 
-import
-  chronos, presto/client,
-  "."/[rest_types, eth2_rest_serialization]
+import chronos, presto/client, "."/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 
 proc getNetworkIdentity*(): RestResponse[GetNetworkIdentityResponse] {.
-     rest, endpoint: "/eth/v1/node/identity",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
+  rest, endpoint: "/eth/v1/node/identity", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
 
 proc getPeers*(
-    state: seq[PeerStateKind],
-    direction: seq[PeerDirectKind]): RestResponse[GetPeersResponse] {.
-     rest, endpoint: "/eth/v1/node/peers",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Node/getPeers
+  state: seq[PeerStateKind], direction: seq[PeerDirectKind]
+): RestResponse[GetPeersResponse] {.
+  rest, endpoint: "/eth/v1/node/peers", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Node/getPeers
 
-proc getPeer*(peer_id: PeerId): RestResponse[GetPeerResponse] {.
-     rest, endpoint: "/eth/v1/node/peers/{peer_id}",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Node/getPeer
+proc getPeer*(
+  peer_id: PeerId
+): RestResponse[GetPeerResponse] {.
+  rest, endpoint: "/eth/v1/node/peers/{peer_id}", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Node/getPeer
 
 proc getPeerCount*(): RestResponse[GetPeerCountResponse] {.
-     rest, endpoint: "/eth/v1/node/peer_count",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Node/getPeerCount
+  rest, endpoint: "/eth/v1/node/peer_count", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Node/getPeerCount
 
 proc getNodeVersion*(): RestResponse[GetVersionResponse] {.
-     rest, endpoint: "/eth/v1/node/version",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Node/getNodeVersion
+  rest, endpoint: "/eth/v1/node/version", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Node/getNodeVersion
 
 proc getSyncingStatus*(): RestResponse[GetSyncingStatusResponse] {.
-     rest, endpoint: "/eth/v1/node/syncing",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
+  rest, endpoint: "/eth/v1/node/syncing", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
 
 proc getHealth*(): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/node/health",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Node/getHealth
+  rest, endpoint: "/eth/v1/node/health", meth: MethodGet
+.} ## https://ethereum.github.io/beacon-APIs/#/Node/getHealth

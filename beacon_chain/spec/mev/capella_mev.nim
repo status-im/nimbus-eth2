@@ -49,11 +49,10 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
-    execution_payload_header*:
-      capella.ExecutionPayloadHeader # [Modified in Capella]
+    execution_payload_header*: capella.ExecutionPayloadHeader # [Modified in Capella]
     bls_to_execution_changes*:
-      List[SignedBLSToExecutionChange,
-        Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+      List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
+      # [New in Capella]
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#blindedbeaconblock
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
@@ -108,11 +107,8 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     parent_hash: to0xHex(v.body.execution_payload_header.parent_hash.data),
     fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
-    blob_kzg_commitments_len: 0,  # Deneb compat
+    blob_kzg_commitments_len: 0, # Deneb compat
   )
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =
-  (
-    blck: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
+  (blck: shortLog(v.message), signature: shortLog(v.signature))

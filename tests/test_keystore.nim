@@ -10,7 +10,9 @@
 import
   std/[json, typetraits],
   unittest2,
-  stew/byteutils, blscurve, json_serialization,
+  stew/byteutils,
+  blscurve,
+  json_serialization,
   libp2p/crypto/crypto as lcrypto,
   ../beacon_chain/spec/[crypto, keystore],
   ./testutil
@@ -26,7 +28,8 @@ func isEqual(a, b: ValidatorPrivKey): bool =
     result = result and pa[i] == pb[i]
 
 const
-  scryptVector = """
+  scryptVector =
+    """
   {
     "crypto": {
         "kdf": {
@@ -60,7 +63,8 @@ const
     "version": 4
   }"""
 
-  scryptVector2 = """
+  scryptVector2 =
+    """
   {
     "crypto": {
         "kdf": {
@@ -93,7 +97,8 @@ const
     "version": 4
   }"""
 
-  pbkdf2Vector = """
+  pbkdf2Vector =
+    """
   {
     "crypto": {
         "kdf": {
@@ -126,7 +131,8 @@ const
     "version": 4
   }"""
 
-  pbkdf2Vector2 = """
+  pbkdf2Vector2 =
+    """
   {
     "crypto": {
         "kdf": {
@@ -158,7 +164,8 @@ const
     "version": 4
   }"""
 
-  pbkdf2NetVector = """
+  pbkdf2NetVector =
+    """
   {
     "crypto":{
       "kdf":{
@@ -192,7 +199,8 @@ const
     "version":1
   }"""
 
-  scryptNetVector = """
+  scryptNetVector =
+    """
   {
     "crypto":{
       "kdf":{
@@ -227,7 +235,8 @@ const
     "version":1
   }"""
 
-  prysmKeystore = """
+  prysmKeystore =
+    """
   {
     "crypto": {
             "checksum": {
@@ -262,13 +271,13 @@ const
   """
 
   password = string.fromBytes hexToSeqByte("7465737470617373776f7264f09f9491")
-  secretBytes = hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+  secretBytes =
+    hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
   secretNetBytes = hexToSeqByte "08021220fe442379443d6e2d7d75d3a58f96fbb35f0a9c7217796825fc9040e3b89c5736"
   salt = hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
   iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
 
-let
-  rng = HmacDrbgContext.new()
+let rng = HmacDrbgContext.new()
 
 suite "KeyStorage testing suite":
   setup:
@@ -328,11 +337,16 @@ suite "KeyStorage testing suite":
     check nsecret == decrypt.get()
 
   test "[PBKDF2] Keystore encryption":
-    let keystore = createKeystore(kdfPbkdf2, rng[], secret,
-                                  KeystorePass.init password,
-                                  salt=salt, iv=iv,
-                                  description = "This is a test keystore that uses PBKDF2 to secure the secret.",
-                                  path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
+    let keystore = createKeystore(
+      kdfPbkdf2,
+      rng[],
+      secret,
+      KeystorePass.init password,
+      salt = salt,
+      iv = iv,
+      description = "This is a test keystore that uses PBKDF2 to secure the secret.",
+      path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"),
+    )
     var
       encryptJson = parseJson Json.encode(keystore)
       pbkdf2Json = parseJson(pbkdf2Vector)
@@ -342,11 +356,15 @@ suite "KeyStorage testing suite":
     check encryptJson == pbkdf2Json
 
   test "[PBKDF2] Network Keystore encryption":
-    let nkeystore = createNetKeystore(kdfPbkdf2, rng[], nsecret,
-                                      KeystorePass.init password,
-                                      salt = salt, iv = iv,
-                                      description =
-                                        "PBKDF2 Network private key storage")
+    let nkeystore = createNetKeystore(
+      kdfPbkdf2,
+      rng[],
+      nsecret,
+      KeystorePass.init password,
+      salt = salt,
+      iv = iv,
+      description = "PBKDF2 Network private key storage",
+    )
     var
       encryptJson = parseJson Json.encode(nkeystore)
       pbkdf2Json = parseJson(pbkdf2NetVector)
@@ -355,11 +373,16 @@ suite "KeyStorage testing suite":
     check encryptJson == pbkdf2Json
 
   test "[SCRYPT] Keystore encryption":
-    let keystore = createKeystore(kdfScrypt, rng[], secret,
-                                  KeystorePass.init password,
-                                  salt=salt, iv=iv,
-                                  description = "This is a test keystore that uses scrypt to secure the secret.",
-                                  path = validateKeyPath("m/12381/60/3141592653/589793238").expect("Valid keypath"))
+    let keystore = createKeystore(
+      kdfScrypt,
+      rng[],
+      secret,
+      KeystorePass.init password,
+      salt = salt,
+      iv = iv,
+      description = "This is a test keystore that uses scrypt to secure the secret.",
+      path = validateKeyPath("m/12381/60/3141592653/589793238").expect("Valid keypath"),
+    )
     var
       encryptJson = parseJson Json.encode(keystore)
       scryptJson = parseJson(scryptVector)
@@ -369,11 +392,15 @@ suite "KeyStorage testing suite":
     check encryptJson == scryptJson
 
   test "[SCRYPT] Network Keystore encryption":
-    let nkeystore = createNetKeystore(kdfScrypt, rng[], nsecret,
-                                      KeystorePass.init password,
-                                      salt = salt, iv = iv,
-                                      description =
-                                        "SCRYPT Network private key storage")
+    let nkeystore = createNetKeystore(
+      kdfScrypt,
+      rng[],
+      nsecret,
+      KeystorePass.init password,
+      salt = salt,
+      iv = iv,
+      description = "SCRYPT Network private key storage",
+    )
     var
       encryptJson = parseJson Json.encode(nkeystore)
       pbkdf2Json = parseJson(scryptNetVector)
@@ -388,24 +415,20 @@ suite "KeyStorage testing suite":
     expect Defect:
       echo createKeystore(kdfPbkdf2, rng[], secret, iv = [byte 1])
 
-    check decryptKeystore(JsonString pbkdf2Vector,
-                          KeystorePass.init "wrong pass").isErr
+    check decryptKeystore(JsonString pbkdf2Vector, KeystorePass.init "wrong pass").isErr
 
-    check decryptKeystore(JsonString pbkdf2Vector,
-                          KeystorePass.init "").isErr
+    check decryptKeystore(JsonString pbkdf2Vector, KeystorePass.init "").isErr
 
-    check decryptKeystore(JsonString "{\"a\": 0}",
-                          KeystorePass.init "").isErr
+    check decryptKeystore(JsonString "{\"a\": 0}", KeystorePass.init "").isErr
 
-    check decryptKeystore(JsonString "",
-                          KeystorePass.init "").isErr
+    check decryptKeystore(JsonString "", KeystorePass.init "").isErr
 
-    check decryptKeystore(JsonString "{}",
-                          KeystorePass.init "").isErr
+    check decryptKeystore(JsonString "{}", KeystorePass.init "").isErr
 
     template checkVariant(remove): untyped =
-      check decryptKeystore(JsonString pbkdf2Vector.replace(remove, "1234"),
-                            KeystorePass.init password).isErr
+      check decryptKeystore(
+        JsonString pbkdf2Vector.replace(remove, "1234"), KeystorePass.init password
+      ).isErr
 
     checkVariant "f876" # salt
     checkVariant "75ea" # checksum
@@ -414,17 +437,18 @@ suite "KeyStorage testing suite":
     let badKdf = parseJson(pbkdf2Vector)
     badKdf{"crypto", "kdf", "function"} = %"invalid"
 
-    check decryptKeystore(JsonString $badKdf,
-                          KeystorePass.init password).isErr
+    check decryptKeystore(JsonString $badKdf, KeystorePass.init password).isErr
 
 suite "eth2.0-deposits-cli compatibility":
   test "restoring mnemonic without password":
     let mnemonic = Mnemonic "camera dad smile sail injury warfare grid kiwi report minute fold slot before stem firm wet vague shove version medal one alley vibrant mushroom"
     let seed = getSeed(mnemonic, KeystorePass.init "")
-    check byteutils.toHex(distinctBase seed) == "60043d6e1efe0eea2ef1c8e7d4bb2d79cb27d3403e992b6058998c27c373cfb6fe047b11405360bb224803726fd6b0ee9e3335ae7d9032e6cb49baf08697cf2a"
+    check byteutils.toHex(distinctBase seed) ==
+      "60043d6e1efe0eea2ef1c8e7d4bb2d79cb27d3403e992b6058998c27c373cfb6fe047b11405360bb224803726fd6b0ee9e3335ae7d9032e6cb49baf08697cf2a"
 
     let masterKey = deriveMasterKey(seed)
-    check masterKey.toHex == "54aea900840c22ee821ca4f67ba57392d7c3e3d4fc54a6343940c12404226eb7"
+    check masterKey.toHex ==
+      "54aea900840c22ee821ca4f67ba57392d7c3e3d4fc54a6343940c12404226eb7"
 
     let
       v1SK = deriveChildKey(masterKey, makeKeyPath(0, signingKeyKind))
@@ -449,7 +473,8 @@ suite "eth2.0-deposits-cli compatibility":
   test "restoring mnemonic with password":
     let mnemonic = Mnemonic "swear umbrella lesson couch void gentle rocket valley distance match floor rocket flag solve muscle common modify target city youth pottery predict flip ghost"
     let seed = getSeed(mnemonic, KeystorePass.init "abracadabra!@#$%^7890")
-    check byteutils.toHex(distinctBase seed) == "f129c3ac003a07e54974d8dbeb08d20c2343fc516e0e3704570c500a4b6ed98bad2e6fec6a3b9a88076c17feaa0d01163855578cb08bae53860d0ae2558cf03e"
+    check byteutils.toHex(distinctBase seed) ==
+      "f129c3ac003a07e54974d8dbeb08d20c2343fc516e0e3704570c500a4b6ed98bad2e6fec6a3b9a88076c17feaa0d01163855578cb08bae53860d0ae2558cf03e"
 
     let
       masterKey = deriveMasterKey(seed)

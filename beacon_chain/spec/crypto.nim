@@ -49,7 +49,8 @@ const
   # RawPrivKeySize* = 48 for Miracl / 32 for BLST
 
 type
-  ValidatorPubKey* = object ##\
+  ValidatorPubKey* = object
+    ##\
     ## Compressed raw serialized key bytes - this type is used in so as to not
     ## eagerly load keys - deserialization is slow, as are equality checks -
     ## however, it is not guaranteed that the key is valid (except in some
@@ -80,7 +81,8 @@ type
 
   SomeSig* = TrustedSig | ValidatorSig
 
-  CookedSig* = distinct blscurve.Signature  ## \
+  CookedSig* = distinct blscurve.Signature
+    ## \
     ## Cooked signatures are those that have been loaded successfully from a
     ## ValidatorSig and are used to avoid expensive reloading as well as error
     ## checking
@@ -93,8 +95,7 @@ type
     key*: ValidatorPrivKey
     id*: uint32
 
-export
-  AggregateSignature
+export AggregateSignature
 
 # API
 # ----------------------------------------------------------------------
@@ -155,7 +156,7 @@ proc loadWithCache*(v: ValidatorPubKey): Opt[CookedPubKey] =
 
   # Try to get parse value from cache - if it's not in there, try to parse it -
   # if that's not possible, it's broken
-  cache.withValue(v.blob, key) do:
+  cache.withValue(v.blob, key):
     return Opt.some key[]
   do:
     # Only valid keys are cached
@@ -172,14 +173,14 @@ func load*(v: ValidatorSig): Opt[CookedSig] =
   else:
     Opt.none(CookedSig)
 
-func init*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
+func init*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.} =
   ## Initializes an aggregate signature context
   agg.init(blscurve.PublicKey(pubkey))
 
 func init*(T: type AggregatePublicKey, pubkey: CookedPubKey): T =
   result.init(pubkey)
 
-func aggregate*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
+func aggregate*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.} =
   ## Aggregate two valid Validator Public Keys
   agg.aggregate(blscurve.PublicKey(pubkey))
 
@@ -189,14 +190,14 @@ func finish*(agg: AggregatePublicKey): CookedPubKey {.inline.} =
   pubkey.finish(agg)
   CookedPubKey(pubkey)
 
-func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
+func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.} =
   ## Initializes an aggregate signature context
   agg.init(blscurve.Signature(sig))
 
 func init*(T: type AggregateSignature, sig: CookedSig): T =
   result.init(sig)
 
-func aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
+func aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.} =
   ## Aggregate two valid Validator Signatures
   agg.aggregate(blscurve.Signature(sig))
 
@@ -208,8 +209,8 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#bls-signatures
 func blsVerify*(
-    pubkey: CookedPubKey, message: openArray[byte],
-    signature: CookedSig): bool =
+    pubkey: CookedPubKey, message: openArray[byte], signature: CookedSig
+): bool =
   ## Check that a signature is valid for a message
   ## under the provided public key.
   ## returns `true` if the signature is valid, `false` otherwise.
@@ -221,8 +222,8 @@ func blsVerify*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
-    pubkey: ValidatorPubKey, message: openArray[byte],
-    signature: CookedSig): bool =
+    pubkey: ValidatorPubKey, message: openArray[byte], signature: CookedSig
+): bool =
   ## Check that a signature is valid for a message
   ## under the provided public key.
   ## returns `true` if the signature and the pubkey is valid, `false` otherwise.
@@ -230,17 +231,17 @@ proc blsVerify*(
   ## The proof-of-possession MUST be verified before calling this function.
   ## It is recommended to use the overload that accepts a proof-of-possession
   ## to enforce correct usage.
-  let
-    parsedKey = pubkey.loadWithCache()
+  let parsedKey = pubkey.loadWithCache()
 
   # Guard against invalid signature blobs that fail to parse
   parsedKey.isSome() and blsVerify(parsedKey.get(), message, signature)
 
 proc blsVerify*(
-    pubkey: ValidatorPubKey | CookedPubKey, message: openArray[byte],
-    signature: ValidatorSig): bool =
-  let
-    parsedSig = signature.load()
+    pubkey: ValidatorPubKey | CookedPubKey,
+    message: openArray[byte],
+    signature: ValidatorSig,
+): bool =
+  let parsedSig = signature.load()
   # Guard against invalid signature blobs that fail to parse
   parsedSig.isSome() and blsVerify(pubkey, message, parsedSig.get())
 
@@ -248,21 +249,15 @@ func blsVerify*(sigSet: SignatureSet): bool =
   ## Unbatched verification
   ## of 1 SignatureSet
   ## tuple[pubkey: blscurve.PublicKey, message: array[32, byte], blscurve.signature: Signature]
-  verify(
-    sigSet.pubkey,
-    sigSet.message,
-    sigSet.signature
-  )
+  verify(sigSet.pubkey, sigSet.message, sigSet.signature)
 
 func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): CookedSig =
   ## Computes a signature from a secret key and a message
   CookedSig(SecretKey(privkey).sign(message))
 
 func blsFastAggregateVerify*(
-       publicKeys: openArray[CookedPubKey],
-       message: openArray[byte],
-       signature: CookedSig
-     ): bool =
+    publicKeys: openArray[CookedPubKey], message: openArray[byte], signature: CookedSig
+): bool =
   ## Verify the aggregate of multiple signatures on the same message
   ## This function is faster than AggregateVerify
   ##
@@ -285,10 +280,10 @@ func blsFastAggregateVerify*(
   fastAggregateVerify(keys, message, blscurve.Signature(signature))
 
 proc blsFastAggregateVerify*(
-       publicKeys: openArray[ValidatorPubKey],
-       message: openArray[byte],
-       signature: CookedSig
-     ): bool =
+    publicKeys: openArray[ValidatorPubKey],
+    message: openArray[byte],
+    signature: CookedSig,
+): bool =
   var unwrapped: seq[PublicKey]
   for pubkey in publicKeys:
     let realkey = pubkey.loadWithCache()
@@ -299,27 +294,27 @@ proc blsFastAggregateVerify*(
   fastAggregateVerify(unwrapped, message, blscurve.Signature(signature))
 
 func blsFastAggregateVerify*(
-       publicKeys: openArray[CookedPubKey],
-       message: openArray[byte],
-       signature: ValidatorSig
-     ): bool =
+    publicKeys: openArray[CookedPubKey],
+    message: openArray[byte],
+    signature: ValidatorSig,
+): bool =
   let parsedSig = signature.load()
   parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
 
 proc blsFastAggregateVerify*(
-       publicKeys: openArray[ValidatorPubKey],
-       message: openArray[byte],
-       signature: ValidatorSig
-     ): bool =
+    publicKeys: openArray[ValidatorPubKey],
+    message: openArray[byte],
+    signature: ValidatorSig,
+): bool =
   let parsedSig = signature.load()
   parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
 
 proc blsFastAggregateVerify*(
-       fullParticipationAggregatePublicKey: ValidatorPubKey,
-       nonParticipatingPublicKeys: openArray[ValidatorPubKey],
-       message: openArray[byte],
-       signature: CookedSig
-     ): bool =
+    fullParticipationAggregatePublicKey: ValidatorPubKey,
+    nonParticipatingPublicKeys: openArray[ValidatorPubKey],
+    message: openArray[byte],
+    signature: CookedSig,
+): bool =
   let unwrappedFull = fullParticipationAggregatePublicKey.loadWithCache.valueOr:
     return false
 
@@ -330,27 +325,31 @@ proc blsFastAggregateVerify*(
     unwrapped.add PublicKey(realkey)
 
   fastAggregateVerify(
-    PublicKey(unwrappedFull), unwrapped,
-    message, blscurve.Signature(signature))
+    PublicKey(unwrappedFull), unwrapped, message, blscurve.Signature(signature)
+  )
 
 proc blsFastAggregateVerify*(
-       fullParticipationAggregatePublicKey: ValidatorPubKey,
-       nonParticipatingPublicKeys: openArray[ValidatorPubKey],
-       message: openArray[byte],
-       signature: ValidatorSig
-     ): bool =
+    fullParticipationAggregatePublicKey: ValidatorPubKey,
+    nonParticipatingPublicKeys: openArray[ValidatorPubKey],
+    message: openArray[byte],
+    signature: ValidatorSig,
+): bool =
   let parsedSig = signature.load()
-  parsedSig.isSome and blsFastAggregateVerify(
-    fullParticipationAggregatePublicKey, nonParticipatingPublicKeys,
-    message, parsedSig.get())
+  parsedSig.isSome and
+    blsFastAggregateVerify(
+      fullParticipationAggregatePublicKey,
+      nonParticipatingPublicKeys,
+      message,
+      parsedSig.get(),
+    )
 
 proc blsFastAggregateVerify*(
-       allPublicKeys: openArray[ValidatorPubKey],
-       fullParticipationAggregatePublicKey: ValidatorPubKey,
-       participantBits: BitArray,
-       message: openArray[byte],
-       signature: ValidatorSig
-     ): bool =
+    allPublicKeys: openArray[ValidatorPubKey],
+    fullParticipationAggregatePublicKey: ValidatorPubKey,
+    participantBits: BitArray,
+    message: openArray[byte],
+    signature: ValidatorSig,
+): bool =
   const maxParticipants = participantBits.bits
   var numParticipants = 0
   for idx in 0 ..< maxParticipants:
@@ -361,14 +360,15 @@ proc blsFastAggregateVerify*(
     if numParticipants < 1:
       false
     elif numParticipants > maxParticipants div 2:
-      var nonParticipatingPublicKeys = newSeqOfCap[ValidatorPubKey](
-        maxParticipants - numParticipants)
+      var nonParticipatingPublicKeys =
+        newSeqOfCap[ValidatorPubKey](maxParticipants - numParticipants)
       for idx, pubkey in allPublicKeys:
         if not participantBits[idx]:
           nonParticipatingPublicKeys.add pubkey
       blsFastAggregateVerify(
-        fullParticipationAggregatePublicKey, nonParticipatingPublicKeys,
-        message, signature)
+        fullParticipationAggregatePublicKey, nonParticipatingPublicKeys, message,
+        signature,
+      )
     else:
       var publicKeys = newSeqOfCap[ValidatorPubKey](numParticipants)
       for idx, pubkey in allPublicKeys:
@@ -392,7 +392,7 @@ func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   else:
     # Miracl exports to 384-bit arrays, but Curve order is 256-bit
     let raw = SecretKey(x).exportRaw()
-    result[0..32-1] = raw.toOpenArray(48-32, 48-1)
+    result[0 .. 32 - 1] = raw.toOpenArray(48 - 32, 48 - 1)
 
 template toRaw*(x: ValidatorPubKey | ValidatorSig): auto =
   x.blob
@@ -419,7 +419,9 @@ func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
   else:
     err "bls: invalid private key"
 
-func fromRaw*(BT: type[ValidatorPubKey | ValidatorSig], bytes: openArray[byte]): BlsResult[BT] =
+func fromRaw*(
+    BT: type[ValidatorPubKey | ValidatorSig], bytes: openArray[byte]
+): BlsResult[BT] =
   # Signatures and keys are deserialized lazily
   if bytes.len() != sizeof(BT):
     err "bls: invalid bls length"
@@ -442,7 +444,8 @@ func `==`*(a, b: ValidatorPrivKey): bool {.error: "Secret keys should stay secre
 # ----------------------------------------------------------------------
 
 template hash*(x: ValidatorPubKey | ValidatorSig): Hash =
-  static: doAssert sizeof(Hash) <= x.blob.len div 2
+  static:
+    doAssert sizeof(Hash) <= x.blob.len div 2
   # We use rough "middle" of blob for the hash, assuming this is where most of
   # the entropy is found
   cast[ptr Hash](unsafeAddr x.blob[x.blob.len div 2])[]
@@ -463,8 +466,9 @@ proc writeValue*(
 ) {.inline, raises: [IOError].} =
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var ValidatorPubKey)
-               {.serializationRaises.} =
+proc readValue*(
+    reader: var JsonReader, value: var ValidatorPubKey
+) {.serializationRaises.} =
   let key = ValidatorPubKey.fromHex(reader.readValue(string))
   if key.isOk:
     value = key.get
@@ -478,8 +482,9 @@ proc writeValue*(
   # Workaround: https://github.com/status-im/nimbus-eth2/issues/374
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var ValidatorSig)
-               {.serializationRaises.} =
+proc readValue*(
+    reader: var JsonReader, value: var ValidatorSig
+) {.serializationRaises.} =
   let sig = ValidatorSig.fromHex(reader.readValue(string))
   if sig.isOk:
     value = sig.get
@@ -492,8 +497,9 @@ proc writeValue*(
 ) {.inline, raises: [IOError].} =
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey)
-               {.serializationRaises.} =
+proc readValue*(
+    reader: var JsonReader, value: var ValidatorPrivKey
+) {.serializationRaises.} =
   let key = ValidatorPrivKey.fromHex(reader.readValue(string))
   if key.isOk:
     value = key.get
@@ -501,7 +507,9 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey)
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded private key expected")
 
-template fromSszBytes*(T: type[ValidatorPubKey | ValidatorSig], bytes: openArray[byte]): auto =
+template fromSszBytes*(
+    T: type[ValidatorPubKey | ValidatorSig], bytes: openArray[byte]
+): auto =
   let v = fromRaw(T, bytes)
   if v.isErr:
     raise newException(MalformedSszError, $v.error)
@@ -532,21 +540,27 @@ func shortLog*(x: TrustedSig): string =
 # TODO more specific exceptions? don't raise?
 
 # For confutils
-func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noinit, raises: [ValueError].} =
+func init*(
+    T: typedesc[ValidatorPrivKey], hex: string
+): T {.noinit, raises: [ValueError].} =
   let v = T.fromHex(hex)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noinit, raises: [ValueError].} =
+func init*(
+    T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]
+): T {.noinit, raises: [ValueError].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit, raises: [ValueError].} =
+func init*(
+    T: typedesc[ValidatorSig], data: array[RawSigSize, byte]
+): T {.noinit, raises: [ValueError].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
@@ -558,29 +572,29 @@ func infinity*(T: type ValidatorSig): T =
 func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
+{.push warning[ProveField]: off.} # https://github.com/nim-lang/Nim/issues/22060
 proc keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
-  var
-    pubkey: blscurve.PublicKey
+  var pubkey: blscurve.PublicKey
   let bytes = rng.generate(array[32, byte])
   result.ok default(blscurve.SecretKey)
   if not keyGen(bytes, pubkey, result.value):
     return err "key generation failed"
+
 {.pop.}
 
-proc secretShareId(x: uint32) : blscurve.ID =
+proc secretShareId(x: uint32): blscurve.ID =
   let bytes: array[8, uint32] = [uint32 x, 0, 0, 0, 0, 0, 0, 0]
   blscurve.ID.fromUint32(bytes)
 
-func generateSecretShares*(sk: ValidatorPrivKey,
-                           rng: var HmacDrbgContext,
-                           k: uint32, n: uint32): BlsResult[seq[SecretShare]] =
+func generateSecretShares*(
+    sk: ValidatorPrivKey, rng: var HmacDrbgContext, k: uint32, n: uint32
+): BlsResult[seq[SecretShare]] =
   doAssert k > 0 and k <= n
 
   var originPts: seq[blscurve.SecretKey]
   originPts.add(blscurve.SecretKey(sk))
   for i in 1 ..< k:
-    originPts.add(? keyGen(rng))
+    originPts.add(?keyGen(rng))
 
   var shares: seq[SecretShare]
   for i in uint32(0) ..< n:
@@ -600,15 +614,16 @@ func recoverSignature*(sings: seq[SignatureShare]): CookedSig =
   let signs = sings.mapIt(it.sign)
   let ids = sings.mapIt(secretShareId(it.id))
   CookedSig blscurve.recover(signs, ids).expect(
-    "valid shares (validated when loading the keystore)")
+    "valid shares (validated when loading the keystore)"
+  )
 
-proc confirmShares*(pubKey: ValidatorPubKey,
-                    shares: seq[SecretShare],
-                    rng: var HmacDrbgContext): bool =
+proc confirmShares*(
+    pubKey: ValidatorPubKey, shares: seq[SecretShare], rng: var HmacDrbgContext
+): bool =
   let confirmationData = rng.generate(array[32, byte])
   var signs: seq[SignatureShare]
   for share in items(shares):
-    let signature = share.key.blsSign(confirmationData).toSignatureShare(share.id);
+    let signature = share.key.blsSign(confirmationData).toSignatureShare(share.id)
     signs.add(signature)
   let recovered = signs.recoverSignature()
   return pubKey.blsVerify(confirmationData, recovered)

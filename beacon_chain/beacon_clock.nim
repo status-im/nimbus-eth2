@@ -7,10 +7,7 @@
 
 {.push raises: [].}
 
-import
-  std/math,
-  chronos/timer, chronicles,
-  ./spec/beacon_time
+import std/math, chronos/timer, chronicles, ./spec/beacon_time
 
 from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 
@@ -57,7 +54,8 @@ proc now*(c: BeaconClock): BeaconTime =
   toBeaconTime(c, getTime())
 
 func getBeaconTimeFn*(c: BeaconClock): GetBeaconTimeFn =
-  return proc(): BeaconTime = c.now()
+  return proc(): BeaconTime =
+    c.now()
 
 proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Duration] =
   let now = c.now()
@@ -76,13 +74,12 @@ proc durationToNextSlot*(c: BeaconClock): Duration =
 
   if currentSlot.afterGenesis:
     let nextSlot = currentSlot.slot + 1
-    nanoseconds(
-      (nextSlot.start_beacon_time() - currentTime).nanoseconds)
+    nanoseconds((nextSlot.start_beacon_time() - currentTime).nanoseconds)
   else:
     # absoluteTime = BeaconTime(-currentTime.ns_since_genesis).
     let
-      absoluteTime = Slot(0).start_beacon_time() +
-        (Slot(0).start_beacon_time() - currentTime)
+      absoluteTime =
+        Slot(0).start_beacon_time() + (Slot(0).start_beacon_time() - currentTime)
       timeToNextSlot = absoluteTime - currentSlot.slot.start_beacon_time()
     nanoseconds(timeToNextSlot.nanoseconds)
 
@@ -93,19 +90,21 @@ proc durationToNextEpoch*(c: BeaconClock): Duration =
 
   if currentSlot.afterGenesis:
     let nextEpochSlot = (currentSlot.slot.epoch() + 1).start_slot()
-    nanoseconds(
-      (nextEpochSlot.start_beacon_time() - currentTime).nanoseconds)
+    nanoseconds((nextEpochSlot.start_beacon_time() - currentTime).nanoseconds)
   else:
     # absoluteTime = BeaconTime(-currentTime.ns_since_genesis).
     let
-      absoluteTime = Slot(0).start_beacon_time() +
-        (Slot(0).start_beacon_time() - currentTime)
-      timeToNextEpoch = absoluteTime -
-        currentSlot.slot.epoch().start_slot().start_beacon_time()
+      absoluteTime =
+        Slot(0).start_beacon_time() + (Slot(0).start_beacon_time() - currentTime)
+      timeToNextEpoch =
+        absoluteTime - currentSlot.slot.epoch().start_slot().start_beacon_time()
     nanoseconds(timeToNextEpoch.nanoseconds)
 
 func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
-  if d.inFuture: d.offset else: seconds(0)
+  if d.inFuture:
+    d.offset
+  else:
+    seconds(0)
 
 func shortLog*(d: Duration): string =
   $d
@@ -116,10 +115,16 @@ func toFloatSeconds*(d: Duration): float =
 func fromFloatSeconds*(T: type Duration, f: float): Duration =
   case classify(f)
   of fcNormal:
-    if f >= float(int64.high() div 1_000_000_000): InfiniteDuration
-    elif f <= 0: ZeroDuration
-    else: nanoseconds(int64(f * 1_000_000_000))
-  of fcSubnormal, fcZero, fcNegZero, fcNan, fcNegInf: ZeroDuration
-  of fcInf: InfiniteDuration
+    if f >= float(int64.high() div 1_000_000_000):
+      InfiniteDuration
+    elif f <= 0:
+      ZeroDuration
+    else:
+      nanoseconds(int64(f * 1_000_000_000))
+  of fcSubnormal, fcZero, fcNegZero, fcNan, fcNegInf:
+    ZeroDuration
+  of fcInf:
+    InfiniteDuration
 
-chronicles.formatIt Duration: $it
+chronicles.formatIt Duration:
+  $it

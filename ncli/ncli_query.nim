@@ -1,5 +1,8 @@
 import
-  confutils, os, strutils, json_serialization,
+  confutils,
+  os,
+  strutils,
+  json_serialization,
   stew/byteutils,
   ../beacon_chain/spec/[crypto, datatypes]
 
@@ -9,36 +12,27 @@ type
     get
 
   QueryConf = object
-    file* {.
-        defaultValue: ""
-        desc: "BeaconState ssz file"
-        name: "file" }: InputFile
+    file* {.defaultValue: "", desc: "BeaconState ssz file", name: "file".}: InputFile
 
     case queryCmd* {.
-      defaultValue: nimQuery
-      command
-      desc: "Query the beacon node database and print the result" }: QueryCmd
-
+      defaultValue: nimQuery,
+      command,
+      desc: "Query the beacon node database and print the result"
+    .}: QueryCmd
     of nimQuery:
       nimQueryExpression* {.
-        argument
-        desc: "Nim expression to evaluate (using limited syntax)" }: string
-
+        argument, desc: "Nim expression to evaluate (using limited syntax)"
+      .}: string
     of get:
-      getQueryPath* {.
-        argument
-        desc: "REST API path to evaluate" }: string
+      getQueryPath* {.argument, desc: "REST API path to evaluate".}: string
 
-
-let
-  config = QueryConf.load()
+let config = QueryConf.load()
 
 case config.queryCmd
 of QueryCmd.nimQuery:
   # TODO: This will handle a simple subset of Nim using
   #       dot syntax and `[]` indexing.
   echo "nim query: ", config.nimQueryExpression
-
 of QueryCmd.get:
   let pathFragments = config.getQueryPath.split('/', maxsplit = 1)
   let bytes =

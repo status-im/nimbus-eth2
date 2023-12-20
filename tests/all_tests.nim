@@ -7,8 +7,7 @@
 
 # All tests except scenarios, which as compiled separately for mainnet and minimal
 
-import
-  ./testutil
+import ./testutil
 
 import # Unit test
   ./test_action_tracker,
@@ -55,10 +54,7 @@ import # Unit test
 
 when not defined(i386):
   # Avoids "Out of memory" CI failures
-  import
-    ./test_blockchain_dag,
-    ./test_keystore,
-    ./test_keystore_management
+  import ./test_blockchain_dag, ./test_keystore, ./test_keystore_management
 
   when not defined(windows):
     import ./test_keymanager_api

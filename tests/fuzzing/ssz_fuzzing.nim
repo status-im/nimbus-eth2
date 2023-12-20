@@ -1,16 +1,20 @@
 import
-  testutils/fuzzing, faststreams/inputs, serialization/testing/tracing,
+  testutils/fuzzing,
+  faststreams/inputs,
+  serialization/testing/tracing,
   ../../beacon_chain/spec/datatypes/base
 
-export
-  ssz, base, fuzzing
+export ssz, base, fuzzing
 
 template sszFuzzingTest*(T: type) =
   test:
     block:
       let input = unsafeMemoryInput(payload)
-      let decoded = try: input.readValue(SSZ, T)
-                    except SSZError: break
+      let decoded =
+        try:
+          input.readValue(SSZ, T)
+        except SSZError:
+          break
 
       if input.len.get > 0:
         # Some unconsumed input remained, this is not a valid test case

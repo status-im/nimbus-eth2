@@ -14,7 +14,8 @@ import
   ../../../beacon_chain/spec/datatypes/phase0,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils, ../os_ops,
+  ../fixtures_utils,
+  ../os_ops,
   ./test_fixture_rewards,
   ../../helpers/debug_state
 
@@ -22,49 +23,57 @@ from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
 
 const
-  RootDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"
+  RootDir = SszTestsDir / const_preset / "phase0" / "epoch_processing"
 
-  JustificationFinalizationDir = RootDir/"justification_and_finalization"
-  RegistryUpdatesDir =           RootDir/"registry_updates"
-  SlashingsDir =                 RootDir/"slashings"
-  Eth1DataResetDir =             RootDir/"eth1_data_reset"
-  EffectiveBalanceUpdatesDir =   RootDir/"effective_balance_updates"
-  SlashingsResetDir =            RootDir/"slashings_reset"
-  RandaoMixesResetDir =          RootDir/"randao_mixes_reset"
-  HistoricalRootsUpdateDir =     RootDir/"historical_roots_update"
-  RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
-  ParticipationRecordsDir =      RootDir/"participation_record_updates"
+  JustificationFinalizationDir = RootDir / "justification_and_finalization"
+  RegistryUpdatesDir = RootDir / "registry_updates"
+  SlashingsDir = RootDir / "slashings"
+  Eth1DataResetDir = RootDir / "eth1_data_reset"
+  EffectiveBalanceUpdatesDir = RootDir / "effective_balance_updates"
+  SlashingsResetDir = RootDir / "slashings_reset"
+  RandaoMixesResetDir = RootDir / "randao_mixes_reset"
+  HistoricalRootsUpdateDir = RootDir / "historical_roots_update"
+  RewardsAndPenaltiesDir = RootDir / "rewards_and_penalties"
+  ParticipationRecordsDir = RootDir / "participation_record_updates"
 
 doAssert toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) ==
-  toHashSet([
-    JustificationFinalizationDir, RegistryUpdatesDir, SlashingsDir,
-    Eth1DataResetDir, EffectiveBalanceUpdatesDir, SlashingsResetDir,
-    RandaoMixesResetDir, HistoricalRootsUpdateDir, ParticipationRecordsDir,
-    RewardsAndPenaltiesDir])
+  toHashSet(
+    [
+      JustificationFinalizationDir, RegistryUpdatesDir, SlashingsDir, Eth1DataResetDir,
+      EffectiveBalanceUpdatesDir, SlashingsResetDir, RandaoMixesResetDir,
+      HistoricalRootsUpdateDir, ParticipationRecordsDir, RewardsAndPenaltiesDir,
+    ]
+  )
 
 template runSuite(suiteDir, testName: string, transitionProc: untyped): untyped =
   suite "EF - Phase 0 - Epoch Processing - " & testName & preset():
     for testDir in walkDirRec(
-        suiteDir / "pyspec_tests", yieldFilter = {pcDir}, checkDir = true):
-
+      suiteDir / "pyspec_tests", yieldFilter = {pcDir}, checkDir = true
+    ):
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
         type T = phase0.BeaconState
-        let preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
+        let preState {.inject.} =
+          newClone(parseTest(testDir / "pre.ssz_snappy", SSZ, T))
         var cache {.inject, used.} = StateCache()
         var info {.inject.}: phase0.EpochInfo
-        template state: untyped {.inject, used.} = preState[]
-        template cfg: untyped {.inject, used.} = defaultRuntimeConfig
+        template state(): untyped {.inject, used.} =
+          preState[]
+
+        template cfg(): untyped {.inject, used.} =
+          defaultRuntimeConfig
+
         init(info, preState[])
 
         if transitionProc.isOk:
-          let postState =
-            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
-          check: hash_tree_root(preState[]) == hash_tree_root(postState[])
+          let postState = newClone(parseTest(testDir / "post.ssz_snappy", SSZ, T))
+          check:
+            hash_tree_root(preState[]) == hash_tree_root(postState[])
           reportDiff(preState, postState)
         else:
-          check: not fileExists(testDir/"post.ssz_snappy")
+          check:
+            not fileExists(testDir / "post.ssz_snappy")
 
 # Justification & Finalization
 # ---------------------------------------------------------------

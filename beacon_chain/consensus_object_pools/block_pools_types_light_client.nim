@@ -16,14 +16,10 @@ import
 type
   LightClientDataImportMode* {.pure.} = enum
     ## Controls which classes of light client data are imported.
-    None = "none"
-      ## Do not import new light client data.
-    OnlyNew = "only-new"
-      ## Incrementally import new light client data.
-    Full = "full"
-      ## Import historic light client data (slow startup).
-    OnDemand = "on-demand"
-      ## Like `full`, but import on demand instead of on start.
+    None = "none" ## Do not import new light client data.
+    OnlyNew = "only-new" ## Incrementally import new light client data.
+    Full = "full" ## Import historic light client data (slow startup).
+    OnDemand = "on-demand" ## Like `full`, but import on demand instead of on start.
 
   OnLightClientFinalityUpdateCallback* =
     proc(data: ForkedLightClientFinalityUpdate) {.gcsafe, raises: [].}
@@ -51,12 +47,10 @@ type
       ## Tracks light client data for the latest slot that was signed by
       ## at least `MIN_SYNC_COMMITTEE_PARTICIPANTS`. May be older than head.
 
-    tailSlot*: Slot
-      ## The earliest slot for which light client data is imported.
+    tailSlot*: Slot ## The earliest slot for which light client data is imported.
 
   LightClientDataConfig* = object
-    serve*: bool
-      ## Whether to make local light client data available or not
+    serve*: bool ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
       ## Which classes of light client data to import
     maxPeriods*: Option[uint64]
@@ -69,17 +63,13 @@ type
   LightClientDataStore* = object
     # -----------------------------------
     # Light client data
-
-    cache*: LightClientDataCache
-      ## Cached data to accelerate creating light client data
+    cache*: LightClientDataCache ## Cached data to accelerate creating light client data
     db*: LightClientDataDB
       ## Persistent light client data to avoid expensive recomputations
 
     # -----------------------------------
     # Config
-
-    serve*: bool
-      ## Whether to make local light client data available or not
+    serve*: bool ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
       ## Which classes of light client data to import
     maxPeriods*: uint64
@@ -87,7 +77,6 @@ type
 
     # -----------------------------------
     # Callbacks
-
     onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
       ## On new `LightClientFinalityUpdate` callback
     onLightClientOptimisticUpdate*: OnLightClientOptimisticUpdateCallback

@@ -9,7 +9,9 @@
 
 import
   stew/results,
-  chronicles, chronos, metrics,
+  chronicles,
+  chronos,
+  metrics,
   ../spec/[signatures, signatures_batch],
   ../sszdump
 
@@ -20,16 +22,14 @@ from ../consensus_object_pools/consensus_manager import
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
   updateHeadWithExecution
 from ../consensus_object_pools/blockchain_dag import
-  getBlockRef, getProposer, forkAtEpoch, loadExecutionBlockHash,
-  markBlockVerified, validatorKey
+  getBlockRef, getProposer, forkAtEpoch, loadExecutionBlockHash, markBlockVerified,
+  validatorKey
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
-from ../consensus_object_pools/block_pools_types import
-  EpochRef, VerifierError
+from ../consensus_object_pools/block_pools_types import EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
   addBlobless, addOrphan, addUnviable, pop, removeOrphan
-from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, hasBlobs, popBlobs
+from ../consensus_object_pools/blob_quarantine import BlobQuarantine, hasBlobs, popBlobs
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -38,7 +38,8 @@ from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
 
-logScope: topics = "gossip_blocks"
+logScope:
+  topics = "gossip_blocks"
 
 # Block Processor
 # ------------------------------------------------------------------------------
@@ -59,8 +60,7 @@ type
   BlockEntry = object
     blck*: ForkedSignedBeaconBlock
     blobs*: Opt[BlobSidecars]
-    maybeFinalized*: bool
-      ## The block source claims the block has been finalized already
+    maybeFinalized*: bool ## The block source claims the block has been finalized already
     resfut*: Future[Result[void, VerifierError]]
     queueTick*: Moment # Moment when block was enqueued
     validationDur*: Duration # Time it took to perform gossip validation
@@ -122,14 +122,17 @@ type
 # Initialization
 # ------------------------------------------------------------------------------
 
-proc new*(T: type BlockProcessor,
-          dumpEnabled: bool,
-          dumpDirInvalid, dumpDirIncoming: string,
-          rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
-          consensusManager: ref ConsensusManager,
-          validatorMonitor: ref ValidatorMonitor,
-          blobQuarantine: ref BlobQuarantine,
-          getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
+proc new*(
+    T: type BlockProcessor,
+    dumpEnabled: bool,
+    dumpDirInvalid, dumpDirIncoming: string,
+    rng: ref HmacDrbgContext,
+    taskpool: TaskPoolPtr,
+    consensusManager: ref ConsensusManager,
+    validatorMonitor: ref ValidatorMonitor,
+    blobQuarantine: ref BlobQuarantine,
+    getBeaconTime: GetBeaconTimeFn,
+): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
@@ -139,7 +142,7 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier.init(rng, taskpool)
+    verifier: BatchVerifier.init(rng, taskpool),
   )
 
 # Sync callbacks
@@ -151,15 +154,15 @@ func hasBlocks*(self: BlockProcessor): bool =
 # Storage
 # ------------------------------------------------------------------------------
 
-proc dumpInvalidBlock*(
-    self: BlockProcessor, signedBlock: ForkySignedBeaconBlock) =
+proc dumpInvalidBlock*(self: BlockProcessor, signedBlock: ForkySignedBeaconBlock) =
   if self.dumpEnabled:
     dump(self.dumpDirInvalid, signedBlock)
 
 proc dumpBlock[T](
     self: BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    res: Result[T, VerifierError]) =
+    res: Result[T, VerifierError],
+) =
   if self.dumpEnabled and res.isErr:
     case res.error
     of VerifierError.Invalid:
@@ -175,8 +178,8 @@ from ../consensus_object_pools/block_clearance import
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
-
+    blobsOpt: Opt[BlobSidecars],
+): Result[void, VerifierError] =
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
@@ -188,15 +191,15 @@ proc storeBackfillBlock(
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
-                               blobs.mapIt(it.kzg_proof))
+        let r =
+          validate_blobs(kzgCommits, blobs.mapIt(it.blob), blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "backfill blob validation failed",
-           blockRoot = shortLog(signedBlock.root),
-           blobs = shortLog(blobs),
-           blck = shortLog(signedBlock.message),
-           signature = shortLog(signedBlock.signature),
-           msg = r.error()
+            blockRoot = shortLog(signedBlock.root),
+            blobs = shortLog(blobs),
+            blck = shortLog(signedBlock.message),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
         blobsOk = r.isOk()
 
   if not blobsOk:
@@ -207,8 +210,7 @@ proc storeBackfillBlock(
   if res.isErr():
     case res.error
     of VerifierError.MissingParent:
-      if signedBlock.message.parent_root in
-          self.consensusManager.quarantine[].unviable:
+      if signedBlock.message.parent_root in self.consensusManager.quarantine[].unviable:
         # DAG doesn't know about unviable ancestor blocks - we do! Translate
         # this to the appropriate error so that sync etc doesn't retry the block
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
@@ -217,33 +219,38 @@ proc storeBackfillBlock(
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-    else: discard
+    else:
+      discard
     return res
 
   # Only store blobs after successfully establishing block viability.
-  let blobs = blobsOpt.valueOr: BlobSidecars @[]
+  let blobs = blobsOpt.valueOr:
+    BlobSidecars @[]
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
   res
 
 from web3/engine_api_types import
-  PayloadAttributesV1, PayloadAttributesV2, PayloadAttributesV3,
-  PayloadExecutionStatus, PayloadStatusV1
+  PayloadAttributesV1, PayloadAttributesV2, PayloadAttributesV3, PayloadExecutionStatus,
+  PayloadStatusV1
 from ../el/el_manager import
   ELManager, forkchoiceUpdated, hasConnection, hasProperlyConfiguredConnection,
   sendNewPayload
 
 proc expectValidForkchoiceUpdated(
-    elManager: ELManager, headBlockPayloadAttributesType: typedesc,
+    elManager: ELManager,
+    headBlockPayloadAttributesType: typedesc,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-    receivedBlock: ForkySignedBeaconBlock): Future[void] {.async.} =
+    receivedBlock: ForkySignedBeaconBlock,
+): Future[void] {.async.} =
   let
     (payloadExecutionStatus, _) = await elManager.forkchoiceUpdated(
       headBlockHash = headBlockHash,
       safeBlockHash = safeBlockHash,
       finalizedBlockHash = finalizedBlockHash,
-      payloadAttributes = none headBlockPayloadAttributesType)
+      payloadAttributes = none headBlockPayloadAttributesType,
+    )
     receivedExecutionBlockHash =
       when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
@@ -264,13 +271,17 @@ proc expectValidForkchoiceUpdated(
     discard
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
     info "execution payload forkChoiceUpdated status ACCEPTED/SYNCING, but was previously VALID",
-      payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
-      safeBlockHash, finalizedBlockHash,
+      payloadExecutionStatus = $payloadExecutionStatus,
+      headBlockHash,
+      safeBlockHash,
+      finalizedBlockHash,
       receivedBlock = shortLog(receivedBlock)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
     warn "execution payload forkChoiceUpdated status INVALID, but was previously VALID",
-      payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
-      safeBlockHash, finalizedBlockHash,
+      payloadExecutionStatus = $payloadExecutionStatus,
+      headBlockHash,
+      safeBlockHash,
+      finalizedBlockHash,
       receivedBlock = shortLog(receivedBlock)
 
 from ../consensus_object_pools/attestation_pool import
@@ -289,10 +300,10 @@ from ../spec/datatypes/capella import
 from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
 
 proc newExecutionPayload*(
-    elManager: ELManager, blck: SomeForkyBeaconBlock):
-    Future[Opt[PayloadExecutionStatus]] {.async.} =
-
-  template executionPayload: untyped = blck.body.execution_payload
+    elManager: ELManager, blck: SomeForkyBeaconBlock
+): Future[Opt[PayloadExecutionStatus]] {.async.} =
+  template executionPayload(): untyped =
+    blck.body.execution_payload
 
   if not elManager.hasProperlyConfiguredConnection:
     if elManager.hasConnection:
@@ -326,33 +337,32 @@ proc newExecutionPayload*(
 
 proc getExecutionValidity(
     elManager: ELManager,
-    blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-          deneb.SignedBeaconBlock):
-    Future[NewPayloadStatus] {.async.} =
+    blck:
+      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock | deneb.SignedBeaconBlock,
+): Future[NewPayloadStatus] {.async.} =
   if not blck.message.is_execution_block:
-    return NewPayloadStatus.valid  # vacuously
+    return NewPayloadStatus.valid # vacuously
 
   try:
-    let executionPayloadStatus = await elManager.newExecutionPayload(
-      blck.message)
+    let executionPayloadStatus = await elManager.newExecutionPayload(blck.message)
     if executionPayloadStatus.isNone:
       return NewPayloadStatus.noResponse
 
     case executionPayloadStatus.get
-      of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-        # Blocks come either from gossip or request manager requests. In the
-        # former case, they've passed libp2p gosisp validation which implies
-        # correct signature for correct proposer,which makes spam expensive,
-        # while for the latter, spam is limited by the request manager.
-        info "execution payload invalid from EL client newPayload",
-          executionPayloadStatus = $executionPayloadStatus.get,
-          executionPayload = shortLog(blck.message.body.execution_payload),
-          blck = shortLog(blck)
-        return NewPayloadStatus.invalid
-      of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
-        return NewPayloadStatus.notValid
-      of PayloadExecutionStatus.valid:
-        return NewPayloadStatus.valid
+    of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
+      # Blocks come either from gossip or request manager requests. In the
+      # former case, they've passed libp2p gosisp validation which implies
+      # correct signature for correct proposer,which makes spam expensive,
+      # while for the latter, spam is limited by the request manager.
+      info "execution payload invalid from EL client newPayload",
+        executionPayloadStatus = $executionPayloadStatus.get,
+        executionPayload = shortLog(blck.message.body.execution_payload),
+        blck = shortLog(blck)
+      return NewPayloadStatus.invalid
+    of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
+      return NewPayloadStatus.notValid
+    of PayloadExecutionStatus.valid:
+      return NewPayloadStatus.valid
   except CatchableError as err:
     error "newPayload failed and leaked exception",
       err = err.msg,
@@ -360,33 +370,36 @@ proc getExecutionValidity(
       blck = shortLog(blck)
     return NewPayloadStatus.noResponse
 
-proc checkBloblessSignature(self: BlockProcessor,
-                            signed_beacon_block: deneb.SignedBeaconBlock):
-                              Result[void, cstring] =
+proc checkBloblessSignature(
+    self: BlockProcessor, signed_beacon_block: deneb.SignedBeaconBlock
+): Result[void, cstring] =
   let dag = self.consensusManager.dag
   let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
     return err("checkBloblessSignature called with orphan block")
-  let proposer = getProposer(
-        dag, parent, signed_beacon_block.message.slot).valueOr:
+  let proposer = getProposer(dag, parent, signed_beacon_block.message.slot).valueOr:
     return err("checkBloblessSignature: Cannot compute proposer")
   if uint64(proposer) != signed_beacon_block.message.proposer_index:
     return err("checkBloblessSignature: Incorrect proposer")
   if not verify_block_signature(
-      dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
-      getStateField(dag.headState, genesis_validators_root),
-      signed_beacon_block.message.slot,
-      signed_beacon_block.root,
-      dag.validatorKey(proposer).get(),
-      signed_beacon_block.signature):
+    dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
+    getStateField(dag.headState, genesis_validators_root),
+    signed_beacon_block.message.slot,
+    signed_beacon_block.root,
+    dag.validatorKey(proposer).get(),
+    signed_beacon_block.signature,
+  ):
     return err("checkBloblessSignature: Invalid proposer signature")
   ok()
 
 proc enqueueBlock*(
-    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
+    self: var BlockProcessor,
+    src: MsgSource,
+    blck: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars],
     resfut: Future[Result[void, VerifierError]] = nil,
     maybeFinalized = false,
-    validationDur = Duration()) =
+    validationDur = Duration(),
+) =
   withBlck(blck):
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
@@ -396,23 +409,30 @@ proc enqueueBlock*(
       return
 
   try:
-    self.blockQueue.addLastNoWait(BlockEntry(
-      blck: blck,
-      blobs: blobs,
-      maybeFinalized: maybeFinalized,
-      resfut: resfut, queueTick: Moment.now(),
-      validationDur: validationDur,
-      src: src))
+    self.blockQueue.addLastNoWait(
+      BlockEntry(
+        blck: blck,
+        blobs: blobs,
+        maybeFinalized: maybeFinalized,
+        resfut: resfut,
+        queueTick: Moment.now(),
+        validationDur: validationDur,
+        src: src,
+      )
+    )
   except AsyncQueueFullError:
     raiseAssert "unbounded queue"
 
 proc storeBlock(
-    self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
+    self: ref BlockProcessor,
+    src: MsgSource,
+    wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars],
     maybeFinalized = false,
-    queueTick: Moment = Moment.now(), validationDur = Duration()):
-    Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
+    queueTick: Moment = Moment.now(),
+    validationDur = Duration(),
+): Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
   ## we will add it to the dag and pass it to all block consumers that need
@@ -430,8 +450,7 @@ proc storeBlock(
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
-  if signedBlock.message.parent_root in
-      self.consensusManager.quarantine[].unviable:
+  if signedBlock.message.parent_root in self.consensusManager.quarantine[].unviable:
     # DAG doesn't know about unviable ancestor blocks - we do however!
     self.consensusManager.quarantine[].addUnviable(signedBlock.root)
 
@@ -441,9 +460,12 @@ proc storeBlock(
     let error = errorParam
     case error
     of VerifierError.MissingParent:
-      if (let r = self.consensusManager.quarantine[].addOrphan(
-          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock));
-              r.isErr()):
+      if (
+        let r = self.consensusManager.quarantine[].addOrphan(
+          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock)
+        )
+        r.isErr()
+      ):
         debug "could not add orphan",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
@@ -454,7 +476,6 @@ proc storeBlock(
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
           signature = shortLog(signedBlock.signature)
-
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
@@ -509,10 +530,11 @@ proc storeBlock(
     # `Keccak256(RLP(ExecutionBlockHeader))`
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification
     when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
-      template payload(): auto = signedBlock.message.body.execution_payload
-      if  signedBlock.message.is_execution_block and
-          payload.block_hash !=
-            signedBlock.message.compute_execution_block_hash():
+      template payload(): auto =
+        signedBlock.message.body.execution_payload
+
+      if signedBlock.message.is_execution_block and
+          payload.block_hash != signedBlock.message.compute_execution_block_hash():
         debug "Execution block hash validation failed",
           execution_payload = shortLog(payload)
         self[].dumpInvalidBlock(signedBlock)
@@ -532,8 +554,8 @@ proc storeBlock(
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
-                               blobs.mapIt(it.kzg_proof))
+        let r =
+          validate_blobs(kzgCommits, blobs.mapIt(it.blob), blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "blob validation failed",
             blockRoot = shortLog(signedBlock.root),
@@ -545,30 +567,36 @@ proc storeBlock(
 
   type Trusted = typeof signedBlock.asTrusted()
 
-  let
-    blck = dag.addHeadBlockWithParent(
-        self.verifier, signedBlock, parent.value(), payloadValid) do (
-      blckRef: BlockRef, trustedBlock: Trusted,
-      epochRef: EpochRef, unrealized: FinalityCheckpoints):
-      # Callback add to fork choice if valid
-      attestationPool[].addForkChoice(
-        epochRef, blckRef, unrealized, trustedBlock.message, wallTime)
+  let blck = dag.addHeadBlockWithParent(
+    self.verifier, signedBlock, parent.value(), payloadValid
+  ) do(
+    blckRef: BlockRef,
+    trustedBlock: Trusted,
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints
+  ):
+    # Callback add to fork choice if valid
+    attestationPool[].addForkChoice(
+      epochRef, blckRef, unrealized, trustedBlock.message, wallTime
+    )
 
-      vm[].registerBeaconBlock(
-        src, wallTime, trustedBlock.message)
+    vm[].registerBeaconBlock(src, wallTime, trustedBlock.message)
 
-      for attestation in trustedBlock.message.body.attestations:
-        for validator_index in dag.get_attesting_indices(attestation):
-          vm[].registerAttestationInBlock(attestation.data, validator_index,
-            trustedBlock.message.slot)
+    for attestation in trustedBlock.message.body.attestations:
+      for validator_index in dag.get_attesting_indices(attestation):
+        vm[].registerAttestationInBlock(
+          attestation.data, validator_index, trustedBlock.message.slot
+        )
 
-      withState(dag[].clearanceState):
-        when consensusFork >= ConsensusFork.Altair and
-            Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
-          for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
-            vm[].registerSyncAggregateInBlock(
-              trustedBlock.message.slot, trustedBlock.root,
-              forkyState.data.current_sync_committee.pubkeys.data[i])
+    withState(dag[].clearanceState):
+      when consensusFork >= ConsensusFork.Altair and
+          Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
+        for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
+          vm[].registerSyncAggregateInBlock(
+            trustedBlock.message.slot,
+            trustedBlock.root,
+            forkyState.data.current_sync_committee.pubkeys.data[i],
+          )
 
   self[].dumpBlock(signedBlock, blck)
 
@@ -585,7 +613,8 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  let blobs = blobsOpt.valueOr: BlobSidecars @[]
+  let blobs = blobsOpt.valueOr:
+    BlobSidecars @[]
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
@@ -609,11 +638,12 @@ proc storeBlock(
 
   # Grab the new head according to our latest attestation data; determines how
   # async this needs to be.
-  let newHead = attestationPool[].selectOptimisticHead(
-    wallSlot.start_beacon_time)
+  let newHead = attestationPool[].selectOptimisticHead(wallSlot.start_beacon_time)
 
   if newHead.isOk:
-    template elManager(): auto = self.consensusManager.elManager
+    template elManager(): auto =
+      self.consensusManager.elManager
+
     if self.consensusManager[].shouldSyncOptimistically(wallSlot):
       # Optimistic head is far in the future; report it as head block to EL.
 
@@ -633,27 +663,26 @@ proc storeBlock(
       self.consensusManager[].updateHead(newHead.get.blck)
 
       template callForkchoiceUpdated(attributes: untyped) =
-        if  NewPayloadStatus.noResponse != payloadStatus and
+        if NewPayloadStatus.noResponse != payloadStatus and
             not self.consensusManager[].optimisticExecutionPayloadHash.isZero:
           discard await elManager.forkchoiceUpdated(
-            headBlockHash =
-              self.consensusManager[].optimisticExecutionPayloadHash,
+            headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
             safeBlockHash = newHead.get.safeExecutionPayloadHash,
             finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
-            payloadAttributes = none attributes)
+            payloadAttributes = none attributes,
+          )
 
       let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
-        newHead.get.blck.bid.slot.epoch)
+        newHead.get.blck.bid.slot.epoch
+      )
       withConsensusFork(consensusFork):
         when consensusFork >= ConsensusFork.Bellatrix:
           callForkchoiceUpdated(consensusFork.PayloadAttributes)
     else:
       let
-        headExecutionPayloadHash =
-          dag.loadExecutionBlockHash(newHead.get.blck)
+        headExecutionPayloadHash = dag.loadExecutionBlockHash(newHead.get.blck)
         wallSlot = self.getBeaconTime().slotOrZero
-      if  headExecutionPayloadHash.isZero or
-          NewPayloadStatus.noResponse == payloadStatus:
+      if headExecutionPayloadHash.isZero or NewPayloadStatus.noResponse == payloadStatus:
         # Blocks without execution payloads can't be optimistic, and don't try
         # to fcU to a block the EL hasn't seen
         self.consensusManager[].updateHead(newHead.get.blck)
@@ -667,17 +696,18 @@ proc storeBlock(
             headBlockHash = headExecutionPayloadHash,
             safeBlockHash = newHead.get.safeExecutionPayloadHash,
             finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
-            receivedBlock = signedBlock)
+            receivedBlock = signedBlock,
+          )
 
-        template callForkChoiceUpdated: auto =
+        template callForkChoiceUpdated(): auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
-              newHead.get.blck.bid.slot.epoch)
+            newHead.get.blck.bid.slot.epoch
+          )
           of ConsensusFork.Deneb:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
           of ConsensusFork.Capella:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV2)
-          of  ConsensusFork.Phase0, ConsensusFork.Altair,
-              ConsensusFork.Bellatrix:
+          of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV1)
 
         if self.consensusManager.checkNextProposer(wallSlot).isNone:
@@ -687,12 +717,12 @@ proc storeBlock(
           # Some attached validator is next proposer, so prepare payload. As
           # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
           # which needs the state corresponding to that head block, can run.
-          if (await self.consensusManager.runProposalForkchoiceUpdated(
-              wallSlot)).isNone:
+          if (await self.consensusManager.runProposalForkchoiceUpdated(wallSlot)).isNone:
             callForkChoiceUpdated()
       else:
         await self.consensusManager.updateHeadWithExecution(
-          newHead.get, self.getBeaconTime)
+          newHead.get, self.getBeaconTime
+        )
   else:
     warn "Head selection failed, using previous head",
       head = shortLog(dag.head), wallSlot
@@ -713,38 +743,38 @@ proc storeBlock(
   debug "Block processed",
     head = shortLog(dag.head),
     blck = shortLog(blck.get()),
-    validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
+    validationDur,
+    queueDur,
+    newPayloadDur,
+    addHeadBlockDur,
+    updateHeadDur
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
     debug "Block from quarantine",
-      blockRoot = shortLog(signedBlock.root),
-      quarantined = shortLog(quarantined.root)
+      blockRoot = shortLog(signedBlock.root), quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
       when typeof(forkyBlck).kind < ConsensusFork.Deneb:
-        self[].enqueueBlock(
-          MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
+        self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
       else:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-          self[].enqueueBlock(
-            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
+          self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
         else:
           if (let res = checkBloblessSignature(self[], forkyBlck); res.isErr):
             warn "Failed to verify signature of unorphaned blobless block",
-             blck = shortLog(forkyBlck),
-             error = res.error()
+              blck = shortLog(forkyBlck), error = res.error()
             continue
           if self.blobQuarantine[].hasBlobs(forkyBlck):
-            let blobs = self.blobQuarantine[].popBlobs(
-              forkyBlck.root, forkyBlck)
+            let blobs = self.blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
             if not self.consensusManager.quarantine[].addBlobless(
-              dag.finalizedHead.slot, forkyBlck):
+              dag.finalizedHead.slot, forkyBlck
+            ):
               notice "Block quarantine full (blobless)",
-               blockRoot = shortLog(quarantined.root),
-               signature = shortLog(quarantined.signature)
+                blockRoot = shortLog(quarantined.root),
+                signature = shortLog(quarantined.signature)
 
   ok blck.value()
 
@@ -752,9 +782,13 @@ proc storeBlock(
 # ------------------------------------------------------------------------------
 
 proc addBlock*(
-    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars], maybeFinalized = false,
-    validationDur = Duration()): Future[Result[void, VerifierError]] =
+    self: var BlockProcessor,
+    src: MsgSource,
+    blck: ForkedSignedBeaconBlock,
+    blobs: Opt[BlobSidecars],
+    maybeFinalized = false,
+    validationDur = Duration(),
+): Future[Result[void, VerifierError]] =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
   #   There is no backpressure here - producers must wait for `resfut` to
@@ -771,8 +805,7 @@ proc addBlock*(
 # Event Loop
 # ------------------------------------------------------------------------------
 
-proc processBlock(
-    self: ref BlockProcessor, entry: BlockEntry) {.async.} =
+proc processBlock(self: ref BlockProcessor, entry: BlockEntry) {.async.} =
   logScope:
     blockRoot = shortLog(entry.blck.root)
 
@@ -787,7 +820,8 @@ proc processBlock(
   let res = withBlck(entry.blck):
     await self.storeBlock(
       entry.src, wallTime, forkyBlck, entry.blobs, entry.maybeFinalized,
-      entry.queueTick, entry.validationDur)
+      entry.queueTick, entry.validationDur,
+    )
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
     # When an execution engine returns an error or fails to respond to a
@@ -799,14 +833,18 @@ proc processBlock(
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,
-      entry.validationDur)
+      entry.validationDur,
+    )
     # To ensure backpressure on the sync manager, do not complete these futures.
     return
 
   if entry.resfut != nil:
     entry.resfut.complete(
-      if res.isOk(): Result[void, VerifierError].ok()
-      else: Result[void, VerifierError].err(res.error()[0]))
+      if res.isOk():
+        Result[void, VerifierError].ok()
+      else:
+        Result[void, VerifierError].err(res.error()[0])
+    )
 
 proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   while true:

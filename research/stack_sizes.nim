@@ -5,7 +5,7 @@ import typetraits, strformat, strutils
 proc print(t: auto, n: string, indent: int) =
   echo fmt"{sizeof(t):>8}  {spaces(indent)}{n}: {typeof(t).name}"
 
-  when t is object|tuple:
+  when t is object | tuple:
     for n, p in t.fieldPairs:
       print(p, n, indent + 1)
 

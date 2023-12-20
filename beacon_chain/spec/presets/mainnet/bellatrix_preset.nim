@@ -17,7 +17,6 @@ const
   # 3
   PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64 = 3
 
-
   # Execution
   # ---------------------------------------------------------------
   # 2**30 (= 1,073,741,824)

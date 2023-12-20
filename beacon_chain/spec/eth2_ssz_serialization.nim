@@ -31,38 +31,58 @@ proc readAndUpdateRoot(
 # and avoid ambiguities - `var` + typeclasses are problematic
 
 template readSszBytes*(
-    data: openArray[byte], val: var phase0.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var phase0.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var altair.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var altair.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var bellatrix.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var bellatrix.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var capella.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var capella.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var deneb.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var deneb.TrustedSignedBeaconBlock, updateRoot = true) =
+    data: openArray[byte], val: var phase0.SignedBeaconBlock, updateRoot = true
+) =
   readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(
-    data: openArray[byte], val: var auto, updateRoot: bool) =
+    data: openArray[byte], val: var phase0.TrustedSignedBeaconBlock, updateRoot = true
+) =
+  readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte], val: var altair.SignedBeaconBlock, updateRoot = true
+) =
+  readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte], val: var altair.TrustedSignedBeaconBlock, updateRoot = true
+) =
+  readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte], val: var bellatrix.SignedBeaconBlock, updateRoot = true
+) =
+  readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte],
+    val: var bellatrix.TrustedSignedBeaconBlock,
+    updateRoot = true,
+) =
+  readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte], val: var capella.SignedBeaconBlock, updateRoot = true
+) =
+  readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte], val: var capella.TrustedSignedBeaconBlock, updateRoot = true
+) =
+  readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte], val: var deneb.SignedBeaconBlock, updateRoot = true
+) =
+  readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte], val: var deneb.TrustedSignedBeaconBlock, updateRoot = true
+) =
+  readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(data: openArray[byte], val: var auto, updateRoot: bool) =
   readSszValue(data, val)
 
 func readSszBytes(

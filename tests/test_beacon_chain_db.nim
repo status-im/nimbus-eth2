@@ -15,7 +15,10 @@ import
   eth/db/kvstore,
   # test utilies
   ./mocking/mock_genesis,
-  ./testutil, ./testdbutil, ./testblockutil, ./teststateutil
+  ./testutil,
+  ./testdbutil,
+  ./testblockutil,
+  ./teststateutil
 
 from std/algorithm import sort
 from std/sequtils import toSeq
@@ -24,32 +27,35 @@ from snappy import encodeFramed, uncompressedLenFramed
 when isMainModule:
   import chronicles # or some random compile error happens...
 
-proc getPhase0StateRef(db: BeaconChainDB, root: Eth2Digest):
-    phase0.NilableBeaconStateRef =
+proc getPhase0StateRef(
+    db: BeaconChainDB, root: Eth2Digest
+): phase0.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (phase0.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
     return res
 
-proc getAltairStateRef(db: BeaconChainDB, root: Eth2Digest):
-    altair.NilableBeaconStateRef =
+proc getAltairStateRef(
+    db: BeaconChainDB, root: Eth2Digest
+): altair.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (altair.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
     return res
 
-proc getBellatrixStateRef(db: BeaconChainDB, root: Eth2Digest):
-    bellatrix.NilableBeaconStateRef =
+proc getBellatrixStateRef(
+    db: BeaconChainDB, root: Eth2Digest
+): bellatrix.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (bellatrix.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
     return res
 
-from ../beacon_chain/spec/datatypes/capella import
-  BeaconStateRef, NilableBeaconStateRef
+from ../beacon_chain/spec/datatypes/capella import BeaconStateRef, NilableBeaconStateRef
 
-proc getCapellaStateRef(db: BeaconChainDB, root: Eth2Digest):
-    capella.NilableBeaconStateRef =
+proc getCapellaStateRef(
+    db: BeaconChainDB, root: Eth2Digest
+): capella.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (capella.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
@@ -57,47 +63,30 @@ proc getCapellaStateRef(db: BeaconChainDB, root: Eth2Digest):
 
 from ../beacon_chain/spec/datatypes/deneb import TrustedSignedBeaconBlock
 
-proc getDenebStateRef(db: BeaconChainDB, root: Eth2Digest):
-    deneb.NilableBeaconStateRef =
+proc getDenebStateRef(
+    db: BeaconChainDB, root: Eth2Digest
+): deneb.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (deneb.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
     return res
 
-func withDigest(blck: phase0.TrustedBeaconBlock):
-    phase0.TrustedSignedBeaconBlock =
-  phase0.TrustedSignedBeaconBlock(
-    message: blck,
-    root: hash_tree_root(blck)
-  )
+func withDigest(blck: phase0.TrustedBeaconBlock): phase0.TrustedSignedBeaconBlock =
+  phase0.TrustedSignedBeaconBlock(message: blck, root: hash_tree_root(blck))
 
-func withDigest(blck: altair.TrustedBeaconBlock):
-    altair.TrustedSignedBeaconBlock =
-  altair.TrustedSignedBeaconBlock(
-    message: blck,
-    root: hash_tree_root(blck)
-  )
+func withDigest(blck: altair.TrustedBeaconBlock): altair.TrustedSignedBeaconBlock =
+  altair.TrustedSignedBeaconBlock(message: blck, root: hash_tree_root(blck))
 
-func withDigest(blck: bellatrix.TrustedBeaconBlock):
-    bellatrix.TrustedSignedBeaconBlock =
-  bellatrix.TrustedSignedBeaconBlock(
-    message: blck,
-    root: hash_tree_root(blck)
-  )
+func withDigest(
+    blck: bellatrix.TrustedBeaconBlock
+): bellatrix.TrustedSignedBeaconBlock =
+  bellatrix.TrustedSignedBeaconBlock(message: blck, root: hash_tree_root(blck))
 
-func withDigest(blck: capella.TrustedBeaconBlock):
-    capella.TrustedSignedBeaconBlock =
-  capella.TrustedSignedBeaconBlock(
-    message: blck,
-    root: hash_tree_root(blck)
-  )
+func withDigest(blck: capella.TrustedBeaconBlock): capella.TrustedSignedBeaconBlock =
+  capella.TrustedSignedBeaconBlock(message: blck, root: hash_tree_root(blck))
 
-func withDigest(blck: deneb.TrustedBeaconBlock):
-    deneb.TrustedSignedBeaconBlock =
-  deneb.TrustedSignedBeaconBlock(
-    message: blck,
-    root: hash_tree_root(blck)
-  )
+func withDigest(blck: deneb.TrustedBeaconBlock): deneb.TrustedSignedBeaconBlock =
+  deneb.TrustedSignedBeaconBlock(message: blck, root: hash_tree_root(blck))
 
 proc getTestStates(consensusFork: ConsensusFork): auto =
   let
@@ -107,18 +96,18 @@ proc getTestStates(consensusFork: ConsensusFork): auto =
   var testStates = getTestStates(dag.headState, consensusFork)
 
   # Ensure transitions beyond just adding validators and increasing slots
-  sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
+  sort(testStates) do(x, y: ref ForkedHashedBeaconState) -> int:
     cmp($getStateRoot(x[]), $getStateRoot(y[]))
 
   testStates
 
 # Each set of states gets used twice, so scope them to module
 let
-  testStatesPhase0    = getTestStates(ConsensusFork.Phase0)
-  testStatesAltair    = getTestStates(ConsensusFork.Altair)
+  testStatesPhase0 = getTestStates(ConsensusFork.Phase0)
+  testStatesAltair = getTestStates(ConsensusFork.Altair)
   testStatesBellatrix = getTestStates(ConsensusFork.Bellatrix)
-  testStatesCapella   = getTestStates(ConsensusFork.Capella)
-  testStatesDeneb     = getTestStates(ConsensusFork.Deneb)
+  testStatesCapella = getTestStates(ConsensusFork.Capella)
+  testStatesDeneb = getTestStates(ConsensusFork.Deneb)
 doAssert len(testStatesPhase0) > 8
 doAssert len(testStatesAltair) > 8
 doAssert len(testStatesBellatrix) > 8
@@ -127,8 +116,7 @@ doAssert len(testStatesDeneb) > 8
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
-    var
-      db = BeaconChainDB.new("", inMemory = true)
+    var db = BeaconChainDB.new("", inMemory = true)
     check:
       db.getPhase0StateRef(ZERO_HASH).isNil
       db.getBlock(ZERO_HASH, phase0.TrustedSignedBeaconBlock).isNone
@@ -565,8 +553,8 @@ suite "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: ConsensusFork.Phase0,
-        phase0Data: phase0.HashedBeaconState(data: phase0.BeaconState(
-          slot: 10.Slot)))
+        phase0Data: phase0.HashedBeaconState(data: phase0.BeaconState(slot: 10.Slot)),
+      )
       root = Eth2Digest()
 
     db.putCorruptState(ConsensusFork.Phase0, root)
@@ -588,8 +576,8 @@ suite "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: ConsensusFork.Altair,
-        altairData: altair.HashedBeaconState(data: altair.BeaconState(
-          slot: 10.Slot)))
+        altairData: altair.HashedBeaconState(data: altair.BeaconState(slot: 10.Slot)),
+      )
       root = Eth2Digest()
 
     db.putCorruptState(ConsensusFork.Altair, root)
@@ -614,8 +602,9 @@ suite "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: ConsensusFork.Bellatrix,
-        bellatrixData: bellatrix.HashedBeaconState(data: bellatrix.BeaconState(
-          slot: 10.Slot)))
+        bellatrixData:
+          bellatrix.HashedBeaconState(data: bellatrix.BeaconState(slot: 10.Slot)),
+      )
       root = Eth2Digest()
 
     db.putCorruptState(ConsensusFork.Bellatrix, root)
@@ -640,8 +629,8 @@ suite "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: ConsensusFork.Capella,
-        capellaData: capella.HashedBeaconState(data: capella.BeaconState(
-          slot: 10.Slot)))
+        capellaData: capella.HashedBeaconState(data: capella.BeaconState(slot: 10.Slot)),
+      )
       root = Eth2Digest()
 
     db.putCorruptState(ConsensusFork.Capella, root)
@@ -666,8 +655,8 @@ suite "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: ConsensusFork.Deneb,
-        denebData: deneb.HashedBeaconState(data: deneb.BeaconState(
-          slot: 10.Slot)))
+        denebData: deneb.HashedBeaconState(data: deneb.BeaconState(slot: 10.Slot)),
+      )
       root = Eth2Digest()
 
     db.putCorruptState(ConsensusFork.Deneb, root)
@@ -686,16 +675,16 @@ suite "Beacon chain DB" & preset():
       state[].phase0Data.data.slot != 10.Slot
 
   test "find ancestors" & preset():
-    var
-      db = BeaconChainDB.new("", inMemory = true)
+    var db = BeaconChainDB.new("", inMemory = true)
 
     let
-      a0 = withDigest(
-        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 0))
+      a0 = withDigest((phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 0))
       a1 = withDigest(
-        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 1, parent_root: a0.root))
+        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 1, parent_root: a0.root)
+      )
       a2 = withDigest(
-        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 2, parent_root: a1.root))
+        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 2, parent_root: a1.root)
+      )
 
     doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
     doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 0
@@ -722,13 +711,17 @@ suite "Beacon chain DB" & preset():
     # state. We've been bit by this because we've had a bug in the BLS
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
-    var
-      db = BeaconChainDB.new("", inMemory = true)
+    var db = BeaconChainDB.new("", inMemory = true)
 
-    let
-      state = newClone(initialize_hashed_beacon_state_from_eth1(
-        defaultRuntimeConfig, mockEth1BlockHash, 0,
-        makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation}))
+    let state = newClone(
+      initialize_hashed_beacon_state_from_eth1(
+        defaultRuntimeConfig,
+        mockEth1BlockHash,
+        0,
+        makeInitialDeposits(SLOTS_PER_EPOCH),
+        {skipBlsValidation},
+      )
+    )
 
     db.putState(state[].root, state[].data)
 
@@ -742,8 +735,7 @@ suite "Beacon chain DB" & preset():
       hash_tree_root(state2[]) == state[].root
 
   test "sanity check state diff roundtrip" & preset():
-    var
-      db = BeaconChainDB.new("", inMemory = true)
+    var db = BeaconChainDB.new("", inMemory = true)
 
     # TODO htr(diff) probably not interesting/useful, but stand-in
     let
@@ -762,10 +754,8 @@ suite "Beacon chain DB" & preset():
 
   test "sanity check blobs" & preset():
     const
-      blockHeader0 = SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(slot: Slot(0)))
-      blockHeader1 = SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(slot: Slot(1)))
+      blockHeader0 = SignedBeaconBlockHeader(message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(message: BeaconBlockHeader(slot: Slot(1)))
 
     let
       blockRoot0 = hash_tree_root(blockHeader0.message)
@@ -862,9 +852,9 @@ suite "Beacon chain DB" & preset():
 
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():
-    var
-      db = SqStoreRef.init("", "test", inMemory = true).expect(
-        "working database (out of memory?)")
+    var db = SqStoreRef.init("", "test", inMemory = true).expect(
+        "working database (out of memory?)"
+      )
 
     var s = FinalizedBlocks.init(db, "finalized_blocks").get()
 
@@ -884,7 +874,9 @@ suite "FinalizedBlocks" & preset():
 
     var items = 0
     for k, v in s:
-      check: k in [Slot 0, Slot 5]
+      check:
+        k in [Slot 0, Slot 5]
       items += 1
 
-    check: items == 2
+    check:
+      items == 2

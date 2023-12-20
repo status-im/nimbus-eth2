@@ -8,29 +8,28 @@
 {.push raises: [].}
 
 import chronicles
-import ../beacon_node,
-       ./rest_utils
+import ../beacon_node, ./rest_utils
 
-logScope: topics = "rest_light_client"
+logScope:
+  topics = "rest_light_client"
 
 proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientBootstrap
-  router.api(MethodGet,
-             "/eth/v1/beacon/light_client/bootstrap/{block_root}") do (
-    block_root: Eth2Digest) -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/beacon/light_client/bootstrap/{block_root}") do(
+    block_root: Eth2Digest
+  ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
+    let contentType = block:
+      let res = preferredContentType(jsonMediaType, sszMediaType)
+      if res.isErr():
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      res.get()
 
     let vroot = block:
       if block_root.isErr():
-        return RestApiResponse.jsonError(Http400, InvalidBlockRootValueError,
-                                         $block_root.error())
+        return RestApiResponse.jsonError(
+          Http400, InvalidBlockRootValueError, $block_root.error()
+        )
       block_root.get()
 
     let bootstrap = node.dag.getLightClientBootstrap(vroot)
@@ -51,34 +50,30 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http404, LCBootstrapUnavailable)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientUpdatesByRange
-  router.api(MethodGet,
-             "/eth/v1/beacon/light_client/updates") do (
+  router.api(MethodGet, "/eth/v1/beacon/light_client/updates") do(
     start_period: Option[SyncCommitteePeriod], count: Option[uint64]
-    ) -> RestApiResponse:
+  ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
+    let contentType = block:
+      let res = preferredContentType(jsonMediaType, sszMediaType)
+      if res.isErr():
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      res.get()
 
     let vstart = block:
       if start_period.isNone():
         return RestApiResponse.jsonError(Http400, MissingStartPeriodValueError)
       let rstart = start_period.get()
       if rstart.isErr():
-        return RestApiResponse.jsonError(Http400, InvalidSyncPeriodError,
-                                         $rstart.error())
+        return
+          RestApiResponse.jsonError(Http400, InvalidSyncPeriodError, $rstart.error())
       rstart.get()
     let vcount = block:
       if count.isNone():
         return RestApiResponse.jsonError(Http400, MissingCountValueError)
       let rcount = count.get()
       if rcount.isErr():
-        return RestApiResponse.jsonError(Http400, InvalidCountError,
-                                         $rcount.error())
+        return RestApiResponse.jsonError(Http400, InvalidCountError, $rcount.error())
       rcount.get()
     let
       headPeriod = node.dag.head.slot.sync_committee_period
@@ -91,9 +86,8 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       numPeriods = min(vcount, maxSupportedCount)
       onePastPeriod = vstart + numPeriods
 
-    var updates =
-      newSeqOfCap[RestVersioned[ForkedLightClientUpdate]](numPeriods)
-    for period in vstart..<onePastPeriod:
+    var updates = newSeqOfCap[RestVersioned[ForkedLightClientUpdate]](numPeriods)
+    for period in vstart ..< onePastPeriod:
       let
         update = node.dag.getLightClientUpdateForPeriod(period)
         contextEpoch = withForkyUpdate(update):
@@ -105,7 +99,8 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       updates.add RestVersioned[ForkedLightClientUpdate](
         data: update,
         jsonVersion: contextFork,
-        sszContext: node.dag.forkDigests[].atConsensusFork(contextFork))
+        sszContext: node.dag.forkDigests[].atConsensusFork(contextFork),
+      )
 
     return
       if contentType == sszMediaType:
@@ -116,17 +111,13 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientFinalityUpdate
-  router.api(MethodGet,
-             "/eth/v1/beacon/light_client/finality_update") do (
-    ) -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/beacon/light_client/finality_update") do() -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
+    let contentType = block:
+      let res = preferredContentType(jsonMediaType, sszMediaType)
+      if res.isErr():
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      res.get()
 
     let finality_update = node.dag.getLightClientFinalityUpdate()
     withForkyFinalityUpdate(finality_update):
@@ -139,25 +130,20 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let headers = [("eth-consensus-version", contextFork.toString())]
             RestApiResponse.sszResponse(forkyFinalityUpdate, headers)
           elif contentType == jsonMediaType:
-            RestApiResponse.jsonResponseWVersion(
-              forkyFinalityUpdate, contextFork)
+            RestApiResponse.jsonResponseWVersion(forkyFinalityUpdate, contextFork)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:
         return RestApiResponse.jsonError(Http404, LCFinUpdateUnavailable)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientOptimisticUpdate
-  router.api(MethodGet,
-             "/eth/v1/beacon/light_client/optimistic_update") do (
-    ) -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/beacon/light_client/optimistic_update") do() -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
+    let contentType = block:
+      let res = preferredContentType(jsonMediaType, sszMediaType)
+      if res.isErr():
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      res.get()
 
     let optimistic_update = node.dag.getLightClientOptimisticUpdate()
     withForkyOptimisticUpdate(optimistic_update):
@@ -170,8 +156,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let headers = [("eth-consensus-version", contextFork.toString())]
             RestApiResponse.sszResponse(forkyOptimisticUpdate, headers)
           elif contentType == jsonMediaType:
-            RestApiResponse.jsonResponseWVersion(
-              forkyOptimisticUpdate, contextFork)
+            RestApiResponse.jsonResponseWVersion(forkyOptimisticUpdate, contextFork)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:

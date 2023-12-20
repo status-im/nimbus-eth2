@@ -7,27 +7,35 @@
 
 {.push raises: [].}
 
-import
-  std/[typetraits],
-  ssz_serialization/codec,
-  ./datatypes/base
+import std/[typetraits], ssz_serialization/codec, ./datatypes/base
 
-from ./datatypes/altair import
-  ParticipationFlags, EpochParticipationFlags
+from ./datatypes/altair import ParticipationFlags, EpochParticipationFlags
 
 export codec, base, typetraits, EpochParticipationFlags
 
 # Coding and decoding of SSZ to spec-specific types
 
-template toSszType*(v: Slot|Epoch|SyncCommitteePeriod): auto = uint64(v)
-template toSszType*(v: BlsCurveType): auto = toRaw(v)
-template toSszType*(v: ForkDigest|GraffitiBytes): auto = distinctBase(v)
-template toSszType*(v: Version): auto = distinctBase(v)
-template toSszType*(v: JustificationBits): auto = distinctBase(v)
-template toSszType*(v: EpochParticipationFlags): auto = asList v
+template toSszType*(v: Slot | Epoch | SyncCommitteePeriod): auto =
+  uint64(v)
+
+template toSszType*(v: BlsCurveType): auto =
+  toRaw(v)
+
+template toSszType*(v: ForkDigest | GraffitiBytes): auto =
+  distinctBase(v)
+
+template toSszType*(v: Version): auto =
+  distinctBase(v)
+
+template toSszType*(v: JustificationBits): auto =
+  distinctBase(v)
+
+template toSszType*(v: EpochParticipationFlags): auto =
+  asList v
 
 func fromSszBytes*(
-    T: type GraffitiBytes, data: openArray[byte]): T {.raises: [SszError].} =
+    T: type GraffitiBytes, data: openArray[byte]
+): T {.raises: [SszError].} =
   if data.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr data[0], sizeof(result))
@@ -42,13 +50,13 @@ template fromSszBytes*(T: type SyncCommitteePeriod, bytes: openArray[byte]): T =
   T fromSszBytes(uint64, bytes)
 
 func fromSszBytes*(
-    T: type ForkDigest, bytes: openArray[byte]): T {.raises: [SszError].} =
+    T: type ForkDigest, bytes: openArray[byte]
+): T {.raises: [SszError].} =
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
-func fromSszBytes*(
-    T: type Version, bytes: openArray[byte]): T {.raises: [SszError].} =
+func fromSszBytes*(T: type Version, bytes: openArray[byte]): T {.raises: [SszError].} =
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
@@ -64,5 +72,6 @@ func fromSszBytes*(
     T: type EpochParticipationFlags, bytes: openArray[byte]
 ): T {.raises: [SszError].} =
   # TODO https://github.com/nim-lang/Nim/issues/21123
-  let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr result)
+  let tmp =
+    cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr result)
   readSszValue(bytes, tmp[])

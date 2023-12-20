@@ -14,8 +14,14 @@ import
   std/[tables, strutils, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils, presto, toml_serialization, metrics,
-  chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
+  chronos,
+  confutils,
+  presto,
+  toml_serialization,
+  metrics,
+  chronicles,
+  chronicles/helpers as chroniclesHelpers,
+  chronicles/topics_registry,
   stew/io2,
 
   # Local modules
@@ -26,19 +32,19 @@ import
 when defined(posix):
   import termios
 
-declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
-versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
+declareGauge versionGauge,
+  "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
+versionGauge.set(1, labelValues = [fullVersionStr, gitRevision])
 
-declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
-nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
+declareGauge nimVersionGauge,
+  "Nim version info", ["version", "nim_commit"], name = "nim_version"
+nimVersionGauge.set(1, labelValues = [NimVersion, getNimGitHash()])
 
-export
-  confutils, toml_serialization, beacon_clock, beacon_node_status, conf
+export confutils, toml_serialization, beacon_clock, beacon_node_status, conf
 
-type
-  SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: Slot): Future[bool] {.gcsafe,
-  raises: [].}
+type SlotStartProc*[T] = proc(
+  node: T, wallTime: BeaconTime, lastSlot: Slot
+): Future[bool] {.gcsafe, raises: [].}
 
 # silly chronicles, colors is a compile-time property
 when defaultChroniclesStream.outputs.type.arity == 2:
@@ -60,7 +66,7 @@ when defaultChroniclesStream.outputs.type.arity == 2:
             if c2 != '[':
               break
           else:
-            if c2 in {'0'..'9'} + {';'}:
+            if c2 in {'0' .. '9'} + {';'}:
               discard # keep looking
             elif c2 == 'm':
               i = x + 1
@@ -83,10 +89,12 @@ proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   try:
     setLogLevel(parseEnum[LogLevel](directives[0].capitalizeAscii()))
   except ValueError:
-    raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
+    raise (ref ValueError)(
+      msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL"
+    )
 
   if directives.len > 1:
-    for topicName, settings in parseTopicDirectives(directives[1..^1]):
+    for topicName, settings in parseTopicDirectives(directives[1 ..^ 1]):
       if not setTopicState(topicName, settings.state, settings.logLevel):
         warn "Unrecognized logging topic", topic = topicName
 
@@ -111,15 +119,15 @@ proc setupFileLimits*() =
   when not defined(windows):
     # In addition to databases and sockets, we need a file descriptor for every
     # validator - setting it to 16k should provide sufficient margin
-    let
-      limit = getMaxOpenFiles2().valueOr(16384)
+    let limit = getMaxOpenFiles2().valueOr(16384)
 
     if limit < 16384:
       setMaxOpenFiles2(16384).isOkOr:
         warn "Cannot increase open file limit", err = osErrorMsg(error)
 
 proc setupLogging*(
-    logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
+    logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]
+) =
   # In the cfg file for nimbus, we create two formats: textlines and json.
   # Here, we either write those logs to an output, or not, depending on the
   # given configuration.
@@ -131,7 +139,9 @@ proc setupLogging*(
     # Naive approach where chronicles will form a string and we will discard
     # it, even if it could have skipped the formatting phase
 
-    proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
+    proc noOutput(logLevel: LogLevel, msg: LogOutputStr) =
+      discard
+
     proc writeAndFlush(f: File, msg: LogOutputStr) =
       try:
         f.write(msg)
@@ -163,17 +173,18 @@ proc setupLogging*(
             noOutput
         else:
           error "Failed to create directory for log file",
-                path = logFileDir, err = ioErrorMsg(lres.error)
+            path = logFileDir, err = ioErrorMsg(lres.error)
           noOutput
-    else:
-      noOutput
+      else:
+        noOutput
 
     defaultChroniclesStream.outputs[1].writer = fileWriter
 
     let tmp = detectTTY(stdoutKind)
 
     case tmp
-    of StdoutLogKind.Auto: raiseAssert "checked above"
+    of StdoutLogKind.Auto:
+      raiseAssert "checked above"
     of StdoutLogKind.Colors:
       defaultChroniclesStream.outputs[0].writer = stdoutFlush
     of StdoutLogKind.NoColors:
@@ -182,12 +193,13 @@ proc setupLogging*(
       defaultChroniclesStream.outputs[0].writer = noOutput
 
       let prevWriter = defaultChroniclesStream.outputs[1].writer
-      defaultChroniclesStream.outputs[1].writer =
-        proc(logLevel: LogLevel, msg: LogOutputStr) =
-          stdoutFlush(logLevel, msg)
-          prevWriter(logLevel, msg)
+      defaultChroniclesStream.outputs[1].writer = proc(
+          logLevel: LogLevel, msg: LogOutputStr
+      ) =
+        stdoutFlush(logLevel, msg)
+        prevWriter(logLevel, msg)
     of StdoutLogKind.None:
-     defaultChroniclesStream.outputs[0].writer = noOutput
+      defaultChroniclesStream.outputs[0].writer = noOutput
 
     if logFile.isSome():
       warn "The --log-file option is deprecated. Consider redirecting the standard output to a file instead"
@@ -201,54 +213,51 @@ proc setupLogging*(
     quit 1
 
 template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
-  let
-    version = clientId & "\p" & copyrights & "\p\p" &
-      "eth2 specification v" & SPEC_VERSION & "\p\p" &
-      nimBanner
+  let version =
+    clientId & "\p" & copyrights & "\p\p" & "eth2 specification v" & SPEC_VERSION &
+    "\p\p" & nimBanner
 
   # TODO for some reason, copyrights are printed when doing `--help`
   {.push warning[ProveInit]: off.}
-  let config = try:
-    ConfType.load(
-      version = version, # but a short version string makes more sense...
-      copyrightBanner = clientId,
-      secondarySources = proc (
-          config: ConfType, sources: ref SecondarySources
-      ) {.raises: [ConfigurationError].} =
-        if config.configFile.isSome:
-          sources.addConfigFile(Toml, config.configFile.get)
-    )
-  except CatchableError as err:
-    # We need to log to stderr here, because logging hasn't been configured yet
+  let config =
     try:
-      stderr.write "Failure while loading the configuration:\n"
-      stderr.write err.msg
-      stderr.write "\n"
+      ConfType.load(
+        version = version, # but a short version string makes more sense...
+        copyrightBanner = clientId,
+        secondarySources = proc(
+            config: ConfType, sources: ref SecondarySources
+        ) {.raises: [ConfigurationError].} =
+          if config.configFile.isSome:
+            sources.addConfigFile(Toml, config.configFile.get)
+        ,
+      )
+    except CatchableError as err:
+      # We need to log to stderr here, because logging hasn't been configured yet
+      try:
+        stderr.write "Failure while loading the configuration:\n"
+        stderr.write err.msg
+        stderr.write "\n"
 
-      if err[] of ConfigurationError and
-        err.parent != nil and
-        err.parent[] of TomlFieldReadingError:
-        let fieldName = ((ref TomlFieldReadingError)(err.parent)).field
-        if fieldName in ["web3-url", "bootstrap-node",
-                        "direct-peer", "validator-monitor-pubkey"]:
-          stderr.write "Since the '" & fieldName & "' option is allowed to " &
-                       "have more than one value, please make sure to supply " &
-                       "a properly formatted TOML array\n"
-    except IOError:
-      discard
-    quit 1
+        if err[] of ConfigurationError and err.parent != nil and
+            err.parent[] of TomlFieldReadingError:
+          let fieldName = ((ref TomlFieldReadingError)(err.parent)).field
+          if fieldName in
+              ["web3-url", "bootstrap-node", "direct-peer", "validator-monitor-pubkey"]:
+            stderr.write "Since the '" & fieldName & "' option is allowed to " &
+              "have more than one value, please make sure to supply " &
+              "a properly formatted TOML array\n"
+      except IOError:
+        discard
+      quit 1
   {.pop.}
   config
 
-proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
-                               stopAtEpoch: uint64): bool =
+proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64): bool =
   # Offset backwards slightly to allow this epoch's finalization check to occur
   if scheduledSlot > 3 and stopAtEpoch > 0'u64 and
       (scheduledSlot - 3).epoch() >= stopAtEpoch:
     info "Stopping at pre-chosen epoch",
-      chosenEpoch = stopAtEpoch,
-      epoch = scheduledSlot.epoch(),
-      slot = scheduledSlot
+      chosenEpoch = stopAtEpoch, epoch = scheduledSlot.epoch(), slot = scheduledSlot
     true
   else:
     false
@@ -271,15 +280,16 @@ proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
       except CatchableError:
         cache.clear()
         true
-    if exitLoop: break
+    if exitLoop:
+      break
     cache.pruneExpiredKeys()
 
 proc sleepAsync*(t: TimeDiff): Future[void] =
-  sleepAsync(nanoseconds(
-    if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
+  sleepAsync(nanoseconds(if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
 
-proc runSlotLoop*[T](node: T, startTime: BeaconTime,
-                     slotProc: SlotStartProc[T]) {.async.} =
+proc runSlotLoop*[T](
+    node: T, startTime: BeaconTime, slotProc: SlotStartProc[T]
+) {.async.} =
   var
     curSlot = startTime.slotOrZero()
     nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
@@ -309,8 +319,7 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
         # to do next - we'll call the attention of the user here by shutting
         # down.
         fatal "System time adjusted backwards significantly - clock may be inaccurate - shutting down",
-          nextSlot = shortLog(nextSlot),
-          wallSlot = shortLog(wallSlot)
+          nextSlot = shortLog(nextSlot), wallSlot = shortLog(wallSlot)
         bnStatus = BeaconNodeStatus.Stopping
         return
 
@@ -336,12 +345,11 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
         wallSlot = shortLog(wallSlot)
 
       curSlot = wallSlot - SLOTS_PER_EPOCH
-
     elif wallSlot > nextSlot:
-        notice "Missed expected slot start, catching up",
-          delay = shortLog(wallTime - nextSlot.start_beacon_time()),
-          curSlot = shortLog(curSlot),
-          nextSlot = shortLog(curSlot)
+      notice "Missed expected slot start, catching up",
+        delay = shortLog(wallTime - nextSlot.start_beacon_time()),
+        curSlot = shortLog(curSlot),
+        nextSlot = shortLog(curSlot)
 
     let breakLoop = await slotProc(node, wallTime, curSlot)
     if breakLoop:
@@ -351,16 +359,18 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
     nextSlot = wallSlot + 1
     timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
 
-proc init*(T: type RestServerRef,
-           ip: IpAddress,
-           port: Port,
-           allowedOrigin: Option[string],
-           validateFn: PatternCallback,
-           config: AnyConf): T =
+proc init*(
+    T: type RestServerRef,
+    ip: IpAddress,
+    port: Port,
+    allowedOrigin: Option[string],
+    validateFn: PatternCallback,
+    config: AnyConf,
+): T =
   let
     address = initTAddress(ip, port)
-    serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
-                   HttpServerFlags.NotifyDisconnect}
+    serverFlags =
+      {HttpServerFlags.QueryCommaSeparatedArray, HttpServerFlags.NotifyDisconnect}
   # We increase default timeout to help validator clients who poll our server
   # at least once per slot (12.seconds).
   let
@@ -372,69 +382,69 @@ proc init*(T: type RestServerRef,
     maxHeadersSize = config.restMaxRequestHeadersSize * 1024
     maxRequestBodySize = config.restMaxRequestBodySize * 1024
 
-  let res = RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
-                              address, serverFlags = serverFlags,
-                              httpHeadersTimeout = headersTimeout,
-                              maxHeadersSize = maxHeadersSize,
-                              maxRequestBodySize = maxRequestBodySize,
-                              errorType = string)
+  let res = RestServerRef.new(
+    RestRouter.init(validateFn, allowedOrigin),
+    address,
+    serverFlags = serverFlags,
+    httpHeadersTimeout = headersTimeout,
+    maxHeadersSize = maxHeadersSize,
+    maxRequestBodySize = maxRequestBodySize,
+    errorType = string,
+  )
   if res.isErr():
-    notice "REST HTTP server could not be started", address = $address,
-           reason = res.error()
+    notice "REST HTTP server could not be started",
+      address = $address, reason = res.error()
     nil
   else:
     let server = res.get()
     notice "Starting REST HTTP server", url = "http://" & $server.localAddress()
     server
 
-type
-  KeymanagerInitResult* = object
-    server*: RestServerRef
-    token*: string
+type KeymanagerInitResult* = object
+  server*: RestServerRef
+  token*: string
 
 proc initKeymanagerServer*(
-    config: AnyConf,
-    existingRestServer: RestServerRef = nil): KeymanagerInitResult
-    {.raises: [].} =
-
+    config: AnyConf, existingRestServer: RestServerRef = nil
+): KeymanagerInitResult {.raises: [].} =
   var token: string
-  let keymanagerServer = if config.keymanagerEnabled:
-    if config.keymanagerTokenFile.isNone:
-      echo "To enable the Keymanager API, you must also specify " &
-           "the --keymanager-token-file option."
-      quit 1
+  let keymanagerServer =
+    if config.keymanagerEnabled:
+      if config.keymanagerTokenFile.isNone:
+        echo "To enable the Keymanager API, you must also specify " &
+          "the --keymanager-token-file option."
+        quit 1
 
-    let
-      tokenFilePath = config.keymanagerTokenFile.get.string
-      tokenFileReadRes = readAllChars(tokenFilePath)
+      let
+        tokenFilePath = config.keymanagerTokenFile.get.string
+        tokenFileReadRes = readAllChars(tokenFilePath)
 
-    if tokenFileReadRes.isErr:
-      fatal "Failed to read the keymanager token file",
-            error = $tokenFileReadRes.error
-      quit 1
+      if tokenFileReadRes.isErr:
+        fatal "Failed to read the keymanager token file",
+          error = $tokenFileReadRes.error
+        quit 1
 
-    token = tokenFileReadRes.value.strip
-    if token.len == 0:
-      fatal "The keymanager token should not be empty", tokenFilePath
-      quit 1
+      token = tokenFileReadRes.value.strip
+      if token.len == 0:
+        fatal "The keymanager token should not be empty", tokenFilePath
+        quit 1
 
-    when config is BeaconNodeConf:
-      if existingRestServer != nil and
-         config.restAddress == config.keymanagerAddress and
-        config.restPort == config.keymanagerPort:
-        existingRestServer
+      when config is BeaconNodeConf:
+        if existingRestServer != nil and config.restAddress == config.keymanagerAddress and
+            config.restPort == config.keymanagerPort:
+          existingRestServer
+        else:
+          RestServerRef.init(
+            config.keymanagerAddress, config.keymanagerPort,
+            config.keymanagerAllowedOrigin, validateKeymanagerApiQueries, config,
+          )
       else:
-        RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                           config.keymanagerAllowedOrigin,
-                           validateKeymanagerApiQueries,
-                           config)
+        RestServerRef.init(
+          config.keymanagerAddress, config.keymanagerPort,
+          config.keymanagerAllowedOrigin, validateKeymanagerApiQueries, config,
+        )
     else:
-      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                         config.keymanagerAllowedOrigin,
-                         validateKeymanagerApiQueries,
-                         config)
-  else:
-    nil
+      nil
 
   KeymanagerInitResult(server: keymanagerServer, token: token)
 

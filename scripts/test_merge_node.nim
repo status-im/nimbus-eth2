@@ -8,11 +8,7 @@
 # https://notes.ethereum.org/@9AeMAlpyQYaAAyuj47BzRw/rkwW3ceVY
 # Monitor traffic: socat -v TCP-LISTEN:9550,fork TCP-CONNECT:127.0.0.1:8550
 
-import
-  std/options,
-  stew/results,
-  chronos,
-  ../beacon_chain/el/el_manager
+import std/options, stew/results, chronos, ../beacon_chain/el/el_manager
 
 {.push raises: [].}
 
@@ -52,11 +48,16 @@ proc run() {.async.} =
   if paramCount() < 2:
     echo "args are: web3url jwtsecretfilename"
 
-  let
-    elManager = newClone ELManager.init(
-      defaultRuntimeConfig, db = nil, nil, @[paramStr(1)],
-      none(DepositTreeSnapshot), none(Eth1Network), false,
-      some readJwtSecret(paramStr(2)).get)
+  let elManager = newClone ELManager.init(
+    defaultRuntimeConfig,
+    db = nil,
+    nil,
+    @[paramStr(1)],
+    none(DepositTreeSnapshot),
+    none(Eth1Network),
+    false,
+    some readJwtSecret(paramStr(2)).get,
+  )
 
   try:
     await elManager.exchangeTransitionConfiguration()

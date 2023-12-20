@@ -11,14 +11,12 @@ import
   # Internals
   ./os_ops,
   ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
-  ../../beacon_chain/spec/[
-    eth2_merkleization, eth2_ssz_serialization, forks],
+  ../../beacon_chain/spec/[eth2_merkleization, eth2_ssz_serialization, forks],
   # Status libs,
   snappy,
   stew/byteutils
 
-export
-  eth2_merkleization, eth2_ssz_serialization
+export eth2_merkleization, eth2_ssz_serialization
 
 # Process current EF test format
 # ---------------------------------------------
@@ -79,12 +77,12 @@ type
   Eth1Block* = object
     timestamp*: uint64
     deposit_root*: Eth2Digest
-    deposit_count*: uint64
-    # All other eth1 block fields
+    deposit_count*: uint64 # All other eth1 block fields
 
 const
   FixturesDir* =
-    currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
+    currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" /
+    "nim-eth2-scenarios"
   SszTestsDir* = FixturesDir / "tests-v" & SPEC_VERSION
   MaxObjectSize* = 3_000_000
 
@@ -107,9 +105,8 @@ proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
     raise newException(UnconsumedInput, "Remaining bytes in the input")
 
 iterator walkTests*(dir: static string): string =
-   for kind, path in walkDir(
-       dir/"pyspec_tests", relative = true, checkDir = true):
-     yield path
+  for kind, path in walkDir(dir / "pyspec_tests", relative = true, checkDir = true):
+    yield path
 
 proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
   try:
@@ -124,8 +121,7 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
 from ../../beacon_chain/spec/datatypes/capella import BeaconState
 from ../../beacon_chain/spec/datatypes/deneb import BeaconState
 
-proc loadForkedState*(
-    path: string, fork: ConsensusFork): ref ForkedHashedBeaconState =
+proc loadForkedState*(path: string, fork: ConsensusFork): ref ForkedHashedBeaconState =
   var forkedState: ref ForkedHashedBeaconState
   case fork
   of ConsensusFork.Deneb:

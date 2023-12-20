@@ -1,15 +1,14 @@
-import
-  strutils, strformat, parseutils
+import strutils, strformat, parseutils
 
 type
   TokenKind* = enum
-    tIdent          = "ident"
-    tNumber         = "number"
-    tDot            = "dot"
-    tOpenBracket    = "["
-    tCloseBracket   = "]"
-    tEof            = "end of file"
-    tError          = "error"
+    tIdent = "ident"
+    tNumber = "number"
+    tDot = "dot"
+    tOpenBracket = "["
+    tCloseBracket = "]"
+    tEof = "end of file"
+    tError = "error"
 
   Token* = object
     case kind*: TokenKind
@@ -77,7 +76,8 @@ func advance(lexer: var Lexer) =
     else:
       lexer.tok = Token(
         kind: tError,
-        errMsg: &"Unexpected character '{nextChar}' at position {lexer.pos}")
+        errMsg: &"Unexpected character '{nextChar}' at position {lexer.pos}",
+      )
 
 func init*(T: type Lexer, src: string): Lexer =
   result.input = src
@@ -88,7 +88,7 @@ func init*(T: type Parser, src: string): Parser =
   Parser(lexer: Lexer.init(src))
 
 func expr(parser: var Parser): Node =
-  template unexpectedToken =
+  template unexpectedToken() =
     return Node(kind: Error, errMsg: &"Unexpected {parser.lexer.tok.kind} token")
 
   case parser.lexer.tok.kind
@@ -117,4 +117,3 @@ func expr(parser: var Parser): Node =
 func parse*(input: string): Node =
   var p = Parser.init(input)
   p.expr
-

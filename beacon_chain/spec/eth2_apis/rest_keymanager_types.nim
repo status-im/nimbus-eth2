@@ -5,9 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import
-  ".."/[crypto, keystore],
-  ../../validators/slashing_protection_common
+import ".."/[crypto, keystore], ../../validators/slashing_protection_common
 
 type
   KeystoreInfo* = object
@@ -84,7 +82,7 @@ type
     gas_limit*: uint64
 
   KeystoreStatus* = enum
-    error =  "error"
+    error = "error"
     notActive = "not_active"
     notFound = "not_found"
     deleted = "deleted"
@@ -102,6 +100,8 @@ type
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):
     let c = cmp(a, b)
-    if c < 0: return true
-    if c > 0: return false
+    if c < 0:
+      return true
+    if c > 0:
+      return false
   return false

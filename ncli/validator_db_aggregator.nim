@@ -7,7 +7,10 @@
 
 import
   std/[parsecsv, streams],
-  stew/[io2, byteutils], chronicles, confutils, snappy,
+  stew/[io2, byteutils],
+  chronicles,
+  confutils,
+  snappy,
   ../beacon_chain/spec/datatypes/base,
   ./ncli_common
 
@@ -17,30 +20,36 @@ from std/strutils import parseBiggestInt, parseBiggestUInt
 type
   AggregatorConf = object
     startEpoch {.
-      name: "start-epoch"
-      abbr: "s"
-      desc: "The first epoch which to be aggregated. " &
-            "By default use the first epoch for which has a file" .}: Option[uint64]
+      name: "start-epoch",
+      abbr: "s",
+      desc:
+        "The first epoch which to be aggregated. " &
+        "By default use the first epoch for which has a file"
+    .}: Option[uint64]
     endEpoch {.
-      name: "end-epoch"
-      abbr: "e"
-      desc: "The last epoch which to be aggregated. " &
-            "By default use the last epoch for which has a file" .}: Option[uint64]
+      name: "end-epoch",
+      abbr: "e",
+      desc:
+        "The last epoch which to be aggregated. " &
+        "By default use the last epoch for which has a file"
+    .}: Option[uint64]
     resolution {.
       defaultValue: 225,
-      name: "resolution"
-      abbr: "r"
-      desc: "How many epochs to be aggregated in a single file" .}: uint
+      name: "resolution",
+      abbr: "r",
+      desc: "How many epochs to be aggregated in a single file"
+    .}: uint
     inputDir {.
-      name: "input-dir"
-      abbr: "i"
-      desc: "The directory with the epoch info files" .}: InputDir
+      name: "input-dir", abbr: "i", desc: "The directory with the epoch info files"
+    .}: InputDir
     outputDir {.
-      defaultValue: ""
-      name: "output-dir"
-      abbr: "o"
-      desc: "The directory where aggregated file to be written. " &
-            "By default use the same directory as the input one"}: InputDir
+      defaultValue: "",
+      name: "output-dir",
+      abbr: "o",
+      desc:
+        "The directory where aggregated file to be written. " &
+        "By default use the same directory as the input one"
+    .}: InputDir
 
   ValidatorDbAggregator* {.requiresInit.} = object
     outputDir: string
@@ -51,33 +60,35 @@ type
     participationEpochsCount: seq[uint]
     inclusionDelaysCount: seq[uint]
 
-func init*(T: type ValidatorDbAggregator, outputDir: string,
-           resolution: uint, endEpoch: Epoch): T =
+func init*(
+    T: type ValidatorDbAggregator, outputDir: string, resolution: uint, endEpoch: Epoch
+): T =
   const initialCapacity = 1 shl 16
   ValidatorDbAggregator(
     outputDir: outputDir,
     resolution: resolution,
     endEpoch: endEpoch,
     epochsAggregated: 0,
-    aggregatedRewardsAndPenalties:
-      newSeqOfCap[RewardsAndPenalties](initialCapacity),
+    aggregatedRewardsAndPenalties: newSeqOfCap[RewardsAndPenalties](initialCapacity),
     participationEpochsCount: newSeqOfCap[uint](initialCapacity),
-    inclusionDelaysCount: newSeqOfCap[uint](initialCapacity))
+    inclusionDelaysCount: newSeqOfCap[uint](initialCapacity),
+  )
 
 var shouldShutDown = false
 
-proc determineStartAndEndEpochs(config: AggregatorConf):
-    tuple[startEpoch, endEpoch: Epoch] =
+proc determineStartAndEndEpochs(
+    config: AggregatorConf
+): tuple[startEpoch, endEpoch: Epoch] =
   if config.startEpoch.isNone or config.endEpoch.isNone:
-    (result.startEpoch, result.endEpoch) = getUnaggregatedFilesEpochRange(
-      config.inputDir.string)
+    (result.startEpoch, result.endEpoch) =
+      getUnaggregatedFilesEpochRange(config.inputDir.string)
   if config.startEpoch.isSome:
     result.startEpoch = config.startEpoch.get.Epoch
   if config.endEpoch.isSome:
     result.endEpoch = config.endEpoch.get.Epoch
   if result.startEpoch > result.endEpoch:
     fatal "Start epoch cannot be bigger than the end epoch.",
-          startEpoch = result.startEpoch, endEpoch = result.endEpoch
+      startEpoch = result.startEpoch, endEpoch = result.endEpoch
     quit QuitFailure
 
 proc checkIntegrity(startEpoch, endEpoch: Epoch, dir: string) =
@@ -102,7 +113,8 @@ func parseRow(csvRow: CsvRow): RewardsAndPenalties =
     proposer_outcome: parseBiggestInt(csvRow[10]),
     inactivity_penalty: parseBiggestUInt(csvRow[11]),
     slashing_outcome: parseBiggestInt(csvRow[12]),
-    deposits: parseBiggestUInt(csvRow[13]))
+    deposits: parseBiggestUInt(csvRow[13]),
+  )
   if csvRow[14].len > 0:
     result.inclusion_delay = some(parseBiggestUInt(csvRow[14]))
 
@@ -128,9 +140,12 @@ func `+=`(lhs: var RewardsAndPenalties, rhs: RewardsAndPenalties) =
     if rhs.inclusion_delay.isSome:
       lhs.inclusion_delay = some(rhs.inclusion_delay.get)
 
-func average(rp: var RewardsAndPenalties,
-             averageInclusionDelay: var Option[float],
-             epochsCount: uint, inclusionDelaysCount: uint64) =
+func average(
+    rp: var RewardsAndPenalties,
+    averageInclusionDelay: var Option[float],
+    epochsCount: uint,
+    inclusionDelaysCount: uint64,
+) =
   rp.source_outcome = rp.source_outcome div epochsCount.int64
   rp.max_source_reward = rp.max_source_reward div epochsCount
   rp.target_outcome = rp.target_outcome div epochsCount.int64
@@ -146,15 +161,15 @@ func average(rp: var RewardsAndPenalties,
   rp.slashing_outcome = rp.slashing_outcome div epochsCount.int64
   if rp.inclusion_delay.isSome:
     doAssert inclusionDelaysCount != 0
-    averageInclusionDelay = some(
-      rp.inclusion_delay.get.float / inclusionDelaysCount.float)
+    averageInclusionDelay =
+      some(rp.inclusion_delay.get.float / inclusionDelaysCount.float)
   else:
     doAssert inclusionDelaysCount == 0
     averageInclusionDelay = none(float)
 
-
-func addValidatorData*(aggregator: var ValidatorDbAggregator,
-                       index: int, rp: RewardsAndPenalties) =
+func addValidatorData*(
+    aggregator: var ValidatorDbAggregator, index: int, rp: RewardsAndPenalties
+) =
   if index >= aggregator.participationEpochsCount.len:
     aggregator.aggregatedRewardsAndPenalties.add rp
     aggregator.participationEpochsCount.add 1
@@ -168,25 +183,30 @@ func addValidatorData*(aggregator: var ValidatorDbAggregator,
     if rp.inclusion_delay.isSome:
       inc aggregator.inclusionDelaysCount[index]
 
-proc advanceEpochs*(aggregator: var ValidatorDbAggregator, epoch: Epoch,
-                    shouldShutDown: bool) =
+proc advanceEpochs*(
+    aggregator: var ValidatorDbAggregator, epoch: Epoch, shouldShutDown: bool
+) =
   inc aggregator.epochsAggregated
 
   if aggregator.epochsAggregated != aggregator.resolution and
-     aggregator.endEpoch != epoch and not shouldShutDown:
+      aggregator.endEpoch != epoch and not shouldShutDown:
     return
 
   var csvLines = newStringOfCap(1000000)
   for i in 0 ..< aggregator.participationEpochsCount.len:
     var averageInclusionDelay: Option[float]
-    average(aggregator.aggregatedRewardsAndPenalties[i], averageInclusionDelay,
-            aggregator.participationEpochsCount[i],
-            aggregator.inclusionDelaysCount[i])
-    csvLines &= serializeToCsv(
-      aggregator.aggregatedRewardsAndPenalties[i], averageInclusionDelay)
+    average(
+      aggregator.aggregatedRewardsAndPenalties[i],
+      averageInclusionDelay,
+      aggregator.participationEpochsCount[i],
+      aggregator.inclusionDelaysCount[i],
+    )
+    csvLines &=
+      serializeToCsv(aggregator.aggregatedRewardsAndPenalties[i], averageInclusionDelay)
 
   let fileName = getFilePathForEpochs(
-    epoch - aggregator.epochsAggregated + 1, epoch, aggregator.outputDir)
+    epoch - aggregator.epochsAggregated + 1, epoch, aggregator.outputDir
+  )
   info "Writing file ...", fileName = fileName
 
   var result = io2.removeFile(fileName)
@@ -203,15 +223,19 @@ when isMainModule:
   when defined(posix):
     import system/ansi_c
 
-  proc aggregateEpochs(startEpoch, endEpoch: Epoch, resolution: uint,
-                       inputDir, outputDir: string) =
+  proc aggregateEpochs(
+      startEpoch, endEpoch: Epoch, resolution: uint, inputDir, outputDir: string
+  ) =
     if startEpoch > endEpoch:
       fatal "Start epoch cannot be larger than the end one.",
-            startEpoch = startEpoch, endEpoch = endEpoch
+        startEpoch = startEpoch, endEpoch = endEpoch
       quit QuitFailure
 
-    info "Aggregating epochs ...", startEpoch = startEpoch, endEpoch = endEpoch,
-         inputDir = inputDir, outputDir = outputDir
+    info "Aggregating epochs ...",
+      startEpoch = startEpoch,
+      endEpoch = endEpoch,
+      inputDir = inputDir,
+      outputDir = outputDir
 
     var aggregator = ValidatorDbAggregator.init(outputDir, resolution, endEpoch)
 
@@ -222,8 +246,8 @@ when isMainModule:
       let data = io2.readAllBytes(filePath)
       doAssert data.isOk
       let dataStream = newStringStream(
-        string.fromBytes(snappy.decode(
-          data.get.toOpenArray(0, data.get.len - 1))))
+        string.fromBytes(snappy.decode(data.get.toOpenArray(0, data.get.len - 1)))
+      )
 
       var csvParser: CsvParser
       csvParser.open(dataStream, filePath)
@@ -239,7 +263,7 @@ when isMainModule:
       if shouldShutDown:
         quit QuitSuccess
 
-  proc controlCHook {.noconv.} =
+  proc controlCHook() {.noconv.} =
     notice "Shutting down after having received SIGINT."
     shouldShutDown = true
 
@@ -247,7 +271,7 @@ when isMainModule:
     notice "Shutting down after having received SIGTERM."
     shouldShutDown = true
 
-  proc main =
+  proc main() =
     setControlCHook(controlCHook)
     when defined(posix):
       c_signal(SIGTERM, exitOnSigterm)
@@ -255,19 +279,16 @@ when isMainModule:
     let config = load AggregatorConf
     let (startEpoch, endEpoch) = config.determineStartAndEndEpochs
     if endEpoch == 0:
-      fatal "Not found epoch info files in the directory.",
-            inputDir = config.inputDir
+      fatal "Not found epoch info files in the directory.", inputDir = config.inputDir
       quit QuitFailure
 
     checkIntegrity(startEpoch, endEpoch, config.inputDir.string)
 
     let outputDir =
-      if config.outputDir.string.len > 0:
-        config.outputDir
-      else:
-        config.inputDir
+      if config.outputDir.string.len > 0: config.outputDir else: config.inputDir
 
-    aggregateEpochs(startEpoch, endEpoch, config.resolution,
-                    config.inputDir.string, outputDir.string)
+    aggregateEpochs(
+      startEpoch, endEpoch, config.resolution, config.inputDir.string, outputDir.string
+    )
 
   main()

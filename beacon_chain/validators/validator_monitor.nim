@@ -7,7 +7,8 @@
 
 import
   std/tables,
-  metrics, chronicles,
+  metrics,
+  chronicles,
   ../spec/datatypes/phase0,
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
@@ -17,7 +18,8 @@ from ../spec/datatypes/capella import shortLog
 
 {.push raises: [].}
 
-logScope: topics = "val_mon"
+logScope:
+  topics = "val_mon"
 
 # Validator monitoring based on the same feature in Lighthouse - using the same
 # metrics allows users to more easily reuse monitoring setups
@@ -45,7 +47,8 @@ declareGauge validator_monitor_exited,
 declareGauge validator_monitor_withdrawable,
   "Set to 1 if the validator is withdrawable.", labels = ["validator"]
 declareGauge validator_activation_eligibility_epoch,
-  "Set to the epoch where the validator will be eligible for activation.", labels = ["validator"]
+  "Set to the epoch where the validator will be eligible for activation.",
+  labels = ["validator"]
 declareGauge validator_activation_epoch,
   "Set to the epoch where the validator will activate.", labels = ["validator"]
 declareGauge validator_exit_epoch,
@@ -54,37 +57,50 @@ declareGauge validator_withdrawable_epoch,
   "Set to the epoch where the validator will be withdrawable.", labels = ["validator"]
 
 declareCounter validator_monitor_prev_epoch_on_chain_attester_hit,
-  "Incremented if the validator is flagged as a previous epoch attester during per epoch processing", labels = ["validator"]
+  "Incremented if the validator is flagged as a previous epoch attester during per epoch processing",
+  labels = ["validator"]
 declareCounter validator_monitor_prev_epoch_on_chain_attester_miss,
-  "Incremented if the validator is not flagged as a previous epoch attester during per epoch processing", labels = ["validator"]
+  "Incremented if the validator is not flagged as a previous epoch attester during per epoch processing",
+  labels = ["validator"]
 declareCounter validator_monitor_prev_epoch_on_chain_head_attester_hit,
-  "Incremented if the validator is flagged as a previous epoch head attester during per epoch processing", labels = ["validator"]
+  "Incremented if the validator is flagged as a previous epoch head attester during per epoch processing",
+  labels = ["validator"]
 declareCounter validator_monitor_prev_epoch_on_chain_head_attester_miss,
-  "Incremented if the validator is not flagged as a previous epoch head attester during per epoch processing", labels = ["validator"]
+  "Incremented if the validator is not flagged as a previous epoch head attester during per epoch processing",
+  labels = ["validator"]
 declareCounter validator_monitor_prev_epoch_on_chain_target_attester_hit,
-  "Incremented if the validator is flagged as a previous epoch target attester during per epoch processing", labels = ["validator"]
+  "Incremented if the validator is flagged as a previous epoch target attester during per epoch processing",
+  labels = ["validator"]
 declareCounter validator_monitor_prev_epoch_on_chain_target_attester_miss,
-  "Incremented if the validator is not flagged as a previous epoch target attester during per epoch processing", labels = ["validator"]
+  "Incremented if the validator is not flagged as a previous epoch target attester during per epoch processing",
+  labels = ["validator"]
 declareCounter validator_monitor_prev_epoch_on_chain_source_attester_hit,
-  "Incremented if the validator is flagged as a previous epoch source attester during per epoch processing", labels = ["validator"]
+  "Incremented if the validator is flagged as a previous epoch source attester during per epoch processing",
+  labels = ["validator"]
 declareCounter validator_monitor_prev_epoch_on_chain_source_attester_miss,
-  "Incremented if the validator is not flagged as a previous epoch source attester during per epoch processing", labels = ["validator"]
+  "Incremented if the validator is not flagged as a previous epoch source attester during per epoch processing",
+  labels = ["validator"]
 
 declareGauge validator_monitor_prev_epoch_attestations_total,
-  "The number of unagg. attestations seen in the previous epoch.", labels = ["validator"]
+  "The number of unagg. attestations seen in the previous epoch.",
+  labels = ["validator"]
 declareHistogram validator_monitor_prev_epoch_attestations_min_delay_seconds,
-  "The min delay between when the validator should send the attestation and when it was received.", labels = ["validator"]
+  "The min delay between when the validator should send the attestation and when it was received.",
+  labels = ["validator"]
 declareGauge validator_monitor_prev_epoch_attestation_aggregate_inclusions,
-  "The count of times an attestation was seen inside an aggregate.", labels = ["validator"]
+  "The count of times an attestation was seen inside an aggregate.",
+  labels = ["validator"]
 declareGauge validator_monitor_prev_epoch_attestation_block_inclusions,
   "The count of times an attestation was seen inside a block.", labels = ["validator"]
 declareGauge validator_monitor_prev_epoch_attestation_block_min_inclusion_distance,
-  "The minimum inclusion distance observed for the inclusion of an attestation in a block.", labels = ["validator"]
+  "The minimum inclusion distance observed for the inclusion of an attestation in a block.",
+  labels = ["validator"]
 
 declareGauge validator_monitor_prev_epoch_aggregates_total,
   "The number of aggregates seen in the previous epoch.", labels = ["validator"]
 declareHistogram validator_monitor_prev_epoch_aggregates_min_delay_seconds,
-  "The min delay between when the validator should send the aggregate and when it was received.", labels = ["validator"]
+  "The min delay between when the validator should send the aggregate and when it was received.",
+  labels = ["validator"]
 declareGauge validator_monitor_prev_epoch_exits_total,
   "The number of exits seen in the previous epoch.", labels = ["validator"]
 declareGauge validator_monitor_prev_epoch_proposer_slashings_total,
@@ -92,56 +108,73 @@ declareGauge validator_monitor_prev_epoch_proposer_slashings_total,
 declareGauge validator_monitor_prev_epoch_attester_slashings_total,
   "The number of attester slashings seen in the previous epoch.", labels = ["validator"]
 declareGauge validator_monitor_prev_epoch_sync_committee_messages_total,
-  "The number of sync committee messages seen in the previous epoch.", labels = ["validator"]
+  "The number of sync committee messages seen in the previous epoch.",
+  labels = ["validator"]
 declareHistogram validator_monitor_prev_epoch_sync_committee_messages_min_delay_seconds,
-  "The min delay between when the validator should send the sync committee message and when it was received.", labels = ["validator"]
+  "The min delay between when the validator should send the sync committee message and when it was received.",
+  labels = ["validator"]
 declareGauge validator_monitor_prev_epoch_sync_contribution_inclusions,
-  "The count of times a sync signature was seen inside a sync contribution.", labels = ["validator"]
+  "The count of times a sync signature was seen inside a sync contribution.",
+  labels = ["validator"]
 declareGauge validator_monitor_prev_epoch_sync_signature_block_inclusions,
   "The count of times a sync signature was seen inside a block.", labels = ["validator"]
 declareGauge validator_monitor_prev_epoch_sync_contributions_total,
   "The number of sync contributions seen in the previous epoch.", labels = ["validator"]
 declareHistogram validator_monitor_prev_epoch_sync_contribution_min_delay_seconds,
-  "The min delay between when the validator should send the sync contribution and when it was received.", labels = ["validator"]
+  "The min delay between when the validator should send the sync contribution and when it was received.",
+  labels = ["validator"]
 declareGauge validator_monitor_validator_in_current_sync_committee,
-  "Is the validator in the current sync committee (1 for true and 0 for false)", labels = ["validator"]
+  "Is the validator in the current sync committee (1 for true and 0 for false)",
+  labels = ["validator"]
 declareGauge validator_monitor_validator_in_next_sync_committee,
-  "Is the validator in the next sync committee (1 for true and 0 for false)", labels = ["validator"]
+  "Is the validator in the next sync committee (1 for true and 0 for false)",
+  labels = ["validator"]
 
 declareGauge validator_monitor_validators_total,
   "Count of validators that are specifically monitored by this beacon node"
 declareCounter validator_monitor_unaggregated_attestation,
   "Number of unaggregated attestations seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_unaggregated_attestation_delay_seconds,
-  "The delay between when the validator should send the attestation and when it was received.", labels = ["src", "validator"]
+  "The delay between when the validator should send the attestation and when it was received.",
+  labels = ["src", "validator"]
 declareCounter validator_monitor_sync_committee_messages,
   "Number of sync committee messages seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_sync_committee_messages_delay_seconds,
-  "The delay between when the validator should send the sync committee message and when it was received.", labels = ["src", "validator"]
+  "The delay between when the validator should send the sync committee message and when it was received.",
+  labels = ["src", "validator"]
 declareCounter validator_monitor_sync_contributions,
   "Number of sync contributions seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_sync_contributions_delay_seconds,
-  "The delay between when the aggregator should send the sync contribution and when it was received.", labels = ["src", "validator"]
+  "The delay between when the aggregator should send the sync contribution and when it was received.",
+  labels = ["src", "validator"]
 declareCounter validator_monitor_aggregated_attestation,
   "Number of aggregated attestations seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_aggregated_attestation_delay_seconds,
-  "The delay between then the validator should send the aggregate and when it was received.", labels = ["src", "validator"]
+  "The delay between then the validator should send the aggregate and when it was received.",
+  labels = ["src", "validator"]
 declareCounter validator_monitor_attestation_in_aggregate,
-  "Number of times an attestation has been seen in an aggregate", labels = ["src", "validator"]
+  "Number of times an attestation has been seen in an aggregate",
+  labels = ["src", "validator"]
 declareCounter validator_monitor_sync_committee_message_in_contribution,
-  "Number of times a sync committee message has been seen in a sync contribution", labels = ["src", "validator"]
+  "Number of times a sync committee message has been seen in a sync contribution",
+  labels = ["src", "validator"]
 declareHistogram validator_monitor_attestation_in_aggregate_delay_seconds,
-  "The delay between when the validator should send the aggregate and when it was received.", labels = ["src", "validator"]
+  "The delay between when the validator should send the aggregate and when it was received.",
+  labels = ["src", "validator"]
 declareCounter validator_monitor_attestation_in_block,
-  "Number of times an attestation has been seen in a block", labels = ["src", "validator"]
+  "Number of times an attestation has been seen in a block",
+  labels = ["src", "validator"]
 declareCounter validator_monitor_sync_committee_message_in_block,
-  "Number of times a validator's sync committee message has been seen in a sync aggregate", labels = ["src", "validator"]
+  "Number of times a validator's sync committee message has been seen in a sync aggregate",
+  labels = ["src", "validator"]
 declareGauge validator_monitor_attestation_in_block_delay_slots,
-  "The excess slots (beyond the minimum delay) between the attestation slot and the block slot.", labels = ["src", "validator"]
+  "The excess slots (beyond the minimum delay) between the attestation slot and the block slot.",
+  labels = ["src", "validator"]
 declareCounter validator_monitor_beacon_block,
   "Number of beacon blocks seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_beacon_block_delay_seconds,
-  "The delay between when the validator should send the block and when it was received.", labels = ["src", "validator"]
+  "The delay between when the validator should send the block and when it was received.",
+  labels = ["src", "validator"]
 declareCounter validator_monitor_exit,
   "Number of beacon exits seen", labels = ["src", "validator"]
 declareCounter validator_monitor_proposer_slashing,
@@ -149,8 +182,7 @@ declareCounter validator_monitor_proposer_slashing,
 declareCounter validator_monitor_attester_slashing,
   "Number of attester slashings seen", labels = ["src", "validator"]
 
-const
-  total = "total" # what we use for label when using "totals" mode
+const total = "total" # what we use for label when using "totals" mode
 
 type
   EpochSummary = object
@@ -222,8 +254,8 @@ proc update_if_lt[T](current: var Option[T], val: T) =
     current = some(val)
 
 proc addMonitor*(
-    self: var ValidatorMonitor, pubkey: ValidatorPubKey,
-    index: Opt[ValidatorIndex]) =
+    self: var ValidatorMonitor, pubkey: ValidatorPubKey, index: Opt[ValidatorIndex]
+) =
   if pubkey in self.monitors:
     return
 
@@ -235,12 +267,12 @@ proc addMonitor*(
   if index.isSome():
     self.indices[index.get().uint64] = monitor
 
-template metricId: string =
+template metricId(): string =
   if self.totals: total else: id
 
 proc addAutoMonitor*(
-    self: var ValidatorMonitor, pubkey: ValidatorPubKey,
-    index: ValidatorIndex) =
+    self: var ValidatorMonitor, pubkey: ValidatorPubKey, index: ValidatorIndex
+) =
   if not self.autoRegister:
     return
 
@@ -251,20 +283,25 @@ proc addAutoMonitor*(
   # the state
   self.addMonitor(pubkey, Opt.some(index))
 
-  info "Started monitoring validator",
-    validator = shortLog(pubkey), pubkey, index
+  info "Started monitoring validator", validator = shortLog(pubkey), pubkey, index
 
 proc init*(T: type ValidatorMonitor, autoRegister = false, totals = false): T =
   T(autoRegister: autoRegister, totals: totals)
 
-template summaryIdx(epoch: Epoch): int = (epoch.uint64 mod 2).int
+template summaryIdx(epoch: Epoch): int =
+  (epoch.uint64 mod 2).int
 
 template withEpochSummary(
-  self: var ValidatorMonitor, monitor: var MonitoredValidator,
-  epochParam: Epoch, body: untyped) =
+    self: var ValidatorMonitor,
+    monitor: var MonitoredValidator,
+    epochParam: Epoch,
+    body: untyped,
+) =
   let epoch = epochParam
   if epoch == self.epoch or epoch + 1 == self.epoch:
-    template epochSummary: untyped {.inject.} = monitor.summaries[summaryIdx(epoch)]
+    template epochSummary(): untyped {.inject.} =
+      monitor.summaries[summaryIdx(epoch)]
+
     body
 
 proc updateEpoch(self: var ValidatorMonitor, epoch: Epoch) =
@@ -306,82 +343,76 @@ proc updateEpoch(self: var ValidatorMonitor, epoch: Epoch) =
       if monitor.summaries[summaryIdx].name.isSome():
         metric.observe(
           monitor.summaries[summaryIdx].name.get.toGaugeValue(),
-          [if self.totals: total else: monitor.id])
+          [if self.totals: total else: monitor.id],
+        )
 
-  setAll(
-    validator_monitor_prev_epoch_attestations_total,
-    attestations)
+  setAll(validator_monitor_prev_epoch_attestations_total, attestations)
 
   observeAll(
-    validator_monitor_prev_epoch_attestations_min_delay_seconds,
-    attestation_min_delay)
+    validator_monitor_prev_epoch_attestations_min_delay_seconds, attestation_min_delay
+  )
 
   setAll(
     validator_monitor_prev_epoch_attestation_aggregate_inclusions,
-    attestation_aggregate_inclusions)
+    attestation_aggregate_inclusions,
+  )
 
   setAll(
     validator_monitor_prev_epoch_attestation_block_inclusions,
-    attestation_block_inclusions)
+    attestation_block_inclusions,
+  )
 
   setAll(
-    validator_monitor_prev_epoch_sync_committee_messages_total,
-    sync_committee_messages)
+    validator_monitor_prev_epoch_sync_committee_messages_total, sync_committee_messages
+  )
 
   observeAll(
     validator_monitor_prev_epoch_sync_committee_messages_min_delay_seconds,
-    sync_committee_message_min_delay)
+    sync_committee_message_min_delay,
+  )
 
   setAll(
     validator_monitor_prev_epoch_sync_contribution_inclusions,
-    sync_signature_contribution_inclusions)
+    sync_signature_contribution_inclusions,
+  )
   setAll(
     validator_monitor_prev_epoch_sync_signature_block_inclusions,
-    sync_signature_block_inclusions)
+    sync_signature_block_inclusions,
+  )
 
-  setAll(
-    validator_monitor_prev_epoch_sync_contributions_total,
-    sync_contributions)
+  setAll(validator_monitor_prev_epoch_sync_contributions_total, sync_contributions)
 
   observeAll(
     validator_monitor_prev_epoch_sync_contribution_min_delay_seconds,
-    sync_contribution_min_delay)
+    sync_contribution_min_delay,
+  )
 
-  setAll(
-    validator_monitor_prev_epoch_aggregates_total,
-    aggregates)
+  setAll(validator_monitor_prev_epoch_aggregates_total, aggregates)
 
   observeAll(
-    validator_monitor_prev_epoch_aggregates_min_delay_seconds,
-    aggregate_min_delay)
+    validator_monitor_prev_epoch_aggregates_min_delay_seconds, aggregate_min_delay
+  )
 
-  setAll(
-    validator_monitor_prev_epoch_exits_total,
-    exits)
+  setAll(validator_monitor_prev_epoch_exits_total, exits)
 
-  setAll(
-    validator_monitor_prev_epoch_proposer_slashings_total,
-    proposer_slashings)
+  setAll(validator_monitor_prev_epoch_proposer_slashings_total, proposer_slashings)
 
-  setAll(
-    validator_monitor_prev_epoch_attester_slashings_total,
-    attester_slashings)
+  setAll(validator_monitor_prev_epoch_attester_slashings_total, attester_slashings)
 
   if not self.totals:
     for monitor in self.monitors.mvalues:
-      if monitor.summaries[summaryIdx].
-          attestation_min_block_inclusion_distance.isSome:
+      if monitor.summaries[summaryIdx].attestation_min_block_inclusion_distance.isSome:
         validator_monitor_prev_epoch_attestation_block_min_inclusion_distance.set(
-          monitor.summaries[summaryIdx].
-            attestation_min_block_inclusion_distance.get().int64, [monitor.id])
+          monitor.summaries[summaryIdx].attestation_min_block_inclusion_distance.get().int64,
+          [monitor.id],
+        )
 
   for monitor in self.monitors.mvalues:
     reset(monitor.summaries[summaryIdx])
 
 func is_active_unslashed_in_previous_epoch(status: RewardStatus): bool =
   let flags = status.flags
-  RewardFlags.isActiveInPreviousEpoch in flags and
-    RewardFlags.isSlashed notin flags
+  RewardFlags.isActiveInPreviousEpoch in flags and RewardFlags.isSlashed notin flags
 
 func is_previous_epoch_source_attester(status: RewardStatus): bool =
   status.is_previous_epoch_attester.isSome()
@@ -405,8 +436,11 @@ func is_active_unslashed_in_previous_epoch(status: ParticipationInfo): bool =
   ParticipationFlag.eligible in status.flags
 
 proc registerEpochInfo*(
-    self: var ValidatorMonitor, epoch: Epoch, info: ForkedEpochInfo,
-    state: ForkyBeaconState) =
+    self: var ValidatorMonitor,
+    epoch: Epoch,
+    info: ForkedEpochInfo,
+    state: ForkyBeaconState,
+) =
   # Register rewards, as computed during the epoch transition that lands in
   # `epoch` - the rewards will be from attestations that were created at
   # `epoch - 2`.
@@ -421,13 +455,11 @@ proc registerEpochInfo*(
       if monitor.index.isNone:
         continue
 
-      let
-        idx = monitor.index.get()
+      let idx = monitor.index.get()
 
       if info.validators.lenu64 <= idx.uint64:
         # No summary for this validator (yet?)
-        debug "No reward information for validator",
-          id = monitor.id, idx
+        debug "No reward information for validator", id = monitor.id, idx
         continue
 
       let
@@ -465,9 +497,7 @@ proc registerEpochInfo*(
         validator_monitor_prev_epoch_on_chain_attester_miss.inc(1, [metricId])
         validator_monitor_prev_epoch_on_chain_source_attester_miss.inc(1, [metricId])
 
-        notice "Previous epoch attestation missing",
-          epoch = prev_epoch,
-          validator = id
+        notice "Previous epoch attestation missing", epoch = prev_epoch, validator = id
 
       # Indicates if any on-chain attestation hit the target.
       if previous_epoch_matched_target:
@@ -477,8 +507,7 @@ proc registerEpochInfo*(
 
         if previous_epoch_matched_source:
           notice "Attestation failed to match target and head",
-            epoch = prev_epoch,
-            validator = id
+            epoch = prev_epoch, validator = id
 
       # Indicates if any on-chain attestation hit the head.
       if previous_epoch_matched_head:
@@ -486,10 +515,7 @@ proc registerEpochInfo*(
       else:
         validator_monitor_prev_epoch_on_chain_head_attester_miss.inc(1, [metricId])
         if previous_epoch_matched_target:
-          notice "Attestation failed to match head",
-            epoch = prev_epoch,
-            validator = id
-
+          notice "Attestation failed to match head", epoch = prev_epoch, validator = id
 
       when state isnot phase0.BeaconState: # altair+
         # Indicates the number of sync committee signatures that made it into
@@ -510,39 +536,37 @@ proc registerEpochInfo*(
                 epoch = current_epoch,
                 validator = id
           in_current_sync_committee += 1
-
         else:
           if not self.totals:
             validator_monitor_validator_in_current_sync_committee.set(0, [metricId])
             debug "Validator isn't part of the current sync committee",
-              epoch = current_epoch,
-              validator = id
+              epoch = current_epoch, validator = id
 
         if state.next_sync_committee.pubkeys.data.contains(pubkey):
           if not self.totals:
             validator_monitor_validator_in_next_sync_committee.set(1, [metricId])
 
             info "Validator in next sync committee",
-              epoch = current_epoch,
-              validator = id
+              epoch = current_epoch, validator = id
 
           in_next_sync_committee += 1
-
         else:
           if not self.totals:
             validator_monitor_validator_in_next_sync_committee.set(0, [metricId])
 
   if self.totals:
     validator_monitor_validator_in_current_sync_committee.set(
-      in_current_sync_committee, [total])
+      in_current_sync_committee, [total]
+    )
     validator_monitor_validator_in_next_sync_committee.set(
-      in_next_sync_committee, [total])
+      in_next_sync_committee, [total]
+    )
 
   self.updateEpoch(epoch)
 
 proc registerState*(self: var ValidatorMonitor, state: ForkyBeaconState) =
   # Update indices for the validators we're monitoring
-  for v in self.knownValidators..<state.validators.len:
+  for v in self.knownValidators ..< state.validators.len:
     self.monitors.withValue(state.validators[v].pubkey, monitor):
       monitor[][].index = Opt.some(ValidatorIndex(v))
       self.indices[uint64(v)] = monitor[]
@@ -552,8 +576,7 @@ proc registerState*(self: var ValidatorMonitor, state: ForkyBeaconState) =
 
   self.knownValidators = state.validators.len
 
-  let
-    current_epoch = state.slot.epoch
+  let current_epoch = state.slot.epoch
 
   # Update metrics for monitored validators according to the latest rewards
 
@@ -575,17 +598,22 @@ proc registerState*(self: var ValidatorMonitor, state: ForkyBeaconState) =
         continue
       balance += state.balances[idx]
       effective_balance += state.validators[idx].effective_balance
-      if state.validators[idx].slashed: slashed += 1
-      if is_active_validator(state.validators[idx], current_epoch): active += 1
-      if is_exited_validator(state.validators[idx], current_epoch): exited += 1
-      if is_withdrawable_validator(state.validators[idx], current_epoch): withdrawable += 1
+      if state.validators[idx].slashed:
+        slashed += 1
+      if is_active_validator(state.validators[idx], current_epoch):
+        active += 1
+      if is_exited_validator(state.validators[idx], current_epoch):
+        exited += 1
+      if is_withdrawable_validator(state.validators[idx], current_epoch):
+        withdrawable += 1
     validator_monitor_balance_gwei.set(balance.toGaugeValue(), [total])
-    validator_monitor_effective_balance_gwei.set(effective_balance.toGaugeValue(), [total])
+    validator_monitor_effective_balance_gwei.set(
+      effective_balance.toGaugeValue(), [total]
+    )
     validator_monitor_slashed.set(slashed, [total])
     validator_monitor_active.set(active, [total])
     validator_monitor_exited.set(exited, [total])
     validator_monitor_withdrawable.set(withdrawable, [total])
-
   else:
     for monitor in self.monitors.mvalues():
       if not monitor[].index.isSome():
@@ -596,38 +624,51 @@ proc registerState*(self: var ValidatorMonitor, state: ForkyBeaconState) =
         continue
 
       let id = monitor[].id
-      validator_monitor_balance_gwei.set(
-        state.balances[idx].toGaugeValue(), [id])
+      validator_monitor_balance_gwei.set(state.balances[idx].toGaugeValue(), [id])
       validator_monitor_effective_balance_gwei.set(
-        state.validators[idx].effective_balance.toGaugeValue(), [id])
-      validator_monitor_slashed.set(
-        state.validators[idx].slashed.toGaugeValue(), [id])
+        state.validators[idx].effective_balance.toGaugeValue(), [id]
+      )
+      validator_monitor_slashed.set(state.validators[idx].slashed.toGaugeValue(), [id])
       validator_monitor_active.set(
-        is_active_validator(state.validators[idx], current_epoch).toGaugeValue(), [id])
+        is_active_validator(state.validators[idx], current_epoch).toGaugeValue(), [id]
+      )
       validator_monitor_exited.set(
-        is_exited_validator(state.validators[idx], current_epoch).toGaugeValue(), [id])
+        is_exited_validator(state.validators[idx], current_epoch).toGaugeValue(), [id]
+      )
       validator_monitor_withdrawable.set(
-        is_withdrawable_validator(state.validators[idx], current_epoch).toGaugeValue(), [id])
+        is_withdrawable_validator(state.validators[idx], current_epoch).toGaugeValue(),
+        [id],
+      )
       validator_activation_eligibility_epoch.set(
-        state.validators[idx].activation_eligibility_epoch.toGaugeValue(), [id])
+        state.validators[idx].activation_eligibility_epoch.toGaugeValue(), [id]
+      )
       validator_activation_epoch.set(
-        state.validators[idx].activation_epoch.toGaugeValue(), [id])
-      validator_exit_epoch.set(
-        state.validators[idx].exit_epoch.toGaugeValue(), [id])
+        state.validators[idx].activation_epoch.toGaugeValue(), [id]
+      )
+      validator_exit_epoch.set(state.validators[idx].exit_epoch.toGaugeValue(), [id])
       validator_withdrawable_epoch.set(
-        state.validators[idx].withdrawable_epoch.toGaugeValue(), [id])
+        state.validators[idx].withdrawable_epoch.toGaugeValue(), [id]
+      )
 
-template withMonitor(self: var ValidatorMonitor, key: ValidatorPubKey, body: untyped): untyped =
+template withMonitor(
+    self: var ValidatorMonitor, key: ValidatorPubKey, body: untyped
+): untyped =
   self.monitors.withValue(key, valuex):
-    template monitor: untyped {.inject.} = valuex[][]
+    template monitor(): untyped {.inject.} =
+      valuex[][]
+
     body
 
 template withMonitor(self: var ValidatorMonitor, idx: uint64, body: untyped): untyped =
   self.indices.withValue(idx, valuex):
-    template monitor: untyped {.inject.} = valuex[][]
+    template monitor(): untyped {.inject.} =
+      valuex[][]
+
     body
 
-template withMonitor(self: var ValidatorMonitor, idx: ValidatorIndex, body: untyped): untyped =
+template withMonitor(
+    self: var ValidatorMonitor, idx: ValidatorIndex, body: untyped
+): untyped =
   withMonitor(self, idx.uint64, body)
 
 proc registerAttestation*(
@@ -635,7 +676,8 @@ proc registerAttestation*(
     src: MsgSource,
     seen_timestamp: BeaconTime,
     attestation: Attestation,
-    idx: ValidatorIndex) =
+    idx: ValidatorIndex,
+) =
   let
     slot = attestation.data.slot
     delay = seen_timestamp - slot.attestation_deadline()
@@ -644,12 +686,16 @@ proc registerAttestation*(
     let id = monitor.id
     validator_monitor_unaggregated_attestation.inc(1, [$src, metricId])
     validator_monitor_unaggregated_attestation_delay_seconds.observe(
-      delay.toGaugeValue(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId]
+    )
 
     if not self.totals:
       info "Attestation seen",
         attestation = shortLog(attestation),
-        src, epoch = slot.epoch, validator = id, delay
+        src,
+        epoch = slot.epoch,
+        validator = id,
+        delay
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.attestations += 1
@@ -660,7 +706,8 @@ proc registerAggregate*(
     src: MsgSource,
     seen_timestamp: BeaconTime,
     aggregate_and_proof: AggregateAndProof,
-    attesting_indices: openArray[ValidatorIndex]) =
+    attesting_indices: openArray[ValidatorIndex],
+) =
   let
     slot = aggregate_and_proof.aggregate.data.slot
     delay = seen_timestamp - slot.aggregate_deadline()
@@ -670,12 +717,16 @@ proc registerAggregate*(
     let id = monitor.id
     validator_monitor_aggregated_attestation.inc(1, [$src, metricId])
     validator_monitor_aggregated_attestation_delay_seconds.observe(
-      delay.toGaugeValue(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId]
+    )
 
     if not self.totals:
       info "Aggregated attestation seen",
         aggregate = shortLog(aggregate_and_proof.aggregate),
-        src, epoch = slot.epoch, validator = id, delay
+        src,
+        epoch = slot.epoch,
+        validator = id,
+        delay
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.aggregates += 1
@@ -686,12 +737,15 @@ proc registerAggregate*(
       let id = monitor.id
       validator_monitor_attestation_in_aggregate.inc(1, [$src, metricId])
       validator_monitor_attestation_in_aggregate_delay_seconds.observe(
-        delay.toGaugeValue(), [$src, metricId])
+        delay.toGaugeValue(), [$src, metricId]
+      )
 
       if not self.totals:
         info "Attestation included in aggregate",
           aggregate = shortLog(aggregate_and_proof.aggregate),
-          src, epoch = slot.epoch, validator = id
+          src,
+          epoch = slot.epoch,
+          validator = id
 
       self.withEpochSummary(monitor, slot.epoch):
         epochSummary.attestation_aggregate_inclusions += 1
@@ -700,7 +754,8 @@ proc registerAttestationInBlock*(
     self: var ValidatorMonitor,
     data: AttestationData,
     attesting_index: ValidatorIndex,
-    block_slot: Slot) =
+    block_slot: Slot,
+) =
   self.withMonitor(attesting_index):
     let
       id = monitor.id
@@ -711,19 +766,20 @@ proc registerAttestationInBlock*(
 
     if not self.totals:
       validator_monitor_attestation_in_block_delay_slots.set(
-        inclusion_lag.int64, ["block", metricId])
+        inclusion_lag.int64, ["block", metricId]
+      )
 
     if not self.totals:
       info "Attestation included in block",
         attestation_data = shortLog(data),
         block_slot,
         inclusion_lag_slots = inclusion_lag,
-        epoch = epoch, validator = id
+        epoch = epoch,
+        validator = id
 
     self.withEpochSummary(monitor, epoch):
       epochSummary.attestation_block_inclusions += 1
-      update_if_lt(
-        epochSummary.attestation_min_block_inclusion_distance, inclusion_lag)
+      update_if_lt(epochSummary.attestation_min_block_inclusion_distance, inclusion_lag)
 
 from ../spec/datatypes/deneb import shortLog
 
@@ -731,7 +787,8 @@ proc registerBeaconBlock*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    blck: ForkyTrustedBeaconBlock) =
+    blck: ForkyTrustedBeaconBlock,
+) =
   self.withMonitor(blck.proposer_index):
     let
       id = monitor.id
@@ -740,7 +797,8 @@ proc registerBeaconBlock*(
 
     validator_monitor_beacon_block.inc(1, [$src, metricId])
     validator_monitor_beacon_block_delay_seconds.observe(
-      delay.toGaugeValue(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId]
+    )
 
     if not self.totals:
       info "Block seen",
@@ -750,7 +808,8 @@ proc registerSyncCommitteeMessage*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    sync_committee_message: SyncCommitteeMessage) =
+    sync_committee_message: SyncCommitteeMessage,
+) =
   self.withMonitor(sync_committee_message.validator_index):
     let
       id = monitor.id
@@ -759,12 +818,16 @@ proc registerSyncCommitteeMessage*(
 
     validator_monitor_sync_committee_messages.inc(1, [$src, metricId])
     validator_monitor_sync_committee_messages_delay_seconds.observe(
-      delay.toGaugeValue(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId]
+    )
 
     if not self.totals:
       info "Sync committee message seen",
         syncCommitteeMessage = shortLog(sync_committee_message.beacon_block_root),
-        src, epoch = slot.epoch, validator = id, delay
+        src,
+        epoch = slot.epoch,
+        validator = id,
+        delay
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.sync_committee_messages += 1
@@ -775,7 +838,8 @@ proc registerSyncContribution*(
     src: MsgSource,
     seen_timestamp: BeaconTime,
     contribution_and_proof: ContributionAndProof,
-    participants: openArray[ValidatorIndex]) =
+    participants: openArray[ValidatorIndex],
+) =
   let
     slot = contribution_and_proof.contribution.slot
     delay = seen_timestamp - slot.sync_contribution_deadline()
@@ -785,12 +849,16 @@ proc registerSyncContribution*(
     let id = monitor.id
     validator_monitor_sync_contributions.inc(1, [$src, metricId])
     validator_monitor_sync_contributions_delay_seconds.observe(
-      delay.toGaugeValue(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId]
+    )
 
     if not self.totals:
       info "Sync contribution seen",
         contribution = shortLog(contribution_and_proof.contribution),
-        src, epoch = slot.epoch, validator = id, delay
+        src,
+        epoch = slot.epoch,
+        validator = id,
+        delay
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.sync_contributions += 1
@@ -804,14 +872,19 @@ proc registerSyncContribution*(
       if not self.totals:
         info "Sync signature included in contribution",
           contribution = shortLog(contribution_and_proof.contribution),
-          src, epoch = slot.epoch, validator = id
+          src,
+          epoch = slot.epoch,
+          validator = id
 
       self.withEpochSummary(monitor, slot.epoch):
         epochSummary.sync_signature_contribution_inclusions += 1
 
 proc registerSyncAggregateInBlock*(
-    self: var ValidatorMonitor, slot: Slot, beacon_block_root: Eth2Digest,
-    pubkey: ValidatorPubKey) =
+    self: var ValidatorMonitor,
+    slot: Slot,
+    beacon_block_root: Eth2Digest,
+    pubkey: ValidatorPubKey,
+) =
   self.withMonitor(pubkey):
     let id = monitor.id
     validator_monitor_sync_committee_message_in_block.inc(1, ["block", metricId])
@@ -824,7 +897,8 @@ proc registerSyncAggregateInBlock*(
       epochSummary.sync_signature_block_inclusions += 1
 
 proc registerVoluntaryExit*(
-  self: var ValidatorMonitor, src: MsgSource, exit: VoluntaryExit) =
+    self: var ValidatorMonitor, src: MsgSource, exit: VoluntaryExit
+) =
   self.withMonitor(exit.validator_index.ValidatorIndex):
     let
       id = monitor.id
@@ -832,14 +906,14 @@ proc registerVoluntaryExit*(
 
     validator_monitor_exit.inc(1, [$src, metricId])
 
-    notice "Voluntary exit seen",
-      epoch = epoch, validator = id, src = src
+    notice "Voluntary exit seen", epoch = epoch, validator = id, src = src
 
     self.withEpochSummary(monitor, epoch):
       epochSummary.exits += 1
 
 proc registerProposerSlashing*(
-  self: var ValidatorMonitor, src: MsgSource, slashing: ProposerSlashing) =
+    self: var ValidatorMonitor, src: MsgSource, slashing: ProposerSlashing
+) =
   let proposer = slashing.signed_header_1.message.proposer_index
 
   self.withMonitor(proposer):
@@ -858,7 +932,8 @@ proc registerProposerSlashing*(
       epochSummary.proposer_slashings += 1
 
 proc registerAttesterSlashing*(
-    self: var ValidatorMonitor, src: MsgSource, slashing: AttesterSlashing) =
+    self: var ValidatorMonitor, src: MsgSource, slashing: AttesterSlashing
+) =
   let data = slashing.attestation_1.data
 
   for idx in slashing.attestation_2.attesting_indices:
@@ -872,8 +947,7 @@ proc registerAttesterSlashing*(
 
       validator_monitor_attester_slashing.inc(1, [$src, metricId])
 
-      warn "Attester slashing seen",
-        slot = slot, validator = id, src = src
+      warn "Attester slashing seen", slot = slot, validator = id, src = src
 
       self.withEpochSummary(monitor, slot.epoch):
         epochSummary.attester_slashings += 1
