@@ -77,7 +77,7 @@ suite "Honest validator":
         "/eth2/00000000/sync_committee_1/ssz_snappy"
       getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(3)) ==
         "/eth2/00000000/sync_committee_3/ssz_snappy"
-      getBlobSidecarTopic(forkDigest, SubnetId(1)) ==
+      getBlobSidecarTopic(forkDigest, BlobId(1)) ==
         "/eth2/00000000/blob_sidecar_1/ssz_snappy"
       toSeq(blobSidecarTopics(forkDigest)) ==
         ["/eth2/00000000/blob_sidecar_0/ssz_snappy",

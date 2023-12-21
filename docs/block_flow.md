@@ -6,10 +6,10 @@ This is a WIP document to explain the beacon block flows.
 
 Important distinction:
 - We distinguish block `validation` which is defined in the P2P specs:
-  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_block.
+  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_block.
   A validated block can be forwarded on gossipsub.
 - and we distinguish `verification` which is defined in consensus specs:
-  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/phase0/beacon-chain.md#block-processing
+  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#block-processing
   A block needs to be verified to enter fork choice, the DAG and the BeaconChainDB
 
 In particular in terms of costly checks validating a block only requires checking:
@@ -103,7 +103,7 @@ It is important to note that 3 data structures are sharing the same `AsyncQueue[
 Blocks are listened to via the gossipsub topic `/eth2/{$forkDigest}/beacon_block/ssz_snappy` (`topicBeaconBlocks` variable)
 
 They are then:
-- validated by `blockValidator()` in the Eth2Processor by `validateBeaconBlock()` according to spec https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
+- validated by `blockValidator()` in the Eth2Processor by `validateBeaconBlock()` according to spec https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_block
 - Important: P2P validation is not full verification (state transition and internal cryptographic signatures were not checked)
 - enqueued in the shared block queue `AsyncQueue[BlockEntry]` in case of success
 - dropped in case of error
@@ -115,7 +115,7 @@ Logs:
 
 ### Gossip flow out
 
-- After validation in `blockValidator()` in the Eth2Processor by `validateBeaconBlock()` according to spec https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/p2p-interface.md#beacon_block
+- After validation in `blockValidator()` in the Eth2Processor by `validateBeaconBlock()` according to spec https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_block
 - Important: P2P validation is not full verification (state transition and internal cryptographic signatures were not checked)
 - We jump into libp2p/protocols/pubsub/pubsub.nim in the method `validate(PubSub, message)`
 - which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`

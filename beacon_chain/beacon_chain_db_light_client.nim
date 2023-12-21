@@ -89,20 +89,17 @@ type
     getStmt: SqliteStmt[int64, (int64, seq[byte])]
     putStmt: SqliteStmt[(int64, seq[byte]), void]
     delStmt: SqliteStmt[int64, void]
-    delFromStmt: SqliteStmt[int64, void]
     keepFromStmt: SqliteStmt[int64, void]
 
   BestLightClientUpdateStore = object
     getStmt: SqliteStmt[int64, (int64, seq[byte])]
     putStmt: SqliteStmt[(int64, int64, seq[byte]), void]
     delStmt: SqliteStmt[int64, void]
-    delFromStmt: SqliteStmt[int64, void]
     keepFromStmt: SqliteStmt[int64, void]
 
   SealedSyncCommitteePeriodStore = object
     containsStmt: SqliteStmt[int64, int64]
     putStmt: SqliteStmt[int64, void]
-    delFromStmt: SqliteStmt[int64, void]
     keepFromStmt: SqliteStmt[int64, void]
 
   LightClientDataDB* = ref object
@@ -405,10 +402,6 @@ proc initLegacyBestUpdatesStore(
       DELETE FROM `""" & name & """`
       WHERE `period` = ?;
     """, int64, void, managed = false).expect("SQL query OK")
-    delFromStmt = backend.prepareStmt("""
-      DELETE FROM `""" & name & """`
-      WHERE `period` >= ?;
-    """, int64, void, managed = false).expect("SQL query OK")
     keepFromStmt = backend.prepareStmt("""
       DELETE FROM `""" & name & """`
       WHERE `period` < ?;
@@ -418,14 +411,12 @@ proc initLegacyBestUpdatesStore(
     getStmt: getStmt,
     putStmt: putStmt,
     delStmt: delStmt,
-    delFromStmt: delFromStmt,
     keepFromStmt: keepFromStmt)
 
 func close(store: var LegacyBestLightClientUpdateStore) =
   store.getStmt.disposeSafe()
   store.putStmt.disposeSafe()
   store.delStmt.disposeSafe()
-  store.delFromStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
 proc initBestUpdatesStore(
@@ -470,10 +461,6 @@ proc initBestUpdatesStore(
       DELETE FROM `""" & name & """`
       WHERE `period` = ?;
     """, int64, void, managed = false).expect("SQL query OK")
-    delFromStmt = backend.prepareStmt("""
-      DELETE FROM `""" & name & """`
-      WHERE `period` >= ?;
-    """, int64, void, managed = false).expect("SQL query OK")
     keepFromStmt = backend.prepareStmt("""
       DELETE FROM `""" & name & """`
       WHERE `period` < ?;
@@ -483,14 +470,12 @@ proc initBestUpdatesStore(
     getStmt: getStmt,
     putStmt: putStmt,
     delStmt: delStmt,
-    delFromStmt: delFromStmt,
     keepFromStmt: keepFromStmt)
 
 func close(store: var BestLightClientUpdateStore) =
   store.getStmt.disposeSafe()
   store.putStmt.disposeSafe()
   store.delStmt.disposeSafe()
-  store.delFromStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
 proc getBestUpdate*(
@@ -559,13 +544,6 @@ func putBestUpdate*(
         let res = db.legacyBestUpdates.delStmt.exec(period.int64)
         res.expect("SQL query OK")
 
-proc putUpdateIfBetter*(
-    db: LightClientDataDB, period: SyncCommitteePeriod,
-    update: ForkedLightClientUpdate) =
-  let existing = db.getBestUpdate(period)
-  if is_better_update(update, existing):
-    db.putBestUpdate(period, update)
-
 proc initSealedPeriodsStore(
     backend: SqStoreRef,
     name: string): KvResult[SealedSyncCommitteePeriodStore] =
@@ -589,10 +567,6 @@ proc initSealedPeriodsStore(
         `period`
       ) VALUES (?);
     """, int64, void, managed = false).expect("SQL query OK")
-    delFromStmt = backend.prepareStmt("""
-      DELETE FROM `""" & name & """`
-      WHERE `period` >= ?;
-    """, int64, void, managed = false).expect("SQL query OK")
     keepFromStmt = backend.prepareStmt("""
       DELETE FROM `""" & name & """`
       WHERE `period` < ?;
@@ -601,13 +575,11 @@ proc initSealedPeriodsStore(
   ok SealedSyncCommitteePeriodStore(
     containsStmt: containsStmt,
     putStmt: putStmt,
-    delFromStmt: delFromStmt,
     keepFromStmt: keepFromStmt)
 
 func close(store: var SealedSyncCommitteePeriodStore) =
   store.containsStmt.disposeSafe()
   store.putStmt.disposeSafe()
-  store.delFromStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
 func isPeriodSealed*(
@@ -628,21 +600,6 @@ func sealPeriod*(
   doAssert period.isSupportedBySQLite
   let res = db.sealedPeriods.putStmt.exec(period.int64)
   res.expect("SQL query OK")
-
-func delNonFinalizedPeriodsFrom*(
-    db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
-  doAssert not db.backend.readOnly  # All `stmt` are non-nil
-  doAssert minPeriod.isSupportedBySQLite
-  block:
-    let res = db.sealedPeriods.delFromStmt.exec(minPeriod.int64)
-    res.expect("SQL query OK")
-  block:
-    let res = db.bestUpdates.delFromStmt.exec(minPeriod.int64)
-    res.expect("SQL query OK")
-  block:
-    let res = db.legacyBestUpdates.delFromStmt.exec(minPeriod.int64)
-    res.expect("SQL query OK")
-  # `syncCommittees`, `currentBranches` and `headers` only have finalized data
 
 func keepPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =

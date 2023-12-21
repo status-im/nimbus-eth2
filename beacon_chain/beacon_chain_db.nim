@@ -793,11 +793,12 @@ proc putBlock*(
 proc putBlobSidecar*(
     db: BeaconChainDB,
     value: BlobSidecar) =
-  db.blobs.putSZSSZ(blobkey(value.block_root, value.index), value)
+  let block_root = hash_tree_root(value.signed_block_header.message)
+  db.blobs.putSZSSZ(blobkey(block_root, value.index), value)
 
 proc delBlobSidecar*(
     db: BeaconChainDB,
-    root: Eth2Digest, index: BlobIndex) : bool =
+    root: Eth2Digest, index: BlobIndex): bool =
   db.blobs.del(blobkey(root, index)).expectDb()
 
 proc updateImmutableValidators*(
@@ -1038,25 +1039,19 @@ proc getBlockSSZ*[
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     fork: ConsensusFork): bool =
-  case fork
-  of ConsensusFork.Phase0:
-    getBlockSSZ(db, key, data, phase0.TrustedSignedBeaconBlock)
-  of ConsensusFork.Altair:
-    getBlockSSZ(db, key, data, altair.TrustedSignedBeaconBlock)
-  of ConsensusFork.Bellatrix:
-    getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
-  of ConsensusFork.Capella:
-    getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.Deneb:
-    getBlockSSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
+  withConsensusFork(fork):
+    getBlockSSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
 
 proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
-                       data: var seq[byte]):
-    bool =
+                       data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
   db.blobs.get(blobkey(root, index), decode).expectDb()
+
+proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
+                     value: var BlobSidecar): bool =
+  db.blobs.getSZSSZ(blobkey(root, index), value) == GetResult.found
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
@@ -1091,17 +1086,8 @@ proc getBlockSZ*[
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     fork: ConsensusFork): bool =
-  case fork
-  of ConsensusFork.Phase0:
-    getBlockSZ(db, key, data, phase0.TrustedSignedBeaconBlock)
-  of ConsensusFork.Altair:
-    getBlockSZ(db, key, data, altair.TrustedSignedBeaconBlock)
-  of ConsensusFork.Bellatrix:
-    getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
-  of ConsensusFork.Capella:
-    getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.Deneb:
-    getBlockSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
+  withConsensusFork(fork):
+    getBlockSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],

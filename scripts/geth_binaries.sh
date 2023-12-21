@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 if [ -z "${GETH_BINARIES_SOURCED:-}" ]; then
 GETH_BINARIES_SOURCED=1
 
@@ -9,12 +16,12 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 
 : ${CURL_BINARY:="curl"}
 : ${STABLE_GETH_BINARY:="${BUILD_DIR}/downloads/geth$EXE_EXTENSION"}
-: ${GETH_CAPELLA_BINARY:="${BUILD_DIR}/downloads/geth_capella$EXE_EXTENSION"}
-: ${GETH_DENEB_BINARY:="${BUILD_DIR}/downloads/geth_deneb$EXE_EXTENSION"}
+: ${GETH_CAPELLA_BINARY:="$STABLE_GETH_BINARY"}
+: ${GETH_DENEB_BINARY:="$STABLE_GETH_BINARY"}
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
-    GETH_VERSION="1.10.26-e5eb32ac"
+    GETH_VERSION="1.13.5-916d6a44"  # https://geth.ethereum.org/downloads
     GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
     case "${OS}-${ARCH}" in
@@ -28,9 +35,7 @@ download_geth_stable() {
         GETH_TARBALL="geth-darwin-amd64-${GETH_VERSION}.tar.gz"
         ;;
       macos-arm64|macos-aarch64)
-        # There is no official binary for macOS/ARM at the moment
-        # The AMD64 binary should work under Rosetta
-        GETH_TARBALL="geth-darwin-amd64-${GETH_VERSION}.tar.gz"
+        GETH_TARBALL="geth-darwin-arm64-${GETH_VERSION}.tar.gz"
         ;;
       windows-amd64|windows-x86_64)
         GETH_TARBALL="geth-windows-amd64-${GETH_VERSION}.zip"
@@ -102,11 +107,11 @@ download_status_geth_binary() {
 }
 
 download_geth_capella() {
-  download_status_geth_binary withdrawals-timestamp "$GETH_CAPELLA_BINARY"
+  download_geth_stable
 }
 
 download_geth_deneb() {
-  download_status_geth_binary eip-4844 "$GETH_DENEB_BINARY"
+  download_geth_stable
 }
 
 fi

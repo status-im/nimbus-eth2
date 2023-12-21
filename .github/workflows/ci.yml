@@ -215,7 +215,7 @@ jobs:
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           excluded_files="config.yaml"
-          excluded_extensions="ans|json|md|png|service|ssz|txt"
+          excluded_extensions="ans|json|json\\.template|md|png|service|ssz|txt"
 
           current_year=$(date +"%Y")
           outdated_files=()

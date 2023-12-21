@@ -20,7 +20,7 @@ proc getHeaderDeneb*(slot: Slot,
      meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/34509da74237942aa15a4c0ca828f67acdf77652/apis/builder/header.yaml
 
-proc submitBlindedBlock*(body: deneb_mev.SignedBlindedBeaconBlockContents
+proc submitBlindedBlock*(body: deneb_mev.SignedBlindedBeaconBlock
                         ): RestResponse[SubmitBlindedBlockResponseDeneb] {.
      rest, endpoint: "/eth/v1/builder/blinded_blocks",
      meth: MethodPost, connection: {Dedicated, Close}.}

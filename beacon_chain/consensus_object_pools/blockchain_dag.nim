@@ -234,19 +234,6 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
   else:
     err()
 
-proc containsBlock(dag: ChainDAGRef, bid: BlockId): bool =
-  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-  if dag.db.containsBlock(bid.root, fork):
-    return true
-
-  # TODO avoid loading bytes from era
-  var bytes: seq[byte]
-  (bid.slot <= dag.finalizedHead.slot and
-    getBlockSZ(
-      dag.era, getStateField(dag.headState, historical_roots).asSeq,
-      dag.headState.historical_summaries().asSeq,
-      bid.slot, bytes).isOk and bytes.len > 0)
-
 proc getBlock*(
     dag: ChainDAGRef, bid: BlockId,
     T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
@@ -566,8 +553,6 @@ func init*(
       dag.putShufflingRef(tmp)
       tmp
 
-    attester_dependent_root = withState(state):
-      forkyState.attester_dependent_root
     total_active_balance = withState(state):
       get_total_active_balance(forkyState.data, cache)
     epochRef = EpochRef(
@@ -814,21 +799,14 @@ proc currentSyncCommitteeForPeriod*(
       else: err()
   do: err()
 
-func isNextSyncCommitteeFinalized*(
-    dag: ChainDAGRef, period: SyncCommitteePeriod): bool =
-  let finalizedSlot = dag.finalizedHead.slot
-  if finalizedSlot < period.start_slot:
-    false
-  elif finalizedSlot < dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
-    false # Fork epoch not necessarily tied to sync committee period boundary
+proc getBlockIdAtSlot*(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState, slot: Slot): Opt[BlockId] =
+  if slot >= state.data.slot:
+    Opt.some state.latest_block_id
+  elif state.data.slot <= slot + SLOTS_PER_HISTORICAL_ROOT:
+    dag.getBlockId(state.data.get_block_root_at_slot(slot))
   else:
-    true
-
-func firstNonFinalizedPeriod*(dag: ChainDAGRef): SyncCommitteePeriod =
-  if dag.finalizedHead.slot >= dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
-    dag.finalizedHead.slot.sync_committee_period + 1
-  else:
-    dag.cfg.ALTAIR_FORK_EPOCH.sync_committee_period
+    Opt.none(BlockId)
 
 proc updateBeaconMetrics(
     state: ForkedHashedBeaconState, bid: BlockId, cache: var StateCache) =
@@ -1030,7 +1008,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # state - the tail is implicitly finalized, and if we have a finalized block
     # table, that provides another hint
     finalizedSlot = db.finalizedBlocks.high.get(tail.slot)
-    newFinalized: seq[BlockId]
     cache: StateCache
     foundHeadState = false
     headBlocks: seq[BlockRef]
@@ -1132,7 +1109,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # should have `previous_version` set to `current_version` while
   # this doesn't happen to be the case in network that go through
   # regular hard-fork upgrades. See for example:
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/bellatrix/beacon-chain.md#testing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
@@ -1150,28 +1127,37 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   doAssert dag.finalizedHead.blck != nil,
     "The finalized head should exist at the slot"
-  doAssert dag.finalizedHead.blck.parent == nil,
-    "...but that's the last BlockRef with a parent"
 
   block: # Top up finalized blocks
     if db.finalizedBlocks.high.isNone or
         db.finalizedBlocks.high.get() < dag.finalizedHead.blck.slot:
+      # Versions prior to 1.7.0 did not store finalized blocks in the
+      # database, and / or the application might have crashed between the head
+      # and finalized blocks updates.
       info "Loading finalized blocks",
         finHigh = db.finalizedBlocks.high,
         finalizedHead = shortLog(dag.finalizedHead)
 
-      for blck in db.getAncestorSummaries(dag.finalizedHead.blck.root):
+      var
+        newFinalized: seq[BlockId]
+        tmp = dag.finalizedHead.blck
+      while tmp.parent != nil:
+        newFinalized.add(tmp.bid)
+        let p = tmp.parent
+        tmp.parent = nil
+        tmp = p
+
+      for blck in db.getAncestorSummaries(tmp.root):
         if db.finalizedBlocks.high.isSome and
             blck.summary.slot <= db.finalizedBlocks.high.get:
           break
 
-        # Versions prior to 1.7.0 did not store finalized blocks in the
-        # database, and / or the application might have crashed between the head
-        # and finalized blocks updates.
         newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
 
-  let finalizedBlocksTick = Moment.now()
-  db.updateFinalizedBlocks(newFinalized)
+      db.updateFinalizedBlocks(newFinalized)
+
+  doAssert dag.finalizedHead.blck.parent == nil,
+    "The finalized head is the last BlockRef with a parent"
 
   block:
     let finalized = db.finalizedBlocks.get(db.finalizedBlocks.high.get()).expect(
@@ -1352,15 +1338,6 @@ proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
   dag.getEpochRef(
     dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).expect(
       "getEpochRef for finalized head should always succeed")
-
-proc getBlockIdAtSlot(
-    dag: ChainDAGRef, state: ForkyHashedBeaconState, slot: Slot): Opt[BlockId] =
-  if slot >= state.data.slot:
-    Opt.some state.latest_block_id
-  elif state.data.slot <= slot + SLOTS_PER_HISTORICAL_ROOT:
-    dag.getBlockId(state.data.get_block_root_at_slot(slot))
-  else:
-    Opt.none(BlockId)
 
 proc ancestorSlot*(
     dag: ChainDAGRef, state: ForkyHashedBeaconState, bid: BlockId,
@@ -1935,7 +1912,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/sync/optimistic.md#helpers
 template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
@@ -2434,7 +2411,6 @@ proc updateHead*(
 
     if not(isNil(dag.onHeadChanged)):
       let
-        currentEpoch = epoch(newHead.slot)
         depRoot = withState(dag.headState): forkyState.proposer_dependent_root
         prevDepRoot = withState(dag.headState):
           forkyState.attester_dependent_root
@@ -2626,7 +2602,7 @@ func aggregateAll*(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregate: no attesting keys")
 
   let
@@ -2746,7 +2722,6 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       if state_root.isZero:
         # If we can find an era file with this state, use it as an alternative
         # starting point - ignore failures for now
-        var bytes: seq[byte]
         if dag.era.getState(
             historicalRoots, historicalSummaries, slot, state[]).isOk():
           state_root = getStateRoot(state[])

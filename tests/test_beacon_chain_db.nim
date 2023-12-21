@@ -11,7 +11,6 @@ import
   unittest2,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/spec/[beaconstate, forks, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
@@ -760,6 +759,106 @@ suite "Beacon chain DB" & preset():
 
     check:
       hash_tree_root(state2[]) == root
+
+  test "sanity check blobs" & preset():
+    const
+      blockHeader0 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(1)))
+
+    let
+      blockRoot0 = hash_tree_root(blockHeader0.message)
+      blockRoot1 = hash_tree_root(blockHeader1.message)
+
+      # Ensure minimal-difference pairs on both block root and blob index to
+      # verify that blobkey uses both
+      blobSidecar0 = BlobSidecar(signed_block_header: blockHeader0, index: 3)
+      blobSidecar1 = BlobSidecar(signed_block_header: blockHeader0, index: 2)
+      blobSidecar2 = BlobSidecar(signed_block_header: blockHeader1, index: 2)
+
+      db = makeTestDB(SLOTS_PER_EPOCH)
+
+    var
+      buf: seq[byte]
+      blobSidecar: BlobSidecar
+
+    check:
+      not db.getBlobSidecar(blockRoot0, 3, blobSidecar)
+      not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
+      not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
+      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
+      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
+      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
+
+    db.putBlobSidecar(blobSidecar0)
+
+    check:
+      db.getBlobSidecar(blockRoot0, 3, blobSidecar)
+      blobSidecar == blobSidecar0
+      not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
+      not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
+      db.getBlobSidecarSZ(blockRoot0, 3, buf)
+      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
+      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
+
+    db.putBlobSidecar(blobSidecar1)
+
+    check:
+      db.getBlobSidecar(blockRoot0, 3, blobSidecar)
+      blobSidecar == blobSidecar0
+      db.getBlobSidecar(blockRoot0, 2, blobSidecar)
+      blobSidecar == blobSidecar1
+      not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
+      db.getBlobSidecarSZ(blockRoot0, 3, buf)
+      db.getBlobSidecarSZ(blockRoot0, 2, buf)
+      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
+
+    check db.delBlobSidecar(blockRoot0, 3)
+
+    check:
+      not db.getBlobSidecar(blockRoot0, 3, blobSidecar)
+      db.getBlobSidecar(blockRoot0, 2, blobSidecar)
+      blobSidecar == blobSidecar1
+      not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
+      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
+      db.getBlobSidecarSZ(blockRoot0, 2, buf)
+      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
+
+    db.putBlobSidecar(blobSidecar2)
+
+    check:
+      not db.getBlobSidecar(blockRoot0, 3, blobSidecar)
+      db.getBlobSidecar(blockRoot0, 2, blobSidecar)
+      blobSidecar == blobSidecar1
+      db.getBlobSidecar(blockRoot1, 2, blobSidecar)
+      blobSidecar == blobSidecar2
+      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
+      db.getBlobSidecarSZ(blockRoot0, 2, buf)
+      db.getBlobSidecarSZ(blockRoot1, 2, buf)
+
+    check db.delBlobSidecar(blockRoot0, 2)
+
+    check:
+      not db.getBlobSidecar(blockRoot0, 3, blobSidecar)
+      not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
+      db.getBlobSidecar(blockRoot1, 2, blobSidecar)
+      blobSidecar == blobSidecar2
+      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
+      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
+      db.getBlobSidecarSZ(blockRoot1, 2, buf)
+
+    check db.delBlobSidecar(blockRoot1, 2)
+
+    check:
+      not db.getBlobSidecar(blockRoot0, 3, blobSidecar)
+      not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
+      not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
+      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
+      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
+      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
+
+    db.close()
 
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():

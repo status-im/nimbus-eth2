@@ -19,11 +19,6 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
   ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/validators.yaml
   ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
 
-proc checkBuilderStatus*(): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/builder/status",
-     meth: MethodGet, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/status.yaml
-
 proc getHeaderCapella*(slot: Slot,
                        parent_hash: Eth2Digest,
                        pubkey: ValidatorPubKey

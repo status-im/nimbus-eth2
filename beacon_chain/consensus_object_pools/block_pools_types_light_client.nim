@@ -39,17 +39,13 @@ type
     finalized_slot*: Slot
     finality_branch*: altair.FinalityBranch
 
+    current_period_best_update*: ref ForkedLightClientUpdate
+
   LightClientDataCache* = object
     data*: Table[BlockId, CachedLightClientData]
       ## Cached data for creating future `LightClientUpdate` instances.
       ## Key is the block ID of which the post state was used to get the data.
       ## Data stored for the finalized head block and all non-finalized blocks.
-
-    pendingBest*:
-      Table[(SyncCommitteePeriod, Eth2Digest), ForkedLightClientUpdate]
-      ## Same as `bestUpdates`, but for `SyncCommitteePeriod` with not yet
-      ## finalized `next_sync_committee`. Key is `(attested_period,
-      ## hash_tree_root(current_sync_committee | next_sync_committee)`.
 
     latest*: ForkedLightClientFinalityUpdate
       ## Tracks light client data for the latest slot that was signed by

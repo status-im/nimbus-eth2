@@ -1021,10 +1021,7 @@ proc createLocalValidatorFiles*(
        encodedStorage: string
      ): Result[void, KeystoreGenerationError] {.raises: [].} =
 
-  var
-    success = false # becomes true when everything is created successfully
-    cleanupSecretsDir = true # becomes false if secretsDir already existed
-    cleanupValidatorsDir = true # becomes false if validatorsDir already existed
+  var success = false # becomes true when everything is created successfully
 
   # secretsDir:
   let secretsDirExisted: bool = dirExists(secretsDir)
@@ -1068,10 +1065,7 @@ proc createLockedLocalValidatorFiles(
        encodedStorage: string
      ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [].} =
 
-  var
-    success = false # becomes true when everything is created successfully
-    cleanupSecretsDir = true # becomes false if secretsDir already existed
-    cleanupValidatorsDir = true # becomes false if validatorsDir already existed
+  var success = false # becomes true when everything is created successfully
 
   # secretsDir:
   let secretsDirExisted: bool = dirExists(secretsDir)
