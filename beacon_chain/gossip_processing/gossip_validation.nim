@@ -16,7 +16,8 @@ import
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    exit_pool, spec_cache, light_client_pool, sync_committee_msg_pool],
+    spec_cache, light_client_pool, sync_committee_msg_pool,
+    validator_change_pool],
   ".."/[beacon_clock],
   ./batch_validation
 

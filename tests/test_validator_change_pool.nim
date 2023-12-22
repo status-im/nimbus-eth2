@@ -11,7 +11,7 @@ import
   ../beacon_chain/spec/[
     datatypes/base, forks, presets, signatures, state_transition],
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine, blockchain_dag, exit_pool],
+    block_quarantine, blockchain_dag, validator_change_pool],
   "."/[testutil, testblockutil, testdbutil]
 
 func makeSignedBeaconBlockHeader(
