@@ -4141,6 +4141,10 @@ proc decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.VoluntaryExit)
   of "bls_to_execution_change":
     ok(EventTopic.BLSToExecutionChange)
+  of "proposer_slashing":
+    ok(EventTopic.ProposerSlashing)
+  of "attester_slashing":
+    ok(EventTopic.AttesterSlashing)
   of "finalized_checkpoint":
     ok(EventTopic.FinalizedCheckpoint)
   of "chain_reorg":
@@ -4166,6 +4170,10 @@ proc encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("voluntary_exit,")
   if EventTopic.BLSToExecutionChange in value:
     res.add("bls_to_execution_change,")
+  if EventTopic.ProposerSlashing in value:
+    res.add("proposer_slashing,")
+  if EventTopic.AttesterSlashing in value:
+    res.add("attester_slashing,")
   if EventTopic.FinalizedCheckpoint in value:
     res.add("finalized_checkpoint,")
   if EventTopic.ChainReorg in value:
