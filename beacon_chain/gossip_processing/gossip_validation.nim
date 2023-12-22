@@ -1050,6 +1050,10 @@ proc validateBlsToExecutionChange*(
       of BatchResult.Valid:
         discard  # keep going only in this case
 
+  # Send notification about new BLS to execution change via callback
+  if not(isNil(pool.onBLSToExecutionChangeReceived)):
+    pool.onBLSToExecutionChangeReceived(signed_address_change)
+
   return ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attester_slashing

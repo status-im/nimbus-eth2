@@ -133,6 +133,10 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.exitQueue,
                                               "voluntary_exit")
           res.add(handler)
+        if EventTopic.BLSToExecutionChange in eventTopics:
+          let handler = response.eventHandler(node.eventBus.blsToExecQueue,
+                                              "bls_to_execution_change")
+          res.add(handler)
         if EventTopic.FinalizedCheckpoint in eventTopics:
           let handler = response.eventHandler(node.eventBus.finalQueue,
                                               "finalized_checkpoint")

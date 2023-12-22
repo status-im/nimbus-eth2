@@ -4139,6 +4139,8 @@ proc decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.Attestation)
   of "voluntary_exit":
     ok(EventTopic.VoluntaryExit)
+  of "bls_to_execution_change":
+    ok(EventTopic.BLSToExecutionChange)
   of "finalized_checkpoint":
     ok(EventTopic.FinalizedCheckpoint)
   of "chain_reorg":
@@ -4162,6 +4164,8 @@ proc encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("attestation,")
   if EventTopic.VoluntaryExit in value:
     res.add("voluntary_exit,")
+  if EventTopic.BLSToExecutionChange in value:
+    res.add("bls_to_execution_change,")
   if EventTopic.FinalizedCheckpoint in value:
     res.add("finalized_checkpoint,")
   if EventTopic.ChainReorg in value:

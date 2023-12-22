@@ -40,17 +40,18 @@ export
 
 type
   EventBus* = object
-    blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
+    blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
+    attestQueue*: AsyncEventQueue[Attestation]
+    exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
+    blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
+    finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
+    contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientFinalityUpdate]]
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
-    attestQueue*: AsyncEventQueue[Attestation]
-    contribQueue*: AsyncEventQueue[SignedContributionAndProof]
-    exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
-    finalQueue*: AsyncEventQueue[FinalizationInfoObject]
 
   BeaconNode* = ref object
     nickname*: string
