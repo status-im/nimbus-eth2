@@ -32,6 +32,10 @@ type
     proc(data: SignedVoluntaryExit) {.gcsafe, raises: [].}
   OnBLSToExecutionChangeCallback =
     proc(data: SignedBLSToExecutionChange) {.gcsafe, raises: [].}
+  OnProposerSlashingCallback =
+    proc(data: ProposerSlashing) {.gcsafe, raises: [].}
+  OnAttesterSlashingCallback =
+    proc(data: AttesterSlashing) {.gcsafe, raises: [].}
 
   ValidatorChangePool* = object
     ## The validator change pool tracks attester slashings, proposer slashings,
@@ -69,11 +73,15 @@ type
     attestationPool: ref AttestationPool
     onVoluntaryExitReceived*: OnVoluntaryExitCallback
     onBLSToExecutionChangeReceived*: OnBLSToExecutionChangeCallback
+    onProposerSlashingReceived*: OnProposerSlashingCallback
+    onAttesterSlashingReceived*: OnAttesterSlashingCallback
 
 func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
            attestationPool: ref AttestationPool = nil,
            onVoluntaryExit: OnVoluntaryExitCallback = nil,
-           onBLSToExecutionChange: OnBLSToExecutionChangeCallback = nil): T =
+           onBLSToExecutionChange: OnBLSToExecutionChangeCallback = nil,
+           onProposerSlashing: OnProposerSlashingCallback = nil,
+           onAttesterSlashing: OnAttesterSlashingCallback = nil): T =
   ## Initialize an ValidatorChangePool from the dag `headState`
   T(
     # Allow filtering some validator change messages during block production
@@ -96,7 +104,9 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
     dag: dag,
     attestationPool: attestationPool,
     onVoluntaryExitReceived: onVoluntaryExit,
-    onBLSToExecutionChangeReceived: onBLSToExecutionChange)
+    onBLSToExecutionChangeReceived: onBLSToExecutionChange,
+    onProposerSlashingReceived: onProposerSlashing,
+    onAttesterSlashingReceived: onAttesterSlashing)
 
 func addValidatorChangeMessage(
     subpool: var auto, seenpool: var auto, validatorChangeMessage: auto,

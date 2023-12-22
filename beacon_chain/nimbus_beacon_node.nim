@@ -289,6 +289,10 @@ proc initFullNode(
     node.eventBus.exitQueue.emit(data)
   proc onBLSToExecutionChangeAdded(data: SignedBLSToExecutionChange) =
     node.eventBus.blsToExecQueue.emit(data)
+  proc onProposerSlashingAdded(data: ProposerSlashing) =
+    node.eventBus.propSlashQueue.emit(data)
+  proc onAttesterSlashingAdded(data: AttesterSlashing) =
+    node.eventBus.attSlashQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -367,7 +371,8 @@ proc initFullNode(
     lightClientPool = newClone(
       LightClientPool())
     validatorChangePool = newClone(ValidatorChangePool.init(
-      dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded))
+      dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
+      onProposerSlashingAdded, onAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
@@ -546,6 +551,8 @@ proc init*(T: type BeaconNode,
       attestQueue: newAsyncEventQueue[Attestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
       blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
+      propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
+      attSlashQueue: newAsyncEventQueue[AttesterSlashing](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
       contribQueue: newAsyncEventQueue[SignedContributionAndProof](),

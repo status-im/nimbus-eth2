@@ -137,6 +137,14 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.blsToExecQueue,
                                               "bls_to_execution_change")
           res.add(handler)
+        if EventTopic.ProposerSlashing in eventTopics:
+          let handler = response.eventHandler(node.eventBus.propSlashQueue,
+                                              "proposer_slashing")
+          res.add(handler)
+        if EventTopic.AttesterSlashing in eventTopics:
+          let handler = response.eventHandler(node.eventBus.attSlashQueue,
+                                              "attester_slashing")
+          res.add(handler)
         if EventTopic.FinalizedCheckpoint in eventTopics:
           let handler = response.eventHandler(node.eventBus.finalQueue,
                                               "finalized_checkpoint")

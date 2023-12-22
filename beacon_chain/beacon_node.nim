@@ -45,6 +45,8 @@ type
     attestQueue*: AsyncEventQueue[Attestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
+    propSlashQueue*: AsyncEventQueue[ProposerSlashing]
+    attSlashQueue*: AsyncEventQueue[AttesterSlashing]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]

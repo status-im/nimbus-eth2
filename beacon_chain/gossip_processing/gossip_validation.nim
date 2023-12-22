@@ -1075,6 +1075,10 @@ proc validateAttesterSlashing*(
   if attester_slashing_validity.isErr:
     return pool.checkedReject(attester_slashing_validity.error)
 
+  # Send notification about new attester slashing via callback
+  if not(isNil(pool.onAttesterSlashingReceived)):
+    pool.onAttesterSlashingReceived(attester_slashing)
+
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#proposer_slashing
@@ -1098,6 +1102,10 @@ proc validateProposerSlashing*(
     check_proposer_slashing(pool.dag.headState, proposer_slashing, {})
   if proposer_slashing_validity.isErr:
     return pool.checkedReject(proposer_slashing_validity.error)
+
+  # Send notification about new proposer slashing via callback
+  if not(isNil(pool.onProposerSlashingReceived)):
+    pool.onProposerSlashingReceived(proposer_slashing)
 
   ok()
 
