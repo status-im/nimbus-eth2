@@ -287,6 +287,8 @@ proc initFullNode(
     node.eventBus.contribQueue.emit(data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
     node.eventBus.exitQueue.emit(data)
+  proc onBLSToExecutionChangeAdded(data: SignedBLSToExecutionChange) =
+    node.eventBus.blsToExecQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -364,8 +366,8 @@ proc initFullNode(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
       LightClientPool())
-    validatorChangePool = newClone(
-      ValidatorChangePool.init(dag, attestationPool, onVoluntaryExitAdded))
+    validatorChangePool = newClone(ValidatorChangePool.init(
+      dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded))
     blobQuarantine = newClone(BlobQuarantine())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
@@ -539,18 +541,18 @@ proc init*(T: type BeaconNode,
 
   let
     eventBus = EventBus(
-      blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
+      blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
+      attestQueue: newAsyncEventQueue[Attestation](),
+      exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
+      blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
+      finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
+      contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
       finUpdateQueue: newAsyncEventQueue[
         RestVersioned[ForkedLightClientFinalityUpdate]](),
       optUpdateQueue: newAsyncEventQueue[
-        RestVersioned[ForkedLightClientOptimisticUpdate]](),
-      attestQueue: newAsyncEventQueue[Attestation](),
-      contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
-      exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
-      finalQueue: newAsyncEventQueue[FinalizationInfoObject]()
-    )
+        RestVersioned[ForkedLightClientOptimisticUpdate]]())
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
