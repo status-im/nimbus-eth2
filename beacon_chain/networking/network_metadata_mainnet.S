@@ -36,7 +36,7 @@ cdecl(eth2_mainnet_genesis_size):
     .quad    eth2_mainnet_genesis_end - eth2_mainnet_genesis_data
 
 eth2_goerli_genesis_data:
-    .incbin "eth2-networks/shared/prater/genesis.ssz"
+    .incbin "goerli/prater/genesis.ssz"
 eth2_goerli_genesis_end:
     .global cdecl(eth2_goerli_genesis_size)
     .p2align 3

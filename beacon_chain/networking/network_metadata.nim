@@ -302,7 +302,7 @@ elif const_preset == "mainnet":
         vendorDir & "/eth2-networks/shared/mainnet/genesis.ssz")
 
       praterGenesis* = slurp(
-        vendorDir & "/eth2-networks/shared/prater/genesis.ssz")
+        vendorDir & "/goerli/prater/genesis.ssz")
 
       sepoliaGenesis* = slurp(
         vendorDir & "/sepolia/bepolia/genesis.ssz")
@@ -314,7 +314,7 @@ elif const_preset == "mainnet":
       useBakedInGenesis = some "mainnet")
 
     praterMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/eth2-networks/shared/prater",
+      vendorDir & "/goerli/prater",
       some goerli,
       useBakedInGenesis = some "prater")
 
