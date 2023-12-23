@@ -15,16 +15,18 @@ import
   ../spec/datatypes/[altair, phase0, deneb],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    exit_pool, attestation_pool, light_client_pool, sync_committee_msg_pool],
+    attestation_pool, light_client_pool, sync_committee_msg_pool,
+    validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
   ../nimbus_binary_common
 
 export
-  results, taskpools, block_clearance, blockchain_dag, exit_pool, attestation_pool,
-  light_client_pool, sync_committee_msg_pool, validator_pool, beacon_clock,
-  gossip_validation, block_processor, batch_validation, block_quarantine
+  results, taskpools, block_clearance, blockchain_dag, attestation_pool,
+  light_client_pool, sync_committee_msg_pool, validator_change_pool,
+  validator_pool, beacon_clock, gossip_validation, block_processor,
+  batch_validation, block_quarantine
 
 logScope: topics = "gossip_eth2"
 

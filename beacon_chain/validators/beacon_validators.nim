@@ -32,8 +32,8 @@ import
     eth2_merkleization, forks, helpers, network, signatures, state_transition,
     validator],
   ../consensus_object_pools/[
-    spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool,
-    sync_committee_msg_pool, consensus_manager],
+    spec_cache, blockchain_dag, block_clearance, attestation_pool,
+    sync_committee_msg_pool, validator_change_pool, consensus_manager],
   ../el/el_manager,
   ../networking/eth2_network,
   ../sszdump, ../sync/sync_manager,

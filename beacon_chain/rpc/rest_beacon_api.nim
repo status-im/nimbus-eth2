@@ -12,7 +12,7 @@ import
   ./rest_utils,
   ./state_ttl_cache,
   ../beacon_node,
-  ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
+  ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
   ../spec/datatypes/[phase0, altair, deneb],
   ../validators/message_router_mev

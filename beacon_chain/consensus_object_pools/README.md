@@ -22,5 +22,5 @@ The pools presenet in this folder are:
   - blockchain_dag: an in-memory direct-acyclic graph of fully validated and verified blockchain candidates with the tail being the last finalized epoch. A block in the DAG MUST be in the fork choice and a block in the fork choice MUST be in the DAG (except for orphans following finalization). On finalization non-empty epoch blocks are stored in the beacon_chain_db.
 - attestation_pool:
   Handles the attestation received from gossip and collect them for fork choice.
-- exit_pool:
+- validator_change_pool:
   Handle voluntary exits and forced exits (attester slashings and proposer slashings)
