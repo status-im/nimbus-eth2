@@ -37,7 +37,7 @@ type
     ArrayAccess
     Error
 
-  Node* = ref object {.acyclic.}
+  Node* = ref object
     case kind*: NodeKind
     of Dot:
       objVal*, field*: Node

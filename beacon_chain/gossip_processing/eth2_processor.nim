@@ -15,16 +15,18 @@ import
   ../spec/datatypes/[altair, phase0, deneb],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    exit_pool, attestation_pool, light_client_pool, sync_committee_msg_pool],
+    attestation_pool, light_client_pool, sync_committee_msg_pool,
+    validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
   ../nimbus_binary_common
 
 export
-  results, taskpools, block_clearance, blockchain_dag, exit_pool, attestation_pool,
-  light_client_pool, sync_committee_msg_pool, validator_pool, beacon_clock,
-  gossip_validation, block_processor, batch_validation, block_quarantine
+  results, taskpools, block_clearance, blockchain_dag, attestation_pool,
+  light_client_pool, sync_committee_msg_pool, validator_change_pool,
+  validator_pool, beacon_clock, gossip_validation, block_processor,
+  batch_validation, block_quarantine
 
 logScope: topics = "gossip_eth2"
 
@@ -242,7 +244,7 @@ proc processSignedBeaconBlock*(
     let blobs =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(signedBlock):
-          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root))
+          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
         else:
           if not self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
                                                signedBlock):
@@ -310,7 +312,7 @@ proc processBlobSidecar*(
       self.blockProcessor[].enqueueBlock(
         MsgSource.gossip,
         ForkedSignedBeaconBlock.init(blobless),
-        Opt.some(self.blobQuarantine[].popBlobs(block_root)))
+        Opt.some(self.blobQuarantine[].popBlobs(block_root, blobless)))
     else:
       discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
                                             blobless)
@@ -650,7 +652,7 @@ proc processSignedContributionAndProof*(
 
     err(v.error())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -666,7 +668,7 @@ proc processLightClientFinalityUpdate*(
     beacon_light_client_finality_update_dropped.inc(1, [$v.error[0]])
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
     self: var Eth2Processor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

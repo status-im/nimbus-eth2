@@ -104,11 +104,22 @@ proc getBlockSZ*(
 
 proc getBlockSSZ*(
     f: EraFile, slot: Slot, bytes: var seq[byte]): Result[void, string] =
+  ## Get raw SSZ bytes of the block at the given slot - may overwrite
+  ## `bytes` on error.
+  ##
+  ## Sets `bytes` to an empty seq and returns success if there is no block at
+  ## the given slot, according to the index
   var tmp: seq[byte]
   ? f.getBlockSZ(slot, tmp)
+
   let
     len = uncompressedLenFramed(tmp).valueOr:
       return err("Cannot read uncompressed length, era file corrupt?")
+
+  if len == 0:
+    # Given slot is empty
+    reset(bytes)
+    return ok()
 
   if len > int.high.uint64:
     return err("Invalid uncompressed size")
@@ -298,6 +309,11 @@ proc getBlockSSZ*(
     db: EraDB, historical_roots: openArray[Eth2Digest],
     historical_summaries: openArray[HistoricalSummary], slot: Slot,
     bytes: var seq[byte]): Result[void, string] =
+  ## Get raw SSZ bytes of the block at the given slot - may overwrite
+  ## `bytes` on error.
+  ##
+  ## Sets `bytes` to an empty seq and returns success if there is no block at
+  ## the given slot according to the index
   let
     f = ? db.getEraFile(historical_roots, historical_summaries, slot.era + 1)
 
@@ -307,13 +323,15 @@ proc getBlock*(
     db: EraDB, historical_roots: openArray[Eth2Digest],
     historical_summaries: openArray[HistoricalSummary], slot: Slot,
     root: Opt[Eth2Digest], T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
-  var tmp: seq[byte]
+  var bytes: seq[byte]
   ? db.getBlockSSZ(
-    historical_roots, historical_summaries, slot, tmp).mapErr(proc(x: auto) = discard)
+    historical_roots, historical_summaries, slot, bytes).mapConvertErr(void)
+  if bytes.len() == 0:
+    return Opt.none(T)
 
   result.ok(default(T))
   try:
-    readSszBytes(tmp, result.get(), updateRoot = root.isNone)
+    readSszBytes(bytes, result.get(), updateRoot = root.isNone)
     if root.isSome():
       result.get().root = root.get()
   except CatchableError:
@@ -350,6 +368,8 @@ proc getState*(
     state: var ForkedHashedBeaconState): Result[void, string] =
   var bytes: seq[byte]
   ? db.getStateSSZ(historical_roots, historical_summaries, slot, bytes)
+  if bytes.len() == 0:
+    return err("State not found")
 
   try:
     state = readSszForkedHashedBeaconState(db.cfg, slot, bytes)
@@ -499,7 +519,7 @@ when isMainModule:
   doAssert got8193
 
   doAssert db.getBlock(
-      historical_roots, Slot(1), Opt[Eth2Digest].err(),
+      historical_roots, [], Slot(1), Opt[Eth2Digest].err(),
       phase0.TrustedSignedBeaconBlock).get().root ==
     Eth2Digest.fromHex(
         "0xbacd20f09da907734434f052bd4c9503aa16bab1960e89ea20610d08d064481c")

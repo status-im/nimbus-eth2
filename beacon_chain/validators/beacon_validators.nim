@@ -23,7 +23,7 @@ import
   chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net],
   eth/db/kvstore,
-  web3/ethtypes,
+  web3/primitives,
   kzg4844,
 
   # Local modules
@@ -32,8 +32,8 @@ import
     eth2_merkleization, forks, helpers, network, signatures, state_transition,
     validator],
   ../consensus_object_pools/[
-    spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool,
-    sync_committee_msg_pool, consensus_manager],
+    spec_cache, blockchain_dag, block_clearance, attestation_pool,
+    sync_committee_msg_pool, validator_change_pool, consensus_manager],
   ../el/el_manager,
   ../networking/eth2_network,
   ../sszdump, ../sync/sync_manager,
@@ -45,12 +45,6 @@ import
 
 from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
-
-const
-  delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
-                  0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
-
-  BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -552,8 +546,6 @@ proc makeBeaconBlockForHeadAndSlot*(
   else:
     err(blck.error)
 
-# workaround for https://github.com/nim-lang/Nim/issues/20900 to avoid default
-# parameters
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
@@ -655,9 +647,12 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
 
   blindedBlock
 
-func constructPlainBlindedBlock[
-    T: capella_mev.BlindedBeaconBlock, EPH: capella.ExecutionPayloadHeader](
-    blck: ForkyBeaconBlock, executionPayloadHeader: EPH): T =
+func constructPlainBlindedBlock[T: capella_mev.BlindedBeaconBlock](
+    blck: ForkyBeaconBlock,
+    executionPayloadHeader: capella.ExecutionPayloadHeader): T =
+  # https://github.com/nim-lang/Nim/issues/23020 workaround
+  static: doAssert T is capella_mev.BlindedBeaconBlock
+
   const
     blckFields = getFieldNames(typeof(blck))
     blckBodyFields = getFieldNames(typeof(blck.body))
@@ -668,6 +663,30 @@ func constructPlainBlindedBlock[
   copyFields(blindedBlock, blck, blckFields)
   copyFields(blindedBlock.body, blck.body, blckBodyFields)
   assign(blindedBlock.body.execution_payload_header, executionPayloadHeader)
+
+  blindedBlock
+
+func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
+    blck: ForkyBeaconBlock,
+    blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
+  # https://github.com/nim-lang/Nim/issues/23020 workaround
+  static: doAssert T is deneb_mev.BlindedBeaconBlock
+
+  const
+    blckFields = getFieldNames(typeof(blck))
+    blckBodyFields = getFieldNames(typeof(blck.body))
+
+  var blindedBlock: T
+
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
+  copyFields(blindedBlock, blck, blckFields)
+  copyFields(blindedBlock.body, blck.body, blckBodyFields)
+  assign(
+    blindedBlock.body.execution_payload_header,
+    blindedBundle.execution_payload_header)
+  assign(
+    blindedBlock.body.blob_kzg_commitments,
+    blindedBundle.blob_kzg_commitments)
 
   blindedBlock
 
@@ -932,10 +951,10 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
   withBlck(forkedBlck):
     when consensusFork >= ConsensusFork.Capella:
       when ((consensusFork == ConsensusFork.Deneb and
-             EPH is deneb.ExecutionPayloadHeader) or
+             EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle) or
             (consensusFork == ConsensusFork.Capella and
              EPH is capella.ExecutionPayloadHeader)):
-        return ok (constructPlainBlindedBlock[BBB, EPH](
+        return ok (constructPlainBlindedBlock[BBB](
           forkyBlck, executionPayloadHeader), bidValue)
       else:
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
@@ -1065,6 +1084,38 @@ proc proposeBlockAux(
       if not collectedBids.engineBidAvailable:
         return head   # errors logged in router
       false
+
+  # There should always be an engine bid, and if payloadBuilderClient exists,
+  # not getting a builder bid is also an error. Do not report lack of builder
+  # when that's intentional. Replicate some of the nested if statements here,
+  # because that avoids entangling logging with other functionality. The logs
+  # here are inteded to clarify that, for example, when the builder API relay
+  # URL is provided for this validator, it's reasonable for Nimbus not to use
+  # it for every block.
+  if collectedBids.engineBidAvailable:
+    # Three cases: builder bid expected and absent, builder bid expected and
+    # present, and builder bid not expected.
+    if collectedBids.builderBidAvailable:
+      info "Compared engine and builder block bids",
+        localBlockValueBoost,
+        useBuilderBlock,
+        builderBlockValue =
+          collectedBids.payloadBuilderBidFut.read.get().blockValue,
+        engineBlockValue = collectedBids.engineBlockFut.read.get().blockValue
+    elif payloadBuilderClient.isNil:
+      discard  # builder API not configured for this block
+    else:
+      info "Did not receive expected builder bid; using engine block",
+        engineBlockValue = collectedBids.engineBlockFut.read.get().blockValue
+  else:
+    # Similar three cases: builder bid expected and absent, builder bid
+    # expected and present, and builder bid not expected. However, only
+    # the second is worth logging, because the other two result in this
+    # block being missed altogether, and with details logged elsewhere.
+    if collectedBids.builderBidAvailable:
+      info "Did not receive expected engine bid; using builder block",
+        builderBlockValue =
+          collectedBids.payloadBuilderBidFut.read.get().blockValue
 
   if useBuilderBlock:
     let
@@ -1227,7 +1278,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
@@ -1385,10 +1436,7 @@ proc signAndSendContribution(node: BeaconNode,
 
 proc handleSyncCommitteeContributions(
     node: BeaconNode, head: BlockRef, slot: Slot) {.async.} =
-  let
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
-    syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
+  let syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
@@ -1436,13 +1484,13 @@ proc signAndSendAggregate(
           return
         res.get()
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
 
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#aggregateandproof
     var
       msg = SignedAggregateAndProof(
         message: AggregateAndProof(
@@ -1562,7 +1610,9 @@ proc getValidatorRegistration(
 proc registerValidatorsPerBuilder(
     node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,
     attachedValidatorPubkeys: seq[ValidatorPubKey]) {.async.} =
-  const HttpOk = 200
+  const
+    HttpOk = 200
+    BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
   try:
     let payloadBuilderClient =
@@ -1782,9 +1832,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
     curSlot += 1
 
-  let
-    newHead = await handleProposal(node, head, slot)
-    didSubmitBlock = (newHead != head)
+  let newHead = await handleProposal(node, head, slot)
   head = newHead
 
   let
@@ -1812,8 +1860,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

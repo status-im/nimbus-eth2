@@ -37,10 +37,9 @@ const
   HISTORICAL_DUTIES_EPOCHS* = 2'u64
   TIME_DELAY_FROM_SLOT* = 79.milliseconds
   SUBSCRIPTION_BUFFER_SLOTS* = 2'u64
-  EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
 
-  DelayBuckets* = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
-                   0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#constants
+  EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
 
   ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
 
@@ -406,7 +405,6 @@ func getFailureReason*(failure: ApiNodeFailure): string =
   [failure.reason, status, request, $failure.failure].join(";")
 
 proc getFailureReason*(exc: ref ValidatorApiError): string =
-  var counts: array[int(high(ApiFailure)) + 1, int]
   let
     errors = exc[].data
     errorsCount = len(errors)
@@ -825,7 +823,6 @@ proc getDurationToNextAttestation*(vc: ValidatorClientRef,
     for key, item in vc.attesters:
       let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
       if not(duty.isDefault()):
-        let dutySlotTime = duty.data.slot
         if (duty.data.slot < minSlot) and (duty.data.slot >= slot):
           minSlot = duty.data.slot
     if minSlot != FAR_FUTURE_SLOT:
@@ -914,7 +911,6 @@ proc currentSlot*(vc: ValidatorClientRef): Slot =
 
 proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   let
-    slot = vc.currentSlot()
     withdrawalAddress =
       if vc.keymanagerHost.isNil:
         Opt.none Eth1Address
@@ -996,29 +992,29 @@ proc prepareProposersList*(vc: ValidatorClientRef,
 proc isDefault*(reg: SignedValidatorRegistrationV1): bool =
   (reg.message.timestamp == 0'u64) or (reg.message.gas_limit == 0'u64)
 
-proc isExpired*(vc: ValidatorClientRef,
-                reg: SignedValidatorRegistrationV1, slot: Slot): bool =
+proc isExpired(vc: ValidatorClientRef,
+               reg: SignedValidatorRegistrationV1, slot: Slot): bool =
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#registration-dissemination
+  # This specification suggests validators re-submit to builder software every
+  # `EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION` epochs.
   let
     regTime = fromUnix(int64(reg.message.timestamp))
     regSlot =
       block:
         let res = vc.beaconClock.toSlot(regTime)
         if not(res.afterGenesis):
-          # This case should not be happend, but it could in case of time jumps
-          # (time could be modified by admin or ntpd).
+          # This case should not have happened, but it could in case of time
+          # jumps (time could be modified by admin or ntpd).
           return false
         uint64(res.slot)
 
   if regSlot > slot:
-    # This case should not be happened, but if it happens (time could be
+    # This case should not have happened, but if it happens (time could be
     # modified by admin or ntpd).
     false
   else:
-    if (slot - regSlot) div SLOTS_PER_EPOCH >=
-      EPOCHS_BETWEEN_VALIDATOR_REGISTRATION:
-      false
-    else:
-      true
+    (slot - regSlot) div SLOTS_PER_EPOCH >=
+      EPOCHS_BETWEEN_VALIDATOR_REGISTRATION
 
 proc getValidatorRegistration(
        vc: ValidatorClientRef,
@@ -1042,6 +1038,10 @@ proc getValidatorRegistration(
         res.slot
 
   if cached.isDefault() or vc.isExpired(cached, currentSlot):
+    if not cached.isDefault():
+      # Want to send it to relay, but not recompute perfectly fine cache
+      return ok(PendingValidatorRegistration(registration: cached, future: nil))
+
     let feeRecipient = vc.getFeeRecipient(validator.pubkey, vindex,
                                           currentSlot.epoch())
     if feeRecipient.isNone():

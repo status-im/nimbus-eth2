@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  chronicles, chronos, web3/[ethtypes, engine_api_types],
+  chronicles, chronos, web3/[primitives, engine_api_types],
   ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ../el/el_manager,
@@ -168,19 +168,14 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
       payloadAttributes = none attributes)
 
   # Can't use dag.head here because it hasn't been updated yet
-  let (payloadExecutionStatus, _) =
-    case self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
-    of ConsensusFork.Deneb:
-      callForkchoiceUpdated(PayloadAttributesV3)
-    of ConsensusFork.Capella:
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
-      # Consensus layer client MUST call this method instead of
-      # `engine_forkchoiceUpdatedV1` under any of the following conditions:
-      # `headBlockHash` references a block which `timestamp` is greater or
-      # equal to the Shanghai timestamp
-      callForkchoiceUpdated(PayloadAttributesV2)
-    of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
-      callForkchoiceUpdated(PayloadAttributesV1)
+  let
+    consensusFork =
+      self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
+    (payloadExecutionStatus, _) = withConsensusFork(consensusFork):
+      when consensusFork >= ConsensusFork.Bellatrix:
+        callForkchoiceUpdated(consensusFork.PayloadAttributes)
+      else:
+        callForkchoiceUpdated(PayloadAttributesV1)
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:

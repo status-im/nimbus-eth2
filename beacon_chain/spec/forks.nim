@@ -531,6 +531,23 @@ template BlindedBlockContents*(
   else:
     {.error: "BlindedBlockContents does not support " & $kind.}
 
+template PayloadAttributes*(
+    kind: static ConsensusFork): auto =
+  # This also determines what `engine_forkchoiceUpdated` version will be used.
+  when kind >= ConsensusFork.Deneb:
+    typedesc[PayloadAttributesV3]
+  elif kind >= ConsensusFork.Capella:
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
+    # Consensus layer client MUST call this method instead of
+    # `engine_forkchoiceUpdatedV1` under any of the following conditions:
+    # `headBlockHash` references a block which `timestamp` is greater or
+    # equal to the Shanghai timestamp
+    typedesc[PayloadAttributesV2]
+  elif kind >= ConsensusFork.Bellatrix:
+    typedesc[PayloadAttributesV1]
+  else:
+    {.error: "PayloadAttributes does not support " & $kind.}
+
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
 func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
@@ -1024,27 +1041,27 @@ template withStateAndBlck*(
     body: untyped): untyped =
   case s.kind
   of ConsensusFork.Deneb:
-    const consensusFork {.inject.} = ConsensusFork.Deneb
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyState: untyped {.inject.} = s.denebData
     template forkyBlck: untyped {.inject.} = b.denebData
     body
   of ConsensusFork.Capella:
-    const consensusFork {.inject.} = ConsensusFork.Capella
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
     template forkyState: untyped {.inject.} = s.capellaData
     template forkyBlck: untyped {.inject.} = b.capellaData
     body
   of ConsensusFork.Bellatrix:
-    const consensusFork {.inject.} = ConsensusFork.Bellatrix
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
     template forkyState: untyped {.inject.} = s.bellatrixData
     template forkyBlck: untyped {.inject.} = b.bellatrixData
     body
   of ConsensusFork.Altair:
-    const consensusFork {.inject.} = ConsensusFork.Altair
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
     template forkyState: untyped {.inject.} = s.altairData
     template forkyBlck: untyped {.inject.} = b.altairData
     body
   of ConsensusFork.Phase0:
-    const consensusFork {.inject.} = ConsensusFork.Phase0
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
     template forkyState: untyped {.inject, used.} = s.phase0Data
     template forkyBlck: untyped {.inject, used.} = b.phase0Data
     body
@@ -1226,7 +1243,7 @@ func readSszForkedSignedBeaconBlock*(
   withBlck(result):
     readSszBytes(data, forkyBlck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and
@@ -1238,7 +1255,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and

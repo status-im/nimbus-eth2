@@ -12,7 +12,7 @@ import
   ./rest_utils,
   ./state_ttl_cache,
   ../beacon_node,
-  ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
+  ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
   ../spec/datatypes/[phase0, altair, deneb],
   ../validators/message_router_mev
@@ -289,7 +289,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       let
         stateEpoch = getStateField(state, slot).epoch()
-        validatorsCount = lenu64(getStateField(state, validators))
         indices = node.getIndices(validatorIds, state).valueOr:
           return RestApiResponse.jsonError(error)
         response =
@@ -337,7 +336,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
        ): RestApiResponse =
     node.withStateForBlockSlotId(bslot):
       let
-        validatorsCount = lenu64(getStateField(state, validators))
         indices = node.getIndices(validatorIds, state).valueOr:
           return RestApiResponse.jsonError(error)
         response =
@@ -1396,11 +1394,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/beacon/blob_sidecars/{block_id}") do (
     block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
     let
-      bid = block_id.valueOr:
+      blockIdent = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
                                          $error)
-
-      bdata = node.getForkedBlock(bid).valueOr:
+      bid = node.getBlockId(blockIdent).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
       contentType = block:
@@ -1425,7 +1422,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       var blobSidecar = new BlobSidecar
 
-      if node.dag.db.getBlobSidecar(bdata.root, blobIndex, blobSidecar[]):
+      if node.dag.db.getBlobSidecar(bid.root, blobIndex, blobSidecar[]):
         discard data[].add blobSidecar[]
 
     return

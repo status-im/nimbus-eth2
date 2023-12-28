@@ -10,7 +10,8 @@
 import
   std/[sequtils, strutils, os],
   stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
-  web3/[ethtypes, conversions],
+  web3/[conversions],
+  web3/primitives as web3types,
   chronicles,
   eth/common/eth_types_json_serialization,
   ../spec/[eth2_ssz_serialization, forks]
@@ -29,7 +30,7 @@ import
 # from `currentSourcePath`.
 
 export
-  ethtypes, conversions, RuntimeConfig
+  web3types, conversions, RuntimeConfig
 
 const
   vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
@@ -37,7 +38,7 @@ const
   incbinEnabled* = sizeof(pointer) == 8
 
 type
-  Eth1BlockHash* = ethtypes.BlockHash
+  Eth1BlockHash* = web3types.BlockHash
 
   Eth1Network* = enum
     mainnet

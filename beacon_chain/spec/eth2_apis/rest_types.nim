@@ -15,7 +15,7 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/ethtypes, httputils,
+  stew/base10, web3/primitives, httputils,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
   ".."/mev/[capella_mev, deneb_mev]
@@ -52,8 +52,10 @@ static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
 
 type
+  # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg,
+    Head, Block, Attestation, VoluntaryExit, BLSToExecutionChange,
+    ProposerSlashing, AttesterSlashing, FinalizedCheckpoint, ChainReorg,
     ContributionAndProof, LightClientFinalityUpdate, LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]

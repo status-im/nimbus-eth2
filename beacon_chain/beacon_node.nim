@@ -11,7 +11,7 @@ import
   std/osproc,
 
   # Nimble packages
-  chronos, json_rpc/servers/httpserver, presto, bearssl/rand,
+  chronos, presto, bearssl/rand,
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf, light_client],
@@ -20,7 +20,7 @@ import
   ./el/el_manager,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    exit_pool, attestation_pool, sync_committee_msg_pool],
+    attestation_pool, sync_committee_msg_pool, validator_change_pool],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./sync/[sync_manager, request_manager],
@@ -30,27 +30,30 @@ import
   ./rpc/state_ttl_cache
 
 export
-  osproc, chronos, httpserver, presto, action_tracker,
+  osproc, chronos, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
-  attestation_pool, sync_committee_msg_pool, validator_pool,
+  attestation_pool, sync_committee_msg_pool, validator_change_pool,
   eth2_network, el_manager, request_manager, sync_manager,
   eth2_processor, optimistic_processor, blockchain_dag, block_quarantine,
-  base, exit_pool,  message_router, validator_monitor,
+  base, message_router, validator_monitor, validator_pool,
   consensus_manager, dynamic_fee_recipients
 
 type
   EventBus* = object
-    blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
+    blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
+    attestQueue*: AsyncEventQueue[Attestation]
+    exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
+    blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
+    propSlashQueue*: AsyncEventQueue[ProposerSlashing]
+    attSlashQueue*: AsyncEventQueue[AttesterSlashing]
+    finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
+    contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientFinalityUpdate]]
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
-    attestQueue*: AsyncEventQueue[Attestation]
-    contribQueue*: AsyncEventQueue[SignedContributionAndProof]
-    exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
-    finalQueue*: AsyncEventQueue[FinalizationInfoObject]
 
   BeaconNode* = ref object
     nickname*: string
