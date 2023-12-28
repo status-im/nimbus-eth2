@@ -866,9 +866,11 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     return neterr ZeroSizePrefix
 
   # The `size.int` conversion is safe because `size` is bounded to `MAX_CHUNK_SIZE`
-  let data = (await conn.uncompressFramedStream(size.int)).valueOr:
-    debug "Snappy decompression/read failed", msg = $error, conn
-    neterr InvalidSnappyBytes
+  let
+    dataRes = await conn.uncompressFramedStream(size.int)
+    data = dataRes.valueOr:
+      debug "Snappy decompression/read failed", msg = $dataRes.error, conn
+      neterr InvalidSnappyBytes
 
   # `10` is the maximum size of variable integer on wire, so error could
   # not be significant.
