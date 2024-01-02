@@ -238,7 +238,7 @@ jobs:
         run: |
           while read -r file; do
             commit="$(git -C "$file" rev-parse HEAD)"
-            commit_date=$(git -C "$file" show -s --format='%ci' HEAD)
+            commit_date=$(TZ=UTC0 git -C "$file" show -s --format='%cd' --date=iso-local HEAD)
             if ! branch="$(git config -f .gitmodules --get "submodule.$file.branch")"; then
               echo "Submodule '$file': '.gitmodules' lacks 'branch' entry"
               exit 2
@@ -248,7 +248,7 @@ jobs:
               echo "Submodule '$file': Failed to fetch '$branch': $error (1)"
               exit 2
             fi
-            branch_commit_date=$(git -C "$file" show -s --format='%ci' "refs/remotes/origin/${branch}")
+            branch_commit_date=$(TZ=UTC0 git -C "$file" show -s --format='%cd' --date=iso-local "refs/remotes/origin/${branch}")
             if [[ "${commit_date}" > "${branch_commit_date}" ]]; then
               echo "Submodule '$file': '$commit' ($commit_date) is more recent than latest '$branch' ($branch_commit_date) (branch config: '.gitmodules')"
               exit 2
