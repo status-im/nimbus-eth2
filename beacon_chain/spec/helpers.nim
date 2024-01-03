@@ -294,10 +294,11 @@ func toMeta*(update: SomeForkyLightClientUpdate): LightClientUpdateMetadata =
     update.sync_aggregate.num_active_participants.uint64
   meta
 
-template toMeta*(update: ForkedLightClientUpdate): LightClientUpdateMetadata =
-  withForkyUpdate(update):
+template toMeta*(
+    update: SomeForkedLightClientUpdate): LightClientUpdateMetadata =
+  withForkyObject(update):
     when lcDataFork > LightClientDataFork.None:
-      forkyUpdate.toMeta()
+      forkyObject.toMeta()
     else:
       default(LightClientUpdateMetadata)
 

@@ -40,6 +40,7 @@ type
     finality_branch*: altair.FinalityBranch
 
     current_period_best_update*: ref ForkedLightClientUpdate
+    latest_signature_slot*: Slot
 
   LightClientDataCache* = object
     data*: Table[BlockId, CachedLightClientData]
@@ -53,6 +54,9 @@ type
 
     tailSlot*: Slot
       ## The earliest slot for which light client data is imported.
+
+    recentHeaders*: OrderedTable[BlockId, ForkedLightClientHeader]
+    recentSyncAggregates*: OrderedTable[BlockId, SyncAggregate]
 
   LightClientDataConfig* = object
     serve*: bool
