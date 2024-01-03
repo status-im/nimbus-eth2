@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,14 +12,6 @@ import
 
 export chronos, client, rest_types, eth2_rest_serialization
 
-proc getAttesterDuties*(
-       epoch: Epoch,
-       body: seq[ValidatorIndex]
-     ): RestResponse[GetAttesterDutiesResponse] {.
-     rest, endpoint: "/eth/v1/validator/duties/attester/{epoch}",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
-
 proc getAttesterDutiesPlain*(
        epoch: Epoch,
        body: seq[ValidatorIndex]
@@ -28,27 +20,12 @@ proc getAttesterDutiesPlain*(
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
 
-proc getProposerDuties*(
-       epoch: Epoch
-     ): RestResponse[GetProposerDutiesResponse] {.
-     rest, endpoint: "/eth/v1/validator/duties/proposer/{epoch}",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
-
 proc getProposerDutiesPlain*(
        epoch: Epoch
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/duties/proposer/{epoch}",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
-
-proc getSyncCommitteeDuties*(
-       epoch: Epoch,
-       body: seq[ValidatorIndex]
-     ): RestResponse[GetSyncCommitteeDutiesResponse] {.
-     rest, endpoint: "/eth/v1/validator/duties/sync/{epoch}",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
 
 proc getSyncCommitteeDutiesPlain*(
        epoch: Epoch,
@@ -76,14 +53,6 @@ proc produceBlindedBlockPlain*(
      accept: preferSSZ, meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
 
-proc produceAttestationData*(
-       slot: Slot,
-       committee_index: CommitteeIndex
-     ): RestResponse[ProduceAttestationDataResponse] {.
-     rest, endpoint: "/eth/v1/validator/attestation_data",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
-
 proc produceAttestationDataPlain*(
        slot: Slot,
        committee_index: CommitteeIndex
@@ -91,14 +60,6 @@ proc produceAttestationDataPlain*(
      rest, endpoint: "/eth/v1/validator/attestation_data",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
-
-proc getAggregatedAttestation*(
-       attestation_data_root: Eth2Digest,
-       slot: Slot
-     ): RestResponse[GetAggregatedAttestationResponse] {.
-     rest, endpoint: "/eth/v1/validator/aggregate_attestation"
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
 
 proc getAggregatedAttestationPlain*(
        attestation_data_root: Eth2Digest,
@@ -128,15 +89,6 @@ proc prepareSyncCommitteeSubnets*(
      rest, endpoint: "/eth/v1/validator/sync_committee_subscriptions",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/prepareSyncCommitteeSubnets
-
-proc produceSyncCommitteeContribution*(
-       slot: Slot,
-       subcommittee_index: SyncSubcommitteeIndex,
-       beacon_block_root: Eth2Digest
-     ): RestResponse[ProduceSyncCommitteeContributionResponse] {.
-     rest, endpoint: "/eth/v1/validator/sync_committee_contribution",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
 
 proc produceSyncCommitteeContributionPlain*(
        slot: Slot,
@@ -181,4 +133,3 @@ proc submitSyncCommitteeSelectionsPlain*(
      rest, endpoint: "/eth/v1/validator/sync_committee_selections",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/submitSyncCommitteeSelections
-

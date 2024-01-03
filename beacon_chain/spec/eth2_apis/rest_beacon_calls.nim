@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -33,11 +33,6 @@ proc getStateRoot*(state_id: StateIdent): RestResponse[GetStateRootResponse] {.
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateRoot
 
-proc getStateFork*(state_id: StateIdent): RestResponse[GetStateForkResponse] {.
-     rest, endpoint: "/eth/v1/beacon/states/{state_id}/fork",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFork
-
 proc getStateForkPlain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/fork",
      meth: MethodGet.}
@@ -49,13 +44,6 @@ proc getStateFinalityCheckpoints*(state_id: StateIdent
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFinalityCheckpoints
 
-proc getStateValidators*(state_id: StateIdent,
-                         id: seq[ValidatorIdent]
-                        ): RestResponse[GetStateValidatorsResponse] {.
-     rest, endpoint: "/eth/v1/beacon/states/{state_id}/validators",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
-
 proc getStateValidatorsPlain*(
        state_id: StateIdent,
        id: seq[ValidatorIdent]
@@ -63,14 +51,6 @@ proc getStateValidatorsPlain*(
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/validators",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
-
-proc getStateValidator*(state_id: StateIdent,
-                        validator_id: ValidatorIdent
-                       ): RestResponse[GetStateValidatorResponse] {.
-     rest,
-     endpoint: "/eth/v1/beacon/states/{state_id}/validators/{validator_id}",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator
 
 proc getStateValidatorPlain*(state_id: StateIdent,
                         validator_id: ValidatorIdent
@@ -109,11 +89,6 @@ proc getBlockHeaders*(slot: Option[Slot], parent_root: Option[Eth2Digest]
      rest, endpoint: "/eth/v1/beacon/headers",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeaders
-
-# proc getBlockHeader*(block_id: BlockIdent): RestResponse[GetBlockHeaderResponse] {.
-#      rest, endpoint: "/eth/v1/beacon/headers/{block_id}",
-#      meth: MethodGet.}
-#   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
 
 proc getBlockHeaderPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/headers/{block_id}",
@@ -314,11 +289,6 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
         msg: msg, status: error.code, message: error.message)
     else:
       raiseRestResponseError(resp)
-
-proc getBlockRoot*(block_id: BlockIdent): RestResponse[GetBlockRootResponse] {.
-     rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
 
 proc getBlockRootPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",
