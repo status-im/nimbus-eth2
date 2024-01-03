@@ -498,8 +498,8 @@ proc assignLightClientData(
     signature_slot: Slot,
     sync_aggregate: SyncAggregate,
     next_sync_committee = Opt.none(SyncCommittee)): Opt[void] {.discardable.} =
-  ## Compute all fields that are part of `LightClientFinalityUpdate`,
-  ## based on `attested_bid` / `signature_slot` / `sync_aggregate`.
+  ## Update `obj` based on `attested_bid` / `signature_slot` / `sync_aggregate`
+  ## and `next_sync_committee` (for full `LightClientUpdate`).
   ## Return `ok` if there were changes; `err` otherwise.
 
   # If `sync_aggregate` is unchanged, the rest is also unchanged
