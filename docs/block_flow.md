@@ -78,7 +78,7 @@ Blocks are considered trusted if they come from:
 
 A block with a valid cryptographic signature is considered SigVerified.
 This is a weaker guarantee than Trusted as the block might still be invalid according to the state transition function.
-Such a block are produced if incoming gossip blocks' signatures are batched together for batch verification **before** being passed to state transition.
+Such a block is produced if incoming gossip blocks' signatures are batched together for batch verification **before** being passed to state transition.
 
 #### TransitionVerifiedBeaconBlocks
 
@@ -149,7 +149,7 @@ There is no backpressure handling at the RequestManager and Gossip level with re
 
 There is backpressure handling at the Quarantine level:
 - Blocks in the SharedBlockQueue that are missing parents
-  are put in quarantine, only 16 can be stored and new candidate are dropped as long as the older ones are unresolved.
+  are put in quarantine, only 16 can be stored and new candidates are dropped as long as the older ones are unresolved.
 
 ##### Latency & Throughput sensitiveness
 
