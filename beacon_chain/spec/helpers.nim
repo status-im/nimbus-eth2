@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -294,10 +294,11 @@ func toMeta*(update: SomeForkyLightClientUpdate): LightClientUpdateMetadata =
     update.sync_aggregate.num_active_participants.uint64
   meta
 
-template toMeta*(update: ForkedLightClientUpdate): LightClientUpdateMetadata =
-  withForkyUpdate(update):
+template toMeta*(
+    update: SomeForkedLightClientUpdate): LightClientUpdateMetadata =
+  withForkyObject(update):
     when lcDataFork > LightClientDataFork.None:
-      forkyUpdate.toMeta()
+      forkyObject.toMeta()
     else:
       default(LightClientUpdateMetadata)
 
