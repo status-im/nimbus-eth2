@@ -1,4 +1,13 @@
 { pkgs ? import <nixpkgs> {}}:
+let
+  mkdocs-packages = ps: with ps; [
+    mkdocs
+    mkdocs-material
+    mkdocs-material-extensions
+    pymdown-extensions
+  ];
+  mkdocs-python = pkgs.python3.withPackages mkdocs-packages;
+in
 with pkgs;
 mkShell {
 
@@ -14,8 +23,7 @@ mkShell {
     killall # for killing processes manually
     curl    # for working with the node APIs
 
-    python3
-    mdbook
+    mkdocs-python
   ] ++ lib.optionals (!stdenv.isDarwin) [
     lsb-release
   ];
