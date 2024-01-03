@@ -5,6 +5,7 @@ mkShell {
   buildInputs = [
     figlet
     git
+    git-lfs
     gnumake
 
     # For the local simulation
@@ -12,6 +13,9 @@ mkShell {
     lsof    # for killing processes by port
     killall # for killing processes manually
     curl    # for working with the node APIs
+
+    python3
+    mdbook
   ] ++ lib.optionals (!stdenv.isDarwin) [
     lsb-release
   ];
