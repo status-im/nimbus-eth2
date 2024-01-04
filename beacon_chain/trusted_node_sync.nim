@@ -177,7 +177,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
@@ -247,7 +247,6 @@ proc doTrustedNodeSync*(
               else:
                 break
             startPeriod = periods.a
-            lastPeriod = periods.b
             count = min(periods.len, MAX_REQUEST_LIGHT_CLIENT_UPDATES).uint64
 
           var updates =

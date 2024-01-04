@@ -25,7 +25,9 @@ const
   BlockNotFoundError* =
     "Block header/data has not been found"
   EmptyRequestBodyError* =
-    "Empty request's body"
+    "Empty request body"
+  InvalidRequestBodyError* =
+    "Invalid request body"
   InvalidBlockObjectError* =
     "Unable to decode block object(s)"
   InvalidAttestationObjectError* =
@@ -100,7 +102,9 @@ const
   InvalidBlockIdValueError* =
     "Invalid block identifier value"
   InvalidValidatorIdValueError* =
-    "Invalid validator's identifier value(s)"
+    "Invalid validator identifier value(s)"
+  NonUniqueValidatorIdError* =
+    "Non-unique validator identifier value(s)"
   MaximumNumberOfValidatorIdsError* =
     "Maximum number of validator identifier values exceeded"
   InvalidValidatorStatusValueError* =

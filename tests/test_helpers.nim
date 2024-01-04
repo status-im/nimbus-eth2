@@ -11,7 +11,7 @@ import
   # Status libraries
   stew/bitops2,
   eth/common/eth_types as commonEthTypes, eth/common/eth_types_rlp,
-  web3/ethtypes,
+  web3/primitives,
   # Beacon chain internals
   ../beacon_chain/spec/[forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/[bellatrix, capella],

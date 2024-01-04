@@ -15,7 +15,7 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/ethtypes, httputils,
+  stew/base10, web3/primitives, httputils,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
   ".."/mev/[capella_mev, deneb_mev]
@@ -120,6 +120,10 @@ type
     Inbound, Outbound
 
   RestNumeric* = distinct int
+
+  RestValidatorRequest* = object
+    ids*: Opt[seq[ValidatorIdent]]
+    status*: Opt[ValidatorFilter]
 
   RestAttesterDuty* = object
     pubkey*: ValidatorPubKey
@@ -341,18 +345,13 @@ type
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
 
-  DenebBlockContents* = object
-    `block`*: deneb.BeaconBlock
-    kzg_proofs*: deneb.KzgProofs
-    blobs*: deneb.Blobs
-
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
     of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     DenebBlockContents
+    of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
 
   VCRuntimeConfig* = Table[string, string]
 
@@ -940,7 +939,7 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
-                   
+
 template withBlck*(x: ProduceBlockResponseV2,
                    body: untyped): untyped =
   case x.kind

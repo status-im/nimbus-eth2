@@ -109,12 +109,7 @@ programMain:
         opt = signedBlock.toBlockId(),
         wallSlot = getBeaconTime().slotOrZero
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Capella:
-          # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
-          # Consensus layer client MUST call this method instead of
-          # `engine_forkchoiceUpdatedV1` under any of the following conditions:
-          # `headBlockHash` references a block which `timestamp` is greater or
-          # equal to the Shanghai timestamp
+        when consensusFork >= ConsensusFork.Bellatrix:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
 
@@ -124,18 +119,7 @@ programMain:
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value
                 finalizedBlockHash = ZERO_HASH,
-                payloadAttributes = none PayloadAttributesV2)
-        elif consensusFork >= ConsensusFork.Bellatrix:
-          if forkyBlck.message.is_execution_block:
-            template payload(): auto = forkyBlck.message.body.execution_payload
-
-            if elManager != nil and not payload.block_hash.isZero:
-              discard await elManager.newExecutionPayload(forkyBlck.message)
-              discard await elManager.forkchoiceUpdated(
-                headBlockHash = payload.block_hash,
-                safeBlockHash = payload.block_hash,  # stub value
-                finalizedBlockHash = ZERO_HASH,
-                payloadAttributes = none PayloadAttributesV1)
+                payloadAttributes = none(consensusFork.PayloadAttributes))
         else: discard
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)
@@ -150,31 +134,14 @@ programMain:
 
   info "Listening to incoming network requests"
   network.initBeaconSync(cfg, forkDigests, genesisBlockRoot, getBeaconTime)
-  network.addValidator(
-    getBeaconBlocksTopic(forkDigests.phase0),
-    proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
-      toValidationResult(
-        optimisticProcessor.processSignedBeaconBlock(signedBlock)))
-  network.addValidator(
-    getBeaconBlocksTopic(forkDigests.altair),
-    proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
-      toValidationResult(
-        optimisticProcessor.processSignedBeaconBlock(signedBlock)))
-  network.addValidator(
-    getBeaconBlocksTopic(forkDigests.bellatrix),
-    proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
-      toValidationResult(
-        optimisticProcessor.processSignedBeaconBlock(signedBlock)))
-  network.addValidator(
-    getBeaconBlocksTopic(forkDigests.capella),
-    proc (signedBlock: capella.SignedBeaconBlock): ValidationResult =
-      toValidationResult(
-        optimisticProcessor.processSignedBeaconBlock(signedBlock)))
-  network.addValidator(
-    getBeaconBlocksTopic(forkDigests.deneb),
-    proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
-      toValidationResult(
-        optimisticProcessor.processSignedBeaconBlock(signedBlock)))
+  withAll(ConsensusFork):
+    let forkDigest = forkDigests[].atConsensusFork(consensusFork)
+    network.addValidator(
+      getBeaconBlocksTopic(forkDigest), proc (
+          signedBlock: consensusFork.SignedBeaconBlock
+      ): ValidationResult =
+        toValidationResult(
+          optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()

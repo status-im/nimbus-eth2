@@ -8,10 +8,8 @@
 {.used.}
 
 import
-  # Standard library
-  std/os,
   # Status lib
-  stew/[results, byteutils],
+  stew/results,
   chronicles,
   # Internal
   ../../beacon_chain/validators/[slashing_protection, slashing_protection_v2],
@@ -19,6 +17,9 @@ import
   # Test utilies
   ../testutil, ../testdbutil,
   ../consensus_spec/fixtures_utils
+
+from std/os import changeFileExt, removeFile, walkDir, `/`
+from stew/byteutils import toHex
 
 type
   TestInterchange = object
@@ -55,6 +56,7 @@ type
     slot: SlotString
     signing_root: Eth2Digest0x
     should_succeed: bool
+    should_succeed_complete: bool
 
   CandidateVote = object
     pubkey: PubKey0x
@@ -62,6 +64,7 @@ type
     target_epoch: EpochString
     signing_root: Eth2Digest0x
     should_succeed: bool
+    should_succeed_complete: bool
 
 func toHexLogs(v: CandidateBlock): auto =
   (
@@ -87,7 +90,7 @@ proc sqlite3db_delete(basepath, dbname: string) =
   removeFile(basepath / dbname&".sqlite3-wal")
   removeFile(basepath / dbname&".sqlite3")
 
-const InterchangeTestsDir = FixturesDir / "tests-slashing-v5.2.1" / "tests" / "generated"
+const InterchangeTestsDir = FixturesDir / "tests-slashing-v5.3.0" / "tests" / "generated"
 const TestDir = ""
 const TestDbPrefix = "test_slashprot_"
 

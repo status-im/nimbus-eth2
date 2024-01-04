@@ -322,9 +322,9 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
         debug "Attestation selection proofs have been received",
               signatures_requested = sigres.signaturesRequested,
               signatures_received = sigres.signaturesReceived,
-              selections_requested = sigres.selections_requested,
-              selections_received = sigres.selections_received,
-              selections_processed = sigres.selections_processed,
+              selections_requested = sigres.selectionsRequested,
+              selections_received = sigres.selectionsReceived,
+              selections_processed = sigres.selectionsProcessed,
               total_elapsed_time = (Moment.now() - moment)
       else:
         debug "Attestation selection proofs have been received",
@@ -412,9 +412,9 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
         debug "Sync committee selection proofs have been received",
               signatures_requested = sigres.signaturesRequested,
               signatures_received = sigres.signaturesReceived,
-              selections_requested = sigres.selections_requested,
-              selections_received = sigres.selections_received,
-              selections_processed = sigres.selections_processed,
+              selections_requested = sigres.selectionsRequested,
+              selections_received = sigres.selectionsReceived,
+              selections_processed = sigres.selectionsProcessed,
               total_elapsed_time = (Moment.now() - moment)
       else:
         debug "Sync committee selection proofs have been received",

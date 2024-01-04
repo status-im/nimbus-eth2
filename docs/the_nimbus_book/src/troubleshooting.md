@@ -161,5 +161,5 @@ See our page on [monitoring the health of your node](./health.md) for more.
 ### Trouble transferring data to/from USB3.0 SSDs
 
 We have seen reports of degraded performance when using several types of USB3.0 to SSD adapters or when using native USB3.0 disk drives.
-[This post on RPi forums](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426) details why there is a difference in behaviour from models prior to Pi 4 and the recommended workaround.
+[This post on RPi forums](https://forums.raspberrypi.com/viewtopic.php?t=245931#p1501426 ) details why there is a difference in behaviour from models prior to Pi 4 and the recommended workaround.
 

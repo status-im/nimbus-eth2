@@ -8,7 +8,7 @@
 import
   std/[json, strutils, times, sequtils],
   chronos, confutils, chronicles,
-  web3, web3/ethtypes as web3Types,
+  web3, web3/primitives,
   eth/async_utils,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/networking/network_metadata,

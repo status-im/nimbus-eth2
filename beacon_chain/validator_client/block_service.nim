@@ -243,8 +243,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             if not(normalBlockFut.finished()):
               await normalBlockFut.cancelAndWait()
             raise exc
-          except CatchableError as exc:
-            # This should not be happened, because all the exceptions handled.
+          except CatchableError:
+            # This should not happen, because all the exceptions are handled.
             Opt.none(PreparedBlindedBeaconBlock)
 
       let normalBlock =
@@ -253,8 +253,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             await normalBlockFut
           except CancelledError as exc:
             raise exc
-          except CatchableError as exc:
-            # This should not be happened, because all the exceptions handled.
+          except CatchableError:
+            # This should not happen, because all the exceptions are handled.
             Opt.none(PreparedBeaconBlock)
         else:
           if not(normalBlockFut.finished()):
@@ -449,7 +449,7 @@ proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
     debug "Block proposing process was interrupted",
           slot = slot, validator = shortLog(proposerKey)
     raise exc
-  except CatchableError as exc:
+  except CatchableError:
     error "Unexpected error encountered while proposing block",
           slot = slot, validator = shortLog(validator)
 
@@ -814,7 +814,7 @@ proc mainLoop(service: BlockServiceRef) {.async.} =
     # Future is not going to be completed, so the only way to exit, is to
     # cancel it.
     await future
-  except CancelledError as exc:
+  except CancelledError:
     debug "Service interrupted"
   except CatchableError as exc:
     error "Service crashed with unexpected error", err_name = exc.name,

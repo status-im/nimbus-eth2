@@ -49,7 +49,6 @@ cli do(validatorsDir: string, secretsDir: string,
     state =
       newClone(readSszForkedHashedBeaconState(
         cfg, readAllBytes(startState).tryGet()))
-    finalizedEpoch = getStateField(state[], finalized_checkpoint).epoch
 
   var
     clock = BeaconClock.init(getStateField(state[], genesis_time))

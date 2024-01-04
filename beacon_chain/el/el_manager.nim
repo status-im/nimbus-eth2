@@ -17,7 +17,6 @@ import
   eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes, endians2],
   # Local modules:
   ../spec/[deposit_snapshots, eth2_merkleization, forks, helpers],
-  ../spec/datatypes/[base, phase0, bellatrix, deneb],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_chain_db, beacon_node_status, beacon_clock, future_combinators],
@@ -97,7 +96,7 @@ type
   Eth1BlockNumber* = uint64
   Eth1BlockTimestamp* = uint64
 
-  Eth1Block* = ref object
+  Eth1BlockObj* = object
     hash*: Eth2Digest
     number*: Eth1BlockNumber
     timestamp*: Eth1BlockTimestamp
@@ -111,6 +110,8 @@ type
     depositCount*: uint64
       ## Global deposits count and hash tree root of the entire sequence
       ## These are computed when the block is added to the chain (see `addBlock`)
+
+  Eth1Block* = ref Eth1BlockObj
 
   Eth1Chain* = object
     db: BeaconChainDB
@@ -413,11 +414,11 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
@@ -425,7 +426,7 @@ func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   compute_time_at_slot(
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -758,8 +759,7 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
                timestamp: uint64,
                randomData: Eth2Digest,
                feeRecipient: Eth1Address,
-               withdrawals: seq[WithdrawalV1],
-               parentBeaconBlockRoot: FixedBytes[32]): bool =
+               withdrawals: seq[WithdrawalV1]): bool =
   expectedParams.isSome and
     expectedParams.get.headBlockHash == latestHead and
     expectedParams.get.safeBlockHash == latestSafe and
@@ -767,9 +767,7 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
     expectedParams.get.payloadAttributes.timestamp.uint64 == timestamp and
     expectedParams.get.payloadAttributes.prevRandao.bytes == randomData.data and
     expectedParams.get.payloadAttributes.suggestedFeeRecipient == feeRecipient and
-    expectedParams.get.payloadAttributes.withdrawals == withdrawals and
-    expectedParams.get.payloadAttributes.parentBeaconBlockRoot ==
-      parentBeaconBlockRoot
+    expectedParams.get.payloadAttributes.withdrawals == withdrawals
 
 proc forkchoiceUpdated(rpcClient: RpcClient,
                        state: ForkchoiceStateV1,
@@ -906,8 +904,7 @@ proc getPayload*(m: ELManager,
     engineApiWithdrawals = toEngineWithdrawals withdrawals
     isFcUpToDate = m.nextExpectedPayloadParams.areSameAs(
       headBlock, safeBlock, finalizedBlock, timestamp,
-      randomData, suggestedFeeRecipient, engineApiWithdrawals,
-      consensusHead.asBlockHash)
+      randomData, suggestedFeeRecipient, engineApiWithdrawals)
 
   # `getPayloadFromSingleEL` may introduce additional latency
   const extraProcessingOverhead = 500.milliseconds
@@ -1258,7 +1255,7 @@ proc forkchoiceUpdated*(m: ELManager,
   # block hash provided by this event is stubbed with
   # `0x0000000000000000000000000000000000000000000000000000000000000000`."
   # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
 
@@ -1377,11 +1374,11 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
             rpcClient.eth_chainId(),
             web3RequestsTimeout)
 
-        # https://eips.ethereum.org/EIPS/eip-155#list-of-chain-ids
+        # https://chainid.network/
         expectedChain = case m.eth1Network.get
           of mainnet: 1.Quantity
           of goerli:  5.Quantity
-          of sepolia: 11155111.Quantity   # https://chainid.network/
+          of sepolia: 11155111.Quantity
           of holesky: 17000.Quantity
       if expectedChain != providerChain:
         warn "The specified EL client is connected to a different chain",
@@ -1702,7 +1699,7 @@ template trackFinalizedState*(m: ELManager,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,
