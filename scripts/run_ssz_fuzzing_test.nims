@@ -1,5 +1,12 @@
-import os except dirExists
-import strformat, confutils
+# beacon_chain
+# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+import std/os except dirExists
+import std/[strformat, confutils]
 import testutils/fuzzing_engines
 
 const
@@ -37,4 +44,3 @@ cli do (testname {.argument.}: string,
 
   let testProgram = fuzzingTestsDir / &"ssz_decode_{testname}.nim"
   exec &"""ntu fuzz --fuzzer={fuzzer} --corpus="{corpusDir}" "{testProgram}" """
-
