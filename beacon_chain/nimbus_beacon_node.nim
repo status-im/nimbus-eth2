@@ -721,7 +721,10 @@ proc init*(T: type BeaconNode,
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot)
     genesisTime = getStateField(dag.headState, genesis_time)
-    beaconClock = BeaconClock.init(genesisTime)
+    beaconClock = BeaconClock.init(genesisTime).valueOr:
+      fatal "Invalid genesis time in state", genesisTime
+      quit 1
+
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
   if config.weakSubjectivityCheckpoint.isSome:

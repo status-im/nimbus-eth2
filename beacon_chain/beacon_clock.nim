@@ -9,10 +9,11 @@
 
 import
   std/math,
+  results,
   chronos/timer, chronicles,
   ./spec/beacon_time
 
-from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
+from times import Time, getTime, fromUnix, toUnix, `<`, `-`, inNanoseconds
 
 export timer.Duration, Moment, now, beacon_time
 
@@ -34,17 +35,20 @@ type
 
   GetBeaconTimeFn* = proc(): BeaconTime {.gcsafe, raises: [].}
 
-proc init*(T: type BeaconClock, genesis_time: uint64): T =
-  # ~290 billion years into the future
-  doAssert genesis_time <= high(int64).uint64
+proc init*(T: type BeaconClock, genesis_time: uint64): Opt[T] =
+  # Since we'll be converting beacon time differences to nanoseconds,
+  # the time can't be outrageously far from now
+  if genesis_time > (getTime().toUnix().uint64 + 100 * 365 * 24 * 60 * 60) or
+      genesis_time < GENESIS_SLOT * SECONDS_PER_SLOT:
+    Opt.none(BeaconClock)
+  else:
+    let
+      unixGenesis = fromUnix(genesis_time.int64)
+      # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply that
+      # offset to genesis instead of applying it at every time conversion
+      unixGenesisOffset = times.seconds(int(GENESIS_SLOT * SECONDS_PER_SLOT))
 
-  let
-    unixGenesis = fromUnix(genesis_time.int64)
-    # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply that
-    # offset to genesis instead of applying it at every time conversion
-    unixGenesisOffset = times.seconds(int(GENESIS_SLOT * SECONDS_PER_SLOT))
-
-  T(genesis: unixGenesis - unixGenesisOffset)
+    Opt.some T(genesis: unixGenesis - unixGenesisOffset)
 
 func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
   BeaconTime(ns_since_genesis: inNanoseconds(t - c.genesis))

@@ -190,8 +190,10 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
 
   let currentEpoch = block:
     let
-      genesisTime = genesis.genesis_time
-      beaconClock = BeaconClock.init(genesisTime)
+      beaconClock = BeaconClock.init(genesis.genesis_time).valueOr:
+        error "Server returned invalid genesis time", genesis
+        quit 1
+
       time = getTime()
       slot = beaconClock.toSlot(time).slot
     Epoch(slot.uint64 div 32)

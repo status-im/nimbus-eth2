@@ -51,7 +51,9 @@ cli do(validatorsDir: string, secretsDir: string,
         cfg, readAllBytes(startState).tryGet()))
 
   var
-    clock = BeaconClock.init(getStateField(state[], genesis_time))
+    clock = BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
+      error "Invalid genesis time in state"
+      quit 1
     validators: Table[ValidatorIndex, ValidatorPrivKey]
     validatorKeys: Table[ValidatorPubKey, ValidatorPrivKey]
 
