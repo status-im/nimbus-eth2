@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -841,19 +841,23 @@ template gossipMaxSize(T: untyped): uint32 =
   static: doAssert maxSize <= GOSSIP_MAX_SIZE
   maxSize.uint32
 
+proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.async.} =
+  try:
+    ok await conn.readVarint()
+  except LPStreamEOFError: #, LPStreamIncompleteError, InvalidVarintError
+    # TODO compiler error - haha, uncaught exception
+    # Error: unhandled exception: closureiters.nim(322, 17) `c[i].kind == nkType`  [AssertionError]
+    neterr UnexpectedEOF
+  except LPStreamIncompleteError:
+    neterr UnexpectedEOF
+  except InvalidVarintError:
+    neterr InvalidSizePrefix
+
 proc readChunkPayload*(conn: Connection, peer: Peer,
                        MsgType: type): Future[NetRes[MsgType]] {.async.} =
-  let sm = now(chronos.Moment)
-  let size =
-    try: await conn.readVarint()
-    except LPStreamEOFError: #, LPStreamIncompleteError, InvalidVarintError
-      # TODO compiler error - haha, uncaught exception
-      # Error: unhandled exception: closureiters.nim(322, 17) `c[i].kind == nkType`  [AssertionError]
-      return neterr UnexpectedEOF
-    except LPStreamIncompleteError:
-      return neterr UnexpectedEOF
-    except InvalidVarintError:
-      return neterr InvalidSizePrefix
+  let
+    sm = now(chronos.Moment)
+    size = ? await readVarint2(conn)
 
   const maxSize = chunkMaxSize[MsgType]()
   if size > maxSize:
@@ -862,16 +866,17 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     return neterr ZeroSizePrefix
 
   # The `size.int` conversion is safe because `size` is bounded to `MAX_CHUNK_SIZE`
-  let data = await conn.uncompressFramedStream(size.int)
-  if data.isOk:
-    # `10` is the maximum size of variable integer on wire, so error could
-    # not be significant.
-    peer.updateNetThroughput(now(chronos.Moment) - sm,
-                              uint64(10 + size))
-    return ok SSZ.decode(data.get(), MsgType)
-  else:
-    debug "Snappy decompression/read failed", msg = $data.error, conn
-    return neterr InvalidSnappyBytes
+  let
+    dataRes = await conn.uncompressFramedStream(size.int)
+    data = dataRes.valueOr:
+      debug "Snappy decompression/read failed", msg = $dataRes.error, conn
+      return neterr InvalidSnappyBytes
+
+  # `10` is the maximum size of variable integer on wire, so error could
+  # not be significant.
+  peer.updateNetThroughput(now(chronos.Moment) - sm,
+                            uint64(10 + size))
+  ok SSZ.decode(data, MsgType)
 
 proc readResponseChunk(
     conn: Connection, peer: Peer, MsgType: typedesc):
