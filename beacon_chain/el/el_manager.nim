@@ -1467,7 +1467,7 @@ func depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
     let
       blockNumber = Eth1BlockNumber readJsonField(logEvent, "blockNumber", Quantity)
       blockHash = readJsonField(logEvent, "blockHash", BlockHash)
-      logData = strip0xPrefix(logEvent["data"].getStr)
+      logData = hexToSeqByte(logEvent["data"].getStr)
 
     if lastEth1Block == nil or lastEth1Block.number != blockNumber:
       lastEth1Block = Eth1Block(
@@ -1488,11 +1488,11 @@ func depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
       index = init Int64LeBytes
 
     var offset = 0
-    offset += decode(logData, offset, pubkey)
-    offset += decode(logData, offset, withdrawalCredentials)
-    offset += decode(logData, offset, amount)
-    offset += decode(logData, offset, signature)
-    offset += decode(logData, offset, index)
+    offset += decode(logData, 0, offset, pubkey)
+    offset += decode(logData, 0, offset, withdrawalCredentials)
+    offset += decode(logData, 0, offset, amount)
+    offset += decode(logData, 0, offset, signature)
+    offset += decode(logData, 0, offset, index)
 
     if pubkey.len != 48 or
        withdrawalCredentials.len != 32 or
