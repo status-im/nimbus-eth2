@@ -7,7 +7,7 @@
 
 import std/algorithm
 import chronicles
-import common, api
+import "."/[common, api]
 
 const
   ServiceName = "fork_service"

@@ -464,9 +464,7 @@ when isMainModule:
   # Testing EraDB gets messy because of the large amounts of data involved:
   # this snippet contains some sanity checks for mainnet at least
 
-  import
-    os,
-    stew/arrayops
+  import stew/arrayops
 
   let
     dbPath =

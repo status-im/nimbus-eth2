@@ -9,7 +9,7 @@ import
   chronicles,
   ".."/validators/activity_metrics,
   ".."/spec/forks,
-  common, api, fallback_service
+  "."/[common, api, fallback_service]
 
 const
   ServiceName = "block_service"

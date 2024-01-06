@@ -7,7 +7,7 @@
 
 import std/[sets, sequtils]
 import chronicles, metrics
-import common, api, block_service, selection_proofs
+import "."/[common, api, block_service, selection_proofs]
 
 const
   ServiceName = "duties_service"

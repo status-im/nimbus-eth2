@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import chronicles
-import common, api
+import "."/[common, api]
 
 const
   ServiceName = "doppelganger_service"

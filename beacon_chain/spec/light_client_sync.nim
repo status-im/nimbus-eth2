@@ -10,7 +10,7 @@
 import
   stew/[bitops2, bitseqs, objects],
   datatypes/altair,
-  helpers
+  ./helpers
 
 from ../consensus_object_pools/block_pools_types import VerifierError
 export block_pools_types.VerifierError

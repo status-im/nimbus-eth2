@@ -15,7 +15,7 @@ import
   ../beacon_chain/spec/[crypto, keystore],
   ./testutil
 
-from strutils import replace
+from std/strutils import replace
 
 func isEqual(a, b: ValidatorPrivKey): bool =
   # `==` on secret keys is not allowed

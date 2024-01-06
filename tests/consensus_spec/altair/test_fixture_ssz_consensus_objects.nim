@@ -9,8 +9,9 @@
 
 import
   # Standard library
-  strutils, streams, strformat,
-  macros,
+  std/[
+    strutils, streams, strformat,
+    macros],
   # Third-party
   yaml,
   # Beacon chain internals

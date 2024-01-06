@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  os, sequtils, strutils, options, json, terminal,
+  std/[os, sequtils, strutils, options, json, terminal],
   chronos, chronicles, confutils, stint, json_serialization,
   ../filepath,
   ../networking/network_metadata,

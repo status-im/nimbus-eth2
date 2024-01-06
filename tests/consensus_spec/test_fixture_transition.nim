@@ -13,7 +13,7 @@ import
   ./os_ops
 
 from std/sequtils import toSeq
-from streams import close, openFileStream
+from std/streams import close, openFileStream
 from ../testutil import preset, suite, test
 from ./fixtures_utils import SszTestsDir, parseTest
 

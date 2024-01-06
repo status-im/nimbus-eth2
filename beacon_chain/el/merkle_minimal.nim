@@ -13,7 +13,7 @@
 # ---------------------------------------------------------------
 
 import
-  sequtils,
+  std/sequtils,
   stew/endians2,
   # Specs
   ../spec/[eth2_merkleization, digest],

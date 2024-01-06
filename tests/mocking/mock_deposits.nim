@@ -10,7 +10,7 @@
 
 import
   # Standard library
-  math,
+  std/math,
 
   # Specs
   ../../beacon_chain/spec/[eth2_merkleization, keystore, forks, signatures],
