@@ -1,6 +1,6 @@
 /**
  * beacon_chain
- * Copyright (c) 2023 Status Research & Development GmbH
+ * Copyright (c) 2023-2024 Status Research & Development GmbH
  * Licensed and distributed under either of
  *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -246,7 +246,8 @@ typedef struct ETHBeaconClock ETHBeaconClock;
  *
  * @param      state                Beacon state.
  *
- * @return Pointer to an initialized beacon clock based on the beacon state.
+ * @return Pointer to an initialized beacon clock based on the beacon state or
+ *         NULL if the state contained an invalid time.
  */
 ETH_RESULT_USE_CHECK
 ETHBeaconClock *ETHBeaconClockCreateFromState(const ETHBeaconState *state);
