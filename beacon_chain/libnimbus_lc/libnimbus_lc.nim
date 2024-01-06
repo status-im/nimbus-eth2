@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -240,9 +240,12 @@ proc ETHBeaconClockCreateFromState(
   ## * `state` - Beacon state.
   ##
   ## Returns:
-  ## * Pointer to an initialized beacon clock based on the beacon state.
+  ## * Pointer to an initialized beacon clock based on the beacon state or NULL
+  ##   if the state contained an invalid time.
   let beaconClock = BeaconClock.new()
-  beaconClock[] = BeaconClock.init(getStateField(state[], genesis_time))
+  beaconClock[] =
+    BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
+      return nil
   beaconClock.toUnmanagedPtr()
 
 proc ETHBeaconClockDestroy(beaconClock: ptr BeaconClock) {.exported.} =
