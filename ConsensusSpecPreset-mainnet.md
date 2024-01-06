@@ -2413,8 +2413,11 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -2917,4 +2920,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2336/2355 Fail: 0/2355 Skip: 19/2355
+OK: 2339/2358 Fail: 0/2358 Skip: 19/2358

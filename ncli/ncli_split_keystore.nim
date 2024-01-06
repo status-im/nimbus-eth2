@@ -44,13 +44,6 @@ type
       desc: "A directory to store the generated validator keystores"
       name: "out-dir" }: OutDir
 
-template valueOr(x: Option, elseBlock: untyped): untyped =
-  let val = x
-  if val.isSome:
-    val.get
-  else:
-    elseBlock
-
 proc main =
   let conf = load Config
   if conf.threshold == 0:

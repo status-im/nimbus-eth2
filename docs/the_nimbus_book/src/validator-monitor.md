@@ -45,7 +45,7 @@ Other nodes pick it up and package the message into an aggregate and later a blo
 The block is included in the canonical chain and a reward is given two epochs (~13 minutes) later.
 
 The monitor tracks each of these actions and will in detailed mode log each step at the `INF` level.
-If any step is missed (irrespective of detail mode), a `NOT` log is shown instead.
+If any step is missed (irrespective of detail mode), a `NTC` log is shown instead.
 
 The typical life cycle of an attestation might look something like the following:
 
@@ -57,10 +57,10 @@ INF 2021-11-22 11:33:07.193+01:00 Attestation included in block              att
 
 The life cycle of a particular message can be traced by following the `epoch=.... validator=...` fields in the message.
 
-Failures at any point are recorded at a higher logging level, such as `NOT`(ice):
+Failures at any point are recorded at a higher logging level, such as `NTC`:
 
 ```
-NOT 2021-11-17 20:53:42.108+01:00 Attestation failed to match head           topics="chaindag" epoch=81972 validator=...
+NTC 2021-11-17 20:53:42.108+01:00 Attestation failed to match head           topics="chaindag" epoch=81972 validator=...
 ```
 
 Failures are reported with a lag of two epochs (~13 minutes).

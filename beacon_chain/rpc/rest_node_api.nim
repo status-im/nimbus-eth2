@@ -28,6 +28,10 @@ type
     connected*: uint64
     disconnecting*: uint64
 
+RestJson.useDefaultSerializationFor(
+  RestNodePeerCount,
+)
+
 proc validateState(states: seq[PeerStateKind]): Result[ConnectionStateSet,
                                                        cstring] =
   var res: set[ConnectionState]

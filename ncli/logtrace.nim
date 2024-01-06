@@ -159,7 +159,7 @@ type
     # The message structure is as follows:
     #[
       {
-        "lvl": "NOT",
+        "lvl": "NTC",
         "ts": "2022-11-21 23:02:37.032+02:00",
         "msg": "Block sent",
         "topics": "beacval",

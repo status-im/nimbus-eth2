@@ -2553,8 +2553,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Merkle proof [Preset: minimal]
 ```diff
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -3186,4 +3189,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2578/2600 Fail: 0/2600 Skip: 22/2600
+OK: 2581/2603 Fail: 0/2603 Skip: 22/2603

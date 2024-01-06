@@ -236,6 +236,134 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
+  proc getIndices(
+         node: BeaconNode,
+         validatorIds: openArray[ValidatorIdent],
+         state: ForkedHashedBeaconState
+       ): Result[seq[ValidatorIndex], RestErrorMessage] =
+    var
+      keyset: HashSet[ValidatorPubKey]
+      indexset: HashSet[ValidatorIndex]
+
+    let validatorsCount = lenu64(getStateField(state, validators))
+
+    for item in validatorIds:
+      case item.kind
+      of ValidatorQueryKind.Key:
+        # Test for uniqueness of value.
+        if keyset.containsOrIncl(item.key):
+          return err(RestErrorMessage.init(
+            Http400, NonUniqueValidatorIdError, $item.key))
+      of ValidatorQueryKind.Index:
+        let vindex = item.index.toValidatorIndex().valueOr:
+          case error
+          of ValidatorIndexError.TooHighValue:
+            return err(RestErrorMessage.init(
+              Http400, TooHighValidatorIndexValueError))
+          of ValidatorIndexError.UnsupportedValue:
+            return err(RestErrorMessage.init(
+              Http500, UnsupportedValidatorIndexValueError))
+        if uint64(vindex) < validatorsCount:
+          # We're only adding validator indices which are present in
+          # validators list at this moment.
+          if indexset.containsOrIncl(vindex):
+            return err(RestErrorMessage.init(
+              Http400, NonUniqueValidatorIdError,
+              Base10.toString(uint64(vindex))))
+
+    if len(keyset) > 0:
+      let optIndices = keysToIndices(node.restKeysCache, state, keyset.toSeq())
+      # Remove all the duplicates.
+      for item in optIndices:
+        # We ignore missing keys.
+        if item.isSome():
+          indexset.incl(item.get())
+    ok(indexset.toSeq())
+
+  proc getValidators(
+         node: BeaconNode,
+         bslot: BlockSlotId,
+         validatorsMask: ValidatorFilter,
+         validatorIds: openArray[ValidatorIdent]
+       ): RestApiResponse =
+    node.withStateForBlockSlotId(bslot):
+      let
+        stateEpoch = getStateField(state, slot).epoch()
+        indices = node.getIndices(validatorIds, state).valueOr:
+          return RestApiResponse.jsonError(error)
+        response =
+          block:
+            var res: seq[RestValidator]
+            if len(indices) == 0:
+              # Case when `len(indices) == 0 and len(validatorIds) != 0` means
+              # that we can't find validator identifiers in state, so we should
+              # return empty response.
+              if len(validatorIds) == 0:
+                # There are no indices, so we're going to filter all the
+                # validators.
+                for index, validator in getStateField(state, validators):
+                  let
+                    balance = getStateField(state, balances).item(index)
+                    status = validator.getStatus(stateEpoch).valueOr:
+                      return RestApiResponse.jsonError(
+                        Http400, ValidatorStatusNotFoundError, $error)
+                  if status in validatorsMask:
+                    res.add(RestValidator.init(ValidatorIndex(index), balance,
+                                               toString(status), validator))
+            else:
+              for index in indices:
+                let
+                  validator = getStateField(state, validators).item(index)
+                  balance = getStateField(state, balances).item(index)
+                  status = validator.getStatus(stateEpoch).valueOr:
+                    return RestApiResponse.jsonError(
+                      Http400, ValidatorStatusNotFoundError, $error)
+                if status in validatorsMask:
+                  res.add(RestValidator.init(index, balance, toString(status),
+                                             validator))
+            res
+      return RestApiResponse.jsonResponseFinalized(
+        response,
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
+      )
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  proc getBalances(
+         node: BeaconNode,
+         bslot: BlockSlotId,
+         validatorIds: openArray[ValidatorIdent]
+       ): RestApiResponse =
+    node.withStateForBlockSlotId(bslot):
+      let
+        indices = node.getIndices(validatorIds, state).valueOr:
+          return RestApiResponse.jsonError(error)
+        response =
+          block:
+            var res: seq[RestValidatorBalance]
+            if len(indices) == 0:
+              # Case when `len(indices) == 0 and len(validatorIds) != 0` means
+              # that we can't find validator identifiers in state, so we should
+              # return empty response.
+              if len(validatorIds) == 0:
+                # There are no indices, so we're going to return balances of all
+                # known validators.
+                for index, balance in getStateField(state, balances):
+                  res.add(RestValidatorBalance.init(ValidatorIndex(index),
+                                                    balance))
+            else:
+              for index in indices:
+                let balance = getStateField(state, balances).item(index)
+                res.add(RestValidatorBalance.init(index, balance))
+            res
+
+      return RestApiResponse.jsonResponseFinalized(
+        response,
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
+      )
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
   router.api(MethodGet, "/eth/v1/beacon/states/{state_id}/validators") do (
     state_id: StateIdent, id: seq[ValidatorIdent],
@@ -249,119 +377,54 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # TODO (cheatfate): Its impossible to retrieve state by `state_root`
           # in current version of database.
           return RestApiResponse.jsonError(Http500, NoImplementationError)
-        return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                          $error)
-    let validatorIds =
-      block:
-        if id.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidValidatorIdValueError)
-        let ires = id.get()
-        if len(ires) > ServerMaximumValidatorIds:
-          return RestApiResponse.jsonError(Http414,
-                                           MaximumNumberOfValidatorIdsError)
-        ires
-
-    let validatorsMask =
-      block:
-        if status.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidValidatorStatusValueError)
-        let res = validateFilter(status.get())
-        if res.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidValidatorStatusValueError,
-                                           $res.error())
-        res.get()
-
-    node.withStateForBlockSlotId(bslot):
-      let
-        current_epoch = getStateField(state, slot).epoch()
-        validatorsCount = lenu64(getStateField(state, validators))
-
-      let indices =
+        return RestApiResponse.jsonError(
+          Http404, StateNotFoundError, $error)
+      validatorIds =
         block:
-          var keyset: HashSet[ValidatorPubKey]
-          var indexset: HashSet[ValidatorIndex]
-          for item in validatorIds:
-            case item.kind
-            of ValidatorQueryKind.Key:
-              keyset.incl(item.key)
-            of ValidatorQueryKind.Index:
-              let vindex =
-                block:
-                  let vres = item.index.toValidatorIndex()
-                  if vres.isErr():
-                    case vres.error()
-                    of ValidatorIndexError.TooHighValue:
-                      return RestApiResponse.jsonError(Http400,
-                                                TooHighValidatorIndexValueError)
-                    of ValidatorIndexError.UnsupportedValue:
-                      return RestApiResponse.jsonError(Http500,
-                                            UnsupportedValidatorIndexValueError)
-                  let index = vres.get()
-                  index
-              if uint64(vindex) < validatorsCount:
-                # We only adding validator indices which are present in
-                # validators list at this moment.
-                indexset.incl(vindex)
-
-          if len(keyset) > 0:
-            let optIndices = keysToIndices(node.restKeysCache, state,
-                                           keyset.toSeq())
-            # Remove all the duplicates.
-            for item in optIndices:
-              # We ignore missing keys.
-              if item.isSome():
-                indexset.incl(item.get())
-          indexset.toSeq()
-
-      let response =
+          if id.isErr():
+            return RestApiResponse.jsonError(
+              Http400, InvalidValidatorIdValueError)
+          let ires = id.get()
+          if len(ires) > ServerMaximumValidatorIds:
+            return RestApiResponse.jsonError(
+              Http414, MaximumNumberOfValidatorIdsError)
+          ires
+      validatorsMask =
         block:
-          var res: seq[RestValidator]
-          if len(indices) == 0:
-            # Case when `len(indices) == 0 and len(validatorIds) != 0` means
-            # that we can't find validator identifiers in state, so we should
-            # return empty response.
-            if len(validatorIds) == 0:
-              # There is no indices, so we going to filter all the validators.
-              for index, validator in getStateField(state, validators):
-                let
-                  balance = getStateField(state, balances).item(index)
-                  status =
-                    block:
-                      let sres = validator.getStatus(current_epoch)
-                      if sres.isErr():
-                        return RestApiResponse.jsonError(Http400,
-                                                     ValidatorStatusNotFoundError,
-                                                     $sres.get())
-                      sres.get()
-                if status in validatorsMask:
-                  res.add(RestValidator.init(ValidatorIndex(index), balance,
-                                             toString(status), validator))
-          else:
-            for index in indices:
-              let
-                validator = getStateField(state, validators).item(index)
-                balance = getStateField(state, balances).item(index)
-                status =
-                  block:
-                    let sres = validator.getStatus(current_epoch)
-                    if sres.isErr():
-                      return RestApiResponse.jsonError(Http400,
-                                                   ValidatorStatusNotFoundError,
-                                                   $sres.get())
-                    sres.get()
-              if status in validatorsMask:
-                res.add(RestValidator.init(index, balance, toString(status),
-                                           validator))
-          res
-      return RestApiResponse.jsonResponseFinalized(
-        response,
-        node.getStateOptimistic(state),
-        node.dag.isFinalized(bslot.bid)
-      )
-    return RestApiResponse.jsonError(Http404, StateNotFoundError)
+          if status.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidValidatorStatusValueError)
+          validateFilter(status.get()).valueOr:
+            return RestApiResponse.jsonError(
+              Http400, InvalidValidatorStatusValueError, $error)
+    getValidators(node, bslot, validatorsMask, validatorIds)
+
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidators
+  router.api(MethodPost, "/eth/v1/beacon/states/{state_id}/validators") do (
+    state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      (validatorIds, validatorsMask) =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let request =
+            decodeBody(RestValidatorRequest, contentBody.get()).valueOr:
+              return RestApiResponse.jsonError(
+                Http400, InvalidRequestBodyError, $error)
+          let
+            ids = request.ids.valueOr: @[]
+            filter = request.status.valueOr: {}
+          (ids, filter)
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
+    getValidators(node, bslot, validatorsMask, validatorIds)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator
   router.api(MethodGet,
@@ -441,84 +504,42 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # TODO (cheatfate): Its impossible to retrieve state by `state_root`
           # in current version of database.
           return RestApiResponse.jsonError(Http500, NoImplementationError)
-        return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                          $error)
-
-    let validatorIds =
-      block:
-        if id.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidValidatorIdValueError)
-        let ires = id.get()
-        if len(ires) > ServerMaximumValidatorIds:
-          return RestApiResponse.jsonError(Http400,
-                                           MaximumNumberOfValidatorIdsError)
-        ires
-
-    node.withStateForBlockSlotId(bslot):
-      let validatorsCount = lenu64(getStateField(state, validators))
-
-      let indices =
+        return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
+      validatorIds =
         block:
-          var keyset: HashSet[ValidatorPubKey]
-          var indexset: HashSet[ValidatorIndex]
-          for item in validatorIds:
-            case item.kind
-            of ValidatorQueryKind.Key:
-              keyset.incl(item.key)
-            of ValidatorQueryKind.Index:
-              let vindex =
-                block:
-                  let vres = item.index.toValidatorIndex()
-                  if vres.isErr():
-                    case vres.error()
-                    of ValidatorIndexError.TooHighValue:
-                      return RestApiResponse.jsonError(Http400,
-                                                TooHighValidatorIndexValueError)
-                    of ValidatorIndexError.UnsupportedValue:
-                      return RestApiResponse.jsonError(Http500,
-                                            UnsupportedValidatorIndexValueError)
-                  vres.get()
-              # We only adding validator indices which are present in
-              # validators list at this moment.
-              if uint64(vindex) < validatorsCount:
-                indexset.incl(vindex)
+          if id.isErr():
+            return RestApiResponse.jsonError(
+              Http400, InvalidValidatorIdValueError)
+          let ires = id.get()
+          if len(ires) > ServerMaximumValidatorIds:
+            return RestApiResponse.jsonError(
+              Http400, MaximumNumberOfValidatorIdsError)
+          ires
+    getBalances(node, bslot, validatorIds)
 
-          if len(keyset) > 0:
-            let optIndices = keysToIndices(node.restKeysCache, state,
-                                           keyset.toSeq())
-            # Remove all the duplicates.
-            for item in optIndices:
-              # We ignore missing keys.
-              if item.isSome():
-                indexset.incl(item.get())
-          indexset.toSeq()
-
-      let response =
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidatorBalances
+  router.api(MethodPost,
+             "/eth/v1/beacon/states/{state_id}/validator_balances") do (
+    state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      validatorIds =
         block:
-          var res: seq[RestValidatorBalance]
-          if len(indices) == 0:
-            # Case when `len(indices) == 0 and len(validatorIds) != 0` means
-            # that we can't find validator identifiers in state, so we should
-            # return empty response.
-            if len(validatorIds) == 0:
-              # There is no indices, so we going to return balances of all
-              # known validators.
-              for index, balance in getStateField(state, balances):
-                res.add(RestValidatorBalance.init(ValidatorIndex(index),
-                                                  balance))
-          else:
-            for index in indices:
-              let balance = getStateField(state, balances).item(index)
-              res.add(RestValidatorBalance.init(index, balance))
-          res
-      return RestApiResponse.jsonResponseFinalized(
-        response,
-        node.getStateOptimistic(state),
-        node.dag.isFinalized(bslot.bid)
-      )
-
-    return RestApiResponse.jsonError(Http404, StateNotFoundError)
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let body = contentBody.get()
+          decodeBody(seq[ValidatorIdent], body).valueOr:
+            return RestApiResponse.jsonError(
+              Http400, InvalidValidatorIdValueError, $error)
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
+    getBalances(node, bslot, validatorIds)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees
   router.api(MethodGet,
@@ -1373,11 +1394,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/beacon/blob_sidecars/{block_id}") do (
     block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
     let
-      bid = block_id.valueOr:
+      blockIdent = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
                                          $error)
-
-      bdata = node.getForkedBlock(bid).valueOr:
+      bid = node.getBlockId(blockIdent).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
       contentType = block:
@@ -1402,7 +1422,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       var blobSidecar = new BlobSidecar
 
-      if node.dag.db.getBlobSidecar(bdata.root, blobIndex, blobSidecar[]):
+      if node.dag.db.getBlobSidecar(bid.root, blobIndex, blobSidecar[]):
         discard data[].add blobSidecar[]
 
     return

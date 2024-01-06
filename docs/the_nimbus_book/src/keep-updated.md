@@ -43,7 +43,7 @@ To update to the latest version, either download the binary or compile the beaco
     # Download the updated source code
     git pull && make update
 
-    # Build the downloaded newly downloaded version
+    # Build the newly downloaded version
     make -j4 nimbus_beacon_node
     ```
 

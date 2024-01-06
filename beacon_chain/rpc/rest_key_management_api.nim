@@ -64,7 +64,6 @@ proc keymanagerApiError(status: HttpCode, msg: string): RestApiResponse =
     block:
       var default: string
       try:
-        var defstrings: seq[string]
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()

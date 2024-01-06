@@ -13,7 +13,7 @@ import
   std/typetraits,
   stew/byteutils,
   json_rpc/[rpcserver, errors],
-  web3/[conversions, engine_api_types],
+  web3/[conversions, engine_api_types, eth_api_types],
   chronicles
 
 proc setupEngineAPI*(server: RpcServer) =

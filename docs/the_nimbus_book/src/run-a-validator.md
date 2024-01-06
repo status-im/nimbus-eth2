@@ -123,11 +123,8 @@ We'll import the signing key of each validator to the [data directory](./data-di
 
 On success, a message will be printed that your keys have been imported:
 ```
-NOT 2022-07-19 17:36:37.578+02:00 Keystore imported
+NTC 2022-07-19 17:36:37.578+02:00 Keystore imported
 ```
-
-!!! note ""
-    `NOT` is short for `NOTICE` and not not :)
 
 After importing keys, it is time to [restart the node](./run-a-validator.md#3-start-validating) and check that the keys have been picked up by the beacon node.
 
@@ -210,7 +207,7 @@ To check that keys were imported correctly, look for `Local validator attached` 
 ```
 INF 2020-11-18 11:20:00.181+01:00 Launching beacon node
 ...
-NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
+NTC 2020-11-18 11:20:02.091+01:00 Local validator attached
 ```
 
 Congratulations!
