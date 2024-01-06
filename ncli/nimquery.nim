@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  strutils, strformat, parseutils
+  std/[strutils, strformat, parseutils]
 
 type
   TokenKind* = enum
@@ -124,4 +124,3 @@ func expr(parser: var Parser): Node =
 func parse*(input: string): Node =
   var p = Parser.init(input)
   p.expr
-

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,7 @@ import
   chronos/timer, chronicles,
   ./spec/beacon_time
 
-from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
+from std/times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 
 export timer.Duration, Moment, now, beacon_time
 
