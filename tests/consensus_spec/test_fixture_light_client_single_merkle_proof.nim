@@ -13,7 +13,7 @@ import
   # Status libraries
   stew/bitops2,
   # Third-party
-  yaml,
+  yaml/loading as yamlLoading,
   # Beacon chain internals
   ../../beacon_chain/spec/helpers,
   # Test utilities
@@ -32,9 +32,7 @@ proc runTest[T](suiteName, path: string, objType: typedesc[T]) =
       proof = block:
         let s = openFileStream(path/"proof.yaml")
         defer: close(s)
-        var res: TestProof
-        yaml.load(s, res)
-        res
+        yamlLoading.loadAs[TestProof](s)
 
       obj = newClone(parseTest(path/"object.ssz_snappy", SSZ, T))
 

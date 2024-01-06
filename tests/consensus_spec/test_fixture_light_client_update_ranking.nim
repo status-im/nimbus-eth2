@@ -13,7 +13,7 @@ import
   # Status libraries
   stew/base10,
   # Third-party
-  yaml,
+  yaml/loading as yamlLoading,
   # Beacon chain internals
   ../../beacon_chain/spec/helpers,
   # Test utilities
@@ -29,9 +29,7 @@ proc runTest(suiteName, path: string, lcDataFork: static LightClientDataFork) =
     let meta = block:
       var s = openFileStream(path/"meta.yaml")
       defer: close(s)
-      var res: TestMeta
-      yaml.load(s, res)
-      res
+      yamlLoading.loadAs[TestMeta](s)
 
     var updates = newSeqOfCap[lcDataFork.LightClientUpdate](meta.updates_count)
     for i in 0 ..< meta.updates_count:

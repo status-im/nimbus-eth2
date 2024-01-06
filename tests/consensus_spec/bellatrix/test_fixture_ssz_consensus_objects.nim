@@ -9,7 +9,7 @@
 
 import
   # Third-party
-  yaml,
+  yaml/loading as yamlLoading,
   # Beacon chain internals
   ../../../beacon_chain/spec/datatypes/[altair, bellatrix],
   # Status libraries
@@ -73,8 +73,8 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
 
 proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
   let s = openFileStream(dir/"roots.yaml")
-  yaml.load(s, result)
-  s.close()
+  defer: s.close()
+  yamlLoading.loadAs[SSZHashTreeRoot](s)
 
 # Test runner
 # ----------------------------------------------------------------

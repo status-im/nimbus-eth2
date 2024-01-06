@@ -13,7 +13,7 @@ import
   # Status libraries
   stew/byteutils,
   # Third-party
-  yaml,
+  yaml/[loading as yamlLoading, tojson as yamlTojson],
   # Beacon chain internals
   ../../beacon_chain/spec/[forks, light_client_sync],
   # Test utilities
@@ -54,7 +54,7 @@ type
 
 proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
-  let steps = yaml.loadToJson(stepsYAML)
+  let steps = yamlTojson.loadToJson(stepsYAML)
 
   result = @[]
   for step in steps[0]:
@@ -141,9 +141,7 @@ proc runTest(suiteName, path: string) =
         meta = block:
           var s = openFileStream(path/"meta.yaml")
           defer: close(s)
-          var res: TestMetaYaml
-          yaml.load(s, res)
-          res
+          yamlLoading.loadAs[TestMetaYaml](s)
         genesis_validators_root =
           Eth2Digest.fromHex(meta.genesis_validators_root)
         trusted_block_root =

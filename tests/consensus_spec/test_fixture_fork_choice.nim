@@ -18,7 +18,7 @@ import
   ../../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_clearance, block_quarantine, spec_cache],
   # Third-party
-  yaml,
+  yaml/tojson as yamlTojson,
   # Test
   ../testutil, ../testdbutil,
   ./fixtures_utils, ./os_ops
@@ -99,7 +99,7 @@ proc initialLoad(
 
 proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
-  let steps = yaml.loadToJson(stepsYAML)
+  let steps = yamlTojson.loadToJson(stepsYAML)
 
   result = @[]
   for step in steps[0]:

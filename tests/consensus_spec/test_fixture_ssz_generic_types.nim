@@ -15,7 +15,7 @@ import
   # Status libraries
   faststreams, snappy, stint, ../testutil,
   # Third-party
-  yaml,
+  yaml/loading as yamlLoading,
   # Beacon chain internals
   ../../beacon_chain/spec/digest,
   ../../beacon_chain/spec/datatypes/base,
@@ -195,11 +195,13 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
   let dir = baseDir/sszSubType
 
   # Hash tree root
-  var expectedHash: SSZHashTreeRoot
-  if fileExists(dir/"meta.yaml"):
-    let s = openFileStream(dir/"meta.yaml")
-    defer: close(s)
-    yaml.load(s, expectedHash)
+  let expectedHash =
+    if fileExists(dir/"meta.yaml"):
+      let s = openFileStream(dir/"meta.yaml")
+      defer: close(s)
+      yamlLoading.loadAs[SSZHashTreeRoot](s)
+    else:
+      default(SSZHashTreeRoot)
 
   # Deserialization and checks
   case sszType

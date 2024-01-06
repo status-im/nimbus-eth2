@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  yaml,
+  yaml/loading as yamlLoading,
   ../../beacon_chain/spec/[state_transition, forks],
   ./os_ops
 
@@ -26,11 +26,9 @@ type
     bls_setting {.defaultVal: 1.}: int
 
 proc getTransitionInfo(testPath: string): TransitionInfo =
-  var transitionInfo: TransitionInfo
   let s = openFileStream(testPath/"meta.yaml")
   defer: close(s)
-  yaml.load(s, transitionInfo)
-  transitionInfo
+  yamlLoading.loadAs[TransitionInfo](s)
 
 proc runTest(
     AnteBeaconState, PostBeaconState, AnteBeaconBlock, PostBeaconBlock: type,
