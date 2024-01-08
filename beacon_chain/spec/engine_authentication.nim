@@ -23,7 +23,7 @@ export rand, results
 const
   JWT_SECRET_LEN = 32
 
-proc base64urlEncode(x: auto): string =
+func base64urlEncode(x: auto): string =
   # The only strings this gets are internally generated, and don't have
   # encoding quirks.
   base64.encode(x, safe = true).replace("=", "")
@@ -41,7 +41,7 @@ func getIatToken*(time: int64): JsonNode =
   # an example of an iat claim: {"iat": 1371720939}
   %* {"iat": time}
 
-proc getSignedToken*(key: openArray[byte], payload: string): string =
+func getSignedToken*(key: openArray[byte], payload: string): string =
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#jwt-specifications
   # "The execution layer client **MUST** support at least the following `alg`
   # `HMAC + SHA256` (`HS256`)"
@@ -57,10 +57,10 @@ proc getSignedToken*(key: openArray[byte], payload: string): string =
 
   signingInput & "." & base64urlEncode(sha256.hmac(key, signingInput).data)
 
-proc getSignedIatToken*(key: openArray[byte], time: int64): string =
+func getSignedIatToken*(key: openArray[byte], time: int64): string =
   getSignedToken(key, $getIatToken(time))
 
-proc parseJwtTokenValue*(input: string): Result[seq[byte], cstring] =
+func parseJwtTokenValue*(input: string): Result[seq[byte], cstring] =
   # Secret JWT key is parsed in constant time using nimcrypto:
   # https://github.com/cheatfate/nimcrypto/pull/44
   let secret = utils.fromHex(input)
