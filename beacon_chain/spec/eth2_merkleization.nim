@@ -22,7 +22,7 @@ from ./datatypes/capella import HashedBeaconState, SignedBeaconBlock
 export ssz_codec, merkleization, proofs
 
 type
-  DepositsMerkleizer* = SszMerkleizer2[DEPOSIT_CONTRACT_TREE_DEPTH]
+  DepositsMerkleizer* = SszMerkleizer2[DEPOSIT_CONTRACT_TREE_DEPTH + 1]
 
 # Can't use `ForkyHashedBeaconState`/`ForkyHashedSignedBeaconBlock` without
 # creating recursive module dependency through `forks`.

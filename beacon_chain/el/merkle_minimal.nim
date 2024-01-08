@@ -32,7 +32,7 @@ template getProof*(
 func attachMerkleProofs*(deposits: var openArray[Deposit]): Eth2Digest =
   let depositsRoots = mapIt(deposits, hash_tree_root(it.data))
 
-  var merkleizer = createMerkleizer2(DEPOSIT_CONTRACT_TREE_DEPTH)
+  var merkleizer = createMerkleizer2(DEPOSIT_CONTRACT_TREE_DEPTH + 1)
   let proofs = merkleizer.addChunksAndGenMerkleProofs(depositsRoots)
   for i in 0 ..< depositsRoots.len:
     deposits[i].proof[0 ..< DEPOSIT_CONTRACT_TREE_DEPTH] = getProof(proofs, i)
