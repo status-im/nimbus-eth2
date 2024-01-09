@@ -287,7 +287,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           remote_head_slot = peerSlot, local_head_slot = headSlot
 
     let
-      peerStatusAge = Moment.now() - peer.state(BeaconSync).statusLastTime
+      peerStatusAge = Moment.now() - peer.getStatusLastTime()
       needsUpdate =
         # Latest status we got is old
         peerStatusAge >= StatusExpirationTime or

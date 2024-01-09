@@ -19,7 +19,7 @@ import
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
-  ./sync/light_client_protocol,
+  ./sync/[sync_protocol, light_client_protocol],
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -508,14 +508,17 @@ proc initFullNode(
     node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
   node.network.registerProtocol(
-    BeaconSync, BeaconSync.NetworkState.init(
+    PeerSync, PeerSync.NetworkState.init(
       node.dag,
       node.beaconClock.getBeaconTimeFn(),
   ))
 
+  node.network.registerProtocol(
+    BeaconSync, BeaconSync.NetworkState.init(node.dag))
+
   if node.dag.lcDataStore.serve:
     node.network.registerProtocol(
-      LightClientProtocol, LightClientProtocol.NetworkState.init(node.dag))
+      LightClientSync, LightClientSync.NetworkState.init(node.dag))
 
   node.updateValidatorMetrics()
 

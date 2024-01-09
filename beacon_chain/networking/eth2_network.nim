@@ -2038,8 +2038,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
 
 #Must import here because of cyclicity
-import ../sync/sync_protocol
-export sync_protocol
+import ./peer_protocol
+export peer_protocol
 
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async.} =
   trace "updating peer metadata", peerId

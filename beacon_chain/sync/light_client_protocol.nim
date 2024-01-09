@@ -15,7 +15,7 @@ import
   ../rpc/rest_constants
 
 logScope:
-  topics = "lcp"
+  topics = "lc_proto"
 
 const
   lightClientBootstrapResponseCost = allowedOpsPerSecondCost(1)
@@ -28,24 +28,6 @@ const
 type
   LightClientNetworkState* = ref object of RootObj
     dag*: ChainDAGRef
-
-proc readChunkPayload*(
-    conn: Connection, peer: Peer, MsgType: type (ref BlobSidecar)):
-    Future[NetRes[MsgType]] {.async.} =
-  var contextBytes: ForkDigest
-  try:
-    await conn.readExactly(addr contextBytes, sizeof contextBytes)
-  except CatchableError:
-    return neterr UnexpectedEOF
-
-  if contextBytes == peer.network.forkDigests.deneb:
-    let res = await readChunkPayload(conn, peer, BlobSidecar)
-    if res.isOk:
-      return ok newClone(res.get)
-    else:
-      return err(res.error)
-  else:
-    return neterr InvalidContextBytes
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type SomeForkedLightClientObject):
@@ -79,7 +61,7 @@ func forkDigestAtEpoch(state: LightClientNetworkState,
                        epoch: Epoch): ForkDigest =
   state.dag.forkDigests[].atEpoch(epoch, state.dag.cfg)
 
-p2pProtocol LightClientProtocol(version = 1,
+p2pProtocol LightClientSync(version = 1,
                        networkState = LightClientNetworkState):
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
   proc lightClientBootstrap(
@@ -204,7 +186,7 @@ p2pProtocol LightClientProtocol(version = 1,
 
     debug "LC optimistic update request done", peer
 
-proc init*(T: type LightClientProtocol.NetworkState, dag: ChainDAGRef): T =
+proc init*(T: type LightClientSync.NetworkState, dag: ChainDAGRef): T =
   T(
     dag: dag,
   )

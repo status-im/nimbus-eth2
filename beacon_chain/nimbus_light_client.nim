@@ -136,7 +136,7 @@ programMain:
 
   info "Listening to incoming network requests"
   network.registerProtocol(
-    BeaconSync, BeaconSync.NetworkState.init(
+    PeerSync, PeerSync.NetworkState.init(
       cfg, forkDigests, genesisBlockRoot, getBeaconTime))
 
   withAll(ConsensusFork):
