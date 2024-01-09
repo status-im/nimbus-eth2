@@ -1,7 +1,12 @@
+2024-01-08 v24.1.1
+==================
+
+Nimbus `v24.1.1` is a hotfix addressing a problem introduced in the `v24.1.0` release. Nimbus was crashing immediately after being connected to an execution layer node which is not fully synced. All users of `v24.1.0` are advised to upgrade at their earliest convenience.
+
 2024-01-04 v24.1.0
 ==================
 
-Nimbus `v24.1.0` is a low-urgency upgrade bringing full support for the upcoming Cancun-Deneb hard-fork on the Goerli testnet and introducing the `/eth/v3/validator/blocks/{slot}` Beacon API end-point that greatly simplifies the implementation of profit-optimising validator clients.
+Nimbus `v24.1.0` is a `low-urgency` upgrade bringing full support for the upcoming Cancun-Deneb hard-fork on the Goerli testnet and introducing the `/eth/v3/validator/blocks/{slot}` Beacon API end-point that greatly simplifies the implementation of profit-optimising validator clients.
 
 ### Improvements
 
