@@ -15,7 +15,7 @@ import
   stew/[leb128, endians2, results, byteutils, io2, bitops2],
   stew/shims/net as stewNet,
   stew/shims/[macros],
-  faststreams/[inputs, outputs, buffers], snappy, snappy/faststreams,
+  faststreams/[outputs, buffers], snappy, snappy/faststreams,
   json_serialization, json_serialization/std/[net, sets, options],
   chronos, chronos/ratelimit, chronicles, metrics,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
@@ -1823,12 +1823,11 @@ proc new(T: type Eth2Node,
 proc registerProtocol*(node: Eth2Node, Proto: type, state: Proto.NetworkState) =
   # This convoluted registration process is a leftover from the shared p2p macro
   # and should be refactored
+  # TODO what if the same protocol is registered with multiple nodes?
+  Proto.protocolInfo().index = node.protocols.high()
   let proto = Proto.protocolInfo()
   node.protocols.add(proto)
-  node.protocols[^1].index = node.protocols.high
-  node.protocolStates.setLen(max(proto.index + 1, node.protocolStates.len))
-
-  node.protocolStates[proto.index] = state
+  node.protocolStates.add(state)
 
   for msg in proto.messages:
     if msg.protocolMounter != nil:
@@ -1908,9 +1907,9 @@ proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
     lastMetadataTime: now(chronos.Moment),
     quota: TokenBucket.new(maxRequestQuota.int, fullReplenishTime)
   )
+  res.protocolStates.setLen(network.protocolStates.len())
   for proto in network.protocols:
     if not(isNil(proto.peerStateInitializer)):
-      res.protocolStates.setLen(max(proto.index + 1, res.protocolStates.len))
       res.protocolStates[proto.index] = proto.peerStateInitializer(res)
   res
 
