@@ -135,7 +135,10 @@ programMain:
     elManager.start(syncChain = false)
 
   info "Listening to incoming network requests"
-  network.initBeaconSync(cfg, forkDigests, genesisBlockRoot, getBeaconTime)
+  network.registerProtocol(
+    BeaconSync, BeaconSync.NetworkState.init(
+      cfg, forkDigests, genesisBlockRoot, getBeaconTime))
+
   withAll(ConsensusFork):
     let forkDigest = forkDigests[].atConsensusFork(consensusFork)
     network.addValidator(

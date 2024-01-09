@@ -19,6 +19,7 @@ import
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
+  ./sync/light_client_protocol,
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -506,7 +507,15 @@ proc initFullNode(
     # Here, we also set the correct ENR should we be in all subnets mode!
     node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
-  node.network.initBeaconSync(dag, getBeaconTime)
+  node.network.registerProtocol(
+    BeaconSync, BeaconSync.NetworkState.init(
+      node.dag,
+      node.beaconClock.getBeaconTimeFn(),
+  ))
+
+  if node.dag.lcDataStore.serve:
+    node.network.registerProtocol(
+      LightClientProtocol, LightClientProtocol.NetworkState.init(node.dag))
 
   node.updateValidatorMetrics()
 

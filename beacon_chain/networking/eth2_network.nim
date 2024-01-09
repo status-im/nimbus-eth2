@@ -23,13 +23,13 @@ import
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/stream/connection,
-  eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
+  eth/[keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
-  "."/[eth2_discovery, libp2p_json_serialization, peer_pool, peer_scores]
+  "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
 
 export
   tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
@@ -66,6 +66,8 @@ type
     wantedPeers*: int
     hardMaxPeers*: int
     peerPool*: PeerPool[Peer, PeerId]
+    protocols: seq[ProtocolInfo]
+      ## Protocols managed by the DSL and mounted on the switch
     protocolStates*: seq[RootRef]
     metadata*: altair.MetaData
     connectTimeout*: chronos.Duration
@@ -87,8 +89,6 @@ type
     getBeaconTime: GetBeaconTimeFn
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
-
-  EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
   AverageThroughput* = object
     count*: uint64
@@ -144,7 +144,6 @@ type
     # Private fields:
     libp2pCodecName: string
     protocolMounter*: MounterProc
-    isRequired, isLightClientRequest: bool
 
   ProtocolInfoObj* = object
     name*: string
@@ -167,11 +166,11 @@ type
     ResourceUnavailable
 
   PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [].}
-  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [].}
+  NetworkStateInitializer* = proc(network: Eth2Node): RootRef {.gcsafe, raises: [].}
   OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe, raises: [].}
   OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe, raises: [].}
   ThunkProc* = LPProtoHandler
-  MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [CatchableError].}
+  MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#goodbye
@@ -324,9 +323,7 @@ when libp2p_pki_schemes != "secp256k1":
 const
   NetworkInsecureKeyPassword = "INSECUREPASSWORD"
 
-template libp2pProtocol*(name: string, version: int,
-                         isRequired = false,
-                         isLightClientRequest = false) {.pragma.}
+template libp2pProtocol*(name: string, version: int) {.pragma.}
 
 func shortLog*(peer: Peer): string = shortLog(peer.peerId)
 chronicles.formatIt(Peer): shortLog(it)
@@ -353,6 +350,33 @@ proc openStream(node: Eth2Node,
   return conn
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
+
+proc getState*(peer: Peer, proto: ProtocolInfo): RootRef =
+  peer.protocolStates[proto.index]
+
+template state*(peer: Peer, Protocol: type): untyped =
+  ## Returns the state object of a particular protocol for a
+  ## particular connection.
+  mixin State
+  bind getState
+  cast[Protocol.State](getState(peer, Protocol.protocolInfo))
+
+proc getNetworkState*(node: Eth2Node, proto: ProtocolInfo): RootRef =
+  node.protocolStates[proto.index]
+
+template protocolState*(node: Eth2Node, Protocol: type): untyped =
+  mixin NetworkState
+  bind getNetworkState
+  cast[Protocol.NetworkState](getNetworkState(node, Protocol.protocolInfo))
+
+proc initProtocolState*[T](state: T, x: Peer|Eth2Node)
+    {.gcsafe, raises: [].} =
+  discard
+
+template networkState*(connection: Peer, Protocol: type): untyped =
+  ## Returns the network state object of a particular protocol for a
+  ## particular connection.
+  protocolState(connection.network, Protocol)
 
 func peerId*(node: Eth2Node): PeerId =
   node.switch.peerInfo.peerId
@@ -528,9 +552,6 @@ proc releasePeer*(peer: Peer) =
             score_high_limit = PeerScoreHighLimit
       asyncSpawn(peer.disconnect(PeerScoreLow))
 
-include eth/p2p/p2p_backends_helpers
-include eth/p2p/p2p_tracing
-
 proc getRequestProtoName(fn: NimNode): NimNode =
   # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
   # (TODO: file as an issue)
@@ -546,70 +567,6 @@ proc getRequestProtoName(fn: NimNode): NimNode =
       except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
 
   return newLit("")
-
-proc isRequiredProto(fn: NimNode): NimNode =
-  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
-  # (TODO: file as an issue)
-
-  let pragmas = fn.pragma
-  if pragmas.kind == nnkPragma and pragmas.len > 0:
-    for pragma in pragmas:
-      try:
-        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
-          if pragma.len <= 3:
-            return newLit(false)
-          for i in 3 ..< pragma.len:
-            let param = pragma[i]
-            case param.kind
-            of nnkExprEqExpr:
-              if $param[0] == "isRequired":
-                if $param[1] == "true":
-                  return newLit(true)
-                if $param[1] == "false":
-                  return newLit(false)
-                raiseAssert "Unexpected value: " & $param
-              if $param[0] != "isLightClientRequest":
-                raiseAssert "Unexpected param: " & $param
-            of nnkIdent:
-              if i == 3:
-                return newLit(param.boolVal)
-            else: raiseAssert "Unexpected kind: " & param.kind.repr
-          return newLit(false)
-      except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
-
-  return newLit(false)
-
-proc isLightClientRequestProto(fn: NimNode): NimNode =
-  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
-  # (TODO: file as an issue)
-
-  let pragmas = fn.pragma
-  if pragmas.kind == nnkPragma and pragmas.len > 0:
-    for pragma in pragmas:
-      try:
-        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
-          if pragma.len <= 3:
-            return newLit(false)
-          for i in 3 ..< pragma.len:
-            let param = pragma[i]
-            case param.kind
-            of nnkExprEqExpr:
-              if $param[0] == "isLightClientRequest":
-                if $param[1] == "true":
-                  return newLit(true)
-                if $param[1] == "false":
-                  return newLit(false)
-                raiseAssert "Unexpected value: " & $param
-              if $param[0] != "isRequired":
-                raiseAssert "Unexpected param: " & $param
-            of nnkIdent:
-              if i == 4:
-                return newLit(param.boolVal)
-            else: raiseAssert "Unexpected kind: " & param.kind.repr
-          return newLit(false)
-      except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
-
-  return newLit(false)
 
 proc writeChunkSZ(
     conn: Connection, responseCode: Option[ResponseCode],
@@ -1023,7 +980,7 @@ template sendSSZ*[M](
 proc performProtocolHandshakes(peer: Peer, incoming: bool) {.async.} =
   # Loop down serially because it's easier to reason about the connection state
   # when there are fewer async races, specially during setup
-  for protocol in allProtocols:
+  for protocol in peer.network.protocols:
     if protocol.onPeerConnected != nil:
       await protocol.onPeerConnected(peer, incoming)
 
@@ -1035,13 +992,6 @@ proc initProtocol(name: string,
     messages: @[],
     peerStateInitializer: peerInit,
     networkStateInitializer: networkInit)
-
-proc registerProtocol(protocol: ProtocolInfo) =
-  # TODO: This can be done at compile-time in the future
-  let pos = lowerBound(gProtocols, protocol)
-  gProtocols.insert(protocol, pos)
-  for i in 0 ..< gProtocols.len:
-    gProtocols[i].index = i
 
 proc setEventHandlers(p: ProtocolInfo,
                       onPeerConnected: OnPeerConnectedHandler,
@@ -1226,7 +1176,7 @@ proc handleIncomingStream(network: Eth2Node,
       return
 
     try:
-      logReceivedMsg(peer, MsgType(msg.get))
+      # logReceivedMsg(peer, MsgType(msg.get))
       await callUserHandler(MsgType, peer, conn, msg.get)
     except InvalidInputsError as err:
       nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
@@ -1854,21 +1804,6 @@ proc new(T: type Eth2Node,
     quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
   )
 
-  newSeq node.protocolStates, allProtocols.len
-  for proto in allProtocols:
-    if proto.networkStateInitializer != nil:
-      node.protocolStates[proto.index] = proto.networkStateInitializer(node)
-
-    for msg in proto.messages:
-      when config is BeaconNodeConf:
-        if msg.isLightClientRequest and not config.lightClientDataServe:
-          continue
-      elif config is LightClientConf:
-        if not msg.isRequired:
-          continue
-      if msg.protocolMounter != nil:
-        msg.protocolMounter node
-
   proc peerHook(peerId: PeerId, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(node, peerId, event)
 
@@ -1885,6 +1820,20 @@ proc new(T: type Eth2Node,
   node.peerPool.setOnDeletePeer(onDeletePeer)
 
   node
+
+proc registerProtocol*(node: Eth2Node, Proto: type, state: Proto.NetworkState) =
+  # This convoluted registration process is a leftover from the shared p2p macro
+  # and should be refactored
+  let proto = Proto.protocolInfo()
+  node.protocols.add(proto)
+  node.protocols[^1].index = node.protocols.high
+  node.protocolStates.setLen(max(proto.index + 1, node.protocolStates.len))
+
+  node.protocolStates[proto.index] = state
+
+  for msg in proto.messages:
+    if msg.protocolMounter != nil:
+      msg.protocolMounter node
 
 proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
@@ -1958,30 +1907,25 @@ proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
     connectionState: ConnectionState.None,
     lastReqTime: now(chronos.Moment),
     lastMetadataTime: now(chronos.Moment),
-    protocolStates: newSeq[RootRef](len(allProtocols)),
     quota: TokenBucket.new(maxRequestQuota.int, fullReplenishTime)
   )
-  for i in 0 ..< len(allProtocols):
-    let proto = allProtocols[i]
+  for proto in network.protocols:
     if not(isNil(proto.peerStateInitializer)):
-      res.protocolStates[i] = proto.peerStateInitializer(res)
+      res.protocolStates.setLen(max(proto.index + 1, res.protocolStates.len))
+      res.protocolStates[proto.index] = proto.peerStateInitializer(res)
   res
 
 proc registerMsg(protocol: ProtocolInfo,
                  name: string,
                  mounter: MounterProc,
-                 libp2pCodecName: string,
-                 isRequired, isLightClientRequest: bool) =
+                 libp2pCodecName: string) =
   protocol.messages.add MessageInfo(name: name,
                                     protocolMounter: mounter,
-                                    libp2pCodecName: libp2pCodecName,
-                                    isRequired: isRequired,
-                                    isLightClientRequest: isLightClientRequest)
+                                    libp2pCodecName: libp2pCodecName)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var
     Format = ident "SSZ"
-    Bool = bindSym "bool"
     Connection = bindSym "Connection"
     Peer = bindSym "Peer"
     Eth2Node = bindSym "Eth2Node"
@@ -1992,19 +1936,15 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     callUserHandler = ident "callUserHandler"
     MSG = ident "MSG"
 
-  p.useRequestIds = false
-  p.useSingleRecordInlining = true
-
   new result
 
   result.PeerType = Peer
   result.NetworkType = Eth2Node
-  result.registerProtocol = bindSym "registerProtocol"
   result.setEventHandlers = bindSym "setEventHandlers"
   result.SerializationFormat = Format
   result.RequestResultsWrapper = ident "NetRes"
 
-  result.implementMsg = proc (msg: p2p_protocol_dsl.Message) =
+  result.implementMsg = proc (msg: eth2_protocol_dsl.Message) =
     if msg.kind == msgResponse:
       return
 
@@ -2015,8 +1955,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       MsgRecName = msg.recName
       MsgStrongRecName = msg.strongRecName
       codecNameLit = getRequestProtoName(msg.procDef)
-      isRequiredLit = isRequiredProto(msg.procDef)
-      isLightClientRequestLit = isLightClientRequestProto(msg.procDef)
       protocolMounterName = ident(msgName & "Mounter")
 
     ##
@@ -2068,15 +2006,19 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
                                  `msgVar`: `MsgRecName`): untyped =
         `userHandlerCall`
 
-      proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
+      proc `protocolMounterName`(`networkVar`: `Eth2Node`) {.raises: [].} =
         proc snappyThunk(`streamVar`: `Connection`,
                          `protocolVar`: string): Future[void] {.gcsafe.} =
           return handleIncomingStream(`networkVar`, `streamVar`, `protocolVar`,
                                       `MsgStrongRecName`)
 
-        mount `networkVar`.switch,
-              LPProtocol(codecs: @[`codecNameLit`], handler: snappyThunk)
-
+        try:
+          mount `networkVar`.switch,
+                LPProtocol(codecs: @[`codecNameLit`], handler: snappyThunk)
+        except LPError as exc:
+          # Failure here indicates that the mounting was done incorrectly which
+          # would be a programming error
+          raiseAssert exc.msg
     ##
     ## Implement Senders and Handshake
     ##
@@ -2091,9 +2033,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
               protocol.protocolInfoVar,
               msgNameLit,
               protocolMounterName,
-              codecNameLit,
-              isRequiredLit,
-              isLightClientRequestLit))
+              codecNameLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
@@ -2285,7 +2225,6 @@ proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
     .withAgentVersion(config.agentString)
     .withTcpTransport({ServerFlags.ReuseAddr})
     .build()
-
 
 proc createEth2Node*(rng: ref HmacDrbgContext,
                      config: BeaconNodeConf | LightClientConf,
@@ -2601,7 +2540,7 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesis_validators_root: Eth2Di
   node.updateForkId(getENRForkID(node.cfg, epoch, genesis_validators_root))
   node.discoveryForkId = getDiscoveryForkID(node.cfg, epoch, genesis_validators_root)
 
-func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
+func forkDigestAtEpoch*(node: Eth2Node, epoch: Epoch): ForkDigest =
   node.forkDigests[].atEpoch(epoch, node.cfg)
 
 proc getWallEpoch(node: Eth2Node): Epoch =
