@@ -44,7 +44,6 @@ type
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
-  Bytes = seq[byte]
   ErrorMsg = List[byte, 256]
   SendResult* = Result[void, cstring]
 
@@ -105,8 +104,8 @@ type
     quota*: TokenBucket
     lastReqTime*: Moment
     connections*: int
-    enr*: Option[enr.Record]
-    metadata*: Option[altair.MetaData]
+    enr*: Opt[enr.Record]
+    metadata*: Opt[altair.MetaData]
     failedMetadataRequests: int
     lastMetadataTime*: Moment
     direction*: PeerType
@@ -569,7 +568,7 @@ proc getRequestProtoName(fn: NimNode): NimNode =
   return newLit("")
 
 proc writeChunkSZ(
-    conn: Connection, responseCode: Option[ResponseCode],
+    conn: Connection, responseCode: Opt[ResponseCode],
     uncompressedLen: uint64, payloadSZ: openArray[byte],
     contextBytes: openArray[byte] = []): Future[void] =
   # max 10 bytes varint length + 1 byte response code + data
@@ -590,7 +589,7 @@ proc writeChunkSZ(
   conn.write(output.getOutput)
 
 proc writeChunk(conn: Connection,
-                responseCode: Option[ResponseCode],
+                responseCode: Opt[ResponseCode],
                 payload: openArray[byte],
                 contextBytes: openArray[byte] = []): Future[void] =
   var output = memoryOutput()
@@ -628,9 +627,9 @@ proc sendErrorResponse(peer: Peer,
                        errMsg: ErrorMsg): Future[void] =
   debug "Error processing request",
     peer, responseCode, errMsg = formatErrorMsg(errMsg)
-  conn.writeChunk(some responseCode, SSZ.encode(errMsg))
+  conn.writeChunk(Opt.some responseCode, SSZ.encode(errMsg))
 
-proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async.} =
+proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: seq[byte]) {.async.} =
   var
     deadline = sleepAsync RESP_TIMEOUT_DUR
     streamFut = peer.network.openStream(peer, protocolId)
@@ -643,7 +642,7 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
 
   let stream = streamFut.read
   try:
-    await stream.writeChunk(none ResponseCode, requestBytes)
+    await stream.writeChunk(Opt.none ResponseCode, requestBytes)
   finally:
     await stream.close()
 
@@ -653,13 +652,13 @@ proc sendResponseChunkBytesSZ(
     contextBytes: openArray[byte] = []): Future[void] =
   inc response.writtenChunks
   response.stream.writeChunkSZ(
-    some ResponseCode.Success, uncompressedLen, payloadSZ, contextBytes)
+    Opt.some ResponseCode.Success, uncompressedLen, payloadSZ, contextBytes)
 
 proc sendResponseChunkBytes(
     response: UntypedResponse, payload: openArray[byte],
     contextBytes: openArray[byte] = []): Future[void] =
   inc response.writtenChunks
-  response.stream.writeChunk(some ResponseCode.Success, payload, contextBytes)
+  response.stream.writeChunk(Opt.some ResponseCode.Success, payload, contextBytes)
 
 proc sendResponseChunk(
     response: UntypedResponse, val: auto,
@@ -669,11 +668,11 @@ proc sendResponseChunk(
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResultFut: Future): untyped =
   let handlerRes = await handlerResultFut
-  writeChunk(stream, some ResponseCode.Success, SSZ.encode(handlerRes))
+  writeChunk(stream, Opt.some ResponseCode.Success, SSZ.encode(handlerRes))
 
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResult: auto): untyped =
-  writeChunk(stream, some ResponseCode.Success, SSZ.encode(handlerResult))
+  writeChunk(stream, Opt.some ResponseCode.Success, SSZ.encode(handlerResult))
 
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], cstring]]
@@ -905,7 +904,7 @@ proc readResponse(conn: Connection, peer: Peer,
       return neterr(ReadResponseTimeout)
     return nextFut.read()
 
-proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
+proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
                      ResponseMsg: type,
                      timeout: Duration): Future[NetRes[ResponseMsg]]
                     {.async.} =
@@ -917,7 +916,7 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
     # Some clients don't want a length sent for empty requests
     # So don't send anything on empty requests
     if requestBytes.len > 0:
-      await stream.writeChunk(none ResponseCode, requestBytes)
+      await stream.writeChunk(Opt.none ResponseCode, requestBytes)
     # Half-close the stream to mark the end of the request - if this is not
     # done, the other peer might never send us the response.
     await stream.close()
@@ -1638,7 +1637,7 @@ proc resolvePeer(peer: Peer) =
   # already has most recent ENR information about this peer.
   let gnode = peer.network.discovery.getNode(nodeId)
   if gnode.isSome():
-    peer.enr = some(gnode.get().record)
+    peer.enr = Opt.some(gnode.get().record)
     inc(nbc_successful_discoveries)
     let delay = now(chronos.Moment) - startTime
     nbc_resolve_time.observe(delay.toFloatSeconds())
@@ -2056,7 +2055,7 @@ proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async.} =
       peer.failedMetadataRequests.inc()
       return
 
-  peer.metadata = some(newMetadata)
+  peer.metadata = Opt.some(newMetadata)
   peer.failedMetadataRequests = 0
   peer.lastMetadataTime = Moment.now()
 
@@ -2141,9 +2140,9 @@ proc getPersistentNetKeys*(
       # Insecure password used only for automated testing.
       insecurePassword =
         if netKeyInsecurePassword:
-          some(NetworkInsecureKeyPassword)
+          Opt.some(NetworkInsecureKeyPassword)
         else:
-          none[string]()
+          Opt.none(string)
 
       keyPath =
         if isAbsolute(netKeyFile):

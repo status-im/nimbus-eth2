@@ -8,8 +8,11 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils],
+  std/[sequtils],
+  results,
   stew/shims/macros, chronos, faststreams/outputs
+
+export chronos, results
 
 type
   MessageKind* = enum
@@ -112,7 +115,6 @@ type
     SerializationFormat*: NimNode
     ResponderType*: NimNode
     RequestResultsWrapper*: NimNode
-    ReqIdType*: NimNode
 
     registerProtocol*: NimNode
     setEventHandlers*: NimNode
@@ -128,21 +130,17 @@ const
 
 let
   # Variable names affecting the public interface of the library:
-  reqIdVar*             {.compileTime.} = ident "reqId"
-  # XXX: Binding the int type causes instantiation failure for some reason
-  ReqIdType*            {.compileTime.} = ident "int"
   peerVar*              {.compileTime.} = ident "peer"
   responseVar*          {.compileTime.} = ident "response"
   streamVar*            {.compileTime.} = ident "stream"
   protocolVar*          {.compileTime.} = ident "protocol"
   deadlineVar*          {.compileTime.} = ident "deadline"
   timeoutVar*           {.compileTime.} = ident "timeout"
-  perProtocolMsgIdVar*  {.compileTime.} = ident "perProtocolMsgId"
   currentProtocolSym*   {.compileTime.} = ident "CurrentProtocol"
   resultIdent*          {.compileTime.} = ident "result"
 
   # Locally used symbols:
-  Option                {.compileTime.} = ident "Option"
+  Opt                   {.compileTime.} = ident "Opt"
   Future                {.compileTime.} = ident "Future"
   Void                  {.compileTime.} = ident "void"
   writeField            {.compileTime.} = ident "writeField"
@@ -310,9 +308,6 @@ proc init*(T: type P2PProtocol, backendFactory: BackendFactory,
 
   result.backend = backendFactory(result)
   assert(not result.backend.implementProtocolInit.isNil)
-
-  if result.backend.ReqIdType.isNil:
-    result.backend.ReqIdType = ident "int"
 
   result.processProtocolBody body
 
@@ -491,7 +486,7 @@ proc requestResultType*(msg: Message): NimNode =
     else:
       return newTree(nnkBracketExpr, wrapperType, responseRec)
   else:
-    return newTree(nnkBracketExpr, Option, responseRec)
+    return newTree(nnkBracketExpr, Opt, responseRec)
 
 proc createSendProc*(msg: Message,
                      procType = nnkProcDef,
