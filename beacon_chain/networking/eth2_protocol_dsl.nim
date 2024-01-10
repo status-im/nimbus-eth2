@@ -885,7 +885,7 @@ proc genCode*(p: P2PProtocol): NimNode =
   result.add quote do:
     # One global variable per protocol holds the protocol run-time data
     var `protocolInfoVarObj` = `protocolInit`
-    var `protocolInfoVar` = addr `protocolInfoVarObj`
+    let `protocolInfoVar` = addr `protocolInfoVarObj`
 
     # The protocol run-time data is available as a pseudo-field
     # (e.g. `p2p.protocolInfo`)

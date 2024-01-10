@@ -985,10 +985,12 @@ proc performProtocolHandshakes(peer: Peer, incoming: bool) {.async.} =
 
 proc initProtocol(name: string,
                   peerInit: PeerStateInitializer,
-                  networkInit: NetworkStateInitializer): ProtocolInfoObj =
+                  networkInit: NetworkStateInitializer,
+                  index: int): ProtocolInfoObj =
   ProtocolInfoObj(
     name: name,
     messages: @[],
+    index: index,
     peerStateInitializer: peerInit,
     networkStateInitializer: networkInit)
 
@@ -1823,11 +1825,10 @@ proc new(T: type Eth2Node,
 proc registerProtocol*(node: Eth2Node, Proto: type, state: Proto.NetworkState) =
   # This convoluted registration process is a leftover from the shared p2p macro
   # and should be refactored
-  # TODO what if the same protocol is registered with multiple nodes?
-  Proto.protocolInfo().index = node.protocols.high()
   let proto = Proto.protocolInfo()
   node.protocols.add(proto)
-  node.protocolStates.add(state)
+  node.protocolStates.setLen(max(proto.index + 1, node.protocolStates.len))
+  node.protocolStates[proto.index] = state
 
   for msg in proto.messages:
     if msg.protocolMounter != nil:
@@ -2034,7 +2035,10 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
               codecNameLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
-    return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
+    var id {.global.}: int
+    let tmp = id
+    id += 1
+    return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit, newLit(tmp))
 
 #Must import here because of cyclicity
 import ./peer_protocol

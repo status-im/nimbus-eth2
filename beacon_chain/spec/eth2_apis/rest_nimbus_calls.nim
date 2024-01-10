@@ -7,7 +7,7 @@
 {.push raises: [].}
 
 import
-  chronos, chronicles, presto/client,
+  chronicles, presto/client,
   "."/[rest_types, eth2_rest_serialization, rest_common]
 
 proc getValidatorsActivity*(epoch: Epoch,

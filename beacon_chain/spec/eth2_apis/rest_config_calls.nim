@@ -7,10 +7,10 @@
 {.push raises: [].}
 
 import
-  chronos, presto/client,
+  presto/client,
   "."/[rest_types, eth2_rest_serialization]
 
-export chronos, client, rest_types, eth2_rest_serialization
+export client, rest_types, eth2_rest_serialization
 
 proc getForkSchedulePlain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/config/fork_schedule", meth: MethodGet.}

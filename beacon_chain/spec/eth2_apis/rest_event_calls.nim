@@ -7,7 +7,7 @@
 {.push raises: [].}
 
 import
-  chronos, presto/client,
+  presto/client,
   "."/[rest_types, eth2_rest_serialization]
 
 proc subscribeEventStream*(topics: set[EventTopic]): RestHttpResponseRef {.
