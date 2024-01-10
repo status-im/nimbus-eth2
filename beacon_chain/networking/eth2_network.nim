@@ -351,6 +351,7 @@ proc openStream(node: Eth2Node,
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
 proc getState*(peer: Peer, proto: ProtocolInfo): RootRef =
+  doAssert peer.protocolStates[proto.index] != nil, $proto.index
   peer.protocolStates[proto.index]
 
 template state*(peer: Peer, Protocol: type): untyped =
@@ -358,15 +359,18 @@ template state*(peer: Peer, Protocol: type): untyped =
   ## particular connection.
   mixin State
   bind getState
-  cast[Protocol.State](getState(peer, Protocol.protocolInfo))
+  type S = Protocol.State
+  S(getState(peer, Protocol.protocolInfo))
 
 proc getNetworkState*(node: Eth2Node, proto: ProtocolInfo): RootRef =
+  doAssert node.protocolStates[proto.index] != nil, $proto.index
   node.protocolStates[proto.index]
 
 template protocolState*(node: Eth2Node, Protocol: type): untyped =
   mixin NetworkState
   bind getNetworkState
-  cast[Protocol.NetworkState](getNetworkState(node, Protocol.protocolInfo))
+  type S = Protocol.NetworkState
+  S(getNetworkState(node, Protocol.protocolInfo))
 
 proc initProtocolState*[T](state: T, x: Peer|Eth2Node)
     {.gcsafe, raises: [].} =

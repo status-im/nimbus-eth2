@@ -23,13 +23,11 @@ const
   blockResponseCost = allowedOpsPerSecondCost(64) # Allow syncing ~64 blocks/sec (minus request costs)
 
 type
-  BeaconSyncNetworkState = ref object of RootObj
+  BeaconSyncNetworkState* {.final.} = ref object of RootObj
     dag: ChainDAGRef
     cfg: RuntimeConfig
     forkDigests: ref ForkDigests
     genesisBlockRoot: Eth2Digest
-
-  BeaconSyncPeerState* = ref object
 
   BlockRootSlot* = object
     blockRoot: Eth2Digest
@@ -110,8 +108,7 @@ func forkDigestAtEpoch(state: BeaconSyncNetworkState,
 {.pop.} # TODO fix p2p macro for raises
 
 p2pProtocol BeaconSync(version = 1,
-                       networkState = BeaconSyncNetworkState,
-                       peerState = BeaconSyncPeerState):
+                       networkState = BeaconSyncNetworkState):
   proc beaconBlocksByRange_v2(
       peer: Peer,
       startSlot: Slot,

@@ -26,16 +26,16 @@ type
     headRoot*: Eth2Digest
     headSlot*: Slot
 
-  PeerSyncNetworkState = ref object of RootObj
+  PeerSyncNetworkState* {.final.} = ref object of RootObj
     dag: ChainDAGRef
     cfg: RuntimeConfig
     forkDigests: ref ForkDigests
     genesisBlockRoot: Eth2Digest
     getBeaconTime: GetBeaconTimeFn
 
-  PeerSyncPeerState* = ref object
-    statusLastTime*: chronos.Moment
-    statusMsg*: StatusMsg
+  PeerSyncPeerState* {.final.} = ref object of RootObj
+    statusLastTime: chronos.Moment
+    statusMsg: StatusMsg
 
 func shortLog*(s: StatusMsg): auto =
   (
@@ -112,8 +112,6 @@ proc handleStatus(peer: Peer,
                   state: PeerSyncNetworkState,
                   theirStatus: StatusMsg): Future[bool] {.gcsafe.}
 
-proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) {.gcsafe.}
-
 {.pop.} # TODO fix p2p macro for raises
 
 p2pProtocol PeerSync(version = 1,
@@ -180,7 +178,7 @@ proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
 
 proc handleStatus(peer: Peer,
                   state: PeerSyncNetworkState,
-                  theirStatus: StatusMsg): Future[bool] {.async, gcsafe.} =
+                  theirStatus: StatusMsg): Future[bool] {.async.} =
   let
     res = checkStatusMsg(state, theirStatus)
 
@@ -227,6 +225,7 @@ proc getStatusLastTime*(peer: Peer): chronos.Moment =
 
 proc init*(T: type PeerSync.NetworkState,
     dag: ChainDAGRef, getBeaconTime: GetBeaconTimeFn): T =
+  doAssert dag.forkDigests != nil
   T(
     dag: dag,
     cfg: dag.cfg,

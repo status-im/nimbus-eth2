@@ -26,7 +26,7 @@ const
   lightClientOptimisticUpdateResponseCost = allowedOpsPerSecondCost(100)
 
 type
-  LightClientNetworkState* = ref object of RootObj
+  LightClientNetworkState* {.final.} = ref object of RootObj
     dag*: ChainDAGRef
 
 proc readChunkPayload*(
