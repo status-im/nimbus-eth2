@@ -695,6 +695,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
     let adata =
       block:
+        info "produceAttestationData server: request processing start"
         let qslot =
           block:
             if slot.isNone():
@@ -739,9 +740,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if not tres.executionValid:
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
             tres
+        info "produceAttestationData server: request processing got params",
+          qslot, qindex, qhead = shortLog(qhead)
         let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
           return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
+        info "produceAttestationData server: got epoch ref",
+          qslot, qindex, qhead = shortLog(qhead)
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
+    info "produceAttestationData server: created response",
+      adata
     return RestApiResponse.jsonResponse(adata)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation

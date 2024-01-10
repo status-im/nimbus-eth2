@@ -158,8 +158,12 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
 
   # This call could raise ValidatorApiError, but it is handled in
   # publishAttestationsAndAggregates().
+  info "produceAndPublishAttestations: about to call produceAttestationData",
+    slot, committee_index
   let data = await vc.produceAttestationData(slot, committee_index,
                                              ApiStrategyKind.Best)
+  info "produceAndPublishAttestations: called produceAttestationData",
+    slot, committee_index
 
   let registeredRes = vc.attachedValidators[].slashingProtection.withContext:
     var tmp: seq[RegisteredAttestation]
@@ -206,6 +210,9 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
       ))
     tmp
 
+  info "produceAndPublishAttestations: registered slashing protection for attestations",
+    slot, committee_index
+
   if registeredRes.isErr():
     warn "Could not update slashing database, skipping attestation duties",
       error = registeredRes.error()
@@ -234,7 +241,7 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
           (succeed, errored, failed)
 
     let delay = vc.getDelay(slot.attestation_deadline())
-    debug "Attestation statistics", total = len(pendingAttestations),
+    info "Attestation statistics", total = len(pendingAttestations),
           succeed = statistics[0], failed_to_deliver = statistics[1],
           not_accepted = statistics[2], delay = delay, slot = slot,
           committee_index = committee_index, duties_count = len(duties)
