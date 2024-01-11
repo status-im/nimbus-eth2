@@ -62,7 +62,7 @@
 
 import
   std/[macros, hashes, sets, strutils, tables, typetraits],
-  stew/[assign2, byteutils, results],
+  stew/[assign2, byteutils, endians2, results],
   chronicles,
   json_serialization,
   ssz_serialization/types as sszTypes,
@@ -70,7 +70,7 @@ import
   ".."/[beacon_time, crypto, digest, presets]
 
 export
-  tables, results, json_serialization, sszTypes, beacon_time, crypto,
+  tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
 const SPEC_VERSION* = "1.4.0-beta.5"
