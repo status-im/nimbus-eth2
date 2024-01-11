@@ -878,6 +878,14 @@ func get_next_sync_committee*(
   res.aggregate_pubkey = finish(attestersAgg).toPubKey()
   res
 
+func compute_deposit_root(deposits: openArray[DepositData]): Eth2Digest =
+  var merkleizer = createMerkleizer2(DEPOSIT_CONTRACT_TREE_DEPTH + 1)
+  for i, deposit in deposits:
+    let htr = hash_tree_root(deposit)
+    merkleizer.addChunk(htr.data)
+
+  mixInLength(merkleizer.getFinalHash(), deposits.len)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1(
     cfg: RuntimeConfig,
@@ -906,25 +914,17 @@ proc initialize_beacon_state_from_eth1(
   state = phase0.BeaconState(
     fork: genesisFork(cfg),
     genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
-    eth1_data:
-      Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
+    eth1_data:Eth1Data(
+      deposit_count: deposits.lenu64,
+      deposit_root: compute_deposit_root(deposits),
+      block_hash: eth1_block_hash),
+    eth1_deposit_index: deposits.lenu64,
     latest_block_header:
       BeaconBlockHeader(
         body_root: hash_tree_root(default(phase0.BeaconBlockBody))))
 
   # Seed RANDAO with Eth1 entropy
   state.randao_mixes.fill(eth1_block_hash)
-
-  var merkleizer = createMerkleizer(DEPOSIT_CONTRACT_LIMIT)
-  for i, deposit in deposits:
-    let htr = hash_tree_root(deposit)
-    merkleizer.addChunk(htr.data)
-
-  # This is already known in the Eth1 monitor, but it would be too
-  # much work to refactor all the existing call sites in the test suite
-  state.eth1_data.deposit_root = mixInLength(merkleizer.getFinalHash(),
-                                             deposits.len)
-  state.eth1_deposit_index = deposits.lenu64
 
   var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
   for idx, deposit in deposits:
@@ -1020,23 +1020,15 @@ proc initialize_beacon_state_from_eth1*(
     fork: fork,
     genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
     eth1_data: Eth1Data(
-      block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
+      deposit_count: deposits.lenu64,
+      deposit_root: compute_deposit_root(deposits),
+      block_hash: eth1_block_hash),
+    eth1_deposit_index: deposits.lenu64,
     latest_block_header: BeaconBlockHeader(
       body_root: hash_tree_root(default consensusFork.BeaconBlockBody)))
 
   # Seed RANDAO with Eth1 entropy
   state.randao_mixes.data.fill(eth1_block_hash)
-
-  var merkleizer = createMerkleizer(DEPOSIT_CONTRACT_LIMIT)
-  for i, deposit in deposits:
-    let htr = hash_tree_root(deposit)
-    merkleizer.addChunk(htr.data)
-
-  # This is already known in the Eth1 monitor, but it would be too
-  # much work to refactor all the existing call sites in the test suite
-  state.eth1_data.deposit_root = mixInLength(merkleizer.getFinalHash(),
-                                             deposits.len)
-  state.eth1_deposit_index = deposits.lenu64
 
   var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
   for idx, deposit in deposits:

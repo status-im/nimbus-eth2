@@ -87,8 +87,6 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
-  DEPOSIT_CONTRACT_LIMIT* = Limit(1'u64 shl DEPOSIT_CONTRACT_TREE_DEPTH)
-
 template maxSize*(n: int) {.pragma.}
 
 # Block validation flow
