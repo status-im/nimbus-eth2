@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[parsecsv, streams],
+  std/parsecsv,
   stew/[io2, byteutils], chronicles, confutils, snappy,
   ../beacon_chain/spec/datatypes/base,
   ./ncli_common
@@ -200,6 +200,8 @@ proc advanceEpochs*(aggregator: var ValidatorDbAggregator, epoch: Epoch,
   aggregator.epochsAggregated = 0
 
 when isMainModule:
+  import std/streams
+
   when defined(posix):
     import system/ansi_c
 

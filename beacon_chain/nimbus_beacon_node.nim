@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, sequtils, terminal, times],
+  std/[os, random, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -273,6 +273,8 @@ proc checkWeakSubjectivityCheckpoint(
           headStateSlot = getStateField(dag.headState, slot)
     quit 1
 
+from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
+
 proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
@@ -293,6 +295,14 @@ proc initFullNode(
     node.eventBus.propSlashQueue.emit(data)
   proc onAttesterSlashingAdded(data: AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
+  proc onBlobSidecarAdded(data: BlobSidecar) =
+    node.eventBus.blobSidecarQueue.emit(
+      BlobSidecarInfoObject(
+        block_root: hash_tree_root(data.signed_block_header.message),
+        index: data.index,
+        slot: data.signed_block_header.message.slot,
+        kzg_commitment: data.kzg_commitment,
+        versioned_hash: data.kzg_commitment.kzg_commitment_to_versioned_hash))
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -373,7 +383,7 @@ proc initFullNode(
     validatorChangePool = newClone(ValidatorChangePool.init(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
       onProposerSlashingAdded, onAttesterSlashingAdded))
-    blobQuarantine = newClone(BlobQuarantine())
+    blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -553,6 +563,7 @@ proc init*(T: type BeaconNode,
       blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
       propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
       attSlashQueue: newAsyncEventQueue[AttesterSlashing](),
+      blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
       contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
@@ -868,6 +879,8 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # and then state.slot gets incremented, to increase the maximum offset, if
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
+
+from std/sequtils import toSeq
 
 func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())

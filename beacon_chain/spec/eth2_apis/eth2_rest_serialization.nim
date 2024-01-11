@@ -51,6 +51,7 @@ RestJson.useDefaultSerializationFor(
   BLSToExecutionChange,
   BeaconBlockHeader,
   BlobSidecar,
+  BlobSidecarInfoObject,
   BlobsBundle,
   Checkpoint,
   ContributionAndProof,
@@ -299,6 +300,7 @@ const
 type
   EncodeTypes* =
     AttesterSlashing |
+    BlobSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
     ImportDistributedKeystoresBody |
@@ -4145,6 +4147,8 @@ proc decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.ProposerSlashing)
   of "attester_slashing":
     ok(EventTopic.AttesterSlashing)
+  of "blob_sidecar":
+    ok(EventTopic.BlobSidecar)
   of "finalized_checkpoint":
     ok(EventTopic.FinalizedCheckpoint)
   of "chain_reorg":
@@ -4174,6 +4178,8 @@ proc encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("proposer_slashing,")
   if EventTopic.AttesterSlashing in value:
     res.add("attester_slashing,")
+  if EventTopic.BlobSidecar in value:
+    res.add("blob_sidecar,")
   if EventTopic.FinalizedCheckpoint in value:
     res.add("finalized_checkpoint,")
   if EventTopic.ChainReorg in value:

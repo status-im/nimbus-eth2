@@ -60,6 +60,16 @@ type
     kzg_commitment_inclusion_proof*:
       array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
+  # https://github.com/ethereum/beacon-APIs/blob/4882aa0803b622b75bab286b285599d70b7a2429/apis/eventstream/index.yaml#L138-L142
+  # Spec object, not only internal, because it gets serialized out for the
+  # event stream Beacon API
+  BlobSidecarInfoObject* = object
+    block_root*: Eth2Digest
+    index*: BlobIndex
+    slot*: Slot
+    kzg_commitment*: KzgCommitment
+    versioned_hash*: VersionedHash
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object
     block_root*: Eth2Digest

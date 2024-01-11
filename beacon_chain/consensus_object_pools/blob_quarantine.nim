@@ -7,7 +7,10 @@
 
 {.push raises: [].}
 
-import ../spec/helpers
+import
+  std/tables,
+  ../spec/helpers
+
 from std/sequtils import mapIt
 from std/strutils import join
 
@@ -18,9 +21,13 @@ type
   BlobQuarantine* = object
     blobs*:
       OrderedTable[(Eth2Digest, BlobIndex, KzgCommitment), ref BlobSidecar]
+    onBlobSidecarCallback*: OnBlobSidecarCallback
+
   BlobFetchRecord* = object
     block_root*: Eth2Digest
     indices*: seq[BlobIndex]
+
+  OnBlobSidecarCallback = proc(data: BlobSidecar) {.gcsafe, raises: [].}
 
 func shortLog*(x: seq[BlobIndex]): string =
   "<" & x.mapIt($it).join(", ") & ">"
@@ -86,3 +93,7 @@ func blobFetchRecord*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock)
         (blck.root, idx, blck.message.body.blob_kzg_commitments[i])):
       indices.add(idx)
   BlobFetchRecord(block_root: blck.root, indices: indices)
+
+func init*(
+    T: type BlobQuarantine, onBlobSidecarCallback: OnBlobSidecarCallback): T =
+  T(onBlobSidecarCallback: onBlobSidecarCallback)
