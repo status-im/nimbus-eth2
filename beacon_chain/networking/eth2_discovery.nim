@@ -150,7 +150,7 @@ proc queryRandom*(
       continue
 
     let attnetsBytes = n.record.get(enrAttestationSubnetsField, seq[byte])
-    if attnetsBytes.isSome():
+    if attnetsBytes.isOk():
       let attnetsNode =
         try:
           SSZ.decode(attnetsBytes.get(), AttnetBits)
@@ -164,7 +164,7 @@ proc queryRandom*(
           score += 1
 
     let syncnetsBytes = n.record.get(enrSyncSubnetsField, seq[byte])
-    if syncnetsBytes.isSome():
+    if syncnetsBytes.isOk():
       let syncnetsNode =
         try:
           SSZ.decode(syncnetsBytes.get(), SyncnetBits)

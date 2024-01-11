@@ -15,7 +15,7 @@ import
   stew/[leb128, endians2, results, byteutils, io2, bitops2],
   stew/shims/net as stewNet,
   stew/shims/[macros],
-  faststreams/[outputs, buffers], snappy, snappy/faststreams,
+  snappy,
   json_serialization, json_serialization/std/[net, sets, options],
   chronos, chronos/ratelimit, chronicles, metrics,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
@@ -571,46 +571,53 @@ proc getRequestProtoName(fn: NimNode): NimNode =
 
   return newLit("")
 
+proc add(s: var seq[byte], pos: var int, bytes: openArray[byte]) =
+  s[pos..<pos+bytes.len] = bytes
+  pos += bytes.len
+
 proc writeChunkSZ(
     conn: Connection, responseCode: Opt[ResponseCode],
     uncompressedLen: uint64, payloadSZ: openArray[byte],
     contextBytes: openArray[byte] = []): Future[void] =
-  # max 10 bytes varint length + 1 byte response code + data
-  const numOverheadBytes = sizeof(byte) + Leb128.maxLen(typeof(uncompressedLen))
-  var output = memoryOutput(payloadSZ.len + contextBytes.len + numOverheadBytes)
-  try:
-    if responseCode.isSome:
-      output.write byte(responseCode.get)
+  let
+    uncompressedLenBytes = toBytes(uncompressedLen, Leb128)
 
-    if contextBytes.len > 0:
-      output.write contextBytes
+  var
+    data = newSeqUninitialized[byte](
+      ord(responseCode.isSome) + contextBytes.len + uncompressedLenBytes.len +
+      payloadSZ.len)
+    pos = 0
 
-    output.write toBytes(uncompressedLen, Leb128).toOpenArray()
-    output.write payloadSZ
-  except IOError as exc:
-    raiseAssert exc.msg # memoryOutput shouldn't raise
-
-  conn.write(output.getOutput)
+  if responseCode.isSome:
+    data.add(pos, [byte responseCode.get])
+  data.add(pos, contextBytes)
+  data.add(pos, uncompressedLenBytes.toOpenArray())
+  data.add(pos, payloadSZ)
+  conn.write(data)
 
 proc writeChunk(conn: Connection,
                 responseCode: Opt[ResponseCode],
                 payload: openArray[byte],
                 contextBytes: openArray[byte] = []): Future[void] =
-  var output = memoryOutput()
+  let
+    uncompressedLenBytes = toBytes(payload.lenu64, Leb128)
+  var
+    data = newSeqUninitialized[byte](
+      ord(responseCode.isSome) + contextBytes.len + uncompressedLenBytes.len +
+      snappy.maxCompressedLenFramed(payload.len).int)
+    pos = 0
 
-  try:
-    if responseCode.isSome:
-      output.write byte(responseCode.get)
+  if responseCode.isSome:
+    data.add(pos, [byte responseCode.get])
+  data.add(pos, contextBytes)
+  data.add(pos, uncompressedLenBytes.toOpenArray())
+  let
+    pre = pos
+    written = snappy.compressFramed(payload, data.toOpenArray(pos, data.high))
+      .expect("compression shouldn't fail with correctly preallocated buffer")
+  data.setLen(pre + written)
 
-    if contextBytes.len > 0:
-      output.write contextBytes
-
-    output.write toBytes(payload.lenu64, Leb128).toOpenArray()
-
-    compressFramed(payload, output)
-  except IOError as exc:
-    raiseAssert exc.msg # memoryOutput shouldn't raise
-  conn.write(output.getOutput)
+  conn.write(data)
 
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
@@ -1110,9 +1117,6 @@ proc handleIncomingStream(network: Eth2Node,
         nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
         returnInvalidRequest err.formatMsg("msg")
 
-      except SnappyError as err:
-        nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
-        returnInvalidRequest err.msg
       finally:
         # The request quota is shared between all requests - it represents the
         # cost to perform a service on behalf of a client and is incurred
