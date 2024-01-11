@@ -1785,6 +1785,23 @@ proc updateValidators(
             index: index, validator: validators[int index]
           )))
 
+proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
+  # Neither block proposal nor sync committee duties can be done in this
+  # situation.
+  let attestationHead = node.lastValidAttestedBlock.valueOr:
+    return
+
+  if attestationHead.slot + SLOTS_PER_EPOCH < slot:
+    return
+
+  # Using `slot` and `curSlot` here ensure that the attestation data created
+  # is for the wall slot, regardless of attestationHead's block and slot.
+  for curSlot in (lastSlot + 1) ..< slot:
+    notice "Catching up on fallback attestation duties", curSlot, slot
+    handleAttestations(node, attestationHead.blck, curSlot)
+
+  handleAttestations(node, attestationHead.blck, slot)
+
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators[].count == 0:
@@ -1807,12 +1824,16 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     info "Execution client not in sync; skipping validator duties for now",
       slot, headSlot = head.slot
 
+    handleFallbackAttestations(node, lastSlot, slot)
+
     # Rewards will be growing though, as we sync..
     updateValidatorMetrics(node)
 
     return
   else:
     discard # keep going
+
+  node.lastValidAttestedBlock = Opt.some head.atSlot()
 
   withState(node.dag.headState):
     node.updateValidators(forkyState.data.validators.asSeq())

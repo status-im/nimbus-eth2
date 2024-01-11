@@ -100,6 +100,7 @@ type
     dutyValidatorCount*: int
       ## Number of validators that we've checked for activation
     processingDelay*: Opt[Duration]
+    lastValidAttestedBlock*: Opt[BlockSlot]
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
