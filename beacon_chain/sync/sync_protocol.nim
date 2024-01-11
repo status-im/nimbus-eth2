@@ -26,7 +26,6 @@ type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
     dag: ChainDAGRef
     cfg: RuntimeConfig
-    forkDigests: ref ForkDigests
     genesisBlockRoot: Eth2Digest
 
   BlockRootSlot* = object
@@ -101,10 +100,6 @@ proc readChunkPayload*(
   else:
     return neterr InvalidContextBytes
 
-func forkDigestAtEpoch(state: BeaconSyncNetworkState,
-                       epoch: Epoch): ForkDigest =
-  state.forkDigests[].atEpoch(epoch, state.cfg)
-
 {.pop.} # TODO fix p2p macro for raises
 
 p2pProtocol BeaconSync(version = 1,
@@ -171,7 +166,7 @@ p2pProtocol BeaconSync(version = 1,
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
-          peer.networkState.forkDigestAtEpoch(blocks[i].slot.epoch).data)
+          peer.network.forkDigestAtEpoch(blocks[i].slot.epoch).data)
 
         inc found
 
@@ -233,7 +228,7 @@ p2pProtocol BeaconSync(version = 1,
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
-          peer.networkState.forkDigestAtEpoch(blockRef.slot.epoch).data)
+          peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
 
         inc found
 
@@ -286,7 +281,7 @@ p2pProtocol BeaconSync(version = 1,
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
-          peer.networkState.forkDigestAtEpoch(blockRef.slot.epoch).data)
+          peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
         inc found
 
     debug "Blob root request done",
@@ -356,7 +351,7 @@ p2pProtocol BeaconSync(version = 1,
 
           await response.writeBytesSZ(
             uncompressedLen, bytes,
-            peer.networkState.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
+            peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
           inc found
         else:
           break

@@ -225,7 +225,6 @@ proc getStatusLastTime*(peer: Peer): chronos.Moment =
 
 proc init*(T: type PeerSync.NetworkState,
     dag: ChainDAGRef, getBeaconTime: GetBeaconTimeFn): T =
-  doAssert dag.forkDigests != nil
   T(
     dag: dag,
     cfg: dag.cfg,
