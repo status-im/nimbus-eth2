@@ -168,7 +168,7 @@ jobs:
             git ls-remote "https://github.com/$1" "${2:-HEAD}" | cut -f 1
           }
           fixturesHash=$(getHash status-im/nim-eth2-scenarios)
-          echo "::set-output name=fixtures::${fixturesHash}"
+          echo "fixtures=${fixturesHash}" >> $GITHUB_OUTPUT
 
       - name: Build binaries (with trace logging enabled)
         run: |
