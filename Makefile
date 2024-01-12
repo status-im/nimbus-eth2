@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2019-2024 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -791,7 +791,7 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				echo "MINGW cannot find -lubsan." && exit 1; \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -Wl,--stack,0x0000000000800000 -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -Wno-nullability-extension -Wl,--stack,0x0000000000800000 -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		*) \
 			if (( $${WITH_UBSAN:-0} )); then \

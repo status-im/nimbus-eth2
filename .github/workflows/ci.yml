@@ -56,19 +56,16 @@ jobs:
           - target:
               os: linux
             builder: ['self-hosted','ubuntu-22.04']
-            shell: bash
           - target:
               os: macos
             builder: macos-11
-            shell: bash
           - target:
               os: windows
             builder: windows-2019
-            shell: msys2 {0}
 
     defaults:
       run:
-        shell: ${{ matrix.shell }}
+        shell: bash
 
     name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ matrix.branch-short }}${{ matrix.branch != '' && ')' || '' }}
     runs-on: ${{ matrix.builder }}
@@ -76,16 +73,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: MSYS2 (Windows amd64)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
-        uses: msys2/setup-msys2@v2
+      - name: Restore llvm-mingw (Windows) from cache
+        if: runner.os == 'Windows'
+        id: windows-mingw-cache
+        uses: actions/cache@v3
         with:
-          path-type: inherit
-          install: >-
-            base-devel
-            git
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-cmake
+          path: external/mingw-${{ matrix.target.cpu }}
+          key: 'mingw-llvm-17-${{ matrix.target.cpu }}'
+
+      - name: Install llvm-mingw dependency (Windows)
+        if: >
+          steps.windows-mingw-cache.outputs.cache-hit != 'true' &&
+          runner.os == 'Windows'
+        run: |
+          mkdir -p external
+          MINGW_BASE="https://github.com/mstorsjo/llvm-mingw/releases/download/20230905"
+          MINGW_URL="$MINGW_BASE/llvm-mingw-20230905-ucrt-x86_64.zip"
+          curl -L "$MINGW_URL" -o "external/mingw-${{ matrix.target.cpu }}.zip"
+          7z x -y "external/mingw-${{ matrix.target.cpu }}.zip" -oexternal/mingw-${{ matrix.target.cpu }}/
+          mv external/mingw-${{ matrix.target.cpu }}/**/* ./external/mingw-${{ matrix.target.cpu }}
 
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
@@ -108,6 +114,7 @@ jobs:
         if: >
           runner.os == 'Windows'
         run: |
+          echo '${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin" >> $GITHUB_PATH
           echo "${{ github.workspace }}/external/dlls-${{ matrix.target.cpu }}" >> $GITHUB_PATH
           # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
           echo "." >> $GITHUB_PATH
