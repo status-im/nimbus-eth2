@@ -884,7 +884,7 @@ func forkDigests(node: BeaconNode): auto =
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
-    # When disconnected, updateGossipState is responsible for all things
+    # When disconnected, updateBlocksGossipStatus is responsible for all things
     # subnets - in particular, it will remove subscriptions on the edge where
     # we enter the disconnected state.
     return
@@ -1507,6 +1507,18 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   await node.updateGossipStatus(slot + 1)
 
+func formatForkSchedule(node: BeaconNode): string =
+  let consensusFork =
+    node.dag.cfg.consensusForkAtEpoch(node.dag.head.slot.epoch)
+  var res = $consensusFork
+  if consensusFork != ConsensusFork.high:
+    let
+      nextConsensusFork = consensusFork.succ()
+      nextForkEpoch = node.dag.cfg.consensusForkEpoch(nextConsensusFork)
+    if nextForkEpoch != FAR_FUTURE_EPOCH:
+      res.add " (next: " & $nextConsensusFork & ":" & $nextForkEpoch & ")"
+  res
+
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   let optimistic_head = not node.dag.head.executionValid
   if node.syncManager.inProgress:
@@ -1550,6 +1562,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   info "Slot start",
     slot = shortLog(wallSlot),
     epoch = shortLog(wallSlot.epoch),
+    fork = node.formatForkSchedule(),
     sync = node.syncStatus(wallSlot),
     peers = len(node.network.peerPool),
     head = shortLog(node.dag.head),
@@ -1981,6 +1994,9 @@ when not defined(windows):
 
       of "attached_validators_balance":
         formatGwei(node.attachedValidatorBalanceTotal)
+
+      of "consensus_fork":
+        node.formatForkSchedule()
 
       of "sync_status":
         node.syncStatus(node.currentSlot)

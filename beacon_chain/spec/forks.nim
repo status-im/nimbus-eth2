@@ -816,6 +816,20 @@ func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   withState(x): forkyState.root = root
 {.pop.}
 
+func consensusForkEpoch*(
+    cfg: RuntimeConfig, consensusFork: ConsensusFork): Epoch =
+  case consensusFork
+  of ConsensusFork.Deneb:
+    cfg.DENEB_FORK_EPOCH
+  of ConsensusFork.Capella:
+    cfg.CAPELLA_FORK_EPOCH
+  of ConsensusFork.Bellatrix:
+    cfg.BELLATRIX_FORK_EPOCH
+  of ConsensusFork.Altair:
+    cfg.ALTAIR_FORK_EPOCH
+  of ConsensusFork.Phase0:
+    GENESIS_EPOCH
+
 func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
   ## Return the current fork for the given epoch.
   static:
