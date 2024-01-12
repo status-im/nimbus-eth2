@@ -440,6 +440,7 @@ type
         defaultValue: "peers: $connected_peers;" &
                       "finalized: $finalized_root:$finalized_epoch;" &
                       "head: $head_root:$head_epoch:$head_epoch_slot;" &
+                      "fork: $consensus_fork;" &
                       "time: $epoch:$epoch_slot ($slot);" &
                       "sync: $sync_status|" &
                       "ETH: $attached_validators_balance"
