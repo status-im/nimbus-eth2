@@ -43,7 +43,7 @@ proc makeBannerAndConfig*(clientId, copyright, banner, specVersion: string,
     if (exc[] of ConfigurationError) and not(isNil(exc.parent)) and
        (exc.parent[] of TomlFieldReadingError):
       let fieldName = ((ref TomlFieldReadingError)(exc.parent)).field
-      if fieldName in ["web3-url", "bootstrap-node",
+      if fieldName in ["el", "web3-url", "bootstrap-node",
                        "direct-peer", "validator-monitor-pubkey"]:
         msg &= "Since the '" & fieldName & "' option is allowed to " &
                "have more than one value, please make sure to supply " &
