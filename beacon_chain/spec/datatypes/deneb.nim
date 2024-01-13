@@ -508,6 +508,12 @@ type
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
 
+func shortLog*(v: KzgCommitment | KzgProof): auto =
+  to0xHex(v)
+
+func shortLog*(v: Blob): auto =
+  to0xHex(v.toOpenArray(0, 31))
+
 func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),
@@ -534,8 +540,11 @@ func shortLog*(v: SomeBeaconBlock): auto =
 func shortLog*(v: BlobSidecar): auto =
   (
     index: v.index,
+    blob: shortLog(v.blob),
     bloblen: v.blob.len(),
     block_header: shortLog(v.signed_block_header.message),
+    kzg_commitment: shortLog(v.kzg_commitment),
+    kzg_proof: shortLog(v.kzg_proof),
   )
 
 func shortLog*(v: seq[BlobSidecar]): auto =
