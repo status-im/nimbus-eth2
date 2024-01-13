@@ -192,11 +192,12 @@ proc storeBackfillBlock(
                                blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "backfill blob validation failed",
-           blockRoot = shortLog(signedBlock.root),
-           blobs = shortLog(blobs),
-           blck = shortLog(signedBlock.message),
-           signature = shortLog(signedBlock.signature),
-           msg = r.error()
+            blockRoot = shortLog(signedBlock.root),
+            blobs = shortLog(blobs),
+            blck = shortLog(signedBlock.message),
+            kzgCommits = mapIt(kzgCommits, shortLog(it)),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
         blobsOk = r.isOk()
 
   if not blobsOk:
@@ -539,6 +540,7 @@ proc storeBlock(
             blockRoot = shortLog(signedBlock.root),
             blobs = shortLog(blobs),
             blck = shortLog(signedBlock.message),
+            kzgCommits = mapIt(kzgCommits, shortLog(it)),
             signature = shortLog(signedBlock.signature),
             msg = r.error()
           return err((VerifierError.Invalid, ProcessingStatus.completed))
