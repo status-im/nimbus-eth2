@@ -440,8 +440,11 @@ proc validateBlobSidecar*(
     if not ok:
       return dag.checkedReject("BlobSidecar: blob invalid")
 
-  ok()
+  # Send notification about new blob sidecar via callback
+  if not(isNil(blobQuarantine.onBlobSidecarCallback)):
+    blobQuarantine.onBlobSidecarCallback(blob_sidecar)
 
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block

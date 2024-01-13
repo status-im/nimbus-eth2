@@ -47,6 +47,7 @@ type
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
     propSlashQueue*: AsyncEventQueue[ProposerSlashing]
     attSlashQueue*: AsyncEventQueue[AttesterSlashing]
+    blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
