@@ -1964,6 +1964,14 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
               codecNameLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
+    # TODO
+    # This current approach is not building on good foundations.
+    # Incrementing a global variable at compile-time fundamentally at odds with
+    # incremental compilation (because a recompile that doesn't revisit the whole
+    # program will mess up the counting and create duplicate indices).
+    # A better approach would build upon the `macrocache` module from the standard
+    # library, which is compatible with incremental compilation:
+    # https://nim-lang.org/docs/macrocache.html
     var id {.global.}: int
     let tmp = id
     id += 1

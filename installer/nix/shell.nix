@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 { pkgs ? import <nixpkgs> {}}:
 let
   mkdocs-packages = ps: with ps; [
@@ -16,6 +23,7 @@ mkShell {
     git
     git-lfs
     gnumake
+    getopt
 
     # For the local simulation
     openssl # for generating the JWT file
@@ -34,6 +42,7 @@ mkShell {
     # will erase `-march=native` because this introduces impurity in the build.
     # For the purposes of compiling Nimbus, this behavior is not desired:
     export NIX_ENFORCE_NO_NATIVE=0
+    export USE_SYSTEM_GETOPT=1
 
     figlet "Welcome to Nimbus-eth2"
   '';
