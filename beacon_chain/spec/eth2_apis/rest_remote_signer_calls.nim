@@ -8,13 +8,11 @@
 
 import
   chronicles, metrics,
-  chronos, chronos/apps/http/httpclient, presto, presto/client,
-  serialization, json_serialization,
-  json_serialization/std/[net, sets],
+  chronos, presto/client,
   stew/[results, base10, byteutils],
   "."/[rest_types, eth2_rest_serialization]
 
-export chronos, httpclient, client, rest_types, eth2_rest_serialization, results
+export chronos, client, rest_types, eth2_rest_serialization, results
 
 type
   Web3SignerErrorKind* {.pure.} = enum

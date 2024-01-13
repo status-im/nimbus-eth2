@@ -7,13 +7,13 @@
 {.push raises: [].}
 
 import
-  chronos, presto/client, chronicles,
+  presto/client, chronicles,
   ".."/".."/validators/slashing_protection_common,
   ".."/datatypes/[phase0, altair],
   ".."/[helpers, forks, keystore, eth2_ssz_serialization],
   "."/[rest_types, rest_common, rest_keymanager_types, eth2_rest_serialization]
 
-export chronos, client, rest_types, eth2_rest_serialization,
+export client, rest_types, eth2_rest_serialization,
        rest_keymanager_types
 
 UUID.serializesAsBaseIn RestJson

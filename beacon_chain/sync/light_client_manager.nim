@@ -12,7 +12,7 @@ import
   ../spec/network,
   ../networking/eth2_network,
   ../beacon_clock,
-  "."/[light_client_sync_helpers, sync_protocol, sync_manager]
+  "."/[light_client_sync_helpers, light_client_protocol, sync_manager]
 export sync_manager
 
 logScope:
