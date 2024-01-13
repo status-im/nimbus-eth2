@@ -154,6 +154,16 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - KZG
 ```diff
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_635fb2de5b0dc429   OK
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_a3b9ff28507767f8   OK
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_d3afbd98123a3434   OK
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_0951cfd9ab47a8d3     OK
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_19b3f3f8c98ea31e     OK
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_84d8089232bc23a8     OK
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_a87a4e636e0f58fb     OK
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_c40b9b515df8721b     OK
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_cdb3e6d49eb12307     OK
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_fb324bc819407148     OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_invalid_blob_635fb2de5b0dc429             OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_invalid_blob_a3b9ff28507767f8             OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_invalid_blob_d3afbd98123a3434             OK
@@ -204,6 +214,19 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + KZG - Compute KZG proof - compute_kzg_proof_case_valid_blob_f47eb9fc139f6bfd               OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_valid_blob_f7f44e1e864aa967               OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_valid_blob_ffa6e97b97146517               OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_blob_635fb2de5b0dc429   OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_blob_a3b9ff28507767f8   OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_blob_d3afbd98123a3434   OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_commitment_1a68c47b6814 OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_commitment_24b932fb4dec OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_commitment_3a6eb616efae OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_0951cfd9ab47a8d3     OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_19b3f3f8c98ea31e     OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_84d8089232bc23a8     OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_a87a4e636e0f58fb     OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_c40b9b515df8721b     OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_cdb3e6d49eb12307     OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_fb324bc819407148     OK
 + KZG - Verify KZG proof - verify_kzg_proof_case_correct_proof_02e696ada7d4631d              OK
 + KZG - Verify KZG proof - verify_kzg_proof_case_correct_proof_05c1f3685f3393f0              OK
 + KZG - Verify KZG proof - verify_kzg_proof_case_correct_proof_08f9e2f1cb3d39db              OK
@@ -326,8 +349,61 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + KZG - Verify KZG proof - verify_kzg_proof_case_invalid_z_64b9ff2b8f7dddee                  OK
 + KZG - Verify KZG proof - verify_kzg_proof_case_invalid_z_b358a2e763727b70                  OK
 + KZG - Verify KZG proof - verify_kzg_proof_case_invalid_z_eb0601fec84cc5e9                  OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_correct_proof_0951cfd9ab47a8d3    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_correct_proof_19b3f3f8c98ea31e    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_correct_proof_84d8089232bc23a8    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_correct_proof_a87a4e636e0f58fb    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_correct_proof_c40b9b515df8721b    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_correct_proof_cdb3e6d49eb12307    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_correct_proof_fb324bc819407148    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_correct_proof_point_at_infinity_f OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_correct_proof_point_at_infinity_f OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_incorrect_proof_0951cfd9ab47a8d3  OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_incorrect_proof_19b3f3f8c98ea31e  OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_incorrect_proof_84d8089232bc23a8  OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_incorrect_proof_a87a4e636e0f58fb  OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_incorrect_proof_c40b9b515df8721b  OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_incorrect_proof_cdb3e6d49eb12307  OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_incorrect_proof_fb324bc819407148  OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_incorrect_proof_point_at_infinity OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_blob_59d64ff6b4648fad     OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_blob_635fb2de5b0dc429     OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_blob_a3b9ff28507767f8     OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_blob_d3afbd98123a3434     OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_commitment_1a68c47b68148e OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_commitment_24b932fb4dec5b OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_commitment_3a6eb616efae06 OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_commitment_d070689c3e1544 OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_proof_1a68c47b68148e78    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_proof_24b932fb4dec5b2d    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_proof_3a6eb616efae0627    OK
++ KZG - Verify blob KZG proof - verify_blob_kzg_proof_case_invalid_proof_d070689c3e15444c    OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_0951cfd9ab47a8d3      OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_0f3f1d3f48f71495      OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_12c097d7ca0261e3      OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_2ef482373a81e34e      OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_a271b78b8e869d69      OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_blob_length_different OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_cb3c3279a1afddcf      OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_commitment_length_dif OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_e61aafba051ddf79      OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_incorrect_proof_add_o OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_incorrect_proof_point OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_blob_59d64ff6 OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_blob_635fb2de OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_blob_a3b9ff28 OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_blob_d3afbd98 OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_commitment_1a OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_commitment_24 OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_commitment_3a OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_commitment_d0 OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_proof_1a68c47 OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_proof_24b932f OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_proof_3a6eb61 OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_proof_d070689 OK
++ KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_proof_length_differen OK
 ```
-OK: 172/172 Fail: 0/172 Skip: 0/172
+OK: 248/248 Fail: 0/248 Skip: 0/248
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -898,4 +974,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 583/588 Fail: 0/588 Skip: 5/588
+OK: 659/664 Fail: 0/664 Skip: 5/664
