@@ -12,7 +12,7 @@ import
   # Nimble packages:
   chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
-  web3, web3/ethhexstrings, web3/engine_api,
+  web3, web3/[engine_api, primitives, conversions],
   eth/common/[eth_types, transaction],
   eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes, endians2],
   # Local modules:
@@ -1440,10 +1440,11 @@ proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
   if cancelled == requests.len:
     warn "Failed to exchange configuration with the configured EL end-points"
 
-template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
-  var res: ValueType
-  fromJson(j[fieldName], fieldName, res)
-  res
+template readJsonField(logEvent, field: untyped, ValueType: type): untyped =
+  if logEvent.field.isNone:
+    raise newException(CatchableError,
+      "Web3 provider didn't return needed logEvent field " & astToStr(field))
+  logEvent.field.get
 
 template init[N: static int](T: type DynamicBytes[N, N]): T =
   T newSeq[byte](N)
@@ -1460,19 +1461,15 @@ proc fetchTimestamp(connection: ELConnection,
 
   blk.timestamp = Eth1BlockTimestamp web3block.timestamp
 
-func depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
+func depositEventsToBlocks(depositsList: openArray[JsonString]): seq[Eth1Block] {.
     raises: [CatchableError].} =
-  if depositsList.kind != JArray:
-    raise newException(CatchableError,
-      "Web3 provider didn't return a list of deposit events")
-
   var lastEth1Block: Eth1Block
 
-  for logEvent in depositsList:
+  for logEventData in depositsList:
     let
-      blockNumber = Eth1BlockNumber readJsonField(logEvent, "blockNumber", Quantity)
-      blockHash = readJsonField(logEvent, "blockHash", BlockHash)
-      logData = hexToSeqByte(logEvent["data"].getStr)
+      logEvent = JrpcConv.decode(logEventData.string, LogObject)
+      blockNumber = Eth1BlockNumber readJsonField(logEvent, blockNumber, Quantity)
+      blockHash = readJsonField(logEvent, blockHash, BlockHash)
 
     if lastEth1Block == nil or lastEth1Block.number != blockNumber:
       lastEth1Block = Eth1Block(
@@ -1493,11 +1490,11 @@ func depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
       index = init Int64LeBytes
 
     var offset = 0
-    offset += decode(logData, 0, offset, pubkey)
-    offset += decode(logData, 0, offset, withdrawalCredentials)
-    offset += decode(logData, 0, offset, amount)
-    offset += decode(logData, 0, offset, signature)
-    offset += decode(logData, 0, offset, index)
+    offset += decode(logEvent.data, 0, offset, pubkey)
+    offset += decode(logEvent.data, 0, offset, withdrawalCredentials)
+    offset += decode(logEvent.data, 0, offset, amount)
+    offset += decode(logEvent.data, 0, offset, signature)
+    offset += decode(logEvent.data, 0, offset, index)
 
     if pubkey.len != 48 or
        withdrawalCredentials.len != 32 or
@@ -1906,7 +1903,7 @@ proc syncBlockRange(m: ELManager,
   var currentBlock = fromBlock
   while currentBlock <= toBlock:
     var
-      depositLogs: JsonNode = nil
+      depositLogs: seq[JsonString]
       maxBlockNumberRequested: Eth1BlockNumber
       backoff = 100
 
