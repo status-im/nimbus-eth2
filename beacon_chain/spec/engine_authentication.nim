@@ -26,7 +26,9 @@ const
 func base64urlEncode(x: auto): string =
   # The only strings this gets are internally generated, and don't have
   # encoding quirks.
-  base64.encode(x, safe = true).replace("=", "")
+  {.noSideEffect.}:
+    # The `base64.encode` is a proc, shouldn't base64urlEncode also a proc?
+    base64.encode(x, safe = true).replace("=", "")
 
 func getIatToken*(time: int64): JsonNode =
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/authentication.md#jwt-claims
