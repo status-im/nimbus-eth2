@@ -22,6 +22,7 @@ mkShell {
     lsof    # for killing processes by port
     killall # for killing processes manually
     curl    # for working with the node APIs
+    openjdk # for running web3signer
 
     mkdocs-python
   ] ++ lib.optionals (!stdenv.isDarwin) [
