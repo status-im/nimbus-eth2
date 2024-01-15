@@ -68,6 +68,7 @@ pipeline {
     stage('Tests') {
       steps { timeout(60) {
         sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
+        sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
       } }
       post { always { timeout(5) {
         archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
