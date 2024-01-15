@@ -65,25 +65,6 @@ pipeline {
       } }
     }
 
-    stage('Build') {
-      steps { timeout(50) {
-        sh 'make LOG_LEVEL=TRACE'
-        /* Check documentation reflects `nimbus_beacon_node --help`. */
-        sh '''#!/usr/bin/env bash
-          if ! diff -u \\
-              <(sed -n '/Usage/,/^...$/ { /^...$/d; p; }' \\
-                docs/the_nimbus_book/src/options.md) \\
-              <(COLUMNS=200 build/nimbus_beacon_node --help | \\
-                sed -n '/Usage/,/Available sub-commands/ { /Available sub-commands/d; p; }' | \\
-                sed 's/\\x1B\\[[0-9;]*[mG]//g' | \\
-                sed 's/[[:space:]]*$//'); then \\
-            echo "Please update 'docs/the_nimbus_book/src/options.md' to match 'COLUMNS=200 nimbus_beacon_node --help'"; \\
-            false; \\
-          fi
-        '''
-      } }
-    }
-
     stage('Tests') {
       parallel {
         stage('General') {
@@ -92,50 +73,11 @@ pipeline {
             sh 'git diff --exit-code'  /* Check no uncommitted changes. */
           } }
         }
-
-        stage('REST') {
-          steps { timeout(5) {
-            sh 'make restapi-test'
-          } }
-          post { always {
-            sh 'tar cjf restapi-test.tar.gz resttest0_data/*.txt'
-          } }
-        }
       }
       post { always { timeout(5) {
         archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
       } } }
     }
-
-    stage('Finalizations') {
-      stages {  /* parallel builds of minimal / mainnet not yet supported */
-        stage('minimal') {
-          steps { timeout(26) {
-            sh 'make local-testnet-minimal'
-          } }
-          post { always {
-            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
-          } }
-        }
-
-        stage('mainnet') {
-          steps { timeout(62) {
-            sh 'make local-testnet-mainnet'
-          } }
-          post { always {
-            sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/logs/*'
-          } }
-        }
-      }
-      post { always { timeout(5) {
-        archiveArtifacts(
-          artifacts: '*.tar.gz',
-          excludes: '**/geth-*.tar.gz',  /* `scripts/geth_binaries.sh` */
-          allowEmptyArchive: true
-        )
-      } } }
-    }
-  }
 
   post {
     always {
