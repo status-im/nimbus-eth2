@@ -439,8 +439,7 @@ type
         desc: "Textual template for the contents of the status bar"
         defaultValue: "peers: $connected_peers;" &
                       "finalized: $finalized_root:$finalized_epoch;" &
-                      "head: $head_root:$head_epoch:$head_epoch_slot;" &
-                      "fork: $consensus_fork;" &
+                      "head: $head_root:$head_epoch:$head_epoch_slot$next_consensus_fork;" &
                       "time: $epoch:$epoch_slot ($slot);" &
                       "sync: $sync_status|" &
                       "ETH: $attached_validators_balance"
