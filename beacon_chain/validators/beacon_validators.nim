@@ -1064,26 +1064,40 @@ proc proposeBlockAux(
     head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
     genesis_validators_root: Eth2Digest,
     localBlockValueBoost: uint8): Future[BlockRef] {.async.} =
+  # error "#### proposeBlockAux", i = 0
+
   var payloadBuilderClient: RestClientRef
   let payloadBuilderClientMaybe = node.getPayloadBuilderClient(
     validator_index.distinctBase)
+
+  # error "#### proposeBlockAux", i = 1
+
   if payloadBuilderClientMaybe.isOk:
     payloadBuilderClient = payloadBuilderClientMaybe.get
+
+  # error "#### proposeBlockAux", i = 2
 
   let collectedBids = await collectBidFutures(
     SBBB, EPS, node, payloadBuilderClient, validator.pubkey, validator_index,
     node.graffitiBytes, head, slot, randao)
 
+  # error "#### proposeBlockAux", i = 3
+
   let useBuilderBlock =
     if collectedBids.builderBidAvailable:
+      # error "#### proposeBlockAux", i = 4
       (not collectedBids.engineBidAvailable) or builderBetterBid(
         localBlockValueBoost,
         collectedBids.payloadBuilderBidFut.read.get().blockValue,
         collectedBids.engineBlockFut.read.get().blockValue)
     else:
+      # error "#### proposeBlockAux", i = 5
       if not collectedBids.engineBidAvailable:
+        # error "#### proposeBlockAux", i = 6
         return head   # errors logged in router
       false
+
+  # error "#### proposeBlockAux", i = 7
 
   # There should always be an engine bid, and if payloadBuilderClient exists,
   # not getting a builder bid is also an error. Do not report lack of builder
@@ -1093,9 +1107,11 @@ proc proposeBlockAux(
   # URL is provided for this validator, it's reasonable for Nimbus not to use
   # it for every block.
   if collectedBids.engineBidAvailable:
+    # error "#### proposeBlockAux", i = 8
     # Three cases: builder bid expected and absent, builder bid expected and
     # present, and builder bid not expected.
     if collectedBids.builderBidAvailable:
+      # error "#### proposeBlockAux", i = 9
       info "Compared engine and builder block bids",
         localBlockValueBoost,
         useBuilderBlock,
@@ -1103,32 +1119,44 @@ proc proposeBlockAux(
           collectedBids.payloadBuilderBidFut.read.get().blockValue,
         engineBlockValue = collectedBids.engineBlockFut.read.get().blockValue
     elif payloadBuilderClient.isNil:
+      # error "#### proposeBlockAux", i = 10
       discard  # builder API not configured for this block
     else:
+      # error "#### proposeBlockAux", i = 11
       info "Did not receive expected builder bid; using engine block",
         engineBlockValue = collectedBids.engineBlockFut.read.get().blockValue
   else:
+    # error "#### proposeBlockAux", i = 12
     # Similar three cases: builder bid expected and absent, builder bid
     # expected and present, and builder bid not expected. However, only
     # the second is worth logging, because the other two result in this
     # block being missed altogether, and with details logged elsewhere.
     if collectedBids.builderBidAvailable:
+      # error "#### proposeBlockAux", i = 13
       info "Did not receive expected engine bid; using builder block",
         builderBlockValue =
           collectedBids.payloadBuilderBidFut.read.get().blockValue
 
+  # error "#### proposeBlockAux", i = 14
+
   if useBuilderBlock:
+    # error "#### proposeBlockAux", i = 15
     let
       blindedBlock = (await blindedBlockCheckSlashingAndSign(
         node, slot, validator, validator_index,
         collectedBids.payloadBuilderBidFut.read.get.blindedBlckPart)).valueOr:
+          # error "#### proposeBlockAux", i = 16
           return head
+    # error "#### proposeBlockAux", i = 17
+    let
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
       maybeUnblindedBlock = await proposeBlockMEV(
         node, payloadBuilderClient, blindedBlock)
 
+    # error "#### proposeBlockAux", i = 18
     return maybeUnblindedBlock.valueOr:
+      # error "#### proposeBlockAux", i = 19
       warn "Blinded block proposal incomplete",
         head = shortLog(head), slot, validator_index,
         validator = shortLog(validator),
@@ -1137,19 +1165,24 @@ proc proposeBlockAux(
       beacon_block_builder_missed_without_fallback.inc()
       return head
 
+  # error "#### proposeBlockAux", i = 20
   var forkedBlck = collectedBids.engineBlockFut.read.get().blck
+  # error "#### proposeBlockAux", i = 21
 
   withBlck(forkedBlck):
+    # error "#### proposeBlockAux", i = 22
     let
       blockRoot = hash_tree_root(forkyBlck)
       signingRoot = compute_block_signing_root(
         fork, genesis_validators_root, slot, blockRoot)
-
+    # error "#### proposeBlockAux", i = 23
+    let
       notSlashable = node.attachedValidators
         .slashingProtection
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
-
+    # error "#### proposeBlockAux", i = 24
     if notSlashable.isErr:
+      # error "#### proposeBlockAux", i = 25
       warn "Slashing protection activated for block proposal",
         blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
         signingRoot = shortLog(signingRoot),
@@ -1157,13 +1190,16 @@ proc proposeBlockAux(
         slot = slot,
         existingProposal = notSlashable.error
       return head
-
+    # error "#### proposeBlockAux", i = 26
     let
       signature =
         block:
+          # error "#### proposeBlockAux", i = 27
           let res = await validator.getBlockSignature(
             fork, genesis_validators_root, slot, blockRoot, forkedBlck)
+          # error "#### proposeBlockAux", i = 28
           if res.isErr():
+            # error "#### proposeBlockAux", i = 29
             warn "Unable to sign block",
                  validator = shortLog(validator), error_msg = res.error()
             return head
@@ -1172,18 +1208,25 @@ proc proposeBlockAux(
         message: forkyBlck, signature: signature, root: blockRoot)
       blobsOpt =
         when consensusFork >= ConsensusFork.Deneb:
+          # error "#### proposeBlockAux", i = 30
           template blobsBundle: untyped =
             collectedBids.engineBlockFut.read.get.blobsBundleOpt.get
           Opt.some(signedBlock.create_blob_sidecars(
             blobsBundle.proofs, blobsBundle.blobs))
         else:
+          # error "#### proposeBlockAux", i = 31
           Opt.none(seq[BlobSidecar])
+    # error "#### proposeBlockAux", i = 32
+    let
       newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
       ).valueOr:
+        # error "#### proposeBlockAux", i = 33
         return head # Errors logged in router
+    # error "#### proposeBlockAux", i = 34
 
     if newBlockRef.isNone():
+      # error "#### proposeBlockAux", i = 35
       return head # Validation errors logged in router
 
     notice "Block proposed",
@@ -1191,7 +1234,7 @@ proc proposeBlockAux(
       signature = shortLog(signature), validator = shortLog(validator)
 
     beacon_blocks_proposed.inc()
-
+    # error "#### proposeBlockAux", i = 36
     return newBlockRef.get()
 
 proc proposeBlock(node: BeaconNode,
