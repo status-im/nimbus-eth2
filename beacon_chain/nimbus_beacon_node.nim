@@ -1474,17 +1474,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   await node.updateGossipStatus(slot + 1)
 
-func formatForkSchedule(node: BeaconNode): string =
+func formatNextConsensusFork(node: BeaconNode): Opt[string] =
   let consensusFork =
     node.dag.cfg.consensusForkAtEpoch(node.dag.head.slot.epoch)
-  var res = $consensusFork
-  if consensusFork != ConsensusFork.high:
-    let
-      nextConsensusFork = consensusFork.succ()
-      nextForkEpoch = node.dag.cfg.consensusForkEpoch(nextConsensusFork)
-    if nextForkEpoch != FAR_FUTURE_EPOCH:
-      res.add " (next: " & $nextConsensusFork & ":" & $nextForkEpoch & ")"
-  res
+  if consensusFork == ConsensusFork.high:
+    return Opt.none(string)
+  let
+    nextConsensusFork = consensusFork.succ()
+    nextForkEpoch = node.dag.cfg.consensusForkEpoch(nextConsensusFork)
+  if nextForkEpoch == FAR_FUTURE_EPOCH:
+    return Opt.none(string)
+  Opt.some($nextConsensusFork & ":" & $nextForkEpoch)
 
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   let optimistic_head = not node.dag.head.executionValid
@@ -1526,16 +1526,21 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
 
-  info "Slot start",
-    slot = shortLog(wallSlot),
-    epoch = shortLog(wallSlot.epoch),
-    fork = node.formatForkSchedule(),
-    sync = node.syncStatus(wallSlot),
-    peers = len(node.network.peerPool),
-    head = shortLog(node.dag.head),
-    finalized = shortLog(getStateField(
-      node.dag.headState, finalized_checkpoint)),
-    delay = shortLog(delay)
+  block:
+    logScope:
+      slot = shortLog(wallSlot)
+      epoch = shortLog(wallSlot.epoch)
+      sync = node.syncStatus(wallSlot)
+      peers = len(node.network.peerPool)
+      head = shortLog(node.dag.head)
+      finalized = shortLog(getStateField(
+        node.dag.headState, finalized_checkpoint))
+      delay = shortLog(delay)
+    let nextConsensusForkDescription = node.formatNextConsensusFork()
+    if nextConsensusForkDescription.isNone:
+      info "Slot start"
+    else:
+      info "Slot start", nextFork = nextConsensusForkDescription.get
 
   # Check before any re-scheduling of onSlotStart()
   if checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch):
@@ -1962,8 +1967,12 @@ when not defined(windows):
       of "attached_validators_balance":
         formatGwei(node.attachedValidatorBalanceTotal)
 
-      of "consensus_fork":
-        node.formatForkSchedule()
+      of "next_consensus_fork":
+        let nextConsensusForkDescription = node.formatNextConsensusFork()
+        if nextConsensusForkDescription.isNone:
+          ""
+        else:
+          " (scheduled " & nextConsensusForkDescription.get & ")"
 
       of "sync_status":
         node.syncStatus(node.currentSlot)
