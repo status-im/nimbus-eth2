@@ -33,6 +33,7 @@ PIDS_TO_WAIT=""
 # argument parsing #
 ####################
 
+USE_SYSTEM_GETOPT="${USE_SYSTEM_GETOPT:-0}"
 GETOPT_BINARY="getopt"
 if [[ "${OS}" == "macos" && "$USE_SYSTEM_GETOPT" != "1" ]]; then
   # Without the head -n1 constraint, it gets confused by multiple matches
