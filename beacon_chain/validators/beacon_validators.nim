@@ -1178,6 +1178,85 @@ proc proposeBlockAux(
             blobsBundle.proofs, blobsBundle.blobs))
         else:
           Opt.none(seq[BlobSidecar])
+
+    # BIG BUG SOURCE: The `let` below cannot be combined with the others above!
+    # If combined, there are sometimes `SIGSEGV` during `test_keymanager_api`.
+    # This has only been observed on macOS (aarch64) in Jenkins, not on GitHub.
+    #
+    # - macOS 14.2.1 (23C71)
+    # - Xcode 15.1 (15C65)
+    # - Nim v1.6.18 (a749a8b742bd0a4272c26a65517275db4720e58a)
+    #
+    # Issue has started occuring around 12 Jan 2024, in a CI run for PR #5731.
+    # The PR did not change anything related to this, suggesting an environment
+    # or hardware change. The issue is flaky; could have been introduced earlier
+    # before surfacing in the aforementioned mentioned PR. About 30% to hit bug.
+    #
+    # [2024-01-12T11:54:21.011Z] Wrote test_keymanager_api/bootstrap_node.enr
+    # [2024-01-12T11:54:29.294Z] Serialization/deserialization [Beacon Node] [Preset: mainnet] . (0.00s)
+    # [2024-01-12T11:54:29.294Z] ListKeys requests [Beacon Node] [Preset: mainnet] .... (0.01s)
+    # [2024-01-12T11:54:34.870Z] ImportKeystores requests [Beacon Node] [Preset: mainnet] Traceback (most recent call last, using override)
+    # [2024-01-12T11:54:34.870Z] vendor/nim-libp2p/libp2p/protocols/rendezvous.nim(1016) main
+    # [2024-01-12T11:54:34.870Z] vendor/nim-libp2p/libp2p/protocols/rendezvous.nim(1006) NimMain
+    # [2024-01-12T11:54:34.870Z] vendor/nim-libp2p/libp2p/protocols/rendezvous.nim(997) PreMain
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(1502) atmtest_keymanager_apidotnim_Init000
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(1475) main
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(378) futureContinue
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(1481) main
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(307) startBeaconNode
+    # [2024-01-12T11:54:34.870Z] beacon_chain/nimbus_beacon_node.nim(1900) start
+    # [2024-01-12T11:54:34.870Z] beacon_chain/nimbus_beacon_node.nim(1847) run
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncengine.nim(150) poll
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(378) futureContinue
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(1465) delayedTests
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(392) runTests
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(378) futureContinue
+    # [2024-01-12T11:54:34.870Z] vendor/nim-unittest2/unittest2.nim(1147) runTests
+    # [2024-01-12T11:54:34.870Z] vendor/nim-unittest2/unittest2.nim(1086) runDirect
+    # [2024-01-12T11:54:34.870Z] vendor/nim-testutils/testutils/unittests.nim(16) runTestX60gensym2933
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(656) waitFor
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(631) pollFor
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncengine.nim(150) poll
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(378) futureContinue
+    # [2024-01-12T11:54:34.870Z] beacon_chain/validators/beacon_validators.nim(82) proposeBlockAux
+    # [2024-01-12T11:54:34.870Z] vendor/nimbus-build-system/vendor/Nim/lib/system/excpt.nim(631) signalHandler
+    # [2024-01-12T11:54:34.870Z] SIGSEGV: Illegal storage access. (Attempt to read from nil?)
+    #
+    # The generated `nimcache` differs slightly if the `let` are separated from
+    # a single block; separation introduces an additional state in closure iter.
+    # This change, maybe combined with some macOS specific compiler specifics,
+    # could this trigger the `SIGSEGV`? Maybe the extra state adds just enough
+    # complexity to the function to disable certain problematic optimizations?
+    # Furthermore, the combination of `(await xyz).valueOr: return` is not very
+    # commonly used together with other `await` in the same `let` block, which
+    # could explain why this is not a more common trigger across Nimbus.
+    #
+    # Note that when compiling for Wasm, there are similar bugs with `results`
+    # when inlining unwraps, e.g., in `eth2_rest_serialization.nim`.
+    # These have not been investigated thoroughly so far as that project uses
+    # Nim 2.0 with --mm:orc and is just a prototype for Wasm, no production use.
+    # But maybe there is something weird going on with `results` related to the
+    # random `SIGSEGV` that we are now observing here, related to doing too much
+    # inline logic without defining intermediate isolated `let` statements.
+    #
+    #    if mediaType == ApplicationJsonMediaType:
+    #      try:
+    # -      ok RestJson.decode(value, T,
+    # -                         requireAllFields = true,
+    # -                         allowUnknownFields = true)
+    # +      let r = RestJson.decode(value, T,
+    # +                              requireAllFields = true,
+    # +                              allowUnknownFields = true)
+    # +      ok r
+    #      except SerializationError as exc:
+    #        debug "Failed to deserialize REST JSON data",
+    #              err = exc.formatMsg("<data>"),
+    #
+    # At this time we can only speculate about the trigger of these issues.
+    # Until a shared pattern can be identified, it is better to apply
+    # workarounds that at least avoid the known to be reachable triggers.
+    # The solution is hacky and far from desirable; it is what it is.
+    let
       newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
       ).valueOr:
