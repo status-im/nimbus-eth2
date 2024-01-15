@@ -1064,20 +1064,15 @@ proc proposeBlockAux(
     head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
     genesis_validators_root: Eth2Digest,
     localBlockValueBoost: uint8): Future[BlockRef] {.async.} =
-
   var payloadBuilderClient: RestClientRef
   let payloadBuilderClientMaybe = node.getPayloadBuilderClient(
     validator_index.distinctBase)
-
-
   if payloadBuilderClientMaybe.isOk:
     payloadBuilderClient = payloadBuilderClientMaybe.get
-
 
   let collectedBids = await collectBidFutures(
     SBBB, EPS, node, payloadBuilderClient, validator.pubkey, validator_index,
     node.graffitiBytes, head, slot, randao)
-
 
   let useBuilderBlock =
     if collectedBids.builderBidAvailable:
@@ -1089,7 +1084,6 @@ proc proposeBlockAux(
       if not collectedBids.engineBidAvailable:
         return head   # errors logged in router
       false
-
 
   # There should always be an engine bid, and if payloadBuilderClient exists,
   # not getting a builder bid is also an error. Do not report lack of builder
@@ -1123,7 +1117,6 @@ proc proposeBlockAux(
         builderBlockValue =
           collectedBids.payloadBuilderBidFut.read.get().blockValue
 
-
   if useBuilderBlock:
     let
       blindedBlock = (await blindedBlockCheckSlashingAndSign(
@@ -1152,10 +1145,12 @@ proc proposeBlockAux(
       blockRoot = hash_tree_root(forkyBlck)
       signingRoot = compute_block_signing_root(
         fork, genesis_validators_root, slot, blockRoot)
+
     let
       notSlashable = node.attachedValidators
         .slashingProtection
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
+
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",
         blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
@@ -1164,6 +1159,7 @@ proc proposeBlockAux(
         slot = slot,
         existingProposal = notSlashable.error
       return head
+
     let
       signature =
         block:
@@ -1198,6 +1194,7 @@ proc proposeBlockAux(
       signature = shortLog(signature), validator = shortLog(validator)
 
     beacon_blocks_proposed.inc()
+
     return newBlockRef.get()
 
 proc proposeBlock(node: BeaconNode,
