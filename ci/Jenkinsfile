@@ -67,6 +67,8 @@ pipeline {
 
     stage('Tests') {
       steps { timeout(60) {
+        sh 'sw_vers'
+        sh 'xcodebuild -version'
         sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
         sh 'tar cvzf nimcache.tar.gz nimcache'
       } }
