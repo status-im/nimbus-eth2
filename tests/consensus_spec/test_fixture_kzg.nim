@@ -15,27 +15,14 @@ import
   ../testutil,
   ./fixtures_utils, ./os_ops
 
-from std/sequtils import anyIt, mapIt
+from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import rsplit
 
-# Should be generic, but for https://github.com/nim-lang/Nim/issues/23204
-func fromHex32(s: string): Opt[array[32, byte]] =
+func fromHex[N: static int](s: string): Opt[array[N, byte]] =
   try:
-    Opt.some fromHex(array[32, byte], s)
+    Opt.some fromHex(array[N, byte], s)
   except ValueError:
-    Opt.none array[32, byte]
-
-func fromHex48(s: string): Opt[array[48, byte]] =
-  try:
-    Opt.some fromHex(array[48, byte], s)
-  except ValueError:
-    Opt.none array[48, byte]
-
-func fromHex128K(s: string): Opt[array[131072, byte]] =
-  try:
-    Opt.some fromHex(array[131072, byte], s)
-  except ValueError:
-    Opt.none array[131072, byte]
+    Opt.none array[N, byte]
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
@@ -48,7 +35,7 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
-      blob = fromHex128K(data["input"]["blob"].getStr)
+      blob = fromHex[131072](data["input"]["blob"].getStr)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/formats/kzg/blob_to_kzg_commitment.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
@@ -62,17 +49,17 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
         if commitment.isErr:
           output.kind == JNull
         else:
-          commitment.get == fromHex48(output.getStr).get
+          commitment.get == fromHex[48](output.getStr).get
 
 proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
   test "KZG - Verify KZG proof - " & path.relativePath(suitePath):
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
-      commitment = fromHex48(data["input"]["commitment"].getStr)
-      z = fromHex32(data["input"]["z"].getStr)
-      y = fromHex32(data["input"]["y"].getStr)
-      proof = fromHex48(data["input"]["proof"].getStr)
+      commitment = fromHex[48](data["input"]["commitment"].getStr)
+      z = fromHex[32](data["input"]["z"].getStr)
+      y = fromHex[32](data["input"]["y"].getStr)
+      proof = fromHex[48](data["input"]["proof"].getStr)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/formats/kzg/verify_kzg_proof.md#condition
     # "If the commitment or proof is invalid (e.g. not on the curve or not in
@@ -93,9 +80,9 @@ proc runVerifyBlobKzgProofTest(suiteName, suitePath, path: string) =
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
-      blob = fromHex128K(data["input"]["blob"].getStr)
-      commitment = fromHex48(data["input"]["commitment"].getStr)
-      proof = fromHex48(data["input"]["proof"].getStr)
+      blob = fromHex[131072](data["input"]["blob"].getStr)
+      commitment = fromHex[48](data["input"]["commitment"].getStr)
+      proof = fromHex[48](data["input"]["proof"].getStr)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/formats/kzg/verify_blob_kzg_proof.md#condition
     # "If the commitment or proof is invalid (e.g. not on the curve or not in
@@ -117,9 +104,9 @@ proc runVerifyBlobKzgProofBatchTest(suiteName, suitePath, path: string) =
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
-      blobs = data["input"]["blobs"].mapIt(fromHex128K(it.getStr))
-      commitments = data["input"]["commitments"].mapIt(fromHex48(it.getStr))
-      proofs = data["input"]["proofs"].mapIt(fromHex48(it.getStr))
+      blobs = data["input"]["blobs"].mapIt(fromHex[131072](it.getStr))
+      commitments = data["input"]["commitments"].mapIt(fromHex[48](it.getStr))
+      proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/formats/kzg/verify_blob_kzg_proof_batch.md#condition
     # "If any of the commitments or proofs are invalid (e.g. not on the curve or
@@ -143,8 +130,8 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
-      blob = fromHex128K(data["input"]["blob"].getStr)
-      z = fromHex32(data["input"]["z"].getStr)
+      blob = fromHex[131072](data["input"]["blob"].getStr)
+      z = fromHex[32](data["input"]["z"].getStr)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/formats/kzg/compute_kzg_proof.md#condition
     # "If the blob is invalid (e.g. incorrect length or one of the 32-byte
@@ -158,8 +145,8 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
         check output.kind == JNull
       else:
         let
-          proof = fromHex48(output[0].getStr)
-          y = fromHex32(output[1].getStr)
+          proof = fromHex[48](output[0].getStr)
+          y = fromHex[32](output[1].getStr)
         check:
           p.get.proof == proof.get
           p.get.y == y.get
@@ -169,8 +156,8 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
-      blob = fromHex128K(data["input"]["blob"].getStr)
-      commitment = fromHex48(data["input"]["commitment"].getStr)
+      blob = fromHex[131072](data["input"]["blob"].getStr)
+      commitment = fromHex[48](data["input"]["commitment"].getStr)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/formats/kzg/compute_blob_kzg_proof.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
@@ -183,14 +170,21 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
       if p.isErr:
         check output.kind == JNull
       else:
-        check p.get == fromHex48(output.getStr).get
+        check p.get == fromHex[48](output.getStr).get
+
+from std/algorithm import sorted
 
 const suiteName = "EF - KZG"
 
 suite suiteName:
   const suitePath = SszTestsDir/"general"/"deneb"/"kzg"
-  # TODO assert that only subdirectory is kzg-mainnet in each case and that all
-  # maim directories (blob_to_kzg_commitment, etc) are covered
+
+  # TODO also check that the only direct subdirectory of each is kzg-mainnet
+  doAssert sorted(mapIt(
+      toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
+    ["blob_to_kzg_commitment", "compute_blob_kzg_proof", "compute_kzg_proof",
+     "verify_blob_kzg_proof", "verify_blob_kzg_proof_batch",
+     "verify_kzg_proof"]
 
   block:
     let testsDir = suitePath/"blob_to_kzg_commitment"/"kzg-mainnet"
