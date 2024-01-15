@@ -23,8 +23,7 @@ import
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
-    nimbus_binary_common, statusbar, trusted_node_sync, wallets,
-    winservice]
+    nimbus_binary_common, statusbar, trusted_node_sync, wallets]
 
 when defined(posix):
   import system/ansi_c

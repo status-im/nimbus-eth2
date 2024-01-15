@@ -82,7 +82,7 @@ template blockProcessor(router: MessageRouter): ref BlockProcessor =
 template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
   router.processor[].getCurrentBeaconTime()
 
-type RouteBlockResult = Result[Opt[BlockRef], cstring]
+type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
     blobsOpt: Opt[seq[BlobSidecar]]): Future[RouteBlockResult] {.async.} =
@@ -101,7 +101,7 @@ proc routeSignedBeaconBlock*(
       warn "Block failed validation",
         blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
         signature = shortLog(blck.signature), error = res.error()
-      return err(res.error()[1])
+      return err($(res.error()[1]))
 
     when typeof(blck).kind >= ConsensusFork.Deneb:
       if blobsOpt.isSome:

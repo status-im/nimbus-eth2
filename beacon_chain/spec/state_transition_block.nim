@@ -7,10 +7,10 @@
 
 # State transition - block processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/bellatrix/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -726,22 +726,14 @@ func kzg_commitment_to_versioned_hash*(
   res[1 .. 31] = eth2digest(kzg_commitment).data.toOpenArray(1, 31)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#validate_blobs
-proc validate_blobs*(expected_kzg_commitments: seq[KzgCommitment],
-                     blobs: seq[KzgBlob],
-                     proofs: seq[KzgProof]):
-                       Result[void, cstring] =
-  if expected_kzg_commitments.len != blobs.len:
-    return err("validate_blobs: different commitment and blob lengths")
-
-  if proofs.len != blobs.len:
-    return err("validate_blobs: different proof and blob lengths")
-
+proc validate_blobs*(
+    expected_kzg_commitments: seq[KzgCommitment], blobs: seq[KzgBlob],
+    proofs: seq[KzgProof]): Result[void, string] =
   let res = verifyProofs(blobs, expected_kzg_commitments, proofs).valueOr:
-    return err("validate_blobs: proof verification error")
+    return err("validate_blobs proof verification error: " & error())
 
   if not res:
-    return err("validate_blobs: proof verification failed")
+    return err("validate_blobs proof verification failed")
 
   ok()
 
