@@ -1178,7 +1178,7 @@ proc proposeBlockAux(
             blobsBundle.proofs, blobsBundle.blobs))
         else:
           Opt.none(seq[BlobSidecar])
-    let newBlockRef = (
+      newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
       ).valueOr:
         return head # Errors logged in router
