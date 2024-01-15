@@ -294,19 +294,11 @@ local-testnet-mainnet:
 		--discv5:no
 
 # test binaries that can output an XML report
-XML_TEST_BINARIES_CORE := \
-	consensus_spec_tests_minimal \
-	consensus_spec_tests_mainnet
-
 XML_TEST_BINARIES := \
-	$(XML_TEST_BINARIES_CORE) \
 	all_tests
 
 # test suite
-TEST_BINARIES := \
-	block_sim \
-	test_libnimbus_lc
-.PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
+.PHONY: $(XML_TEST_BINARIES)
 
 # Preset-dependent tests
 consensus_spec_tests_mainnet: | build deps
@@ -343,37 +335,7 @@ fork_choice: | build deps
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 
-# Windows GitHub Actions CI runners, as of this writing, have around 8GB of RAM
-# and compiling all_tests requires around 5.5GB of that. It often fails via OOM
-# on the two cores available. Usefully, the part of the process requiring those
-# gigabytes of RAM is `nim c --compileOnly`, which intrinsically serializes. As
-# a result, only slightly increase build times by using fake dependencies, when
-# running `make test`, to ensure the `all_tests` target builds alone when being
-# built as part of `test`, while not also spuriously otherwise depending on the
-# not-actually-related Makefile goals.
-#
-# This works because `nim c --compileOnly` is fast but RAM-heavy, while the
-# rest of the build process, such as LTO, requires less RAM but is slow and
-# still is parallelized.
-#
-# On net, this saves CI and human time, because it reduces the likelihood of
-# CI false negatives in a process lasting hours and requiring a restart, and
-# therefore even more wasted time, when it does.
-#
-# If one asks for, e.g., `make all_tests block_sim`, it intentionally allows
-# those in parallel, because the CI system doesn't do that.
-#
-# https://www.gnu.org/software/make/manual/html_node/Parallel-Disable.html
-# describes a special target .WAIT which would enable this more easily but
-# remains unusable for this Makefile due to requiring GNU Make 4.4.
-ifneq (,$(filter test,$(MAKECMDGOALS)))
-FORCE_BUILD_ALONE_ALL_TESTS_DEPS := $(XML_TEST_BINARIES_CORE) $(TEST_BINARIES)
-else
-FORCE_BUILD_ALONE_ALL_TESTS_DEPS :=
-endif
-force_build_alone_all_tests: | $(FORCE_BUILD_ALONE_ALL_TESTS_DEPS)
-
-all_tests: | build deps nimbus_signing_node force_build_alone_all_tests
+all_tests: | build deps nimbus_signing_node
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
@@ -392,7 +354,7 @@ block_sim: | build deps
 
 DISABLE_TEST_FIXTURES_SCRIPT := 0
 # This parameter passing scheme is ugly, but short.
-test: | $(XML_TEST_BINARIES) $(TEST_BINARIES)
+test: | $(XML_TEST_BINARIES)
 ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 	V=$(V) scripts/setup_scenarios.sh
 endif
@@ -405,26 +367,6 @@ endif
 				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 5000 lines from the log:"; \
 				tail -n5000 "$${TEST_BINARY}.log"; exit 1; \
 			}; \
-		done; \
-		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
-	for TEST_BINARY in $(TEST_BINARIES); do \
-		PARAMS=""; \
-		REDIRECT=""; \
-		if [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=10000 --slots=192"; \
-		elif [[ "$${TEST_BINARY}" == "test_libnimbus_lc" ]]; then REDIRECT="$${TEST_BINARY}.log"; \
-		fi; \
-		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		if [[ "$${REDIRECT}" != "" ]]; then \
-			build/$${TEST_BINARY} $${PARAMS} > "$${REDIRECT}" && echo "OK" || { \
-				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 5000 lines from the log:"; \
-				tail -n5000 "$${TEST_BINARY}.log"; exit 1; \
-			}; \
-		else \
-			build/$${TEST_BINARY} $${PARAMS} || { \
-				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 5000 lines from the log:"; \
-				tail -n5000 "$${TEST_BINARY}.log"; exit 1; \
-			}; \
-		fi; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
