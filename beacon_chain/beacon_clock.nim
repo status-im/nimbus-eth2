@@ -38,7 +38,8 @@ type
 proc init*(T: type BeaconClock, genesis_time: uint64): Opt[T] =
   # Since we'll be converting beacon time differences to nanoseconds,
   # the time can't be outrageously far from now
-  if genesis_time > (getTime().toUnix().uint64 + 100 * 365 * 24 * 60 * 60) or
+  if genesis_time > (getTime().toUnix().uint64 + 100'u64 * 365'u64 * 24'u64 *
+        60'u64 * 60'u64) or
       genesis_time < GENESIS_SLOT * SECONDS_PER_SLOT:
     Opt.none(BeaconClock)
   else:
