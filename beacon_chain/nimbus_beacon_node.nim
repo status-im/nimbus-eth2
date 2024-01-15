@@ -1507,6 +1507,9 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   else:
     "synced"
 
+when defined(windows):
+  from winservice import reportServiceStatusSuccess
+
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
