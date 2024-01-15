@@ -74,6 +74,7 @@ pipeline {
         archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
       } } }
     }
+  }
 
   post {
     always {
