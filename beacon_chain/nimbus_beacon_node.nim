@@ -1508,7 +1508,7 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
     "synced"
 
 when defined(windows):
-  from winservice import reportServiceStatusSuccess
+  from winservice import establishWindowsService, reportServiceStatusSuccess
 
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
