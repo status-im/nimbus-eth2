@@ -1123,10 +1123,9 @@ proc proposeBlockAux(
         node, slot, validator, validator_index,
         collectedBids.payloadBuilderBidFut.read.get.blindedBlckPart)).valueOr:
           return head
-    let
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
-      maybeUnblindedBlock = await proposeBlockMEV(
+    let maybeUnblindedBlock = await proposeBlockMEV(
         node, payloadBuilderClient, blindedBlock)
 
     return maybeUnblindedBlock.valueOr:
@@ -1146,8 +1145,7 @@ proc proposeBlockAux(
       signingRoot = compute_block_signing_root(
         fork, genesis_validators_root, slot, blockRoot)
 
-    let
-      notSlashable = node.attachedValidators
+    let notSlashable = node.attachedValidators
         .slashingProtection
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
@@ -1180,8 +1178,7 @@ proc proposeBlockAux(
             blobsBundle.proofs, blobsBundle.blobs))
         else:
           Opt.none(seq[BlobSidecar])
-    let
-      newBlockRef = (
+    let newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
       ).valueOr:
         return head # Errors logged in router
