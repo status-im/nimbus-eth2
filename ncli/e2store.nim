@@ -9,7 +9,8 @@
 
 import
   std/strformat,
-  stew/[arrayops, endians2, io2, results],
+  results,
+  stew/[arrayops, endians2, io2],
   snappy,
   ../beacon_chain/spec/[beacon_time, forks],
   ../beacon_chain/spec/eth2_ssz_serialization

@@ -7,7 +7,8 @@
 
 import
   std/[tables, os, sets, sequtils, strutils, uri, algorithm],
-  stew/[base10, results, byteutils],
+  results,
+  stew/[base10, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
   metrics, metrics/chronos_httpserver,

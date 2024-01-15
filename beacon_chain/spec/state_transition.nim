@@ -42,7 +42,7 @@
 
 import
   chronicles,
-  stew/results,
+  results,
   ../extras,
   "."/[
     beaconstate, eth2_merkleization, forks, helpers, signatures,

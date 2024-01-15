@@ -10,7 +10,7 @@
 
 import std/[tables, strutils, uri]
 import chronos, chronicles, confutils,
-       stew/[base10, results, io2], blscurve, presto
+       results, stew/[base10, io2], blscurve, presto
 import ".."/spec/[keystore, crypto]
 import ".."/spec/eth2_apis/rest_keymanager_types
 import ".."/validators/[slashing_protection, keystore_management,

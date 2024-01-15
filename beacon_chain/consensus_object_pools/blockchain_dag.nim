@@ -9,8 +9,8 @@
 
 import
   std/[algorithm, sequtils, tables, sets],
-  stew/[arrayops, assign2, byteutils, results],
-  metrics, snappy, chronicles,
+  stew/[arrayops, assign2, byteutils],
+  metrics, results, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
   ../spec/forks,

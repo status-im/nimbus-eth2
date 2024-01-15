@@ -12,7 +12,8 @@ import
   std/[typetraits, os, sequtils, strutils, algorithm, math, tables],
 
   # Status libs
-  stew/[leb128, endians2, results, byteutils, io2, bitops2],
+  results,
+  stew/[leb128, endians2, byteutils, io2, bitops2],
   stew/shims/net as stewNet,
   stew/shims/[macros],
   snappy,
