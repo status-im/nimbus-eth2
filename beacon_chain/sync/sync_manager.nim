@@ -246,7 +246,7 @@ func groupBlobs*[T](req: SyncRequest[T],
     grouped = newSeq[BlobSidecars](len(blocks))
     blob_cursor = 0
   for block_idx, blck in blocks:
-    withBlck(blck):
+    withBlck(blck[]):
       when consensusFork >= ConsensusFork.Deneb:
         template commits: untyped = forkyBlck.message.body.blob_kzg_commitments
         if commits.len == 0:
