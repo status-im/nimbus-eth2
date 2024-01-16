@@ -464,9 +464,9 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
             return
         let groupedBlobs = groupBlobs(req, blockData, blobData)
         if groupedBlobs.isErr():
-          peer.updateScore(PeerScoreBadResponse)
+          peer.updateScore(PeerScoreNoValues)
           man.queue.push(req)
-          warn "Received blobs sequence is invalid",
+          info "Received blobs sequence is inconsistent",
             blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
           return
         Opt.some(groupedBlobs.get())
