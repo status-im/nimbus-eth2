@@ -2036,6 +2036,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
+      const_preset,
       cmdParams = commandLineParams(),
       config
 
