@@ -77,13 +77,13 @@ proc setupEngineAPI*(server: RpcServer) =
       status: PayloadExecutionStatus.syncing))
 
   server.rpc("eth_getBlockByNumber") do(
-      quantityTag: string, fullTransactions: bool) -> JsonString:
+      quantityTag: string, fullTransactions: bool) -> JsonNode:
     info "eth_getBlockByNumber", quantityTag, fullTransactions
 
     return if quantityTag == "latest":
-      JrpcConv.encode(BlockObject(number: 1000.Quantity)).JsonString
+      %BlockObject(number: 1000.Quantity)
     else:
-      "{}".JsonString
+      newJObject()
 
   server.rpc("eth_getBlockByHash") do(
       data: string, fullTransactions: bool) -> BlockObject:

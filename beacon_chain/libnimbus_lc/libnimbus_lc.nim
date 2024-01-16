@@ -1209,12 +1209,15 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   ##
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
-  let data = try:
-    # a direct parameter like JrpcConv.decode($blockHeaderJson, BlockObject)
-    # will cause premature garbage collector kick in.
-    let jsonBytes = $blockHeaderJson
-    JrpcConv.decode(jsonBytes, BlockObject)
-  except SerializationError:
+  let node =
+    try:
+      parseJson($blockHeaderJson)
+    except Exception:
+      return nil
+  var data: BlockObject
+  try:
+    fromJson(node, argName = "", data)
+  except KeyError, ValueError:
     return nil
   if data == nil:
     return nil
@@ -1442,12 +1445,15 @@ proc ETHTransactionsCreateFromJson(
   ##
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
-  var datas = try:
-    # a direct parameter like JrpcConv.decode($transactionsJson, seq[TransactionObject])
-    # will cause premature garbage collector kick in.
-    let jsonBytes = $transactionsJson
-    JrpcConv.decode(jsonBytes, seq[TransactionObject])
-  except SerializationError:
+  let node =
+    try:
+      parseJson($transactionsJson)
+    except Exception:
+      return nil
+  var datas: seq[TransactionObject]
+  try:
+    fromJson(node, argName = "", datas)
+  except KeyError, ValueError:
     return nil
 
   var txs = newSeqOfCap[ETHTransaction](datas.len)
@@ -2079,12 +2085,15 @@ proc ETHReceiptsCreateFromJson(
   ##
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_gettransactionreceipt
-  var datas = try:
-    # a direct parameter like JrpcConv.decode($receiptsJson, seq[ReceiptObject])
-    # will cause premature garbage collector kick in.
-    let jsonBytes = $receiptsJson
-    JrpcConv.decode(jsonBytes, seq[ReceiptObject])
-  except SerializationError:
+  let node =
+    try:
+      parseJson($receiptsJson)
+    except Exception:
+      return nil
+  var datas: seq[ReceiptObject]
+  try:
+    fromJson(node, argName = "", datas)
+  except KeyError, ValueError:
     return nil
   if datas.len != ETHTransactionsGetCount(transactions):
     return nil
