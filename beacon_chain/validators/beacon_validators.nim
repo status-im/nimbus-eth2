@@ -1125,7 +1125,7 @@ proc proposeBlockAux(
           return head
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
-      maybeUnblindedBlock = await proposeBlockMEV(
+    let maybeUnblindedBlock = await proposeBlockMEV(
         node, payloadBuilderClient, blindedBlock)
 
     return maybeUnblindedBlock.valueOr:
