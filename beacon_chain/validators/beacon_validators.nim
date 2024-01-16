@@ -1145,7 +1145,7 @@ proc proposeBlockAux(
       signingRoot = compute_block_signing_root(
         fork, genesis_validators_root, slot, blockRoot)
 
-    let notSlashable = node.attachedValidators
+      notSlashable = node.attachedValidators
         .slashingProtection
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
