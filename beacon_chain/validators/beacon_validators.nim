@@ -1125,7 +1125,7 @@ proc proposeBlockAux(
           return head
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
-    let maybeUnblindedBlock = await proposeBlockMEV(
+      maybeUnblindedBlock = await proposeBlockMEV(
         node, payloadBuilderClient, blindedBlock)
 
     return maybeUnblindedBlock.valueOr:
@@ -1178,7 +1178,7 @@ proc proposeBlockAux(
             blobsBundle.proofs, blobsBundle.blobs))
         else:
           Opt.none(seq[BlobSidecar])
-      newBlockRef = (
+    let newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
       ).valueOr:
         return head # Errors logged in router
