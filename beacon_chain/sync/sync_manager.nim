@@ -473,21 +473,6 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
       else:
         Opt.none(seq[BlobSidecars])
 
-    if blobData.isSome:
-      let blobs = blobData.get()
-      if len(blobs) != len(blockData):
-        peer.updateScore(PeerScoreNoValues)
-        man.queue.push(req)
-        info "block and blobs have different lengths", blobs=len(blobs), blocks=len(blockData)
-        return
-      for i, blk in blockData:
-        if len(blobs[i]) > 0 and blk[].slot !=
-            blobs[i][0].signed_block_header.message.slot:
-          peer.updateScore(PeerScoreNoValues)
-          man.queue.push(req)
-          debug "block and blobs data have inconsistent slots"
-          return
-
     if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
         req.contains(man.getSafeSlot()):
       # The sync protocol does not distinguish between:
