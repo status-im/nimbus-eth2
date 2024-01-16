@@ -1483,10 +1483,8 @@ proc loadKzgTrustedSetup*(): Result[void, string] =
     trustedSetup = staticRead(
       vendorDir & "/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt")
 
-  if const_preset == "mainnet" or const_preset == "minimal":
-    Kzg.loadTrustedSetupFromString(trustedSetup)
-  else:
-    ok()
+  static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
+  Kzg.loadTrustedSetupFromString(trustedSetup)
 
 proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
   try:
