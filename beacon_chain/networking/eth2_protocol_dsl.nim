@@ -557,7 +557,7 @@ proc createSendProc*(msg: Message,
   def[3][0] = if procType == nnkMacroDef:
                 ident "untyped"
               elif msg.kind == msgRequest and not isRawSender:
-                Fut(msg.requestResultType)
+                ident "auto"
               elif msg.kind == msgHandshake and not isRawSender:
                 Fut(msg.recName)
               else:
@@ -652,12 +652,17 @@ proc useStandardBody*(sendProc: SendProc,
   sendProc.setBody quote do:
     mixin init, WriterType, beginRecord, endRecord, getOutput
 
-    var `outputStream` = memoryOutput()
-    `preSerialization`
-    `serialization`
-    `postSerialization`
-    `tracing`
-    let `msgBytes` = getOutput(`outputStream`)
+    let `msgBytes` =
+      try:
+        var `outputStream` = memoryOutput()
+        `preSerialization`
+        `serialization`
+        `postSerialization`
+        `tracing`
+        getOutput(`outputStream`)
+      except IOError:
+        raiseAssert "memoryOutput doesn't raise IOError actually"
+
     `sendCall`
 
 proc correctSerializerProcParams(params: NimNode) =

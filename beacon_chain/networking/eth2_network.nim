@@ -73,7 +73,7 @@ type
     seenThreshold*: chronos.Duration
     connQueue: AsyncQueue[PeerAddr]
     seenTable: Table[PeerId, SeenItem]
-    connWorkers: seq[Future[void]]
+    connWorkers: seq[Future[void].Raising([CancelledError])]
     connTable: HashSet[PeerId]
     forkId*: ENRForkID
     discoveryForkId*: ENRForkID
@@ -82,8 +82,8 @@ type
     peers*: Table[PeerId, Peer]
     directPeers*: DirectPeers
     validTopics: HashSet[string]
-    peerPingerHeartbeatFut: Future[void]
-    peerTrimmerHeartbeatFut: Future[void]
+    peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
+    peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg: RuntimeConfig
     getBeaconTime: GetBeaconTimeFn
 
@@ -166,8 +166,8 @@ type
 
   PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [].}
   NetworkStateInitializer* = proc(network: Eth2Node): RootRef {.gcsafe, raises: [].}
-  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe, raises: [].}
-  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe, raises: [].}
+  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.async: (raises: [CancelledError]).}
+  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.async: (raises: [CancelledError]).}
   ThunkProc* = LPProtoHandler
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
@@ -181,9 +181,6 @@ type
     # Clients MAY use reason codes above 128 to indicate alternative,
     # erroneous request-specific responses.
     PeerScoreLow = 237 # 79 * 3
-
-  PeerDisconnected* = object of CatchableError
-    reason*: DisconnectionReason
 
   TransmissionError* = object of CatchableError
 
@@ -205,6 +202,8 @@ type
     SizePrefixOverflow
     InvalidContextBytes
     ResponseChunkOverflow
+
+    UnknownError
 
   Eth2NetworkingError = object
     case kind*: Eth2NetworkingErrorKind
@@ -339,14 +338,22 @@ func shortProtocolId(protocolId: string): string =
 
 proc openStream(node: Eth2Node,
                 peer: Peer,
-                protocolId: string): Future[Connection] {.async.} =
+                protocolId: string): Future[NetRes[Connection]]
+                {.async: (raises: [CancelledError]).} =
   # When dialing here, we do not provide addresses - all new connection
   # attempts are handled via `connect` which also takes into account
   # reconnection timeouts
-  let
-    conn = await dial(node.switch, peer.peerId, protocolId)
-
-  return conn
+  try:
+    ok await dial(node.switch, peer.peerId, protocolId)
+  except LPError as exc:
+    debug "Dialling failed", exc = exc.msg
+    neterr BrokenConnection
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    # TODO remove once libp2p supports `raises`
+    warn "Unknown error when opening stream", exc = exc.msg
+    neterr UnknownError
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
@@ -522,8 +529,11 @@ proc addSeen(network: Eth2Node, peerId: PeerId,
     network.seenTable[peerId] = item
 
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
-                 notifyOtherPeer = false) {.async.} =
-  # TODO(zah): How should we notify the other peer?
+                 notifyOtherPeer = false) {.async: (raises: [CancelledError]).} =
+  # Per the specification, we MAY send a disconnect reason to the other peer but
+  # we currently don't - the fact that we're disconnecting is obvious and the
+  # reason already known (wrong network is known from status message) or doesn't
+  # greatly matter for the listening side (since it can't be trusted anyway)
   try:
     if peer.connectionState notin {Disconnecting, Disconnected}:
       peer.connectionState = Disconnecting
@@ -539,12 +549,16 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
           SeenTablePenaltyError
       peer.network.addSeen(peer.peerId, seenTime)
       await peer.network.switch.disconnect(peer.peerId)
-  except CatchableError:
-    # We do not care about exceptions in disconnection procedure.
-    trace "Exception while disconnecting peer", peer = peer.peerId,
-                                                reason = reason
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    # switch.disconnect shouldn't raise
+    warn "Unexpected error while disconnecting peer",
+      peer = peer.peerId,
+      reason = reason,
+      exc = exc.msg
 
-proc releasePeer*(peer: Peer) =
+proc releasePeer(peer: Peer) =
   ## Checks for peer's score and disconnects peer if score is less than
   ## `PeerScoreLowLimit`.
   if peer.connectionState notin {ConnectionState.Disconnecting,
@@ -640,22 +654,33 @@ proc sendErrorResponse(peer: Peer,
     peer, responseCode, errMsg = formatErrorMsg(errMsg)
   conn.writeChunk(Opt.some responseCode, SSZ.encode(errMsg))
 
-proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: seq[byte]) {.async.} =
-  var
+proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: seq[byte])
+    {.async: (raises: [CancelledError]).} =
+  # Notifications are sent as a best effort, ie errors are not reported back
+  # to the caller
+  let
     deadline = sleepAsync RESP_TIMEOUT_DUR
-    streamFut = peer.network.openStream(peer, protocolId)
+    streamRes = awaitWithTimeout(peer.network.openStream(peer, protocolId), deadline):
+      debug "Timeout while opening stream for notification", peer, protocolId
+      return
 
-  await streamFut or deadline
+  let stream = streamRes.valueOr:
+    debug "Could not open stream for notification",
+      peer, protocolId, error = streamRes.error
+    return
 
-  if not streamFut.finished:
-    await streamFut.cancelAndWait()
-    raise newException(TransmissionError, "Failed to open LibP2P stream")
-
-  let stream = streamFut.read
   try:
     await stream.writeChunk(Opt.none ResponseCode, requestBytes)
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    debug "Error while writing notification", peer, protocolId, exc = exc.msg
   finally:
-    await stream.close()
+    try:
+      await noCancel stream.close()
+    except CatchableError as exc:
+      warn "Unexpected error while closing notification stream",
+        peer, protocolId, exc = exc.msg
 
 proc sendResponseChunkBytesSZ(
     response: UntypedResponse, uncompressedLen: uint64,
@@ -686,13 +711,17 @@ template sendUserHandlerResultAsChunkImpl*(stream: Connection,
   writeChunk(stream, Opt.some ResponseCode.Success, SSZ.encode(handlerResult))
 
 proc uncompressFramedStream(conn: Connection,
-                            expectedSize: int): Future[Result[seq[byte], cstring]]
-                            {.async.} =
+                            expectedSize: int): Future[Result[seq[byte], string]]
+                            {.async: (raises: [CancelledError]).} =
   var header: array[framingHeader.len, byte]
   try:
     await conn.readExactly(addr header[0], header.len)
   except LPStreamEOFError, LPStreamIncompleteError:
     return err "Unexpected EOF before snappy header"
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    return err "Unexpected error reading header: " & exc.msg
 
   if header != framingHeader:
     return err "Incorrect snappy header"
@@ -711,6 +740,10 @@ proc uncompressFramedStream(conn: Connection,
       await conn.readExactly(addr frameHeader[0], frameHeader.len)
     except LPStreamEOFError, LPStreamIncompleteError:
       return err "Snappy frame header missing"
+    except CancelledError as exc:
+      raise exc
+    except CatchableError as exc:
+      return err "Unexpected error reading frame header: " & exc.msg
 
     let (id, dataLen) = decodeFrameHeader(frameHeader)
 
@@ -725,6 +758,10 @@ proc uncompressFramedStream(conn: Connection,
         await conn.readExactly(addr frameData[0], dataLen)
       except LPStreamEOFError, LPStreamIncompleteError:
         return err "Incomplete snappy frame"
+      except CancelledError as exc:
+        raise exc
+      except CatchableError as exc:
+        return err "Unexpected error reading frame data: " & exc.msg
 
     if id == chunkCompressed:
       if dataLen < 6: # At least CRC + 2 bytes of frame data
@@ -808,7 +845,8 @@ template gossipMaxSize(T: untyped): uint32 =
   static: doAssert maxSize <= GOSSIP_MAX_SIZE
   maxSize.uint32
 
-proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.async.} =
+proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
+    async: (raises: [CancelledError]).} =
   try:
     ok await conn.readVarint()
   except LPStreamEOFError: #, LPStreamIncompleteError, InvalidVarintError
@@ -819,9 +857,15 @@ proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.async.} =
     neterr UnexpectedEOF
   except InvalidVarintError:
     neterr InvalidSizePrefix
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    warn "Unexpected error", exc = exc.msg
+    neterr UnknownError
 
 proc readChunkPayload*(conn: Connection, peer: Peer,
-                       MsgType: type): Future[NetRes[MsgType]] {.async.} =
+                       MsgType: type): Future[NetRes[MsgType]]
+                       {.async: (raises: [CancelledError]).} =
   let
     sm = now(chronos.Moment)
     size = ? await readVarint2(conn)
@@ -843,46 +887,49 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
   # not be significant.
   peer.updateNetThroughput(now(chronos.Moment) - sm,
                             uint64(10 + size))
-  ok SSZ.decode(data, MsgType)
+  try:
+    ok SSZ.decode(data, MsgType)
+  except SerializationError:
+    neterr InvalidSszBytes
 
 proc readResponseChunk(
     conn: Connection, peer: Peer, MsgType: typedesc):
-    Future[NetRes[MsgType]] {.async.} =
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
   mixin readChunkPayload
 
+  var responseCodeByte: byte
   try:
-    var responseCodeByte: byte
-    try:
-      await conn.readExactly(addr responseCodeByte, 1)
-    except LPStreamEOFError, LPStreamIncompleteError:
-      return neterr PotentiallyExpectedEOF
-
-    static: assert ResponseCode.low.ord == 0
-    if responseCodeByte > ResponseCode.high.byte:
-      return neterr InvalidResponseCode
-
-    let responseCode = ResponseCode responseCodeByte
-    case responseCode:
-    of InvalidRequest, ServerError, ResourceUnavailable:
-      let
-        errorMsgChunk = await readChunkPayload(conn, peer, ErrorMsg)
-        errorMsg = if errorMsgChunk.isOk: errorMsgChunk.value
-                   else: return err(errorMsgChunk.error)
-        errorMsgStr = toPrettyString(errorMsg.asSeq)
-      debug "Error response from peer", responseCode, errMsg = errorMsgStr
-      return err Eth2NetworkingError(kind: ReceivedErrorResponse,
-                                     responseCode: responseCode,
-                                     errorMsg: errorMsgStr)
-    of Success:
-      discard
-
-    return await readChunkPayload(conn, peer, MsgType)
-
+    await conn.readExactly(addr responseCodeByte, 1)
   except LPStreamEOFError, LPStreamIncompleteError:
-    return neterr UnexpectedEOF
+    return neterr PotentiallyExpectedEOF
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    warn "Unexpected error", exc = exc.msg
+    return neterr UnknownError
+
+  static: assert ResponseCode.low.ord == 0
+  if responseCodeByte > ResponseCode.high.byte:
+    return neterr InvalidResponseCode
+
+  let responseCode = ResponseCode responseCodeByte
+  case responseCode:
+  of InvalidRequest, ServerError, ResourceUnavailable:
+    let
+      errorMsg = ? await readChunkPayload(conn, peer, ErrorMsg)
+      errorMsgStr = toPrettyString(errorMsg.asSeq)
+    debug "Error response from peer", responseCode, errMsg = errorMsgStr
+    return err Eth2NetworkingError(kind: ReceivedErrorResponse,
+                                    responseCode: responseCode,
+                                    errorMsg: errorMsgStr)
+  of Success:
+    discard
+
+  return await readChunkPayload(conn, peer, MsgType)
 
 proc readResponse(conn: Connection, peer: Peer,
-                  MsgType: type, timeout: Duration): Future[NetRes[MsgType]] {.async.} =
+                  MsgType: type, timeout: Duration): Future[NetRes[MsgType]]
+                  {.async: (raises: [CancelledError]).} =
   when MsgType is List:
     type E = MsgType.T
     var results: MsgType
@@ -896,7 +943,7 @@ proc readResponse(conn: Connection, peer: Peer,
       let nextFut = conn.readResponseChunk(peer, E)
       if not await nextFut.withTimeout(timeout):
         return neterr(ReadResponseTimeout)
-      let nextRes = nextFut.read()
+      let nextRes = await nextFut
       if nextRes.isErr:
         if nextRes.error.kind == PotentiallyExpectedEOF:
           trace "EOF chunk", conn, err = nextRes.error
@@ -913,15 +960,19 @@ proc readResponse(conn: Connection, peer: Peer,
     let nextFut = conn.readResponseChunk(peer, MsgType)
     if not await nextFut.withTimeout(timeout):
       return neterr(ReadResponseTimeout)
-    return nextFut.read()
+    return await nextFut # Guaranteed to complete without waiting
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
                      ResponseMsg: type,
                      timeout: Duration): Future[NetRes[ResponseMsg]]
-                    {.async.} =
-  let deadline = sleepAsync timeout
-  let stream = awaitWithTimeout(peer.network.openStream(peer, protocolId),
-                                deadline): return neterr StreamOpenTimeout
+                    {.async: (raises: [CancelledError]).} =
+  let
+    deadline = sleepAsync timeout
+    streamRes =
+      awaitWithTimeout(peer.network.openStream(peer, protocolId), deadline):
+        return neterr StreamOpenTimeout
+    stream = ?streamRes
+
   try:
     # Send the request
     # Some clients don't want a length sent for empty requests
@@ -941,13 +992,18 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
         peer.updateScore(PeerScoreInvalidRequest)
       else:
         peer.updateScore(PeerScorePoorRequest)
-    return res
-  except SerializationError as exc:
-    # Yay for both exceptions and results!
-    peer.updateScore(PeerScoreInvalidRequest)
+    res
+  except CancelledError as exc:
     raise exc
+  except CatchableError:
+    peer.updateScore(PeerScorePoorRequest)
+    neterr BrokenConnection
   finally:
-    await stream.closeWithEOF()
+    try:
+      await noCancel stream.closeWithEOF()
+    except CatchableError as exc:
+      warn "Unexpected error while closing stream",
+        peer, protocolId, exc = exc.msg
 
 proc init*(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
@@ -987,7 +1043,7 @@ template sendSSZ*[M](
   doAssert UntypedResponse(r).writtenChunks == 0
   sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
-proc performProtocolHandshakes(peer: Peer, incoming: bool) {.async.} =
+proc performProtocolHandshakes(peer: Peer, incoming: bool) {.async: (raises: [CancelledError]).} =
   # Loop down serially because it's easier to reason about the connection state
   # when there are fewer async races, specially during setup
   for protocol in peer.network.protocols:
@@ -1035,7 +1091,7 @@ proc implementSendProcBody(sendProc: SendProc) =
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
                           protocolId: string,
-                          MsgType: type) {.async.} =
+                          MsgType: type) {.async: (raises: [CancelledError]).} =
   mixin callUserHandler, RecType
 
   type MsgRec = RecType(MsgType)
@@ -1056,7 +1112,6 @@ proc handleIncomingStream(network: Eth2Node,
       # We got incoming stream request while disconnected or disconnecting.
       debug "Got incoming request from disconnected peer", peer = peer,
            message = msgName
-      await conn.closeWithEOF()
       return
     of Connecting:
       # We got incoming stream request while handshake is not yet finished,
@@ -1112,10 +1167,6 @@ proc handleIncomingStream(network: Eth2Node,
                 peer, conn, InvalidRequest,
                 errorMsgLit "Request full data not sent in time")
               return
-
-      except SerializationError as err:
-        nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
-        returnInvalidRequest err.formatMsg("msg")
 
       finally:
         # The request quota is shared between all requests - it represents the
@@ -1181,27 +1232,33 @@ proc handleIncomingStream(network: Eth2Node,
         of ResponseChunkOverflow:
           (InvalidRequest, errorMsgLit "Too many chunks in response")
 
+        of UnknownError:
+          (InvalidRequest, errorMsgLit "Unknown error while processing request")
+
       await sendErrorResponse(peer, conn, responseCode, errMsg)
       return
 
     try:
       # logReceivedMsg(peer, MsgType(msg.get))
       await callUserHandler(MsgType, peer, conn, msg.get)
-    except InvalidInputsError as err:
+    except InvalidInputsError as exc:
       nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
-      returnInvalidRequest err.msg
-    except ResourceUnavailableError as err:
-      returnResourceUnavailable err.msg
-    except CatchableError as err:
+      returnInvalidRequest exc.msg
+    except ResourceUnavailableError as exc:
+      returnResourceUnavailable exc.msg
+    except CatchableError as exc:
       nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
-      await sendErrorResponse(peer, conn, ServerError, ErrorMsg err.msg.toBytes)
+      await sendErrorResponse(peer, conn, ServerError, ErrorMsg exc.msg.toBytes)
 
-  except CatchableError as err:
+  except CatchableError as exc:
     nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
-    debug "Error processing an incoming request", err = err.msg, msgName
+    debug "Error processing an incoming request", exc = exc.msg, msgName
 
   finally:
-    await conn.closeWithEOF()
+    try:
+      await noCancel conn.closeWithEOF()
+    except CatchableError as exc:
+      warn "Unexpected error while closing incoming connection", exc = exc.msg
     releasePeer(peer)
 
 proc toPeerAddr*(r: enr.TypedRecord,
@@ -1263,7 +1320,7 @@ proc checkPeer(node: Eth2Node, peerAddr: PeerAddr): bool =
     else:
       true
 
-proc dialPeer(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
+proc dialPeer(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async: (raises: [CancelledError]).} =
   ## Establish connection with remote peer identified by address ``peerAddr``.
   logScope:
     peer = peerAddr.peerId
@@ -1298,7 +1355,7 @@ proc dialPeer(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
     inc nbc_failed_dials
     node.addSeen(peerAddr.peerId, SeenTableTimeDeadPeer)
 
-proc connectWorker(node: Eth2Node, index: int) {.async.} =
+proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError]).} =
   debug "Connection worker started", index = index
   while true:
     # This loop will never produce HIGH CPU usage because it will wait
@@ -1574,7 +1631,7 @@ proc resolvePeer(peer: Peer) =
     nbc_resolve_time.observe(delay.toFloatSeconds())
     debug "Peer's ENR recovered", delay
 
-proc handlePeer*(peer: Peer) {.async.} =
+proc handlePeer*(peer: Peer) {.async: (raises: [CancelledError]).} =
   let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
   case res:
   of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
@@ -1606,7 +1663,9 @@ proc handlePeer*(peer: Peer) {.async.} =
     debug "Peer successfully connected", peer = peer,
                                          connections = peer.connections
 
-proc onConnEvent(node: Eth2Node, peerId: PeerId, event: ConnEvent) {.async.} =
+proc onConnEvent(
+    node: Eth2Node, peerId: PeerId, event: ConnEvent) {.
+    async: (raises: [CancelledError]).} =
   let peer = node.getPeer(peerId)
   case event.kind
   of ConnEventKind.Connected:
@@ -1631,7 +1690,12 @@ proc onConnEvent(node: Eth2Node, peerId: PeerId, event: ConnEvent) {.async.} =
         # we might end up here
         debug "Got connection attempt from peer that we are disconnecting",
              peer = peerId
-        await node.switch.disconnect(peerId)
+        try:
+          await node.switch.disconnect(peerId)
+        except CancelledError as exc:
+          raise exc
+        except CatchableError as exc:
+          warn "Unexpected error while disconnecting peer", exc = exc.msg
         return
       of None:
         # We have established a connection with the new peer.
@@ -1767,23 +1831,22 @@ proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
     try:
        node.discovery.open()
-    except CatchableError as err:
+    except CatchableError as exc:
       fatal "Failed to start discovery service. UDP port may be already in use",
-            err = err.msg
+            exc = exc.msg
       quit 1
 
   try:
     await node.switch.start()
-  except CatchableError as err:
+  except CatchableError as exc:
     fatal "Failed to start LibP2P transport. TCP port may be already in use",
-          err = err.msg
+          exc = exc.msg
     quit 1
 
-proc peerPingerHeartbeat(node: Eth2Node): Future[void] {.gcsafe.}
-proc peerTrimmerHeartbeat(node: Eth2Node): Future[void] {.gcsafe.}
+proc peerPingerHeartbeat(node: Eth2Node): Future[void] {.async: (raises: [CancelledError]).}
+proc peerTrimmerHeartbeat(node: Eth2Node): Future[void] {.async: (raises: [CancelledError]).}
 
-proc start*(node: Eth2Node) {.async.} =
-
+proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   proc onPeerCountChanged() =
     trace "Number of peers has been changed", length = len(node.peerPool)
     nbc_peers.set int64(len(node.peerPool))
@@ -1808,7 +1871,7 @@ proc start*(node: Eth2Node) {.async.} =
   node.peerPingerHeartbeatFut = node.peerPingerHeartbeat()
   node.peerTrimmerHeartbeatFut = node.peerTrimmerHeartbeat()
 
-proc stop*(node: Eth2Node) {.async.} =
+proc stop*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   # Ignore errors in futures, since we're shutting down (but log them on the
   # TRACE level, if a timeout is reached).
   var waitedFutures =
@@ -1979,17 +2042,14 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 import ./peer_protocol
 export peer_protocol
 
-proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async.} =
+proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
   trace "updating peer metadata", peerId
 
-  var peer = node.getPeer(peerId)
-
-  #getMetaData can fail with an exception
-  let newMetadata =
-    try:
-      tryGet(await peer.getMetadata_v2())
-    except CatchableError as exc:
-      debug "Failed to retrieve metadata from peer!", peerId, msg=exc.msg
+  let
+    peer = node.getPeer(peerId)
+    newMetadataRes = await peer.getMetadata_v2()
+    newMetadata = newMetadataRes.valueOr:
+      debug "Failed to retrieve metadata from peer!", peerId, error = newMetadataRes.error
       peer.failedMetadataRequests.inc()
       return
 
@@ -2002,7 +2062,7 @@ const
   MetadataRequestFrequency = 30.minutes
   MetadataRequestMaxFailures = 3
 
-proc peerPingerHeartbeat(node: Eth2Node) {.async.} =
+proc peerPingerHeartbeat(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   while true:
     let heartbeatStart_m = Moment.now()
     var updateFutures: seq[Future[void]]
@@ -2011,7 +2071,7 @@ proc peerPingerHeartbeat(node: Eth2Node) {.async.} =
       if peer.connectionState != Connected: continue
 
       if peer.metadata.isNone or
-        heartbeatStart_m - peer.lastMetadataTime > MetadataRequestFrequency:
+          heartbeatStart_m - peer.lastMetadataTime > MetadataRequestFrequency:
         updateFutures.add(node.updatePeerMetadata(peer.peerId))
 
     await allFutures(updateFutures)
@@ -2021,24 +2081,21 @@ proc peerPingerHeartbeat(node: Eth2Node) {.async.} =
 
       if peer.failedMetadataRequests > MetadataRequestMaxFailures:
         debug "no metadata from peer, kicking it", peer
-        asyncSpawn peer.disconnect(PeerScoreLow)
+        await peer.disconnect(PeerScoreLow)
 
     await sleepAsync(5.seconds)
 
-proc peerTrimmerHeartbeat(node: Eth2Node) {.async.} =
+proc peerTrimmerHeartbeat(node: Eth2Node) {.async: (raises: [CancelledError]).} =
+  # Disconnect peers in excess of the (soft) max peer count
   while true:
-    # Peer trimmer
+    # Only count Connected peers (to avoid counting Disconnecting ones)
+    let
+      connectedPeers = node.peers.values.countIt(
+        it.connectionState == Connected)
+      excessPeers = connectedPeers - node.wantedPeers
 
-    # Only count Connected peers
-    # (to avoid counting Disconnecting ones)
-    var connectedPeers = 0
-    for peer in node.peers.values:
-      if peer.connectionState == Connected:
-        inc connectedPeers
-
-    let excessPeers = connectedPeers - node.wantedPeers
     if excessPeers > 0:
-      # Let chronos take back control every kick
+      # Let chronos take back control every trimming
       node.trimConnections(1)
 
     await sleepAsync(1.seconds div max(1, excessPeers))
@@ -2182,7 +2239,6 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       config.nat, config.listenAddress, config.tcpPort, config.udpPort,
       clientId)
     except CatchableError as exc: raise exc
-    except Exception as exc: raiseAssert exc.msg
 
     directPeers = block:
       var res: DirectPeers
@@ -2388,19 +2444,26 @@ proc gossipEncode(msg: auto): seq[byte] =
   snappy.encode(uncompressed)
 
 proc broadcast(node: Eth2Node, topic: string, msg: seq[byte]):
-    Future[Result[void, cstring]] {.async.} =
-  let peers = await node.pubsub.publish(topic, msg)
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  let peers =
+    try:
+      await node.pubsub.publish(topic, msg)
+    except CancelledError as exc:
+      raise exc
+    except CatchableError as exc:
+      warn "Unknown error during broadcast", exc = exc.msg
+      return err("Broadcast failed")
 
   # TODO remove workaround for sync committee BN/VC log spam
   if peers > 0 or find(topic, "sync_committee_") != -1:
     inc nbc_gossip_messages_sent
-    return ok()
+    ok()
   else:
     # Increments libp2p_gossipsub_failed_publish metric
-    return err("No peers on libp2p topic")
+    err("No peers on libp2p topic")
 
 proc broadcast(node: Eth2Node, topic: string, msg: auto):
-    Future[Result[void, cstring]] =
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   # Avoid {.async.} copies of message while broadcasting
   broadcast(node, topic, gossipEncode(msg))
 
@@ -2485,7 +2548,7 @@ proc getWallEpoch(node: Eth2Node): Epoch =
 
 proc broadcastAttestation*(
     node: Eth2Node, subnet_id: SubnetId, attestation: Attestation):
-    Future[SendResult] =
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#transitioning-the-gossip
   # implies that pre-fork, messages using post-fork digests might be
@@ -2498,63 +2561,72 @@ proc broadcastAttestation*(
   node.broadcast(topic, attestation)
 
 proc broadcastVoluntaryExit*(
-    node: Eth2Node, exit: SignedVoluntaryExit): Future[SendResult] =
+    node: Eth2Node, exit: SignedVoluntaryExit):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getVoluntaryExitsTopic(node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, exit)
 
 proc broadcastAttesterSlashing*(
-    node: Eth2Node, slashing: AttesterSlashing): Future[SendResult] =
+    node: Eth2Node, slashing: AttesterSlashing):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, slashing)
 
 proc broadcastProposerSlashing*(
-    node: Eth2Node, slashing: ProposerSlashing): Future[SendResult] =
+    node: Eth2Node, slashing: ProposerSlashing):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getProposerSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, slashing)
 
 proc broadcastBlsToExecutionChange*(
     node: Eth2Node, bls_to_execution_change: SignedBLSToExecutionChange):
-    Future[SendResult] =
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getBlsToExecutionChangeTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, bls_to_execution_change)
 
 proc broadcastAggregateAndProof*(
-    node: Eth2Node, proof: SignedAggregateAndProof): Future[SendResult] =
+    node: Eth2Node, proof: SignedAggregateAndProof):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, proof)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: phase0.SignedBeaconBlock): Future[SendResult] =
+    node: Eth2Node, blck: phase0.SignedBeaconBlock):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
   node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: altair.SignedBeaconBlock): Future[SendResult] =
+    node: Eth2Node, blck: altair.SignedBeaconBlock):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getBeaconBlocksTopic(node.forkDigests.altair)
   node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: bellatrix.SignedBeaconBlock): Future[SendResult] =
+    node: Eth2Node, blck: bellatrix.SignedBeaconBlock):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
   node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: capella.SignedBeaconBlock): Future[SendResult] =
+    node: Eth2Node, blck: capella.SignedBeaconBlock):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getBeaconBlocksTopic(node.forkDigests.capella)
   node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: deneb.SignedBeaconBlock): Future[SendResult] =
+    node: Eth2Node, blck: deneb.SignedBeaconBlock):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getBeaconBlocksTopic(node.forkDigests.deneb)
   node.broadcast(topic, blck)
 
 proc broadcastBlobSidecar*(
     node: Eth2Node, subnet_id: BlobId, blob: deneb.BlobSidecar):
-      Future[SendResult] =
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
     topic = getBlobSidecarTopic(forkPrefix, subnet_id)
@@ -2562,27 +2634,29 @@ proc broadcastBlobSidecar*(
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
-    subcommitteeIdx: SyncSubcommitteeIndex): Future[SendResult] =
+    subcommitteeIdx: SyncSubcommitteeIndex):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getSyncCommitteeTopic(
     node.forkDigestAtEpoch(node.getWallEpoch), subcommitteeIdx)
   node.broadcast(topic, msg)
 
 proc broadcastSignedContributionAndProof*(
-    node: Eth2Node, msg: SignedContributionAndProof): Future[SendResult] =
+    node: Eth2Node, msg: SignedContributionAndProof):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getSyncCommitteeContributionAndProofTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, msg)
 
 proc broadcastLightClientFinalityUpdate*(
     node: Eth2Node, msg: ForkyLightClientFinalityUpdate):
-    Future[SendResult] =
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getLightClientFinalityUpdateTopic(
     node.forkDigestAtEpoch(msg.contextEpoch))
   node.broadcast(topic, msg)
 
 proc broadcastLightClientOptimisticUpdate*(
     node: Eth2Node, msg: ForkyLightClientOptimisticUpdate):
-    Future[SendResult] =
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getLightClientOptimisticUpdateTopic(
     node.forkDigestAtEpoch(msg.contextEpoch))
   node.broadcast(topic, msg)
