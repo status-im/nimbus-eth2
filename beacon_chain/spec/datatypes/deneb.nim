@@ -585,6 +585,7 @@ func shortLog*(v: ExecutionPayload): auto =
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals),
+    blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas)
   )
 
