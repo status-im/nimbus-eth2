@@ -1227,9 +1227,12 @@ proc proposeBlockAux(
     # This change, maybe combined with some macOS specific compiler specifics,
     # could this trigger the `SIGSEGV`? Maybe the extra state adds just enough
     # complexity to the function to disable certain problematic optimizations?
-    # Furthermore, the combination of `(await xyz).valueOr: return` is not very
-    # commonly used together with other `await` in the same `let` block, which
-    # could explain why this is not a more common trigger across Nimbus.
+    # The change in size of the environment changes a number of things such as
+    # alignment and which parts of an environment contain pointers and so on,
+    # which in turn may have surprising behavioural effects, ie most likely this
+    # extra state masks some underlying issue. Furthermore, the combination of
+    # `(await xyz).valueOr: return` is not very commonly used with other `await`
+    # in the same `let` block, which could explain this not being more common.
     #
     # Note that when compiling for Wasm, there are similar bugs with `results`
     # when inlining unwraps, e.g., in `eth2_rest_serialization.nim`.
