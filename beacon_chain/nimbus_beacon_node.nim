@@ -132,6 +132,19 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToDeneb:
         (proc() = notice "🐟 Proto-Danksharding is ON 🐟"))
 
+func getVanityMascot(consensusFork: ConsensusFork): string =
+  case consensusFork
+  of ConsensusFork.Deneb:
+    "🐟"
+  of ConsensusFork.Capella:
+    "🦉"
+  of ConsensusFork.Bellatrix:
+    "🐼"
+  of ConsensusFork.Altair:
+    "✨"
+  of ConsensusFork.Phase0:
+    "🦏"
+
 proc loadChainDag(
     config: BeaconNodeConf,
     cfg: RuntimeConfig,
@@ -1473,7 +1486,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   await node.updateGossipStatus(slot + 1)
 
-func formatNextConsensusFork(node: BeaconNode): Opt[string] =
+func formatNextConsensusFork(
+    node: BeaconNode, withVanityArt = false): Opt[string] =
   let consensusFork =
     node.dag.cfg.consensusForkAtEpoch(node.dag.head.slot.epoch)
   if consensusFork == ConsensusFork.high:
@@ -1483,7 +1497,9 @@ func formatNextConsensusFork(node: BeaconNode): Opt[string] =
     nextForkEpoch = node.dag.cfg.consensusForkEpoch(nextConsensusFork)
   if nextForkEpoch == FAR_FUTURE_EPOCH:
     return Opt.none(string)
-  Opt.some($nextConsensusFork & ":" & $nextForkEpoch)
+  Opt.some(
+    (if withVanityArt: nextConsensusFork.getVanityMascot & " " else: "") &
+    $nextConsensusFork & ":" & $nextForkEpoch)
 
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   let optimistic_head = not node.dag.head.executionValid
@@ -1970,7 +1986,8 @@ when not defined(windows):
         formatGwei(node.attachedValidatorBalanceTotal)
 
       of "next_consensus_fork":
-        let nextConsensusForkDescription = node.formatNextConsensusFork()
+        let nextConsensusForkDescription =
+          node.formatNextConsensusFork(withVanityArt = true)
         if nextConsensusForkDescription.isNone:
           ""
         else:
