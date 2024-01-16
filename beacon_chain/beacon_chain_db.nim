@@ -9,7 +9,8 @@
 
 import
   std/[typetraits, tables],
-  stew/[arrayops, assign2, byteutils, endians2, io2, objects, results],
+  results,
+  stew/[arrayops, assign2, byteutils, endians2, io2, objects],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,

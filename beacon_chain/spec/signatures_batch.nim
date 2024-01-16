@@ -15,7 +15,8 @@
 import
   # Status lib
   blscurve,
-  stew/[byteutils, results],
+  stew/byteutils,
+  results,
   taskpools,
   bearssl/rand,
   # Internal

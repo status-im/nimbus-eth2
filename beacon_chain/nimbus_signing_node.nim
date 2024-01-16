@@ -9,7 +9,7 @@ import std/[tables, os, strutils]
 import serialization, json_serialization,
        json_serialization/std/[options, net],
        chronos, presto, presto/secureserver, chronicles, confutils,
-       stew/[base10, results, byteutils, io2, bitops2]
+       results, stew/[base10, byteutils, io2, bitops2]
 import "."/spec/datatypes/[base, altair, phase0],
        "."/spec/[crypto, digest, network, signatures, forks],
        "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],

@@ -10,7 +10,7 @@
 import
   # Status
   chronicles, chronos, metrics,
-  stew/results,
+  results,
   # Internals
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],

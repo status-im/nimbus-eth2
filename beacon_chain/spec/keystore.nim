@@ -14,7 +14,8 @@ import
   # Third-party libraries
   normalize,
   # Status libraries
-  stew/[results, bitops2, base10, io2, endians2], stew/shims/macros,
+  results,
+  stew/[bitops2, base10, io2, endians2], stew/shims/macros,
   eth/keyfile/uuid, blscurve,
   json_serialization, json_serialization/std/options,
   chronos/timer,

@@ -25,7 +25,8 @@
 
 import
   # Status
-  stew/[bitseqs, endians2, objects, results, byteutils],
+  results,
+  stew/[bitseqs, endians2, objects, byteutils],
   blscurve,
   chronicles,
   bearssl/rand,

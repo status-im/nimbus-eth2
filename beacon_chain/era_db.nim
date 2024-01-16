@@ -7,7 +7,7 @@
 import
   std/os,
   chronicles,
-  stew/results, snappy, taskpools,
+  results, snappy, taskpools,
   ../ncli/e2store,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[beaconstate, forks, signatures_batch],

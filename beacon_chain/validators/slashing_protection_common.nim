@@ -11,7 +11,8 @@ import
   # Stdlib
   std/[typetraits, strutils, algorithm],
   # Status
-  stew/[byteutils, results],
+  stew/byteutils,
+  results,
   serialization,
   json_serialization, json_serialization/std/options,
   chronicles,

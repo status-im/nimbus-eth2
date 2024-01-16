@@ -14,7 +14,8 @@ import
   json_rpc/[client, errors],
   web3, web3/[engine_api, primitives, conversions],
   eth/common/[eth_types, transaction],
-  eth/async_utils, stew/[assign2, byteutils, objects, results, shims/hashes, endians2],
+  eth/async_utils, results,
+  stew/[assign2, byteutils, objects, shims/hashes, endians2],
   # Local modules:
   ../spec/[deposit_snapshots, eth2_merkleization, forks, helpers],
   ../networking/network_metadata,

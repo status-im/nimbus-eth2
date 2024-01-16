@@ -11,7 +11,7 @@ import
   # Standard library
   std/tables,
   # Status
-  stew/results,
+  results,
   chronicles,
   # Internal
   ../spec/datatypes/base,

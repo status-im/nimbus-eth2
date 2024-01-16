@@ -8,7 +8,8 @@
 
 import
   chronos,
-  stew/[results, endians2],
+  results,
+  stew/endians2,
   presto/client,
   ../helpers,
   "."/[rest_common, eth2_rest_serialization]
