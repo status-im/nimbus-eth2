@@ -251,7 +251,7 @@ func groupBlobs*[T](req: SyncRequest[T],
         template commits: untyped = forkyBlck.message.body.blob_kzg_commitments
         if commits.len == 0:
           continue
-        let header = forkyBlck.toBeaconBlockHeader()
+        let header = forkyBlck.toSignedBeaconBlockHeader()
         for blob_idx, kzg_commitment in commits:
           if blob_cursor >= blobs.len:
             return err("BlobSidecar: response too short")
