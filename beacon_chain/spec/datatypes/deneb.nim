@@ -616,6 +616,20 @@ func kzg_commitment_inclusion_proof_gindex*(
 
   BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#check_blob_sidecar_inclusion_proof
+func verify_blob_sidecar_inclusion_proof*(
+    blob_sidecar: BlobSidecar): Opt[void] =
+  let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
+  if not is_valid_merkle_branch(
+      hash_tree_root(blob_sidecar.kzg_commitment),
+      blob_sidecar.kzg_commitment_inclusion_proof,
+      KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
+      get_subtree_index(gindex),
+      blob_sidecar.signed_block_header.message.body_root):
+    return err()
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =

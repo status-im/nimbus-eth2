@@ -193,8 +193,9 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
   (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
    e >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
-proc getBlobSidecars*[A, B](man: SyncManager[A, B], peer: A,
-                      req: SyncRequest): Future[BlobSidecarsRes] {.async.} =
+proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
+                           req: SyncRequest
+                          ): Future[BlobSidecarsRes] {.async.} =
   mixin getScore, `==`
 
   logScope:
@@ -241,23 +242,32 @@ func groupBlobs*[T](req: SyncRequest[T],
                     blocks: seq[ref ForkedSignedBeaconBlock],
                     blobs: seq[ref BlobSidecar]):
                       Result[seq[BlobSidecars], string] =
-  var grouped = newSeq[BlobSidecars](len(blocks))
-  var blobCursor = 0
-  var i = 0
-  for blck in blocks:
-    let slot = blck[].slot
-    if blobCursor == len(blobs):
-      # reached end of blobs, have more blobless blocks
-      break
-    for blob in blobs[blobCursor..len(blobs)-1]:
-      if blob.signed_block_header.message.slot < slot:
-        return Result[seq[BlobSidecars], string].err "invalid blob sequence"
-      if blob.signed_block_header.message.slot == slot:
-        grouped[i].add(blob)
-        blobCursor = blobCursor + 1
-    i = i + 1
+  var
+    grouped = newSeq[BlobSidecars](len(blocks))
+    blob_cursor = 0
+  for block_idx, blck in blocks:
+    withBlck(blck):
+      when consensusFork >= ConsensusFork.Deneb:
+        template commits: untyped = forkyBlck.message.body.blob_kzg_commitments
+        if commits.len == 0:
+          continue
+        let header = forkyBlck.toBeaconBlockHeader()
+        for blob_idx, kzg_commitment in commits:
+          if blob_cursor >= blobs.len:
+            return err("BlobSidecar: response too short")
+          let blob_sidecar = blobs[blob_cursor]
+          if blob_sidecar.index != BlobIndex blob_idx:
+            return err("BlobSidecar: unexpected index")
+          if blob_sidecar.kzg_commitment != kzg_commitment:
+            return err("BlobSidecar: unexpected kzg_commitment")
+          if blob_sidecar.signed_block_header != header:
+            return err("BlobSidecar: unexpected signed_block_header")
+          if blob_sidecar.verify_blob_sidecar_inclusion_proof().isErr:
+            return err("BlobSidecar: inclusion proof not valid")
+          grouped[block_idx].add(blob_sidecar)
+          inc blob_cursor
 
-  if blobCursor != len(blobs):
+  if blob_cursor != len(blobs):
     # we reached end of blocks without consuming all blobs so either
     # the peer we got too few blocks in the paired request, or the
     # peer is sending us spurious blobs.

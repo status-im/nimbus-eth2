@@ -179,16 +179,9 @@ func check_attestation_subnet(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#verify_blob_sidecar_inclusion_proof
-func verify_blob_sidecar_inclusion_proof(
+func check_blob_sidecar_inclusion_proof(
     blob_sidecar: deneb.BlobSidecar): Result[void, ValidationError] =
-  let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
-  if not is_valid_merkle_branch(
-      hash_tree_root(blob_sidecar.kzg_commitment),
-      blob_sidecar.kzg_commitment_inclusion_proof,
-      KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
-      get_subtree_index(gindex),
-      blob_sidecar.signed_block_header.message.body_root):
+  if blob_sidecar.verify_blob_sidecar_inclusion_proof().isErr:
     return errReject("BlobSidecar: inclusion proof not valid")
 
   ok()
@@ -361,7 +354,7 @@ proc validateBlobSidecar*(
   # [REJECT] The sidecar's inclusion proof is valid as verified by
   # `verify_blob_sidecar_inclusion_proof(blob_sidecar)`.
   block:
-    let v = verify_blob_sidecar_inclusion_proof(blob_sidecar)
+    let v = check_blob_sidecar_inclusion_proof(blob_sidecar)
     if v.isErr:
       return dag.checkedReject(v.error)
 
