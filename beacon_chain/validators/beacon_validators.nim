@@ -1190,7 +1190,7 @@ proc proposeBlockAux(
     # Issue has started occuring around 12 Jan 2024, in a CI run for PR #5731.
     # The PR did not change anything related to this, suggesting an environment
     # or hardware change. The issue is flaky; could have been introduced earlier
-    # before surfacing in the aforementioned mentioned PR. About 30% to hit bug.
+    # before surfacing in the aforementioned PR. About 30% to hit bug.
     #
     # [2024-01-12T11:54:21.011Z] Wrote test_keymanager_api/bootstrap_node.enr
     # [2024-01-12T11:54:29.294Z] Serialization/deserialization [Beacon Node] [Preset: mainnet] . (0.00s)
