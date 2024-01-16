@@ -439,8 +439,7 @@ type
         desc: "Textual template for the contents of the status bar"
         defaultValue: "peers: $connected_peers;" &
                       "finalized: $finalized_root:$finalized_epoch;" &
-                      "head: $head_root:$head_epoch:$head_epoch_slot;" &
-                      "fork: $consensus_fork;" &
+                      "head: $head_root:$head_epoch:$head_epoch_slot$next_consensus_fork;" &
                       "time: $epoch:$epoch_slot ($slot);" &
                       "sync: $sync_status|" &
                       "ETH: $attached_validators_balance"
@@ -1484,10 +1483,8 @@ proc loadKzgTrustedSetup*(): Result[void, string] =
     trustedSetup = staticRead(
       vendorDir & "/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt")
 
-  if const_preset == "mainnet" or const_preset == "minimal":
-    Kzg.loadTrustedSetupFromString(trustedSetup)
-  else:
-    ok()
+  static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
+  Kzg.loadTrustedSetupFromString(trustedSetup)
 
 proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
   try:

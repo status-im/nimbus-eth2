@@ -559,7 +559,7 @@ elif const_preset == "minimal":
   )
 
 else:
-  {.error: "Only mainnet and minimal presets supported".}
+  {.error: "Only mainnet, gnosis, and minimal presets supported".}
   # macro createConstantsFromPreset*(path: static string): untyped =
   #   result = newStmtList()
 
