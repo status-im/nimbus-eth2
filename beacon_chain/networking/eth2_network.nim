@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, sequtils, strutils, algorithm, math, tables],
+  std/[typetraits, os, sequtils, strutils, algorithm, math, tables, macrocache],
 
   # Status libs
   stew/[leb128, endians2, results, byteutils, io2, bitops2],
@@ -1964,18 +1964,16 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
               codecNameLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
-    # TODO
-    # This current approach is not building on good foundations.
-    # Incrementing a global variable at compile-time fundamentally at odds with
-    # incremental compilation (because a recompile that doesn't revisit the whole
-    # program will mess up the counting and create duplicate indices).
-    # A better approach would build upon the `macrocache` module from the standard
-    # library, which is compatible with incremental compilation:
-    # https://nim-lang.org/docs/macrocache.html
-    var id {.global.}: int
-    let tmp = id
-    id += 1
-    return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit, newLit(tmp))
+    # This `macrocache` counter gives each protocol its own integer index which
+    # is later used to index per-protocol, per-instace data kept in the peer and
+    # network - the counter is global across all modules / protocols of the
+    # application
+    let
+      id = CacheCounter"eth2_network_protocol_id"
+      tmp = id.value
+    id.inc(1)
+
+    newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit, newLit(tmp))
 
 #Must import here because of cyclicity
 import ./peer_protocol
