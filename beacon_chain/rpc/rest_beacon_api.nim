@@ -44,6 +44,19 @@ proc validateBeaconApiQueries*(key: string, value: string): int =
   else:
     1
 
+const
+  AllValidatorFilterKinds = {
+    ValidatorFilterKind.PendingInitialized,
+    ValidatorFilterKind.PendingQueued,
+    ValidatorFilterKind.ActiveOngoing,
+    ValidatorFilterKind.ActiveExiting,
+    ValidatorFilterKind.ActiveSlashed,
+    ValidatorFilterKind.ExitedUnslashed,
+    ValidatorFilterKind.ExitedSlashed,
+    ValidatorFilterKind.WithdrawalPossible,
+    ValidatorFilterKind.WithdrawalDone
+  }
+
 proc validateFilter(filters: seq[ValidatorFilter]): Result[ValidatorFilter,
                                                            cstring] =
   var res: ValidatorFilter
@@ -51,17 +64,8 @@ proc validateFilter(filters: seq[ValidatorFilter]): Result[ValidatorFilter,
     if res * item != {}:
       return err("Validator status must be unique")
     res.incl(item)
-
   if res == {}:
-    res = {ValidatorFilterKind.PendingInitialized,
-           ValidatorFilterKind.PendingQueued,
-           ValidatorFilterKind.ActiveOngoing,
-           ValidatorFilterKind.ActiveExiting,
-           ValidatorFilterKind.ActiveSlashed,
-           ValidatorFilterKind.ExitedUnslashed,
-           ValidatorFilterKind.ExitedSlashed,
-           ValidatorFilterKind.WithdrawalPossible,
-           ValidatorFilterKind.WithdrawalDone}
+    return ok(AllValidatorFilterKinds)
   ok(res)
 
 proc getStatus(validator: Validator,
@@ -413,7 +417,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 Http400, InvalidRequestBodyError, $error)
           let
             ids = request.ids.valueOr: @[]
-            filter = request.status.valueOr: {}
+            filter = request.status.valueOr: AllValidatorFilterKinds
           (ids, filter)
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
