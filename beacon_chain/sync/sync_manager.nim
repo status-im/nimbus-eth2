@@ -248,14 +248,14 @@ func groupBlobs*[T](req: SyncRequest[T],
   for block_idx, blck in blocks:
     withBlck(blck[]):
       when consensusFork >= ConsensusFork.Deneb:
-        template commits: untyped = forkyBlck.message.body.blob_kzg_commitments
-        if commits.len == 0:
+        template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
+        if kzgs.len == 0:
           continue
         # Clients MUST include all blob sidecars of each block from which they include blob sidecars.
         # The following blob sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blobsidecarsbyrange-v1
         let header = forkyBlck.toSignedBeaconBlockHeader()
-        for blob_idx, kzg_commitment in commits:
+        for blob_idx, kzg_commitment in kzgs:
           if blob_cursor >= blobs.len:
             return err("BlobSidecar: response too short")
           let blob_sidecar = blobs[blob_cursor]
