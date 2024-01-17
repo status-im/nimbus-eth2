@@ -7,7 +7,7 @@
 
 import
   std/tables,
-  stew/results,
+  results,
   chronicles,
   ../datatypes/base
 
@@ -24,24 +24,20 @@ type
 func init*(T: type DynamicFeeRecipientsStore): T =
   T(mappings: initTable[ValidatorIndex, Entry]())
 
-proc addMapping*(store: var DynamicFeeRecipientsStore,
+func addMapping*(store: var DynamicFeeRecipientsStore,
                  validator: ValidatorIndex,
                  feeRecipient: Eth1Address,
-                 currentEpoch: Epoch) =
+                 currentEpoch: Epoch): bool =
   var updated = false
   store.mappings.withValue(validator, entry) do:
-    updated = not (entry[].recipient == feeRecipient)
+    updated = entry[].recipient != feeRecipient
     entry[] = Entry(recipient: feeRecipient, addedAt: currentEpoch)
   do:
     updated = true
     store.mappings[validator] = Entry(recipient: feeRecipient,
                                       addedAt: currentEpoch)
-  if updated:
-    info "Updating fee recipient",
-      validator, feeRecipient = feeRecipient.toHex(), currentEpoch
-  else:
-    debug "Refreshing fee recipient",
-      validator, feeRecipient = feeRecipient.toHex(), currentEpoch
+
+  updated
 
 func getDynamicFeeRecipient*(store: var DynamicFeeRecipientsStore,
                              validator: ValidatorIndex,

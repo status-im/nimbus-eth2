@@ -1071,11 +1071,21 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           dres.get()
       currentEpoch = node.beaconClock.now.slotOrZero.epoch
 
+    var
+      numUpdated = 0
+      numRefreshed = 0
     for proposerData in body:
-      node.dynamicFeeRecipientsStore[].addMapping(
-        proposerData.validator_index,
-        proposerData.fee_recipient,
-        currentEpoch)
+      if node.dynamicFeeRecipientsStore[].addMapping(
+          proposerData.validator_index,
+          proposerData.fee_recipient,
+          currentEpoch):
+        inc numUpdated
+      else:
+        inc numRefreshed
+
+    info "Prepared beacon proposers",
+      numUpdatedFeeRecipients = numUpdated,
+      numRefreshedFeeRecipients = numRefreshed
 
     return RestApiResponse.response("", Http200, "text/plain")
 
