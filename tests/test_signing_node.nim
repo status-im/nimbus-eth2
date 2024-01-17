@@ -7,7 +7,7 @@
 
 import
   std/algorithm,
-  presto, unittest2, chronicles, stew/[results, byteutils, io2],
+  unittest2, chronicles, stew/[results, byteutils, io2],
   chronos/asyncproc,
   chronos/unittest2/asynctests,
   ../beacon_chain/spec/[signatures, crypto],

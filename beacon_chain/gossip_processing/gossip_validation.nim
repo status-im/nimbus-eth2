@@ -21,7 +21,7 @@ import
   ".."/[beacon_clock],
   ./batch_validation
 
-from libp2p/protocols/pubsub/pubsub import ValidationResult
+from libp2p/protocols/pubsub/errors import ValidationResult
 
 export results, ValidationResult
 

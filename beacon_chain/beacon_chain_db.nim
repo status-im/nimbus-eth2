@@ -28,7 +28,7 @@ from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
-  kvstore_sqlite3
+  kvstore_sqlite3, deposit_snapshots
 
 logScope: topics = "bc_db"
 
