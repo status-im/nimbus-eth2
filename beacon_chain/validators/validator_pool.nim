@@ -11,7 +11,7 @@ import
   std/[tables, json, streams, sequtils, uri],
   chronos, chronicles, metrics,
   json_serialization/std/net,
-  presto, presto/client,
+  presto/client,
 
   ../spec/[keystore, signatures, helpers, crypto],
   ../spec/datatypes/[phase0, altair],

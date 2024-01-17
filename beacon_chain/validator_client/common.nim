@@ -24,7 +24,7 @@ import
 from std/times import Time, toUnix, fromUnix, getTime
 
 export
-  os, sets, sequtils, chronos, presto, chronicles, confutils,
+  os, sets, sequtils, chronos, chronicles, confutils,
   nimbus_binary_common, version, conf, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,

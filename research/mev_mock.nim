@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  confutils,
+  confutils, presto,
   ../beacon_chain/spec/datatypes/capella,
   ../beacon_chain/rpc/rest_utils,
   ../beacon_chain/spec/eth2_apis/rest_beacon_client
