@@ -968,6 +968,10 @@ proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
         vc.config.validatorsDir, pubkey, perValidatorDefaultFeeRecipient)
     if staticRecipient.isOk():
       Opt.some(staticRecipient.get())
+    elif len(vc.config.web3SignerUrls) > 0 or len(vc.config.verifyingWeb3Signers) > 0:
+      # See issue 5730: getSuggestedFeeRecipient returns err if the validator directory
+      # does not exist, which is the case when a web3signer is used
+      Opt.some(perValidatorDefaultFeeRecipient)
     else:
       Opt.none(Eth1Address)
 
