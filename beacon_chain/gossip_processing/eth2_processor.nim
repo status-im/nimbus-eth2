@@ -381,7 +381,7 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - attestation.data.slot.start_beacon_time
+  let delay = wallTime - attestation.data.slot.attestation_deadline
   debug "Attestation received", delay
 
   # Now proceed to validation
@@ -431,8 +431,9 @@ proc processSignedAggregateAndProof*(
     return errIgnore("Aggregate before genesis")
 
   # Potential under/overflows are fine; would just create odd logs
-  let delay =
-    wallTime - signedAggregateAndProof.message.aggregate.data.slot.start_beacon_time
+  let
+    slot = signedAggregateAndProof.message.aggregate.data.slot
+    delay = wallTime - slot.aggregate_deadline
   debug "Aggregate received", delay
 
   let v =
@@ -578,7 +579,7 @@ proc processSyncCommitteeMessage*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - syncCommitteeMsg.slot.start_beacon_time
+  let delay = wallTime - syncCommitteeMsg.slot.sync_committee_message_deadline
   debug "Sync committee message received", delay
 
   # Now proceed to validation
@@ -624,7 +625,9 @@ proc processSignedContributionAndProof*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - contributionAndProof.message.contribution.slot.start_beacon_time
+  let
+    slot = contributionAndProof.message.contribution.slot
+    delay = wallTime - slot.sync_contribution_deadline
   debug "Contribution received", delay
 
   # Now proceed to validation
