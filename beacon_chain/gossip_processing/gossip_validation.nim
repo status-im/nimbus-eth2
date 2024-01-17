@@ -181,8 +181,9 @@ func check_attestation_subnet(
 
 func check_blob_sidecar_inclusion_proof(
     blob_sidecar: deneb.BlobSidecar): Result[void, ValidationError] =
-  if blob_sidecar.verify_blob_sidecar_inclusion_proof().isErr:
-    return errReject("BlobSidecar: inclusion proof not valid")
+  let res = blob_sidecar.verify_blob_sidecar_inclusion_proof()
+  if res.isErr:
+    return errReject(res.error)
 
   ok()
 

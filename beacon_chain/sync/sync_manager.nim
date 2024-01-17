@@ -279,8 +279,7 @@ func groupBlobs*[T](req: SyncRequest[T],
 func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
   for blob_sidecars in blobs:
     for blob_sidecar in blob_sidecars:
-      if blob_sidecar[].verify_blob_sidecar_inclusion_proof().isErr:
-        return err("BlobSidecar: inclusion proof not valid")
+      ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
   ok()
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =

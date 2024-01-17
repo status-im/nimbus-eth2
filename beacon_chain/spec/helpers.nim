@@ -213,7 +213,7 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#check_blob_sidecar_inclusion_proof
 func verify_blob_sidecar_inclusion_proof*(
-    blob_sidecar: BlobSidecar): Opt[void] =
+    blob_sidecar: BlobSidecar): Result[void, string] =
   let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
   if not is_valid_merkle_branch(
       hash_tree_root(blob_sidecar.kzg_commitment),
@@ -221,8 +221,7 @@ func verify_blob_sidecar_inclusion_proof*(
       KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
       get_subtree_index(gindex),
       blob_sidecar.signed_block_header.message.body_root):
-    return err()
-
+    return err("BlobSidecar: inclusion proof not valid")
   ok()
 
 func create_blob_sidecars*(
