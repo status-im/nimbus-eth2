@@ -262,8 +262,6 @@ func groupBlobs*[T](req: SyncRequest[T],
             return err("BlobSidecar: unexpected kzg_commitment")
           if blob_sidecar.signed_block_header != header:
             return err("BlobSidecar: unexpected signed_block_header")
-          if blob_sidecar[].verify_blob_sidecar_inclusion_proof().isErr:
-            return err("BlobSidecar: inclusion proof not valid")
           grouped[block_idx].add(blob_sidecar)
           inc blob_cursor
 
@@ -274,6 +272,12 @@ func groupBlobs*[T](req: SyncRequest[T],
     Result[seq[BlobSidecars], string].err "invalid block or blob sequence"
   else:
     Result[seq[BlobSidecars], string].ok grouped
+
+func checkBlobs(blob_sidecars: seq[BlobSidecars]): Result[void, string] =
+  for blob_sidecar in blob_sidecars:
+    if blob_sidecar[].verify_blob_sidecar_inclusion_proof().isErr:
+      return err("BlobSidecar: inclusion proof not valid")
+  ok()
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   logScope:
@@ -468,6 +472,15 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           man.queue.push(req)
           info "Received blobs sequence is inconsistent",
             blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
+          return
+        if (let checkedBlobs = groupedBlobs.checkBlobs(); checkedBlobs.isErr):
+          peer.updateScore(PeerScoreBadResponse)
+          man.queue.push(req)
+          warn "Received blobs sequence is invalid",
+            blobs_count = len(blobData),
+            blobs_map = getShortMap(req, blobData),
+            request = req,
+            msg = checkedblobs.error
           return
         Opt.some(groupedBlobs.get())
       else:
