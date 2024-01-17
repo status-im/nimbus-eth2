@@ -899,7 +899,7 @@ proc validateAggregate*(
     # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
     # superset has _not_ already been seen.
     # https://github.com/ethereum/consensus-specs/pull/2847
-    return errIgnore("Aggregate already covered")
+    return errIgnore("Aggregate: already covered")
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
@@ -1281,7 +1281,7 @@ proc validateContribution*(
   # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE for this
   #  topic that can be flushed after each slot).
   if syncCommitteeMsgPool[].isSeen(msg.message):
-    return errIgnore("Contribution: duplicate contribution")
+    return errIgnore("Contribution: validator has already aggregated in slot")
 
   # [REJECT] The aggregator's validator index is in the declared subcommittee
   # of the current sync committee.
@@ -1317,7 +1317,7 @@ proc validateContribution*(
   # `beacon_block_root` and `subcommittee_index` whose `aggregation_bits`
   # is non-strict superset has _not_ already been seen.
   if syncCommitteeMsgPool[].covers(msg.message.contribution, blck.bid):
-    return errIgnore("Contribution: duplicate contribution")
+    return errIgnore("Contribution: already covered")
 
   let sig = if checkSignature:
     let deferredCrypto = batchCrypto.scheduleContributionChecks(
