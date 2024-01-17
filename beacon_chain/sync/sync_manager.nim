@@ -262,7 +262,7 @@ func groupBlobs*[T](req: SyncRequest[T],
             return err("BlobSidecar: unexpected kzg_commitment")
           if blob_sidecar.signed_block_header != header:
             return err("BlobSidecar: unexpected signed_block_header")
-          if blob_sidecar.verify_blob_sidecar_inclusion_proof().isErr:
+          if blob_sidecar[].verify_blob_sidecar_inclusion_proof().isErr:
             return err("BlobSidecar: inclusion proof not valid")
           grouped[block_idx].add(blob_sidecar)
           inc blob_cursor
