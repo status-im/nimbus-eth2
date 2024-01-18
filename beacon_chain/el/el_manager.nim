@@ -584,16 +584,16 @@ proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
 proc establishEngineApiConnection*(url: EngineApiUrl):
                                    Future[Result[Web3, string]] {.async.} =
   let web3Fut = newWeb3(url)
-  yield web3Fut or sleepAsync(engineApiConnectionTimeout)
-
-  if not web3Fut.completed:
+  try:
+    ok await web3Fut.wait(engineApiConnectionTimeout):
+  except AsyncTimeoutError:
     await cancelAndWait(web3Fut)
-    if web3Fut.failed:
-      return err "Failed to setup Engine API connection: " & web3Fut.readError.msg
-    else:
-      return err "Failed to setup Engine API connection"
-  else:
-    return ok web3Fut.read
+    err "Engine API connection timed out"
+  except CancelledError:
+    await noCancel cancelAndWait(web3Fut)
+    err "Engine API connection cancelled"
+  except CatchableError as exc:
+    err "Engine API connection failed: " & exc.msg
 
 proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
   if connection.isConnected:
