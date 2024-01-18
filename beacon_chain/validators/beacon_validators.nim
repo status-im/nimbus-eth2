@@ -1906,8 +1906,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   withState(node.dag.headState):
     node.updateValidators(forkyState.data.validators.asSeq())
 
-  var curSlot = lastSlot + 1
-
   let newHead = await handleProposal(node, head, slot)
   head = newHead
 
