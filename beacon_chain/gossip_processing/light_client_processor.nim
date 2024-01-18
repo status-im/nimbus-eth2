@@ -459,8 +459,19 @@ proc addObject*(
     (afterGenesis, _) = wallTime.toSlot()
 
   if not afterGenesis:
-    error "Processing LC object before genesis, clock turned back?"
-    quit 1
+    let mayProcessBeforeGenesis =
+      when obj is ForkedLightClientBootstrap:
+        withForkyBootstrap(obj):
+          when lcDataFork > LightClientDataFork.None:
+            forkyBootstrap.header.beacon.slot == GENESIS_SLOT and
+            self.cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH
+          else:
+            false
+      else:
+        false
+    if not mayProcessBeforeGenesis:
+      error "Processing LC object before genesis, clock turned back?"
+      quit 1
 
   let res = self.storeObject(src, wallTime, obj)
 
