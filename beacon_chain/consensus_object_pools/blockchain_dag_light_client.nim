@@ -579,7 +579,7 @@ proc assignLightClientData(
       forkyObject.signature_slot = signature_slot
   ok()
 
-proc createLightClientUpdates(
+proc createLightClientUpdate(
     dag: ChainDAGRef,
     state: ForkyHashedBeaconState,
     blck: ForkyTrustedSignedBeaconBlock,
@@ -665,6 +665,38 @@ proc createLightClientUpdates(
     current_period_best_update = best,
     latest_signature_slot = latest_signature_slot)
 
+proc createLightClientBootstrap(
+    dag: ChainDAGRef, bid: BlockId): Opt[void] =
+  let
+    bdata = ? dag.getExistingForkedBlock(bid)
+    period = bid.slot.sync_committee_period
+  if not dag.lcDataStore.db.hasSyncCommittee(period):
+    let didPutSyncCommittee = withState(dag.headState):
+      when consensusFork >= ConsensusFork.Altair:
+        if period == forkyState.data.slot.sync_committee_period:
+          dag.lcDataStore.db.putSyncCommittee(
+            period, forkyState.data.current_sync_committee)
+          true
+        else:
+          false
+      else:
+        false
+    if not didPutSyncCommittee:
+      let
+        tmpState = assignClone(dag.headState)
+        syncCommittee = ? dag.existingCurrentSyncCommitteeForPeriod(
+          tmpState[], period)
+      dag.lcDataStore.db.putSyncCommittee(period, syncCommittee)
+  withBlck(bdata):
+    when consensusFork >= ConsensusFork.Altair:
+      const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
+      dag.lcDataStore.db.putHeader(
+        forkyBlck.toLightClientHeader(lcDataFork))
+    else: raiseAssert "Unreachable"
+  dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
+    bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
+  ok()
+
 proc initLightClientDataCache*(dag: ChainDAGRef) =
   ## Initialize cached light client data
   if not dag.shouldImportLcData:
@@ -712,7 +744,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       else:
         false
 
-  # Build list of block to process.
+  # Build list of blocks to process.
   # As it is slow to load states in descending order,
   # build a reverse todo list to then process them in ascending order
   let tailSlot = dag.lcDataStore.cache.tailSlot
@@ -767,9 +799,15 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
             current_period_best_update = best,
             latest_signature_slot = GENESIS_SLOT)
         else:
-          dag.createLightClientUpdates(
+          dag.createLightClientUpdate(
             forkyState, forkyBlck, parentBid = blocks[i + 1])
       else: raiseAssert "Unreachable"
+
+  # Import initial `LightClientBootstrap`
+  if dag.finalizedHead.slot >= dag.lcDataStore.cache.tailSlot:
+    if dag.createLightClientBootstrap(dag.finalizedHead.blck.bid).isErr:
+      dag.handleUnexpectedLightClientError(dag.finalizedHead.blck.bid.slot)
+      res.err()
 
   let lightClientEndTick = Moment.now()
   debug "Initialized cached LC data",
@@ -807,7 +845,7 @@ proc processNewBlockForLightClient*(
   const consensusFork = typeof(signedBlock).kind
   when consensusFork >= ConsensusFork.Altair:
     template forkyState: untyped = state.forky(consensusFork)
-    dag.createLightClientUpdates(forkyState, signedBlock, parentBid)
+    dag.createLightClientUpdate(forkyState, signedBlock, parentBid)
   else:
     raiseAssert "Unreachable"  # `tailSlot` cannot be before Altair
 
@@ -902,38 +940,9 @@ proc processFinalizationForLightClient*(
         break
       bid = bsi.bid
     if bid.slot >= lowSlot:
-      let
-        bdata = dag.getExistingForkedBlock(bid).valueOr:
-          dag.handleUnexpectedLightClientError(bid.slot)
-          break
-        period = bid.slot.sync_committee_period
-      if not dag.lcDataStore.db.hasSyncCommittee(period):
-        let didPutSyncCommittee = withState(dag.headState):
-          when consensusFork >= ConsensusFork.Altair:
-            if period == forkyState.data.slot.sync_committee_period:
-              dag.lcDataStore.db.putSyncCommittee(
-                period, forkyState.data.current_sync_committee)
-              true
-            else:
-              false
-          else:
-            false
-        if not didPutSyncCommittee:
-          let
-            tmpState = assignClone(dag.headState)
-            syncCommittee = dag.existingCurrentSyncCommitteeForPeriod(
-              tmpState[], period).valueOr:
-                dag.handleUnexpectedLightClientError(bid.slot)
-                break
-          dag.lcDataStore.db.putSyncCommittee(period, syncCommittee)
-      withBlck(bdata):
-        when consensusFork >= ConsensusFork.Altair:
-          const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
-          dag.lcDataStore.db.putHeader(
-            forkyBlck.toLightClientHeader(lcDataFork))
-        else: raiseAssert "Unreachable"
-      dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
-        bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
+      if dag.createLightClientBootstrap(bid).isErr:
+        dag.handleUnexpectedLightClientError(bid.slot)
+        break
     boundarySlot = bid.slot.nextEpochBoundarySlot
     if boundarySlot < SLOTS_PER_EPOCH:
       break
