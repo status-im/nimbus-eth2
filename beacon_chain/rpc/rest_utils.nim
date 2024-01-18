@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/macros,
-       results, stew/byteutils, presto,
+       results, stew/byteutils, presto/route,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization, rest_common],
        ../validators/beacon_validators,
@@ -17,8 +17,8 @@ import std/macros,
        "."/[rest_constants, state_ttl_cache]
 
 export
-  results, eth2_rest_serialization, blockchain_dag, presto, rest_types,
-  rest_constants, rest_common
+  results, eth2_rest_serialization, blockchain_dag, rest_types,
+  rest_constants, rest_common, route
 
 proc getSyncedHead*(
        node: BeaconNode,

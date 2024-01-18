@@ -9,8 +9,8 @@
 
 import
   std/macros,
+  results,
   stew/assign2,
-  stew/results,
   chronicles,
   ../extras,
   "."/[

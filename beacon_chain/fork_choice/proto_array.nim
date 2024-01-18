@@ -12,7 +12,7 @@ import
   std/[tables, typetraits],
   # Status libraries
   chronicles,
-  stew/results,
+  results,
   # Internal
   ../spec/datatypes/base,
   ../spec/helpers,

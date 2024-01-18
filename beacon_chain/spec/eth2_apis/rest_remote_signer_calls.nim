@@ -9,7 +9,8 @@
 import
   chronicles, metrics,
   chronos, presto/client,
-  stew/[results, base10, byteutils],
+  results,
+  stew/[base10, byteutils],
   "."/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization, results

@@ -181,9 +181,9 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
   (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
    e >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
-proc getBlobSidecars*[A, B](man: SyncManager[A, B], peer: A,
-                      req: SyncRequest): Future[BlobSidecarsRes]
-                      {.async: (raises: [CancelledError], raw: true).} =
+proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
+                           req: SyncRequest): Future[BlobSidecarsRes]
+                           {.async: (raises: [CancelledError], raw: true).} =
   mixin getScore, `==`
 
   logScope:
@@ -216,29 +216,45 @@ func groupBlobs*[T](req: SyncRequest[T],
                     blocks: seq[ref ForkedSignedBeaconBlock],
                     blobs: seq[ref BlobSidecar]):
                       Result[seq[BlobSidecars], string] =
-  var grouped = newSeq[BlobSidecars](len(blocks))
-  var blobCursor = 0
-  var i = 0
-  for blck in blocks:
-    let slot = blck[].slot
-    if blobCursor == len(blobs):
-      # reached end of blobs, have more blobless blocks
-      break
-    for blob in blobs[blobCursor..len(blobs)-1]:
-      if blob.signed_block_header.message.slot < slot:
-        return Result[seq[BlobSidecars], string].err "invalid blob sequence"
-      if blob.signed_block_header.message.slot == slot:
-        grouped[i].add(blob)
-        blobCursor = blobCursor + 1
-    i = i + 1
+  var
+    grouped = newSeq[BlobSidecars](len(blocks))
+    blob_cursor = 0
+  for block_idx, blck in blocks:
+    withBlck(blck[]):
+      when consensusFork >= ConsensusFork.Deneb:
+        template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
+        if kzgs.len == 0:
+          continue
+        # Clients MUST include all blob sidecars of each block from which they include blob sidecars.
+        # The following blob sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blobsidecarsbyrange-v1
+        let header = forkyBlck.toSignedBeaconBlockHeader()
+        for blob_idx, kzg_commitment in kzgs:
+          if blob_cursor >= blobs.len:
+            return err("BlobSidecar: response too short")
+          let blob_sidecar = blobs[blob_cursor]
+          if blob_sidecar.index != BlobIndex blob_idx:
+            return err("BlobSidecar: unexpected index")
+          if blob_sidecar.kzg_commitment != kzg_commitment:
+            return err("BlobSidecar: unexpected kzg_commitment")
+          if blob_sidecar.signed_block_header != header:
+            return err("BlobSidecar: unexpected signed_block_header")
+          grouped[block_idx].add(blob_sidecar)
+          inc blob_cursor
 
-  if blobCursor != len(blobs):
+  if blob_cursor != len(blobs):
     # we reached end of blocks without consuming all blobs so either
     # the peer we got too few blocks in the paired request, or the
     # peer is sending us spurious blobs.
     Result[seq[BlobSidecars], string].err "invalid block or blob sequence"
   else:
     Result[seq[BlobSidecars], string].ok grouped
+
+func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
+  for blob_sidecars in blobs:
+    for blob_sidecar in blob_sidecars:
+      ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
+  ok()
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     {.async: (raises: [CancelledError]).} =
@@ -420,6 +436,12 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           return
       let groupedBlobs = groupBlobs(req, blocks.asSeq(), blobs.asSeq())
       if groupedBlobs.isErr():
+        peer.updateScore(PeerScoreNoValues)
+        man.queue.push(req)
+        info "Received blobs sequence is inconsistent",
+          blobs_map = blobSmap, request = req, msg=groupedBlobs.error()
+        return
+      if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
         peer.updateScore(PeerScoreBadResponse)
         man.queue.push(req)
         warn "Received blobs sequence is invalid",
@@ -428,21 +450,6 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       Opt.some(groupedBlobs.get())
     else:
       Opt.none(seq[BlobSidecars])
-
-  if blobData.isSome:
-    let blobs = blobData.get()
-    if len(blobs) != len(blocks):
-      peer.updateScore(PeerScoreNoValues)
-      man.queue.push(req)
-      info "block and blobs have different lengths", blobs=len(blobs), blocks=len(blocks)
-      return
-    for i, blk in blocks.asSeq():
-      if len(blobs[i]) > 0 and blk[].slot !=
-          blobs[i][0].signed_block_header.message.slot:
-        peer.updateScore(PeerScoreNoValues)
-        man.queue.push(req)
-        debug "block and blobs data have inconsistent slots"
-        return
 
   if len(blocks) == 0 and man.direction == SyncQueueKind.Backward and
       req.contains(man.getSafeSlot()):

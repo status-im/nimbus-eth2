@@ -10,7 +10,7 @@
 import
   # Status
   chronicles, chronos, metrics,
-  stew/results,
+  results,
   # Internals
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
@@ -21,7 +21,7 @@ import
   ".."/[beacon_clock],
   ./batch_validation
 
-from libp2p/protocols/pubsub/pubsub import ValidationResult
+from libp2p/protocols/pubsub/errors import ValidationResult
 
 export results, ValidationResult
 
@@ -179,17 +179,11 @@ func check_attestation_subnet(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#verify_blob_sidecar_inclusion_proof
-func verify_blob_sidecar_inclusion_proof(
+func check_blob_sidecar_inclusion_proof(
     blob_sidecar: deneb.BlobSidecar): Result[void, ValidationError] =
-  let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
-  if not is_valid_merkle_branch(
-      hash_tree_root(blob_sidecar.kzg_commitment),
-      blob_sidecar.kzg_commitment_inclusion_proof,
-      KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
-      get_subtree_index(gindex),
-      blob_sidecar.signed_block_header.message.body_root):
-    return errReject("BlobSidecar: inclusion proof not valid")
+  let res = blob_sidecar.verify_blob_sidecar_inclusion_proof()
+  if res.isErr:
+    return errReject(res.error)
 
   ok()
 
@@ -361,7 +355,7 @@ proc validateBlobSidecar*(
   # [REJECT] The sidecar's inclusion proof is valid as verified by
   # `verify_blob_sidecar_inclusion_proof(blob_sidecar)`.
   block:
-    let v = verify_blob_sidecar_inclusion_proof(blob_sidecar)
+    let v = check_blob_sidecar_inclusion_proof(blob_sidecar)
     if v.isErr:
       return dag.checkedReject(v.error)
 
@@ -899,7 +893,7 @@ proc validateAggregate*(
     # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
     # superset has _not_ already been seen.
     # https://github.com/ethereum/consensus-specs/pull/2847
-    return errIgnore("Aggregate already covered")
+    return errIgnore("Aggregate: already covered")
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
@@ -1281,7 +1275,7 @@ proc validateContribution*(
   # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE for this
   #  topic that can be flushed after each slot).
   if syncCommitteeMsgPool[].isSeen(msg.message):
-    return errIgnore("Contribution: duplicate contribution")
+    return errIgnore("Contribution: validator has already aggregated in slot")
 
   # [REJECT] The aggregator's validator index is in the declared subcommittee
   # of the current sync committee.
@@ -1317,7 +1311,7 @@ proc validateContribution*(
   # `beacon_block_root` and `subcommittee_index` whose `aggregation_bits`
   # is non-strict superset has _not_ already been seen.
   if syncCommitteeMsgPool[].covers(msg.message.contribution, blck.bid):
-    return errIgnore("Contribution: duplicate contribution")
+    return errIgnore("Contribution: already covered")
 
   let sig = if checkSignature:
     let deferredCrypto = batchCrypto.scheduleContributionChecks(

@@ -60,3 +60,6 @@ func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractSta
   #      not populated to its maximum size.
   result.branch[0..31] = merkleizer.getCombinedChunks[0..31]
   result.deposit_count[24..31] = merkleizer.getChunkCount().toBytesBE
+
+func getDepositsRoot*(m: var DepositsMerkleizer): Eth2Digest =
+  mixInLength(m.getFinalHash, int m.totalChunks)

@@ -12,7 +12,8 @@ import
   std/[os, algorithm, sequtils],
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
-  stew/[results, byteutils],
+  results,
+  stew/byteutils,
   chronicles, chronicles/timings,
   # Internal
   ../spec/datatypes/base,

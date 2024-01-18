@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 import
   std/[options, uri],
-  stew/results, chronicles, confutils,
+  results, chronicles, confutils,
   confutils/toml/defs as confTomlDefs,
   confutils/toml/std/net as confTomlNet,
   confutils/toml/std/uri as confTomlUri,

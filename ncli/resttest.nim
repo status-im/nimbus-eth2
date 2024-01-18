@@ -5,10 +5,12 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/[strutils, os, options, uri, json, tables]
-import stew/[results, io2, base10]
-import confutils, chronicles, httputils,
-       chronos, chronos/streams/[asyncstream, tlsstream]
+import
+  std/[strutils, os, options, uri, json, tables],
+  results,
+  stew/[io2, base10],
+  confutils, chronicles, httputils,
+  chronos, chronos/streams/[asyncstream, tlsstream]
 
 const
   RestTesterName* = "Ethereum2 REST API Tester"

@@ -11,7 +11,7 @@ import
   # Standard library
   std/[sequtils, tables],
   # Status libraries
-  stew/[results], chronicles,
+  results, chronicles,
   # Internal
   ../spec/[beaconstate, helpers, state_transition_block],
   ../spec/datatypes/[phase0, altair, bellatrix],

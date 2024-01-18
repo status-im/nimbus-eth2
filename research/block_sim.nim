@@ -16,6 +16,7 @@ import
   confutils, chronicles, eth/db/kvstore_sqlite3,
   chronos/timer, taskpools,
   ../tests/testblockutil,
+  ../beacon_chain/el/eth1_chain,
   ../beacon_chain/spec/[forks, state_transition],
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/validators/validator_pool,
@@ -34,9 +35,6 @@ from ../beacon_chain/consensus_object_pools/block_quarantine import
 from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   SyncCommitteeMsgPool, addContribution, addSyncCommitteeMessage, init,
   produceContribution, produceSyncAggregate, pruneData
-from ../beacon_chain/el/el_manager import
-  Eth1Block, Eth1BlockNumber, Eth1BlockTimestamp, Eth1Chain, addBlock,
-  getBlockProposalData, getDepositsRoot, init
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index,
   get_committee_count_per_slot, get_committee_indices

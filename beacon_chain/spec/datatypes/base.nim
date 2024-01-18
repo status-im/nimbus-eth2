@@ -62,7 +62,8 @@
 
 import
   std/[macros, hashes, sets, strutils, tables, typetraits],
-  stew/[assign2, byteutils, endians2, results],
+  results,
+  stew/[assign2, byteutils, endians2],
   chronicles,
   json_serialization,
   ssz_serialization/types as sszTypes,

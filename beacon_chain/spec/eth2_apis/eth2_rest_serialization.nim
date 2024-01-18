@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[typetraits, strutils]
-import stew/[assign2, results, base10, byteutils, endians2], presto/common,
+import results, stew/[assign2, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization, json_serialization,
        json_serialization/std/[net, sets],
        json_serialization/stew/results as jsonSerializationResults,

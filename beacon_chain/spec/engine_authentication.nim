@@ -9,7 +9,8 @@ import
   chronicles, confutils/defs,
   bearssl/rand,
   nimcrypto/[hmac, utils],
-  stew/[byteutils, results]
+  results,
+  stew/byteutils
 
 from std/base64 import encode
 from std/json import JsonNode, `$`, `%*`

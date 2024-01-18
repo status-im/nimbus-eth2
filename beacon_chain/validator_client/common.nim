@@ -7,7 +7,8 @@
 
 import
   std/[tables, os, sets, sequtils, strutils, uri, algorithm],
-  stew/[base10, results, byteutils],
+  results,
+  stew/[base10, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
   metrics, metrics/chronos_httpserver,
@@ -23,7 +24,7 @@ import
 from std/times import Time, toUnix, fromUnix, getTime
 
 export
-  os, sets, sequtils, chronos, presto, chronicles, confutils,
+  os, sets, sequtils, chronos, chronicles, confutils,
   nimbus_binary_common, version, conf, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,

@@ -10,6 +10,7 @@
 
 import std/strutils
 import httputils
+import chronos/apps/http/httpserver
 import chronos/unittest2/asynctests
 import ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
        ../beacon_chain/validator_client/[api, common, scoring, fallback_service]

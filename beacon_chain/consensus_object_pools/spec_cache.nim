@@ -9,7 +9,7 @@
 
 import
   std/sequtils,
-  stew/results,
+  results,
   chronicles,
   ../extras,
   ../spec/[beaconstate, helpers, network, signatures, validator],
