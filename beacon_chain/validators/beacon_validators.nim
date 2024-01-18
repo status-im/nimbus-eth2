@@ -1868,12 +1868,6 @@ proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
   if attestationHead.slot + SLOTS_PER_EPOCH < slot:
     return
 
-  # Using `slot` and `curSlot` here ensure that the attestation data created
-  # is for the wall slot, regardless of attestationHead's block and slot.
-  for curSlot in (lastSlot + 1) ..< slot:
-    notice "Catching up on fallback attestation duties", curSlot, slot
-    handleAttestations(node, attestationHead.blck, curSlot)
-
   handleAttestations(node, attestationHead.blck, slot)
 
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
@@ -1913,27 +1907,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     node.updateValidators(forkyState.data.validators.asSeq())
 
   var curSlot = lastSlot + 1
-
-  # Start by checking if there's work we should have done in the past that we
-  # can still meaningfully do
-  while curSlot < slot:
-    notice "Catching up on validator duties",
-      curSlot = shortLog(curSlot),
-      lastSlot = shortLog(lastSlot),
-      slot = shortLog(slot)
-
-    # For every slot we're catching up, we'll propose then send
-    # attestations - head should normally be advancing along the same branch
-    # in this case
-    head = await handleProposal(node, head, curSlot)
-
-    # For each slot we missed, we need to send out attestations - if we were
-    # proposing during this time, we'll use the newly proposed head, else just
-    # keep reusing the same - the attestation that goes out will actually
-    # rewind the state to what it looked like at the time of that slot
-    handleAttestations(node, head, curSlot)
-
-    curSlot += 1
 
   let newHead = await handleProposal(node, head, slot)
   head = newHead
