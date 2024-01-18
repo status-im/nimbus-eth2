@@ -584,7 +584,7 @@ proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
 proc establishEngineApiConnection*(url: EngineApiUrl):
                                    Future[Result[Web3, string]] {.async.} =
   try:
-    ok await newWeb3(url).wait(engineApiConnectionTimeout):
+    ok(await newWeb3(url).wait(engineApiConnectionTimeout))
   except AsyncTimeoutError:
     err "Engine API connection timed out"
   except CancelledError as exc:
