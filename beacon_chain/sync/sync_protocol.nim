@@ -35,17 +35,14 @@ type
   BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
   BlobIdentifierList* = List[BlobIdentifier, Limit (MAX_REQUEST_BLOB_SIDECARS)]
 
-template readChunkPayload*(
-    conn: Connection, peer: Peer, MsgType: type ForkySignedBeaconBlock):
-    Future[NetRes[MsgType]] =
-  readChunkPayload(conn, peer, MsgType)
-
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
-    Future[NetRes[MsgType]] {.async.} =
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
   var contextBytes: ForkDigest
   try:
     await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CancelledError as exc:
+    raise exc
   except CatchableError:
     return neterr UnexpectedEOF
 
@@ -84,10 +81,12 @@ proc readChunkPayload*(
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref BlobSidecar)):
-    Future[NetRes[MsgType]] {.async.} =
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
   var contextBytes: ForkDigest
   try:
     await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CancelledError as exc:
+    raise exc
   except CatchableError:
     return neterr UnexpectedEOF
 

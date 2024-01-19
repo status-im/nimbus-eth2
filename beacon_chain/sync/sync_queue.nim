@@ -27,7 +27,7 @@ type
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
   BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
-      Future[Result[void, VerifierError]] {.gcsafe, raises: [].}
+      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
   SyncQueueKind* {.pure.} = enum
     Forward, Backward
@@ -50,7 +50,7 @@ type
     item*: T
 
   SyncWaiter* = ref object
-    future: Future[void]
+    future: Future[void].Raising([CancelledError])
     reset: bool
 
   RewindPoint = object
@@ -311,9 +311,9 @@ proc wakeupWaiters[T](sq: SyncQueue[T], reset = false) =
     if not(item.future.finished()):
       item.future.complete()
 
-proc waitForChanges[T](sq: SyncQueue[T]): Future[bool] {.async.} =
+proc waitForChanges[T](sq: SyncQueue[T]): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Create new waiter and wait for completion from `wakeupWaiters()`.
-  var waitfut = newFuture[void]("SyncQueue.waitForChanges")
+  let waitfut = Future[void].Raising([CancelledError]).init("SyncQueue.waitForChanges")
   let waititem = SyncWaiter(future: waitfut)
   sq.waiters.add(waititem)
   try:
@@ -322,7 +322,7 @@ proc waitForChanges[T](sq: SyncQueue[T]): Future[bool] {.async.} =
   finally:
     sq.waiters.delete(sq.waiters.find(waititem))
 
-proc wakeupAndWaitWaiters[T](sq: SyncQueue[T]) {.async.} =
+proc wakeupAndWaitWaiters[T](sq: SyncQueue[T]) {.async: (raises: [CancelledError]).} =
   ## This procedure will perform wakeupWaiters(true) and blocks until last
   ## waiter will be awakened.
   var waitChanges = sq.waitForChanges()
@@ -333,7 +333,7 @@ proc clearAndWakeup*[T](sq: SyncQueue[T]) =
   sq.pending.clear()
   sq.wakeupWaiters(true)
 
-proc resetWait*[T](sq: SyncQueue[T], toSlot: Option[Slot]) {.async.} =
+proc resetWait*[T](sq: SyncQueue[T], toSlot: Option[Slot]) {.async: (raises: [CancelledError]).} =
   ## Perform reset of all the blocked waiters in SyncQueue.
   ##
   ## We adding one more waiter to the waiters sequence and
@@ -610,7 +610,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ref ForkedSignedBeaconBlock],
               blobs: Opt[seq[BlobSidecars]],
               maybeFinalized: bool = false,
-              processingCb: ProcessingCallback = nil) {.async.} =
+              processingCb: ProcessingCallback = nil) {.async: (raises: [CancelledError]).} =
   logScope:
     sync_ident = sq.ident
     topics = "syncman"
