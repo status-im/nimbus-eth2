@@ -85,7 +85,7 @@ proc eventHandler*[T](response: HttpResponseRef,
 
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
-  router.api(MethodGet, "/eth/v1/events") do (
+  router.api2(MethodGet, "/eth/v1/events") do (
     topics: seq[EventTopic]) -> RestApiResponse:
     let eventTopics =
       block:
@@ -174,7 +174,10 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           res.add(handler)
         res
 
-    discard await one(handlers)
+    try:
+      discard await race(handlers)
+    except ValueError:
+      raiseAssert "There should be more than one event handler at this point!"
     # One of the handlers finished, it means that connection has been droped, so
     # we cancelling all other handlers.
     let pending =

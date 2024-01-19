@@ -17,7 +17,8 @@ logScope: topics = "rest_builderapi"
 proc installBuilderApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.0#/Builder/getNextWithdrawals
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/builder/states/expected_withdrawals.yaml
-  router.api(MethodGet, "/eth/v1/builder/states/{state_id}/expected_withdrawals") do (
+  router.api2(MethodGet,
+              "/eth/v1/builder/states/{state_id}/expected_withdrawals") do (
     state_id: StateIdent) -> RestApiResponse:
     let
       sid = state_id.valueOr:
@@ -41,4 +42,4 @@ proc installBuilderApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(
             Http400, "The specified state is not a capella state")
 
-    return RestApiResponse.jsonError(Http404, StateNotFoundError)
+    RestApiResponse.jsonError(Http404, StateNotFoundError)

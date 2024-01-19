@@ -140,7 +140,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.prepareJsonResponse((version: "Nimbus/" & fullVersionStr))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
-  router.api(MethodGet, "/eth/v1/node/identity") do () -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/node/identity") do () -> RestApiResponse:
     let discoveryAddresses =
       block:
         let res = node.getDiscoveryAddresses()
@@ -157,7 +157,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         else:
           newSeq[string]()
 
-    return RestApiResponse.jsonResponse(
+    RestApiResponse.jsonResponse(
       (
         peer_id: $node.network.peerId(),
         enr: node.network.enrRecord().toURI(),
@@ -172,7 +172,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     )
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getPeers
-  router.api(MethodGet, "/eth/v1/node/peers") do (
+  router.api2(MethodGet, "/eth/v1/node/peers") do (
     state: seq[PeerStateKind],
     direction: seq[PeerDirectKind]) -> RestApiResponse:
     let connectionMask =
@@ -208,11 +208,10 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
         )
         res.add(peer)
-    return RestApiResponse.jsonResponseWMeta(res,
-                                             (count: RestNumeric(len(res))))
+    RestApiResponse.jsonResponseWMeta(res, (count: RestNumeric(len(res))))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getPeerCount
-  router.api(MethodGet, "/eth/v1/node/peer_count") do () -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/node/peer_count") do () -> RestApiResponse:
     var res: RestNodePeerCount
     for item in node.network.peers.values():
       case item.connectionState
@@ -226,10 +225,10 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         inc(res.disconnected)
       of ConnectionState.None:
         discard
-    return RestApiResponse.jsonResponse(res)
+    RestApiResponse.jsonResponse(res)
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getPeer
-  router.api(MethodGet, "/eth/v1/node/peers/{peer_id}") do (
+  router.api2(MethodGet, "/eth/v1/node/peers/{peer_id}") do (
     peer_id: PeerId) -> RestApiResponse:
     let peer =
       block:
@@ -240,25 +239,26 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if isNil(res):
           return RestApiResponse.jsonError(Http404, PeerNotFoundError)
         res
-    return RestApiResponse.jsonResponse(
+    RestApiResponse.jsonResponse(
       (
         peer_id: $peer.peerId,
         enr: if peer.enr.isSome(): peer.enr.get().toURI() else: "",
         last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
         state: peer.connectionState.toString(),
         direction: peer.direction.toString(),
-        agent: node.network.switch.peerStore[AgentBook][peer.peerId],       # Fields `agent` and `proto` are not
-        proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId] # part of specification
+        agent: node.network.switch.peerStore[AgentBook][peer.peerId],
+          # Fields `agent` and `proto` are not part of specification
+        proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
+          # Fields `agent` and `proto` are not part of specification
       )
     )
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getNodeVersion
-  router.api(MethodGet, "/eth/v1/node/version") do () -> RestApiResponse:
-    return RestApiResponse.response(cachedVersion, Http200,
-                                    "application/json")
+  router.api2(MethodGet, "/eth/v1/node/version") do () -> RestApiResponse:
+    RestApiResponse.response(cachedVersion, Http200, "application/json")
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
-  router.api(MethodGet, "/eth/v1/node/syncing") do () -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/node/syncing") do () -> RestApiResponse:
     let
       wallSlot = node.beaconClock.now().slotOrZero()
       headSlot = node.dag.head.slot
@@ -284,10 +284,10 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         is_syncing: isSyncing, is_optimistic: isOptimistic,
         el_offline: elOffline
       )
-    return RestApiResponse.jsonResponse(info)
+    RestApiResponse.jsonResponse(info)
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getHealth
-  router.api(MethodGet, "/eth/v1/node/health") do () -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/node/health") do () -> RestApiResponse:
     # TODO: Add ability to detect node's issues and return 503 error according
     # to specification.
     let status =
@@ -295,4 +295,4 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Http206
       else:
         Http200
-    return RestApiResponse.response("", status, contentType = "")
+    RestApiResponse.response("", status, contentType = "")
