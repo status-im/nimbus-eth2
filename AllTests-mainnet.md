@@ -154,6 +154,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - KZG
 ```diff
++ KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_59d64ff6b4648fad   OK
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_635fb2de5b0dc429   OK
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_a3b9ff28507767f8   OK
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_d3afbd98123a3434   OK
@@ -164,6 +165,7 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_c40b9b515df8721b     OK
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_cdb3e6d49eb12307     OK
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_valid_blob_fb324bc819407148     OK
++ KZG - Compute KZG proof - compute_kzg_proof_case_invalid_blob_59d64ff6b4648fad             OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_invalid_blob_635fb2de5b0dc429             OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_invalid_blob_a3b9ff28507767f8             OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_invalid_blob_d3afbd98123a3434             OK
@@ -172,6 +174,7 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + KZG - Compute KZG proof - compute_kzg_proof_case_invalid_z_8e021fdb13259641                OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_invalid_z_9683af102559ddf0                OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_invalid_z_9df8c89b61183887                OK
++ KZG - Compute KZG proof - compute_kzg_proof_case_invalid_z_b30d81e81c1262b6                OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_valid_blob_02e696ada7d4631d               OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_valid_blob_05c1f3685f3393f0               OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_valid_blob_08f9e2f1cb3d39db               OK
@@ -214,12 +217,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + KZG - Compute KZG proof - compute_kzg_proof_case_valid_blob_f47eb9fc139f6bfd               OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_valid_blob_f7f44e1e864aa967               OK
 + KZG - Compute KZG proof - compute_kzg_proof_case_valid_blob_ffa6e97b97146517               OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_blob_59d64ff6b4648fad   OK
 + KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_blob_635fb2de5b0dc429   OK
 + KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_blob_a3b9ff28507767f8   OK
 + KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_blob_d3afbd98123a3434   OK
 + KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_commitment_1a68c47b6814 OK
 + KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_commitment_24b932fb4dec OK
 + KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_commitment_3a6eb616efae OK
++ KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_invalid_commitment_d070689c3e15 OK
 + KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_0951cfd9ab47a8d3     OK
 + KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_19b3f3f8c98ea31e     OK
 + KZG - Compute blob KZG proof - compute_blob_kzg_proof_case_valid_blob_84d8089232bc23a8     OK
@@ -403,7 +408,7 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_proof_d070689 OK
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_proof_length_differen OK
 ```
-OK: 248/248 Fail: 0/248 Skip: 0/248
+OK: 253/253 Fail: 0/253 Skip: 0/253
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -974,4 +979,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 659/664 Fail: 0/664 Skip: 5/664
+OK: 664/669 Fail: 0/669 Skip: 5/669

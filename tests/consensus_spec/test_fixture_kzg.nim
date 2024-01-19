@@ -19,6 +19,10 @@ from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import rsplit
 
 func fromHex[N: static int](s: string): Opt[array[N, byte]] =
+  if s.len != 2*(N+1):
+    # 0x prefix
+    return Opt.none array[N, byte]
+
   try:
     Opt.some fromHex(array[N, byte], s)
   except ValueError:
@@ -189,9 +193,6 @@ suite suiteName:
   block:
     let testsDir = suitePath/"blob_to_kzg_commitment"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      # TODO Trying to access value with err Result [ResultDefect]
-      if path == "blob_to_kzg_commitment_case_invalid_blob_59d64ff6b4648fad":
-        continue
       runBlobToKzgCommitmentTest(suiteName, testsDir, testsDir/path)
 
   block:
@@ -212,23 +213,11 @@ suite suiteName:
   block:
     let testsDir = suitePath/"compute_kzg_proof"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      # TODO in both cases, it's not properly detecting invalid input and
-      # creating an actual proof/y pair instead of an error
-      if path in [
-          "compute_kzg_proof_case_invalid_blob_59d64ff6b4648fad",
-          "compute_kzg_proof_case_invalid_z_b30d81e81c1262b6"]:
-        continue
       runComputeKzgProofTest(suiteName, testsDir, testsDir / path)
 
   block:
     let testsDir = suitePath/"compute_blob_kzg_proof"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      # TODO in one case the same case as before, and maybe the invalid
-      # commitment too
-      if path in [
-          "compute_blob_kzg_proof_case_invalid_blob_59d64ff6b4648fad",
-          "compute_blob_kzg_proof_case_invalid_commitment_d070689c3e15444c"]:
-        continue
       runComputeBlobKzgProofTest(suiteName, testsDir, testsDir / path)
 
 doAssert Kzg.freeTrustedSetup().isOk
