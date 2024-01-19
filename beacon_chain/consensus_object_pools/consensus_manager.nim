@@ -12,7 +12,8 @@ import
   ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ../el/el_manager,
-  ../beacon_clock
+  ../beacon_clock,
+  ./common_tools
 
 from ../spec/beaconstate import
   get_expected_withdrawals, has_eth1_withdrawal_credential
@@ -296,41 +297,23 @@ proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
 proc getFeeRecipient*(
     self: ConsensusManager, pubkey: ValidatorPubKey,
     validatorIdx: Opt[ValidatorIndex], epoch: Epoch): Eth1Address =
-  let dynFeeRecipient = if validatorIdx.isSome:
-    self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-      validatorIdx.get(), epoch)
-  else:
-    Opt.none(Eth1Address)
 
-  dynFeeRecipient.valueOr:
-    let
-      withdrawalAddress =
-        if validatorIdx.isSome:
-          withState(self.dag.headState):
-            if validatorIdx.get < forkyState.data.validators.lenu64:
-              let validator = forkyState.data.validators.item(validatorIdx.get)
-              if has_eth1_withdrawal_credential(validator):
-                var address: distinctBase(Eth1Address)
-                address[0..^1] = validator.withdrawal_credentials.data[12..^1]
-                Opt.some Eth1Address address
-              else:
-                Opt.none Eth1Address
-            else:
-              Opt.none Eth1Address
+  let validator =
+    if validatorIdx.isSome():
+      withState(self.dag.headState):
+        if validatorIdx.get < forkyState.data.validators.lenu64:
+          Opt.some forkyState.data.validators.item(validatorIdx.get)
         else:
-          Opt.none Eth1Address
-      defaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
-        self.defaultFeeRecipient, withdrawalAddress)
-    self.validatorsDir.getSuggestedFeeRecipient(
-        pubkey, defaultFeeRecipient).valueOr:
-      # Ignore errors and use default - errors are logged in gsfr
-      defaultFeeRecipient
+          Opt.none Validator
+    else:
+      Opt.none Validator
 
-proc getGasLimit*(
-    self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
-  self.validatorsDir.getSuggestedGasLimit(
-      pubkey, self.defaultGasLimit).valueOr:
-    self.defaultGasLimit
+  getFeeRecipient(self.dynamicFeeRecipientsStore, pubkey, validatorIdx,
+                  validator, self.defaultFeeRecipient, self.validatorsDir,
+                  epoch)
+
+proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
+  getGasLimit(self.validatorsDir, self.defaultGasLimit, pubkey)
 
 from ../spec/datatypes/bellatrix import PayloadID
 

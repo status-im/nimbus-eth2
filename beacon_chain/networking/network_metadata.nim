@@ -341,9 +341,9 @@ elif const_preset == "mainnet":
       doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
-    for network in [praterMetadata, sepoliaMetadata]:
+    for network in [praterMetadata, sepoliaMetadata, holeskyMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-    for network in [mainnetMetadata, holeskyMetadata]:
+    for network in [mainnetMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
