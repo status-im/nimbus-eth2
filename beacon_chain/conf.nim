@@ -968,7 +968,7 @@ type
 
     suggestedGasLimit* {.
       desc: "Suggested gas limit"
-      defaultValue: 30_000_000
+      defaultValue: defaultGasLimit
       name: "suggested-gas-limit" .}: uint64
 
     keymanagerEnabled* {.

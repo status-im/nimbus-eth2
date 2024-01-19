@@ -79,6 +79,10 @@ type
     doppelActivity*: Opt[Epoch]
       ## The last time we attempted to perform a duty with this validator
 
+    validator*: Opt[Validator]
+      ## Copy of validator's entry from head state. Used by validator client,
+      ## to calculate feeRecipient address.
+
     lastWarning*: Opt[Slot]
 
   SignResponse* = Web3SignerDataResponse
@@ -255,6 +259,7 @@ proc updateValidator*(
   ## Update activation information for a validator
   if validator.index != Opt.some data.index:
     validator.index = Opt.some data.index
+    validator.validator = Opt.some data.validator
 
   if validator.activationEpoch != data.validator.activation_epoch:
     # In theory, activation epoch could change but that's rare enough that it
