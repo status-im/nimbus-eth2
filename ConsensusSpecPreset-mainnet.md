@@ -487,6 +487,7 @@ OK: 47/47 Fail: 0/47 Skip: 0/47
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Altair - Transition  [Preset: mainnet]
 ```diff
++ EF - Altair - Transition - non_empty_historical_roots [Preset: mainnet]                    OK
 + EF - Altair - Transition - normal_transition [Preset: mainnet]                             OK
 + EF - Altair - Transition - simple_transition [Preset: mainnet]                             OK
 + EF - Altair - Transition - transition_missing_first_post_block [Preset: mainnet]           OK
@@ -509,7 +510,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Altair - Transition - transition_with_random_half_participation [Preset: mainnet]     OK
 + EF - Altair - Transition - transition_with_random_three_quarters_participation [Preset: ma OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
+OK: 22/22 Fail: 0/22 Skip: 0/22
 ## EF - Altair - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -1046,6 +1047,7 @@ OK: 50/50 Fail: 0/50 Skip: 0/50
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Bellatrix - Transition  [Preset: mainnet]
 ```diff
++ EF - Bellatrix - Transition - non_empty_historical_roots [Preset: mainnet]                 OK
 + EF - Bellatrix - Transition - normal_transition [Preset: mainnet]                          OK
 + EF - Bellatrix - Transition - simple_transition [Preset: mainnet]                          OK
 + EF - Bellatrix - Transition - transition_missing_first_post_block [Preset: mainnet]        OK
@@ -1068,7 +1070,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Bellatrix - Transition - transition_with_random_half_participation [Preset: mainnet]  OK
 + EF - Bellatrix - Transition - transition_with_random_three_quarters_participation [Preset: OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
+OK: 22/22 Fail: 0/22 Skip: 0/22
 ## EF - Capella - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1687,6 +1689,7 @@ OK: 62/62 Fail: 0/62 Skip: 0/62
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Capella - Transition  [Preset: mainnet]
 ```diff
++ EF - Capella - Transition - non_empty_historical_roots [Preset: mainnet]                   OK
 + EF - Capella - Transition - normal_transition [Preset: mainnet]                            OK
 + EF - Capella - Transition - simple_transition [Preset: mainnet]                            OK
 + EF - Capella - Transition - transition_missing_first_post_block [Preset: mainnet]          OK
@@ -1709,7 +1712,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Capella - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
 + EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
+OK: 22/22 Fail: 0/22 Skip: 0/22
 ## EF - Capella - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -2358,6 +2361,7 @@ OK: 71/71 Fail: 0/71 Skip: 0/71
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Deneb - Transition  [Preset: mainnet]
 ```diff
++ EF - Deneb - Transition - non_empty_historical_roots [Preset: mainnet]                     OK
 + EF - Deneb - Transition - normal_transition [Preset: mainnet]                              OK
 + EF - Deneb - Transition - simple_transition [Preset: mainnet]                              OK
 + EF - Deneb - Transition - transition_attestation_from_previous_fork_with_new_range [Preset OK
@@ -2383,7 +2387,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Deneb - Transition - transition_with_random_half_participation [Preset: mainnet]      OK
 + EF - Deneb - Transition - transition_with_random_three_quarters_participation [Preset: mai OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
+OK: 25/25 Fail: 0/25 Skip: 0/25
 ## EF - Deneb - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -2920,4 +2924,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2339/2358 Fail: 0/2358 Skip: 19/2358
+OK: 2343/2362 Fail: 0/2362 Skip: 19/2362

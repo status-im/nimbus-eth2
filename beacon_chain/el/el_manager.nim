@@ -15,7 +15,7 @@ import
   web3, web3/[engine_api, primitives, conversions],
   eth/common/[eth_types, transaction],
   eth/async_utils, results,
-  stew/[assign2, byteutils, objects, shims/hashes, endians2],
+  stew/[assign2, byteutils, objects],
   eth/async_utils, stew/[assign2, byteutils, objects],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
@@ -583,17 +583,14 @@ proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
 
 proc establishEngineApiConnection*(url: EngineApiUrl):
                                    Future[Result[Web3, string]] {.async.} =
-  let web3Fut = newWeb3(url)
-  yield web3Fut or sleepAsync(engineApiConnectionTimeout)
-
-  if not web3Fut.completed:
-    await cancelAndWait(web3Fut)
-    if web3Fut.failed:
-      return err "Failed to setup Engine API connection: " & web3Fut.readError.msg
-    else:
-      return err "Failed to setup Engine API connection"
-  else:
-    return ok web3Fut.read
+  try:
+    ok(await newWeb3(url).wait(engineApiConnectionTimeout))
+  except AsyncTimeoutError:
+    err "Engine API connection timed out"
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    err "Engine API connection failed: " & exc.msg
 
 proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
   if connection.isConnected:
