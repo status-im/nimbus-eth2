@@ -709,16 +709,6 @@ template firstSuccessSequential*(
     if exitNow:
       break
 
-proc getIndexedErrorMessage(response: RestPlainResponse): string =
-  let res = decodeBytes(RestIndexedErrorMessage, response.data,
-                        response.contentType)
-  if res.isOk():
-    let errorObj = res.get()
-    let failures = errorObj.failures.mapIt($it.index & ": " & it.message)
-    errorObj.message & ": [" & failures.join(", ") & "]"
-  else:
-    "Unable to decode error response: [" & $res.error & "]"
-
 proc getErrorMessage*(response: RestPlainResponse): string =
   let res = decodeBytes(RestErrorMessage, response.data,
                         response.contentType)

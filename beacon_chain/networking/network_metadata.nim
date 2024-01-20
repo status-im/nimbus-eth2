@@ -425,22 +425,22 @@ proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig =
 
   metadata.cfg
 
-template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
-  when incbinEnabled:
-    `networkName Genesis`.toOpenArray(0, `networkName GenesisSize` - 1)
-  else:
-    `networkName Genesis`.toOpenArrayByte(0, `networkName Genesis`.high)
-
-const
-  availableOnlyInMainnetBuild =
-    "Baked-in genesis states for the official Ethereum " &
-    "networks are available only in the mainnet build of Nimbus"
-
-  availableOnlyInGnosisBuild =
-    "Baked-in genesis states for the Gnosis network " &
-    "are available only in the gnosis build of Nimbus"
-
 when const_preset in ["mainnet", "gnosis"]:
+  template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
+    when incbinEnabled:
+      `networkName Genesis`.toOpenArray(0, `networkName GenesisSize` - 1)
+    else:
+      `networkName Genesis`.toOpenArrayByte(0, `networkName Genesis`.high)
+
+  const
+    availableOnlyInMainnetBuild =
+      "Baked-in genesis states for the official Ethereum " &
+      "networks are available only in the mainnet build of Nimbus"
+
+    availableOnlyInGnosisBuild =
+      "Baked-in genesis states for the Gnosis network " &
+      "are available only in the gnosis build of Nimbus"
+
   template bakedBytes*(metadata: GenesisMetadata): auto =
     case metadata.networkName
     of "mainnet":
