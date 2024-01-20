@@ -136,8 +136,8 @@ proc createLightClient(
     strictVerification)
 
   proc lightClientVerifier(obj: SomeForkedLightClientObject):
-      Future[Result[void, VerifierError]] =
-    let resfut = newFuture[Result[void, VerifierError]]("lightClientVerifier")
+      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+    let resfut = Future[Result[void, VerifierError]].Raising([CancelledError]).init("lightClientVerifier")
     lightClient.processor[].addObject(MsgSource.gossip, obj, resfut)
     resfut
   proc bootstrapVerifier(obj: ForkedLightClientBootstrap): auto =

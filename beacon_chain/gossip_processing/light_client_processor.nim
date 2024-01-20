@@ -439,7 +439,7 @@ proc addObject*(
     self: var LightClientProcessor,
     src: MsgSource,
     obj: SomeForkedLightClientObject,
-    resfut: Future[Result[void, VerifierError]] = nil) =
+    resfut: Future[Result[void, VerifierError]].Raising([CancelledError]) = nil) =
   ## Enqueue a Gossip-validated light client object for verification
   # Backpressure:
   #   Only one object is validated at any time -

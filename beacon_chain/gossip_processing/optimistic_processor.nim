@@ -30,14 +30,14 @@ const
 type
   MsgTrustedBlockProcessor* =
     proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock): Future[void] {.
-      gcsafe, raises: [].}
+      async: (raises: [CancelledError]).}
 
   OptimisticProcessor* = ref object
     getBeaconTime: GetBeaconTimeFn
     optimisticVerifier: MsgTrustedBlockProcessor
     blocks: Table[Eth2Digest, ref ForkedSignedBeaconBlock]
     latestOptimisticSlot: Slot
-    processFut: Future[void]
+    processFut: Future[void].Raising([CancelledError])
     logMoment: Moment
 
 proc initOptimisticProcessor*(

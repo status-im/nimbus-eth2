@@ -28,7 +28,7 @@ from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 type
   ConsensusManager* = object
     expectedSlot: Slot
-    expectedBlockReceived: Future[bool]
+    expectedBlockReceived: Future[bool].Raising([CancelledError])
 
     # Validated & Verified
     # ----------------------------------------------------------------
@@ -97,7 +97,8 @@ proc checkExpectedBlock(self: var ConsensusManager) =
   self.expectedBlockReceived.complete(true)
   self.expectedBlockReceived = nil # Don't keep completed futures around!
 
-proc expectBlock*(self: var ConsensusManager, expectedSlot: Slot): Future[bool] =
+proc expectBlock*(self: var ConsensusManager, expectedSlot: Slot): Future[bool]
+    {.async: (raises: [CancelledError], raw: true).} =
   ## Return a future that will complete when a head is selected whose slot is
   ## equal or greater than the given slot, or a new expectation is created
   if self.expectedBlockReceived != nil:
@@ -153,7 +154,7 @@ func setOptimisticHead*(
   self.optimisticHead = (bid: bid, execution_block_hash: execution_block_hash)
 
 proc updateExecutionClientHead(self: ref ConsensusManager,
-                               newHead: BeaconHead): Future[Opt[void]] {.async.} =
+                               newHead: BeaconHead): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
   let headExecutionPayloadHash = self.dag.loadExecutionBlockHash(newHead.blck)
 
   if headExecutionPayloadHash.isZero:
@@ -318,7 +319,7 @@ proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
 from ../spec/datatypes/bellatrix import PayloadID
 
 proc runProposalForkchoiceUpdated*(
-    self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async.} =
+    self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
   let
     nextWallSlot = wallSlot + 1
     (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
@@ -351,46 +352,43 @@ proc runProposalForkchoiceUpdated*(
   if headBlockHash.isZero:
     return err()
 
-  try:
-    let safeBlockHash = beaconHead.safeExecutionPayloadHash
+  let safeBlockHash = beaconHead.safeExecutionPayloadHash
 
-    withState(self.dag.headState):
-      template callForkchoiceUpdated(fcPayloadAttributes: auto) =
-        let (status, _) = await self.elManager.forkchoiceUpdated(
-          headBlockHash, safeBlockHash,
-          beaconHead.finalizedExecutionPayloadHash,
-          payloadAttributes = some fcPayloadAttributes)
-        debug "Fork-choice updated for proposal", status
+  withState(self.dag.headState):
+    template callForkchoiceUpdated(fcPayloadAttributes: auto) =
+      let (status, _) = await self.elManager.forkchoiceUpdated(
+        headBlockHash, safeBlockHash,
+        beaconHead.finalizedExecutionPayloadHash,
+        payloadAttributes = some fcPayloadAttributes)
+      debug "Fork-choice updated for proposal", status
 
-      static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
-      when consensusFork >= ConsensusFork.Deneb:
-        callForkchoiceUpdated(PayloadAttributesV3(
-          timestamp: Quantity timestamp,
-          prevRandao: FixedBytes[32] randomData,
-          suggestedFeeRecipient: feeRecipient,
-          withdrawals:
-            toEngineWithdrawals get_expected_withdrawals(forkyState.data),
-          parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
-      elif consensusFork >= ConsensusFork.Capella:
-        callForkchoiceUpdated(PayloadAttributesV2(
-          timestamp: Quantity timestamp,
-          prevRandao: FixedBytes[32] randomData,
-          suggestedFeeRecipient: feeRecipient,
-          withdrawals:
-            toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
-      else:
-        callForkchoiceUpdated(PayloadAttributesV1(
-          timestamp: Quantity timestamp,
-          prevRandao: FixedBytes[32] randomData,
-          suggestedFeeRecipient: feeRecipient))
-  except CatchableError as err:
-    error "Engine API fork-choice update failed", err = err.msg
+    static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+    when consensusFork >= ConsensusFork.Deneb:
+      callForkchoiceUpdated(PayloadAttributesV3(
+        timestamp: Quantity timestamp,
+        prevRandao: FixedBytes[32] randomData,
+        suggestedFeeRecipient: feeRecipient,
+        withdrawals:
+          toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+        parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
+    elif consensusFork >= ConsensusFork.Capella:
+      callForkchoiceUpdated(PayloadAttributesV2(
+        timestamp: Quantity timestamp,
+        prevRandao: FixedBytes[32] randomData,
+        suggestedFeeRecipient: feeRecipient,
+        withdrawals:
+          toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
+    else:
+      callForkchoiceUpdated(PayloadAttributesV1(
+        timestamp: Quantity timestamp,
+        prevRandao: FixedBytes[32] randomData,
+        suggestedFeeRecipient: feeRecipient))
 
   ok()
 
 proc updateHeadWithExecution*(
     self: ref ConsensusManager, initialNewHead: BeaconHead,
-    getBeaconTimeFn: GetBeaconTimeFn) {.async.} =
+    getBeaconTimeFn: GetBeaconTimeFn) {.async: (raises: [CancelledError]).} =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.

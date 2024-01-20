@@ -2077,12 +2077,16 @@ proc peerPingerHeartbeat(node: Eth2Node) {.async: (raises: [CancelledError]).} =
 
     await allFutures(updateFutures)
 
+    reset(updateFutures)
+
     for peer in node.peers.values:
       if peer.connectionState != Connected: continue
 
       if peer.failedMetadataRequests > MetadataRequestMaxFailures:
         debug "no metadata from peer, kicking it", peer
-        await peer.disconnect(PeerScoreLow)
+        updateFutures.add(peer.disconnect(PeerScoreLow))
+
+    await allFutures(updateFutures)
 
     await sleepAsync(5.seconds)
 
@@ -2363,7 +2367,8 @@ proc subscribe*(
   # Passing in `nil` because we do all message processing in the validator
   node.pubsub.subscribe(topic, nil)
 
-proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult] =
+proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult]
+    {.async: (raises: [CancelledError], raw: true).} =
   let res = newFuture[ValidationResult]("eth2_network.execValidator")
   res.complete(v)
   res
@@ -2406,9 +2411,9 @@ proc addValidator*[MsgType](node: Eth2Node,
 proc addAsyncValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
-                            Future[ValidationResult] {.gcsafe, raises: [].} ) =
+                            Future[ValidationResult] {.async: (raises: [CancelledError]).} ) =
   proc execValidator(topic: string, message: GossipMsg):
-      Future[ValidationResult] {.raises: [].} =
+      Future[ValidationResult] {.async: (raw: true).} =
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message", len = message.data.len, topic
 

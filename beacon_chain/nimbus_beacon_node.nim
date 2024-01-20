@@ -1662,7 +1662,7 @@ proc installMessageValidators(node: BeaconNode) =
           node.network.addAsyncValidator(
             getAttestationTopic(digest, subnet_id), proc (
               attestation: Attestation
-            ): Future[ValidationResult] {.async.} =
+            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processAttestation(
                   MsgSource.gossip, attestation, subnet_id)))
@@ -1672,7 +1672,7 @@ proc installMessageValidators(node: BeaconNode) =
       node.network.addAsyncValidator(
         getAggregateAndProofsTopic(digest), proc (
           signedAggregateAndProof: SignedAggregateAndProof
-        ): Future[ValidationResult] {.async.} =
+        ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
           return toValidationResult(
             await node.processor.processSignedAggregateAndProof(
               MsgSource.gossip, signedAggregateAndProof)))
@@ -1716,7 +1716,7 @@ proc installMessageValidators(node: BeaconNode) =
             node.network.addAsyncValidator(
               getSyncCommitteeTopic(digest, idx), proc (
                 msg: SyncCommitteeMessage
-              ): Future[ValidationResult] {.async.} =
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                 return toValidationResult(
                   await node.processor.processSyncCommitteeMessage(
                     MsgSource.gossip, msg, idx)))
@@ -1726,7 +1726,7 @@ proc installMessageValidators(node: BeaconNode) =
         node.network.addAsyncValidator(
           getSyncCommitteeContributionAndProofTopic(digest), proc (
             msg: SignedContributionAndProof
-          ): Future[ValidationResult] {.async.} =
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
             return toValidationResult(
               await node.processor.processSignedContributionAndProof(
                 MsgSource.gossip, msg)))
@@ -1736,7 +1736,7 @@ proc installMessageValidators(node: BeaconNode) =
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
-          ): Future[ValidationResult] {.async.} =
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
             return toValidationResult(
               await node.processor.processBlsToExecutionChange(
                 MsgSource.gossip, msg)))
