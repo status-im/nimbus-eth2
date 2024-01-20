@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Mainnet preset - Capella
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/presets/mainnet/capella.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/presets/mainnet/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------
