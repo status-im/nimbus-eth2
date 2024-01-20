@@ -16,7 +16,7 @@ import
   confutils/toml/defs as confTomlDefs,
   confutils/toml/std/net as confTomlNet,
   confutils/toml/std/uri as confTomlUri,
-  serialization/errors, stew/shims/net as stewNet,
+  serialization/errors,
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
