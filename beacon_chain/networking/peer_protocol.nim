@@ -110,7 +110,7 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg):
 
 proc handleStatus(peer: Peer,
                   state: PeerSyncNetworkState,
-                  theirStatus: StatusMsg): Future[bool] {.gcsafe.}
+                  theirStatus: StatusMsg): Future[bool] {.async: (raises: [CancelledError]).}
 
 {.pop.} # TODO fix p2p macro for raises
 
@@ -118,7 +118,7 @@ p2pProtocol PeerSync(version = 1,
                        networkState = PeerSyncNetworkState,
                        peerState = PeerSyncPeerState):
 
-  onPeerConnected do (peer: Peer, incoming: bool) {.async.}:
+  onPeerConnected do (peer: Peer, incoming: bool) {.async: (raises: [CancelledError]).}:
     debug "Peer connected",
       peer, peerId = shortLog(peer.peerId), incoming
     # Per the eth2 protocol, whoever dials must send a status message when
@@ -155,7 +155,7 @@ p2pProtocol PeerSync(version = 1,
 
   proc ping(peer: Peer, value: uint64): uint64
     {.libp2pProtocol("ping", 1).} =
-    return peer.network.metadata.seq_number
+    peer.network.metadata.seq_number
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/p2p-interface.md#transitioning-from-v1-to-v2
   proc getMetaData(peer: Peer): uint64
@@ -164,10 +164,9 @@ p2pProtocol PeerSync(version = 1,
 
   proc getMetadata_v2(peer: Peer): altair.MetaData
     {.libp2pProtocol("metadata", 2).} =
-    return peer.network.metadata
+    peer.network.metadata
 
-  proc goodbye(peer: Peer,
-               reason: uint64)
+  proc goodbye(peer: Peer, reason: uint64)
     {.async, libp2pProtocol("goodbye", 1).} =
     debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 
@@ -178,7 +177,8 @@ proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
 
 proc handleStatus(peer: Peer,
                   state: PeerSyncNetworkState,
-                  theirStatus: StatusMsg): Future[bool] {.async.} =
+                  theirStatus: StatusMsg): Future[bool]
+                  {.async: (raises: [CancelledError]).} =
   let
     res = checkStatusMsg(state, theirStatus)
 
@@ -195,21 +195,16 @@ proc handleStatus(peer: Peer,
       await peer.handlePeer()
     true
 
-proc updateStatus*(peer: Peer): Future[bool] {.async.} =
+proc updateStatus*(peer: Peer): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Request `status` of remote peer ``peer``.
   let
     nstate = peer.networkState(PeerSync)
     ourStatus = getCurrentStatus(nstate)
+    theirStatus =
+      (await peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)).valueOr:
+        return false
 
-  let theirFut = awaitne peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)
-  if theirFut.failed():
-    return false
-  else:
-    let theirStatus = theirFut.read()
-    if theirStatus.isOk:
-      return await peer.handleStatus(nstate, theirStatus.get())
-    else:
-      return false
+  await peer.handleStatus(nstate, theirStatus)
 
 proc getHeadSlot*(peer: Peer): Slot =
   ## Returns head slot for specific peer ``peer``.

@@ -31,7 +31,7 @@ type
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type SomeForkedLightClientObject):
-    Future[NetRes[MsgType]] {.async.} =
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
   var contextBytes: ForkDigest
   try:
     await conn.readExactly(addr contextBytes, sizeof contextBytes)
