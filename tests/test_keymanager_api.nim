@@ -11,7 +11,7 @@ import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
   testutils/unittests, chronicles, stint, json_serialization, confutils,
   chronos, blscurve, libp2p/crypto/crypto as lcrypto,
-  stew/[byteutils, io2], stew/shims/net,
+  stew/[byteutils, io2],
 
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
   ../beacon_chain/spec/datatypes/base,
