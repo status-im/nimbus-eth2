@@ -1011,7 +1011,6 @@ proc getValidatorRegistration(
     return err(RegistrationKind.MissingIndex)
 
   let
-    vindex = validator.index.get()
     cached = vc.validatorsRegCache.getOrDefault(validator.pubkey)
     currentSlot =
       block:

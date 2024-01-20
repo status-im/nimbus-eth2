@@ -2261,8 +2261,9 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
 
     hostAddress = tcpEndPoint(
       ValidIpAddress.init config.listenAddress, config.tcpPort)
-    announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
-                         else: @[tcpEndPoint(ValidIpAddress.init(extIp.get()), extTcpPort.get())]
+    announcedAddresses =
+      if extIp.isNone() or extTcpPort.isNone(): @[]
+      else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
 
   debug "Initializing networking", hostAddress,
                                    network_public_key = netKeys.pubkey,

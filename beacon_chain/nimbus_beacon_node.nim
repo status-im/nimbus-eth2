@@ -1153,7 +1153,7 @@ proc maybeUpdateActionTrackerNextEpoch(
       #
       # There are no penalties associated with TIMELY_HEAD_FLAG_INDEX, but a
       # reward exists. effective_balance == MAX_EFFECTIVE_BALANCE ensures if
-      # even so, then the effective balanace cannot change as a result.
+      # even so, then the effective balance cannot change as a result.
       #
       # It's not truly necessary to avoid all rewards and penalties, but only
       # to bound them to ensure they won't unexpected alter effective balance
