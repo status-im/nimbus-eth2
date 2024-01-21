@@ -15,8 +15,7 @@ import
   web3, web3/[engine_api, primitives, conversions],
   eth/common/[eth_types, transaction],
   eth/async_utils, results,
-  stew/[assign2, byteutils, objects, shims/hashes, endians2],
-  eth/async_utils, stew/[assign2, byteutils, objects],
+  stew/[assign2, byteutils, objects],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../networking/network_metadata,
