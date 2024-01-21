@@ -561,8 +561,9 @@ suite "createValidatorFiles()":
       # Creating `secrets` dir with `UserRead` permissions before
       # calling `createValidatorFiles` which should result in problem
       # with creating a secret file inside the dir:
+      discard createPath(testSecretsDir, 0o400)
+
       let
-        secretsDirNoPermissions = createPath(testSecretsDir, 0o400)
         res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
                                         keystoreDir,
                                         secretFile, password,
@@ -582,8 +583,9 @@ suite "createValidatorFiles()":
       # Creating `validators` dir with `UserRead` permissions before
       # calling `createValidatorFiles` which should result in problems
       # creating `keystoreDir` inside the dir.
+      discard createPath(testValidatorsDir, 0o400)
+
       let
-        validatorsDirNoPermissions = createPath(testValidatorsDir, 0o400)
         res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
                                         keystoreDir,
                                         secretFile, password,
@@ -603,9 +605,10 @@ suite "createValidatorFiles()":
       # Creating `keystore` dir with `UserRead` permissions before
       # calling `createValidatorFiles` which should result in problems
       # creating keystore file inside this dir:
+      discard createPath(testValidatorsDir, 0o700)
+      discard createPath(keystoreDir, 0o400)
+
       let
-        validatorsDir = createPath(testValidatorsDir, 0o700)
-        keystoreDirNoPermissions = createPath(keystoreDir, 0o400)
         res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
                                         keystoreDir,
                                         secretFile, password,
@@ -622,22 +625,23 @@ suite "createValidatorFiles()":
     test "`createValidatorFiles` with already existing dirs and any error":
       # Generate deposits so we have files and dirs already existing
       # before testing `createValidatorFiles` failure
-      let
-        deposits = generateDeposits(
-          cfg,
-          rng[],
-          seed,
-          0, simulationDepositsCount,
-          testValidatorsDir,
-          testSecretsDir)
+      discard generateDeposits(
+        cfg,
+        rng[],
+        seed,
+        0, simulationDepositsCount,
+        testValidatorsDir,
+        testSecretsDir)
 
+      let
         validatorsCountBefore = directoryItemsCount(testValidatorsDir)
         secretsCountBefore = directoryItemsCount(testSecretsDir)
 
-        # Creating `keystore` dir with `UserRead` permissions before calling
-        # `createValidatorFiles` which will result in error
-        keystoreDirNoPermissions = createPath(keystoreDir, 0o400)
+      # Creating `keystore` dir with `UserRead` permissions before calling
+      # `createValidatorFiles` which will result in error
+      discard createPath(keystoreDir, 0o400)
 
+      let
         res = createLocalValidatorFiles(testSecretsDir, testValidatorsDir,
                                         keystoreDir,
                                         secretFile, password,

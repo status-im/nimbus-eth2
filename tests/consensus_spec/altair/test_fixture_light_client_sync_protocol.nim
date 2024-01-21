@@ -132,11 +132,6 @@ proc block_for_next_slot(
   addTestBlock(
     forked, cache, attestations = attestations, cfg = cfg)
 
-let full_sync_committee_bits = block:
-  var res: BitArray[SYNC_COMMITTEE_SIZE]
-  res.bytes.fill(byte.high)
-  res
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store(
     state: auto, storeDataFork: static LightClientDataFork): auto =

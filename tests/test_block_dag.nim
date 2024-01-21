@@ -60,8 +60,6 @@ suite "BlockSlot and helpers":
       s4 = BlockRef(bid: BlockId(slot: Slot(4)), parent: s2)
       se1 = BlockRef(bid:
         BlockId(slot: Epoch(1).start_slot()), parent: s2)
-      se2 = BlockRef(bid:
-        BlockId(slot: Epoch(2).start_slot()), parent: se1)
 
     check:
       s0.atSlot(Slot(0)).blck == s0

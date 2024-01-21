@@ -46,7 +46,7 @@ suite "Spec helpers":
 
     proc process(anchor: object, index: GeneralizedIndex) =
       var i = index
-      anchor.enumInstanceSerializedFields(fieldNameVar, fieldVar):
+      anchor.enumInstanceSerializedFields(_, fieldVar):
         let depth = log2trunc(i)
         var proof = newSeq[Eth2Digest](depth)
         state.build_proof(i, proof).get
