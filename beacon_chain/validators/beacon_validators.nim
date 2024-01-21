@@ -568,55 +568,34 @@ proc getBlindedExecutionPayload[
   # Not ideal to use `when` where instead of splitting into separate functions,
   # but Nim doesn't overload on generic EPH type parameter.
   when EPH is capella.ExecutionPayloadHeader:
-    let
-      response = awaitWithTimeout(
-        payloadBuilderClient.getHeaderCapella(
-          slot, executionBlockRoot, pubkey),
-        BUILDER_PROPOSAL_DELAY_TOLERANCE):
-          return err "Timeout obtaining Capella blinded header from builder"
-
-      res = decodeBytes(
-        GetHeaderResponseCapella, response.data, response.contentType)
-
-      blindedHeader = res.valueOr:
-        return err(
-          "Unable to decode Capella blinded header: " & $res.error &
-            " with HTTP status " & $response.status & ", Content-Type " &
-            $response.contentType & " and content " & $response.data)
+    let blindedHeader = awaitWithTimeout(
+      payloadBuilderClient.getHeaderCapella(slot, executionBlockRoot, pubkey),
+      BUILDER_PROPOSAL_DELAY_TOLERANCE):
+        return err "Timeout obtaining Capella blinded header from builder"
   elif EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
-    let
-      response = awaitWithTimeout(
-        payloadBuilderClient.getHeaderDeneb(
-          slot, executionBlockRoot, pubkey),
-        BUILDER_PROPOSAL_DELAY_TOLERANCE):
-          return err "Timeout obtaining Deneb blinded header from builder"
-
-      res = decodeBytes(
-        GetHeaderResponseDeneb, response.data, response.contentType)
-
-      blindedHeader = res.valueOr:
-        return err(
-          "Unable to decode Deneb blinded header: " & $res.error &
-            " with HTTP status " & $response.status & ", Content-Type " &
-            $response.contentType & " and content " & $response.data)
+    let blindedHeader = awaitWithTimeout(
+      payloadBuilderClient.getHeaderDeneb(slot, executionBlockRoot, pubkey),
+      BUILDER_PROPOSAL_DELAY_TOLERANCE):
+        return err "Timeout obtaining Deneb blinded header and blob bundle from builder"
   else:
     static: doAssert false
 
   const httpOk = 200
-  if response.status != httpOk:
+  if blindedHeader.status != httpOk:
     return err "getBlindedExecutionPayload: non-200 HTTP response"
   else:
     if not verify_builder_signature(
-        node.dag.cfg.genesisFork, blindedHeader.data.message,
-        blindedHeader.data.message.pubkey, blindedHeader.data.signature):
+        node.dag.cfg.genesisFork, blindedHeader.data.data.message,
+        blindedHeader.data.data.message.pubkey,
+        blindedHeader.data.data.signature):
       return err "getBlindedExecutionPayload: signature verification failed"
 
     when EPH is capella.ExecutionPayloadHeader:
       return ok((
-        blindedBlckPart: blindedHeader.data.message.header,
-        blockValue: blindedHeader.data.message.value))
+        blindedBlckPart: blindedHeader.data.data.message.header,
+        blockValue: blindedHeader.data.data.message.value))
     elif EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
-      template builderBid: untyped = blindedHeader.data.message
+      template builderBid: untyped = blindedHeader.data.data.message
       return ok((
         blindedBlckPart: EPH(
           execution_payload_header: builderBid.header,

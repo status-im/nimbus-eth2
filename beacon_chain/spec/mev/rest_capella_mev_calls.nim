@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -22,13 +22,13 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
 proc getHeaderCapella*(slot: Slot,
                        parent_hash: Eth2Digest,
                        pubkey: ValidatorPubKey
-                      ): RestPlainResponse {.
+                      ): RestResponse[GetHeaderResponseCapella] {.
      rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
      meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/header.yaml
 
 proc submitBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock
-                        ): RestPlainResponse {.
+                        ): RestResponse[SubmitBlindedBlockResponseCapella] {.
      rest, endpoint: "/eth/v1/builder/blinded_blocks",
      meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/blinded_blocks.yaml
