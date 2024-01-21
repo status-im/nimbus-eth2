@@ -461,7 +461,7 @@ func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
   bytes_to_uint64(eth2digest(
     slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
 
-# https://github.com/ethereum/builder-specs/pull/47
+# https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#liveness-failsafe
 func livenessFailsafeInEffect*(
     block_roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest],
     slot: Slot): bool =
