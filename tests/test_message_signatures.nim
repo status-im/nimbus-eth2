@@ -176,7 +176,6 @@ suite "Message signatures":
   test "Sync committee message signatures":
     let
       slot = default(Slot)
-      epoch = slot.epoch
       block_root = default(Eth2Digest)
 
     check:

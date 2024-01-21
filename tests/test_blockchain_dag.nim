@@ -213,9 +213,8 @@ suite "Block pool processing" & preset():
 
     assign(state[], dag.epochRefState)
 
-    let
-      bnext = addTestBlock(state[], cache).phase0Data
-      bnextAdd = dag.addHeadBlock(verifier, bnext, nilPhase0Callback)
+    let bnext = addTestBlock(state[], cache).phase0Data
+    discard dag.addHeadBlock(verifier, bnext, nilPhase0Callback)
 
     check:
       # Getting an EpochRef should not result in states being stored
@@ -952,9 +951,7 @@ suite "Backfill":
       dag2.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
   test "Init without genesis / block":
-    let
-      tailBlock = blocks[^1]
-      genBlock = get_initial_beacon_block(genState[])
+    let genBlock = get_initial_beacon_block(genState[])
 
     ChainDAGRef.preInit(db, tailState[])
 

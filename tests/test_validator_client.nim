@@ -765,8 +765,6 @@ suite "Validator Client test suite":
         score == vector[5]
 
   test "getUniqueVotes() test vectors":
-    var data = CommitteeValidatorsBits.init(16)
-
     for vector in AttestationBitsVectors:
       let
         a1 = Attestation.init(vector[0][0][0], vector[0][0][1], vector[0][0][2])

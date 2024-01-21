@@ -328,7 +328,7 @@ suite "Gossip validation - Altair":
       let
         (subcommitteeIdx, indexInSubcommittee) =
           dag.getFirstAggregator(signatureSlot)
-        (validator, expectedCount, msg) = dag.getSyncCommitteeMessage(
+        (validator, _, msg) = dag.getSyncCommitteeMessage(
           slot, subcommitteeIdx, indexInSubcommittee,
           signatureSlot = Opt.some(signatureSlot))
         msgVerdict = waitFor dag.validateSyncCommitteeMessage(

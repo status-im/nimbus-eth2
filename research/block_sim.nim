@@ -49,9 +49,6 @@ type Timers = enum
   tSyncCommittees = "Produce sync committee actions"
   tReplay = "Replay all produced blocks"
 
-template seconds(x: uint64): timer.Duration =
-  timer.seconds(int(x))
-
 # TODO The rest of nimbus-eth2 uses only the forked version of these, and in
 # general it's better for the validator_duties caller to use the forkedstate
 # version, so isolate these here pending refactoring of block_sim to prefer,

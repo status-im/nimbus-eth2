@@ -40,13 +40,11 @@ suite "Block processor" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
       blobQuarantine = newClone(BlobQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker: ActionTracker
-      keymanagerHost: ref KeymanagerHost
       consensusManager = ConsensusManager.new(
         dag, attestationPool, quarantine, elManager, actionTracker,
         newClone(DynamicFeeRecipientsStore.init()), "",

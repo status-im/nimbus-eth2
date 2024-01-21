@@ -22,7 +22,6 @@ const ROOT = "342cecb5a18945fbbda7c62ede3016f3"
 
 template databaseRoot: string = getTempDir().joinPath(ROOT)
 template key1: array[1, byte] = [byte(kOldDepositContractSnapshot)]
-template key2: array[1, byte] = [byte(kDepositTreeSnapshot)]
 
 type
   DepositSnapshotUpgradeProc = proc(old: OldDepositContractSnapshot): DepositTreeSnapshot
@@ -157,7 +156,6 @@ suite "DepositTreeSnapshot":
     inspectDCS(snapshot, 11052984)
 
   test "depositCount":
-    let now = getTime()
     var rand = initRand(12345678)
     for i in 1..1000:
       let n = rand.next()
