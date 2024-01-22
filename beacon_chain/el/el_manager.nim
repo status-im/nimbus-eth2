@@ -1214,7 +1214,7 @@ proc forkchoiceUpdated*(m: ELManager,
       data =
         try:
           requests[responseProcessor.selectedResponse.get].read
-        except CatchableError as exc:
+        except CatchableError:
           raiseAssert "Only completed requests get selected"
     (data.status, data.latestValidHash)
 

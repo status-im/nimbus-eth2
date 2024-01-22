@@ -106,7 +106,7 @@ programMain:
         nil
 
     optimisticHandler = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
-        Future[void] {.async.} =
+        Future[void] {.async: (raises: [CancelledError]).} =
       notice "New LC optimistic block",
         opt = signedBlock.toBlockId(),
         wallSlot = getBeaconTime().slotOrZero
