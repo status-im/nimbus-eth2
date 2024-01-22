@@ -2262,8 +2262,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = tcpEndPoint(
-      ValidIpAddress.init config.listenAddress, config.tcpPort)
+    hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
     announcedAddresses =
       if extIp.isNone() or extTcpPort.isNone(): @[]
       else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
