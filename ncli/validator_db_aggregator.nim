@@ -6,13 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/parsecsv,
   stew/[io2, byteutils], chronicles, confutils, snappy,
   ../beacon_chain/spec/datatypes/base,
   ./ncli_common
-
-from std/os import fileExists
-from std/strutils import parseBiggestInt, parseBiggestUInt
 
 type
   AggregatorConf = object
@@ -159,6 +155,9 @@ proc advanceEpochs*(aggregator: var ValidatorDbAggregator, epoch: Epoch,
 
 when isMainModule:
   import std/streams
+  from std/os import fileExists
+  from std/parsecsv import CsvParser, CsvRow, open, readRow
+  from std/strutils import parseBiggestInt, parseBiggestUInt
 
   when defined(posix):
     import system/ansi_c
