@@ -811,7 +811,7 @@ proc getDepositMessageSignature*(v: AttachedValidator, version: Version,
       let request = Web3SignerRequest.init(version, deposit_message)
       await v.signData(request)
 
-# https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signing
+# https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signing
 proc getBuilderSignature*(v: AttachedValidator, fork: Fork,
     validatorRegistration: ValidatorRegistrationV1):
     Future[SignatureResult] {.async.} =

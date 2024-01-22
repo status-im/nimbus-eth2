@@ -1580,7 +1580,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   await onSlotEnd(node, wallSlot)
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#registration-dissemination
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
   # This specification suggests validators re-submit to builder software every
   # `EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION` epochs.
   if  wallSlot.is_epoch and
