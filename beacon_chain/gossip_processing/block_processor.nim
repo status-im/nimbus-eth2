@@ -238,7 +238,7 @@ from ../el/el_manager import
 proc expectValidForkchoiceUpdated(
     elManager: ELManager, headBlockPayloadAttributesType: typedesc,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-    receivedBlock: ForkySignedBeaconBlock): Future[void] {.async.} =
+    receivedBlock: ForkySignedBeaconBlock): Future[void] {.async: (raises: [CancelledError]).} =
   let
     (payloadExecutionStatus, _) = await elManager.forkchoiceUpdated(
       headBlockHash = headBlockHash,
@@ -291,7 +291,7 @@ from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
 
 proc newExecutionPayload*(
     elManager: ELManager, blck: SomeForkyBeaconBlock):
-    Future[Opt[PayloadExecutionStatus]] {.async.} =
+    Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
 
   template executionPayload: untyped = blck.body.execution_payload
 
@@ -329,7 +329,7 @@ proc getExecutionValidity(
     elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
           deneb.SignedBeaconBlock):
-    Future[NewPayloadStatus] {.async.} =
+    Future[NewPayloadStatus] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
 
@@ -413,7 +413,7 @@ proc storeBlock(
     blobsOpt: Opt[BlobSidecars],
     maybeFinalized = false,
     queueTick: Moment = Moment.now(), validationDur = Duration()):
-    Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
+    Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async: (raises: [CancelledError]).} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
   ## we will add it to the dag and pass it to all block consumers that need
@@ -774,7 +774,7 @@ proc addBlock*(
 # ------------------------------------------------------------------------------
 
 proc processBlock(
-    self: ref BlockProcessor, entry: BlockEntry) {.async.} =
+    self: ref BlockProcessor, entry: BlockEntry) {.async: (raises: [CancelledError]).} =
   logScope:
     blockRoot = shortLog(entry.blck.root)
 

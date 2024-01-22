@@ -1117,7 +1117,7 @@ proc forkchoiceUpdated*(m: ELManager,
                         payloadAttributes: Option[PayloadAttributesV1] |
                                            Option[PayloadAttributesV2] |
                                            Option[PayloadAttributesV3]):
-                        Future[(PayloadExecutionStatus, Option[BlockHash])] {.async.} =
+                        Future[(PayloadExecutionStatus, Option[BlockHash])] {.async: (raises: [CancelledError]).} =
   doAssert not headBlockHash.isZero
 
   # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
@@ -1208,12 +1208,20 @@ proc forkchoiceUpdated*(m: ELManager,
         finalizedBlockHash: finalizedBlockHash,
         payloadAttributes: payloadAttributesV3))
 
+  template getSelected: untyped =
+    let
+      data =
+        try:
+          requests[responseProcessor.selectedResponse.get].read
+        except CatchableError:
+          raiseAssert "Only completed requests get selected"
+    (data.status, data.latestValidHash)
+
   if responseProcessor.disagreementAlreadyDetected:
     return (PayloadExecutionStatus.invalid, none BlockHash)
   elif responseProcessor.selectedResponse.isSome:
     assignNextExpectedPayloadParams()
-    return (requests[responseProcessor.selectedResponse.get].read.status,
-            requests[responseProcessor.selectedResponse.get].read.latestValidHash)
+    return getSelected()
 
   await requestsCompleted or deadline
 
@@ -1225,8 +1233,7 @@ proc forkchoiceUpdated*(m: ELManager,
     (PayloadExecutionStatus.invalid, none BlockHash)
   elif responseProcessor.selectedResponse.isSome:
     assignNextExpectedPayloadParams()
-    (requests[responseProcessor.selectedResponse.get].read.status,
-     requests[responseProcessor.selectedResponse.get].read.latestValidHash)
+    getSelected()
   else:
     (PayloadExecutionStatus.syncing, none BlockHash)
 

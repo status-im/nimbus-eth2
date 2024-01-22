@@ -367,7 +367,7 @@ proc checkForPotentialDoppelganger(
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
     attestation: Attestation, subnet_id: SubnetId,
-    checkSignature: bool = true): Future[ValidationRes] {.async.} =
+    checkSignature: bool = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 
@@ -415,7 +415,7 @@ proc processAttestation*(
 proc processSignedAggregateAndProof*(
     self: ref Eth2Processor, src: MsgSource,
     signedAggregateAndProof: SignedAggregateAndProof,
-    checkSignature = true, checkCover = true): Future[ValidationRes] {.async.} =
+    checkSignature = true, checkCover = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 
@@ -472,7 +472,7 @@ proc processSignedAggregateAndProof*(
 proc processBlsToExecutionChange*(
     self: ref Eth2Processor, src: MsgSource,
     blsToExecutionChange: SignedBLSToExecutionChange):
-    Future[ValidationRes] {.async.} =
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   logScope:
     blsToExecutionChange = shortLog(blsToExecutionChange)
 
@@ -568,7 +568,7 @@ proc processSyncCommitteeMessage*(
     self: ref Eth2Processor, src: MsgSource,
     syncCommitteeMsg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
+    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -612,7 +612,7 @@ proc processSyncCommitteeMessage*(
 proc processSignedContributionAndProof*(
     self: ref Eth2Processor, src: MsgSource,
     contributionAndProof: SignedContributionAndProof,
-    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
+    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero()

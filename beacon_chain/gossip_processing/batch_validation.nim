@@ -85,6 +85,8 @@ type
     Valid
     Timeout
 
+  FutureBatchResult = Future[BatchResult].Raising([CancelledError])
+
   Eager = proc(): bool {.gcsafe, raises: [].}
     ## Callback that returns true if eager processing should be done to lower
     ## latency at the expense of spending more cycles validating things,
@@ -92,7 +94,7 @@ type
 
   BatchItem* = object
     sigset: SignatureSet
-    fut: Future[BatchResult]
+    fut: FutureBatchResult
 
   Batch* = object
     ## A batch represents up to BatchedCryptoSize non-aggregated signatures
@@ -103,7 +105,7 @@ type
   VerifierItem = object
     verifier: ref BatchVerifier
     signal: ThreadSignalPtr
-    inflight: Future[void]
+    inflight: Future[void].Raising([CancelledError])
 
   BatchCrypto* = object
     batches: Deque[ref Batch]
@@ -129,7 +131,7 @@ type
       # Most scheduled checks require this immutable value, so don't require it
       # to be provided separately each time
 
-    processor: Future[void]
+    processor: Future[void].Raising([CancelledError])
 
   BatchTask = object
     ok: Atomic[bool]
@@ -237,7 +239,7 @@ proc spawnBatchVerifyTask(tp: Taskpool, task: ptr BatchTask) =
 
 proc batchVerifyAsync*(
     verifier: ref BatchVerifier, signal: ThreadSignalPtr,
-    batch: ref Batch): Future[bool] {.async.} =
+    batch: ref Batch): Future[bool] {.async: (raises: [CancelledError]).} =
   var task = BatchTask(
     setsPtr: makeUncheckedArray(baseAddr batch[].sigsets),
     numSets: batch[].sigsets.len,
@@ -253,12 +255,17 @@ proc batchVerifyAsync*(
   doAssert verifier[].taskpool.numThreads > 1,
     "Must have at least one separate thread or signal will never be fired"
   verifier[].taskpool.spawnBatchVerifyTask(taskPtr)
-  await signal.wait()
+  try:
+    await signal.wait()
+  except AsyncError as exc:
+    warn "Batch verification verification failed - report bug", err = exc.msg
+    return false
+
   task.ok.load()
 
 proc processBatch(
     batchCrypto: ref BatchCrypto, batch: ref Batch,
-    verifier: ref BatchVerifier, signal: ThreadSignalPtr) {.async.} =
+    verifier: ref BatchVerifier, signal: ThreadSignalPtr) {.async: (raises: [CancelledError]).} =
   let
     numSets = batch[].sigsets.len()
 
@@ -307,7 +314,7 @@ proc processBatch(
 
   batchCrypto[].complete(batch[], ok)
 
-proc processLoop(batchCrypto: ref BatchCrypto) {.async.} =
+proc processLoop(batchCrypto: ref BatchCrypto) {.async: (raises: [CancelledError]).} =
   ## Process pending crypto check after some time has passed - the time is
   ## chosen such that there's time to fill the batch but not so long that
   ## latency across the network is negatively affected
@@ -354,7 +361,7 @@ proc scheduleProcessor(batchCrypto: ref BatchCrypto) =
 
 proc verifySoon(
     batchCrypto: ref BatchCrypto, name: static string,
-    sigset: SignatureSet): Future[BatchResult] =
+    sigset: SignatureSet): Future[BatchResult]{.async: (raises: [CancelledError], raw: true).} =
   let
     batch = batchCrypto[].getBatch()
     fut = newFuture[BatchResult](name)
@@ -385,7 +392,7 @@ proc scheduleAttestationCheck*(
       batchCrypto: ref BatchCrypto, fork: Fork,
       attestationData: AttestationData, pubkey: CookedPubKey,
       signature: ValidatorSig
-     ): Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
+     ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of an attestation
   ##
   ## The buffer is processed:
@@ -410,7 +417,7 @@ proc scheduleAggregateChecks*(
       signedAggregateAndProof: SignedAggregateAndProof, dag: ChainDAGRef,
       attesting_indices: openArray[ValidatorIndex]
      ): Result[tuple[
-        aggregatorFut, slotFut, aggregateFut: Future[BatchResult],
+        aggregatorFut, slotFut, aggregateFut: FutureBatchResult,
         sig: CookedSig], cstring] =
   ## Schedule crypto verification of an aggregate
   ##
@@ -462,7 +469,7 @@ proc scheduleSyncCommitteeMessageCheck*(
       batchCrypto: ref BatchCrypto, fork: Fork, slot: Slot,
       beacon_block_root: Eth2Digest, pubkey: CookedPubKey,
       signature: ValidatorSig
-     ): Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
+     ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of an attestation
   ##
   ## The buffer is processed:
@@ -486,7 +493,7 @@ proc scheduleContributionChecks*(
       batchCrypto: ref BatchCrypto,
       fork: Fork, signedContributionAndProof: SignedContributionAndProof,
       subcommitteeIdx: SyncSubcommitteeIndex, dag: ChainDAGRef): Result[tuple[
-       aggregatorFut, proofFut, contributionFut: Future[BatchResult],
+       aggregatorFut, proofFut, contributionFut: FutureBatchResult,
        sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
   ## SignedContributionAndProof message
@@ -535,7 +542,7 @@ proc scheduleContributionChecks*(
 proc scheduleBlsToExecutionChangeCheck*(
     batchCrypto: ref BatchCrypto,
     genesis_fork: Fork, signedBLSToExecutionChange: SignedBLSToExecutionChange):
-    Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
+    Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
   ## SignedBLSToExecutionChange message
   ##

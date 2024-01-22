@@ -625,7 +625,7 @@ proc validateAttestation*(
     subnet_id: SubnetId, checkSignature: bool):
     Future[Result[
       tuple[attesting_index: ValidatorIndex, sig: CookedSig],
-      ValidationError]] {.async.} =
+      ValidationError]] {.async: (raises: [CancelledError]).} =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
   # an `EpochRef` and checking signatures. This reordering might lead to
@@ -796,7 +796,7 @@ proc validateAggregate*(
     checkSignature = true, checkCover = true):
     Future[Result[
       tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
-      ValidationError]] {.async.} =
+      ValidationError]] {.async: (raises: [CancelledError]).} =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
   # an `EpochRef` and checking signatures. This reordering might lead to
@@ -1004,7 +1004,7 @@ proc validateAggregate*(
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,
-    wallEpoch: Epoch): Future[Result[void, ValidationError]] {.async.} =
+    wallEpoch: Epoch): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   # [IGNORE] `current_epoch >= CAPELLA_FORK_EPOCH`, where `current_epoch` is
   # defined by the current wall-clock time.
   if not (wallEpoch >= pool.dag.cfg.CAPELLA_FORK_EPOCH):
@@ -1149,7 +1149,7 @@ proc validateSyncCommitteeMessage*(
     wallTime: BeaconTime,
     checkSignature: bool):
     Future[Result[
-      (BlockId, CookedSig, seq[uint64]), ValidationError]] {.async.} =
+      (BlockId, CookedSig, seq[uint64]), ValidationError]] {.async: (raises: [CancelledError]).} =
   block:
     # [IGNORE] The message's slot is for the current slot (with a
     # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
@@ -1241,7 +1241,7 @@ proc validateContribution*(
     wallTime: BeaconTime,
     checkSignature: bool
 ): Future[Result[
-    (BlockId, CookedSig, seq[ValidatorIndex]), ValidationError]] {.async.} =
+    (BlockId, CookedSig, seq[ValidatorIndex]), ValidationError]] {.async: (raises: [CancelledError]).} =
   block:
     # [IGNORE] The contribution's slot is for the current slot
     # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)

@@ -576,7 +576,7 @@ suite "Validator Client test suite":
         else:
           return await request.respond(Http404, "Page not found")
       else:
-        return dumbResponse()
+        return defaultResponse()
 
     let  server = createServer(initTAddress("127.0.0.1:0"), process, false)
     server.start()
@@ -660,7 +660,7 @@ suite "Validator Client test suite":
         else:
           return await request.respond(Http404, "Page not found")
       else:
-        return dumbResponse()
+        return defaultResponse()
 
     let  server = createServer(initTAddress("127.0.0.1:0"), process, false)
     server.start()
