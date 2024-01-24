@@ -109,6 +109,7 @@ RestJson.useDefaultSerializationFor(
   KeystoreInfo,
   ListFeeRecipientResponse,
   ListGasLimitResponse,
+  PayloadAttributesInfoObject,
   PendingAttestation,
   PostKeystoresResponse,
   PrepareBeaconProposer,
@@ -141,6 +142,9 @@ RestJson.useDefaultSerializationFor(
   RestNodeExtraData,
   RestNodePeer,
   RestNodeVersion,
+  RestPayloadAttributesV1,
+  RestPayloadAttributesV2,
+  RestPayloadAttributesV3,
   RestPeerCount,
   RestProposerDuty,
   RestRoot,
@@ -307,8 +311,12 @@ type
     ImportDistributedKeystoresBody |
     ImportRemoteKeystoresBody |
     KeystoresAndSlashingProtection |
+    PayloadAttributesInfoObject |
     PrepareBeaconProposer |
     ProposerSlashing |
+    RestPayloadAttributesV1 |
+    RestPayloadAttributesV2 |
+    RestPayloadAttributesV3 |
     SetFeeRecipientRequest |
     SetGasLimitRequest |
     bellatrix_mev.SignedBlindedBeaconBlock |
@@ -4175,6 +4183,8 @@ proc decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.ProposerSlashing)
   of "attester_slashing":
     ok(EventTopic.AttesterSlashing)
+  of "payload_attributes":
+    ok(EventTopic.PayloadAttributes)
   of "blob_sidecar":
     ok(EventTopic.BlobSidecar)
   of "finalized_checkpoint":
@@ -4206,6 +4216,8 @@ proc encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("proposer_slashing,")
   if EventTopic.AttesterSlashing in value:
     res.add("attester_slashing,")
+  if EventTopic.PayloadAttributes in value:
+    res.add("payload_attributes,")
   if EventTopic.BlobSidecar in value:
     res.add("blob_sidecar,")
   if EventTopic.FinalizedCheckpoint in value:

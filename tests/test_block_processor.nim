@@ -56,7 +56,7 @@ suite "Block processor" & preset():
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
         false, "", "", rng, taskpool, consensusManager,
-        validatorMonitor, blobQuarantine, getTimeFn)
+        validatorMonitor, blobQuarantine, getTimeFn, nil)
       processorFut = processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():

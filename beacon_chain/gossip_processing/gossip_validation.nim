@@ -254,10 +254,6 @@ template checkedReject(
     pool: ValidatorChangePool, error: ValidationError): untyped =
   pool.dag.checkedReject(error)
 
-template checkedResult(
-    pool: ValidatorChangePool, error: ValidationError): untyped =
-  pool.dag.checkedResult(error)
-
 template validateBeaconBlockBellatrix(
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
     parent: BlockRef): untyped =

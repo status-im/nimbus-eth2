@@ -35,6 +35,7 @@ type
       ## Root that can be used to retrieve block data from database
 
     executionBlockHash*: Opt[Eth2Digest]
+    executionBlockNumber*: Opt[uint64]
     executionValid*: bool
 
     parent*: BlockRef ##\
@@ -55,11 +56,12 @@ template slot*(blck: BlockRef): Slot = blck.bid.slot
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
-    executionBlockHash: Opt[Eth2Digest], executionValid: bool, slot: Slot):
-    BlockRef =
+    executionBlockHash: Opt[Eth2Digest], executionBlockNumber: Opt[uint64],
+    executionValid: bool, slot: Slot): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
-    executionBlockHash: executionBlockHash, executionValid: executionValid)
+    executionBlockHash: executionBlockHash,
+    executionBlockNumber: executionBlockNumber, executionValid: executionValid)
 
 func init*(
     T: type BlockRef, root: Eth2Digest, executionValid: bool,
@@ -67,7 +69,8 @@ func init*(
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
   # Use same formal parameters for simplicity, but it's impossible for these
   # blocks to be optimistic.
-  BlockRef.init(root, Opt.some ZERO_HASH, executionValid = true, blck.slot)
+  BlockRef.init(
+    root, Opt.some ZERO_HASH, Opt.some 0'u64, executionValid = true, blck.slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest, executionValid: bool,
@@ -76,6 +79,7 @@ func init*(
           deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root, Opt.some Eth2Digest(blck.body.execution_payload.block_hash),
+    Opt.some blck.body.execution_payload.block_number,
     executionValid =
       executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
     blck.slot)

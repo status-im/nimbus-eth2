@@ -51,6 +51,7 @@ type
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
+    payloadAttributesQueue*: AsyncEventQueue[PayloadAttributesInfoObject]
     finUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientFinalityUpdate]]
     optUpdateQueue*: AsyncEventQueue[

@@ -55,9 +55,9 @@ type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
     Head, Block, Attestation, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, FinalizedCheckpoint,
-    ChainReorg, ContributionAndProof, LightClientFinalityUpdate,
-    LightClientOptimisticUpdate
+    ProposerSlashing, AttesterSlashing, PayloadAttributes, BlobSidecar,
+    FinalizedCheckpoint, ChainReorg, ContributionAndProof,
+    LightClientFinalityUpdate, LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]
 
@@ -318,6 +318,26 @@ type
     blob_gas_used*: Option[uint64]   ## [New in Deneb]
     excess_blob_gas*: Option[uint64] ## [New in Deneb]
 
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#payloadattributesv1
+  RestPayloadAttributesV1* = object
+    timestamp*: uint64
+    prev_randao*: Eth2Digest
+    suggested_fee_recipient*: Eth1Address
+
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#payloadattributesv2
+  RestPayloadAttributesV2* = object
+    timestamp*: uint64
+    prev_randao*: Eth2Digest
+    suggested_fee_recipient*: Eth1Address
+    withdrawals*: seq[Withdrawal]
+
+  # https://github.com/ethereum/execution-apis/blob/ee3df5bc38f28ef35385cefc9d9ca18d5e502778/src/engine/cancun.md#payloadattributesv3
+  RestPayloadAttributesV3* = object
+    timestamp*: uint64
+    prev_randao*: Eth2Digest
+    suggested_fee_recipient*: Eth1Address
+    withdrawals*: seq[Withdrawal]
+    parent_beacon_block_root*: Eth2Digest
 
   PrepareBeaconProposer* = object
     validator_index*: ValidatorIndex

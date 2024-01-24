@@ -1020,7 +1020,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # `VALID` fcU from an EL plus markBlockVerified. Pre-merge blocks still get
     # marked as `VALID`.
     let newRef = BlockRef.init(
-      blck.root, Opt.none Eth2Digest, executionValid = false,
+      blck.root, Opt.none Eth2Digest, Opt.none uint64, executionValid = false,
       blck.summary.slot)
     if headRef == nil:
       headRef = newRef
@@ -2226,20 +2226,37 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           if dag.db.clearBlocks(fork):
             break
 
-proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
+proc loadExecutionBlockHashAndNumber(dag: ChainDAGRef, bid: BlockId):
+    (Eth2Digest, uint64) =
   let blockData = dag.getForkedBlock(bid).valueOr:
-    return ZERO_HASH
+    return (ZERO_HASH, 0)
 
   withBlck(blockData):
     when consensusFork >= ConsensusFork.Bellatrix:
-      forkyBlck.message.body.execution_payload.block_hash
+      (forkyBlck.message.body.execution_payload.block_hash,
+       forkyBlck.message.body.execution_payload.block_number)
     else:
-      ZERO_HASH
+      (ZERO_HASH, 0)
+
+proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
+  let (executionBlockHash, _) = dag.loadExecutionBlockHashAndNumber(bid)
+  executionBlockHash
+
+proc ensureExecutionBlockHashAndNumberLoaded(dag: ChainDAGRef, blck: BlockRef) =
+  # The expensive part is loading the block, not copying a few additional bytes
+  if blck.executionBlockHash.isNone or blck.executionBlockNumber.isNone:
+    let (executionBlockHash, executionBlockNumber) =
+      dag.loadExecutionBlockHashAndNumber(blck.bid)
+    blck.executionBlockHash = Opt.some executionBlockHash
+    blck.executionBlockNumber = Opt.some executionBlockNumber
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
-  if blck.executionBlockHash.isNone:
-    blck.executionBlockHash = Opt.some dag.loadExecutionBlockHash(blck.bid)
+  dag.ensureExecutionBlockHashAndNumberLoaded(blck)
   blck.executionBlockHash.unsafeGet
+
+proc loadExecutionBlockNumber*(dag: ChainDAGRef, blck: BlockRef): uint64 =
+  dag.ensureExecutionBlockHashAndNumberLoaded(blck)
+  blck.executionBlockNumber.unsafeGet
 
 from std/packedsets import PackedSet, incl, items
 
