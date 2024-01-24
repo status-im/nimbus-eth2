@@ -768,7 +768,7 @@ proc getPayload*(m: ELManager,
                  randomData: Eth2Digest,
                  suggestedFeeRecipient: Eth1Address,
                  withdrawals: seq[capella.Withdrawal]):
-                 Future[Opt[PayloadType]] {.async.} =
+                 Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return err()
 
@@ -790,6 +790,7 @@ proc getPayload*(m: ELManager,
     ))
     requestsCompleted = allFutures(requests)
 
+  # TODO cancel requests on cancellation
   await requestsCompleted or deadline
 
   var bestPayloadIdx = none int
@@ -807,40 +808,40 @@ proc getPayload*(m: ELManager,
           # TODO: The engine_api module may offer an alternative API where it is guaranteed
           #       to return the correct response type (i.e. the rule below will be enforced
           #       during deserialization).
-          if req.read.executionPayload.withdrawals.isNone:
+          if req.value().executionPayload.withdrawals.isNone:
             warn "Execution client returned a block without a 'withdrawals' field for a post-Shanghai block",
                   url = m.elConnections[idx].engineUrl.url
             continue
 
-        if engineApiWithdrawals != req.read.executionPayload.withdrawals.maybeDeref:
+        if engineApiWithdrawals != req.value().executionPayload.withdrawals.maybeDeref:
           # otherwise it formats as "@[(index: ..., validatorIndex: ...,
           # address: ..., amount: ...), (index: ..., validatorIndex: ...,
           # address: ..., amount: ...)]"
           warn "Execution client did not return correct withdrawals",
             withdrawals_from_cl_len = engineApiWithdrawals.len,
             withdrawals_from_el_len =
-              req.read.executionPayload.withdrawals.maybeDeref.len,
+              req.value().executionPayload.withdrawals.maybeDeref.len,
             withdrawals_from_cl =
               mapIt(engineApiWithdrawals, it.asConsensusWithdrawal),
             withdrawals_from_el =
               mapIt(
-                req.read.executionPayload.withdrawals.maybeDeref,
+                req.value().executionPayload.withdrawals.maybeDeref,
                 it.asConsensusWithdrawal)
 
-      if req.read.executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
+      if req.value().executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
         warn "Execution client provided a block with invalid extraData (size exceeds limit)",
-             size = req.read.executionPayload.extraData.len,
+             size = req.value().executionPayload.extraData.len,
              limit = MAX_EXTRA_DATA_BYTES
         continue
 
       if bestPayloadIdx.isNone:
         bestPayloadIdx = some idx
       else:
-        if cmpGetPayloadResponses(req.read, requests[bestPayloadIdx.get].read) > 0:
+        if cmpGetPayloadResponses(req.value(), requests[bestPayloadIdx.get].value()) > 0:
           bestPayloadIdx = some idx
 
   if bestPayloadIdx.isSome:
-    return ok requests[bestPayloadIdx.get].read.asConsensusType
+    return ok requests[bestPayloadIdx.get].value().asConsensusType
   else:
     return err()
 
