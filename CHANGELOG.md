@@ -1,3 +1,48 @@
+2023-01-25 v24.1.2
+==================
+
+Nimbus `v24.1.2` is a `low-urgency` point release bringing full support for the upcoming Cancun-Deneb hard-fork on the networks Sepolia, Chiado (Gnosis Chain testnet) and Holešky.
+
+### Improvements
+
+* Nimbus `v24.1.2` includes full support for the upcoming Deneb hard-fork in the networks Sepolia (30 Jan), Chiado (31 Jan) and Holešky (7 Feb):
+  https://github.com/status-im/nimbus-eth2/pull/5795
+  https://github.com/status-im/nimbus-eth2/pull/5725
+  https://github.com/status-im/nimbus-eth2/pull/5772
+  https://github.com/status-im/nimbus-eth2/pull/5796
+
+* Nimbus no longer skips attestations during brief loss of connectivity to the execution client by attesting to the last known valid block:
+  https://github.com/status-im/nimbus-eth2/pull/5313
+
+* The `/eth/v1/events` Beacon API endpoint now reports `blob_sidecar` events:
+  https://github.com/status-im/nimbus-eth2/pull/5728
+  https://github.com/ethereum/beacon-APIs/pull/350/
+
+* The Nimbus status bar and the "Slot start" log message now indicate the time of the next hard-fork in networks where it's already scheduled:
+  https://github.com/status-im/nimbus-eth2/pull/5761
+  https://github.com/status-im/nimbus-eth2/pull/5751
+  https://github.com/status-im/nimbus-eth2/pull/5731
+
+### Fixes
+
+* The HTTP headers `eth-consensus-block-value` and `eth-execution-payload-value` supplied to the `/eth/v3/validator/blocks/{slot}` endpoint were not using decimal encoding:
+  https://github.com/status-im/nimbus-eth2/pull/5741
+
+* Block headers within light client updates in Deneb-transitioned networks had incorrect zero values for the `blob_gas_used` field:
+  https://github.com/status-im/nimbus-eth2/pull/5763
+
+* Incomplete responses to `blobSidecarsByRange` requests were inappropriately preventing the client from achieving the maximum possible syncing speed:
+  https://github.com/status-im/nimbus-eth2/pull/5766
+
+* The Nimbus validator client was not implementing the strategy of using the withdrawal address of the validator as a fee recipient address when one is not explicitly specified. This was resulting in a failure to register any validators obtained from a `--web3-signer-url` with the configured `--payload-builder-url` when the `--suggested-fee-recipient` option is not provided:
+  https://github.com/status-im/nimbus-eth2/pull/5781
+  https://github.com/status-im/nimbus-eth2/issues/5730
+
+* The `/eth/v1/beacon/states/{state_id}/validators` Beacon API endpoint was not compliant with the spec in the absence of the optional `status` field in the request:
+  https://github.com/status-im/nimbus-eth2/pull/5762
+  https://github.com/status-im/nimbus-eth2/issues/5758
+
+
 2024-01-08 v24.1.1
 ==================
 
