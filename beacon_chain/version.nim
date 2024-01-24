@@ -18,7 +18,7 @@ const
 
   versionMajor* = 24
   versionMinor* = 1
-  versionBuild* = 1
+  versionBuild* = 2
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
