@@ -1,5 +1,8 @@
 # Summary
 
+!!! warning
+    This auditors' handbook is frozen and obsolete; the [Nim language manual](https://nim-lang.org/docs/manual.html) alongside [other Nim documentation](https://nim-lang.org/documentation.html), [Status Nim style guide](https://status-im.github.io/nim-style-guide/), [Chronos guides](https://github.com/status-im/nim-chronos/blob/master/docs/src/SUMMARY.md), and [Nim by Example](https://nim-by-example.github.io/getting_started/) supercede it.
+
 - [Introduction](01_introduction.md)
 - [The Nim Programming Language](02_the_Nim_programming_language.md)
   - [Nim routines, procedures, functions, templates, macros](02.1_nim_routines_proc_func_templates_macros.md)
