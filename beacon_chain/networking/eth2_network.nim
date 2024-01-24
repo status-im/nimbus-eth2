@@ -352,7 +352,7 @@ proc openStream(node: Eth2Node,
     raise exc
   except CatchableError as exc:
     # TODO remove once libp2p supports `raises`
-    warn "Unknown error when opening stream", exc = exc.msg
+    debug "Unexpected error when opening stream", exc = exc.msg
     neterr UnknownError
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
@@ -679,7 +679,7 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: seq[byte]
     try:
       await noCancel stream.close()
     except CatchableError as exc:
-      warn "Unexpected error while closing notification stream",
+      debug "Unexpected error while closing notification stream",
         peer, protocolId, exc = exc.msg
 
 proc sendResponseChunkBytesSZ(
@@ -860,7 +860,7 @@ proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
-    warn "Unexpected error", exc = exc.msg
+    debug "Unexpected error", exc = exc.msg
     neterr UnknownError
 
 proc readChunkPayload*(conn: Connection, peer: Peer,
@@ -1002,7 +1002,7 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
     try:
       await noCancel stream.closeWithEOF()
     except CatchableError as exc:
-      warn "Unexpected error while closing stream",
+      debug "Unexpected error while closing stream",
         peer, protocolId, exc = exc.msg
 
 proc init*(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
@@ -1258,7 +1258,7 @@ proc handleIncomingStream(network: Eth2Node,
     try:
       await noCancel conn.closeWithEOF()
     except CatchableError as exc:
-      warn "Unexpected error while closing incoming connection", exc = exc.msg
+      debug "Unexpected error while closing incoming connection", exc = exc.msg
     releasePeer(peer)
 
 proc toPeerAddr*(r: enr.TypedRecord,
@@ -1695,7 +1695,7 @@ proc onConnEvent(
         except CancelledError as exc:
           raise exc
         except CatchableError as exc:
-          warn "Unexpected error while disconnecting peer", exc = exc.msg
+          debug "Unexpected error while disconnecting peer", exc = exc.msg
         return
       of None:
         # We have established a connection with the new peer.
@@ -2456,7 +2456,7 @@ proc broadcast(node: Eth2Node, topic: string, msg: seq[byte]):
     except CancelledError as exc:
       raise exc
     except CatchableError as exc:
-      warn "Unknown error during broadcast", exc = exc.msg
+      debug "Unexpected error during broadcast", exc = exc.msg
       return err("Broadcast failed")
 
   # TODO remove workaround for sync committee BN/VC log spam
