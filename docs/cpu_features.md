@@ -75,7 +75,7 @@ nim c -r -d:danger --passC:"-mbmi2 -madx" --hints:off --warnings:off --verbosity
 ```
 
 **Verification** is the bottleneck as it must be done for each block and attestation or aggregate received
-and verifying a block requires verifying up to 6 signatures (block proposer, RANDAO, aggregate verifification of attestations, proposer slashings, attester slashings, voluntary exits).
+and verifying a block requires verifying up to 6 signatures (block proposer, RANDAO, aggregate verification of attestations, proposer slashings, attester slashings, voluntary exits).
 **Signing** can become a bottleneck when a node has many validators.
 
 **Without BMI2 & ADX**
@@ -104,7 +104,7 @@ Serial batch verify 6 msgs by 6 pubkeys (with blinding)  282.562 ops/s      3539
 
 ### SHA-NI
 
-The hardware SHA instructions has NOT been available in Intel consumer hardware until 2021.
+The hardware SHA instructions have NOT been available in Intel consumer hardware until 2021.
 AMD has made it available in Zen architecture since 2017.
 
 Intel:

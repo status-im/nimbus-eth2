@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,8 +9,8 @@
 
 import
   std/macros,
+  results,
   stew/assign2,
-  stew/results,
   chronicles,
   ../extras,
   "."/[
@@ -816,6 +816,20 @@ func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   withState(x): forkyState.root = root
 {.pop.}
 
+func consensusForkEpoch*(
+    cfg: RuntimeConfig, consensusFork: ConsensusFork): Epoch =
+  case consensusFork
+  of ConsensusFork.Deneb:
+    cfg.DENEB_FORK_EPOCH
+  of ConsensusFork.Capella:
+    cfg.CAPELLA_FORK_EPOCH
+  of ConsensusFork.Bellatrix:
+    cfg.BELLATRIX_FORK_EPOCH
+  of ConsensusFork.Altair:
+    cfg.ALTAIR_FORK_EPOCH
+  of ConsensusFork.Phase0:
+    GENESIS_EPOCH
+
 func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
   ## Return the current fork for the given epoch.
   static:
@@ -1243,7 +1257,7 @@ func readSszForkedSignedBeaconBlock*(
   withBlck(result):
     readSszBytes(data, forkyBlck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and
@@ -1255,7 +1269,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and

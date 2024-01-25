@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -75,7 +75,7 @@ type
     rewards*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
     penalties*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#eth1block
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#eth1block
   Eth1Block* = object
     timestamp*: uint64
     deposit_root*: Eth2Digest
@@ -121,36 +121,10 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
     stderr.write err.formatMsg(path), "\n"
     quit 1
 
-from ../../beacon_chain/spec/datatypes/capella import BeaconState
-from ../../beacon_chain/spec/datatypes/deneb import BeaconState
-
 proc loadForkedState*(
-    path: string, fork: ConsensusFork): ref ForkedHashedBeaconState =
-  var forkedState: ref ForkedHashedBeaconState
-  case fork
-  of ConsensusFork.Deneb:
-    let state = newClone(parseTest(path, SSZ, deneb.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Deneb)
-    forkedState.denebData.data = state[]
-    forkedState.denebData.root = hash_tree_root(state[])
-  of ConsensusFork.Capella:
-    let state = newClone(parseTest(path, SSZ, capella.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Capella)
-    forkedState.capellaData.data = state[]
-    forkedState.capellaData.root = hash_tree_root(state[])
-  of ConsensusFork.Bellatrix:
-    let state = newClone(parseTest(path, SSZ, bellatrix.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Bellatrix)
-    forkedState.bellatrixData.data = state[]
-    forkedState.bellatrixData.root = hash_tree_root(state[])
-  of ConsensusFork.Altair:
-    let state = newClone(parseTest(path, SSZ, altair.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Altair)
-    forkedState.altairData.data = state[]
-    forkedState.altairData.root = hash_tree_root(state[])
-  of ConsensusFork.Phase0:
-    let state = newClone(parseTest(path, SSZ, phase0.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Phase0)
-    forkedState.phase0Data.data = state[]
-    forkedState.phase0Data.root = hash_tree_root(state[])
-  forkedState
+    path: string, consensusFork: ConsensusFork): ref ForkedHashedBeaconState =
+  let state = (ref ForkedHashedBeaconState)(kind: consensusFork)
+  withState(state[]):
+    forkyState.data = parseTest(path, SSZ, consensusFork.BeaconState)
+    forkyState.root = hash_tree_root(forkyState.data)
+  state

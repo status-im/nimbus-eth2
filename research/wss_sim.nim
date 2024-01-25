@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -51,7 +51,9 @@ cli do(validatorsDir: string, secretsDir: string,
         cfg, readAllBytes(startState).tryGet()))
 
   var
-    clock = BeaconClock.init(getStateField(state[], genesis_time))
+    clock = BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
+      error "Invalid genesis time in state"
+      quit 1
     validators: Table[ValidatorIndex, ValidatorPrivKey]
     validatorKeys: Table[ValidatorPubKey, ValidatorPrivKey]
 

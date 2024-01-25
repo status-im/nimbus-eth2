@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -946,6 +946,7 @@ func toDenebLightClientHeader(
       block_hash: payload.block_hash,
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals),
+      blob_gas_used: payload.blob_gas_used,
       excess_blob_gas: payload.excess_blob_gas),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)

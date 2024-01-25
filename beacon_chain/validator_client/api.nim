@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -708,16 +708,6 @@ template firstSuccessSequential*(
 
     if exitNow:
       break
-
-proc getIndexedErrorMessage(response: RestPlainResponse): string =
-  let res = decodeBytes(RestIndexedErrorMessage, response.data,
-                        response.contentType)
-  if res.isOk():
-    let errorObj = res.get()
-    let failures = errorObj.failures.mapIt($it.index & ": " & it.message)
-    errorObj.message & ": [" & failures.join(", ") & "]"
-  else:
-    "Unable to decode error response: [" & $res.error & "]"
 
 proc getErrorMessage*(response: RestPlainResponse): string =
   let res = decodeBytes(RestErrorMessage, response.data,

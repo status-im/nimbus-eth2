@@ -317,7 +317,7 @@ As such, it's a good idea to create your keys from mnemonics which act as anothe
 This will be the default for validators who join via this site's onboarding process.
 
 If the validator can no longer propose or attest, their balance will decrease over time as they are punished for not participating in the consensus process.
-When the validator's balance reaches 16 ETH, they will be automatically exited from the validator pool, and 16 ETH will be transfered to their withdrawal address (as long it's specified).
+When the validator's balance reaches 16 ETH, they will be automatically exited from the validator pool, and 16 ETH will be transferred to their withdrawal address (as long it's specified).
 
 !!! note
     After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use `0x01` withdrawal credentials will have their funds automatically withdrawn.

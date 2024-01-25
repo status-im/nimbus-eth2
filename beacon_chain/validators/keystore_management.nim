@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -940,7 +940,7 @@ func mapErrTo*[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
     KeystoreGenerationError(kind: v, error: $e))
 
 proc loadNetKeystore*(keystorePath: string,
-                      insecurePwd: Option[string]): Opt[lcrypto.PrivateKey] =
+                      insecurePwd: Opt[string]): Opt[lcrypto.PrivateKey] =
 
   if not(checkSensitiveFilePermissions(keystorePath)):
     error "Network keystorage file has insecure permissions",
@@ -984,7 +984,7 @@ proc loadNetKeystore*(keystorePath: string,
       return
 
 proc saveNetKeystore*(rng: var HmacDrbgContext, keystorePath: string,
-                      netKey: lcrypto.PrivateKey, insecurePwd: Option[string]
+                      netKey: lcrypto.PrivateKey, insecurePwd: Opt[string]
                      ): Result[void, KeystoreGenerationError] =
   let password =
     if insecurePwd.isSome():
@@ -2092,7 +2092,7 @@ proc loadWallet*(fileName: string): Result[Wallet, string] =
     err "Error accessing wallet file \"" & fileName & "\": " & err.msg
 
 proc findWallet*(config: BeaconNodeConf,
-                 name: WalletName): Result[Option[WalletPathPair], string] =
+                 name: WalletName): Result[Opt[WalletPathPair], string] =
   var walletFiles = newSeq[string]()
   try:
     for kind, walletFile in walkDir(config.walletsDir):
@@ -2100,7 +2100,7 @@ proc findWallet*(config: BeaconNodeConf,
       let walletId = splitFile(walletFile).name
       if cmpIgnoreCase(walletId, name.string) == 0:
         let wallet = ? loadWallet(walletFile)
-        return ok some WalletPathPair(wallet: wallet, path: walletFile)
+        return ok Opt.some WalletPathPair(wallet: wallet, path: walletFile)
       walletFiles.add walletFile
   except OSError as err:
     return err("Error accessing the wallets directory \"" &
@@ -2110,9 +2110,9 @@ proc findWallet*(config: BeaconNodeConf,
     let wallet = ? loadWallet(walletFile)
     if cmpIgnoreCase(wallet.name.string, name.string) == 0 or
        cmpIgnoreCase(wallet.uuid.string, name.string) == 0:
-      return ok some WalletPathPair(wallet: wallet, path: walletFile)
+      return ok Opt.some WalletPathPair(wallet: wallet, path: walletFile)
 
-  return ok none(WalletPathPair)
+  return ok Opt.none(WalletPathPair)
 
 type
   # This is not particularly well-standardized yet.

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -32,8 +32,8 @@ import
     eth2_merkleization, forks, helpers, network, signatures, state_transition,
     validator],
   ../consensus_object_pools/[
-    spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool,
-    sync_committee_msg_pool, consensus_manager],
+    spec_cache, blockchain_dag, block_clearance, attestation_pool,
+    sync_committee_msg_pool, validator_change_pool, consensus_manager],
   ../el/el_manager,
   ../networking/eth2_network,
   ../sszdump, ../sync/sync_manager,
@@ -136,7 +136,7 @@ proc addValidatorsFromWeb3Signer(node: BeaconNode, web3signerUrl: Web3SignerUrl,
                                                  gasLimit)
     v.updateValidator(data)
 
-proc addValidators*(node: BeaconNode) =
+proc addValidators*(node: BeaconNode) {.async.} =
   info "Loading validators", validatorsDir = node.config.validatorsDir(),
                 keystore_cache_available = not(isNil(node.keystoreCache))
   let epoch = node.currentSlot().epoch
@@ -158,20 +158,12 @@ proc addValidators*(node: BeaconNode) =
                                                  gasLimit)
     v.updateValidator(data)
 
-  try:
-    # We use `allFutures` because all failures are already reported as
-    # user-visible warnings in `queryValidatorsSource`.
-    # We don't consider them fatal because the Web3Signer may be experiencing
-    # a temporary hiccup that will be resolved later.
-    waitFor allFutures(mapIt(node.config.web3SignerUrls,
-                             node.addValidatorsFromWeb3Signer(it, epoch)))
-  except CatchableError as err:
-    # This should never happen because all errors are handled within
-    # `addValidatorsFromWeb3Signer`. Furthermore, the code above is
-    # using `allFutures` which is guaranteed to not raise exceptions.
-    # Nevertheless, we need it to make the compiler's exception tracking happy.
-    debug "Unexpected error while fetching the list of validators from a remote signer",
-           err = err.msg
+  # We use `allFutures` because all failures are already reported as
+  # user-visible warnings in `queryValidatorsSource`.
+  # We don't consider them fatal because the Web3Signer may be experiencing
+  # a temporary hiccup that will be resolved later.
+  await allFutures(mapIt(node.config.web3SignerUrls,
+                         node.addValidatorsFromWeb3Signer(it, epoch)))
 
 proc pollForDynamicValidators*(node: BeaconNode,
                                web3signerUrl: Web3SignerUrl,
@@ -625,7 +617,7 @@ func constructSignableBlindedBlock[T: capella_mev.SignedBlindedBeaconBlock](
 
   var blindedBlock: T
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock.message, blck, blckFields)
   copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
   assign(
@@ -643,7 +635,7 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
 
   var blindedBlock: T
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock.message, blck, blckFields)
   copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
   assign(
@@ -667,7 +659,7 @@ func constructPlainBlindedBlock[T: capella_mev.BlindedBeaconBlock](
 
   var blindedBlock: T
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock, blck, blckFields)
   copyFields(blindedBlock.body, blck.body, blckBodyFields)
   assign(blindedBlock.body.execution_payload_header, executionPayloadHeader)
@@ -686,7 +678,7 @@ func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
 
   var blindedBlock: T
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock, blck, blckFields)
   copyFields(blindedBlock.body, blck.body, blckBodyFields)
   assign(
@@ -1186,6 +1178,88 @@ proc proposeBlockAux(
             blobsBundle.proofs, blobsBundle.blobs))
         else:
           Opt.none(seq[BlobSidecar])
+
+    # BIG BUG SOURCE: The `let` below cannot be combined with the others above!
+    # If combined, there are sometimes `SIGSEGV` during `test_keymanager_api`.
+    # This has only been observed on macOS (aarch64) in Jenkins, not on GitHub.
+    #
+    # - macOS 14.2.1 (23C71)
+    # - Xcode 15.1 (15C65)
+    # - Nim v1.6.18 (a749a8b742bd0a4272c26a65517275db4720e58a)
+    #
+    # Issue has started occuring around 12 Jan 2024, in a CI run for PR #5731.
+    # The PR did not change anything related to this, suggesting an environment
+    # or hardware change. The issue is flaky; could have been introduced earlier
+    # before surfacing in the aforementioned PR. About 30% to hit bug.
+    #
+    # [2024-01-12T11:54:21.011Z] Wrote test_keymanager_api/bootstrap_node.enr
+    # [2024-01-12T11:54:29.294Z] Serialization/deserialization [Beacon Node] [Preset: mainnet] . (0.00s)
+    # [2024-01-12T11:54:29.294Z] ListKeys requests [Beacon Node] [Preset: mainnet] .... (0.01s)
+    # [2024-01-12T11:54:34.870Z] ImportKeystores requests [Beacon Node] [Preset: mainnet] Traceback (most recent call last, using override)
+    # [2024-01-12T11:54:34.870Z] vendor/nim-libp2p/libp2p/protocols/rendezvous.nim(1016) main
+    # [2024-01-12T11:54:34.870Z] vendor/nim-libp2p/libp2p/protocols/rendezvous.nim(1006) NimMain
+    # [2024-01-12T11:54:34.870Z] vendor/nim-libp2p/libp2p/protocols/rendezvous.nim(997) PreMain
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(1502) atmtest_keymanager_apidotnim_Init000
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(1475) main
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(378) futureContinue
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(1481) main
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(307) startBeaconNode
+    # [2024-01-12T11:54:34.870Z] beacon_chain/nimbus_beacon_node.nim(1900) start
+    # [2024-01-12T11:54:34.870Z] beacon_chain/nimbus_beacon_node.nim(1847) run
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncengine.nim(150) poll
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(378) futureContinue
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(1465) delayedTests
+    # [2024-01-12T11:54:34.870Z] tests/test_keymanager_api.nim(392) runTests
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(378) futureContinue
+    # [2024-01-12T11:54:34.870Z] vendor/nim-unittest2/unittest2.nim(1147) runTests
+    # [2024-01-12T11:54:34.870Z] vendor/nim-unittest2/unittest2.nim(1086) runDirect
+    # [2024-01-12T11:54:34.870Z] vendor/nim-testutils/testutils/unittests.nim(16) runTestX60gensym2933
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(656) waitFor
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(631) pollFor
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncengine.nim(150) poll
+    # [2024-01-12T11:54:34.870Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(378) futureContinue
+    # [2024-01-12T11:54:34.870Z] beacon_chain/validators/beacon_validators.nim(82) proposeBlockAux
+    # [2024-01-12T11:54:34.870Z] vendor/nimbus-build-system/vendor/Nim/lib/system/excpt.nim(631) signalHandler
+    # [2024-01-12T11:54:34.870Z] SIGSEGV: Illegal storage access. (Attempt to read from nil?)
+    #
+    # The generated `nimcache` differs slightly if the `let` are separated from
+    # a single block; separation introduces an additional state in closure iter.
+    # This change, maybe combined with some macOS specific compiler specifics,
+    # could this trigger the `SIGSEGV`? Maybe the extra state adds just enough
+    # complexity to the function to disable certain problematic optimizations?
+    # The change in size of the environment changes a number of things such as
+    # alignment and which parts of an environment contain pointers and so on,
+    # which in turn may have surprising behavioural effects, ie most likely this
+    # extra state masks some underlying issue. Furthermore, the combination of
+    # `(await xyz).valueOr: return` is not very commonly used with other `await`
+    # in the same `let` block, which could explain this not being more common.
+    #
+    # Note that when compiling for Wasm, there are similar bugs with `results`
+    # when inlining unwraps, e.g., in `eth2_rest_serialization.nim`.
+    # These have not been investigated thoroughly so far as that project uses
+    # Nim 2.0 with --mm:orc and is just a prototype for Wasm, no production use.
+    # But maybe there is something weird going on with `results` related to the
+    # random `SIGSEGV` that we are now observing here, related to doing too much
+    # inline logic without defining intermediate isolated `let` statements.
+    #
+    #    if mediaType == ApplicationJsonMediaType:
+    #      try:
+    # -      ok RestJson.decode(value, T,
+    # -                         requireAllFields = true,
+    # -                         allowUnknownFields = true)
+    # +      let r = RestJson.decode(value, T,
+    # +                              requireAllFields = true,
+    # +                              allowUnknownFields = true)
+    # +      ok r
+    #      except SerializationError as exc:
+    #        debug "Failed to deserialize REST JSON data",
+    #              err = exc.formatMsg("<data>"),
+    #
+    # At this time we can only speculate about the trigger of these issues.
+    # Until a shared pattern can be identified, it is better to apply
+    # workarounds that at least avoid the known to be reachable triggers.
+    # The solution is hacky and far from desirable; it is what it is.
+    let
       newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
       ).valueOr:
@@ -1286,7 +1360,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
@@ -1492,13 +1566,13 @@ proc signAndSendAggregate(
           return
         res.get()
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
 
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#aggregateandproof
     var
       msg = SignedAggregateAndProof(
         message: AggregateAndProof(
@@ -1636,7 +1710,7 @@ proc registerValidatorsPerBuilder(
       return
 
     const emptyNestedSeq = @[newSeq[SignedValidatorRegistrationV1](0)]
-    # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#validator-registration
+    # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#validator-registration
     # Seed with single empty inner list to avoid special cases
     var validatorRegistrations = emptyNestedSeq
 
@@ -1688,9 +1762,8 @@ proc registerValidatorsPerBuilder(
       if validator.index.isNone:
         continue
 
-      # https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/validators.yaml
-      # Builders should verify that `pubkey` corresponds to an active or
-      # pending validator
+      # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#is_eligible_for_registration
+      # Validators should be active or pending
       withState(node.dag.headState):
         if  distinctBase(validator.index.get) >=
             forkyState.data.validators.lenu64:
@@ -1785,6 +1858,17 @@ proc updateValidators(
             index: index, validator: validators[int index]
           )))
 
+proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
+  # Neither block proposal nor sync committee duties can be done in this
+  # situation.
+  let attestationHead = node.lastValidAttestedBlock.valueOr:
+    return
+
+  if attestationHead.slot + SLOTS_PER_EPOCH < slot:
+    return
+
+  handleAttestations(node, attestationHead.blck, slot)
+
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators[].count == 0:
@@ -1807,6 +1891,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     info "Execution client not in sync; skipping validator duties for now",
       slot, headSlot = head.slot
 
+    handleFallbackAttestations(node, lastSlot, slot)
+
     # Rewards will be growing though, as we sync..
     updateValidatorMetrics(node)
 
@@ -1814,31 +1900,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   else:
     discard # keep going
 
+  node.lastValidAttestedBlock = Opt.some head.atSlot()
+
   withState(node.dag.headState):
     node.updateValidators(forkyState.data.validators.asSeq())
-
-  var curSlot = lastSlot + 1
-
-  # Start by checking if there's work we should have done in the past that we
-  # can still meaningfully do
-  while curSlot < slot:
-    notice "Catching up on validator duties",
-      curSlot = shortLog(curSlot),
-      lastSlot = shortLog(lastSlot),
-      slot = shortLog(slot)
-
-    # For every slot we're catching up, we'll propose then send
-    # attestations - head should normally be advancing along the same branch
-    # in this case
-    head = await handleProposal(node, head, curSlot)
-
-    # For each slot we missed, we need to send out attestations - if we were
-    # proposing during this time, we'll use the newly proposed head, else just
-    # keep reusing the same - the attestation that goes out will actually
-    # rewind the state to what it looked like at the time of that slot
-    handleAttestations(node, head, curSlot)
-
-    curSlot += 1
 
   let newHead = await handleProposal(node, head, slot)
   head = newHead
@@ -1868,8 +1933,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

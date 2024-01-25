@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Copyright (c) 2020-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,6 @@ import unittest2
 import chronos
 import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/sync_manager,
-       ../beacon_chain/spec/datatypes/phase0,
        ../beacon_chain/spec/forks
 
 type
@@ -51,8 +50,8 @@ proc collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   # the BlockProcessor and this test
   proc verify(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
               maybeFinalized: bool):
-      Future[Result[void, VerifierError]] =
-    let fut = newFuture[Result[void, VerifierError]]()
+      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+    let fut = Future[Result[void, VerifierError]].Raising([CancelledError]).init()
     try: queue.addLastNoWait(BlockEntry(blck: signedBlock, resfut: fut))
     except CatchableError as exc: raiseAssert exc.msg
     return fut
@@ -66,16 +65,36 @@ suite "SyncManager test suite":
     var res = newSeq[ref ForkedSignedBeaconBlock](count)
     var curslot = start
     for item in res.mitems():
-      item = new ForkedSignedBeaconBlock
-      item[].phase0Data.message.slot = curslot
+      item = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Deneb)
+      item[].denebData.message.slot = curslot
       curslot = curslot + 1'u64
     res
 
-  func createBlobs(slots: seq[Slot]): seq[ref BlobSidecar] =
+  func createBlobs(
+      blocks: var seq[ref ForkedSignedBeaconBlock], slots: seq[Slot]
+  ): seq[ref BlobSidecar] =
     var res = newSeq[ref BlobSidecar](len(slots))
-    for (i, item) in res.mpairs():
-      item = new BlobSidecar
-      item[].signed_block_header.message.slot = slots[i]
+    for blck in blocks:
+      withBlck(blck[]):
+        when consensusFork >= ConsensusFork.Deneb:
+          template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
+          for i, slot in slots:
+            if slot == forkyBlck.message.slot:
+              doAssert kzgs.add default(KzgCommitment)
+          if kzgs.len > 0:
+            forkyBlck.root = hash_tree_root(forkyBlck.message)
+            var
+              kzg_proofs: KzgProofs
+              blobs: Blobs
+            for _ in kzgs:
+              doAssert kzg_proofs.add default(KzgProof)
+              doAssert blobs.add default(Blob)
+            let sidecars = forkyBlck.create_blob_sidecars(kzg_proofs, blobs)
+            var sidecarIdx = 0
+            for i, slot in slots:
+              if slot == forkyBlck.message.slot:
+                res[i] = newClone sidecars[sidecarIdx]
+                inc sidecarIdx
     res
 
   proc getSlice(chain: openArray[ref ForkedSignedBeaconBlock], startSlot: Slot,
@@ -1064,8 +1083,8 @@ suite "SyncManager test suite":
       checkResponse(r21, @[slots[3]]) == false
 
   test "[SyncManager] groupBlobs() test":
-    var blobs = createBlobs(@[Slot(11), Slot(11), Slot(12), Slot(14)])
     var blocks = createChain(Slot(10), Slot(15))
+    var blobs = createBlobs(blocks, @[Slot(11), Slot(11), Slot(12), Slot(14)])
 
     let req = SyncRequest[SomeTPeer](slot: Slot(10))
     let groupedRes = groupBlobs(req, blocks, blobs)
@@ -1095,8 +1114,8 @@ suite "SyncManager test suite":
       len(grouped[5]) == 0
 
     # Add block with a gap from previous block.
-    let block17 = new (ref ForkedSignedBeaconBlock)
-    block17[].phase0Data.message.slot = Slot(17)
+    let block17 = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Deneb)
+    block17[].denebData.message.slot = Slot(17)
     blocks.add(block17)
     let groupedRes2 = groupBlobs(req, blocks, blobs)
 

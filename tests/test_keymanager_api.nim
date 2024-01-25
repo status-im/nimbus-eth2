@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,7 @@ import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
   testutils/unittests, chronicles, stint, json_serialization, confutils,
   chronos, blscurve, libp2p/crypto/crypto as lcrypto,
-  stew/[byteutils, io2], stew/shims/net,
+  stew/[byteutils, io2],
 
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
   ../beacon_chain/spec/datatypes/base,
@@ -336,7 +336,6 @@ const
   secretBytes = hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
   salt = hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
   iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
-  secretNetBytes = hexToSeqByte "08021220fe442379443d6e2d7d75d3a58f96fbb35f0a9c7217796825fc9040e3b89c5736"
 
 proc listLocalValidators(validatorsDir,
                          secretsDir: string): seq[ValidatorPubKey] {.
@@ -746,7 +745,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         responseJson["message"].getStr() == InvalidAuthorizationError
 
       expect RestError:
-        let keystores = await client.listKeys("Invalid Token")
+        discard await client.listKeys("Invalid Token")
 
   suite "ImportKeystores requests" & testFlavour:
     asyncTest "ImportKeystores/ListKeystores/DeleteKeystores" & testFlavour:
@@ -936,7 +935,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         responseJson["message"].getStr() == InvalidAuthorizationError
 
       expect RestError:
-        let keystores = await client.listKeys("Invalid Token")
+        discard await client.listKeys("Invalid Token")
 
   suite "Fee recipient management" & testFlavour:
     asyncTest "Missing Authorization header" & testFlavour:

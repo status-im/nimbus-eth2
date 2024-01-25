@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -61,7 +61,7 @@ type
     blobs*: Opt[BlobSidecars]
     maybeFinalized*: bool
       ## The block source claims the block has been finalized already
-    resfut*: Future[Result[void, VerifierError]]
+    resfut*: Future[Result[void, VerifierError]].Raising([CancelledError])
     queueTick*: Moment # Moment when block was enqueued
     validationDur*: Duration # Time it took to perform gossip validation
     src*: MsgSource
@@ -192,11 +192,12 @@ proc storeBackfillBlock(
                                blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "backfill blob validation failed",
-           blockRoot = shortLog(signedBlock.root),
-           blobs = shortLog(blobs),
-           blck = shortLog(signedBlock.message),
-           signature = shortLog(signedBlock.signature),
-           msg = r.error()
+            blockRoot = shortLog(signedBlock.root),
+            blobs = shortLog(blobs),
+            blck = shortLog(signedBlock.message),
+            kzgCommits = mapIt(kzgCommits, shortLog(it)),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
         blobsOk = r.isOk()
 
   if not blobsOk:
@@ -237,7 +238,7 @@ from ../el/el_manager import
 proc expectValidForkchoiceUpdated(
     elManager: ELManager, headBlockPayloadAttributesType: typedesc,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-    receivedBlock: ForkySignedBeaconBlock): Future[void] {.async.} =
+    receivedBlock: ForkySignedBeaconBlock): Future[void] {.async: (raises: [CancelledError]).} =
   let
     (payloadExecutionStatus, _) = await elManager.forkchoiceUpdated(
       headBlockHash = headBlockHash,
@@ -290,7 +291,7 @@ from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
 
 proc newExecutionPayload*(
     elManager: ELManager, blck: SomeForkyBeaconBlock):
-    Future[Opt[PayloadExecutionStatus]] {.async.} =
+    Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
 
   template executionPayload: untyped = blck.body.execution_payload
 
@@ -328,7 +329,7 @@ proc getExecutionValidity(
     elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
           deneb.SignedBeaconBlock):
-    Future[NewPayloadStatus] {.async.} =
+    Future[NewPayloadStatus] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
 
@@ -384,7 +385,7 @@ proc checkBloblessSignature(self: BlockProcessor,
 proc enqueueBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars],
-    resfut: Future[Result[void, VerifierError]] = nil,
+    resfut: Future[Result[void, VerifierError]].Raising([CancelledError]) = nil,
     maybeFinalized = false,
     validationDur = Duration()) =
   withBlck(blck):
@@ -412,7 +413,7 @@ proc storeBlock(
     blobsOpt: Opt[BlobSidecars],
     maybeFinalized = false,
     queueTick: Moment = Moment.now(), validationDur = Duration()):
-    Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
+    Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async: (raises: [CancelledError]).} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
   ## we will add it to the dag and pass it to all block consumers that need
@@ -539,6 +540,7 @@ proc storeBlock(
             blockRoot = shortLog(signedBlock.root),
             blobs = shortLog(blobs),
             blck = shortLog(signedBlock.message),
+            kzgCommits = mapIt(kzgCommits, shortLog(it)),
             signature = shortLog(signedBlock.signature),
             msg = r.error()
           return err((VerifierError.Invalid, ProcessingStatus.completed))
@@ -754,7 +756,7 @@ proc storeBlock(
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars], maybeFinalized = false,
-    validationDur = Duration()): Future[Result[void, VerifierError]] =
+    validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
   #   There is no backpressure here - producers must wait for `resfut` to
@@ -772,7 +774,7 @@ proc addBlock*(
 # ------------------------------------------------------------------------------
 
 proc processBlock(
-    self: ref BlockProcessor, entry: BlockEntry) {.async.} =
+    self: ref BlockProcessor, entry: BlockEntry) {.async: (raises: [CancelledError]).} =
   logScope:
     blockRoot = shortLog(entry.blck.root)
 
@@ -795,7 +797,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,

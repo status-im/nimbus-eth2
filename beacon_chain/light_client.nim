@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -136,8 +136,8 @@ proc createLightClient(
     strictVerification)
 
   proc lightClientVerifier(obj: SomeForkedLightClientObject):
-      Future[Result[void, VerifierError]] =
-    let resfut = newFuture[Result[void, VerifierError]]("lightClientVerifier")
+      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+    let resfut = Future[Result[void, VerifierError]].Raising([CancelledError]).init("lightClientVerifier")
     lightClient.processor[].addObject(MsgSource.gossip, obj, resfut)
     resfut
   proc bootstrapVerifier(obj: ForkedLightClientBootstrap): auto =
