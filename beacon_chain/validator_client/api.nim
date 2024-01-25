@@ -648,8 +648,8 @@ template firstSuccessSequential*(
               if not(bodyFut.finished()):
                 await bodyFut.cancelAndWait()
               raise exc
-            except CatchableError as exc:
-              # This case could not be happened.
+            except CatchableError:
+              # This case should not happen.
               ApiOperation.Failure
           else:
             try:
@@ -668,7 +668,7 @@ template firstSuccessSequential*(
                 pending.add(timerFut.cancelAndWait())
               await noCancel allFutures(pending)
               raise exc
-            except CatchableError as exc:
+            except CatchableError:
               # This case should not happen.
               ApiOperation.Failure
 
@@ -1140,13 +1140,59 @@ proc getHeadBlockRoot*(
   let blockIdent = BlockIdent.init(BlockIdentType.Head)
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(RestPlainResponse,
                                       GetBlockRootResponse,
                                       SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.SyncCommitteeData},
                                       getBlockRootPlain(it, blockIdent)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[GetBlockRootResponse].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetBlockRootResponse, response.data,
+                                response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[GetBlockRootResponse].err($res.error)
+          else:
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              handleOptimistic()
+              failures.add(failure)
+              ApiResponse[GetBlockRootResponse].err(ResponseECNotInSyncError)
+            else:
+              ApiResponse[GetBlockRootResponse].ok(data)
+        of 400:
+          handle400()
+          ApiResponse[GetBlockRootResponse].err(ResponseInvalidError)
+        of 404:
+          handle404()
+          ApiResponse[GetBlockRootResponse].err(ResponseNotFoundError)
+        of 500:
+          handle500()
+          ApiResponse[GetBlockRootResponse].err(ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[GetBlockRootResponse].err(ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      GetBlockRootResponse,
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.SyncCommitteeData},
+      getBlockRootPlain(it, blockIdent),
+      getSyncCommitteeMessageDataScore(vc, itresponse)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[GetBlockRootResponse].err(apiResponse.error)
@@ -1603,7 +1649,7 @@ proc getAggregatedAttestation*(
   var failures: seq[ApiNodeFailure]
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       GetAggregatedAttestationResponse,
@@ -1611,6 +1657,46 @@ proc getAggregatedAttestation*(
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
       getAggregatedAttestationPlain(it, root, slot)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[GetAggregatedAttestationResponse].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let res = decodeBytes(GetAggregatedAttestationResponse, response.data,
+                                response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[GetAggregatedAttestationResponse].err($res.error)
+          else:
+            ApiResponse[GetAggregatedAttestationResponse].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[GetAggregatedAttestationResponse].err(
+            ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[GetAggregatedAttestationResponse].err(
+            ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[GetAggregatedAttestationResponse].err(
+            ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get().data
+
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      GetAggregatedAttestationResponse,
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AggregatedData},
+      getAggregatedAttestationPlain(it, root, slot),
+      getAggregatedAttestationDataScore(itresponse)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[GetAggregatedAttestationResponse].err(apiResponse.error)
@@ -1687,7 +1773,7 @@ proc produceSyncCommitteeContribution*(
   var failures: seq[ApiNodeFailure]
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       ProduceSyncCommitteeContributionResponse,
@@ -1695,6 +1781,48 @@ proc produceSyncCommitteeContribution*(
       ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
       produceSyncCommitteeContributionPlain(it, slot, subcommitteeIndex, root)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+          apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let res = decodeBytes(ProduceSyncCommitteeContributionResponse,
+                                response.data, response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+              $res.error)
+          else:
+            ApiResponse[ProduceSyncCommitteeContributionResponse].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+            ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+            ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+            ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get().data
+
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      ProduceSyncCommitteeContributionResponse,
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.SyncCommitteeData},
+      produceSyncCommitteeContributionPlain(it, slot, subcommitteeIndex, root),
+      getSyncCommitteeContributionDataScore(itresponse)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[ProduceSyncCommitteeContributionResponse].err(
@@ -2216,11 +2344,7 @@ proc publishBlindedBlock*(
         of ConsensusFork.Capella:
           publishBlindedBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
-          debugRaiseAssert $denebImplementationMissing &
-                           ": validator_client/api.nim:publishBlindedBlock (1)"
-          let f = newFuture[RestPlainResponse]("")
-          f.fail(new RestError)
-          f
+          publishBlindedBlock(it, data.denebData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2265,11 +2389,7 @@ proc publishBlindedBlock*(
       of ConsensusFork.Capella:
         publishBlindedBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
-        debugRaiseAssert $denebImplementationMissing &
-                         ": validator_client/api.nim:publishBlindedBlock (2)"
-        let f = newFuture[RestPlainResponse]("")
-        f.fail(new RestError)
-        f
+        publishBlindedBlock(it, data.denebData)
     do:
       if apiResponse.isErr():
         handleCommunicationError()

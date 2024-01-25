@@ -812,17 +812,10 @@ proc uncompressFramedStream(conn: Connection,
 
 func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
-  static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
-  when T is ForkySignedBeaconBlock:
-    when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock or
-         T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is deneb.SignedBeaconBlock:
-      MAX_CHUNK_SIZE.uint32
-    else:
-      {.fatal: "what's the chunk size here?".}
-  elif isFixedSize(T):
+  when isFixedSize(T):
     uint32 fixedPortionSize(T)
   else:
+    static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
     MAX_CHUNK_SIZE.uint32
 
 from ../spec/datatypes/capella import SignedBeaconBlock
@@ -1806,7 +1799,7 @@ proc new(T: type Eth2Node,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
          switch: Switch, pubsub: GossipSub,
-         ip: Option[ValidIpAddress], tcpPort, udpPort: Option[Port],
+         ip: Option[IpAddress], tcpPort, udpPort: Option[Port],
          privKey: keys.PrivateKey, discovery: bool,
          directPeers: DirectPeers,
          rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
@@ -2251,7 +2244,7 @@ proc getPersistentNetKeys*(
 
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/p2p-interface.md#topics-and-messages
   const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
@@ -2304,8 +2297,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
-      config.nat, ValidIpAddress.init config.listenAddress, config.tcpPort,
-      config.udpPort, clientId)
+      config.nat, config.listenAddress, config.tcpPort, config.udpPort,
+      clientId)
     except CatchableError as exc: raise exc
     except Exception as exc: raiseAssert exc.msg
 
@@ -2330,7 +2323,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     hostAddress = tcpEndPoint(
       ValidIpAddress.init config.listenAddress, config.tcpPort)
     announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
+                         else: @[tcpEndPoint(ValidIpAddress.init(extIp.get()), extTcpPort.get())]
 
   debug "Initializing networking", hostAddress,
                                    network_public_key = netKeys.pubkey,
@@ -2531,7 +2524,7 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
 
 proc subscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now, we just rely on block and
   # aggregate which are more stable and reliable
 
@@ -2542,7 +2535,7 @@ proc subscribeAttestationSubnets*(
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now; we just rely on block and
   # aggregate which are more stable and reliable
 
@@ -2551,7 +2544,7 @@ proc unsubscribeAttestationSubnets*(
       node.unsubscribe(getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
 proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#metadata
   if node.metadata.attnets == attnets:
     return
 

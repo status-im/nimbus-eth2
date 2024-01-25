@@ -640,6 +640,43 @@ suite "chain DAG finalization tests" & preset():
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       getStateRoot(dag2.headState) == getStateRoot(dag.headState)
 
+  test "shutdown during finalization" & preset():
+    var testPassed: bool
+
+    # Configure a hook that is called during finalization while the
+    # database has been partially written, to test behaviour if the
+    # beacon node is exited while the database is inconsistent.
+    proc onHeadChanged(data: HeadChangeInfoObject) =
+      if data.epoch_transition:
+        # Check test assumption: Head block was written before this callback
+        let headBlock = dag.db.getHeadBlock().expect("Valid DB")
+        doAssert headBlock == data.block_root, "Head was written before CB"
+
+        # Check test assumption: New finalized blocks were not written yet
+        let
+          stateFinalizedSlot =
+            dag.headState.getStateField(finalized_checkpoint).epoch.start_slot
+          dbFinalizedSlot =
+            dag.db.finalizedBlocks.high.expect("Valid DB")
+        doAssert stateFinalizedSlot > dbFinalizedSlot, "Finalized not written"
+
+        # If the beacon node were to exit _now_, this is what the DB looks like.
+        # Validate that we can initialize a new DAG from this database.
+        let validatorMonitor2 = newClone(ValidatorMonitor.init())
+        discard ChainDAGRef.init(
+          defaultRuntimeConfig, db, validatorMonitor2, {})
+        testPassed = true
+    dag.setHeadCb(onHeadChanged)
+
+    for blck in makeTestBlocks(
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 4), attested = true):
+      let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
+      check: added.isOk
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+
+    check testPassed
+
 suite "Old database versions" & preset():
   setup:
     let
@@ -1145,6 +1182,7 @@ suite "Pruning":
         var res = defaultRuntimeConfig
         res.MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 4
         res.CHURN_LIMIT_QUOTIENT = 1
+        res.MIN_EPOCHS_FOR_BLOCK_REQUESTS = res.safeMinEpochsForBlockRequests()
         doAssert res.MIN_EPOCHS_FOR_BLOCK_REQUESTS == 4
         res
       db = makeTestDB(SLOTS_PER_EPOCH)
@@ -1603,7 +1641,6 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
             stateEpoch = forkyState.data.get_current_epoch
             blckEpoch = blck.bid.slot.epoch
             minEpoch = min(stateEpoch, blckEpoch)
-            lowSlot = epoch.lowSlotForAttesterShuffling
             shufflingRef = dag.computeShufflingRef(forkyState, blck, epoch)
             mix = dag.computeRandaoMix(forkyState,
               dependentBsi.get.bid, epoch.lowSlotForAttesterShuffling)

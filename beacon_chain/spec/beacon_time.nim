@@ -43,7 +43,7 @@ const
   GENESIS_SLOT* = Slot(0)
   GENESIS_EPOCH* = Epoch(0) # compute_epoch_at_slot(GENESIS_SLOT)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#constant
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/fork-choice.md#constant
   INTERVALS_PER_SLOT* = 3
 
   FAR_FUTURE_BEACON_TIME* = BeaconTime(ns_since_genesis: int64.high())
@@ -136,7 +136,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#attesting
   attestationSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#broadcast-aggregate
   aggregateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#prepare-sync-committee-message
@@ -182,7 +182,7 @@ func slotOrZero*(time: BeaconTime): Slot =
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func epoch*(slot: Slot): Epoch = # aka compute_epoch_at_slot
   ## Return the epoch number at ``slot``.
   if slot == FAR_FUTURE_SLOT: FAR_FUTURE_EPOCH

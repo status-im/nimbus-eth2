@@ -1,3 +1,58 @@
+2023-11-28 v23.11.0
+===================
+
+Nimbus `v23.11.0` is a `low-urgency` upgrade bringing enhanced support for the Obol DVT middleware, further profit optimisations for the Nimbus validator client and a simplified and safe alternative to the trusted node sync.
+
+### Improvements
+
+* The new options `external-beacon-api-url`, `trusted-block-root` and `trusted-state-root` enable simple bootstrapping through the light client protocol and a non-trusted Beacon API provider:
+  https://nimbus.guide/start-syncing.html#checkpoint-sync
+  https://github.com/status-im/nimbus-eth2/pull/5545
+
+* Improved scoring algorithms allow the Nimbus validator client to maximize block rewards when working with multiple beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/5447
+
+* Nimbus now supports the `/eth/v1/validator/beacon_committee_selections` and `/eth/v1/validator/sync_committee_selections` Beacon API endpoints used by the Charon Obol middleware:
+  https://github.com/status-im/nimbus-eth2/pull/5375
+
+* Efficient bulk write operations to the slashing protection database bring significant performance improvements when operating very large number of validators on a single machine (e.g. more than 10K):
+  https://github.com/status-im/nimbus-eth2/pull/5604
+
+* Nimbus now disconnects peers who are behaving poorly with respect to the beacon chain request/response protocols and peers who are exceeding the GossipSub rate limits:
+  https://github.com/status-im/nimbus-eth2/pull/5579
+  https://github.com/status-im/nimbus-eth2/pull/5482
+
+* The Nimbus guide now features light and dark themes:
+  https://github.com/status-im/nimbus-eth2/pull/5564
+
+* Nimbus now honours the `MIN_EPOCHS_FOR_BLOCK_REQUESTS` network configuration parameter:
+  https://github.com/status-im/nimbus-eth2/pull/5590
+
+### Fixes
+
+* The REST API endpoint `/eth/v1/node/peers_count` was producing an incorrectly encoded numeric response:
+  https://github.com/status-im/nimbus-eth2/pull/5548
+
+* The REST API endpoint `eth/v2/beacon/blocks` was not handling the `broadcast_validation` parameter in accordance to the spec:
+  https://github.com/status-im/nimbus-eth2/issues/5531
+
+* The validator client slashing database was not pruned:
+  https://github.com/status-im/nimbus-eth2/pull/5551
+
+* Light clients following the event stream of light client updates delivered through the REST API or the P2P protocols were at risk of getting stuck due to missing notifications for certain key events:
+  https://github.com/status-im/nimbus-eth2/pull/5602
+  https://github.com/ethereum/consensus-specs/pull/3549
+
+* Regression in v23.10.0 was preventing the Nimbus validator client from registering its validators with the external builder when no validators have been attached to the associated beacon node, effectively disabling the usage of the builder:
+  https://github.com/status-im/nimbus-eth2/pull/5603
+
+* Nimbus was not retrying certain syncing requests after receiving an invalid response from a peer:
+  https://github.com/status-im/nimbus-eth2/pull/5615
+
+* A theoretical possibility where Nimbus may fail to start after a clean shutdown has been addressed:
+  https://github.com/status-im/nimbus-eth2/pull/5617
+
+
 2023-11-06 v23.10.1
 ===================
 

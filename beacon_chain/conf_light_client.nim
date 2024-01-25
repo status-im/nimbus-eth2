@@ -174,4 +174,5 @@ proc engineApiUrls*(config: LightClientConf): seq[EngineApiUrl] =
   else:
     config.elUrls
 
-  (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)
+  (elUrls & config.web3Urls).toFinalEngineApiUrls(
+    config.jwtSecret.configJwtSecretOpt)

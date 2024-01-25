@@ -9,9 +9,10 @@
 
 import
   # Standard library
-  std/[os, options, typetraits, decls, tables],
+  std/[os, typetraits, decls, tables],
   # Status
   stew/byteutils,
+  results,
   eth/db/[kvstore, kvstore_sqlite3],
   chronicles,
   sqlite3_abi,
@@ -19,6 +20,8 @@ import
   ../spec/datatypes/base,
   ../spec/helpers,
   ./slashing_protection_common
+
+export results
 
 # Requirements
 # --------------------------------------------
@@ -33,7 +36,7 @@ import
 # - https://notes.ethereum.org/@djrtwo/Bkn3zpwxB#Validator-responsibilities
 #
 # Phase 0 spec - Honest Validator - how to avoid slashing
-# - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#how-to-avoid-slashing
+# - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#how-to-avoid-slashing
 #
 # In-depth reading on slashing conditions
 #
@@ -609,7 +612,7 @@ func getRawDBHandle*(db: SlashingProtectionDB_v2): SqStoreRef =
   ## Get the underlying raw DB handle
   db.backend
 
-proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
+proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Opt[Eth2Digest] =
   ## Check if the DB has v2 metadata
   ## and get its genesis root
   let existenceStmt = db.backend.prepareStmt("""
@@ -630,9 +633,9 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
 
 
   if v2exists.isErr():
-    return none(Eth2Digest)
+    return Opt.none(Eth2Digest)
   elif hasV2 == 0:
-    return none(Eth2Digest)
+    return Opt.none(Eth2Digest)
 
   let selectStmt = db.backend.prepareStmt(
     "SELECT * FROM metadata;",
@@ -655,9 +658,9 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
         found = version,
         expected = db.typeof.version()
       quit 1
-    return some(root)
+    return Opt.some(root)
   else:
-    return none(Eth2Digest)
+    return Opt.none(Eth2Digest)
 
 proc initCompatV1*(
     T: type SlashingProtectionDB_v2,
@@ -773,8 +776,8 @@ proc foundAnyResult(status: KvResult[bool]): bool {.inline.}=
 
 proc getValidatorInternalID(
        db: SlashingProtectionDB_v2,
-       index: Option[ValidatorIndex],
-       validator: ValidatorPubKey): Option[ValidatorInternalID] =
+       index: Opt[ValidatorIndex],
+       validator: ValidatorPubKey): Opt[ValidatorInternalID] =
   ## Retrieve a validator internal ID
   if index.isSome():
     # Validator keys are mapped to internal id:s instead of using the
@@ -785,7 +788,7 @@ proc getValidatorInternalID(
     # validator index. In the meantime, this cache avoids some of the
     # unnecessary read traffic when checking and registering entries.
     db.internalIds.withValue(index.get(), internal) do:
-      return some(internal[])
+      return Opt.some(internal[])
 
   let serializedPubkey = validator.toRaw() # Miracl/BLST to bytes
   var valID: ValidatorInternalID
@@ -796,9 +799,9 @@ proc getValidatorInternalID(
   if status.foundAnyResult():
     if index.isSome():
       db.internalIds[index.get()] = valID
-    some(valID)
+    Opt.some(valID)
   else:
-    none(ValidatorInternalID)
+    Opt.none(ValidatorInternalID)
 
 proc checkSlashableBlockProposalOther(
        db: SlashingProtectionDB_v2,
@@ -887,7 +890,7 @@ proc checkSlashableBlockProposalDoubleProposal(
 
 proc checkSlashableBlockProposal*(
        db: SlashingProtectionDB_v2,
-       index: Option[ValidatorIndex],
+       index: Opt[ValidatorIndex],
        validator: ValidatorPubKey,
        slot: Slot
      ): Result[void, BadProposal] =
@@ -1049,7 +1052,7 @@ proc checkSlashableAttestationOther(
 
 proc checkSlashableAttestation*(
        db: SlashingProtectionDB_v2,
-       index: Option[ValidatorIndex],
+       index: Opt[ValidatorIndex],
        validator: ValidatorPubKey,
        source: Epoch,
        target: Epoch
@@ -1084,7 +1087,7 @@ proc registerValidator(db: SlashingProtectionDB_v2, validator: ValidatorPubKey) 
 
 proc getOrRegisterValidator(
        db: SlashingProtectionDB_v2,
-       index: Option[ValidatorIndex],
+       index: Opt[ValidatorIndex],
        validator: ValidatorPubKey): ValidatorInternalID =
   ## Get validator from the database
   ## or register it and then return it
@@ -1102,7 +1105,7 @@ proc getOrRegisterValidator(
 
 proc registerBlock*(
        db: SlashingProtectionDB_v2,
-       index: Option[ValidatorIndex],
+       index: Opt[ValidatorIndex],
        validator: ValidatorPubKey,
        slot: Slot, block_root: Eth2Digest): Result[void, BadProposal] =
   ## Add a block to the slashing protection DB
@@ -1138,11 +1141,11 @@ proc registerBlock*(
        db: SlashingProtectionDB_v2,
        validator: ValidatorPubKey,
        slot: Slot, block_root: Eth2Digest): Result[void, BadProposal] =
-  registerBlock(db, none(ValidatorIndex), validator, slot, block_root)
+  registerBlock(db, Opt.none(ValidatorIndex), validator, slot, block_root)
 
 proc registerAttestation*(
        db: SlashingProtectionDB_v2,
-       index: Option[ValidatorIndex],
+       index: Opt[ValidatorIndex],
        validator: ValidatorPubKey,
        source, target: Epoch,
        attestation_root: Eth2Digest): Result[void, BadVote] =
@@ -1187,13 +1190,52 @@ proc registerAttestation*(
        source, target: Epoch,
        attestation_root: Eth2Digest): Result[void, BadVote] =
   registerAttestation(
-    db, none(ValidatorIndex), validator, source, target, attestation_root)
+    db, Opt.none(ValidatorIndex), validator, source, target, attestation_root)
+
+template withContext*(dbParam: SlashingProtectionDB_v2, body: untyped): untyped =
+  let
+    db = dbParam
+
+  template registerAttestationInContextV2(
+      index: Opt[ValidatorIndex],
+      validator: ValidatorPubKey,
+      source, target: Epoch,
+      signing_root: Eth2Digest): Result[void, BadVote] =
+    registerAttestation(db, index, validator, source, target, signing_root)
+
+  var
+    commit = false
+    res: Result[typeof(body), string]
+    beginRes = db.backend.exec("BEGIN TRANSACTION;")
+  if beginRes.isErr(): # always lovely handling errors in templates
+    res.err(beginRes.error())
+  else:
+    try:
+        when type(body) is void:
+          body
+          commit = true
+        else:
+          res.ok(body)
+          commit = true
+    finally:
+      if commit:
+        let commit = db.backend.exec("COMMIT TRANSACTION;")
+        if commit.isErr:
+          res.err(commit.error())
+      else:
+        # Exception was raised from body - catch/reraise would cause the wrong
+        # exception effect..
+        if isInsideTransaction(db.backend): # calls `sqlite3_get_autocommit`
+          discard db.backend.exec("ROLLBACK TRANSACTION;")
+        res.err("Rolled back")
+
+  res
 
 # DB maintenance
 # --------------------------------------------
 proc pruneBlocks*(
     db: SlashingProtectionDB_v2,
-    index: Option[ValidatorIndex],
+    index: Opt[ValidatorIndex],
     validator: ValidatorPubKey, newMinSlot: Slot) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import to ensure
@@ -1208,11 +1250,11 @@ proc pruneBlocks*(
 proc pruneBlocks*(
     db: SlashingProtectionDB_v2,
     validator: ValidatorPubKey, newMinSlot: Slot) =
-  pruneBlocks(db, none(ValidatorIndex), validator, newMinSlot)
+  pruneBlocks(db, Opt.none(ValidatorIndex), validator, newMinSlot)
 
 proc pruneAttestations*(
        db: SlashingProtectionDB_v2,
-       index: Option[ValidatorIndex],
+       index: Opt[ValidatorIndex],
        validator: ValidatorPubKey,
        newMinSourceEpoch: int64,
        newMinTargetEpoch: int64) =
@@ -1236,7 +1278,7 @@ proc pruneAttestations*(
        newMinSourceEpoch: int64,
        newMinTargetEpoch: int64) =
   pruneAttestations(
-    db, none(ValidatorIndex), validator, newMinSourceEpoch, newMinTargetEpoch)
+    db, Opt.none(ValidatorIndex), validator, newMinSourceEpoch, newMinTargetEpoch)
 
 proc pruneAfterFinalization*(
        db: SlashingProtectionDB_v2,
@@ -1274,11 +1316,11 @@ proc retrieveLatestValidatorData*(
        db: SlashingProtectionDB_v2,
        validator: ValidatorPubKey
      ): tuple[
-          maxBlockSlot: Option[Slot],
-          maxAttSourceEpoch: Option[Epoch],
-          maxAttTargetEpoch: Option[Epoch]] =
+          maxBlockSlot: Opt[Slot],
+          maxAttSourceEpoch: Opt[Epoch],
+          maxAttTargetEpoch: Opt[Epoch]] =
 
-  let valID = db.getOrRegisterValidator(none(ValidatorIndex), validator)
+  let valID = db.getOrRegisterValidator(Opt.none(ValidatorIndex), validator)
 
   var slot, source, target: int64
   let status = db.sqlMaxBlockAtt.exec(
@@ -1299,11 +1341,11 @@ proc retrieveLatestValidatorData*(
   #       but let's deal with those here
 
   if slot != 0:
-    result.maxBlockSlot = some(Slot slot)
+    result.maxBlockSlot = Opt.some(Slot slot)
   if source != 0:
-    result.maxAttSourceEpoch = some(Epoch source)
+    result.maxAttSourceEpoch = Opt.some(Epoch source)
   if target != 0:
-    result.maxAttTargetEpoch = some(Epoch target)
+    result.maxAttTargetEpoch = Opt.some(Epoch target)
 
 proc registerSyntheticAttestation*(
        db: SlashingProtectionDB_v2,
@@ -1314,7 +1356,7 @@ proc registerSyntheticAttestation*(
   # Spec require source < target (except genesis?), for synthetic attestation for slashing protection we want max(source, target)
   doAssert (source < target) or (source == Epoch(0) and target == Epoch(0))
 
-  let valID = db.getOrRegisterValidator(none(ValidatorIndex), validator)
+  let valID = db.getOrRegisterValidator(Opt.none(ValidatorIndex), validator)
 
   # Overflows in 14 trillion years (minimal) or 112 trillion years (mainnet)
   doAssert source <= high(int64).uint64

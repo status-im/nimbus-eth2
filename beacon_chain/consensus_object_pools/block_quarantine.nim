@@ -311,12 +311,12 @@ proc addBlobless*(
   true
 
 func popBlobless*(quarantine: var Quarantine, root: Eth2Digest):
-         Option[deneb.SignedBeaconBlock] =
+         Opt[deneb.SignedBeaconBlock] =
   var blck: deneb.SignedBeaconBlock
   if quarantine.blobless.pop(root, blck):
-    return some(blck)
+    Opt.some(blck)
   else:
-    return none(deneb.SignedBeaconBlock)
+    Opt.none(deneb.SignedBeaconBlock)
 
 iterator peekBlobless*(quarantine: var Quarantine): deneb.SignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():

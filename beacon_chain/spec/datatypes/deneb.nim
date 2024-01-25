@@ -33,7 +33,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/polynomial-commitments.md#constants
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
 
 type
@@ -44,10 +44,10 @@ type
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
   VersionedHash* = array[32, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/polynomial-commitments.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blobsidecar
@@ -108,7 +108,7 @@ type
     blockValue*: Wei
     blobsBundle*: BlobsBundle
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
     parent_hash*: Eth2Digest

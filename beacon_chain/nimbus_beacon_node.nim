@@ -533,7 +533,7 @@ proc init*(T: type BeaconNode,
       taskpool = TaskPoolPtr.new(numThreads = config.numThreads)
 
     info "Threadpool started", numThreads = taskpool.numThreads
-  except Exception as exc:
+  except Exception:
     raise newException(Defect, "Failure in taskpool initialization.")
 
   if metadata.genesis.kind == BakedIn:
@@ -1650,7 +1650,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, signedBlock)))
 
       # beacon_attestation_{subnet_id}
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
       for it in SubnetId:
         closureScope:  # Needed for inner `proc`; don't lift it out of loop.
           let subnet_id = it
@@ -1663,7 +1663,7 @@ proc installMessageValidators(node: BeaconNode) =
                   MsgSource.gossip, attestation, subnet_id)))
 
       # beacon_aggregate_and_proof
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
       node.network.addAsyncValidator(
         getAggregateAndProofsTopic(digest), proc (
           signedAggregateAndProof: SignedAggregateAndProof
@@ -1683,7 +1683,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, attesterSlashing)))
 
       # proposer_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#proposer_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#proposer_slashing
       node.network.addValidator(
         getProposerSlashingsTopic(digest), proc (
           proposerSlashing: ProposerSlashing
@@ -1693,7 +1693,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, proposerSlashing)))
 
       # voluntary_exit
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#voluntary_exit
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#voluntary_exit
       node.network.addValidator(
         getVoluntaryExitsTopic(digest), proc (
           signedVoluntaryExit: SignedVoluntaryExit
@@ -1704,7 +1704,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Altair:
         # sync_committee_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#sync_committee_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/p2p-interface.md#sync_committee_subnet_id
         for subcommitteeIdx in SyncSubcommitteeIndex:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = subcommitteeIdx
@@ -2132,7 +2132,7 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     let record = enr.Record.init(
       config.seqNumber,
       netKeys.seckey.asEthKey,
-      some(ValidIpAddress.init config.ipExt),
+      some(config.ipExt),
       some(config.tcpPortExt),
       some(config.udpPortExt),
       fieldPairs).expect("Record within size limits")

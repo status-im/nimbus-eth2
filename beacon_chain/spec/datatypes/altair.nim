@@ -34,7 +34,7 @@ type
 
 static:
   # Verify that ordinals follow spec values (the spec uses these as shifts for bit flags)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/beacon-chain.md#participation-flag-indices
   doAssert ord(TIMELY_SOURCE_FLAG_INDEX) == 0
   doAssert ord(TIMELY_TARGET_FLAG_INDEX) == 1
   doAssert ord(TIMELY_HEAD_FLAG_INDEX) == 2
@@ -51,7 +51,7 @@ const
   PARTICIPATION_FLAG_WEIGHTS*: array[TimelyFlag, uint64] =
     [uint64 TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#misc
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
@@ -138,18 +138,18 @@ type
     signature*: ValidatorSig
       ## Signature by the validator(s) over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#contributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#contributionandproof
   ContributionAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     contribution*: SyncCommitteeContribution
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#signedcontributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#signedcontributionandproof
   SignedContributionAndProof* = object
     message*: ContributionAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#syncaggregatorselectiondata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#syncaggregatorselectiondata
   SyncAggregatorSelectionData* = object
     slot*: Slot
     subcommittee_index*: uint64 # `SyncSubcommitteeIndex` after validation
@@ -638,6 +638,14 @@ func init*(T: type SyncAggregate): SyncAggregate =
 func num_active_participants*(v: SomeSyncAggregate): int =
   countOnes(v.sync_committee_bits)
 
+func hasSupermajoritySyncParticipation*(
+    num_active_participants: uint64): bool =
+  const max_active_participants = SYNC_COMMITTEE_SIZE.uint64
+  num_active_participants * 3 >= static(max_active_participants * 2)
+
+func hasSupermajoritySyncParticipation*(v: SomeSyncAggregate): bool =
+  hasSupermajoritySyncParticipation(v.num_active_participants.uint64)
+
 func shortLog*(v: SyncAggregate): auto =
   $(v.sync_committee_bits)
 
@@ -735,3 +743,7 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+template asTrusted*(
+    x: SyncAggregate): TrustedSyncAggregate =
+  isomorphicCast[TrustedSyncAggregate](x)

@@ -317,7 +317,8 @@ template kind*(
       capella.TrustedBeaconBlockBody |
       capella.SigVerifiedSignedBeaconBlock |
       capella.MsgTrustedSignedBeaconBlock |
-      capella.TrustedSignedBeaconBlock]): ConsensusFork =
+      capella.TrustedSignedBeaconBlock |
+      capella_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Capella
 
 template kind*(
@@ -335,7 +336,8 @@ template kind*(
       deneb.TrustedBeaconBlockBody |
       deneb.SigVerifiedSignedBeaconBlock |
       deneb.MsgTrustedSignedBeaconBlock |
-      deneb.TrustedSignedBeaconBlock]): ConsensusFork =
+      deneb.TrustedSignedBeaconBlock |
+      deneb_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Deneb
 
 template BeaconState*(kind: static ConsensusFork): auto =
@@ -415,6 +417,16 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
     typedesc[capella.ExecutionPayloadForSigning]
   elif kind == ConsensusFork.Bellatrix:
     typedesc[bellatrix.ExecutionPayloadForSigning]
+  else:
+    static: raiseAssert "Unreachable"
+
+template SignedBlindedBeaconBlock*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[deneb_mev.SignedBlindedBeaconBlock]
+  elif kind == ConsensusFork.Capella:
+    typedesc[capella_mev.SignedBlindedBeaconBlock]
+  elif kind == ConsensusFork.Bellatrix:
+    static: raiseAssert "Unsupported"
   else:
     static: raiseAssert "Unreachable"
 
@@ -628,7 +640,7 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
     template forkyState: untyped {.inject, used.} = x.phase0Data
     body
 
-template forky(
+template forky*(
     x: ForkedHashedBeaconState, kind: static ConsensusFork): untyped =
   when kind == ConsensusFork.Deneb:
     x.denebData
@@ -805,7 +817,7 @@ template withBlck*(
     body
   of ConsensusFork.Bellatrix:
     const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyBlck: untyped {.inject.} = x.bellatrixData
+    template forkyBlck: untyped {.inject, used.} = x.bellatrixData
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
@@ -824,6 +836,8 @@ func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
 
 func hash_tree_root*(x: Web3SignerForkedBeaconBlock): Eth2Digest =
   hash_tree_root(x.data)
+
+func hash_tree_root*(_: Opt[auto]) {.error.}
 
 template getForkedBlockField*(
     x: ForkedSignedBeaconBlock |

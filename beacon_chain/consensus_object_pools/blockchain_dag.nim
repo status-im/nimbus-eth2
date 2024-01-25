@@ -799,21 +799,14 @@ proc currentSyncCommitteeForPeriod*(
       else: err()
   do: err()
 
-func isNextSyncCommitteeFinalized*(
-    dag: ChainDAGRef, period: SyncCommitteePeriod): bool =
-  let finalizedSlot = dag.finalizedHead.slot
-  if finalizedSlot < period.start_slot:
-    false
-  elif finalizedSlot < dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
-    false # Fork epoch not necessarily tied to sync committee period boundary
+proc getBlockIdAtSlot*(
+    dag: ChainDAGRef, state: ForkyHashedBeaconState, slot: Slot): Opt[BlockId] =
+  if slot >= state.data.slot:
+    Opt.some state.latest_block_id
+  elif state.data.slot <= slot + SLOTS_PER_HISTORICAL_ROOT:
+    dag.getBlockId(state.data.get_block_root_at_slot(slot))
   else:
-    true
-
-func firstNonFinalizedPeriod*(dag: ChainDAGRef): SyncCommitteePeriod =
-  if dag.finalizedHead.slot >= dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
-    dag.finalizedHead.slot.sync_committee_period + 1
-  else:
-    dag.cfg.ALTAIR_FORK_EPOCH.sync_committee_period
+    Opt.none(BlockId)
 
 proc updateBeaconMetrics(
     state: ForkedHashedBeaconState, bid: BlockId, cache: var StateCache) =
@@ -1015,7 +1008,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # state - the tail is implicitly finalized, and if we have a finalized block
     # table, that provides another hint
     finalizedSlot = db.finalizedBlocks.high.get(tail.slot)
-    newFinalized: seq[BlockId]
     cache: StateCache
     foundHeadState = false
     headBlocks: seq[BlockRef]
@@ -1135,28 +1127,37 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   doAssert dag.finalizedHead.blck != nil,
     "The finalized head should exist at the slot"
-  doAssert dag.finalizedHead.blck.parent == nil,
-    "...but that's the last BlockRef with a parent"
 
   block: # Top up finalized blocks
     if db.finalizedBlocks.high.isNone or
         db.finalizedBlocks.high.get() < dag.finalizedHead.blck.slot:
+      # Versions prior to 1.7.0 did not store finalized blocks in the
+      # database, and / or the application might have crashed between the head
+      # and finalized blocks updates.
       info "Loading finalized blocks",
         finHigh = db.finalizedBlocks.high,
         finalizedHead = shortLog(dag.finalizedHead)
 
-      for blck in db.getAncestorSummaries(dag.finalizedHead.blck.root):
+      var
+        newFinalized: seq[BlockId]
+        tmp = dag.finalizedHead.blck
+      while tmp.parent != nil:
+        newFinalized.add(tmp.bid)
+        let p = tmp.parent
+        tmp.parent = nil
+        tmp = p
+
+      for blck in db.getAncestorSummaries(tmp.root):
         if db.finalizedBlocks.high.isSome and
             blck.summary.slot <= db.finalizedBlocks.high.get:
           break
 
-        # Versions prior to 1.7.0 did not store finalized blocks in the
-        # database, and / or the application might have crashed between the head
-        # and finalized blocks updates.
         newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
 
-  let finalizedBlocksTick = Moment.now()
-  db.updateFinalizedBlocks(newFinalized)
+      db.updateFinalizedBlocks(newFinalized)
+
+  doAssert dag.finalizedHead.blck.parent == nil,
+    "The finalized head is the last BlockRef with a parent"
 
   block:
     let finalized = db.finalizedBlocks.get(db.finalizedBlocks.high.get()).expect(
@@ -1337,15 +1338,6 @@ proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
   dag.getEpochRef(
     dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).expect(
       "getEpochRef for finalized head should always succeed")
-
-proc getBlockIdAtSlot(
-    dag: ChainDAGRef, state: ForkyHashedBeaconState, slot: Slot): Opt[BlockId] =
-  if slot >= state.data.slot:
-    Opt.some state.latest_block_id
-  elif state.data.slot <= slot + SLOTS_PER_HISTORICAL_ROOT:
-    dag.getBlockId(state.data.get_block_root_at_slot(slot))
-  else:
-    Opt.none(BlockId)
 
 proc ancestorSlot*(
     dag: ChainDAGRef, state: ForkyHashedBeaconState, bid: BlockId,

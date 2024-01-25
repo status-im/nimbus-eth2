@@ -413,11 +413,11 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
@@ -425,7 +425,7 @@ func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   compute_time_at_slot(
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -688,7 +688,7 @@ func hash*(x: Eth1Data): Hash =
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
-func getJsonRpcRequestHeaders(jwtSecret: Option[seq[byte]]):
+func getJsonRpcRequestHeaders(jwtSecret: Opt[seq[byte]]):
     auto =
   if jwtSecret.isSome:
     let secret = jwtSecret.get
@@ -1258,7 +1258,7 @@ proc forkchoiceUpdated*(m: ELManager,
   # block hash provided by this event is stubbed with
   # `0x0000000000000000000000000000000000000000000000000000000000000000`."
   # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
 
@@ -1397,6 +1397,11 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
              error = exc.msg
 
   connection.etcStatus = EtcStatus.match
+
+  # https://github.com/ethereum/execution-apis/blob/c4089414bbbe975bbc4bf1ccf0a3d31f76feb3e1/src/engine/cancun.md#deprecate-engine_exchangetransitionconfigurationv1
+  # Consensus layer clients MUST NOT call this method.
+  if m.eth1Chain.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    return
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
   let
@@ -2184,7 +2189,7 @@ func `$`(x: BlockObject): string =
 
 proc testWeb3Provider*(web3Url: Uri,
                        depositContractAddress: Eth1Address,
-                       jwtSecret: Option[seq[byte]]) {.async.} =
+                       jwtSecret: Opt[seq[byte]]) {.async.} =
   stdout.write "Establishing web3 connection..."
   var web3: Web3
   try:

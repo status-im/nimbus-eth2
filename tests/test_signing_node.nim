@@ -96,7 +96,7 @@ func init(T: type ForkedBeaconBlock, contents: ProduceBlockResponseV2): T =
   of ConsensusFork.Capella:
     return ForkedBeaconBlock.init(contents.capellaData)
   of ConsensusFork.Deneb:
-    return ForkedBeaconBlock.init(contents.denebData.block)
+    return ForkedBeaconBlock.init(contents.denebData.`block`)
 
 proc getBlock(fork: ConsensusFork,
               feeRecipient = SigningExpectedFeeRecipient): ForkedBeaconBlock =

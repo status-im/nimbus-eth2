@@ -599,11 +599,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
 + bestSuccess() API timeout test                                                             OK
 + firstSuccessParallel() API timeout test                                                    OK
++ getAggregatedAttestationDataScore() test vectors                                           OK
 + getAttestationDataScore() test vectors                                                     OK
 + getLiveness() response deserialization test                                                OK
++ getSyncCommitteeContributionDataScore() test vectors                                       OK
++ getSyncCommitteeMessageDataScore() test vectors                                            OK
++ getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -634,8 +638,9 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + init with gaps [Preset: mainnet]                                                           OK
 + orphaned epoch block [Preset: mainnet]                                                     OK
 + prune heads on finalization [Preset: mainnet]                                              OK
++ shutdown during finalization [Preset: mainnet]                                             OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## createValidatorFiles()
 ```diff
 + Add keystore files [LOCAL]                                                                 OK
@@ -716,4 +721,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 405/410 Fail: 0/410 Skip: 5/410
+OK: 410/415 Fail: 0/415 Skip: 5/415
