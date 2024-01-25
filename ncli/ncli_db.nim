@@ -466,12 +466,6 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
       dump("./", forkyState)
   do: raiseAssert "withUpdatedState failed"
 
-func atCanonicalSlot(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
-  if slot == 0:
-    dag.getBlockIdAtSlot(GENESIS_SLOT)
-  else:
-    ok BlockSlotId.init((? dag.atSlot(bid, slot - 1)).bid, slot)
-
 proc cmdVerifyEra(conf: DbConf, cfg: RuntimeConfig) =
   let
     f = EraFile.open(conf.eraFile).valueOr:

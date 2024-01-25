@@ -214,7 +214,6 @@ proc processObject(
     obj: SomeForkedLightClientObject,
     wallTime: BeaconTime): Result[void, VerifierError] =
   let
-    wallSlot = wallTime.slotOrZero()
     res = withForkyObject(obj):
       when lcDataFork > LightClientDataFork.None:
         when forkyObject is ForkyLightClientBootstrap:
@@ -242,7 +241,9 @@ proc processObject(
               self.store[].migrateToDataFork(lcDataFork)
             withForkyStore(self.store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgradedObject = obj.migratingToDataFork(lcDataFork)
+                let
+                  wallSlot = wallTime.slotOrZero()
+                  upgradedObject = obj.migratingToDataFork(lcDataFork)
                 process_light_client_update(
                   forkyStore, upgradedObject.forky(lcDataFork), wallSlot,
                   self.cfg, self.genesis_validators_root)
@@ -522,7 +523,7 @@ func toValidationError(
       # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -537,7 +538,7 @@ proc processLightClientFinalityUpdate*(
   self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

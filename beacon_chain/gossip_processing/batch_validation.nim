@@ -534,8 +534,7 @@ proc scheduleContributionChecks*(
 
 proc scheduleBlsToExecutionChangeCheck*(
     batchCrypto: ref BatchCrypto,
-    genesis_fork: Fork, signedBLSToExecutionChange: SignedBLSToExecutionChange,
-    dag: ChainDAGRef):
+    genesis_fork: Fork, signedBLSToExecutionChange: SignedBLSToExecutionChange):
     Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
   ## SignedBLSToExecutionChange message
@@ -553,9 +552,9 @@ proc scheduleBlsToExecutionChangeCheck*(
   let
     # Only called when matching already-known withdrawal credentials, so it's
     # resistant to allowing loadWithCache DoSing
-    pubkey = dag.validatorKey(
-        signedBLSToExecutionChange.message.validator_index).valueOr:
-      return err("SignedAggregateAndProof: invalid validator index")
+    pubkey =
+      signedBLSToExecutionChange.message.from_bls_pubkey.loadWithCache.valueOr:
+        return err("scheduleBlsToExecutionChangeCheck: cannot load BLS to execution change pubkey")
     sig = signedBLSToExecutionChange.signature.load().valueOr:
       return err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
     fut = batchCrypto.verifySoon("scheduleContributionAndProofChecks.contribution"):

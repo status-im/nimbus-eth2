@@ -7,7 +7,7 @@ Before building Nimbus for the first time, make sure to install the [prerequisit
 ## Helpful resources
 
 * [Ethereum consensus spec](https://github.com/ethereum/consensus-specs/)
-* [Ben Edgington's annotated spec](https://eth2book.info/bellatrix/)
+* [Ben Edgington's annotated spec](https://eth2book.info/capella/)
 * [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
 
 ## Nim programming language
@@ -208,7 +208,7 @@ To change the number of validators and nodes:
 make VALIDATORS=192 NODES=6 USER_NODES=1 local-testnet-minimal
 ```
 
-If you’d like to see the nodes running on separated sub-terminals inside one big window, install [Multitail](https://www.vanheusden.com/multitail/index.php) (if you're on a Mac, follow the instructions [here](https://brewinstall.org/Install-multitail-on-Mac-with-Brew/)), then:
+If you’d like to see the nodes running on separated sub-terminals inside one big window, install [Multitail](https://www.vanheusden.com/multitail/) (if you're on a Mac, follow the instructions [here](https://brewinstall.org/Install-multitail-on-Mac-with-Brew/)), then:
 
 
 ```

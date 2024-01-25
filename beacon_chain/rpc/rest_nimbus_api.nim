@@ -104,6 +104,20 @@ type
     peerId*: PeerId
     connected*: bool
 
+RestJson.useDefaultSerializationFor(
+  BlockProposalEth1Data,
+  Eth1BlockObj,
+  RestChronosMetricsInfo,
+  RestConnectionInfo,
+  RestFutureInfo,
+  RestPeerInfo,
+  RestPeerInfoTuple,
+  RestPeerStats,
+  RestPeerStatus,
+  RestPubSubPeer,
+  RestSimplePeer,
+)
+
 proc toInfo(node: BeaconNode, peerId: PeerId): RestPeerInfo =
   RestPeerInfo(
     peerId: $peerId,

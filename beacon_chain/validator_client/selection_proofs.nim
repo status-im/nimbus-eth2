@@ -466,12 +466,6 @@ proc fillSyncCommitteeSelectionProofs*(
                  validator_index = uint64(selection.validator_index),
                  reason = $error
             continue
-          selectionProof = selection.selection_proof.load().valueOr:
-            warn "Invalid signature encountered while processing " &
-                 "sync committee selections",
-                 validator_index = vindex, slot = slot,
-                 selection_proof = shortLog(selection.selection_proof)
-            continue
           validator =
             block:
               # Selections operating using validator indices, so we should check
@@ -509,6 +503,6 @@ proc fillSyncCommitteeSelectionProofs*(
           epochProofs[].proofs.withValue(validator.pubkey, signatures):
             signatures[].setSignature(request.sync_committee_index,
                                       selection.slot,
-                                      Opt.some(selection.selectionProof))
+                                      Opt.some(selection.selection_proof))
             inc(sigres.selectionsProcessed)
   sigres

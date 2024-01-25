@@ -61,7 +61,7 @@ When building from source, you will need additional build dependencies to be ins
 
 === "Android"
 
-    - Install the [Termux](https://termux.com) app from FDroid or the Google Play store
+    - Install the [Termux](https://termux.dev/en/) app from FDroid or the Google Play store
     - Install a [PRoot](https://wiki.termux.com/wiki/PRoot) of your choice following the instructions for your preferred distribution.
     Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (the most common architecture for Android devices).
 
@@ -81,7 +81,7 @@ You should be fine as long as you haven't changed the time and date settings on 
 
 === "Linux"
 
-    On Linux, it is recommended to install [chrony](https://chrony.tuxfamily.org/).
+    On Linux, it is recommended to install [chrony](https://chrony-project.org).
 
     To install it:
 

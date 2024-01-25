@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,8 @@
 import
   std/[sequtils, strutils, os],
   stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
-  web3/[ethtypes, conversions],
+  web3/[conversions],
+  web3/primitives as web3types,
   chronicles,
   eth/common/eth_types_json_serialization,
   ../spec/[eth2_ssz_serialization, forks]
@@ -29,7 +30,7 @@ import
 # from `currentSourcePath`.
 
 export
-  ethtypes, conversions, RuntimeConfig
+  web3types, conversions, RuntimeConfig
 
 const
   vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
@@ -37,7 +38,7 @@ const
   incbinEnabled* = sizeof(pointer) == 8
 
 type
-  Eth1BlockHash* = ethtypes.BlockHash
+  Eth1BlockHash* = web3types.BlockHash
 
   Eth1Network* = enum
     mainnet
@@ -301,7 +302,7 @@ elif const_preset == "mainnet":
         vendorDir & "/eth2-networks/shared/mainnet/genesis.ssz")
 
       praterGenesis* = slurp(
-        vendorDir & "/eth2-networks/shared/prater/genesis.ssz")
+        vendorDir & "/goerli/prater/genesis.ssz")
 
       sepoliaGenesis* = slurp(
         vendorDir & "/sepolia/bepolia/genesis.ssz")
@@ -313,7 +314,7 @@ elif const_preset == "mainnet":
       useBakedInGenesis = some "mainnet")
 
     praterMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/eth2-networks/shared/prater",
+      vendorDir & "/goerli/prater",
       some goerli,
       useBakedInGenesis = some "prater")
 
@@ -337,6 +338,9 @@ elif const_preset == "mainnet":
       doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
+    for network in [praterMetadata]:
+      doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
+    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =

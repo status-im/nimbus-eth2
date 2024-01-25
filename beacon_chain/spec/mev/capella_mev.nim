@@ -64,6 +64,13 @@ type
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody # [Modified in Capella]
 
+  MaybeBlindedBeaconBlock* = object
+    case isBlinded*: bool
+    of false:
+      data*: capella.BeaconBlock
+    of true:
+      blindedData*: BlindedBeaconBlock
+
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signedblindedbeaconblock
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
   SignedBlindedBeaconBlock* = object
@@ -97,6 +104,8 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
     block_number: v.body.execution_payload_header.block_number,
     # TODO checksum hex? shortlog?
+    block_hash: to0xHex(v.body.execution_payload_header.block_hash.data),
+    parent_hash: to0xHex(v.body.execution_payload_header.parent_hash.data),
     fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
     blob_kzg_commitments_len: 0,  # Deneb compat

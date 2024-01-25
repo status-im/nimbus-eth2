@@ -28,6 +28,8 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     voluntary_exits_len: 0,
     sync_committee_participants: 0,
     block_number: 0'u64,
+    block_hash: "",
+    parent_hash: "",
     fee_recipient: "",
     bls_to_execution_changes_len: 0,  # Capella compat
     blob_kzg_commitments_len: 0,  # Deneb compat

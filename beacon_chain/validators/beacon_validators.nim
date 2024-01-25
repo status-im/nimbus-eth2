@@ -23,7 +23,7 @@ import
   chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net],
   eth/db/kvstore,
-  web3/ethtypes,
+  web3/primitives,
   kzg4844,
 
   # Local modules
@@ -45,12 +45,6 @@ import
 
 from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
-
-const
-  delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
-                  0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
-
-  BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -560,8 +554,6 @@ proc makeBeaconBlockForHeadAndSlot*(
   else:
     err(blck.error)
 
-# workaround for https://github.com/nim-lang/Nim/issues/20900 to avoid default
-# parameters
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
@@ -663,9 +655,12 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
 
   blindedBlock
 
-func constructPlainBlindedBlock[
-    T: capella_mev.BlindedBeaconBlock, EPH: capella.ExecutionPayloadHeader](
-    blck: ForkyBeaconBlock, executionPayloadHeader: EPH): T =
+func constructPlainBlindedBlock[T: capella_mev.BlindedBeaconBlock](
+    blck: ForkyBeaconBlock,
+    executionPayloadHeader: capella.ExecutionPayloadHeader): T =
+  # https://github.com/nim-lang/Nim/issues/23020 workaround
+  static: doAssert T is capella_mev.BlindedBeaconBlock
+
   const
     blckFields = getFieldNames(typeof(blck))
     blckBodyFields = getFieldNames(typeof(blck.body))
@@ -676,6 +671,30 @@ func constructPlainBlindedBlock[
   copyFields(blindedBlock, blck, blckFields)
   copyFields(blindedBlock.body, blck.body, blckBodyFields)
   assign(blindedBlock.body.execution_payload_header, executionPayloadHeader)
+
+  blindedBlock
+
+func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
+    blck: ForkyBeaconBlock,
+    blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
+  # https://github.com/nim-lang/Nim/issues/23020 workaround
+  static: doAssert T is deneb_mev.BlindedBeaconBlock
+
+  const
+    blckFields = getFieldNames(typeof(blck))
+    blckBodyFields = getFieldNames(typeof(blck.body))
+
+  var blindedBlock: T
+
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
+  copyFields(blindedBlock, blck, blckFields)
+  copyFields(blindedBlock.body, blck.body, blckBodyFields)
+  assign(
+    blindedBlock.body.execution_payload_header,
+    blindedBundle.execution_payload_header)
+  assign(
+    blindedBlock.body.blob_kzg_commitments,
+    blindedBundle.blob_kzg_commitments)
 
   blindedBlock
 
@@ -717,7 +736,7 @@ proc blindedBlockCheckSlashingAndSign[
 proc getUnsignedBlindedBeaconBlock[
     T: capella_mev.SignedBlindedBeaconBlock |
        deneb_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, slot: Slot, validator: AttachedValidator,
+    node: BeaconNode, slot: Slot,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: capella.ExecutionPayloadHeader |
                             deneb_mev.BlindedExecutionPayloadAndBlobsBundle):
@@ -826,7 +845,7 @@ proc getBuilderBid[
     SBBB: capella_mev.SignedBlindedBeaconBlock |
           deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
-    validator: AttachedValidator, slot: Slot, randao: ValidatorSig,
+    validator_pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async.} =
   ## Returns the unsigned blinded block obtained from the Builder API.
@@ -839,7 +858,7 @@ proc getBuilderBid[
     static: doAssert false
 
   let blindedBlockParts = await getBlindedBlockParts[EPH](
-    node, payloadBuilderClient, head, validator.pubkey, slot, randao,
+    node, payloadBuilderClient, head, validator_pubkey, slot, randao,
     validator_index, node.graffitiBytes)
   if blindedBlockParts.isErr:
     # Not signed yet, fine to try to fall back on EL
@@ -851,8 +870,7 @@ proc getBuilderBid[
   let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
 
   let unsignedBlindedBlock = getUnsignedBlindedBeaconBlock[SBBB](
-    node, slot, validator, validator_index, forkedBlck,
-    executionPayloadHeader)
+    node, slot, validator_index, forkedBlck, executionPayloadHeader)
 
   if unsignedBlindedBlock.isErr:
     return err unsignedBlindedBlock.error()
@@ -894,8 +912,7 @@ proc proposeBlockMEV(
 func isEFMainnet(cfg: RuntimeConfig): bool =
   cfg.DEPOSIT_CHAIN_ID == 1 and cfg.DEPOSIT_NETWORK_ID == 1
 
-proc makeBlindedBeaconBlockForHeadAndSlot*[
-    BBB: capella_mev.BlindedBeaconBlock](
+proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
     node: BeaconNode, payloadBuilderClient: RestClientRef,
     randao_reveal: ValidatorSig, validator_index: ValidatorIndex,
     graffiti: GraffitiBytes, head: BlockRef, slot: Slot):
@@ -906,7 +923,9 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
   ##
   ## This function is used by the validator client, but not the beacon node for
   ## its own validators.
-  when BBB is capella_mev.BlindedBeaconBlock:
+  when BBB is deneb_mev.BlindedBeaconBlock:
+    type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
+  elif BBB is capella_mev.BlindedBeaconBlock:
     type EPH = capella.ExecutionPayloadHeader
   else:
     static: doAssert false
@@ -940,10 +959,10 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
   withBlck(forkedBlck):
     when consensusFork >= ConsensusFork.Capella:
       when ((consensusFork == ConsensusFork.Deneb and
-             EPH is deneb.ExecutionPayloadHeader) or
+             EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle) or
             (consensusFork == ConsensusFork.Capella and
              EPH is capella.ExecutionPayloadHeader)):
-        return ok (constructPlainBlindedBlock[BBB, EPH](
+        return ok (constructPlainBlindedBlock[BBB](
           forkyBlck, executionPayloadHeader), bidValue)
       else:
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
@@ -952,8 +971,9 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
 
 proc collectBidFutures(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
-    payloadBuilderClient: RestClientRef, validator: AttachedValidator,
-    validator_index: ValidatorIndex, head: BlockRef, slot: Slot,
+    payloadBuilderClient: RestClientRef, validator_pubkey: ValidatorPubKey,
+    validator_index: ValidatorIndex, graffitiBytes: GraffitiBytes,
+    head: BlockRef, slot: Slot,
     randao: ValidatorSig): Future[BlockProposalBidFutures[SBBB]] {.async.} =
   let usePayloadBuilder =
     if not payloadBuilderClient.isNil:
@@ -972,9 +992,8 @@ proc collectBidFutures(
     payloadBuilderBidFut =
       if usePayloadBuilder:
         when not (EPS is bellatrix.ExecutionPayloadForSigning):
-          getBuilderBid[SBBB](
-            node, payloadBuilderClient, head, validator, slot, randao,
-            validator_index)
+          getBuilderBid[SBBB](node, payloadBuilderClient, head,
+                              validator_pubkey, slot, randao, validator_index)
         else:
           let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
           fut.complete(BlindedBlockResult[SBBB].err(
@@ -986,7 +1005,7 @@ proc collectBidFutures(
           "either payload builder disabled or liveness failsafe active"))
         fut
     engineBlockFut = makeBeaconBlockForHeadAndSlot(
-      EPS, node, randao, validator_index, node.graffitiBytes, head, slot)
+      EPS, node, randao, validator_index, graffitiBytes, head, slot)
 
   # getBuilderBid times out after BUILDER_PROPOSAL_DELAY_TOLERANCE, with 1 more
   # second for remote validators. makeBeaconBlockForHeadAndSlot times out after
@@ -1000,7 +1019,7 @@ proc collectBidFutures(
         true
       elif usePayloadBuilder:
         info "Payload builder error",
-          slot, head = shortLog(head), validator = shortLog(validator),
+          slot, head = shortLog(head), validator = shortLog(validator_pubkey),
           err = payloadBuilderBidFut.read().error()
         false
       else:
@@ -1008,7 +1027,7 @@ proc collectBidFutures(
         false
     else:
       info "Payload builder bid future failed",
-        slot, head = shortLog(head), validator = shortLog(validator),
+        slot, head = shortLog(head), validator = shortLog(validator_pubkey),
         err = payloadBuilderBidFut.error.msg
       false
 
@@ -1018,12 +1037,12 @@ proc collectBidFutures(
         true
       else:
         info "Engine block building error",
-          slot, head = shortLog(head), validator = shortLog(validator),
+          slot, head = shortLog(head), validator = shortLog(validator_pubkey),
           err = engineBlockFut.read.error()
         false
     else:
       info "Engine block building failed",
-        slot, head = shortLog(head), validator = shortLog(validator),
+        slot, head = shortLog(head), validator = shortLog(validator_pubkey),
         err = engineBlockFut.error.msg
       false
 
@@ -1060,8 +1079,8 @@ proc proposeBlockAux(
     payloadBuilderClient = payloadBuilderClientMaybe.get
 
   let collectedBids = await collectBidFutures(
-    SBBB, EPS, node, payloadBuilderClient, validator, validator_index, head,
-    slot, randao)
+    SBBB, EPS, node, payloadBuilderClient, validator.pubkey, validator_index,
+    node.graffitiBytes, head, slot, randao)
 
   let useBuilderBlock =
     if collectedBids.builderBidAvailable:
@@ -1073,6 +1092,38 @@ proc proposeBlockAux(
       if not collectedBids.engineBidAvailable:
         return head   # errors logged in router
       false
+
+  # There should always be an engine bid, and if payloadBuilderClient exists,
+  # not getting a builder bid is also an error. Do not report lack of builder
+  # when that's intentional. Replicate some of the nested if statements here,
+  # because that avoids entangling logging with other functionality. The logs
+  # here are inteded to clarify that, for example, when the builder API relay
+  # URL is provided for this validator, it's reasonable for Nimbus not to use
+  # it for every block.
+  if collectedBids.engineBidAvailable:
+    # Three cases: builder bid expected and absent, builder bid expected and
+    # present, and builder bid not expected.
+    if collectedBids.builderBidAvailable:
+      info "Compared engine and builder block bids",
+        localBlockValueBoost,
+        useBuilderBlock,
+        builderBlockValue =
+          collectedBids.payloadBuilderBidFut.read.get().blockValue,
+        engineBlockValue = collectedBids.engineBlockFut.read.get().blockValue
+    elif payloadBuilderClient.isNil:
+      discard  # builder API not configured for this block
+    else:
+      info "Did not receive expected builder bid; using engine block",
+        engineBlockValue = collectedBids.engineBlockFut.read.get().blockValue
+  else:
+    # Similar three cases: builder bid expected and absent, builder bid
+    # expected and present, and builder bid not expected. However, only
+    # the second is worth logging, because the other two result in this
+    # block being missed altogether, and with details logged elsewhere.
+    if collectedBids.builderBidAvailable:
+      info "Did not receive expected engine bid; using builder block",
+        builderBlockValue =
+          collectedBids.payloadBuilderBidFut.read.get().blockValue
 
   if useBuilderBlock:
     let
@@ -1235,7 +1286,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
@@ -1393,10 +1444,7 @@ proc signAndSendContribution(node: BeaconNode,
 
 proc handleSyncCommitteeContributions(
     node: BeaconNode, head: BlockRef, slot: Slot) {.async.} =
-  let
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
-    syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
+  let syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
@@ -1444,13 +1492,13 @@ proc signAndSendAggregate(
           return
         res.get()
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
 
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#aggregateandproof
     var
       msg = SignedAggregateAndProof(
         message: AggregateAndProof(
@@ -1570,7 +1618,9 @@ proc getValidatorRegistration(
 proc registerValidatorsPerBuilder(
     node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,
     attachedValidatorPubkeys: seq[ValidatorPubKey]) {.async.} =
-  const HttpOk = 200
+  const
+    HttpOk = 200
+    BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
   try:
     let payloadBuilderClient =
@@ -1790,9 +1840,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
     curSlot += 1
 
-  let
-    newHead = await handleProposal(node, head, slot)
-    didSubmitBlock = (newHead != head)
+  let newHead = await handleProposal(node, head, slot)
   head = newHead
 
   let
@@ -1820,8 +1868,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:
@@ -1887,3 +1935,85 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
 
         node.consensusManager[].actionTracker.registerDuty(
           slot, subnet_id, validator_index, isAggregator)
+
+proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
+    node: BeaconNode, consensusFork: static ConsensusFork,
+    randao_reveal: ValidatorSig, graffiti: GraffitiBytes,
+    head: BlockRef, slot: Slot): Future[ResultType] {.async.} =
+  let
+    proposer = node.dag.getProposer(head, slot).valueOr:
+      return ResultType.err(
+        "Unable to get proposer for specific head and slot")
+    proposerKey = node.dag.validatorKey(proposer).get().toPubKey()
+
+    payloadBuilderClient =
+      node.getPayloadBuilderClient(proposer.distinctBase).valueOr:
+        nil
+    localBlockValueBoost = node.config.localBlockValueBoost
+
+    collectedBids =
+      await collectBidFutures(consensusFork.SignedBlindedBeaconBlock,
+                              consensusFork.ExecutionPayloadForSigning,
+                              node,
+                              payloadBuilderClient, proposerKey,
+                              proposer, graffiti, head, slot,
+                              randao_reveal)
+    useBuilderBlock =
+      if collectedBids.builderBidAvailable:
+        (not collectedBids.engineBidAvailable) or builderBetterBid(
+          localBlockValueBoost,
+          collectedBids.payloadBuilderBidFut.read.get().blockValue,
+          collectedBids.engineBlockFut.read.get().blockValue)
+      else:
+        if not(collectedBids.engineBidAvailable):
+          return ResultType.err("Engine bid is not available")
+        false
+
+    blockResult = block:
+      if useBuilderBlock:
+        let
+          blindedResult = collectedBids.payloadBuilderBidFut.read()
+          payloadValue = blindedResult.get().blockValue
+
+        return ResultType.ok((
+          blck: consensusFork.MaybeBlindedBeaconBlock(
+            isBlinded: true,
+            blindedData: blindedResult.get().blindedBlckPart.message),
+          executionValue: Opt.some(payloadValue),
+          consensusValue: Opt.none(UInt256)))
+
+      collectedBids.engineBlockFut.read().get()
+
+  doAssert blockResult.blck.kind == consensusFork
+  template forkyBlck: untyped = blockResult.blck.forky(consensusFork)
+  when consensusFork >= ConsensusFork.Deneb:
+    let blobsBundle = blockResult.blobsBundleOpt.get()
+    doAssert blobsBundle.commitments == forkyBlck.body.blob_kzg_commitments
+    ResultType.ok((
+      blck: consensusFork.MaybeBlindedBeaconBlock(
+        isBlinded: false,
+        data: deneb.BlockContents(
+          `block`: forkyBlck,
+          kzg_proofs: blobsBundle.proofs,
+          blobs: blobsBundle.blobs)),
+      executionValue: Opt.some(blockResult.blockValue),
+      consensusValue: Opt.none(UInt256)))
+  else:
+    ResultType.ok((
+      blck: consensusFork.MaybeBlindedBeaconBlock(
+        isBlinded: false,
+        data: forkyBlck),
+      executionValue: Opt.some(blockResult.blockValue),
+      consensusValue: Opt.none(UInt256)))
+
+proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
+    node: BeaconNode, consensusFork: static ConsensusFork,
+    randao_reveal: ValidatorSig, graffiti: GraffitiBytes,
+    head: BlockRef, slot: Slot): auto =
+  type ResultType = Result[tuple[
+    blck: consensusFork.MaybeBlindedBeaconBlock,
+    executionValue: Opt[UInt256],
+    consensusValue: Opt[UInt256]], string]
+
+  makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
+    node, consensusFork, randao_reveal, graffiti, head, slot)

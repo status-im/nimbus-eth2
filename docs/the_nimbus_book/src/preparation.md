@@ -26,4 +26,4 @@ Systemd will also ensure your validator keeps running when you exit your ssh ses
 
 ## Ethereum Foundation's Checklist
 
-As a final check, we recommend you also go through the EF'S [staker checklist](https://launchpad.ethereum.org/checklist).
+As a final check, we recommend you also go through the EF'S [staker checklist](https://launchpad.ethereum.org/en/checklist).

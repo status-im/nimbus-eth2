@@ -17,7 +17,7 @@ import
   eth/trie/[db, hexary],
   json_rpc/jsonmarshal,
   secp256k1,
-  web3/ethtypes,
+  web3/eth_api_types,
   ../el/el_manager,
   ../spec/eth2_apis/[eth2_rest_serialization, rest_light_client_calls],
   ../spec/[helpers, light_client_sync],
@@ -78,7 +78,7 @@ proc ETHConsensusConfigCreateFromYaml(
   ## * `NULL` - If the given `config.yaml` is malformed or incompatible.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/configs/README.md
   let cfg = RuntimeConfig.new()
   try:
     cfg[] = readRuntimeConfig($configFileContent, "config.yaml")[0]
@@ -142,11 +142,11 @@ proc ETHBeaconStateCreateFromSsz(
   ## * `NULL` - If the given `sszBytes` is malformed.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/bellatrix/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/bellatrix/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
@@ -195,7 +195,7 @@ proc ETHRootDestroy(root: ptr Eth2Digest) {.exported.} =
   ## * `root` - Merkle root.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#custom-types
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#custom-types
   root.destroy()
 
 proc ETHForkDigestsCreateFromState(
@@ -214,7 +214,7 @@ proc ETHForkDigestsCreateFromState(
   ## * Pointer to an initialized fork digests cache based on the beacon state.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#compute_fork_digest
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#compute_fork_digest
   let forkDigests = ForkDigests.new()
   forkDigests[] = ForkDigests.init(
     cfg[], getStateField(state[], genesis_validators_root))
@@ -265,7 +265,7 @@ proc ETHBeaconClockGetSlot(beaconClock: ptr BeaconClock): cint {.exported.} =
   ## * `0` - If genesis is still pending.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#custom-types
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#custom-types
   beaconClock[].now().slotOrZero().cint
 
 const lcDataFork = LightClientDataFork.high
@@ -324,8 +324,8 @@ proc ETHLightClientStoreCreateFromBootstrap(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/light-client.md
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
   let
     mediaType = MediaType.init($mediaType)
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
@@ -731,7 +731,7 @@ func ETHLightClientStoreGetFinalizedHeader(
   ## * Latest finalized header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].finalized_header
 
 func ETHLightClientStoreIsNextSyncCommitteeKnown(
@@ -750,8 +750,8 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ## * Whether or not the next sync committee is currently known.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(
@@ -770,7 +770,7 @@ func ETHLightClientStoreGetOptimisticHeader(
   ## * Latest optimistic header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].optimistic_header
 
 func ETHLightClientStoreGetSafetyThreshold(
@@ -791,7 +791,7 @@ func ETHLightClientStoreGetSafetyThreshold(
   ## * Light client store safety threshold.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#get_safety_threshold
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#get_safety_threshold
   store[].get_safety_threshold.cint
 
 proc ETHLightClientHeaderCreateCopy(
@@ -837,7 +837,7 @@ proc ETHLightClientHeaderCopyBeaconRoot(
   ## * Pointer to a copy of the given header's beacon block root.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#hash_tree_root
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#hash_tree_root
   discard cfg  # Future-proof against new fields, see `get_lc_execution_root`.
   let root = Eth2Digest.new()
   root[] = header[].beacon.hash_tree_root()
@@ -859,7 +859,7 @@ func ETHLightClientHeaderGetBeacon(
   ## * Beacon block header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#beaconblockheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#beaconblockheader
   addr header[].beacon
 
 func ETHBeaconBlockHeaderGetSlot(
@@ -972,7 +972,7 @@ func ETHLightClientHeaderGetExecution(
   ## * Execution payload header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#executionpayloadheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/beacon-chain.md#executionpayloadheader
   addr header[].execution
 
 func ETHExecutionPayloadHeaderGetParentHash(
@@ -1501,7 +1501,7 @@ proc ETHTransactionsCreateFromJson(
       doAssert sizeof(int64) == sizeof(data.gasPrice)
       doAssert sizeof(int64) == sizeof(data.maxPriorityFeePerGas.get)
       doAssert sizeof(UInt256) == sizeof(data.maxFeePerBlobGas.get)
-    if data.chainId.get(default(UInt256)) > distinctBase(ChainId.high).u256:
+    if distinctBase(data.chainId.get(0.Quantity)) > distinctBase(ChainId.high):
       return nil
     if distinctBase(data.gasPrice) > int64.high.uint64:
       return nil
@@ -1515,12 +1515,12 @@ proc ETHTransactionsCreateFromJson(
       return nil
     if distinctBase(data.gas) > int64.high.uint64:
       return nil
-    if data.v > int64.high.u256:
+    if data.v.uint64 > int64.high.uint64:
       return nil
     let
       tx = ExecutionTransaction(
         txType: txType,
-        chainId: data.chainId.get(default(UInt256)).truncate(uint64).ChainId,
+        chainId: data.chainId.get(0.Quantity).ChainId,
         nonce: distinctBase(data.nonce),
         gasPrice: data.gasPrice.GasInt,
         maxPriorityFee:
@@ -1549,7 +1549,7 @@ proc ETHTransactionsCreateFromJson(
               ExecutionHash256(data: distinctBase(it)))
           else:
             @[],
-        V: data.v.truncate(uint64).int64,
+        V: data.v.int64,
         R: data.r,
         S: data.s)
       rlpBytes =
@@ -2105,7 +2105,7 @@ proc ETHReceiptsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(ReceiptObject) == 15,
+    static: doAssert totalSerializedFields(ReceiptObject) == 17,
       "Only update this number once code is adjusted to check new fields!"
     static: doAssert totalSerializedFields(LogObject) == 9,
       "Only update this number once code is adjusted to check new fields!"
@@ -2133,16 +2133,26 @@ proc ETHReceiptsCreateFromJson(
     for log in data.logs:
       if log.removed:
         return nil
-      if distinctBase(log.logIndex) != logIndex + 1:
+      if log.logIndex.isNone:
         return nil
-      logIndex = distinctBase(log.logIndex)
-      if log.transactionIndex != data.transactionIndex:
+      if distinctBase(log.logIndex.get) != logIndex + 1:
         return nil
-      if log.transactionHash != data.transactionHash:
+      logIndex = distinctBase(log.logIndex.get)
+      if log.transactionIndex.isNone:
         return nil
-      if log.blockHash != data.blockHash:
+      if log.transactionIndex.get != data.transactionIndex:
         return nil
-      if log.blockNumber != data.blockNumber:
+      if log.transactionHash.isNone:
+        return nil
+      if log.transactionHash.get != data.transactionHash:
+        return nil
+      if log.blockHash.isNone:
+        return nil
+      if log.blockHash.get != data.blockHash:
+        return nil
+      if log.blockNumber.isNone:
+        return nil
+      if log.blockNumber.get != data.blockNumber:
         return nil
       if log.data.len mod 32 != 0:
         return nil
