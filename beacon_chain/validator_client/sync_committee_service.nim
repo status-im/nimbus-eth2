@@ -11,7 +11,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types,
   ../validators/activity_metrics,
-  "."/[common, api]
+  "."/[common, api, selection_proofs]
 
 const
   ServiceName = "sync_committee_service"

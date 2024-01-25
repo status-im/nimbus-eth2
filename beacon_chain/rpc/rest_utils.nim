@@ -20,10 +20,6 @@ export
   results, eth2_rest_serialization, blockchain_dag, presto, rest_types,
   rest_constants, rest_common
 
-type
-  ValidatorIndexError* {.pure.} = enum
-    UnsupportedValue, TooHighValue
-
 func match(data: openArray[char], charset: set[char]): int =
   for ch in data:
     if ch notin charset:
@@ -215,26 +211,6 @@ template withStateForBlockSlotId*(nodeParam: BeaconNode,
 template strData*(body: ContentBody): string =
   bind fromBytes
   string.fromBytes(body.data)
-
-func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
-                                                          ValidatorIndexError] =
-  when sizeof(ValidatorIndex) == 4:
-    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
-      # On x86 platform Nim allows only `int32` indexes, so all the indexes in
-      # range `2^31 <= x < 2^32` are not supported.
-      if uint64(value) <= uint64(high(int32)):
-        ok(ValidatorIndex(value))
-      else:
-        err(ValidatorIndexError.UnsupportedValue)
-    else:
-      err(ValidatorIndexError.TooHighValue)
-  elif sizeof(ValidatorIndex) == 8:
-    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
-      ok(ValidatorIndex(value))
-    else:
-      err(ValidatorIndexError.TooHighValue)
-  else:
-    doAssert(false, "ValidatorIndex type size is incorrect")
 
 func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
                                 epoch: Epoch

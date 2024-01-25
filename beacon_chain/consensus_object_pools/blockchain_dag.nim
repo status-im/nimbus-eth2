@@ -553,8 +553,6 @@ func init*(
       dag.putShufflingRef(tmp)
       tmp
 
-    attester_dependent_root = withState(state):
-      forkyState.attester_dependent_root
     total_active_balance = withState(state):
       get_total_active_balance(forkyState.data, cache)
     epochRef = EpochRef(
@@ -1119,7 +1117,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # should have `previous_version` set to `current_version` while
   # this doesn't happen to be the case in network that go through
   # regular hard-fork upgrades. See for example:
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/bellatrix/beacon-chain.md#testing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
@@ -1922,7 +1920,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/sync/optimistic.md#helpers
 template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
@@ -2421,7 +2419,6 @@ proc updateHead*(
 
     if not(isNil(dag.onHeadChanged)):
       let
-        currentEpoch = epoch(newHead.slot)
         depRoot = withState(dag.headState): forkyState.proposer_dependent_root
         prevDepRoot = withState(dag.headState):
           forkyState.attester_dependent_root
@@ -2613,7 +2610,7 @@ func aggregateAll*(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregate: no attesting keys")
 
   let
@@ -2733,7 +2730,6 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       if state_root.isZero:
         # If we can find an era file with this state, use it as an alternative
         # starting point - ignore failures for now
-        var bytes: seq[byte]
         if dag.era.getState(
             historicalRoots, historicalSummaries, slot, state[]).isOk():
           state_root = getStateRoot(state[])

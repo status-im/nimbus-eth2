@@ -58,36 +58,6 @@ suite "Message signatures":
         get_block_signature(
           fork0, genesis_validators_root1, slot, root, privkey0).toValidatorSig)
 
-  test "Blob sidecar signatures":
-    let
-      slot = default(Slot)
-      blob = default(BlobSidecar)
-
-    check:
-      # Matching public/private keys and genesis validator roots
-      verify_blob_signature(
-        fork0, genesis_validators_root0, slot, blob, pubkey0,
-        get_blob_sidecar_signature(
-          fork0, genesis_validators_root0, slot, blob, privkey0).toValidatorSig)
-
-      # Mismatched public/private keys
-      not verify_blob_signature(
-        fork0, genesis_validators_root0, slot, blob, pubkey0,
-        get_blob_sidecar_signature(
-          fork0, genesis_validators_root0, slot, blob, privkey1).toValidatorSig)
-
-      # Mismatched forks
-      not verify_blob_signature(
-        fork0, genesis_validators_root0, slot, blob, pubkey0,
-        get_blob_sidecar_signature(
-          fork1, genesis_validators_root0, slot, blob, privkey0).toValidatorSig)
-
-      # Mismatched genesis validator roots
-      not verify_blob_signature(
-        fork0, genesis_validators_root0, slot, blob, pubkey0,
-        get_blob_sidecar_signature(
-          fork0, genesis_validators_root1, slot, blob, privkey0).toValidatorSig)
-
   test "Aggregate and proof signatures":
     let aggregate_and_proof = AggregateAndProof(
       aggregate: Attestation(aggregation_bits: CommitteeValidatorsBits.init(8)))

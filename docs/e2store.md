@@ -327,7 +327,7 @@ An era is typically `8192` slots (in the mainnet configuration), or roughly 27.3
 
 ## What happens after the merge?
 
-Era files will store execution block contents, but not execution states (these are too large) - a full era history thus gives the full ethereum history from the merge onwards for convenient cold storage. Work is underway to similarily cover the rest of history.
+Era files will store execution block contents, but not execution states (these are too large) - a full era history thus gives the full ethereum history from the merge onwards for convenient cold storage. Work is underway to similarly cover the rest of history.
 
 ## Which state should be stored in the era file?
 

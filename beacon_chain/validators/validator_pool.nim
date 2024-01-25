@@ -66,6 +66,10 @@ type
     # if the validator will be aggregating (in the near future)
     slotSignature*: Opt[tuple[slot: Slot, signature: ValidatorSig]]
 
+    # Cache the latest epoch signature - the epoch signature is used for block
+    # proposing.
+    epochSignature*: Opt[tuple[epoch: Epoch, signature: ValidatorSig]]
+
     # For the external payload builder; each epoch, the external payload
     # builder should be informed of current validators
     externalBuilderRegistration*: Opt[SignedValidatorRegistrationV1]
@@ -625,21 +629,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 proofs)
       await v.signData(web3signerRequest)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/deneb/validator.md#constructing-the-signedblobsidecars
-proc getBlobSignature*(v: AttachedValidator, fork: Fork,
-                       genesis_validators_root: Eth2Digest, slot: Slot,
-                       blob: BlobSidecar): SignatureResult =
-  return
-    case v.kind
-    of ValidatorKind.Local:
-      SignatureResult.ok(
-        get_blob_sidecar_signature(
-          fork, genesis_validators_root, slot, blob,
-          v.data.privateKey).toValidatorSig())
-    of ValidatorKind.Remote:
-      return SignatureResult.err("web3signer not supported for blobs")
-
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               data: AttestationData
@@ -745,7 +735,10 @@ proc getContributionAndProofSignature*(v: AttachedValidator, fork: Fork,
 proc getEpochSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, epoch: Epoch
                        ): Future[SignatureResult] {.async.} =
-  return
+  if v.epochSignature.isSome and v.epochSignature.get.epoch == epoch:
+    return SignatureResult.ok(v.epochSignature.get.signature)
+
+  let signature =
     case v.kind
     of ValidatorKind.Local:
       SignatureResult.ok(get_epoch_signature(
@@ -755,6 +748,12 @@ proc getEpochSignature*(v: AttachedValidator, fork: Fork,
       let request = Web3SignerRequest.init(
         fork, genesis_validators_root, epoch)
       await v.signData(request)
+
+  if signature.isErr:
+    return signature
+
+  v.epochSignature = Opt.some((epoch, signature.get))
+  signature
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#aggregation-selection
 proc getSlotSignature*(v: AttachedValidator, fork: Fork,

@@ -222,7 +222,7 @@ proc initLightClientBootstrapForPeriod(
             forkyBlck.toLightClientHeader(lcDataFork))
           dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
             bid.slot, forkyState.data.build_proof(
-              altair.CURRENT_SYNC_COMMITTEE_INDEX).get)
+              altair.CURRENT_SYNC_COMMITTEE_GINDEX).get)
         else: raiseAssert "Unreachable"
   res
 
@@ -371,10 +371,10 @@ proc initLightClientUpdateForPeriod(
           attested_header: forkyBlck.toLightClientHeader(lcDataFork),
           next_sync_committee: forkyState.data.next_sync_committee,
           next_sync_committee_branch:
-            forkyState.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get,
+            forkyState.data.build_proof(altair.NEXT_SYNC_COMMITTEE_GINDEX).get,
           finality_branch:
             if finalizedBid.slot != FAR_FUTURE_SLOT:
-              forkyState.data.build_proof(altair.FINALIZED_ROOT_INDEX).get
+              forkyState.data.build_proof(altair.FINALIZED_ROOT_GINDEX).get
             else:
               default(FinalityBranch)))
       else: raiseAssert "Unreachable"
@@ -442,13 +442,13 @@ proc cacheLightClientData(
   ## block and state.
   let cachedData = CachedLightClientData(
     current_sync_committee_branch:
-      state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get,
+      state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_GINDEX).get,
     next_sync_committee_branch:
-      state.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get,
+      state.data.build_proof(altair.NEXT_SYNC_COMMITTEE_GINDEX).get,
     finalized_slot:
       state.data.finalized_checkpoint.epoch.start_slot,
     finality_branch:
-      state.data.build_proof(altair.FINALIZED_ROOT_INDEX).get)
+      state.data.build_proof(altair.FINALIZED_ROOT_GINDEX).get)
   if dag.lcDataStore.cache.data.hasKeyOrPut(bid, cachedData):
     doAssert false, "Redundant `cacheLightClientData` call"
 
@@ -723,11 +723,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
     blocks.add bid
 
   # Process blocks (reuses `dag.headState`, but restores it to the current head)
-  var
-    tmpState = assignClone(dag.headState)
-    tmpCache, cache: StateCache
-    oldCheckpoint: Checkpoint
-    cpIndex = 0
+  var cache: StateCache
   for i in countdown(blocks.high, blocks.low):
     bid = blocks[i]
     if not dag.updateExistingState(
@@ -960,7 +956,7 @@ proc getLightClientBootstrap(
           dag.lcDataStore.db.putHeader(header)
           dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
             slot, forkyState.data.build_proof(
-              altair.CURRENT_SYNC_COMMITTEE_INDEX).get)
+              altair.CURRENT_SYNC_COMMITTEE_GINDEX).get)
         else: raiseAssert "Unreachable"
     do: return default(ForkedLightClientBootstrap)
 

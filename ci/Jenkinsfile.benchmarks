@@ -23,7 +23,7 @@ node("metal") {
 				/* source code checkout */
 				checkout scm
 				/* we need to update the submodules before caching kicks in */
-				sh "git -c lfs.fetchexclude=/public-keys/all.txt submodule update --init --recursive"
+				sh "git -c lfs.fetchexclude=/public-keys/all.txt,/custom_config_data/genesis.ssz submodule update --init --recursive"
 			}
 
 			stage("Build") {

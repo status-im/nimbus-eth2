@@ -72,7 +72,7 @@ proc unblindAndRouteBlockMEV*(
     if  hash_tree_root(
           blindedBlock.message.body.execution_payload_header) !=
         hash_tree_root(unblindedPayload.data.data):
-      return err("unblinded payload doesn't match blinded payload header: " &
+      err("unblinded payload doesn't match blinded payload header: " &
         $blindedBlock.message.body.execution_payload_header)
     else:
       # Signature provided is consistent with unblinded execution payload,
@@ -97,7 +97,7 @@ proc unblindAndRouteBlockMEV*(
 
       let newBlockRef =
         (await node.router.routeSignedBeaconBlock(
-          signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
+          signedBlock, Opt.none(seq[BlobSidecar]))).valueOr:
           # submitBlindedBlock has run, so don't allow fallback to run
           return err("routeSignedBeaconBlock error") # Errors logged in router
 
@@ -107,18 +107,16 @@ proc unblindAndRouteBlockMEV*(
           blockRoot = shortLog(signedBlock.root), blck = shortLog(signedBlock),
           signature = shortLog(signedBlock.signature)
 
-      return ok newBlockRef
+      ok newBlockRef
   else:
-    return err("submitBlindedBlock failed with HTTP error code" &
+    # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#proposer-slashing
+    # This means if a validator publishes a signature for a
+    # `BlindedBeaconBlock` (via a dissemination of a
+    # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
+    # local build process as a fallback, even in the event of some failure
+    # with the external builder network.
+    err("submitBlindedBlock failed with HTTP error code" &
       $unblindedPayload.status & ": " & $shortLog(blindedBlock))
-
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#proposer-slashing
-  # This means if a validator publishes a signature for a
-  # `BlindedBeaconBlock` (via a dissemination of a
-  # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
-  # local build process as a fallback, even in the event of some failure
-  # with the external builder network.
-  return err("unblindAndRouteBlockMEV error")
 
 # TODO currently cannot be combined into one generic function
 proc unblindAndRouteBlockMEV*(
@@ -150,7 +148,7 @@ proc unblindAndRouteBlockMEV*(
     if  hash_tree_root(
           blindedBlock.message.body.execution_payload_header) !=
         hash_tree_root(unblindedPayload.data.data.execution_payload):
-      return err("unblinded payload doesn't match blinded payload header: " &
+      err("unblinded payload doesn't match blinded payload header: " &
         $blindedBlock.message.body.execution_payload_header)
     else:
       # Signature provided is consistent with unblinded execution payload,
@@ -177,7 +175,7 @@ proc unblindAndRouteBlockMEV*(
 
       let newBlockRef =
         (await node.router.routeSignedBeaconBlock(
-          signedBlock, Opt.none(SignedBlobSidecars))).valueOr:
+          signedBlock, Opt.none(seq[BlobSidecar]))).valueOr:
           # submitBlindedBlock has run, so don't allow fallback to run
           return err("routeSignedBeaconBlock error") # Errors logged in router
 
@@ -189,14 +187,13 @@ proc unblindAndRouteBlockMEV*(
 
       discard $denebImplementationMissing & ": route unblinded blobs"
 
-      return ok newBlockRef
+      ok newBlockRef
   else:
-    return err("submitBlindedBlock failed with HTTP error code" &
+    # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#proposer-slashing
+    # This means if a validator publishes a signature for a
+    # `BlindedBeaconBlock` (via a dissemination of a
+    # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
+    # local build process as a fallback, even in the event of some failure
+    # with the external builder network.
+    err("submitBlindedBlock failed with HTTP error code" &
       $unblindedPayload.status & ": " & $shortLog(blindedBlock))
-
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#proposer-slashing
-  # This means if a validator publishes a signature for a
-  # `BlindedBeaconBlock` (via a dissemination of a
-  # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
-  # local build process as a fallback, even in the event of some failure
-  # with the external builder network.

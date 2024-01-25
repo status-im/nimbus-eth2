@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Gnosis preset - Capella
-# https://github.com/gnosischain/configs/blob/main/presets/gnosis/capella.yaml
+# https://github.com/gnosischain/configs/blob/b8ae3091439131949a994d638d730b5a5cb60f7a/presets/gnosis/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------

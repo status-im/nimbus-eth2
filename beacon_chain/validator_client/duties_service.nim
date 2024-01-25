@@ -6,8 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/[sets, sequtils]
-import chronicles
-import common, api, block_service
+import chronicles, metrics
+import common, api, block_service, selection_proofs
 
 const
   ServiceName = "duties_service"
@@ -19,7 +19,8 @@ logScope: service = ServiceName
 type
   DutiesServiceLoop* = enum
     AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
-    ProposerPreparationLoop, ValidatorRegisterLoop, DynamicValidatorsLoop
+    ProposerPreparationLoop, ValidatorRegisterLoop, DynamicValidatorsLoop,
+    SlashPruningLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -30,6 +31,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of ProposerPreparationLoop: "proposer_prepare_loop"
   of ValidatorRegisterLoop: "validator_register_loop"
   of DynamicValidatorsLoop: "dynamic_validators_loop"
+  of SlashPruningLoop: "slashing_pruning_loop"
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -312,12 +314,23 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
     block:
       let
         moment = Moment.now()
-        sigres = await service.fillAttestationSelectionProofs(
-          currentSlot, currentSlot + Epoch(1))
-      debug "Attestation selection proofs have been received",
-            signatures_requested = sigres.signaturesRequested,
-            signatures_received = sigres.signaturesReceived,
-            time = (Moment.now() - moment)
+        sigres =
+          await vc.fillAttestationSelectionProofs(currentSlot,
+            currentSlot + Epoch(AGGREGATION_PRE_COMPUTE_EPOCHS))
+
+      if vc.config.distributedEnabled:
+        debug "Attestation selection proofs have been received",
+              signatures_requested = sigres.signaturesRequested,
+              signatures_received = sigres.signaturesReceived,
+              selections_requested = sigres.selections_requested,
+              selections_received = sigres.selections_received,
+              selections_processed = sigres.selections_processed,
+              total_elapsed_time = (Moment.now() - moment)
+      else:
+        debug "Attestation selection proofs have been received",
+              signatures_requested = sigres.signaturesRequested,
+              signatures_received = sigres.signaturesReceived,
+              total_elapsed_time = (Moment.now() - moment)
 
     let subscriptions =
       block:
@@ -391,12 +404,23 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
     block:
       let
         moment = Moment.now()
-        sigres = await service.fillSyncCommitteeSelectionProofs(
-          currentSlot, currentSlot + Epoch(AGGREGATION_PRE_COMPUTE_EPOCHS))
-      debug "Sync committee selection proofs have been received",
-            signatures_requested = sigres.signaturesRequested,
-            signatures_received = sigres.signaturesReceived,
-            time = (Moment.now() - moment)
+        sigres =
+          await vc.fillSyncCommitteeSelectionProofs(currentSlot,
+            currentSlot + Epoch(AGGREGATION_PRE_COMPUTE_EPOCHS))
+
+      if vc.config.distributedEnabled:
+        debug "Sync committee selection proofs have been received",
+              signatures_requested = sigres.signaturesRequested,
+              signatures_received = sigres.signaturesReceived,
+              selections_requested = sigres.selections_requested,
+              selections_received = sigres.selections_received,
+              selections_processed = sigres.selections_processed,
+              total_elapsed_time = (Moment.now() - moment)
+      else:
+        debug "Sync committee selection proofs have been received",
+              signatures_requested = sigres.signaturesRequested,
+              signatures_received = sigres.signaturesReceived,
+              total_elapsed_time = (Moment.now() - moment)
 
     let
       periods =
@@ -677,6 +701,70 @@ proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
     # Spawning new attestation duties task.
     service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
 
+proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
+  let
+    middleSlot = Slot(SLOTS_PER_EPOCH div 2)
+    currentSlot = vc.beaconClock.now().slotOrZero()
+    slotInEpoch = currentSlot.since_epoch_start()
+
+  if slotInEpoch >= middleSlot:
+    (currentSlot.epoch + 1'u64).start_slot() + uint64(middleSlot)
+  else:
+    currentSlot + (uint64(middleSlot) - uint64(slotInEpoch))
+
+proc pruneSlashingDatabase(service: DutiesServiceRef) {.async.} =
+  let
+    vc = service.client
+    currentSlot = vc.beaconClock.now().slotOrZero()
+    startTime = Moment.now()
+    blockHeader =
+      try:
+        await vc.getFinalizedBlockHeader()
+      except CancelledError as exc:
+        debug "Finalized block header request was interrupted",
+              slot = currentSlot
+        raise exc
+      except CatchableError as exc:
+        error "Unexpected error occured while requesting " &
+              "finalized block header", slot = currentSlot,
+              err_name = exc.name, err_msg = exc.msg
+        Opt.none(GetBlockHeaderResponse)
+    checkpointTime = Moment.now()
+  if blockHeader.isSome():
+    let epoch = blockHeader.get().data.header.message.slot.epoch
+    vc.finalizedEpoch = Opt.some(epoch)
+    if service.lastSlashingEpoch.get(FAR_FUTURE_EPOCH) != epoch:
+      vc.attachedValidators[]
+        .slashingProtection
+        .pruneAfterFinalization(epoch)
+      service.lastSlashingEpoch = Opt.some(epoch)
+      let finishTime = Moment.now()
+      debug "Slashing database has been pruned", slot = currentSlot,
+        epoch = currentSlot.epoch(),
+        finalized_epoch = epoch,
+        elapsed_time = (finishTime - startTime),
+        pruning_time = (finishTime - checkpointTime)
+
+proc slashingDatabasePruningLoop(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  debug "Slashing database pruning loop is waiting for initialization"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
+  while true:
+    let slot = await vc.checkedWaitForSlot(vc.getNextEpochMiddleSlot(),
+                                           aggregateSlotOffset, false)
+    if slot.isNone():
+      continue
+
+    if not(isNil(service.pruneSlashingDatabaseTask)) and
+       not(service.pruneSlashingDatabaseTask.finished()):
+      await cancelAndWait(service.pruneSlashingDatabaseTask)
+    service.pruneSlashingDatabaseTask = service.pruneSlashingDatabase()
+
 template checkAndRestart(serviceLoop: DutiesServiceLoop,
                          future: Future[void], body: untyped): untyped =
   if future.finished():
@@ -715,6 +803,7 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
       else:
         debug "Dynamic validators update loop disabled"
         @[]
+    slashPruningFut = service.slashingDatabasePruningLoop()
     web3SignerUrls = vc.config.web3SignerUrls
 
   while true:
@@ -729,6 +818,7 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
           FutureBase(indicesFut),
           FutureBase(syncFut),
           FutureBase(prepareFut),
+          FutureBase(slashPruningFut)
         ]
         for fut in dynamicFuts:
           futures.add fut
@@ -749,6 +839,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
                           service.dynamicValidatorsLoop(
                             web3SignerUrls[i],
                             vc.config.web3signerUpdateInterval))
+        checkAndRestart(SlashPruningLoop, slashPruningFut,
+                        service.slashingDatabasePruningLoop())
         false
       except CancelledError:
         debug "Service interrupted"
@@ -774,6 +866,9 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         if not(isNil(service.pollingSyncDutiesTask)) and
            not(service.pollingSyncDutiesTask.finished()):
           pending.add(service.pollingSyncDutiesTask.cancelAndWait())
+        if not(isNil(service.pruneSlashingDatabaseTask)) and
+           not(service.pruneSlashingDatabaseTask.finished()):
+          pending.add(service.pruneSlashingDatabaseTask.cancelAndWait())
         await allFutures(pending)
         true
       except CatchableError as exc:

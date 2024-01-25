@@ -5,8 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Mainnet preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/presets/mainnet/altair.yaml
+# Gnosis preset - Altair
+# https://github.com/gnosischain/configs/blob/b8ae3091439131949a994d638d730b5a5cb60f7a/presets/gnosis/altair.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

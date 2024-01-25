@@ -49,6 +49,7 @@ type
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
     DENEB_FORK_EPOCH: Epoch
+    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     getLocalHeadSlot: GetSlotCallback
@@ -116,6 +117,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            denebEpoch: Epoch,
+                           minEpochsForBlobSidecarsRequests: uint64,
                            direction: SyncQueueKind,
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
@@ -138,6 +140,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
   var res = SyncManager[A, B](
     pool: pool,
     DENEB_FORK_EPOCH: denebEpoch,
+    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -187,8 +190,8 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
 proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
   let wallEpoch = man.getLocalWallSlot().epoch
   e >= man.DENEB_FORK_EPOCH and
-  (wallEpoch < MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
-   e >=  wallEpoch - MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
+  (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
+   e >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
 proc getBlobSidecars*[A, B](man: SyncManager[A, B], peer: A,
                       req: SyncRequest): Future[BlobSidecarsRes] {.async.} =
@@ -247,9 +250,9 @@ func groupBlobs*[T](req: SyncRequest[T],
       # reached end of blobs, have more blobless blocks
       break
     for blob in blobs[blobCursor..len(blobs)-1]:
-      if blob.slot < slot:
+      if blob.signed_block_header.message.slot < slot:
         return Result[seq[BlobSidecars], string].err "invalid blob sequence"
-      if blob.slot==slot:
+      if blob.signed_block_header.message.slot == slot:
         grouped[i].add(blob)
         blobCursor = blobCursor + 1
     i = i + 1
@@ -439,7 +442,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
                        blobs_map = blobSmap, request = req
 
         if len(blobData) > 0:
-          let slots = mapIt(blobData, it[].slot)
+          let slots = mapIt(blobData, it[].signed_block_header.message.slot)
           let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
           if not(checkResponse(req, uniqueSlots)):
             peer.updateScore(PeerScoreBadResponse)
@@ -464,7 +467,8 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
         man.queue.push(req)
         return
       for i, blk in blockData:
-        if len(blobs[i]) > 0 and blk[].slot != blobs[i][0].slot:
+        if len(blobs[i]) > 0 and blk[].slot !=
+            blobs[i][0].signed_block_header.message.slot:
           peer.updateScore(PeerScoreNoValues)
           man.queue.push(req)
           debug "block and blobs data have inconsistent slots"

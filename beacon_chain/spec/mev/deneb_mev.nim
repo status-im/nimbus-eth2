@@ -69,25 +69,18 @@ type
 
   # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#blindedblobsidecar
   BlindedBlobSidecar* = object
-    block_root*: Eth2Digest
     index*: uint64
-    slot*: uint64
-    block_parent_root*: Eth2Digest
-    proposer_index*: uint64
     blob_root*: Eth2Digest
     kzg_commitment*: KZGCommitment
     kzg_proof*: KZGProof
-
-  # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#signedblindedblobsidecar
-  SignedBlindedBlobSidecar* = object
-    message*: BlindedBlobSidecar
-    signature*: ValidatorSig
+    signed_block_header*: SignedBeaconBlockHeader
+    kzg_commitment_inclusion_proof*:
+      array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
   # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#signedblindedblockcontents
   SignedBlindedBeaconBlockContents* = object
     signed_blinded_block*: deneb_mev.SignedBlindedBeaconBlock
-    signed_blinded_blob_sidecars*:
-      List[SignedBlindedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
+    blinded_blob_sidecars*: List[BlindedBlobSidecar, Limit MAX_BLOBS_PER_BLOCK]
 
   # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#executionpayloadandblobsbundle
   ExecutionPayloadAndBlobsBundle* = object

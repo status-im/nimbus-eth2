@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -70,7 +70,7 @@ proc verify_block_signature(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
     state: ForkyBeaconState,
     blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
@@ -126,7 +126,7 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   for slot in epoch.slots():
     cache.beacon_proposer_indices.del slot
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState, previous_slot_state_root: Eth2Digest,
@@ -373,14 +373,14 @@ func partialBeaconBlock*(
   when consensusFork >= ConsensusFork.Bellatrix:
     res.body.execution_payload = execution_payload.executionPayload
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/capella/validator.md#block-proposal
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/validator.md#block-proposal
   when consensusFork >= ConsensusFork.Capella:
     res.body.bls_to_execution_changes =
       validator_changes.bls_to_execution_changes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
   when consensusFork >= ConsensusFork.Deneb:
-    res.body.blob_kzg_commitments = execution_payload.kzgs
+    res.body.blob_kzg_commitments = execution_payload.blobsBundle.commitments
 
   res
 
@@ -403,7 +403,8 @@ proc makeBeaconBlock*(
     # removed if we don't use invalid signatures there
     verificationFlags: UpdateFlags,
     transactions_root: Opt[Eth2Digest],
-    execution_payload_root: Opt[Eth2Digest]):
+    execution_payload_root: Opt[Eth2Digest],
+    kzg_commitments: Opt[KzgCommitments]):
     Result[ForkedBeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
@@ -428,7 +429,7 @@ proc makeBeaconBlock*(
       rollback(state)
       return err(res.error())
 
-    # Override for MEV
+    # Override for Builder API
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
         when consensusFork < ConsensusFork.Capella:
@@ -438,7 +439,7 @@ proc makeBeaconBlock*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/capella/beacon-chain.md#beaconblockbody
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
@@ -455,6 +456,9 @@ proc makeBeaconBlock*(
              execution_payload_root.get,
              hash_tree_root(validator_changes.bls_to_execution_changes)])
         elif consensusFork == ConsensusFork.Deneb:
+          forkyState.data.latest_execution_payload_header.transactions_root =
+            transactions_root.get
+
           when executionPayload is deneb.ExecutionPayloadForSigning:
             # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
@@ -469,7 +473,7 @@ proc makeBeaconBlock*(
                hash_tree_root(sync_aggregate),
                execution_payload_root.get,
                hash_tree_root(validator_changes.bls_to_execution_changes),
-               hash_tree_root(executionPayload.kzgs)
+               hash_tree_root(kzg_commitments.get)
             ])
           else:
             raiseAssert "Attempt to use non-Deneb payload with post-Deneb state"
@@ -517,7 +521,8 @@ proc makeBeaconBlock*(
     attestations, deposits, validator_changes, sync_aggregate,
     executionPayload, rollback, cache,
     verificationFlags = {}, transactions_root = Opt.none Eth2Digest,
-    execution_payload_root = Opt.none Eth2Digest)
+    execution_payload_root = Opt.none Eth2Digest,
+    kzg_commitments = Opt.none KzgCommitments)
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
@@ -536,4 +541,5 @@ proc makeBeaconBlock*(
     executionPayload, rollback, cache,
     verificationFlags = verificationFlags,
     transactions_root = Opt.none Eth2Digest,
-    execution_payload_root = Opt.none Eth2Digest)
+    execution_payload_root = Opt.none Eth2Digest,
+    kzg_commitments = Opt.none KzgCommitments)

@@ -174,7 +174,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [CatchableError].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -516,6 +516,17 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
     # We do not care about exceptions in disconnection procedure.
     trace "Exception while disconnecting peer", peer = peer.peerId,
                                                 reason = reason
+
+proc releasePeer*(peer: Peer) =
+  ## Checks for peer's score and disconnects peer if score is less than
+  ## `PeerScoreLowLimit`.
+  if peer.connectionState notin {ConnectionState.Disconnecting,
+                                 ConnectionState.Disconnected}:
+    if peer.score < PeerScoreLowLimit:
+      debug "Peer was disconnected due to low score", peer = peer,
+            peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+            score_high_limit = PeerScoreHighLimit
+      asyncSpawn(peer.disconnect(PeerScoreLow))
 
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
@@ -1233,7 +1244,7 @@ proc handleIncomingStream(network: Eth2Node,
 
   finally:
     await conn.closeWithEOF()
-    discard network.peerPool.checkPeerScore(peer)
+    releasePeer(peer)
 
 proc toPeerAddr*(r: enr.TypedRecord,
                  proto: IpTransportProtocol): Result[PeerAddr, cstring] =
@@ -1869,26 +1880,12 @@ proc new(T: type Eth2Node,
     peer.score >= PeerScoreLowLimit
 
   proc onDeletePeer(peer: Peer) =
-    if peer.connectionState notin {ConnectionState.Disconnecting,
-                                   ConnectionState.Disconnected}:
-      if peer.score < PeerScoreLowLimit:
-        debug "Peer was removed from PeerPool due to low score", peer = peer,
-              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
-              score_high_limit = PeerScoreHighLimit
-        asyncSpawn(peer.disconnect(PeerScoreLow))
-      else:
-        debug "Peer was removed from PeerPool", peer = peer,
-              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
-              score_high_limit = PeerScoreHighLimit
-        asyncSpawn(peer.disconnect(FaultOrError)) # Shouldn't actually happen!
+    peer.releasePeer()
 
   node.peerPool.setScoreCheck(scoreCheck)
   node.peerPool.setOnDeletePeer(onDeletePeer)
 
   node
-
-template publicKey(node: Eth2Node): keys.PublicKey =
-  node.discovery.privKey.toPublicKey
 
 proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
@@ -2173,14 +2170,6 @@ proc peerTrimmerHeartbeat(node: Eth2Node) {.async.} =
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
   keys.PrivateKey(key.skkey)
 
-proc initAddress(T: type MultiAddress, str: string): T =
-  let address = MultiAddress.init(str)
-  if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
-    result = address
-  else:
-    raise newException(MultiAddressError,
-                       "Invalid bootstrap node multi-address")
-
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
@@ -2263,7 +2252,7 @@ proc getPersistentNetKeys*(
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/p2p-interface.md#topics-and-messages
   const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
     h.update(MESSAGE_DOMAIN_VALID_SNAPPY)
@@ -2315,7 +2304,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
-      config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
+      config.nat, ValidIpAddress.init config.listenAddress, config.tcpPort,
+      config.udpPort, clientId)
     except CatchableError as exc: raise exc
     except Exception as exc: raiseAssert exc.msg
 
@@ -2337,7 +2327,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
+    hostAddress = tcpEndPoint(
+      ValidIpAddress.init config.listenAddress, config.tcpPort)
     announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
 
@@ -2568,7 +2559,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   node.metadata.attnets = attnets
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#attestation-subnet-subscription
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.discovery.updateRecord({
     enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
   })
@@ -2580,7 +2571,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
@@ -2687,7 +2678,7 @@ proc broadcastBeaconBlock*(
   node.broadcast(topic, blck)
 
 proc broadcastBlobSidecar*(
-    node: Eth2Node, subnet_id: SubnetId, blob: deneb.SignedBlobSidecar):
+    node: Eth2Node, subnet_id: BlobId, blob: deneb.BlobSidecar):
       Future[SendResult] =
   let
     forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)

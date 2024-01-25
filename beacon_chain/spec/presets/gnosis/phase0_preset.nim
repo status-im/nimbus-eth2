@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Gnosis preset - Phase0
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/phase0.yaml
+# https://github.com/gnosischain/configs/blob/b8ae3091439131949a994d638d730b5a5cb60f7a/presets/gnosis/phase0.yaml
 
 const
   #
