@@ -1,3 +1,53 @@
+2024-01-08 v24.1.1
+==================
+
+Nimbus `v24.1.1` is a hotfix addressing a problem introduced in the `v24.1.0` release. Nimbus was crashing immediately after being connected to an execution layer node which is not fully synced. All users of `v24.1.0` are advised to upgrade at their earliest convenience.
+
+2024-01-04 v24.1.0
+==================
+
+Nimbus `v24.1.0` is a `low-urgency` upgrade bringing full support for the upcoming Cancun-Deneb hard-fork on the Goerli testnet and introducing the `/eth/v3/validator/blocks/{slot}` Beacon API end-point that greatly simplifies the implementation of profit-optimising validator clients.
+
+### Improvements
+
+* Nimbus now includes the latest Goerli-Prater metadata, scheduling the Cancun-Deneb hard-fork:
+  https://github.com/status-im/nimbus-eth2/pull/5680
+
+* The Nimbus beacon node now supports the `/eth/v3/validator/blocks/{slot}` Beacon API end-point:
+  https://github.com/status-im/nimbus-eth2/pull/5474
+  https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/produceBlockV3
+
+* Nimbus now accepts POST requests to the `/eth/v1/beacon/states/{state_id}/validators` and `/eth/v1/beacon/states/{state_id}/validator_balances` Beacon API end-points:
+  https://github.com/status-im/nimbus-eth2/pull/5632
+  https://github.com/ethereum/beacon-APIs/pull/367
+
+* Nimbus now follows the latest specification regarding the deprecated `/eth/v1/validator/blinded_blocks/{slot}` Beacon API end-point:
+  https://github.com/status-im/nimbus-eth2/pull/5639
+
+* Nimbus now uses the latest set of bootstrap nodes for the Gnosis chain:
+  https://github.com/status-im/nimbus-eth2/pull/5656
+
+### Fixes
+
+* Nimbus was sending unnecessary redundant `forkChoiceUpdated` notifications to the execution layer:
+  https://github.com/status-im/nimbus-eth2/pull/5635
+
+* Nimbus was returning incorrect responses on requests for blocks at empty slots when working with ERA files:
+  https://github.com/status-im/nimbus-eth2/pull/5641
+
+* The Nimbus validator client was not sending Builder API registration messages at the correct time:
+  https://github.com/status-im/nimbus-eth2/pull/5663
+
+* Nimbus was ignoring a specified `--jwt-secret` option when no `--el` option was provided and the default localhost URL was being used:
+  https://github.com/status-im/nimbus-eth2/pull/5671
+  https://github.com/status-im/nimbus-eth2/issues/5665
+
+### Breaking Changes
+
+* Machine consumers of Nimbus logs should be updated, as the abbreviated value of the `NOTICE` log level has been renamed from `NOT` to `NTC`:
+  https://github.com/status-im/nimbus-eth2/pull/5634
+
+
 2023-11-28 v23.11.0
 ===================
 
