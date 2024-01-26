@@ -202,7 +202,9 @@ type
   ForkySignedBlindedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
-    capella_mev.SignedBlindedBeaconBlock
+    bellatrix_mev.SignedBlindedBeaconBlock |
+    capella_mev.SignedBlindedBeaconBlock |
+    deneb_mev.SignedBlindedBeaconBlock
 
   ForkedSignedBlindedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -318,7 +320,8 @@ template kind*(
       bellatrix.TrustedBeaconBlockBody |
       bellatrix.SigVerifiedSignedBeaconBlock |
       bellatrix.MsgTrustedSignedBeaconBlock |
-      bellatrix.TrustedSignedBeaconBlock]): ConsensusFork =
+      bellatrix.TrustedSignedBeaconBlock] |
+      bellatrix_mev.SignedBlindedBeaconBlock): ConsensusFork =
   ConsensusFork.Bellatrix
 
 template kind*(
