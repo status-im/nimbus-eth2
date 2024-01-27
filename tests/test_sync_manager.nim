@@ -9,7 +9,7 @@
 
 import std/[strutils, sequtils]
 import unittest2
-import chronos
+import chronos, chronos/unittest2/asynctests
 import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/sync_manager,
        ../beacon_chain/spec/forks
@@ -1134,8 +1134,6 @@ suite "SyncManager test suite":
     check:
       groupedRes3.isErr()
 
-
-
   test "[SyncQueue#Forward] getRewindPoint() test":
     let aq = newAsyncQueue[BlockEntry]()
     block:
@@ -1207,3 +1205,69 @@ suite "SyncManager test suite":
       let safeSlot = getSafeSlot()
       for i in countdown(1023, 0):
         check queue.getRewindPoint(Slot(i), safeSlot) == safeSlot
+
+  template workerTimeoutTest(startSlot, finishSlot: Slot,
+                             kind: SyncQueueKind) =
+    let aq = newAsyncQueue[BlockEntry]()
+    var
+      chain = createChain(startSlot, finishSlot)
+      queue =
+        case kind
+        of SyncQueueKind.Forward:
+          SyncQueue.init(SomeTPeer, kind, startSlot, finishSlot,
+                         1'u64, getStaticSlotCb(startSlot),
+                         collector(aq), 1, "worker-timeout-test",
+                         100.milliseconds)
+        of SyncQueueKind.Backward:
+          SyncQueue.init(SomeTPeer, kind, finishSlot, startSlot,
+                         1'u64, getStaticSlotCb(finishSlot),
+                         collector(aq), 1, "worker-timeout-test",
+                         100.milliseconds)
+
+    let
+      p1 = SomeTPeer()
+      p2 = SomeTPeer()
+      p3 = SomeTPeer()
+      p4 = SomeTPeer()
+      r11 {.used.} = queue.pop(finishSlot, p1)
+      r12 = queue.pop(finishSlot, p2)
+      r13 = queue.pop(finishSlot, p3)
+      r14 = queue.pop(finishSlot, p4)
+      f12 = queue.push(
+        r12, chain.getSlice(Slot(0), r12), Opt.none(seq[BlobSidecars]))
+      f13 = queue.push(
+        r13, chain.getSlice(Slot(0), r13), Opt.none(seq[BlobSidecars]))
+      f14 = queue.push(
+        r14, chain.getSlice(Slot(0), r14), Opt.none(seq[BlobSidecars]))
+
+    check:
+      f12.finished() == false
+      f13.finished() == false
+      f14.finished() == false
+
+    # Current timeout value is 100.milliseconds per block.
+    await sleepAsync(400.milliseconds)
+
+    check:
+      f12.finished() == true
+      f13.finished() == true
+      f14.finished() == true
+
+    let
+      r22 = queue.pop(finishSlot, p2)
+      r23 = queue.pop(finishSlot, p3)
+      r24 = queue.pop(finishSlot, p4)
+
+    check:
+      r22.slot == r12.slot
+      r22.count == r12.count
+      r23.slot == r13.slot
+      r23.count == r13.count
+      r24.slot == r14.slot
+      r24.count == r14.count
+
+  asyncTest "[SyncQueue#Forward] SyncQueue worker timeout test":
+    workerTimeoutTest(Slot(0), Slot(200), SyncQueueKind.Forward)
+
+  asyncTest "[SyncQueue#Backward] SyncQueue worker timeout test":
+    workerTimeoutTest(Slot(0), Slot(200), SyncQueueKind.Backward)
