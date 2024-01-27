@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -40,6 +40,7 @@ type
     finality_branch*: altair.FinalityBranch
 
     current_period_best_update*: ref ForkedLightClientUpdate
+    latest_signature_slot*: Slot
 
   LightClientDataCache* = object
     data*: Table[BlockId, CachedLightClientData]
@@ -53,6 +54,9 @@ type
 
     tailSlot*: Slot
       ## The earliest slot for which light client data is imported.
+
+    recentHeaders*: OrderedTable[BlockId, ForkedLightClientHeader]
+    recentSyncAggregates*: OrderedTable[BlockId, SyncAggregate]
 
   LightClientDataConfig* = object
     serve*: bool

@@ -251,3 +251,8 @@ For example, to run the block simulator for 384 slots, with 20,000 validators, a
 build/block_sim --slots=384 --validators=20000 --attesterRatio=0.66
 ```
 
+## Sync from a specific peer
+
+```sh
+build/nimbus_beacon_node --no-el --discv5:off --tcp-port=9876 --direct-peer="/ip4/127.0.0.1/tcp/9000/p2p/$(curl -s -X 'GET' 'http://localhost:5052/eth/v1/node/identity' -H 'accept: application/json' | jq  -r .data.peer_id)"
+```

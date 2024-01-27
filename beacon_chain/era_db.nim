@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 import
   std/os,
   chronicles,
-  stew/results, snappy, taskpools,
+  results, snappy, taskpools,
   ../ncli/e2store,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[beaconstate, forks, signatures_batch],
@@ -464,9 +464,7 @@ when isMainModule:
   # Testing EraDB gets messy because of the large amounts of data involved:
   # this snippet contains some sanity checks for mainnet at least
 
-  import
-    os,
-    stew/arrayops
+  import stew/arrayops
 
   let
     dbPath =

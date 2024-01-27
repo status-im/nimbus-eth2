@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,7 @@ import
   stew/io2, chronos, chronos/apps/http/httpclient, snappy,
   ../spec/[digest, forks], ../spec/datatypes/base
 
-import network_metadata
+import ./network_metadata
 export network_metadata
 
 type

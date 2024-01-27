@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -22,7 +22,7 @@ import
   # Test utilities
   ../../testutil, ../../testblockutil
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -131,11 +131,6 @@ proc block_for_next_slot(
 
   addTestBlock(
     forked, cache, attestations = attestations, cfg = cfg)
-
-let full_sync_committee_bits = block:
-  var res: BitArray[SYNC_COMMITTEE_SIZE]
-  res.bytes.fill(byte.high)
-  res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store(

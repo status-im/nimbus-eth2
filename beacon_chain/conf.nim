@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,7 +16,7 @@ import
   confutils/toml/defs as confTomlDefs,
   confutils/toml/std/net as confTomlNet,
   confutils/toml/std/uri as confTomlUri,
-  serialization/errors, stew/shims/net as stewNet,
+  serialization/errors,
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
@@ -439,7 +439,7 @@ type
         desc: "Textual template for the contents of the status bar"
         defaultValue: "peers: $connected_peers;" &
                       "finalized: $finalized_root:$finalized_epoch;" &
-                      "head: $head_root:$head_epoch:$head_epoch_slot;" &
+                      "head: $head_root:$head_epoch:$head_epoch_slot$next_consensus_fork;" &
                       "time: $epoch:$epoch_slot ($slot);" &
                       "sync: $sync_status|" &
                       "ETH: $attached_validators_balance"
@@ -968,7 +968,7 @@ type
 
     suggestedGasLimit* {.
       desc: "Suggested gas limit"
-      defaultValue: 30_000_000
+      defaultValue: defaultGasLimit
       name: "suggested-gas-limit" .}: uint64
 
     keymanagerEnabled* {.
@@ -1483,10 +1483,8 @@ proc loadKzgTrustedSetup*(): Result[void, string] =
     trustedSetup = staticRead(
       vendorDir & "/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt")
 
-  if const_preset == "mainnet" or const_preset == "minimal":
-    Kzg.loadTrustedSetupFromString(trustedSetup)
-  else:
-    ok()
+  static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
+  Kzg.loadTrustedSetupFromString(trustedSetup)
 
 proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
   try:

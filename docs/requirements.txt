@@ -14,7 +14,7 @@ ghp-import==2.1.0
     # via mkdocs
 importlib-metadata==4.12.0
     # via mkdocs
-jinja2==3.1.2
+jinja2==3.1.3
     # via
     #   mkdocs
     #   mkdocs-material
@@ -59,7 +59,9 @@ pyyaml-env-tag==0.1
 six==1.16.0
     # via python-dateutil
 tomli==2.0.1
-    # via pep517
+    # via
+    #   build
+    #   pep517
 watchdog==2.1.9
     # via mkdocs
 wheel==0.38.1

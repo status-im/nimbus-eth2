@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -152,16 +152,16 @@ proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
   )
 
 proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
-  router.api(MethodGet, "/nimbus/v1/beacon/head") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(node.dag.head.slot)
+  router.api2(MethodGet, "/nimbus/v1/beacon/head") do () -> RestApiResponse:
+    RestApiResponse.jsonResponse(node.dag.head.slot)
 
-  router.api(MethodGet, "/nimbus/v1/chain/head") do() -> RestApiResponse:
+  router.api2(MethodGet, "/nimbus/v1/chain/head") do() -> RestApiResponse:
     let
       head = node.dag.head
       finalized = getStateField(node.dag.headState, finalized_checkpoint)
       justified =
         getStateField(node.dag.headState, current_justified_checkpoint)
-    return RestApiResponse.jsonResponse(
+    RestApiResponse.jsonResponse(
       (
         head_slot: head.slot,
         head_block_root: head.root.data.toHex(),
@@ -172,26 +172,26 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     )
 
-  router.api(MethodGet, "/nimbus/v1/syncmanager/status") do (
+  router.api2(MethodGet, "/nimbus/v1/syncmanager/status") do (
     ) -> RestApiResponse:
-    return RestApiResponse.jsonResponse(node.syncManager.inProgress)
+    RestApiResponse.jsonResponse(node.syncManager.inProgress)
 
-  router.api(MethodGet, "/nimbus/v1/node/peerid") do (
+  router.api2(MethodGet, "/nimbus/v1/node/peerid") do (
     ) -> RestApiResponse:
-    return RestApiResponse.jsonResponse((peerid: $node.network.peerId()))
+    RestApiResponse.jsonResponse((peerid: $node.network.peerId()))
 
-  router.api(MethodGet, "/nimbus/v1/node/version") do (
+  router.api2(MethodGet, "/nimbus/v1/node/version") do (
     ) -> RestApiResponse:
-    return RestApiResponse.jsonResponse((version: "Nimbus/" & fullVersionStr))
+    RestApiResponse.jsonResponse((version: "Nimbus/" & fullVersionStr))
 
-  router.api(MethodGet, "/nimbus/v1/network/ids") do (
+  router.api2(MethodGet, "/nimbus/v1/network/ids") do (
     ) -> RestApiResponse:
     var res: seq[PeerId]
     for peerId, peer in node.network.peerPool:
       res.add(peerId)
-    return RestApiResponse.jsonResponse((peerids: res))
+    RestApiResponse.jsonResponse((peerids: res))
 
-  router.api(MethodGet, "/nimbus/v1/network/peers") do (
+  router.api2(MethodGet, "/nimbus/v1/network/peers") do (
     ) -> RestApiResponse:
     var res: seq[RestSimplePeer]
     for id, peer in node.network.peerPool:
@@ -202,9 +202,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
           score: peer.score
         )
       )
-    return RestApiResponse.jsonResponse((peers: res))
+    RestApiResponse.jsonResponse((peers: res))
 
-  router.api(MethodPost, "/nimbus/v1/graffiti") do (
+  router.api2(MethodPost, "/nimbus/v1/graffiti") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     if contentBody.isNone:
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
@@ -225,20 +225,19 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
                                          $graffitiBytes.error())
       node.graffitiBytes = graffitiBytes.get()
-      return RestApiResponse.jsonResponse((result: true))
+      RestApiResponse.jsonResponse((result: true))
     elif body.contentType == TextPlainMediaType:
-      return node.setGraffitiAux body.strData()
+      node.setGraffitiAux body.strData()
     elif body.contentType == UrlEncodedMediaType:
-      return node.setGraffitiAux decodeUrl(body.strData())
+      node.setGraffitiAux decodeUrl(body.strData())
     else:
-      return RestApiResponse.jsonError(Http400, "Unsupported content type: " &
-                                                $body.contentType)
+      RestApiResponse.jsonError(
+        Http400, "Unsupported content type: " & $body.contentType)
 
-  router.api(MethodGet, "/nimbus/v1/graffiti") do (
-    ) -> RestApiResponse:
-    return RestApiResponse.jsonResponse(node.graffitiBytes)
+  router.api2(MethodGet, "/nimbus/v1/graffiti") do () -> RestApiResponse:
+    RestApiResponse.jsonResponse(node.graffitiBytes)
 
-  router.api(MethodPost, "/nimbus/v1/chronicles/settings") do (
+  router.api2(MethodPost, "/nimbus/v1/chronicles/settings") do (
     log_level: Option[string]) -> RestApiResponse:
     if log_level.isSome():
       let level =
@@ -249,15 +248,17 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                              $res.error())
           res.get()
       {.gcsafe.}:
-        updateLogLevel(level)
-    return RestApiResponse.jsonResponse((result: true))
+        try:
+          updateLogLevel(level)
+        except ValueError:
+          return RestApiResponse.jsonResponse((result: false))
+    RestApiResponse.jsonResponse((result: true))
 
-  router.api(MethodGet, "/nimbus/v1/eth1/chain") do (
-    ) -> RestApiResponse:
+  router.api2(MethodGet, "/nimbus/v1/eth1/chain") do () -> RestApiResponse:
     let res = mapIt(node.elManager.eth1ChainBlocks, it)
-    return RestApiResponse.jsonResponse(res)
+    RestApiResponse.jsonResponse(res)
 
-  router.api(MethodGet, "/nimbus/v1/eth1/proposal_data") do (
+  router.api2(MethodGet, "/nimbus/v1/eth1/proposal_data") do (
     ) -> RestApiResponse:
     let wallSlot = node.beaconClock.now.slotOrZero
     let head =
@@ -279,7 +280,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     do:
       return RestApiResponse.jsonError(Http400, PrunedStateError)
 
-  router.api(MethodGet, "/nimbus/v1/debug/chronos/futures") do (
+  router.api2(MethodGet, "/nimbus/v1/debug/chronos/futures") do (
     ) -> RestApiResponse:
     when defined(chronosFutureTracking):
       var res: seq[RestFutureInfo]
@@ -299,12 +300,12 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
             state: $item.state
           )
         )
-      return RestApiResponse.jsonResponse(res)
+      RestApiResponse.jsonResponse(res)
     else:
-      return RestApiResponse.jsonError(Http503,
+      RestApiResponse.jsonError(Http503,
         "Compile with '-d:chronosFutureTracking' to get this request working")
 
-  router.api(MethodGet, "/nimbus/v1/debug/chronos/metrics") do (
+  router.api2(MethodGet, "/nimbus/v1/debug/chronos/metrics") do (
     ) -> RestApiResponse:
 
     template getCount(name: string): uint64 =
@@ -329,9 +330,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       http_body_readers: getCount(HttpBodyReaderTrackerName),
       http_body_writers: getCount(HttpBodyWriterTrackerName)
     )
-    return RestApiResponse.jsonResponse(res)
+    RestApiResponse.jsonResponse(res)
 
-  router.api(MethodGet, "/nimbus/v1/debug/chronos/restserver/connections") do (
+  router.api2(MethodGet, "/nimbus/v1/debug/chronos/restserver/connections") do (
     ) -> RestApiResponse:
     var res: seq[RestConnectionInfo]
     for connection in node.restServer.server.getConnections():
@@ -378,9 +379,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
           since_create: sinceCreate
         )
       )
-    return RestApiResponse.jsonResponse(res)
+    RestApiResponse.jsonResponse(res)
 
-  router.api(MethodPost, "/nimbus/v1/validator/activity/{epoch}") do (
+  router.api2(MethodPost, "/nimbus/v1/validator/activity/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let indexList =
       block:
@@ -441,11 +442,10 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         active: node.attestationPool[].validatorSeenAtEpoch(qepoch, it)
       )
     )
-    return RestApiResponse.jsonResponse(response)
+    RestApiResponse.jsonResponse(response)
 
-  router.api(MethodGet, "/nimbus/v1/debug/gossip/peers") do (
+  router.api2(MethodGet, "/nimbus/v1/debug/gossip/peers") do (
     ) -> RestApiResponse:
-
     let gossipPeers =
       block:
         var res: seq[tuple[topic: string, peers: seq[RestPubSubPeer]]]
@@ -496,7 +496,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         for peerId, peer in node.network.pubsub.peers:
           peers.add(RestPeerStatus(peerId: peerId, connected: peer.connected))
         peers
-    return RestApiResponse.jsonResponse(
+    RestApiResponse.jsonResponse(
       (
         gossip_peers: gossipPeers,
         mesh_peers: meshPeers,
@@ -506,7 +506,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     )
 
-  router.api(MethodPost, "/nimbus/v1/timesync") do (
+  router.api2(MethodPost, "/nimbus/v1/timesync") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let
       timestamp2 = getTimestamp()
@@ -528,4 +528,4 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         timestamp3: getTimestamp(),
         delay: uint64(delay.nanoseconds)
       )
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)

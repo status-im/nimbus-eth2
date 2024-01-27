@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Copyright (c) 2020-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -30,6 +30,12 @@ const
 type
   OnVoluntaryExitCallback =
     proc(data: SignedVoluntaryExit) {.gcsafe, raises: [].}
+  OnBLSToExecutionChangeCallback =
+    proc(data: SignedBLSToExecutionChange) {.gcsafe, raises: [].}
+  OnProposerSlashingCallback =
+    proc(data: ProposerSlashing) {.gcsafe, raises: [].}
+  OnAttesterSlashingCallback =
+    proc(data: AttesterSlashing) {.gcsafe, raises: [].}
 
   ValidatorChangePool* = object
     ## The validator change pool tracks attester slashings, proposer slashings,
@@ -66,10 +72,16 @@ type
     dag*: ChainDAGRef
     attestationPool: ref AttestationPool
     onVoluntaryExitReceived*: OnVoluntaryExitCallback
+    onBLSToExecutionChangeReceived*: OnBLSToExecutionChangeCallback
+    onProposerSlashingReceived*: OnProposerSlashingCallback
+    onAttesterSlashingReceived*: OnAttesterSlashingCallback
 
 func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
            attestationPool: ref AttestationPool = nil,
-           onVoluntaryExit: OnVoluntaryExitCallback = nil): T =
+           onVoluntaryExit: OnVoluntaryExitCallback = nil,
+           onBLSToExecutionChange: OnBLSToExecutionChangeCallback = nil,
+           onProposerSlashing: OnProposerSlashingCallback = nil,
+           onAttesterSlashing: OnAttesterSlashingCallback = nil): T =
   ## Initialize an ValidatorChangePool from the dag `headState`
   T(
     # Allow filtering some validator change messages during block production
@@ -91,8 +103,10 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
       initDeque[SignedBLSToExecutionChange](initialSize = 1024),
     dag: dag,
     attestationPool: attestationPool,
-    onVoluntaryExitReceived: onVoluntaryExit
-   )
+    onVoluntaryExitReceived: onVoluntaryExit,
+    onBLSToExecutionChangeReceived: onBLSToExecutionChange,
+    onProposerSlashingReceived: onProposerSlashing,
+    onAttesterSlashingReceived: onAttesterSlashing)
 
 func addValidatorChangeMessage(
     subpool: var auto, seenpool: var auto, validatorChangeMessage: auto,

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,10 +10,10 @@
 import
   ./datatypes/base, ./beaconstate, ./forks, ./helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/weak-subjectivity.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/weak-subjectivity.md#configuration
 const SAFETY_DECAY* = 10'u64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/weak-subjectivity.md#compute_weak_subjectivity_period
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/weak-subjectivity.md#compute_weak_subjectivity_period
 func compute_weak_subjectivity_period(
     cfg: RuntimeConfig, state: ForkyBeaconState): uint64 =
   ## Returns the weak subjectivity period for the current ``state``.
@@ -49,7 +49,7 @@ func compute_weak_subjectivity_period(
 
   ws_period
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/weak-subjectivity.md#is_within_weak_subjectivity_period
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/weak-subjectivity.md#is_within_weak_subjectivity_period
 func is_within_weak_subjectivity_period*(cfg: RuntimeConfig, current_slot: Slot,
                                          ws_state: ForkedHashedBeaconState,
                                          ws_checkpoint: Checkpoint): bool =

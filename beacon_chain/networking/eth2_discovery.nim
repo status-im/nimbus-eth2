@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,21 +8,24 @@
 {.push raises: [].}
 
 import
-  chronicles, stew/shims/net, stew/results,
-  eth/p2p/discoveryv5/[enr, protocol, node],
+  std/[algorithm, sequtils],
+  chronos, chronicles, stew/results,
+  eth/p2p/discoveryv5/[enr, protocol, node, random2],
+  ../spec/datatypes/altair,
+  ../spec/eth2_ssz_serialization,
   ".."/[conf, conf_light_client]
 
 from std/os import splitFile
 from std/strutils import cmpIgnoreCase, split, startsWith, strip, toLowerAscii
 
-export protocol
+export protocol, node
 
 type
   Eth2DiscoveryProtocol* = protocol.Protocol
   Eth2DiscoveryId* = NodeId
 
 export
-  Eth2DiscoveryProtocol, open, start, close, closeWait, queryRandom,
+  Eth2DiscoveryProtocol, open, start, close, closeWait,
     updateRecord, results
 
 func parseBootstrapAddress*(address: string):
@@ -100,3 +103,82 @@ proc new*(T: type Eth2DiscoveryProtocol,
   newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
     bindPort = config.udpPort, bindIp = config.listenAddress,
     enrAutoUpdate = config.enrAutoUpdate, rng = rng)
+
+func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =
+  if discoveryForkId.fork_digest == peerForkId.fork_digest:
+    if discoveryForkId.next_fork_version < peerForkId.next_fork_version:
+      # Peer knows about a fork and we don't
+      true
+    elif discoveryForkId.next_fork_version == peerForkId.next_fork_version:
+      # We should have the same next_fork_epoch
+      discoveryForkId.next_fork_epoch == peerForkId.next_fork_epoch
+
+    else:
+      # Our next fork version is bigger than the peer's one
+      false
+  else:
+    # Wrong fork digest
+    false
+
+proc queryRandom*(
+    d: Eth2DiscoveryProtocol,
+    forkId: ENRForkID,
+    wantedAttnets: AttnetBits,
+    wantedSyncnets: SyncnetBits,
+    minScore: int): Future[seq[Node]] {.async.} =
+  ## Perform a discovery query for a random target
+  ## (forkId) and matching at least one of the attestation subnets.
+
+  let nodes = await d.queryRandom()
+
+  var filtered: seq[(int, Node)]
+  for n in nodes:
+    var score: int = 0
+
+    let
+      eth2FieldBytes = n.record.get(enrForkIdField, seq[byte]).valueOr:
+        continue
+      peerForkId =
+        try:
+          SSZ.decode(eth2FieldBytes, ENRForkID)
+        except SszError as e:
+          debug "Could not decode the eth2 field of peer",
+            peer = n.record.toURI(), exception = e.name, msg = e.msg
+          continue
+
+    if not forkId.isCompatibleForkId(peerForkId):
+      continue
+
+    let attnetsBytes = n.record.get(enrAttestationSubnetsField, seq[byte])
+    if attnetsBytes.isOk():
+      let attnetsNode =
+        try:
+          SSZ.decode(attnetsBytes.get(), AttnetBits)
+        except SszError as e:
+          debug "Could not decode the attnets ERN bitfield of peer",
+            peer = n.record.toURI(), exception = e.name, msg = e.msg
+          continue
+
+      for i in 0..<ATTESTATION_SUBNET_COUNT:
+        if wantedAttnets[i] and attnetsNode[i]:
+          score += 1
+
+    let syncnetsBytes = n.record.get(enrSyncSubnetsField, seq[byte])
+    if syncnetsBytes.isOk():
+      let syncnetsNode =
+        try:
+          SSZ.decode(syncnetsBytes.get(), SyncnetBits)
+        except SszError as e:
+          debug "Could not decode the syncnets ENR bitfield of peer",
+            peer = n.record.toURI(), exception = e.name, msg = e.msg
+          continue
+
+      for i in SyncSubcommitteeIndex:
+        if wantedSyncnets[i] and syncnetsNode[i]:
+          score += 10 # connecting to the right syncnet is urgent
+
+    if score >= minScore:
+      filtered.add((score, n))
+
+  d.rng[].shuffle(filtered)
+  return filtered.sortedByIt(-it[0]).mapIt(it[1])

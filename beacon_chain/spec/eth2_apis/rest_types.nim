@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -52,9 +52,12 @@ static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
 
 type
+  # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg,
-    ContributionAndProof, LightClientFinalityUpdate, LightClientOptimisticUpdate
+    Head, Block, Attestation, VoluntaryExit, BLSToExecutionChange,
+    ProposerSlashing, AttesterSlashing, BlobSidecar, FinalizedCheckpoint,
+    ChainReorg, ContributionAndProof, LightClientFinalityUpdate,
+    LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]
 

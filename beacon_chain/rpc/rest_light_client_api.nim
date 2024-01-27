@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,8 +15,8 @@ logScope: topics = "rest_light_client"
 
 proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientBootstrap
-  router.api(MethodGet,
-             "/eth/v1/beacon/light_client/bootstrap/{block_root}") do (
+  router.api2(MethodGet,
+              "/eth/v1/beacon/light_client/bootstrap/{block_root}") do (
     block_root: Eth2Digest) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
     let contentType =
@@ -51,8 +51,8 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http404, LCBootstrapUnavailable)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientUpdatesByRange
-  router.api(MethodGet,
-             "/eth/v1/beacon/light_client/updates") do (
+  router.api2(MethodGet,
+              "/eth/v1/beacon/light_client/updates") do (
     start_period: Option[SyncCommitteePeriod], count: Option[uint64]
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
@@ -116,8 +116,8 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientFinalityUpdate
-  router.api(MethodGet,
-             "/eth/v1/beacon/light_client/finality_update") do (
+  router.api2(MethodGet,
+              "/eth/v1/beacon/light_client/finality_update") do (
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
     let contentType =
@@ -147,8 +147,8 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http404, LCFinUpdateUnavailable)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientOptimisticUpdate
-  router.api(MethodGet,
-             "/eth/v1/beacon/light_client/optimistic_update") do (
+  router.api2(MethodGet,
+              "/eth/v1/beacon/light_client/optimistic_update") do (
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
     let contentType =

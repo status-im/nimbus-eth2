@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,16 +15,18 @@ import
   ../spec/datatypes/[altair, phase0, deneb],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    exit_pool, attestation_pool, light_client_pool, sync_committee_msg_pool],
+    attestation_pool, light_client_pool, sync_committee_msg_pool,
+    validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
   ../nimbus_binary_common
 
 export
-  results, taskpools, block_clearance, blockchain_dag, exit_pool, attestation_pool,
-  light_client_pool, sync_committee_msg_pool, validator_pool, beacon_clock,
-  gossip_validation, block_processor, batch_validation, block_quarantine
+  results, taskpools, block_clearance, blockchain_dag, attestation_pool,
+  light_client_pool, sync_committee_msg_pool, validator_change_pool,
+  validator_pool, beacon_clock, gossip_validation, block_processor,
+  batch_validation, block_quarantine
 
 logScope: topics = "gossip_eth2"
 
@@ -365,7 +367,7 @@ proc checkForPotentialDoppelganger(
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
     attestation: Attestation, subnet_id: SubnetId,
-    checkSignature: bool = true): Future[ValidationRes] {.async.} =
+    checkSignature: bool = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 
@@ -379,7 +381,7 @@ proc processAttestation*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - attestation.data.slot.start_beacon_time
+  let delay = wallTime - attestation.data.slot.attestation_deadline
   debug "Attestation received", delay
 
   # Now proceed to validation
@@ -413,7 +415,7 @@ proc processAttestation*(
 proc processSignedAggregateAndProof*(
     self: ref Eth2Processor, src: MsgSource,
     signedAggregateAndProof: SignedAggregateAndProof,
-    checkSignature = true, checkCover = true): Future[ValidationRes] {.async.} =
+    checkSignature = true, checkCover = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 
@@ -429,8 +431,9 @@ proc processSignedAggregateAndProof*(
     return errIgnore("Aggregate before genesis")
 
   # Potential under/overflows are fine; would just create odd logs
-  let delay =
-    wallTime - signedAggregateAndProof.message.aggregate.data.slot.start_beacon_time
+  let
+    slot = signedAggregateAndProof.message.aggregate.data.slot
+    delay = wallTime - slot.aggregate_deadline
   debug "Aggregate received", delay
 
   let v =
@@ -469,7 +472,7 @@ proc processSignedAggregateAndProof*(
 proc processBlsToExecutionChange*(
     self: ref Eth2Processor, src: MsgSource,
     blsToExecutionChange: SignedBLSToExecutionChange):
-    Future[ValidationRes] {.async.} =
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   logScope:
     blsToExecutionChange = shortLog(blsToExecutionChange)
 
@@ -565,7 +568,7 @@ proc processSyncCommitteeMessage*(
     self: ref Eth2Processor, src: MsgSource,
     syncCommitteeMsg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
+    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -576,7 +579,7 @@ proc processSyncCommitteeMessage*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - syncCommitteeMsg.slot.start_beacon_time
+  let delay = wallTime - syncCommitteeMsg.slot.sync_committee_message_deadline
   debug "Sync committee message received", delay
 
   # Now proceed to validation
@@ -609,7 +612,7 @@ proc processSyncCommitteeMessage*(
 proc processSignedContributionAndProof*(
     self: ref Eth2Processor, src: MsgSource,
     contributionAndProof: SignedContributionAndProof,
-    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
+    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -622,7 +625,9 @@ proc processSignedContributionAndProof*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - contributionAndProof.message.contribution.slot.start_beacon_time
+  let
+    slot = contributionAndProof.message.contribution.slot
+    delay = wallTime - slot.sync_contribution_deadline
   debug "Contribution received", delay
 
   # Now proceed to validation

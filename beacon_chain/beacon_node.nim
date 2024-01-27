@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,7 +20,7 @@ import
   ./el/el_manager,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    exit_pool, attestation_pool, sync_committee_msg_pool],
+    attestation_pool, sync_committee_msg_pool, validator_change_pool],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./sync/[sync_manager, request_manager],
@@ -32,25 +32,29 @@ import
 export
   osproc, chronos, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
-  attestation_pool, sync_committee_msg_pool, validator_pool,
+  attestation_pool, sync_committee_msg_pool, validator_change_pool,
   eth2_network, el_manager, request_manager, sync_manager,
   eth2_processor, optimistic_processor, blockchain_dag, block_quarantine,
-  base, exit_pool,  message_router, validator_monitor,
+  base, message_router, validator_monitor, validator_pool,
   consensus_manager, dynamic_fee_recipients
 
 type
   EventBus* = object
-    blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
+    blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
+    attestQueue*: AsyncEventQueue[Attestation]
+    exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
+    blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
+    propSlashQueue*: AsyncEventQueue[ProposerSlashing]
+    attSlashQueue*: AsyncEventQueue[AttesterSlashing]
+    blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
+    finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
+    contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientFinalityUpdate]]
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
-    attestQueue*: AsyncEventQueue[Attestation]
-    contribQueue*: AsyncEventQueue[SignedContributionAndProof]
-    exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
-    finalQueue*: AsyncEventQueue[FinalizationInfoObject]
 
   BeaconNode* = ref object
     nickname*: string
@@ -97,6 +101,7 @@ type
     dutyValidatorCount*: int
       ## Number of validators that we've checked for activation
     processingDelay*: Opt[Duration]
+    lastValidAttestedBlock*: Opt[BlockSlot]
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

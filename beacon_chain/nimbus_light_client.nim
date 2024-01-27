@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -75,8 +75,10 @@ programMain:
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
 
-    beaconClock = BeaconClock.init(
-      getStateField(genesisState[], genesis_time))
+    genesisTime = getStateField(genesisState[], genesis_time)
+    beaconClock = BeaconClock.init(genesisTime).valueOr:
+      error "Invalid genesis time in state", genesisTime
+      quit 1
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
     genesis_validators_root =
@@ -104,7 +106,7 @@ programMain:
         nil
 
     optimisticHandler = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
-        Future[void] {.async.} =
+        Future[void] {.async: (raises: [CancelledError]).} =
       notice "New LC optimistic block",
         opt = signedBlock.toBlockId(),
         wallSlot = getBeaconTime().slotOrZero
@@ -133,7 +135,10 @@ programMain:
     elManager.start(syncChain = false)
 
   info "Listening to incoming network requests"
-  network.initBeaconSync(cfg, forkDigests, genesisBlockRoot, getBeaconTime)
+  network.registerProtocol(
+    PeerSync, PeerSync.NetworkState.init(
+      cfg, forkDigests, genesisBlockRoot, getBeaconTime))
+
   withAll(ConsensusFork):
     let forkDigest = forkDigests[].atConsensusFork(consensusFork)
     network.addValidator(

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 import
   std/tables,
-  stew/results,
+  results,
   chronicles,
   ../datatypes/base
 
@@ -24,24 +24,20 @@ type
 func init*(T: type DynamicFeeRecipientsStore): T =
   T(mappings: initTable[ValidatorIndex, Entry]())
 
-proc addMapping*(store: var DynamicFeeRecipientsStore,
+func addMapping*(store: var DynamicFeeRecipientsStore,
                  validator: ValidatorIndex,
                  feeRecipient: Eth1Address,
-                 currentEpoch: Epoch) =
+                 currentEpoch: Epoch): bool =
   var updated = false
   store.mappings.withValue(validator, entry) do:
-    updated = not (entry[].recipient == feeRecipient)
+    updated = entry[].recipient != feeRecipient
     entry[] = Entry(recipient: feeRecipient, addedAt: currentEpoch)
   do:
     updated = true
     store.mappings[validator] = Entry(recipient: feeRecipient,
                                       addedAt: currentEpoch)
-  if updated:
-    info "Updating fee recipient",
-      validator, feeRecipient = feeRecipient.toHex(), currentEpoch
-  else:
-    debug "Refreshing fee recipient",
-      validator, feeRecipient = feeRecipient.toHex(), currentEpoch
+
+  updated
 
 func getDynamicFeeRecipient*(store: var DynamicFeeRecipientsStore,
                              validator: ValidatorIndex,

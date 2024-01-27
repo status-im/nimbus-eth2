@@ -508,6 +508,7 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Altair - Transition  [Preset: minimal]
 ```diff
++ EF - Altair - Transition - non_empty_historical_roots [Preset: minimal]                    OK
 + EF - Altair - Transition - normal_transition [Preset: minimal]                             OK
 + EF - Altair - Transition - simple_transition [Preset: minimal]                             OK
 + EF - Altair - Transition - transition_missing_first_post_block [Preset: minimal]           OK
@@ -534,7 +535,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Altair - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minima OK
 + EF - Altair - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minim OK
 ```
-OK: 25/25 Fail: 0/25 Skip: 0/25
+OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Altair - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -1092,6 +1093,7 @@ OK: 55/55 Fail: 0/55 Skip: 0/55
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Bellatrix - Transition  [Preset: minimal]
 ```diff
++ EF - Bellatrix - Transition - non_empty_historical_roots [Preset: minimal]                 OK
 + EF - Bellatrix - Transition - normal_transition [Preset: minimal]                          OK
 + EF - Bellatrix - Transition - simple_transition [Preset: minimal]                          OK
 + EF - Bellatrix - Transition - transition_missing_first_post_block [Preset: minimal]        OK
@@ -1118,7 +1120,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_after_fork [Preset: min OK
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mi OK
 ```
-OK: 25/25 Fail: 0/25 Skip: 0/25
+OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Capella - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1760,6 +1762,7 @@ OK: 69/69 Fail: 0/69 Skip: 0/69
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Capella - Transition  [Preset: minimal]
 ```diff
++ EF - Capella - Transition - non_empty_historical_roots [Preset: minimal]                   OK
 + EF - Capella - Transition - normal_transition [Preset: minimal]                            OK
 + EF - Capella - Transition - simple_transition [Preset: minimal]                            OK
 + EF - Capella - Transition - transition_missing_first_post_block [Preset: minimal]          OK
@@ -1786,7 +1789,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Capella - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
 + EF - Capella - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
 ```
-OK: 25/25 Fail: 0/25 Skip: 0/25
+OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Capella - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -2462,6 +2465,7 @@ OK: 78/78 Fail: 0/78 Skip: 0/78
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Deneb - Transition  [Preset: minimal]
 ```diff
++ EF - Deneb - Transition - non_empty_historical_roots [Preset: minimal]                     OK
 + EF - Deneb - Transition - normal_transition [Preset: minimal]                              OK
 + EF - Deneb - Transition - simple_transition [Preset: minimal]                              OK
 + EF - Deneb - Transition - transition_attestation_from_previous_fork_with_new_range [Preset OK
@@ -2491,7 +2495,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Deneb - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
 + EF - Deneb - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
 ```
-OK: 28/28 Fail: 0/28 Skip: 0/28
+OK: 29/29 Fail: 0/29 Skip: 0/29
 ## EF - Deneb - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -3189,4 +3193,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2581/2603 Fail: 0/2603 Skip: 22/2603
+OK: 2585/2607 Fail: 0/2607 Skip: 22/2607

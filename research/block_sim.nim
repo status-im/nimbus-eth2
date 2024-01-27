@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Copyright (c) 2019-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,6 +16,7 @@ import
   confutils, chronicles, eth/db/kvstore_sqlite3,
   chronos/timer, taskpools,
   ../tests/testblockutil,
+  ../beacon_chain/el/eth1_chain,
   ../beacon_chain/spec/[forks, state_transition],
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/validators/validator_pool,
@@ -34,9 +35,6 @@ from ../beacon_chain/consensus_object_pools/block_quarantine import
 from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   SyncCommitteeMsgPool, addContribution, addSyncCommitteeMessage, init,
   produceContribution, produceSyncAggregate, pruneData
-from ../beacon_chain/el/el_manager import
-  Eth1Block, Eth1BlockNumber, Eth1BlockTimestamp, Eth1Chain, addBlock,
-  getBlockProposalData, getDepositsRoot, init
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index,
   get_committee_count_per_slot, get_committee_indices
@@ -50,9 +48,6 @@ type Timers = enum
   tAttest = "Have committee attest to block"
   tSyncCommittees = "Produce sync committee actions"
   tReplay = "Replay all produced blocks"
-
-template seconds(x: uint64): timer.Duration =
-  timer.seconds(int(x))
 
 # TODO The rest of nimbus-eth2 uses only the forked version of these, and in
 # general it's better for the validator_duties caller to use the forkedstate
