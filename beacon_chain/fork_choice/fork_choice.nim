@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,7 @@ import
   # Standard library
   std/[sequtils, tables],
   # Status libraries
-  stew/[results], chronicles,
+  results, chronicles,
   # Internal
   ../spec/[beaconstate, helpers, state_transition_block],
   ../spec/datatypes/[phase0, altair, bellatrix],
@@ -377,7 +377,7 @@ proc get_head*(self: var ForkChoice,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/fork_choice/safe-block.md#get_safe_beacon_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   # Use most recent justified block as a stopgap
   self.checkpoints.justified.checkpoint.root

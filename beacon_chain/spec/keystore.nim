@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,7 +14,8 @@ import
   # Third-party libraries
   normalize,
   # Status libraries
-  stew/[results, bitops2, base10, io2, endians2], stew/shims/macros,
+  results,
+  stew/[bitops2, base10, io2, endians2], stew/shims/macros,
   eth/keyfile/uuid, blscurve,
   json_serialization, json_serialization/std/options,
   chronos/timer,
@@ -1385,13 +1386,13 @@ proc createWallet*(kdfKind: KdfKind,
     crypto: crypto,
     nextAccount: nextAccount.get(0))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/validator.md#bls_withdrawal_prefix
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#bls_withdrawal_prefix
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 

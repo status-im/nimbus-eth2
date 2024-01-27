@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -443,15 +443,8 @@ proc doCreateTestnet*(config: CliConfig,
       quit 1
 
     try:
-      let blockAsJson = try:
-        parseJson genesisBlockContents.get
-      except CatchableError as err:
-        error "Failed to parse the genesis block json", err = err.msg
-        quit 1
-      except:
-        # TODO The Nim json library should not raise bare exceptions
-        raiseAssert "The Nim json library raise a bare exception"
-      fromJson(blockAsJson, "", genesisBlock)
+      let blockAsJson = genesisBlockContents.get
+      genesisBlock = JrpcConv.decode(blockAsJson, BlockObject)
     except CatchableError as err:
       error "Failed to load the genesis block from json",
             err = err.msg

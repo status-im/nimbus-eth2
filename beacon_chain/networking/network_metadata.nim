@@ -274,6 +274,9 @@ when const_preset == "gnosis":
       doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
+    for network in [chiadoMetadata]:
+      doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
+    for network in [gnosisMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
@@ -338,9 +341,9 @@ elif const_preset == "mainnet":
       doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
-    for network in [praterMetadata]:
+    for network in [praterMetadata, sepoliaMetadata, holeskyMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
+    for network in [mainnetMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
@@ -422,22 +425,22 @@ proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig =
 
   metadata.cfg
 
-template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
-  when incbinEnabled:
-    `networkName Genesis`.toOpenArray(0, `networkName GenesisSize` - 1)
-  else:
-    `networkName Genesis`.toOpenArrayByte(0, `networkName Genesis`.high)
-
-const
-  availableOnlyInMainnetBuild =
-    "Baked-in genesis states for the official Ethereum " &
-    "networks are available only in the mainnet build of Nimbus"
-
-  availableOnlyInGnosisBuild =
-    "Baked-in genesis states for the Gnosis network " &
-    "are available only in the gnosis build of Nimbus"
-
 when const_preset in ["mainnet", "gnosis"]:
+  template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
+    when incbinEnabled:
+      `networkName Genesis`.toOpenArray(0, `networkName GenesisSize` - 1)
+    else:
+      `networkName Genesis`.toOpenArrayByte(0, `networkName Genesis`.high)
+
+  const
+    availableOnlyInMainnetBuild =
+      "Baked-in genesis states for the official Ethereum " &
+      "networks are available only in the mainnet build of Nimbus"
+
+    availableOnlyInGnosisBuild =
+      "Baked-in genesis states for the Gnosis network " &
+      "are available only in the gnosis build of Nimbus"
+
   template bakedBytes*(metadata: GenesisMetadata): auto =
     case metadata.networkName
     of "mainnet":

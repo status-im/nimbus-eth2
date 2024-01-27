@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,8 @@
 
 import
   std/[typetraits, tables],
-  stew/[arrayops, assign2, byteutils, endians2, io2, objects, results],
+  results,
+  stew/[arrayops, assign2, byteutils, endians2, io2, objects],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
@@ -27,7 +28,7 @@ from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
-  kvstore_sqlite3
+  kvstore_sqlite3, deposit_snapshots
 
 logScope: topics = "bc_db"
 

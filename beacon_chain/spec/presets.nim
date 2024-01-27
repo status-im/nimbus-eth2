@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -18,7 +18,7 @@ export constants
 export stint, web3types.toHex, web3types.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
@@ -559,7 +559,7 @@ elif const_preset == "minimal":
   )
 
 else:
-  {.error: "Only mainnet and minimal presets supported".}
+  {.error: "Only mainnet, gnosis, and minimal presets supported".}
   # macro createConstantsFromPreset*(path: static string): untyped =
   #   result = newStmtList()
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,7 @@ import
   ../spec/network,
   ../networking/eth2_network,
   ../beacon_clock,
-  "."/[light_client_sync_helpers, sync_protocol, sync_manager]
+  "."/[light_client_sync_helpers, light_client_protocol, sync_manager]
 export sync_manager
 
 logScope:
@@ -35,7 +35,7 @@ type
     Endpoint[Nothing, ForkedLightClientOptimisticUpdate]
 
   ValueVerifier[V] =
-    proc(v: V): Future[Result[void, VerifierError]] {.gcsafe, raises: [].}
+    proc(v: V): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
   BootstrapVerifier* =
     ValueVerifier[ForkedLightClientBootstrap]
   UpdateVerifier* =
@@ -65,7 +65,7 @@ type
     getFinalizedPeriod: GetSyncCommitteePeriodCallback
     getOptimisticPeriod: GetSyncCommitteePeriodCallback
     getBeaconTime: GetBeaconTimeFn
-    loopFuture: Future[void]
+    loopFuture: Future[void].Raising([CancelledError])
 
 func init*(
     T: type LightClientManager,
@@ -115,8 +115,7 @@ proc doRequest(
     e: typedesc[Bootstrap],
     peer: Peer,
     blockRoot: Eth2Digest
-): Future[NetRes[ForkedLightClientBootstrap]] {.
-    raises: [IOError].} =
+): Future[NetRes[ForkedLightClientBootstrap]] {.async: (raises: [CancelledError], raw: true).} =
   peer.lightClientBootstrap(blockRoot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
@@ -126,8 +125,7 @@ proc doRequest(
     e: typedesc[UpdatesByRange],
     peer: Peer,
     key: tuple[startPeriod: SyncCommitteePeriod, count: uint64]
-): Future[LightClientUpdatesByRangeResponse] {.
-    async.} =
+): Future[LightClientUpdatesByRangeResponse] {.async: (raises: [ResponseError, CancelledError]).} =
   let (startPeriod, count) = key
   doAssert count > 0 and count <= MAX_REQUEST_LIGHT_CLIENT_UPDATES
   let response = await peer.lightClientUpdatesByRange(startPeriod, count)
@@ -142,14 +140,14 @@ proc doRequest(
 proc doRequest(
     e: typedesc[FinalityUpdate],
     peer: Peer
-): Future[NetRes[ForkedLightClientFinalityUpdate]] =
+): Future[NetRes[ForkedLightClientFinalityUpdate]] {.async: (raises: [CancelledError], raw: true).} =
   peer.lightClientFinalityUpdate()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 proc doRequest(
     e: typedesc[OptimisticUpdate],
     peer: Peer
-): Future[NetRes[ForkedLightClientOptimisticUpdate]] =
+): Future[NetRes[ForkedLightClientOptimisticUpdate]] {.async: (raises: [CancelledError], raw: true).} =
   peer.lightClientOptimisticUpdate()
 
 template valueVerifier[E](
@@ -179,7 +177,7 @@ proc workerTask[E](
     self: LightClientManager,
     e: typedesc[E],
     key: E.K
-): Future[bool] {.async.} =
+): Future[bool] {.async: (raises: [CancelledError]).} =
   var
     peer: Peer
     didProgress = false
@@ -246,12 +244,6 @@ proc workerTask[E](
     raise exc
   except PeerPoolError as exc:
     debug "Failed to acquire peer", exc = exc.msg
-  except CatchableError as exc:
-    if peer != nil:
-      peer.updateScore(PeerScoreNoValues)
-      debug "Unexpected exception while receiving value", exc = exc.msg,
-        endpoint = E.name, peer, peer_score = peer.getScore()
-    raise exc
   finally:
     if peer != nil:
       self.network.peerPool.release(peer)
@@ -261,13 +253,13 @@ proc query[E](
     self: LightClientManager,
     e: typedesc[E],
     key: E.K
-): Future[bool] {.async.} =
+): Future[bool] {.async: (raises: [CancelledError]).} =
   const PARALLEL_REQUESTS = 2
   var workers: array[PARALLEL_REQUESTS, Future[bool]]
 
   let
-    progressFut = newFuture[void]("lcmanProgress")
-    doneFut = newFuture[void]("lcmanDone")
+    progressFut = Future[void].Raising([CancelledError]).init("lcmanProgress")
+    doneFut = Future[void].Raising([CancelledError]).init("lcmanDone")
   var
     numCompleted = 0
     maxCompleted = workers.len
@@ -300,7 +292,10 @@ proc query[E](
         workers[i].complete(false)
 
     # Wait for any worker to report progress, or for all workers to finish
-    discard await race(progressFut, doneFut)
+    try:
+      discard await race(progressFut, doneFut)
+    except ValueError:
+      raiseAssert "race API invariant"
   finally:
     for i in 0 ..< maxCompleted:
       if workers[i] == nil:
@@ -330,11 +325,11 @@ proc query[E](
 template query[E](
     self: LightClientManager,
     e: typedesc[E]
-): Future[bool] =
+): Future[bool].Raising([CancelledError]) =
   self.query(e, Nothing())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/light-client.md#light-client-sync-process
-proc loop(self: LightClientManager) {.async.} =
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/light-client/light-client.md#light-client-sync-process
+proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
   var nextSyncTaskTime = self.getBeaconTime()
   while true:
     # Periodically wake and check for changes
@@ -391,8 +386,8 @@ proc start*(self: var LightClientManager) =
   doAssert self.loopFuture == nil
   self.loopFuture = self.loop()
 
-proc stop*(self: var LightClientManager) {.async.} =
+proc stop*(self: var LightClientManager) {.async: (raises: []).} =
   ## Stop light client manager's loop.
   if self.loopFuture != nil:
-    await self.loopFuture.cancelAndWait()
+    await noCancel self.loopFuture.cancelAndWait()
     self.loopFuture = nil

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -34,13 +34,13 @@ type
 
 static:
   # Verify that ordinals follow spec values (the spec uses these as shifts for bit flags)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#participation-flag-indices
   doAssert ord(TIMELY_SOURCE_FLAG_INDEX) == 0
   doAssert ord(TIMELY_TARGET_FLAG_INDEX) == 1
   doAssert ord(TIMELY_HEAD_FLAG_INDEX) == 2
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#incentivization-weights
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#incentivization-weights
   TIMELY_SOURCE_WEIGHT* = 14
   TIMELY_TARGET_WEIGHT* = 26
   TIMELY_HEAD_WEIGHT* = 14
@@ -51,7 +51,7 @@ const
   PARTICIPATION_FLAG_WEIGHTS*: array[TimelyFlag, uint64] =
     [uint64 TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/validator.md#misc
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
@@ -60,12 +60,12 @@ const
   # The first member (`genesis_time`) is 32, subsequent members +1 each.
   # If there are ever more than 32 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `52 * 2 + 1`.
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/ssz/merkle-proofs.md
   FINALIZED_ROOT_GINDEX* = 105.GeneralizedIndex  # finalized_checkpoint > root
   CURRENT_SYNC_COMMITTEE_GINDEX* = 54.GeneralizedIndex  # current_sync_committee
   NEXT_SYNC_COMMITTEE_GINDEX* = 55.GeneralizedIndex  # next_sync_committee
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#inactivity-penalties
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#inactivity-penalties
   INACTIVITY_SCORE_BIAS* = 4
   INACTIVITY_SCORE_RECOVERY_RATE* = 16
 
@@ -79,7 +79,7 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
 type
   ### New types
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
 
   EpochParticipationFlags* =
@@ -88,7 +88,7 @@ type
     ## effectively making the cost of clearing the cache higher than the typical
     ## gains
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#syncaggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: ValidatorSig
@@ -97,12 +97,12 @@ type
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#synccommittee
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#synccommittee
   SyncCommittee* = object
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#synccommitteemessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/validator.md#synccommitteemessage
   SyncCommitteeMessage* = object
     slot*: Slot
       ## Slot to which this contribution pertains
@@ -116,7 +116,7 @@ type
     signature*: ValidatorSig
       ## Signature by the validator over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#synccommitteecontribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/validator.md#synccommitteecontribution
   SyncCommitteeAggregationBits* =
     BitArray[SYNC_SUBCOMMITTEE_SIZE]
 
@@ -138,18 +138,18 @@ type
     signature*: ValidatorSig
       ## Signature by the validator(s) over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#contributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/validator.md#contributionandproof
   ContributionAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     contribution*: SyncCommitteeContribution
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#signedcontributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/validator.md#signedcontributionandproof
   SignedContributionAndProof* = object
     message*: ContributionAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/validator.md#syncaggregatorselectiondata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/validator.md#syncaggregatorselectiondata
   SyncAggregatorSelectionData* = object
     slot*: Slot
     subcommittee_index*: uint64 # `SyncSubcommitteeIndex` after validation
@@ -261,7 +261,7 @@ type
 
   InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -347,7 +347,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -404,7 +404,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -456,7 +456,7 @@ type
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
@@ -481,7 +481,7 @@ type
     # [New in Altair]
     sync_aggregate*: TrustedSyncAggregate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig

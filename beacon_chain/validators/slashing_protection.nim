@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,8 @@ import
   std/[os, algorithm, sequtils],
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
-  stew/[results, byteutils],
+  results,
+  stew/byteutils,
   chronicles, chronicles/timings,
   # Internal
   ../spec/datatypes/base,

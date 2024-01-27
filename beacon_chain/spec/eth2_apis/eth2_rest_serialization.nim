@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[typetraits, strutils]
-import stew/[assign2, results, base10, byteutils, endians2], presto/common,
+import results, stew/[assign2, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization, json_serialization,
        json_serialization/std/[net, sets],
        json_serialization/stew/results as jsonSerializationResults,
@@ -51,6 +51,7 @@ RestJson.useDefaultSerializationFor(
   BLSToExecutionChange,
   BeaconBlockHeader,
   BlobSidecar,
+  BlobSidecarInfoObject,
   BlobsBundle,
   Checkpoint,
   ContributionAndProof,
@@ -299,6 +300,7 @@ const
 type
   EncodeTypes* =
     AttesterSlashing |
+    BlobSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
     ImportDistributedKeystoresBody |
@@ -4139,6 +4141,14 @@ proc decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.Attestation)
   of "voluntary_exit":
     ok(EventTopic.VoluntaryExit)
+  of "bls_to_execution_change":
+    ok(EventTopic.BLSToExecutionChange)
+  of "proposer_slashing":
+    ok(EventTopic.ProposerSlashing)
+  of "attester_slashing":
+    ok(EventTopic.AttesterSlashing)
+  of "blob_sidecar":
+    ok(EventTopic.BlobSidecar)
   of "finalized_checkpoint":
     ok(EventTopic.FinalizedCheckpoint)
   of "chain_reorg":
@@ -4162,6 +4172,14 @@ proc encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("attestation,")
   if EventTopic.VoluntaryExit in value:
     res.add("voluntary_exit,")
+  if EventTopic.BLSToExecutionChange in value:
+    res.add("bls_to_execution_change,")
+  if EventTopic.ProposerSlashing in value:
+    res.add("proposer_slashing,")
+  if EventTopic.AttesterSlashing in value:
+    res.add("attester_slashing,")
+  if EventTopic.BlobSidecar in value:
+    res.add("blob_sidecar,")
   if EventTopic.FinalizedCheckpoint in value:
     res.add("finalized_checkpoint,")
   if EventTopic.ChainReorg in value:

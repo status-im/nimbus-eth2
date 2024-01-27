@@ -1,5 +1,5 @@
 # nimbus_signing_node
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 import
   std/algorithm,
-  presto, unittest2, chronicles, stew/[results, byteutils, io2],
+  unittest2, chronicles, stew/[results, byteutils, io2],
   chronos/asyncproc,
   chronos/unittest2/asynctests,
   ../beacon_chain/spec/[signatures, crypto],
@@ -15,7 +15,7 @@ import
   ../beacon_chain/filepath,
   ../beacon_chain/validators/validator_pool
 
-from os import getEnv, osErrorMsg
+from std/os import getEnv, osErrorMsg
 
 {.used.}
 
@@ -77,7 +77,7 @@ type
     process: AsyncProcessRef
     reader: Future[seq[byte]]
 
-proc getNodePort(basePort: int, rt: RemoteSignerType): int =
+func getNodePort(basePort: int, rt: RemoteSignerType): int =
   # Individual port numbers derived by adding to configurable base port
   case rt
   of RemoteSignerType.Web3Signer:
@@ -118,7 +118,7 @@ proc getBlock(fork: ConsensusFork,
                       $fork).tryGet()
   ForkedBeaconBlock.init(b)
 
-proc init(t: typedesc[Web3SignerForkedBeaconBlock],
+func init(t: typedesc[Web3SignerForkedBeaconBlock],
           forked: ForkedBeaconBlock): Web3SignerForkedBeaconBlock =
   case forked.kind
   of ConsensusFork.Phase0, ConsensusFork.Altair:
@@ -192,7 +192,7 @@ proc createDataDir(pathName: string): Result[void, string] =
                    KeystorePassword)
   ok()
 
-proc getTestDir(rt: RemoteSignerType): string =
+func getTestDir(rt: RemoteSignerType): string =
   case rt
   of RemoteSignerType.Web3Signer:
     TestDirectoryName
@@ -225,14 +225,7 @@ proc removeTestDir(rt: RemoteSignerType) =
   discard removeDir(signingDir)
   discard removeDir(pathName)
 
-proc getPrivateKey(data: string): Result[ValidatorPrivKey, string] =
-  var key: blscurve.SecretKey
-  if fromHex(key, data):
-    ok(ValidatorPrivKey(key))
-  else:
-    err("Unable to initialize private key")
-
-proc getLocalKeystoreData(data: string): Result[KeystoreData, string] =
+func getLocalKeystoreData(data: string): Result[KeystoreData, string] =
   let privateKey =
     block:
       var key: blscurve.SecretKey
@@ -246,7 +239,7 @@ proc getLocalKeystoreData(data: string): Result[KeystoreData, string] =
     version: uint64(4),
     pubkey: privateKey.toPubKey().toPubKey())
 
-proc getRemoteKeystoreData(data: string, basePort: int,
+func getRemoteKeystoreData(data: string, basePort: int,
                            rt: RemoteSignerType): Result[KeystoreData, string] =
   let
     publicKey = ValidatorPubKey.fromHex(data).valueOr:

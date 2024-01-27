@@ -94,10 +94,6 @@ You will need to pass the path to the token file to Nimbus together with the web
       --jwt-secret=/tmp/jwtsecret
     ```
 
-!!! info
-    When the `--jwt-secret` option is not specified and the execution client is running on the same machine under default setting, Nimbus may be able to connect successfully to it by using the default secret value `0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3`.
-    This is a [proposed standard protocol](https://github.com/ethereum/execution-apis/pull/302) that aims to simplify the required user configuration, but it's not yet adopted by all execution clients.
-
 
 
 

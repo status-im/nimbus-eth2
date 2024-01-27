@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,8 @@
 
 import
   std/[tables, os, sets, sequtils, strutils, uri, algorithm],
-  stew/[base10, results, byteutils],
+  results,
+  stew/[base10, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
   metrics, metrics/chronos_httpserver,
@@ -15,7 +16,7 @@ import
   ".."/spec/[eth2_merkleization, helpers, signatures, validator],
   ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
                        dynamic_fee_recipients],
-  ".."/consensus_object_pools/block_pools_types,
+  ".."/consensus_object_pools/[block_pools_types, common_tools],
   ".."/validators/[keystore_management, validator_pool, slashing_protection,
                    validator_duties],
   ".."/[conf, beacon_clock, version, nimbus_binary_common]
@@ -23,7 +24,7 @@ import
 from std/times import Time, toUnix, fromUnix, getTime
 
 export
-  os, sets, sequtils, chronos, presto, chronicles, confutils,
+  os, sets, sequtils, chronos, chronicles, confutils,
   nimbus_binary_common, version, conf, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
@@ -38,7 +39,7 @@ const
   TIME_DELAY_FROM_SLOT* = 79.milliseconds
   SUBSCRIPTION_BUFFER_SLOTS* = 2'u64
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#constants
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#constants
   EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
 
   ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
@@ -947,34 +948,17 @@ proc removeValidator*(vc: ValidatorClientRef,
         res
     await allFutures(pending)
 
-proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
-                      validatorIdx: ValidatorIndex,
-                      epoch: Epoch): Opt[Eth1Address] =
-  let dynamicRecipient = vc.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-                           validatorIdx, epoch)
-  if dynamicRecipient.isSome():
-    Opt.some(dynamicRecipient.get())
-  else:
-    let
-      withdrawalAddress =
-        if vc.keymanagerHost.isNil:
-          Opt.none Eth1Address
-        else:
-          vc.keymanagerHost[].getValidatorWithdrawalAddress(pubkey)
-      perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
-        vc.config.defaultFeeRecipient, withdrawalAddress)
-      staticRecipient = getSuggestedFeeRecipient(
-        vc.config.validatorsDir, pubkey, perValidatorDefaultFeeRecipient)
-    if staticRecipient.isOk():
-      Opt.some(staticRecipient.get())
-    else:
-      Opt.none(Eth1Address)
+proc getFeeRecipient(vc: ValidatorClientRef, validator: AttachedValidator,
+                     epoch: Epoch): Eth1Address =
+  getFeeRecipient(vc.dynamicFeeRecipientsStore, validator.pubkey,
+                  validator.index, validator.validator,
+                  vc.config.defaultFeeRecipient(),
+                  vc.config.validatorsDir(), epoch)
 
-proc getGasLimit*(vc: ValidatorClientRef,
-                  pubkey: ValidatorPubKey): uint64 =
-  getSuggestedGasLimit(
-    vc.config.validatorsDir, pubkey, vc.config.suggestedGasLimit).valueOr:
-      vc.config.suggestedGasLimit
+proc getGasLimit(vc: ValidatorClientRef,
+                 validator: AttachedValidator): uint64 =
+  getGasLimit(vc.config.validatorsDir, vc.config.suggestedGasLimit,
+              validator.pubkey)
 
 proc prepareProposersList*(vc: ValidatorClientRef,
                            epoch: Epoch): seq[PrepareBeaconProposer] =
@@ -983,10 +967,9 @@ proc prepareProposersList*(vc: ValidatorClientRef,
     if validator.index.isSome():
       let
         index = validator.index.get()
-        feeRecipient = vc.getFeeRecipient(validator.pubkey, index, epoch)
-      if feeRecipient.isSome():
-        res.add(PrepareBeaconProposer(validator_index: index,
-                                      fee_recipient: feeRecipient.get()))
+        feeRecipient = vc.getFeeRecipient(validator, epoch)
+      res.add(PrepareBeaconProposer(validator_index: index,
+                                    fee_recipient: feeRecipient))
   res
 
 proc isDefault*(reg: SignedValidatorRegistrationV1): bool =
@@ -994,7 +977,7 @@ proc isDefault*(reg: SignedValidatorRegistrationV1): bool =
 
 proc isExpired(vc: ValidatorClientRef,
                reg: SignedValidatorRegistrationV1, slot: Slot): bool =
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#registration-dissemination
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
   # This specification suggests validators re-submit to builder software every
   # `EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION` epochs.
   let
@@ -1028,7 +1011,6 @@ proc getValidatorRegistration(
     return err(RegistrationKind.MissingIndex)
 
   let
-    vindex = validator.index.get()
     cached = vc.validatorsRegCache.getOrDefault(validator.pubkey)
     currentSlot =
       block:
@@ -1042,18 +1024,13 @@ proc getValidatorRegistration(
       # Want to send it to relay, but not recompute perfectly fine cache
       return ok(PendingValidatorRegistration(registration: cached, future: nil))
 
-    let feeRecipient = vc.getFeeRecipient(validator.pubkey, vindex,
-                                          currentSlot.epoch())
-    if feeRecipient.isNone():
-      debug "Could not get fee recipient for registration data",
-            validator = shortLog(validator)
-      return err(RegistrationKind.MissingFee)
-    let gasLimit = vc.getGasLimit(validator.pubkey)
+    let
+      feeRecipient = vc.getFeeRecipient(validator, currentSlot.epoch())
+      gasLimit = vc.getGasLimit(validator)
     var registration =
       SignedValidatorRegistrationV1(
         message: ValidatorRegistrationV1(
-          fee_recipient:
-            ExecutionAddress(data: distinctBase(feeRecipient.get())),
+          fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
           gas_limit: gasLimit,
           timestamp: uint64(timestamp.toUnix()),
           pubkey: validator.pubkey

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,7 +21,7 @@ import
   # Local modules
   ./spec/[helpers, keystore],
   ./spec/datatypes/base,
-  "."/[beacon_clock, beacon_node_status, conf, version]
+  "."/[beacon_clock, beacon_node_status, conf, conf_common, version]
 
 when defined(posix):
   import termios
@@ -33,7 +33,8 @@ declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], nam
 nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
 
 export
-  confutils, toml_serialization, beacon_clock, beacon_node_status, conf
+  confutils, toml_serialization, beacon_clock, beacon_node_status, conf,
+  conf_common
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
