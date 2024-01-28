@@ -108,15 +108,12 @@ template outgoingEvent(eventType: EventType): AsyncEvent =
     pool.outNotFullEvent
 
 proc waitForEvent[A, B](pool: PeerPool[A, B], eventType: EventType,
-                        filter: set[PeerType]) {.async: (raises: [CancelledError]).} =
+                        filter: set[PeerType]) {.async.} =
   if filter == {PeerType.Incoming, PeerType.Outgoing} or filter == {}:
     var fut1 = incomingEvent(eventType).wait()
     var fut2 = outgoingEvent(eventType).wait()
     try:
-      try:
-        discard await one(fut1, fut2)
-      except ValueError:
-        raiseAssert "one precondition satisfied"
+      discard await one(fut1, fut2)
       if fut1.finished():
         if not(fut2.finished()):
           await fut2.cancelAndWait()
@@ -141,11 +138,11 @@ proc waitForEvent[A, B](pool: PeerPool[A, B], eventType: EventType,
     outgoingEvent(eventType).clear()
 
 proc waitNotEmptyEvent[A, B](pool: PeerPool[A, B],
-                             filter: set[PeerType]) {.async: (raises: [CancelledError], raw: true).} =
+                             filter: set[PeerType]): Future[void] =
   pool.waitForEvent(EventType.NotEmptyEvent, filter)
 
 proc waitNotFullEvent[A, B](pool: PeerPool[A, B],
-                            filter: set[PeerType]){.async: (raises: [CancelledError], raw: true).} =
+                            filter: set[PeerType]): Future[void] =
   pool.waitForEvent(EventType.NotFullEvent, filter)
 
 proc newPeerPool*[A, B](maxPeers = -1, maxIncomingPeers = -1,
@@ -454,7 +451,7 @@ proc getPeerSpaceMask[A, B](pool: PeerPool[A, B],
       {PeerType.Outgoing}
 
 proc waitForEmptySpace*[A, B](pool: PeerPool[A, B],
-                              peerType: PeerType) {.async: (raises: [CancelledError]).} =
+                              peerType: PeerType) {.async.} =
   ## This procedure will block until ``pool`` will have an empty space for peer
   ## of type ``peerType``.
   let mask = pool.getPeerSpaceMask(peerType)
@@ -462,7 +459,7 @@ proc waitForEmptySpace*[A, B](pool: PeerPool[A, B],
     await pool.waitNotFullEvent(mask)
 
 proc addPeer*[A, B](pool: PeerPool[A, B],
-                    peer: A, peerType: PeerType): Future[PeerStatus] {.async: (raises: [CancelledError]).} =
+                    peer: A, peerType: PeerType): Future[PeerStatus] {.async.} =
   ## Add peer ``peer`` of type ``peerType`` to PeerPool ``pool``.
   ##
   ## This procedure will wait for an empty space in PeerPool ``pool``, if
@@ -536,7 +533,7 @@ proc acquireItemImpl[A, B](pool: PeerPool[A, B],
 
 proc acquire*[A, B](pool: PeerPool[A, B],
                     filter = {PeerType.Incoming,
-                              PeerType.Outgoing}): Future[A] {.async: (raises: [CancelledError]).} =
+                              PeerType.Outgoing}): Future[A] {.async.} =
   ## Acquire peer from PeerPool ``pool``, which match the filter ``filter``.
   mixin getKey
   doAssert(filter != {}, "Filter must not be empty")
@@ -589,7 +586,7 @@ proc release*[A, B](pool: PeerPool[A, B], peers: openArray[A]) {.inline.} =
 proc acquire*[A, B](pool: PeerPool[A, B],
                     number: int,
                     filter = {PeerType.Incoming,
-                              PeerType.Outgoing}): Future[seq[A]] {.async: (raises: [CancelledError]).} =
+                              PeerType.Outgoing}): Future[seq[A]] {.async.} =
   ## Acquire ``number`` number of peers from PeerPool ``pool``, which match the
   ## filter ``filter``.
   doAssert(filter != {}, "Filter must not be empty")
@@ -738,7 +735,7 @@ proc clear*[A, B](pool: PeerPool[A, B]) =
   pool.acqIncPeersCount = 0
   pool.acqOutPeersCount = 0
 
-proc clearSafe*[A, B](pool: PeerPool[A, B]) {.async: (raises: [CancelledError]).} =
+proc clearSafe*[A, B](pool: PeerPool[A, B]) {.async.} =
   ## Performs "safe" clear. Safe means that it first acquires all the peers
   ## in PeerPool, and only after that it will reset storage.
   var acquired = newSeq[A]()

@@ -43,7 +43,7 @@ type
     NoMonitor
 
   SyncWorker*[A, B] = object
-    future: Future[void].Raising([CancelledError])
+    future: Future[void]
     status: SyncWorkerStatus
 
   SyncManager*[A, B] = ref object
@@ -158,9 +158,8 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
   res.initQueue()
   res
 
-proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
-                     req: SyncRequest): Future[BeaconBlocksRes] {.
-                     async: (raises: [CancelledError], raw: true).} =
+proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
+                      req: SyncRequest): Future[BeaconBlocksRes] {.async.} =
   mixin getScore, `==`
 
   logScope:
@@ -172,8 +171,21 @@ proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blocks from peer", request = req
+  try:
+    let res = await beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
 
-  beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
+    if res.isErr():
+      debug "Error, while reading getBlocks response", request = req,
+             error = $res.error()
+      return
+    return res
+  except CancelledError:
+    debug "Interrupt, while waiting getBlocks response", request = req
+    return
+  except CatchableError as exc:
+    debug "Error, while waiting getBlocks response", request = req,
+          errName = exc.name, errMsg = exc.msg
+    return
 
 proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
   let wallEpoch = man.getLocalWallSlot().epoch
@@ -182,8 +194,8 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
    e >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
 proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
-                           req: SyncRequest): Future[BlobSidecarsRes]
-                           {.async: (raises: [CancelledError], raw: true).} =
+                           req: SyncRequest
+                          ): Future[BlobSidecarsRes] {.async.} =
   mixin getScore, `==`
 
   logScope:
@@ -195,7 +207,21 @@ proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blobs sidecars from peer", request = req
-  blobSidecarsByRange(peer, req.slot, req.count)
+  try:
+    let res = await blobSidecarsByRange(peer, req.slot, req.count)
+
+    if res.isErr():
+      debug "Error, while reading blobSidecarsByRange response", request = req,
+             error = $res.error()
+      return
+    return res
+  except CancelledError:
+    debug "Interrupt, while waiting blobSidecarsByRange response", request = req
+    return
+  except CatchableError as exc:
+    debug "Error, while waiting blobSidecarsByRange response", request = req,
+          errName = exc.name, errMsg = exc.msg
+    return
 
 proc remainingSlots(man: SyncManager): uint64 =
   let
@@ -256,8 +282,7 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
       ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
   ok()
 
-proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
-    {.async: (raises: [CancelledError]).} =
+proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   logScope:
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
@@ -297,11 +322,17 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       trace "Updating peer's status information", wall_clock_slot = wallSlot,
             remote_head_slot = peerSlot, local_head_slot = headSlot
 
-      if not await peer.updateStatus():
-        peer.updateScore(PeerScoreNoStatus)
-        debug "Failed to get remote peer's status, exiting",
-              peer_head_slot = peerSlot
+      try:
+        let res = await peer.updateStatus()
+        if not(res):
+          peer.updateScore(PeerScoreNoStatus)
+          debug "Failed to get remote peer's status, exiting",
+                peer_head_slot = peerSlot
 
+          return
+      except CatchableError as exc:
+        debug "Unexpected exception while updating peer's status",
+              peer_head_slot = peerSlot, errName = exc.name, errMsg = exc.msg
         return
 
       let newPeerSlot = peer.getHeadSlot()
@@ -388,97 +419,110 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
 
   man.workers[index].status = SyncWorkerStatus.Downloading
 
-  let blocks = (await man.getBlocks(peer, req)).valueOr:
-    peer.updateScore(PeerScoreNoValues)
-    man.queue.push(req)
-    debug "Failed to receive blocks on request", request = req
-    return
+  try:
+    let blocks = await man.getBlocks(peer, req)
+    if blocks.isErr():
+      peer.updateScore(PeerScoreNoValues)
+      man.queue.push(req)
+      debug "Failed to receive blocks on request", request = req
+      return
+    let blockData = blocks.get().asSeq()
+    let blockSmap = getShortMap(req, blockData)
+    debug "Received blocks on request", blocks_count = len(blockData),
+          blocks_map = blockSmap, request = req
 
-  let blockSmap = getShortMap(req, blocks.asSeq())
-  debug "Received blocks on request", blocks_count = len(blocks),
-        blocks_map = blockSmap, request = req
+    let slots = mapIt(blockData, it[].slot)
+    if not(checkResponse(req, slots)):
+      peer.updateScore(PeerScoreBadResponse)
+      man.queue.push(req)
+      warn "Received blocks sequence is not in requested range",
+           blocks_count = len(blockData), blocks_map = blockSmap,
+           request = req
+      return
 
-  let slots = mapIt(blocks, it[].slot)
-  if not(checkResponse(req, slots)):
-    peer.updateScore(PeerScoreBadResponse)
-    man.queue.push(req)
-    warn "Received blocks sequence is not in requested range",
-          blocks_count = len(blocks), blocks_map = blockSmap,
-          request = req
-    return
+    func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
+      var copy = acc
+      if copy[copy.len-1] != cur:
+        copy.add(cur)
+      copy
 
-  func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
-    var copy = acc
-    if copy[copy.len-1] != cur:
-      copy.add(cur)
-    copy
+    let blobData =
+      if man.shouldGetBlobs(req.slot.epoch):
+        let blobs = await man.getBlobSidecars(peer, req)
+        if blobs.isErr():
+          peer.updateScore(PeerScoreNoValues)
+          man.queue.push(req)
+          debug "Failed to receive blobs on request", request = req
+          return
+        let blobData = blobs.get().asSeq()
+        let blobSmap = getShortMap(req, blobData)
+        debug "Received blobs on request", blobs_count = len(blobData),
+                       blobs_map = blobSmap, request = req
 
-  let blobData =
-    if man.shouldGetBlobs(req.slot.epoch):
-      let blobs = (await man.getBlobSidecars(peer, req)).valueOr:
-        peer.updateScore(PeerScoreNoValues)
-        man.queue.push(req)
-        debug "Failed to receive blobs on request", request = req
-        return
-      let blobSmap = getShortMap(req, blobs.asSeq())
-      debug "Received blobs on request", blobs_count = len(blobs),
-                      blobs_map = blobSmap, request = req
-
-      if len(blobs) > 0:
-        let slots = mapIt(blobs, it[].signed_block_header.message.slot)
-        let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
-        if not(checkResponse(req, uniqueSlots)):
+        if len(blobData) > 0:
+          let slots = mapIt(blobData, it[].signed_block_header.message.slot)
+          let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
+          if not(checkResponse(req, uniqueSlots)):
+            peer.updateScore(PeerScoreBadResponse)
+            man.queue.push(req)
+            warn "Received blobs sequence is not in requested range",
+              blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
+                            request = req
+            return
+        let groupedBlobs = groupBlobs(req, blockData, blobData)
+        if groupedBlobs.isErr():
+          peer.updateScore(PeerScoreNoValues)
+          man.queue.push(req)
+          info "Received blobs sequence is inconsistent",
+            blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
+          return
+        if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
           peer.updateScore(PeerScoreBadResponse)
           man.queue.push(req)
-          warn "Received blobs sequence is not in requested range",
-            blobs_count = len(blobs), blobs_map = blobSmap,
-                          request = req
+          warn "Received blobs sequence is invalid",
+            blobs_count = len(blobData),
+            blobs_map = getShortMap(req, blobData),
+            request = req,
+            msg = checkRes.error
           return
-      let groupedBlobs = groupBlobs(req, blocks.asSeq(), blobs.asSeq())
-      if groupedBlobs.isErr():
-        peer.updateScore(PeerScoreNoValues)
-        man.queue.push(req)
-        info "Received blobs sequence is inconsistent",
-          blobs_map = blobSmap, request = req, msg=groupedBlobs.error()
-        return
-      if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
-        peer.updateScore(PeerScoreBadResponse)
-        man.queue.push(req)
-        warn "Received blobs sequence is invalid",
-          blobs_map = blobSmap, request = req, msg=groupedBlobs.error()
-        return
-      Opt.some(groupedBlobs.get())
-    else:
-      Opt.none(seq[BlobSidecars])
+        Opt.some(groupedBlobs.get())
+      else:
+        Opt.none(seq[BlobSidecars])
 
-  if len(blocks) == 0 and man.direction == SyncQueueKind.Backward and
-      req.contains(man.getSafeSlot()):
-    # The sync protocol does not distinguish between:
-    # - All requested slots are empty
-    # - Peer does not have data available about requested range
-    #
-    # However, we include the `backfill` slot in backward sync requests.
-    # If we receive an empty response to a request covering that slot,
-    # we know that the response is incomplete and can descore.
-    peer.updateScore(PeerScoreNoValues)
+    if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
+        req.contains(man.getSafeSlot()):
+      # The sync protocol does not distinguish between:
+      # - All requested slots are empty
+      # - Peer does not have data available about requested range
+      #
+      # However, we include the `backfill` slot in backward sync requests.
+      # If we receive an empty response to a request covering that slot,
+      # we know that the response is incomplete and can descore.
+      peer.updateScore(PeerScoreNoValues)
+      man.queue.push(req)
+      debug "Response does not include known-to-exist block", request = req
+      return
+
+    # Scoring will happen in `syncUpdate`.
+    man.workers[index].status = SyncWorkerStatus.Queueing
+    let
+      peerFinalized = peer.getFinalizedEpoch().start_slot()
+      lastSlot = req.slot + req.count
+      # The peer claims the block is finalized - our own block processing will
+      # verify this point down the line
+      # TODO descore peers that lie
+      maybeFinalized = lastSlot < peerFinalized
+
+    await man.queue.push(req, blockData, blobData, maybeFinalized, proc() =
+      man.workers[index].status = SyncWorkerStatus.Processing)
+
+  except CatchableError as exc:
     man.queue.push(req)
-    debug "Response does not include known-to-exist block", request = req
+    debug "Unexpected exception while receiving blocks", request = req,
+          errName = exc.name, errMsg = exc.msg
     return
 
-  # Scoring will happen in `syncUpdate`.
-  man.workers[index].status = SyncWorkerStatus.Queueing
-  let
-    peerFinalized = peer.getFinalizedEpoch().start_slot()
-    lastSlot = req.slot + req.count
-    # The peer claims the block is finalized - our own block processing will
-    # verify this point down the line
-    # TODO descore peers that lie
-    maybeFinalized = lastSlot < peerFinalized
-
-  await man.queue.push(req, blocks.asSeq(), blobData, maybeFinalized, proc() =
-    man.workers[index].status = SyncWorkerStatus.Processing)
-
-proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async: (raises: [CancelledError]).} =
+proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async.} =
   mixin getKey, getScore, getHeadSlot
 
   logScope:
@@ -489,21 +533,30 @@ proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async: (raises: [Can
 
   debug "Starting syncing worker"
 
-  var peer: A = nil
-
-  try:
-    while true:
-      man.workers[index].status = SyncWorkerStatus.Sleeping
-      # This event is going to be set until we are not in sync with network
-      await man.notInSyncEvent.wait()
-      man.workers[index].status = SyncWorkerStatus.WaitingPeer
-      peer = await man.pool.acquire()
-      await man.syncStep(index, peer)
-      man.pool.release(peer)
-      peer = nil
-  finally:
-    if not(isNil(peer)):
-      man.pool.release(peer)
+  while true:
+    var peer: A = nil
+    let doBreak =
+      try:
+        man.workers[index].status = SyncWorkerStatus.Sleeping
+        # This event is going to be set until we are not in sync with network
+        await man.notInSyncEvent.wait()
+        man.workers[index].status = SyncWorkerStatus.WaitingPeer
+        peer = await man.pool.acquire()
+        await man.syncStep(index, peer)
+        man.pool.release(peer)
+        false
+      except CancelledError:
+        if not(isNil(peer)):
+          man.pool.release(peer)
+        true
+      except CatchableError as exc:
+        debug "Unexpected exception in sync worker",
+              peer = peer, peer_score = peer.getScore(),
+              peer_speed = peer.netKbps(),
+              errName = exc.name, errMsg = exc.msg
+        true
+    if doBreak:
+      break
 
   debug "Sync worker stopped"
 
@@ -540,10 +593,34 @@ proc getWorkersStats[A, B](man: SyncManager[A, B]): tuple[map: string,
     map[i] = ch
   (map, sleeping, waiting, pending)
 
-proc startWorkers[A, B](man: SyncManager[A, B]) =
+proc guardTask[A, B](man: SyncManager[A, B]) {.async.} =
+  logScope:
+    index = index
+    sync_ident = man.ident
+    direction = man.direction
+    topics = "syncman"
+
+  var pending: array[SyncWorkersCount, Future[void]]
+
   # Starting all the synchronization workers.
   for i in 0 ..< len(man.workers):
-    man.workers[i].future = syncWorker[A, B](man, i)
+    let future = syncWorker[A, B](man, i)
+    man.workers[i].future = future
+    pending[i] = future
+
+  # Wait for synchronization worker's failure and replace it with new one.
+  while true:
+    let failFuture = await one(pending)
+    let index = pending.find(failFuture)
+    if failFuture.failed():
+      warn "Synchronization worker stopped working unexpectedly with an error",
+            errName = failFuture.error.name, errMsg = failFuture.error.msg
+    else:
+      warn "Synchronization worker stopped working unexpectedly without error"
+
+    let future = syncWorker[A, B](man, index)
+    man.workers[index].future = future
+    pending[index] = future
 
 proc toTimeLeftString*(d: Duration): string =
   if d == InfiniteDuration:
@@ -571,9 +648,11 @@ proc toTimeLeftString*(d: Duration): string =
       res = res & "00m"
     res
 
-proc syncClose[A, B](man: SyncManager[A, B],
+proc syncClose[A, B](man: SyncManager[A, B], guardTaskFut: Future[void],
                      speedTaskFut: Future[void]) {.async.} =
   var pending: seq[FutureBase]
+  if not(guardTaskFut.finished()):
+    pending.add(guardTaskFut.cancelAndWait())
   if not(speedTaskFut.finished()):
     pending.add(speedTaskFut.cancelAndWait())
   for worker in man.workers:
@@ -590,11 +669,11 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
   mixin getKey, getScore
   var pauseTime = 0
 
-  man.startWorkers()
+  var guardTaskFut = man.guardTask()
 
   debug "Synchronization loop started"
 
-  proc averageSpeedTask() {.async: (raises: [CancelledError]).} =
+  proc averageSpeedTask() {.async.} =
     while true:
       # Reset sync speeds between each loss-of-sync event
       man.avgSyncSpeed = 0
@@ -624,7 +703,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
         stamp = newStamp
 
-  let averageSpeedTaskFut = averageSpeedTask()
+  var averageSpeedTaskFut = averageSpeedTask()
 
   while true:
     let wallSlot = man.getLocalWallSlot()
@@ -709,7 +788,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         of SyncQueueKind.Forward:
           if man.inProgress:
             if SyncManagerFlag.NoMonitor in man.flags:
-              await man.syncClose(averageSpeedTaskFut)
+              await man.syncClose(guardTaskFut, averageSpeedTaskFut)
               man.inProgress = false
               debug "Forward synchronization process finished, exiting",
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
@@ -730,8 +809,10 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         of SyncQueueKind.Backward:
           # Backward syncing is going to be executed only once, so we exit loop
           # and stop all pending tasks which belongs to this instance (sync
-          # workers, speed calculation task).
-          await man.syncClose(averageSpeedTaskFut)
+          # workers, guard task and speed calculation task).
+          # We first need to cancel and wait for guard task, because otherwise
+          # it will be able to restore cancelled workers.
+          await man.syncClose(guardTaskFut, averageSpeedTaskFut)
           man.inProgress = false
           debug "Backward synchronization process finished, exiting",
                 wall_head_slot = wallSlot, local_head_slot = headSlot,
