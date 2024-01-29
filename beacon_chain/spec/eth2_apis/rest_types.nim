@@ -356,6 +356,8 @@ type
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
 
+  ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
+
   VCRuntimeConfig* = Table[string, string]
 
   RestDepositContract* = object
