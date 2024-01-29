@@ -61,7 +61,7 @@ type
     blobs*: Opt[BlobSidecars]
     maybeFinalized*: bool
       ## The block source claims the block has been finalized already
-    resfut*: Future[Result[void, VerifierError]]
+    resfut*: Future[Result[void, VerifierError]].Raising([CancelledError])
     queueTick*: Moment # Moment when block was enqueued
     validationDur*: Duration # Time it took to perform gossip validation
     src*: MsgSource
@@ -385,7 +385,7 @@ proc checkBloblessSignature(self: BlockProcessor,
 proc enqueueBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars],
-    resfut: Future[Result[void, VerifierError]] = nil,
+    resfut: Future[Result[void, VerifierError]].Raising([CancelledError]) = nil,
     maybeFinalized = false,
     validationDur = Duration()) =
   withBlck(blck):
@@ -756,7 +756,7 @@ proc storeBlock(
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars], maybeFinalized = false,
-    validationDur = Duration()): Future[Result[void, VerifierError]] =
+    validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
   #   There is no backpressure here - producers must wait for `resfut` to
