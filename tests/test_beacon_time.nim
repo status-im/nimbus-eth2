@@ -21,7 +21,7 @@ suite "Beacon time":
       s0.start_beacon_time() == BeaconTime()
       s0.sync_committee_period() == SyncCommitteePeriod(0)
 
-      # Roundtrip far times we treat these as "Infinitiy"
+      # Roundtrip far times we treat these as "Infinity"
       FAR_FUTURE_SLOT.epoch.start_slot() == FAR_FUTURE_SLOT
       FAR_FUTURE_SLOT.sync_committee_period.start_slot() == FAR_FUTURE_SLOT
       FAR_FUTURE_EPOCH.start_slot().epoch() == FAR_FUTURE_EPOCH
