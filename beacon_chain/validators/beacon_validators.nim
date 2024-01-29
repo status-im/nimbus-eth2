@@ -1738,7 +1738,7 @@ proc registerValidatorsPerBuilder(
     # Some relay networks disallow large request bodies, so split requests
     template addValidatorRegistration(
         validatorRegistration: SignedValidatorRegistrationV1) =
-      const registrationValidatorChunkSize = 1000
+      const registrationValidatorChunkSize = 500
 
       if validatorRegistrations[^1].len < registrationValidatorChunkSize:
         validatorRegistrations[^1].add validatorRegistration
