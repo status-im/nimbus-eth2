@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-# Copyright (c) 2023 Status Research & Development GmbH.
+# Copyright (c) 2023-2024 Status Research & Development GmbH.
 # Licensed under either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -34,7 +34,7 @@ KEYSTORES_DIR="${DATA_DIR}/validators_shares/$((SIGNER_NODE_IDX + 1))"
 # Here you need to launch your signer server process.
 # You must make sure that it will listen on the `$((BASE_REMOTE_SIGNER_PORT + SIGNER_NODE_IDX))` port.
 # The new process must be launched in the background.
-# Preferrably, you will also create a log file in the `${DATA_DIR}/logs` directory.
+# Preferably, you will also create a log file in the `${DATA_DIR}/logs` directory.
 
 # Here is an example way to achieve the above with the web3signer binary:
 #
