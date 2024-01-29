@@ -28,6 +28,7 @@ For each validator, it selects from the first available, in the following order:
 For example, `nimbus_beacon_node --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842` suggests to the execution client that `0x70E47C843E0F6ab0991A3189c28F2957eb6d3842` might be the coinbase.
 If this Nimbus node has two validators, one of which has its own suggested fee recipient via the keymanager API and the other does not, the former would use its own per-validator suggested fee recipient, while the latter would fall back to `0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`.
 
+Fee recipients are recorded publicly on-chain as part of proposed blocks, so suggested fee recipients should be allow for this.
 
 ## Command line
 
