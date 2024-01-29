@@ -15,13 +15,13 @@ export chronos, client, rest_types, eth2_rest_serialization
 proc getHeaderDeneb*(slot: Slot,
                      parent_hash: Eth2Digest,
                      pubkey: ValidatorPubKey
-                    ): RestResponse[GetHeaderResponseDeneb] {.
+                    ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
      meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/header.yaml
 
 proc submitBlindedBlock*(body: deneb_mev.SignedBlindedBeaconBlock
-                        ): RestResponse[SubmitBlindedBlockResponseDeneb] {.
+                        ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/blinded_blocks",
      meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml

@@ -374,6 +374,14 @@ proc checkOffsetStatus(node: BeaconNodeServerRef, offset: TimeOffset) =
           "Beacon node has acceptable time offset")
       node.updateStatus(RestBeaconNodeStatus.Offline, failure)
 
+proc disableNimbusExtensions(node: BeaconNodeServerRef) =
+  node.features.incl(RestBeaconNodeFeature.NoNimbusExtensions)
+  if node.status == RestBeaconNodeStatus.BrokenClock:
+    let failure = ApiNodeFailure.init(ApiFailure.NoError,
+        "disableNimbusExtensions()", node, 200,
+        "Nimbus extensions no longer available")
+    node.updateStatus(RestBeaconNodeStatus.Offline, failure)
+
 proc runTimeMonitor(service: FallbackServiceRef,
                     node: BeaconNodeServerRef) {.async.} =
   const NimbusExtensionsLog = "Beacon node does not support Nimbus extensions"
@@ -398,10 +406,8 @@ proc runTimeMonitor(service: FallbackServiceRef,
 
     let tres =
       try:
-        let
-          delay = vc.processingDelay.valueOr: ZeroDuration
-          res = await node.client.getTimeOffset(delay)
-        Opt.some(res)
+        let delay = vc.processingDelay.valueOr: ZeroDuration
+        await node.client.getTimeOffset(delay)
       except RestResponseError as exc:
         case exc.status
         of 400:
@@ -412,12 +418,12 @@ proc runTimeMonitor(service: FallbackServiceRef,
           notice NimbusExtensionsLog, status = $exc.status,
                  reason = $exc.msg, error_message = $exc.message
           # Exiting loop
-        node.features.incl(RestBeaconNodeFeature.NoNimbusExtensions)
+        node.disableNimbusExtensions()
         return
       except RestError as exc:
         debug "Unable to obtain beacon node's time offset", reason = $exc.msg
         notice NimbusExtensionsLog
-        node.features.incl(RestBeaconNodeFeature.NoNimbusExtensions)
+        node.disableNimbusExtensions()
         return
       except CancelledError as exc:
         raise exc
@@ -425,13 +431,10 @@ proc runTimeMonitor(service: FallbackServiceRef,
         warn "An unexpected error occurred while asking for time offset",
              reason = $exc.msg, error = $exc.name
         notice NimbusExtensionsLog
-        node.features.incl(RestBeaconNodeFeature.NoNimbusExtensions)
+        node.disableNimbusExtensions()
         return
 
-    if tres.isSome():
-      checkOffsetStatus(node, TimeOffset.init(tres.get()))
-    else:
-      debug "Beacon node's time offset was not updated"
+    checkOffsetStatus(node, TimeOffset.init(tres))
 
     await service.waitForNextSlot()
 
