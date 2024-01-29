@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-# Copyright (c) 2023 Status Research & Development GmbH.
+# Copyright (c) 2023-2024 Status Research & Development GmbH.
 # Licensed under either of:
 # - Apache License, version 2.0
 # - MIT license
