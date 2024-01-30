@@ -185,8 +185,15 @@ proc spawnProposalTask(vc: ValidatorClientRef,
     duty: duty
   )
 
-proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
-                  validator: AttachedValidator) {.async.} =
+proc isProduceBlockV3Supported(vc: ValidatorClientRef): bool =
+  for node in vc.beaconNodes:
+    if RestBeaconNodeFeature.NoProduceBlockV3 notin node.features:
+      return true
+  false
+
+proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
+                    fork: Fork, randaoReveal: ValidatorSig,
+                    validator: AttachedValidator): Future[bool] {.async.} =
   let
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     graffiti =
@@ -194,7 +201,6 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
         vc.config.graffiti.get()
       else:
         defaultGraffitiBytes()
-    fork = vc.forkAtEpoch(slot.epoch)
     vindex = validator.index.get()
 
   logScope:
@@ -203,25 +209,181 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     slot = slot
     wall_slot = currentSlot
 
-  debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
-                            genesis_root = genesisRoot,
-                            graffiti = graffiti, fork = fork
-
   let
-    randaoReveal =
+    maybeBlock =
       try:
-        (await validator.getEpochSignature(fork, genesisRoot,
-                                           slot.epoch())).valueOr:
-          warn "Unable to generate RANDAO reveal using remote signer",
-               reason = error
-          return
+        await vc.produceBlockV3(slot, randao_reveal, graffiti,
+                                ApiStrategyKind.Best)
+      except ValidatorApiError as exc:
+        warn "Unable to retrieve block data", reason = exc.getFailureReason()
+        return false
       except CancelledError as exc:
-        debug "RANDAO reveal production has been interrupted"
+        debug "Block data production has been interrupted"
         raise exc
       except CatchableError as exc:
-        error "An unexpected error occurred while receiving RANDAO data",
+        error "An unexpected error occurred while getting block data",
               error_name = exc.name, error_msg = exc.msg
-        return
+        return false
+
+  withForkyMaybeBlindedBlck(maybeBlock):
+    when isBlinded:
+      let
+        blockRoot = hash_tree_root(forkyMaybeBlindedBlck)
+        signingRoot =
+          compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
+        notSlashable = vc.attachedValidators[]
+          .slashingProtection
+          .registerBlock(vindex, validator.pubkey, slot, signingRoot)
+
+      logScope:
+        blck = shortLog(forkyMaybeBlindedBlck)
+        block_root = shortLog(blockRoot)
+        signing_root = shortLog(signingRoot)
+
+      if notSlashable.isErr():
+        warn "Slashing protection activated for blinded block proposal"
+        return false
+
+      let signature =
+        try:
+          let res = await validator.getBlockSignature(fork, genesisRoot,
+                                                      slot, blockRoot,
+                                                      maybeBlock)
+          if res.isErr():
+            warn "Unable to sign blinded block proposal using remote signer",
+                 reason = res.error()
+            return false
+          res.get()
+        except CancelledError as exc:
+          debug "Blinded block signature process has been interrupted"
+          raise exc
+        except CatchableError as exc:
+          error "An unexpected error occurred while signing blinded block",
+                error_name = exc.name, error_msg = exc.msg
+          return false
+
+      let
+        signedBlock =
+          ForkedSignedBlindedBeaconBlock.init(forkyMaybeBlindedBlck,
+                                              blockRoot, signature)
+        res =
+          try:
+            debug "Sending blinded block"
+            await vc.publishBlindedBlock(signedBlock, ApiStrategyKind.First)
+          except ValidatorApiError as exc:
+            warn "Unable to publish blinded block",
+                 reason = exc.getFailureReason()
+            return false
+          except CancelledError as exc:
+            debug "Blinded block publication has been interrupted"
+            raise exc
+          except CatchableError as exc:
+            error "An unexpected error occurred while publishing blinded " &
+                  "block",
+                  error_name = exc.name, error_msg = exc.msg
+            return false
+
+      if res:
+        let delay = vc.getDelay(slot.block_deadline())
+        beacon_blocks_sent.inc()
+        beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
+        notice "Blinded block published", delay = delay
+        true
+      else:
+        warn "Blinded block was not accepted by beacon node"
+        false
+    else:
+      let
+        blockRoot = hash_tree_root(
+          when consensusFork < ConsensusFork.Deneb:
+            forkyMaybeBlindedBlck
+          else:
+            forkyMaybeBlindedBlck.`block`
+        )
+        signingRoot =
+          compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
+        notSlashable = vc.attachedValidators[]
+          .slashingProtection
+          .registerBlock(vindex, validator.pubkey, slot, signingRoot)
+
+      logScope:
+        blck = shortLog(
+          when consensusFork < ConsensusFork.Deneb:
+            forkyMaybeBlindedBlck
+          else:
+            forkyMaybeBlindedBlck.`block`
+        )
+        block_root = shortLog(blockRoot)
+        signing_root = shortLog(signingRoot)
+
+      if notSlashable.isErr():
+        warn "Slashing protection activated for block proposal"
+        return false
+
+      let
+        signature =
+          try:
+            let res = await validator.getBlockSignature(
+              fork, genesisRoot, slot, blockRoot, maybeBlock)
+            if res.isErr():
+              warn "Unable to sign block proposal using remote signer",
+                   reason = res.error()
+              return false
+            res.get()
+          except CancelledError as exc:
+            debug "Block signature process has been interrupted"
+            raise exc
+          except CatchableError as exc:
+            error "An unexpected error occurred while signing block",
+                  error_name = exc.name, error_msg = exc.msg
+            return false
+
+        signedBlockContents =
+          RestPublishedSignedBlockContents.init(
+            forkyMaybeBlindedBlck, blockRoot, signature)
+
+        res =
+          try:
+            debug "Sending block"
+            await vc.publishBlock(signedBlockContents, ApiStrategyKind.First)
+          except ValidatorApiError as exc:
+            warn "Unable to publish block", reason = exc.getFailureReason()
+            return false
+          except CancelledError as exc:
+            debug "Block publication has been interrupted"
+            raise exc
+          except CatchableError as exc:
+            error "An unexpected error occurred while publishing block",
+                  error_name = exc.name, error_msg = exc.msg
+            return false
+
+      if res:
+        let delay = vc.getDelay(slot.block_deadline())
+        beacon_blocks_sent.inc()
+        beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
+        notice "Block published", delay = delay
+        true
+      else:
+        warn "Block was not accepted by beacon node"
+        false
+
+proc publishBlockV2(vc: ValidatorClientRef, currentSlot, slot: Slot,
+                    fork: Fork, randaoReveal: ValidatorSig,
+                    validator: AttachedValidator) {.async.} =
+  let
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    graffiti =
+      if vc.config.graffiti.isSome():
+        vc.config.graffiti.get()
+      else:
+        defaultGraffitiBytes()
+    vindex = validator.index.get()
+
+  logScope:
+    validator = shortLog(validator)
+    validator_index = vindex
+    slot = slot
+    wall_slot = currentSlot
 
   var beaconBlocks =
     block:
@@ -427,6 +589,55 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
         warn "Block was not accepted by beacon node"
     else:
       warn "Slashing protection activated for block proposal"
+
+proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
+                  validator: AttachedValidator) {.async.} =
+  let
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    graffiti =
+      if vc.config.graffiti.isSome():
+        vc.config.graffiti.get()
+      else:
+        defaultGraffitiBytes()
+    fork = vc.forkAtEpoch(slot.epoch)
+    vindex = validator.index.get()
+
+  logScope:
+    validator = shortLog(validator)
+    validator_index = vindex
+    slot = slot
+    wall_slot = currentSlot
+
+  debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
+                            genesis_root = genesisRoot,
+                            graffiti = graffiti, fork = fork
+  let
+    randaoReveal =
+      try:
+        (await validator.getEpochSignature(fork, genesisRoot,
+                                           slot.epoch())).valueOr:
+          warn "Unable to generate RANDAO reveal using remote signer",
+               reason = error
+          return
+      except CancelledError as exc:
+        debug "RANDAO reveal production has been interrupted"
+        raise exc
+      except CatchableError as exc:
+        error "An unexpected error occurred while receiving RANDAO data",
+              error_name = exc.name, error_msg = exc.msg
+        return
+
+
+  if vc.isProduceBlockV3Supported():
+    # We call `V3` first, if call is failed and `isProduceBlockV3Supported()`
+    # did not find any nodes which support `V3` we try to call `V2`.
+    let res =
+      await vc.publishBlockV3(currentSlot, slot, fork, randaoReveal, validator)
+    if not(res) and not(vc.isProduceBlockV3Supported()):
+      notice "Block production using V3 failed, trying V2"
+      await vc.publishBlockV2(currentSlot, slot, fork, randaoReveal, validator)
+  else:
+    await vc.publishBlockV2(currentSlot, slot, fork, randaoReveal, validator)
 
 proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
                   proposerKey: ValidatorPubKey) {.async.} =

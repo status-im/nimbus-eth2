@@ -183,7 +183,3 @@ proc getUniqueVotes*(attestations: openArray[Attestation]): int =
           processVotes(attestation)
     res += count
   res
-
-proc getBlockScore*(vc: ValidatorClientRef,
-                    data: ProduceBlockResponseV3): float64 =
-  0.0
