@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,7 +15,7 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/ethtypes, httputils,
+  stew/base10, web3/primitives, httputils,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb],
   ".."/mev/[capella_mev, deneb_mev]
@@ -52,9 +52,12 @@ static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
 
 type
+  # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg,
-    ContributionAndProof, LightClientFinalityUpdate, LightClientOptimisticUpdate
+    Head, Block, Attestation, VoluntaryExit, BLSToExecutionChange,
+    ProposerSlashing, AttesterSlashing, BlobSidecar, FinalizedCheckpoint,
+    ChainReorg, ContributionAndProof, LightClientFinalityUpdate,
+    LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]
 
@@ -120,6 +123,10 @@ type
     Inbound, Outbound
 
   RestNumeric* = distinct int
+
+  RestValidatorRequest* = object
+    ids*: Opt[seq[ValidatorIdent]]
+    status*: Opt[ValidatorFilter]
 
   RestAttesterDuty* = object
     pubkey*: ValidatorPubKey
@@ -341,18 +348,13 @@ type
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
 
-  DenebBlockContents* = object
-    `block`*: deneb.BeaconBlock
-    kzg_proofs*: deneb.KzgProofs
-    blobs*: deneb.Blobs
-
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
     of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     DenebBlockContents
+    of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
 
   VCRuntimeConfig* = Table[string, string]
 
@@ -940,7 +942,7 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
-                   
+
 template withBlck*(x: ProduceBlockResponseV2,
                    body: untyped): untyped =
   case x.kind

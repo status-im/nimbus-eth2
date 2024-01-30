@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,11 +7,11 @@
 {.push raises: [].}
 
 import
-  chronos, presto/client, chronicles,
+  presto/client, chronicles,
   ".."/[helpers, forks, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
 
-export chronos, client, rest_types, eth2_rest_serialization
+export client, rest_types, eth2_rest_serialization
 
 proc getNextWithdrawals*(state_id: StateIdent
              ): RestResponse[GetNextWithdrawalsResponse] {.

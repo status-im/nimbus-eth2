@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,6 +10,7 @@
 
 import std/strutils
 import httputils
+import chronos/apps/http/httpserver
 import chronos/unittest2/asynctests
 import ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
        ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
@@ -316,6 +317,11 @@ type
   SyncCommitteeBitsObject = object
     data: SyncCommitteeAggregationBits
 
+RestJson.useDefaultSerializationFor(
+  AttestationBitsObject,
+  SyncCommitteeBitsObject
+)
+
 const
   AttestationDataVectors = [
     # Attestation score with block monitoring enabled (perfect).
@@ -570,7 +576,7 @@ suite "Validator Client test suite":
         else:
           return await request.respond(Http404, "Page not found")
       else:
-        return dumbResponse()
+        return defaultResponse()
 
     let  server = createServer(initTAddress("127.0.0.1:0"), process, false)
     server.start()
@@ -654,7 +660,7 @@ suite "Validator Client test suite":
         else:
           return await request.respond(Http404, "Page not found")
       else:
-        return dumbResponse()
+        return defaultResponse()
 
     let  server = createServer(initTAddress("127.0.0.1:0"), process, false)
     server.start()
@@ -759,8 +765,6 @@ suite "Validator Client test suite":
         score == vector[5]
 
   test "getUniqueVotes() test vectors":
-    var data = CommitteeValidatorsBits.init(16)
-
     for vector in AttestationBitsVectors:
       let
         a1 = Attestation.init(vector[0][0][0], vector[0][0][1], vector[0][0][2])

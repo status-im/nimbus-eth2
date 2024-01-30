@@ -1,7 +1,7 @@
 ## Fake execution engine API implementation useful for testing beacon node without a running execution node
 
 # Nimbus
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -13,7 +13,7 @@ import
   std/typetraits,
   stew/byteutils,
   json_rpc/[rpcserver, errors],
-  web3/[conversions, engine_api_types],
+  web3/[conversions, engine_api_types, eth_api_types],
   chronicles
 
 proc setupEngineAPI*(server: RpcServer) =
@@ -77,13 +77,13 @@ proc setupEngineAPI*(server: RpcServer) =
       status: PayloadExecutionStatus.syncing))
 
   server.rpc("eth_getBlockByNumber") do(
-      quantityTag: string, fullTransactions: bool) -> JsonNode:
+      quantityTag: string, fullTransactions: bool) -> JsonString:
     info "eth_getBlockByNumber", quantityTag, fullTransactions
 
     return if quantityTag == "latest":
-      %BlockObject(number: 1000.Quantity)
+      JrpcConv.encode(BlockObject(number: 1000.Quantity)).JsonString
     else:
-      newJObject()
+      "{}".JsonString
 
   server.rpc("eth_getBlockByHash") do(
       data: string, fullTransactions: bool) -> BlockObject:

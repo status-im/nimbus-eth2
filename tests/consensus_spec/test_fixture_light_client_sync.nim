@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -125,7 +125,7 @@ proc runTest(suiteName, path: string) =
   test "Light client - Sync - " & path.relativePath(SszTestsDir):
     # Reduce stack size by making this a `proc`
     proc loadTestMeta(): (RuntimeConfig, TestMeta) =
-      let (cfg, unknowns) = readRuntimeConfig(path/"config.yaml")
+      let (cfg, _) = readRuntimeConfig(path/"config.yaml")
 
       when false:
         # TODO evaluate whether this is useful and if so, fix it
@@ -265,5 +265,4 @@ suite "EF - Light client - Sync" & preset():
     if kind != pcDir or not dirExists(basePath):
       continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
-      let combinedPath = basePath/path
       runTest(suiteName, basePath/path)

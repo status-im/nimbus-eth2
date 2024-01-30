@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,7 @@ import
   # Status libraries
   stew/bitops2,
   eth/common/eth_types as commonEthTypes, eth/common/eth_types_rlp,
-  web3/ethtypes,
+  web3/primitives,
   # Beacon chain internals
   ../beacon_chain/spec/[forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/[bellatrix, capella],
@@ -46,7 +46,7 @@ suite "Spec helpers":
 
     proc process(anchor: object, index: GeneralizedIndex) =
       var i = index
-      anchor.enumInstanceSerializedFields(fieldNameVar, fieldVar):
+      anchor.enumInstanceSerializedFields(_, fieldVar):
         let depth = log2trunc(i)
         var proof = newSeq[Eth2Digest](depth)
         state.build_proof(i, proof).get

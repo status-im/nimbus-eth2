@@ -1,19 +1,21 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[options, strutils, uri],
-  stew/results, chronicles, confutils,
+  std/[options, uri],
+  results, chronicles, confutils,
   confutils/toml/defs as confTomlDefs,
   confutils/toml/std/net as confTomlNet,
   confutils/toml/std/uri as confTomlUri,
   json_serialization, # for logging
   toml_serialization, toml_serialization/lexer,
   ../spec/engine_authentication
+
+from std/strutils import toLowerAscii, split, startsWith
 
 export
   toml_serialization, confTomlDefs, confTomlNet, confTomlUri
@@ -41,11 +43,7 @@ const
   defaultEngineApiRoles* = { DepositSyncing, BlockValidation, BlockProduction }
 
   # https://github.com/ethereum/execution-apis/pull/302
-  defaultJwtSecret* = "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
-
-  defaultEngineApiUrl* = EngineApiUrlConfigValue(
-    url: "http://127.0.0.1:8551",
-    jwtSecret: some defaultJwtSecret)
+  defaultJwtSecret = "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
 
 chronicles.formatIt EngineApiUrl:
   it.url
@@ -155,6 +153,19 @@ proc fixupWeb3Urls*(web3Url: var string) =
           normalizedUrl.startsWith("ws://")):
     warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
     web3Url = "ws://" & web3Url
+
+func getDefaultEngineApiUrl*(x: Option[InputFile]): EngineApiUrlConfigValue =
+  EngineApiUrlConfigValue(
+    url: "http://127.0.0.1:8551",
+    jwtSecret:
+      if x.isSome:
+        # Provided by toFinalUrl() and toFinalEngineApiUrls(); otherwise, if
+        # defaultJwtSecret is specified here, no-EL-URL-specified cases when
+        # JWT secret is specified get stuck with defaultJwtSecret regardless
+        # of being otherwise overridden.
+        none string
+      else:
+        some defaultJwtSecret)
 
 proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
                  confJwtSecret: Opt[seq[byte]]): Result[EngineApiUrl, cstring] =

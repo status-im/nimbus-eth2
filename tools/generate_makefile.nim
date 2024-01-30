@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021 Status Research & Development GmbH
+# Copyright (c) 2020-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 # "--compileOnly". Suitable for Make-controlled parallelisation, down to the GCC
 # LTO level.
 
-import json, os, strutils
+import std/[json, os, strutils]
 
 # Ripped off from Nim's `linkViaResponseFile()` in "compiler/extccomp.nim".
 # It lets us get around a command line length limit on Windows.
@@ -91,4 +91,3 @@ proc main() =
       makefile.writeLine("\t+ $#" % cmd.getStr().replace('\\', '/'))
 
 main()
-

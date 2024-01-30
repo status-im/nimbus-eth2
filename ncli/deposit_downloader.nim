@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 import
   std/[json, strutils, times, sequtils],
   chronos, confutils, chronicles,
-  web3, web3/ethtypes as web3Types,
+  web3, web3/primitives,
   eth/async_utils,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/networking/network_metadata,

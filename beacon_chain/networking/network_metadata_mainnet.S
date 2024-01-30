@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -36,7 +36,7 @@ cdecl(eth2_mainnet_genesis_size):
     .quad    eth2_mainnet_genesis_end - eth2_mainnet_genesis_data
 
 eth2_goerli_genesis_data:
-    .incbin "eth2-networks/shared/prater/genesis.ssz"
+    .incbin "goerli/prater/genesis.ssz"
 eth2_goerli_genesis_end:
     .global cdecl(eth2_goerli_genesis_size)
     .p2align 3

@@ -6,10 +6,10 @@ This is a WIP document to explain the beacon block flows.
 
 Important distinction:
 - We distinguish block `validation` which is defined in the P2P specs:
-  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_block.
+  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_block.
   A validated block can be forwarded on gossipsub.
 - and we distinguish `verification` which is defined in consensus specs:
-  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#block-processing
+  https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#block-processing
   A block needs to be verified to enter fork choice, the DAG and the BeaconChainDB
 
 In particular in terms of costly checks validating a block only requires checking:
@@ -78,7 +78,7 @@ Blocks are considered trusted if they come from:
 
 A block with a valid cryptographic signature is considered SigVerified.
 This is a weaker guarantee than Trusted as the block might still be invalid according to the state transition function.
-Such a block are produced if incoming gossip blocks' signatures are batched together for batch verification **before** being passed to state transition.
+Such a block is produced if incoming gossip blocks' signatures are batched together for batch verification **before** being passed to state transition.
 
 #### TransitionVerifiedBeaconBlocks
 
@@ -115,7 +115,7 @@ Logs:
 
 ### Gossip flow out
 
-- After validation in `blockValidator()` in the Eth2Processor by `validateBeaconBlock()` according to spec https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_block
+- After validation in `blockValidator()` in the Eth2Processor by `validateBeaconBlock()` according to spec https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_block
 - Important: P2P validation is not full verification (state transition and internal cryptographic signatures were not checked)
 - We jump into libp2p/protocols/pubsub/pubsub.nim in the method `validate(PubSub, message)`
 - which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`
@@ -149,7 +149,7 @@ There is no backpressure handling at the RequestManager and Gossip level with re
 
 There is backpressure handling at the Quarantine level:
 - Blocks in the SharedBlockQueue that are missing parents
-  are put in quarantine, only 16 can be stored and new candidate are dropped as long as the older ones are unresolved.
+  are put in quarantine, only 16 can be stored and new candidates are dropped as long as the older ones are unresolved.
 
 ##### Latency & Throughput sensitiveness
 

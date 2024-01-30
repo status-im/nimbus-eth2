@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[strutils, os, options, unicode, uri],
+  std/[options, unicode, uri],
   metrics,
 
   chronicles, chronicles/options as chroniclesOptions,
@@ -16,11 +16,11 @@ import
   confutils/toml/defs as confTomlDefs,
   confutils/toml/std/net as confTomlNet,
   confutils/toml/std/uri as confTomlUri,
-  serialization/errors, stew/shims/net as stewNet,
+  serialization/errors,
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
-  json_serialization, web3/[ethtypes, confutils_defs],
+  json_serialization, web3/[primitives, confutils_defs],
   kzg4844/kzg_ex,
   ./spec/[engine_authentication, keystore, network, crypto],
   ./spec/datatypes/base,
@@ -29,6 +29,8 @@ import
   ./el/el_conf,
   ./filepath
 
+from std/os import getHomeDir, parentDir, `/`
+from std/strutils import parseBiggestUInt, replace
 from fork_choice/fork_choice_types
   import ForkChoiceVersion
 from consensus_object_pools/block_pools_types_light_client
@@ -56,7 +58,7 @@ const
 
   defaultListenAddressDesc* = $defaultListenAddress
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
-  defaultBeaconNodeDesc* = $defaultBeaconNode
+  defaultBeaconNodeDesc = $defaultBeaconNode
 
 when defined(windows):
   {.pragma: windowsOnly.}
@@ -437,7 +439,7 @@ type
         desc: "Textual template for the contents of the status bar"
         defaultValue: "peers: $connected_peers;" &
                       "finalized: $finalized_root:$finalized_epoch;" &
-                      "head: $head_root:$head_epoch:$head_epoch_slot;" &
+                      "head: $head_root:$head_epoch:$head_epoch_slot$next_consensus_fork;" &
                       "time: $epoch:$epoch_slot ($slot);" &
                       "sync: $sync_status|" &
                       "ETH: $attached_validators_balance"
@@ -966,7 +968,7 @@ type
 
     suggestedGasLimit* {.
       desc: "Suggested gas limit"
-      defaultValue: 30_000_000
+      defaultValue: defaultGasLimit
       name: "suggested-gas-limit" .}: uint64
 
     keymanagerEnabled* {.
@@ -1324,10 +1326,10 @@ func runAsService*(config: BeaconNodeConf): bool =
     false
 
 func web3SignerUrls*(conf: AnyConf): seq[Web3SignerUrl] =
-  for url in conf.web3signers:
+  for url in conf.web3Signers:
     result.add Web3SignerUrl(url: url)
 
-  for url in conf.verifyingWeb3signers:
+  for url in conf.verifyingWeb3Signers:
     result.add Web3SignerUrl(url: url,
                              provenBlockProperties: conf.provenBlockProperties)
 
@@ -1433,7 +1435,7 @@ func defaultFeeRecipient*(conf: AnyConf): Opt[Eth1Address] =
     # https://github.com/nim-lang/Nim/issues/19802
     (static(Opt.none Eth1Address))
 
-proc loadJwtSecret*(
+proc loadJwtSecret(
     rng: var HmacDrbgContext,
     dataDir: string,
     jwtSecret: Opt[InputFile],
@@ -1468,7 +1470,7 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
   let elUrls = if config.noEl:
     return newSeq[EngineApiUrl]()
   elif config.elUrls.len == 0 and config.web3Urls.len == 0:
-    @[defaultEngineApiUrl]
+    @[getDefaultEngineApiUrl(config.jwtSecret)]
   else:
     config.elUrls
 
@@ -1481,10 +1483,8 @@ proc loadKzgTrustedSetup*(): Result[void, string] =
     trustedSetup = staticRead(
       vendorDir & "/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt")
 
-  if const_preset == "mainnet" or const_preset == "minimal":
-    Kzg.loadTrustedSetupFromString(trustedSetup)
-  else:
-    ok()
+  static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
+  Kzg.loadTrustedSetupFromString(trustedSetup)
 
 proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
   try:

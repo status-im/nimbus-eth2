@@ -51,6 +51,6 @@ If this Nimbus node has two validators, one of which has its own suggested fee r
 The configured fee recipient for every validator is logged at startup:
 
 ```
-NOT 2022-11-10 08:27:02.530+01:00 Local validator attached ...
+NTC 2022-11-10 08:27:02.530+01:00 Local validator attached ...
     initial_fee_recipient=70E47C843E0F6ab0991A3189c28F2957eb6d3842
 ```

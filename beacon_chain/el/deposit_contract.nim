@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,19 +8,20 @@
 {.push raises: [].}
 
 import
-  os, sequtils, strutils, options, json, terminal,
+  std/[os, sequtils, strutils, options, json, terminal],
   chronos, chronicles, confutils, stint, json_serialization,
   ../filepath,
   ../networking/network_metadata,
   web3, web3/confutils_defs, eth/keys, eth/p2p/discoveryv5/random2,
-  stew/io2,
+  stew/[io2, byteutils],
   ../spec/eth2_merkleization,
   ../spec/datatypes/base,
   ../validators/keystore_management
 
 # Compiled version of /scripts/depositContract.v.py in this repo
 # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
-const contractCode = staticRead "deposit_contract_code.txt"
+const contractCode =
+  hexToSeqByte staticRead "deposit_contract_code.txt"
 
 type
   Eth1Address = web3.Address
@@ -120,24 +121,21 @@ contract(DepositContract):
                signature: SignatureBytes,
                deposit_data_root: FixedBytes[32])
 
-proc deployContract*(web3: Web3, code: string): Future[ReceiptObject] {.async.} =
-  var code = code
-  if code[1] notin {'x', 'X'}:
-    code = "0x" & code
+proc deployContract*(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
   let tr = EthSend(
-    source: web3.defaultAccount,
+    `from`: web3.defaultAccount,
     data: code,
     gas: Quantity(3000000).some,
-    gasPrice: 1.some)
+    gasPrice: Quantity(1).some)
 
   let r = await web3.send(tr)
   result = await web3.getMinedTransactionReceipt(r)
 
 proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
   let tr = EthSend(
-    source: web3.defaultAccount,
+    `from`: web3.defaultAccount,
     gas: Quantity(3000000).some,
-    gasPrice: 1.some,
+    gasPrice: Quantity(1).some,
     value: some(valueEth.u256 * 1000000000000000000.u256),
     to: some(to))
   web3.send(tr)

@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -153,8 +153,6 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
 
     stateIdHead = StateIdent(kind: StateQueryKind.Named,
                              value: StateIdentType.Head)
-    blockIdentHead = BlockIdent(kind: BlockQueryKind.Named,
-                                value: BlockIdentType.Head)
 
   # Before making any REST requests, we'll make sure that the supplied
   # inputs are correct:
@@ -192,8 +190,10 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
 
   let currentEpoch = block:
     let
-      genesisTime = genesis.genesis_time
-      beaconClock = BeaconClock.init(genesisTime)
+      beaconClock = BeaconClock.init(genesis.genesis_time).valueOr:
+        error "Server returned invalid genesis time", genesis
+        quit 1
+
       time = getTime()
       slot = beaconClock.toSlot(time).slot
     Epoch(slot.uint64 div 32)
@@ -228,7 +228,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
           block:
             let s = spec.getOrDefault("DENEB_FORK_EPOCH", $FAR_FUTURE_EPOCH)
             Epoch(Base10.decode(uint64, s).get(uint64(FAR_FUTURE_EPOCH)))
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#voluntary-exits
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#voluntary-exits
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
       if currentEpoch >= denebForkEpoch:
         let capellaForkVersion =

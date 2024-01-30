@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -25,7 +25,9 @@ const
   BlockNotFoundError* =
     "Block header/data has not been found"
   EmptyRequestBodyError* =
-    "Empty request's body"
+    "Empty request body"
+  InvalidRequestBodyError* =
+    "Invalid request body"
   InvalidBlockObjectError* =
     "Unable to decode block object(s)"
   InvalidAttestationObjectError* =
@@ -100,7 +102,9 @@ const
   InvalidBlockIdValueError* =
     "Invalid block identifier value"
   InvalidValidatorIdValueError* =
-    "Invalid validator's identifier value(s)"
+    "Invalid validator identifier value(s)"
+  NonUniqueValidatorIdError* =
+    "Non-unique validator identifier value(s)"
   MaximumNumberOfValidatorIdsError* =
     "Maximum number of validator identifier values exceeded"
   InvalidValidatorStatusValueError* =

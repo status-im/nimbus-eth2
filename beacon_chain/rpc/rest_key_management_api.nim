@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,7 @@
 
 import std/[tables, strutils, uri]
 import chronos, chronicles, confutils,
-       stew/[base10, results, io2], blscurve, presto
+       results, stew/[base10, io2], blscurve, presto
 import ".."/spec/[keystore, crypto]
 import ".."/spec/eth2_apis/rest_keymanager_types
 import ".."/validators/[slashing_protection, keystore_management,
@@ -64,7 +64,6 @@ proc keymanagerApiError(status: HttpCode, msg: string): RestApiResponse =
     block:
       var default: string
       try:
-        var defstrings: seq[string]
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
@@ -143,17 +142,17 @@ proc handleAddRemoteValidatorReq(host: KeymanagerHost,
 
 proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/ListKeys
-  router.api(MethodGet, "/eth/v1/keystores") do () -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/keystores") do () -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
     let response = GetKeystoresResponse(
       data: listLocalValidators(host.validatorPool[]))
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/ImportKeystores
-  router.api(MethodPost, "/eth/v1/keystores") do (
-      contentBody: Option[ContentBody]) -> RestApiResponse:
+  router.api2(MethodPost, "/eth/v1/keystores") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
@@ -168,14 +167,30 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
     if request.slashing_protection.isSome():
       let slashing_protection = request.slashing_protection.get()
-      let nodeSPDIR = toSPDIR(host.validatorPool[].slashingProtection)
+      let nodeSPDIR =
+        try:
+          toSPDIR(host.validatorPool[].slashingProtection)
+        except IOError as exc:
+          return keymanagerApiError(
+            Http500, "Internal server error; " & $exc.msg)
       if nodeSPDIR.metadata.genesis_validators_root.Eth2Digest !=
          slashing_protection.metadata.genesis_validators_root.Eth2Digest:
         return keymanagerApiError(Http400,
           "The slashing protection database and imported file refer to " &
           "different blockchains.")
-      let res = inclSPDIR(host.validatorPool[].slashingProtection,
-                          slashing_protection)
+      let res =
+        try:
+          inclSPDIR(host.validatorPool[].slashingProtection,
+                    slashing_protection)
+        except SerializationError as exc:
+          return keymanagerApiError(
+            Http500, "Internal server error; Failed to import slashing " &
+                     "protection data, reason: " &
+                     exc.formatMsg("slashing_protection"))
+        except IOError as exc:
+          return keymanagerApiError(
+            Http500, "Internal server error; Failed to import slashing " &
+                     "protection data, reason: " & $exc.msg)
       if res == siFailure:
         return keymanagerApiError(Http500,
           "Internal server error; Failed to import slashing protection data")
@@ -203,10 +218,10 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         response.data.add(
           RequestItemStatus(status: $KeystoreStatus.imported))
 
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/DeleteKeys
-  router.api(MethodDelete, "/eth/v1/keystores") do (
+  router.api2(MethodDelete, "/eth/v1/keystores") do (
       contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -222,7 +237,12 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
     var
       response: DeleteKeystoresResponse
-      nodeSPDIR = toSPDIR(host.validatorPool[].slashingProtection)
+      nodeSPDIR =
+        try:
+          toSPDIR(host.validatorPool[].slashingProtection)
+        except IOError as exc:
+          return keymanagerApiError(
+            Http500, "Internal server error; " & $exc.msg)
       # Hash table to keep the removal status of all keys form request
       keysAndDeleteStatus = initTable[PubKeyBytes, RequestItemStatus]()
       responseSPDIR: SPDIR
@@ -264,23 +284,24 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
           foundKeystore.status = $KeystoreStatus.notActive
 
     for index, key in keys:
-      response.data.add(keysAndDeleteStatus[key.blob.PubKey0x.PubKeyBytes])
+      response.data.add(
+        keysAndDeleteStatus.getOrDefault(key.blob.PubKey0x.PubKeyBytes))
 
     response.slashing_protection = RestJson.encode(responseSPDIR)
 
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ListRemoteKeys
-  router.api(MethodGet, "/eth/v1/remotekeys") do () -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/remotekeys") do () -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
     let response = GetRemoteKeystoresResponse(
       data: listRemoteValidators(host.validatorPool[]))
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys
-  router.api(MethodPost, "/eth/v1/remotekeys") do (
+  router.api2(MethodPost, "/eth/v1/remotekeys") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -308,10 +329,10 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
       response.data.add handleAddRemoteValidatorReq(host, keystore)
 
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/DeleteRemoteKeys
-  router.api(MethodDelete, "/eth/v1/remotekeys") do (
+  router.api2(MethodDelete, "/eth/v1/remotekeys") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -328,10 +349,10 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     var response: DeleteRemoteKeystoresResponse
     for index, key in keys:
       response.data.add handleRemoveValidatorReq(host, key)
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/ListFeeRecipient
-  router.api(MethodGet, "/eth/v1/validator/{pubkey}/feerecipient") do (
+  router.api2(MethodGet, "/eth/v1/validator/{pubkey}/feerecipient") do (
              pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -345,7 +366,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       ethaddress = host.getSuggestedFeeRecipient(
         pubkey, perValidatorDefaultFeeRecipient)
 
-    return if ethaddress.isOk:
+    if ethaddress.isOk:
       RestApiResponse.jsonResponse(ListFeeRecipientResponse(
         pubkey: pubkey,
         ethaddress: ethaddress.get))
@@ -357,14 +378,14 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         keymanagerApiError(Http500, "Error reading fee recipient file")
 
   # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/SetFeeRecipient
-  router.api(MethodPost, "/eth/v1/validator/{pubkey}/feerecipient") do (
-             pubkey: ValidatorPubKey,
-             contentBody: Option[ContentBody]) -> RestApiResponse:
+  router.api2(MethodPost, "/eth/v1/validator/{pubkey}/feerecipient") do (
+              pubkey: ValidatorPubKey,
+              contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
     let
-      pubkey= pubkey.valueOr:
+      pubkey = pubkey.valueOr:
         return keymanagerApiError(Http400, InvalidValidatorPublicKey)
       feeRecipientReq =
         block:
@@ -377,14 +398,14 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
       status = host.setFeeRecipient(pubkey, feeRecipientReq.ethaddress)
 
-    return if status.isOk:
+    if status.isOk:
       RestApiResponse.response("", Http202, "text/plain")
     else:
       keymanagerApiError(
         Http500, "Failed to set fee recipient: " & status.error)
 
   # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/DeleteFeeRecipient
-  router.api(MethodDelete, "/eth/v1/validator/{pubkey}/feerecipient") do (
+  router.api2(MethodDelete, "/eth/v1/validator/{pubkey}/feerecipient") do (
              pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -394,15 +415,15 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         return keymanagerApiError(Http400, InvalidValidatorPublicKey)
       res = host.removeFeeRecipientFile(pubkey)
 
-    return if res.isOk:
+    if res.isOk:
       RestApiResponse.response("", Http204, "text/plain")
     else:
       keymanagerApiError(
         Http500, "Failed to remove fee recipient file: " & res.error)
 
   # https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/getGasLimit
-  router.api(MethodGet, "/eth/v1/validator/{pubkey}/gas_limit") do (
-             pubkey: ValidatorPubKey)  -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/validator/{pubkey}/gas_limit") do (
+              pubkey: ValidatorPubKey)  -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
@@ -412,7 +433,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         return keymanagerApiError(Http400, InvalidValidatorPublicKey)
       gasLimit = host.getSuggestedGasLimit(pubkey)
 
-    return if gasLimit.isOk:
+    if gasLimit.isOk:
       RestApiResponse.jsonResponse(GetValidatorGasLimitResponse(
         pubkey: pubkey,
         gas_limit: gasLimit.get))
@@ -424,9 +445,9 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         keymanagerApiError(Http500, "Error reading gas limit file")
 
   # https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/setGasLimit
-  router.api(MethodPost, "/eth/v1/validator/{pubkey}/gas_limit") do (
-             pubkey: ValidatorPubKey,
-             contentBody: Option[ContentBody]) -> RestApiResponse:
+  router.api2(MethodPost, "/eth/v1/validator/{pubkey}/gas_limit") do (
+              pubkey: ValidatorPubKey,
+              contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
@@ -444,15 +465,15 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
       status = host.setGasLimit(pubkey, gasLimitReq.gas_limit)
 
-    return if status.isOk:
+    if status.isOk:
       RestApiResponse.response("", Http202, "text/plain")
     else:
       keymanagerApiError(
         Http500, "Failed to set gas limit: " & status.error)
 
   # https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/deleteGasLimit
-  router.api(MethodDelete, "/eth/v1/validator/{pubkey}/gas_limit") do (
-             pubkey: ValidatorPubKey) -> RestApiResponse:
+  router.api2(MethodDelete, "/eth/v1/validator/{pubkey}/gas_limit") do (
+              pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
@@ -461,7 +482,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         return keymanagerApiError(Http400, InvalidValidatorPublicKey)
       res = host.removeGasLimitFile(pubkey)
 
-    return if res.isOk:
+    if res.isOk:
       RestApiResponse.response("", Http204, "text/plain")
     else:
       keymanagerApiError(
@@ -469,17 +490,18 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
   # TODO: These URLs will be changed once we submit a proposal for
   #       /eth/v2/remotekeys that supports distributed keys.
-  router.api(MethodGet, "/eth/v1/remotekeys/distributed") do () -> RestApiResponse:
+  router.api2(MethodGet, "/eth/v1/remotekeys/distributed") do (
+    ) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
     let response = GetDistributedKeystoresResponse(
       data: listRemoteDistributedValidators(host.validatorPool[]))
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)
 
   # TODO: These URLs will be changed once we submit a proposal for
   #       /eth/v2/remotekeys that supports distributed keys.
-  router.api(MethodPost, "/eth/v1/remotekeys/distributed") do (
+  router.api2(MethodPost, "/eth/v1/remotekeys/distributed") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -505,9 +527,9 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       )
       response.data.add handleAddRemoteValidatorReq(host, keystore)
 
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)
 
-  router.api(MethodDelete, "/eth/v1/remotekeys/distributed") do (
+  router.api2(MethodDelete, "/eth/v1/remotekeys/distributed") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -525,10 +547,10 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     for index, key in keys:
       response.data.add handleRemoveValidatorReq(host, key)
 
-    return RestApiResponse.jsonResponsePlain(response)
+    RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Voluntary%20Exit/signVoluntaryExit
-  router.api(MethodPost, "/eth/v1/validator/{pubkey}/voluntary_exit") do (
+  router.api2(MethodPost, "/eth/v1/validator/{pubkey}/voluntary_exit") do (
     pubkey: ValidatorPubKey, epoch: Option[Epoch],
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
@@ -576,4 +598,4 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         message: voluntaryExit,
         signature: signature
       )
-    return RestApiResponse.jsonResponse(response)
+    RestApiResponse.jsonResponse(response)

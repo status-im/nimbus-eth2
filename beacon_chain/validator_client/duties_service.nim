@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 import std/[sets, sequtils]
 import chronicles, metrics
-import common, api, block_service, selection_proofs
+import "."/[common, api, block_service, selection_proofs]
 
 const
   ServiceName = "duties_service"
@@ -322,9 +322,9 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
         debug "Attestation selection proofs have been received",
               signatures_requested = sigres.signaturesRequested,
               signatures_received = sigres.signaturesReceived,
-              selections_requested = sigres.selections_requested,
-              selections_received = sigres.selections_received,
-              selections_processed = sigres.selections_processed,
+              selections_requested = sigres.selectionsRequested,
+              selections_received = sigres.selectionsReceived,
+              selections_processed = sigres.selectionsProcessed,
               total_elapsed_time = (Moment.now() - moment)
       else:
         debug "Attestation selection proofs have been received",
@@ -412,9 +412,9 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
         debug "Sync committee selection proofs have been received",
               signatures_requested = sigres.signaturesRequested,
               signatures_received = sigres.signaturesReceived,
-              selections_requested = sigres.selections_requested,
-              selections_received = sigres.selections_received,
-              selections_processed = sigres.selections_processed,
+              selections_requested = sigres.selectionsRequested,
+              selections_received = sigres.selectionsReceived,
+              selections_processed = sigres.selectionsProcessed,
               total_elapsed_time = (Moment.now() - moment)
       else:
         debug "Sync committee selection proofs have been received",

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,10 +9,11 @@
 
 import
   std/math,
+  results,
   chronos/timer, chronicles,
   ./spec/beacon_time
 
-from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
+from std/times import Time, getTime, fromUnix, toUnix, `<`, `-`, inNanoseconds
 
 export timer.Duration, Moment, now, beacon_time
 
@@ -26,7 +27,7 @@ type
     ## which blocks are valid - in particular, blocks are not valid if they
     ## come from the future as seen from the local clock.
     ##
-    ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#fork-choice
+    ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#fork-choice
     ##
     # TODO consider NTP and network-adjusted timestamps as outlined here:
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
@@ -34,17 +35,21 @@ type
 
   GetBeaconTimeFn* = proc(): BeaconTime {.gcsafe, raises: [].}
 
-proc init*(T: type BeaconClock, genesis_time: uint64): T =
-  # ~290 billion years into the future
-  doAssert genesis_time <= high(int64).uint64
+proc init*(T: type BeaconClock, genesis_time: uint64): Opt[T] =
+  # Since we'll be converting beacon time differences to nanoseconds,
+  # the time can't be outrageously far from now
+  if genesis_time > (getTime().toUnix().uint64 + 100'u64 * 365'u64 * 24'u64 *
+        60'u64 * 60'u64) or
+      genesis_time < GENESIS_SLOT * SECONDS_PER_SLOT:
+    Opt.none(BeaconClock)
+  else:
+    let
+      unixGenesis = fromUnix(genesis_time.int64)
+      # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply that
+      # offset to genesis instead of applying it at every time conversion
+      unixGenesisOffset = times.seconds(int(GENESIS_SLOT * SECONDS_PER_SLOT))
 
-  let
-    unixGenesis = fromUnix(genesis_time.int64)
-    # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply that
-    # offset to genesis instead of applying it at every time conversion
-    unixGenesisOffset = times.seconds(int(GENESIS_SLOT * SECONDS_PER_SLOT))
-
-  T(genesis: unixGenesis - unixGenesisOffset)
+    Opt.some T(genesis: unixGenesis - unixGenesisOffset)
 
 func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
   BeaconTime(ns_since_genesis: inNanoseconds(t - c.genesis))

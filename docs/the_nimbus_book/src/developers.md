@@ -7,7 +7,7 @@ Before building Nimbus for the first time, make sure to install the [prerequisit
 ## Helpful resources
 
 * [Ethereum consensus spec](https://github.com/ethereum/consensus-specs/)
-* [Ben Edgington's annotated spec](https://eth2book.info/bellatrix/)
+* [Ben Edgington's annotated spec](https://eth2book.info/capella/)
 * [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
 
 ## Nim programming language
@@ -208,7 +208,7 @@ To change the number of validators and nodes:
 make VALIDATORS=192 NODES=6 USER_NODES=1 local-testnet-minimal
 ```
 
-If you’d like to see the nodes running on separated sub-terminals inside one big window, install [Multitail](https://www.vanheusden.com/multitail/index.php) (if you're on a Mac, follow the instructions [here](https://brewinstall.org/Install-multitail-on-Mac-with-Brew/)), then:
+If you’d like to see the nodes running on separated sub-terminals inside one big window, install [Multitail](https://www.vanheusden.com/multitail/) (if you're on a Mac, follow the instructions [here](https://brewinstall.org/Install-multitail-on-Mac-with-Brew/)), then:
 
 
 ```
@@ -251,3 +251,8 @@ For example, to run the block simulator for 384 slots, with 20,000 validators, a
 build/block_sim --slots=384 --validators=20000 --attesterRatio=0.66
 ```
 
+## Sync from a specific peer
+
+```sh
+build/nimbus_beacon_node --no-el --discv5:off --tcp-port=9876 --direct-peer="/ip4/127.0.0.1/tcp/9000/p2p/$(curl -s -X 'GET' 'http://localhost:5052/eth/v1/node/identity' -H 'accept: application/json' | jq  -r .data.peer_id)"
+```

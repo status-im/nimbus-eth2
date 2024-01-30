@@ -1,18 +1,14 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[os, strutils, streams, parsecsv],
   stew/[io2, byteutils], chronicles, confutils, snappy,
   ../beacon_chain/spec/datatypes/base,
   ./ncli_common
-
-when defined(posix):
-  import system/ansi_c
 
 type
   AggregatorConf = object
@@ -51,7 +47,7 @@ type
     participationEpochsCount: seq[uint]
     inclusionDelaysCount: seq[uint]
 
-proc init*(T: type ValidatorDbAggregator, outputDir: string,
+func init*(T: type ValidatorDbAggregator, outputDir: string,
            resolution: uint, endEpoch: Epoch): T =
   const initialCapacity = 1 shl 16
   ValidatorDbAggregator(
@@ -64,49 +60,7 @@ proc init*(T: type ValidatorDbAggregator, outputDir: string,
     participationEpochsCount: newSeqOfCap[uint](initialCapacity),
     inclusionDelaysCount: newSeqOfCap[uint](initialCapacity))
 
-var shouldShutDown = false
-
-proc determineStartAndEndEpochs(config: AggregatorConf):
-    tuple[startEpoch, endEpoch: Epoch] =
-  if config.startEpoch.isNone or config.endEpoch.isNone:
-    (result.startEpoch, result.endEpoch) = getUnaggregatedFilesEpochRange(
-      config.inputDir.string)
-  if config.startEpoch.isSome:
-    result.startEpoch = config.startEpoch.get.Epoch
-  if config.endEpoch.isSome:
-    result.endEpoch = config.endEpoch.get.Epoch
-  if result.startEpoch > result.endEpoch:
-    fatal "Start epoch cannot be bigger than the end epoch.",
-          startEpoch = result.startEpoch, endEpoch = result.endEpoch
-    quit QuitFailure
-
-proc checkIntegrity(startEpoch, endEpoch: Epoch, dir: string) =
-  for epoch in startEpoch .. endEpoch:
-    let filePath = getFilePathForEpoch(epoch, dir)
-    if not filePath.fileExists:
-      fatal "File for epoch does not exist.", epoch = epoch, filePath = filePath
-      quit QuitFailure
-
-proc parseRow(csvRow: CsvRow): RewardsAndPenalties =
-  result = RewardsAndPenalties(
-    source_outcome: parseBiggestInt(csvRow[0]),
-    max_source_reward: parseBiggestUInt(csvRow[1]),
-    target_outcome: parseBiggestInt(csvRow[2]),
-    max_target_reward: parseBiggestUInt(csvRow[3]),
-    head_outcome: parseBiggestInt(csvRow[4]),
-    max_head_reward: parseBiggestUInt(csvRow[5]),
-    inclusion_delay_outcome: parseBiggestInt(csvRow[6]),
-    max_inclusion_delay_reward: parseBiggestUInt(csvRow[7]),
-    sync_committee_outcome: parseBiggestInt(csvRow[8]),
-    max_sync_committee_reward: parseBiggestUInt(csvRow[9]),
-    proposer_outcome: parseBiggestInt(csvRow[10]),
-    inactivity_penalty: parseBiggestUInt(csvRow[11]),
-    slashing_outcome: parseBiggestInt(csvRow[12]),
-    deposits: parseBiggestUInt(csvRow[13]))
-  if csvRow[14].len > 0:
-    result.inclusion_delay = some(parseBiggestUInt(csvRow[14]))
-
-proc `+=`(lhs: var RewardsAndPenalties, rhs: RewardsAndPenalties) =
+func `+=`(lhs: var RewardsAndPenalties, rhs: RewardsAndPenalties) =
   lhs.source_outcome += rhs.source_outcome
   lhs.max_source_reward += rhs.max_source_reward
   lhs.target_outcome += rhs.target_outcome
@@ -128,7 +82,7 @@ proc `+=`(lhs: var RewardsAndPenalties, rhs: RewardsAndPenalties) =
     if rhs.inclusion_delay.isSome:
       lhs.inclusion_delay = some(rhs.inclusion_delay.get)
 
-proc average(rp: var RewardsAndPenalties,
+func average(rp: var RewardsAndPenalties,
              averageInclusionDelay: var Option[float],
              epochsCount: uint, inclusionDelaysCount: uint64) =
   rp.source_outcome = rp.source_outcome div epochsCount.int64
@@ -153,7 +107,7 @@ proc average(rp: var RewardsAndPenalties,
     averageInclusionDelay = none(float)
 
 
-proc addValidatorData*(aggregator: var ValidatorDbAggregator,
+func addValidatorData*(aggregator: var ValidatorDbAggregator,
                        index: int, rp: RewardsAndPenalties) =
   if index >= aggregator.participationEpochsCount.len:
     aggregator.aggregatedRewardsAndPenalties.add rp
@@ -199,72 +153,122 @@ proc advanceEpochs*(aggregator: var ValidatorDbAggregator, epoch: Epoch,
   aggregator.inclusionDelaysCount.setLen(0)
   aggregator.epochsAggregated = 0
 
-proc aggregateEpochs(startEpoch, endEpoch: Epoch, resolution: uint,
-                     inputDir, outputDir: string) =
-  if startEpoch > endEpoch:
-    fatal "Start epoch cannot be larger than the end one.",
-          startEpoch = startEpoch, endEpoch = endEpoch
-    quit QuitFailure
-
-  info "Aggregating epochs ...", startEpoch = startEpoch, endEpoch = endEpoch,
-       inputDir = inputDir, outputDir = outputDir
-
-  var aggregator = ValidatorDbAggregator.init(outputDir, resolution, endEpoch)
-
-  for epoch in startEpoch .. endEpoch:
-    let filePath = getFilePathForEpoch(epoch, inputDir)
-    info "Processing file ...", file = filePath
-
-    let data = io2.readAllBytes(filePath)
-    doAssert data.isOk
-    let dataStream = newStringStream(
-      string.fromBytes(snappy.decode(
-        data.get.toOpenArray(0, data.get.len - 1))))
-
-    var csvParser: CsvParser
-    csvParser.open(dataStream, filePath)
-
-    var validatorsCount = 0
-    while csvParser.readRow:
-      inc validatorsCount
-      let rp = parseRow(csvParser.row)
-      aggregator.addValidatorData(validatorsCount - 1, rp)
-
-    aggregator.advanceEpochs(epoch, shouldShutDown)
-
-    if shouldShutDown:
-      quit QuitSuccess
-
-proc controlCHook {.noconv.} =
-  notice "Shutting down after having received SIGINT."
-  shouldShutDown = true
-
-proc exitOnSigterm(signal: cint) {.noconv.} =
-  notice "Shutting down after having received SIGTERM."
-  shouldShutDown = true
-
-proc main =
-  setControlCHook(controlCHook)
-  when defined(posix):
-    c_signal(SIGTERM, exitOnSigterm)
-
-  let config = load AggregatorConf
-  let (startEpoch, endEpoch) = config.determineStartAndEndEpochs
-  if endEpoch == 0:
-    fatal "Not found epoch info files in the directory.",
-          inputDir = config.inputDir
-    quit QuitFailure
-
-  checkIntegrity(startEpoch, endEpoch, config.inputDir.string)
-
-  let outputDir =
-    if config.outputDir.string.len > 0:
-      config.outputDir
-    else:
-      config.inputDir
-
-  aggregateEpochs(startEpoch, endEpoch, config.resolution,
-                  config.inputDir.string, outputDir.string)
-
 when isMainModule:
+  import std/streams
+  from std/os import fileExists
+  from std/parsecsv import CsvParser, CsvRow, open, readRow
+  from std/strutils import parseBiggestInt, parseBiggestUInt
+
+  when defined(posix):
+    import system/ansi_c
+
+  var shouldShutDown = false
+
+  proc determineStartAndEndEpochs(config: AggregatorConf):
+      tuple[startEpoch, endEpoch: Epoch] =
+    if config.startEpoch.isNone or config.endEpoch.isNone:
+      (result.startEpoch, result.endEpoch) = getUnaggregatedFilesEpochRange(
+        config.inputDir.string)
+    if config.startEpoch.isSome:
+      result.startEpoch = config.startEpoch.get.Epoch
+    if config.endEpoch.isSome:
+      result.endEpoch = config.endEpoch.get.Epoch
+    if result.startEpoch > result.endEpoch:
+      fatal "Start epoch cannot be bigger than the end epoch.",
+            startEpoch = result.startEpoch, endEpoch = result.endEpoch
+      quit QuitFailure
+
+  proc checkIntegrity(startEpoch, endEpoch: Epoch, dir: string) =
+    for epoch in startEpoch .. endEpoch:
+      let filePath = getFilePathForEpoch(epoch, dir)
+      if not filePath.fileExists:
+        fatal "File for epoch does not exist.", epoch = epoch, filePath = filePath
+        quit QuitFailure
+
+  func parseRow(csvRow: CsvRow): RewardsAndPenalties =
+    result = RewardsAndPenalties(
+      source_outcome: parseBiggestInt(csvRow[0]),
+      max_source_reward: parseBiggestUInt(csvRow[1]),
+      target_outcome: parseBiggestInt(csvRow[2]),
+      max_target_reward: parseBiggestUInt(csvRow[3]),
+      head_outcome: parseBiggestInt(csvRow[4]),
+      max_head_reward: parseBiggestUInt(csvRow[5]),
+      inclusion_delay_outcome: parseBiggestInt(csvRow[6]),
+      max_inclusion_delay_reward: parseBiggestUInt(csvRow[7]),
+      sync_committee_outcome: parseBiggestInt(csvRow[8]),
+      max_sync_committee_reward: parseBiggestUInt(csvRow[9]),
+      proposer_outcome: parseBiggestInt(csvRow[10]),
+      inactivity_penalty: parseBiggestUInt(csvRow[11]),
+      slashing_outcome: parseBiggestInt(csvRow[12]),
+      deposits: parseBiggestUInt(csvRow[13]))
+    if csvRow[14].len > 0:
+      result.inclusion_delay = some(parseBiggestUInt(csvRow[14]))
+
+  proc aggregateEpochs(startEpoch, endEpoch: Epoch, resolution: uint,
+                       inputDir, outputDir: string) =
+    if startEpoch > endEpoch:
+      fatal "Start epoch cannot be larger than the end one.",
+            startEpoch = startEpoch, endEpoch = endEpoch
+      quit QuitFailure
+
+    info "Aggregating epochs ...", startEpoch = startEpoch, endEpoch = endEpoch,
+         inputDir = inputDir, outputDir = outputDir
+
+    var aggregator = ValidatorDbAggregator.init(outputDir, resolution, endEpoch)
+
+    for epoch in startEpoch .. endEpoch:
+      let filePath = getFilePathForEpoch(epoch, inputDir)
+      info "Processing file ...", file = filePath
+
+      let data = io2.readAllBytes(filePath)
+      doAssert data.isOk
+      let dataStream = newStringStream(
+        string.fromBytes(snappy.decode(
+          data.get.toOpenArray(0, data.get.len - 1))))
+
+      var csvParser: CsvParser
+      csvParser.open(dataStream, filePath)
+
+      var validatorsCount = 0
+      while csvParser.readRow:
+        inc validatorsCount
+        let rp = parseRow(csvParser.row)
+        aggregator.addValidatorData(validatorsCount - 1, rp)
+
+      aggregator.advanceEpochs(epoch, shouldShutDown)
+
+      if shouldShutDown:
+        quit QuitSuccess
+
+  proc controlCHook {.noconv.} =
+    notice "Shutting down after having received SIGINT."
+    shouldShutDown = true
+
+  proc exitOnSigterm(signal: cint) {.noconv.} =
+    notice "Shutting down after having received SIGTERM."
+    shouldShutDown = true
+
+  proc main =
+    setControlCHook(controlCHook)
+    when defined(posix):
+      c_signal(SIGTERM, exitOnSigterm)
+
+    let config = load AggregatorConf
+    let (startEpoch, endEpoch) = config.determineStartAndEndEpochs
+    if endEpoch == 0:
+      fatal "Not found epoch info files in the directory.",
+            inputDir = config.inputDir
+      quit QuitFailure
+
+    checkIntegrity(startEpoch, endEpoch, config.inputDir.string)
+
+    let outputDir =
+      if config.outputDir.string.len > 0:
+        config.outputDir
+      else:
+        config.inputDir
+
+    aggregateEpochs(startEpoch, endEpoch, config.resolution,
+                    config.inputDir.string, outputDir.string)
+
   main()

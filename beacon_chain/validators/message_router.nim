@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -82,7 +82,7 @@ template blockProcessor(router: MessageRouter): ref BlockProcessor =
 template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
   router.processor[].getCurrentBeaconTime()
 
-type RouteBlockResult = Result[Opt[BlockRef], cstring]
+type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
     blobsOpt: Opt[seq[BlobSidecar]]): Future[RouteBlockResult] {.async.} =
@@ -101,7 +101,7 @@ proc routeSignedBeaconBlock*(
       warn "Block failed validation",
         blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
         signature = shortLog(blck.signature), error = res.error()
-      return err(res.error()[1])
+      return err($(res.error()[1]))
 
     when typeof(blck).kind >= ConsensusFork.Deneb:
       if blobsOpt.isSome:

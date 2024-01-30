@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, sequtils, terminal, times],
+  std/[os, random, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -19,6 +19,7 @@ import
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
+  ./sync/[sync_protocol, light_client_protocol],
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -33,70 +34,6 @@ from
   libp2p/protocols/pubsub/gossipsub
 import
   TopicParams, validateParameters, init
-
-when defined(windows):
-  import winlean
-
-  type
-    LPCSTR* = cstring
-    LPSTR* = cstring
-
-    SERVICE_STATUS* {.final, pure.} = object
-      dwServiceType*: DWORD
-      dwCurrentState*: DWORD
-      dwControlsAccepted*: DWORD
-      dwWin32ExitCode*: DWORD
-      dwServiceSpecificExitCode*: DWORD
-      dwCheckPoint*: DWORD
-      dwWaitHint*: DWORD
-
-    SERVICE_STATUS_HANDLE* = DWORD
-    LPSERVICE_STATUS* = ptr SERVICE_STATUS
-    LPSERVICE_MAIN_FUNCTION* = proc (para1: DWORD, para2: LPSTR) {.stdcall.}
-
-    SERVICE_TABLE_ENTRY* {.final, pure.} = object
-      lpServiceName*: LPSTR
-      lpServiceProc*: LPSERVICE_MAIN_FUNCTION
-
-    LPSERVICE_TABLE_ENTRY* = ptr SERVICE_TABLE_ENTRY
-    LPHANDLER_FUNCTION* = proc (para1: DWORD): WINBOOL{.stdcall.}
-
-  const
-    SERVICE_WIN32_OWN_PROCESS = 16
-    SERVICE_RUNNING = 4
-    SERVICE_STOPPED = 1
-    SERVICE_START_PENDING = 2
-    SERVICE_STOP_PENDING = 3
-    SERVICE_CONTROL_STOP = 1
-    SERVICE_CONTROL_PAUSE = 2
-    SERVICE_CONTROL_CONTINUE = 3
-    SERVICE_CONTROL_INTERROGATE = 4
-    SERVICE_ACCEPT_STOP = 1
-    NO_ERROR = 0
-    SERVICE_NAME = LPCSTR "NIMBUS_BEACON_NODE"
-
-  var
-    gSvcStatusHandle: SERVICE_STATUS_HANDLE
-    gSvcStatus: SERVICE_STATUS
-
-  proc reportServiceStatus*(dwCurrentState, dwWin32ExitCode, dwWaitHint: DWORD) {.gcsafe.}
-
-  proc StartServiceCtrlDispatcher*(lpServiceStartTable: LPSERVICE_TABLE_ENTRY): WINBOOL{.
-      stdcall, dynlib: "advapi32", importc: "StartServiceCtrlDispatcherA".}
-
-  proc SetServiceStatus*(hServiceStatus: SERVICE_STATUS_HANDLE,
-                       lpServiceStatus: LPSERVICE_STATUS): WINBOOL{.stdcall,
-    dynlib: "advapi32", importc: "SetServiceStatus".}
-
-  proc RegisterServiceCtrlHandler*(lpServiceName: LPCSTR,
-                                  lpHandlerProc: LPHANDLER_FUNCTION): SERVICE_STATUS_HANDLE{.
-    stdcall, dynlib: "advapi32", importc: "RegisterServiceCtrlHandlerA".}
-
-type
-  RpcServer = RpcHttpServer
-
-template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
-  newRpcHttpServer([initTAddress(ip, port)])
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
@@ -170,18 +107,18 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
   of StdoutLogKind.Colors:
     VanityLogs(
-      onMergeTransitionBlock:          color🐼,
-      onFinalizedMergeTransitionBlock: blink🐼,
-      onUpgradeToCapella:              color🦉,
-      onKnownBlsToExecutionChange:     blink🦉,
-      onUpgradeToDeneb:                color🐟)
+      onMergeTransitionBlock:          bellatrixColor,
+      onFinalizedMergeTransitionBlock: bellatrixBlink,
+      onUpgradeToCapella:              capellaColor,
+      onKnownBlsToExecutionChange:     capellaBlink,
+      onUpgradeToDeneb:                denebColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
-      onMergeTransitionBlock:          mono🐼,
-      onFinalizedMergeTransitionBlock: mono🐼,
-      onUpgradeToCapella:              mono🦉,
-      onKnownBlsToExecutionChange:     mono🦉,
-      onUpgradeToDeneb:                mono🐟)
+      onMergeTransitionBlock:          bellatrixMono,
+      onFinalizedMergeTransitionBlock: bellatrixMono,
+      onUpgradeToCapella:              capellaMono,
+      onKnownBlsToExecutionChange:     capellaMono,
+      onUpgradeToDeneb:                denebMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onMergeTransitionBlock:
@@ -194,6 +131,19 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
         (proc() = notice "🦉 BLS to execution changed 🦉"),
       onUpgradeToDeneb:
         (proc() = notice "🐟 Proto-Danksharding is ON 🐟"))
+
+func getVanityMascot(consensusFork: ConsensusFork): string =
+  case consensusFork
+  of ConsensusFork.Deneb:
+    "🐟"
+  of ConsensusFork.Capella:
+    "🦉"
+  of ConsensusFork.Bellatrix:
+    "🐼"
+  of ConsensusFork.Altair:
+    "✨"
+  of ConsensusFork.Phase0:
+    "🦏"
 
 proc loadChainDag(
     config: BeaconNodeConf,
@@ -279,12 +229,14 @@ proc checkWeakSubjectivityCheckpoint(
           headStateSlot = getStateField(dag.headState, slot)
     quit 1
 
+from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
+
 proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
     dag: ChainDAGRef,
     taskpool: TaskPoolPtr,
-    getBeaconTime: GetBeaconTimeFn) =
+    getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
 
   proc onAttestationReceived(data: Attestation) =
@@ -293,6 +245,20 @@ proc initFullNode(
     node.eventBus.contribQueue.emit(data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
     node.eventBus.exitQueue.emit(data)
+  proc onBLSToExecutionChangeAdded(data: SignedBLSToExecutionChange) =
+    node.eventBus.blsToExecQueue.emit(data)
+  proc onProposerSlashingAdded(data: ProposerSlashing) =
+    node.eventBus.propSlashQueue.emit(data)
+  proc onAttesterSlashingAdded(data: AttesterSlashing) =
+    node.eventBus.attSlashQueue.emit(data)
+  proc onBlobSidecarAdded(data: BlobSidecar) =
+    node.eventBus.blobSidecarQueue.emit(
+      BlobSidecarInfoObject(
+        block_root: hash_tree_root(data.signed_block_header.message),
+        index: data.index,
+        slot: data.signed_block_header.message.slot,
+        kzg_commitment: data.kzg_commitment,
+        versioned_hash: data.kzg_commitment.kzg_commitment_to_versioned_hash))
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -370,9 +336,10 @@ proc initFullNode(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
       LightClientPool())
-    validatorChangePool = newClone(
-      ValidatorChangePool.init(dag, attestationPool, onVoluntaryExitAdded))
-    blobQuarantine = newClone(BlobQuarantine())
+    validatorChangePool = newClone(ValidatorChangePool.init(
+      dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
+      onProposerSlashingAdded, onAttesterSlashingAdded))
+    blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -384,7 +351,7 @@ proc initFullNode(
       blobQuarantine, getBeaconTime)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
-        Future[Result[void, VerifierError]] =
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
@@ -393,27 +360,23 @@ proc initFullNode(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
-        Future[Result[void, VerifierError]] =
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when typeof(forkyBlck).kind >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              Future.completed(
-                Result[void, VerifierError].err(VerifierError.UnviableFork),
-                "rmanBlockVerifier")
+              err(VerifierError.UnviableFork)
             else:
-              Future.completed(
-                Result[void, VerifierError].err(VerifierError.MissingParent),
-                "rmanBlockVerifier")
+              err(VerifierError.MissingParent)
           else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root)
-            blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.some(blobs),
                                       maybeFinalized = maybeFinalized)
         else:
-          blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars),
                                     maybeFinalized = maybeFinalized)
 
@@ -478,7 +441,7 @@ proc initFullNode(
   node.backfiller = backfiller
   node.router = router
 
-  node.addValidators()
+  await node.addValidators()
 
   block:
     # Add in-process validators to the list of "known" validators such that
@@ -505,7 +468,18 @@ proc initFullNode(
     # Here, we also set the correct ENR should we be in all subnets mode!
     node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
-  node.network.initBeaconSync(dag, getBeaconTime)
+  node.network.registerProtocol(
+    PeerSync, PeerSync.NetworkState.init(
+      node.dag,
+      node.beaconClock.getBeaconTimeFn(),
+  ))
+
+  node.network.registerProtocol(
+    BeaconSync, BeaconSync.NetworkState.init(node.dag))
+
+  if node.dag.lcDataStore.serve:
+    node.network.registerProtocol(
+      LightClientSync, LightClientSync.NetworkState.init(node.dag))
 
   node.updateValidatorMetrics()
 
@@ -517,7 +491,7 @@ proc init*(T: type BeaconNode,
            rng: ref HmacDrbgContext,
            config: BeaconNodeConf,
            metadata: Eth2NetworkMetadata): Future[BeaconNode]
-          {.async, raises: [CatchableError].} =
+          {.async.} =
   var taskpool: TaskPoolPtr
 
   template cfg: auto = metadata.cfg
@@ -545,18 +519,21 @@ proc init*(T: type BeaconNode,
 
   let
     eventBus = EventBus(
-      blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
+      blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
+      attestQueue: newAsyncEventQueue[Attestation](),
+      exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
+      blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
+      propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
+      attSlashQueue: newAsyncEventQueue[AttesterSlashing](),
+      blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
+      finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
+      contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
       finUpdateQueue: newAsyncEventQueue[
         RestVersioned[ForkedLightClientFinalityUpdate]](),
       optUpdateQueue: newAsyncEventQueue[
-        RestVersioned[ForkedLightClientOptimisticUpdate]](),
-      attestQueue: newAsyncEventQueue[Attestation](),
-      contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
-      exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
-      finalQueue: newAsyncEventQueue[FinalizationInfoObject]()
-    )
+        RestVersioned[ForkedLightClientOptimisticUpdate]]())
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
@@ -718,7 +695,10 @@ proc init*(T: type BeaconNode,
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot)
     genesisTime = getStateField(dag.headState, genesis_time)
-    beaconClock = BeaconClock.init(genesisTime)
+    beaconClock = BeaconClock.init(genesisTime).valueOr:
+      fatal "Invalid genesis time in state", genesisTime
+      quit 1
+
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
   if config.weakSubjectivityCheckpoint.isSome:
@@ -837,8 +817,7 @@ proc init*(T: type BeaconNode,
 
   node.initLightClient(
     rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
-  node.initFullNode(
-    rng, dag, taskpool, getBeaconTime)
+  await node.initFullNode(rng, dag, taskpool, getBeaconTime)
 
   node.updateLightClientFromDag()
 
@@ -863,6 +842,8 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
 
+from std/sequtils import toSeq
+
 func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())
 
@@ -875,10 +856,10 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.deneb]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-subscription
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
-    # When disconnected, updateGossipState is responsible for all things
+    # When disconnected, updateBlocksGossipStatus is responsible for all things
     # subnets - in particular, it will remove subscriptions on the edge where
     # we enter the disconnected state.
     return
@@ -1172,7 +1153,7 @@ proc maybeUpdateActionTrackerNextEpoch(
       #
       # There are no penalties associated with TIMELY_HEAD_FLAG_INDEX, but a
       # reward exists. effective_balance == MAX_EFFECTIVE_BALANCE ensures if
-      # even so, then the effective balanace cannot change as a result.
+      # even so, then the effective balance cannot change as a result.
       #
       # It's not truly necessary to avoid all rewards and penalties, but only
       # to bound them to ensure they won't unexpected alter effective balance
@@ -1393,7 +1374,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       GC_fullCollect()
     except Defect as exc:
       raise exc # Reraise to maintain call stack
-    except Exception as exc:
+    except Exception:
       # TODO upstream
       raiseAssert "Unexpected exception during GC collection"
 
@@ -1501,6 +1482,21 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   await node.updateGossipStatus(slot + 1)
 
+func formatNextConsensusFork(
+    node: BeaconNode, withVanityArt = false): Opt[string] =
+  let consensusFork =
+    node.dag.cfg.consensusForkAtEpoch(node.dag.head.slot.epoch)
+  if consensusFork == ConsensusFork.high:
+    return Opt.none(string)
+  let
+    nextConsensusFork = consensusFork.succ()
+    nextForkEpoch = node.dag.cfg.consensusForkEpoch(nextConsensusFork)
+  if nextForkEpoch == FAR_FUTURE_EPOCH:
+    return Opt.none(string)
+  Opt.some(
+    (if withVanityArt: nextConsensusFork.getVanityMascot & " " else: "") &
+    $nextConsensusFork & ":" & $nextForkEpoch)
+
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   let optimistic_head = not node.dag.head.executionValid
   if node.syncManager.inProgress:
@@ -1523,6 +1519,9 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   else:
     "synced"
 
+when defined(windows):
+  from winservice import establishWindowsService, reportServiceStatusSuccess
+
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -1541,15 +1540,21 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
 
-  info "Slot start",
-    slot = shortLog(wallSlot),
-    epoch = shortLog(wallSlot.epoch),
-    sync = node.syncStatus(wallSlot),
-    peers = len(node.network.peerPool),
-    head = shortLog(node.dag.head),
-    finalized = shortLog(getStateField(
-      node.dag.headState, finalized_checkpoint)),
-    delay = shortLog(delay)
+  block:
+    logScope:
+      slot = shortLog(wallSlot)
+      epoch = shortLog(wallSlot.epoch)
+      sync = node.syncStatus(wallSlot)
+      peers = len(node.network.peerPool)
+      head = shortLog(node.dag.head)
+      finalized = shortLog(getStateField(
+        node.dag.headState, finalized_checkpoint))
+      delay = shortLog(delay)
+    let nextConsensusForkDescription = node.formatNextConsensusFork()
+    if nextConsensusForkDescription.isNone:
+      info "Slot start"
+    else:
+      info "Slot start", nextFork = nextConsensusForkDescription.get
 
   # Check before any re-scheduling of onSlotStart()
   if checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch):
@@ -1557,7 +1562,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   when defined(windows):
     if node.config.runAsService:
-      reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
+      reportServiceStatusSuccess()
 
   beacon_slot.set wallSlot.toGaugeValue
   beacon_current_epoch.set wallSlot.epoch.toGaugeValue
@@ -1575,7 +1580,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   await onSlotEnd(node, wallSlot)
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#registration-dissemination
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
   # This specification suggests validators re-submit to builder software every
   # `EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION` epochs.
   if  wallSlot.is_epoch and
@@ -1650,14 +1655,14 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, signedBlock)))
 
       # beacon_attestation_{subnet_id}
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
       for it in SubnetId:
         closureScope:  # Needed for inner `proc`; don't lift it out of loop.
           let subnet_id = it
           node.network.addAsyncValidator(
             getAttestationTopic(digest, subnet_id), proc (
               attestation: Attestation
-            ): Future[ValidationResult] {.async.} =
+            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processAttestation(
                   MsgSource.gossip, attestation, subnet_id)))
@@ -1667,13 +1672,13 @@ proc installMessageValidators(node: BeaconNode) =
       node.network.addAsyncValidator(
         getAggregateAndProofsTopic(digest), proc (
           signedAggregateAndProof: SignedAggregateAndProof
-        ): Future[ValidationResult] {.async.} =
+        ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
           return toValidationResult(
             await node.processor.processSignedAggregateAndProof(
               MsgSource.gossip, signedAggregateAndProof)))
 
       # attester_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attester_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing
       node.network.addValidator(
         getAttesterSlashingsTopic(digest), proc (
           attesterSlashing: AttesterSlashing
@@ -1683,7 +1688,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, attesterSlashing)))
 
       # proposer_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#proposer_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#proposer_slashing
       node.network.addValidator(
         getProposerSlashingsTopic(digest), proc (
           proposerSlashing: ProposerSlashing
@@ -1693,7 +1698,7 @@ proc installMessageValidators(node: BeaconNode) =
               MsgSource.gossip, proposerSlashing)))
 
       # voluntary_exit
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#voluntary_exit
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#voluntary_exit
       node.network.addValidator(
         getVoluntaryExitsTopic(digest), proc (
           signedVoluntaryExit: SignedVoluntaryExit
@@ -1704,41 +1709,41 @@ proc installMessageValidators(node: BeaconNode) =
 
       when consensusFork >= ConsensusFork.Altair:
         # sync_committee_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/p2p-interface.md#sync_committee_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/p2p-interface.md#sync_committee_subnet_id
         for subcommitteeIdx in SyncSubcommitteeIndex:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let idx = subcommitteeIdx
             node.network.addAsyncValidator(
               getSyncCommitteeTopic(digest, idx), proc (
                 msg: SyncCommitteeMessage
-              ): Future[ValidationResult] {.async.} =
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                 return toValidationResult(
                   await node.processor.processSyncCommitteeMessage(
                     MsgSource.gossip, msg, idx)))
 
         # sync_committee_contribution_and_proof
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
         node.network.addAsyncValidator(
           getSyncCommitteeContributionAndProofTopic(digest), proc (
             msg: SignedContributionAndProof
-          ): Future[ValidationResult] {.async.} =
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
             return toValidationResult(
               await node.processor.processSignedContributionAndProof(
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
-          ): Future[ValidationResult] {.async.} =
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
             return toValidationResult(
               await node.processor.processBlsToExecutionChange(
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
         for it in BlobId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
@@ -1976,6 +1981,14 @@ when not defined(windows):
       of "attached_validators_balance":
         formatGwei(node.attachedValidatorBalanceTotal)
 
+      of "next_consensus_fork":
+        let nextConsensusForkDescription =
+          node.formatNextConsensusFork(withVanityArt = true)
+        if nextConsensusForkDescription.isNone:
+          ""
+        else:
+          " (scheduled " & nextConsensusForkDescription.get & ")"
+
       of "sync_status":
         node.syncStatus(node.currentSlot)
       else:
@@ -2019,6 +2032,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
+      const_preset,
       cmdParams = commandLineParams(),
       config
 
@@ -2239,64 +2253,11 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
 
 {.pop.} # TODO moduletests exceptions
 
-when defined(windows):
-  proc reportServiceStatus*(dwCurrentState, dwWin32ExitCode, dwWaitHint: DWORD) {.gcsafe.} =
-    gSvcStatus.dwCurrentState = dwCurrentState
-    gSvcStatus.dwWin32ExitCode = dwWin32ExitCode
-    gSvcStatus.dwWaitHint = dwWaitHint
-    if dwCurrentState == SERVICE_START_PENDING:
-      gSvcStatus.dwControlsAccepted = 0
-    else:
-      gSvcStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP
-
-    # TODO
-    # We can use non-zero values for the `dwCheckPoint` parameter to report
-    # progress during lengthy operations such as start-up and shut down.
-    gSvcStatus.dwCheckPoint = 0
-
-    # Report the status of the service to the SCM.
-    let status = SetServiceStatus(gSvcStatusHandle, addr gSvcStatus)
-    debug "Service status updated", status
-
-  proc serviceControlHandler(dwCtrl: DWORD): WINBOOL {.stdcall.} =
-    case dwCtrl
-    of SERVICE_CONTROL_STOP:
-      # We re reporting that we plan stop the service in 10 seconds
-      reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 10_000)
-      bnStatus = BeaconNodeStatus.Stopping
-    of SERVICE_CONTROL_PAUSE, SERVICE_CONTROL_CONTINUE:
-      warn "The Nimbus service cannot be paused and resimed"
-    of SERVICE_CONTROL_INTERROGATE:
-      # The default behavior is correct.
-      # The service control manager will report our last status.
-      discard
-    else:
-      debug "Service received an unexpected user-defined control message",
-            msg = dwCtrl
-
-  proc serviceMainFunction(dwArgc: DWORD, lpszArgv: LPSTR) {.stdcall.} =
-    # The service is launched in a fresh thread created by Windows, so
-    # we must initialize the Nim GC here
-    setupForeignThreadGc()
-
-    gSvcStatusHandle = RegisterServiceCtrlHandler(
-      SERVICE_NAME,
-      serviceControlHandler)
-
-    gSvcStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS
-    gSvcStatus.dwServiceSpecificExitCode = 0
-    reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
-
-    info "Service thread started"
-
-    var config = makeBannerAndConfig(clientId, BeaconNodeConf)
-    handleStartUpCmd(config)
-
-    info "Service thread stopped"
-    reportServiceStatus(SERVICE_STOPPED, NO_ERROR, 0) # we have to report back when we stopped!
-
 programMain:
-  var config = makeBannerAndConfig(clientId, BeaconNodeConf)
+  var config = makeBannerAndConfig(clientId, copyrights, nimBanner,
+                                   SPEC_VERSION, [], BeaconNodeConf).valueOr:
+    stderr.write error
+    quit QuitFailure
 
   if not(checkAndCreateDataDir(string(config.dataDir))):
     # We are unable to access/create data folder or data folder's
@@ -2331,15 +2292,11 @@ programMain:
 
   when defined(windows):
     if config.runAsService:
-      var dispatchTable = [
-        SERVICE_TABLE_ENTRY(lpServiceName: SERVICE_NAME, lpServiceProc: serviceMainFunction),
-        SERVICE_TABLE_ENTRY(lpServiceName: nil, lpServiceProc: nil) # last entry must be nil
-      ]
-
-      let status = StartServiceCtrlDispatcher(LPSERVICE_TABLE_ENTRY(addr dispatchTable[0]))
-      if status == 0:
-        fatal "Failed to start Windows service", errorCode = getLastError()
-        quit 1
+      proc exitService() =
+        bnStatus = BeaconNodeStatus.Stopping
+      establishWindowsService(clientId, copyrights, nimBanner, SPEC_VERSION,
+                              "nimbus_beacon_node", BeaconNodeConf,
+                              handleStartUpCmd, exitService)
     else:
       handleStartUpCmd(config)
   else:

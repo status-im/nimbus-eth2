@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,9 +16,9 @@ const
   copyrights* =
     "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
 
-  versionMajor* = 23
-  versionMinor* = 11
-  versionBuild* = 0
+  versionMajor* = 24
+  versionMinor* = 1
+  versionBuild* = 2
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 

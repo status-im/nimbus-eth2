@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,7 +14,6 @@ import "."/[common, fallback_service, scoring]
 export eth2_rest_serialization, common
 
 const
-  ResponseSuccess = "Received successful response"
   ResponseInvalidError = "Received invalid request response"
   ResponseInternalError = "Received internal error response"
   ResponseUnexpectedError = "Received unexpected error response"
@@ -709,16 +708,6 @@ template firstSuccessSequential*(
 
     if exitNow:
       break
-
-proc getIndexedErrorMessage(response: RestPlainResponse): string =
-  let res = decodeBytes(RestIndexedErrorMessage, response.data,
-                        response.contentType)
-  if res.isOk():
-    let errorObj = res.get()
-    let failures = errorObj.failures.mapIt($it.index & ": " & it.message)
-    errorObj.message & ": [" & failures.join(", ") & "]"
-  else:
-    "Unable to decode error response: [" & $res.error & "]"
 
 proc getErrorMessage*(response: RestPlainResponse): string =
   let res = decodeBytes(RestErrorMessage, response.data,
@@ -2649,35 +2638,35 @@ proc getValidatorsLiveness*(
                     activities_count = len(list),
                     updated_count = updated
           else:
-            let failure = ApiNodeFailure.init(
+            discard ApiNodeFailure.init(
               ApiFailure.UnexpectedResponse, RequestName,
               apiResponse.node, response.status, $res.error)
             # We do not update beacon node's status anymore because of
             # issue #5377.
             continue
         of 400:
-          let failure = ApiNodeFailure.init(
+          discard ApiNodeFailure.init(
             ApiFailure.Invalid, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
           continue
         of 500:
-          let failure = ApiNodeFailure.init(
+          discard ApiNodeFailure.init(
             ApiFailure.Internal, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
           continue
         of 503:
-          let failure = ApiNodeFailure.init(
+          discard ApiNodeFailure.init(
             ApiFailure.NotSynced, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of
           # issue #5377.
           continue
         else:
-          let failure = ApiNodeFailure.init(
+          discard ApiNodeFailure.init(
             ApiFailure.UnexpectedCode, RequestName,
             apiResponse.node, response.status, response.getErrorMessage())
           # We do not update beacon node's status anymore because of

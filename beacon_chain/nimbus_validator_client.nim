@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -126,7 +126,9 @@ proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
   # This procedure performs initialization of BeaconClock using current genesis
   # information. It also performs waiting for genesis.
   let
-    res = BeaconClock.init(vc.beaconGenesis.genesis_time)
+    res = BeaconClock.init(vc.beaconGenesis.genesis_time).valueOr:
+      raise (ref ValidatorClientError)(
+        msg: "Invalid genesis time: " & $vc.beaconGenesis.genesis_time)
     currentTime = res.now()
     currentSlot = currentTime.slotOrZero()
     currentEpoch = currentSlot.epoch()
@@ -518,7 +520,7 @@ template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
   if future.finished():
     if future.failed() or future.cancelled():
       let exc = future.readError()
-      debug "Validator client initialization failed", err_name = $exc.name,
+      error "Validator client initialization failed", err_name = $exc.name,
             err_msg = $exc.msg
       var pending: seq[Future[void]]
       if not(vc.sigintHandleFut.finished()):

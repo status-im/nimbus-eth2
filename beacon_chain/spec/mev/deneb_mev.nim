@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,22 +13,20 @@ from stew/byteutils import to0xHex
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 
 type
-  # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#builderbid
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/deneb/builder.md#builderbid
   BuilderBid* = object
     header*: deneb.ExecutionPayloadHeader # [Modified in Deneb]
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
     value*: UInt256
     pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signedbuilderbid
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#executionpayloadheader
-  # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#executionpayloadheader
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedbuilderbid
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/deneb/builder.md#executionpayloadheader
   SignedBuilderBid* = object
     message*: BuilderBid
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
-  # https://github.com/ethereum/builder-specs/blob/0b913daaa491cd889083827375977a6285e684bd/specs/deneb/builder.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/deneb/builder.md#blindedbeaconblockbody
   BlindedBeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -45,9 +43,8 @@ type
         Limit MAX_BLS_TO_EXECUTION_CHANGES]
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#blindedbeaconblock
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
-  # https://github.com/ethereum/builder-specs/blob/0b913daaa491cd889083827375977a6285e684bd/specs/deneb/builder.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#blindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/deneb/builder.md#blindedbeaconblockbody
   BlindedBeaconBlock* = object
     slot*: Slot
     proposer_index*: uint64
@@ -55,13 +52,20 @@ type
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody # [Modified in Deneb]
 
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signedblindedbeaconblock
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
+  MaybeBlindedBeaconBlock* = object
+    case isBlinded*: bool
+    of false:
+      data*: deneb.BlockContents
+    of true:
+      blindedData*: BlindedBeaconBlock
+
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedblindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/builder-specs/blob/534e4f81276b8346d785ed9aba12c4c74b927ec6/specs/deneb/builder.md#executionpayloadandblobsbundle
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/deneb/builder.md#executionpayloadandblobsbundle
   ExecutionPayloadAndBlobsBundle* = object
     execution_payload*: deneb.ExecutionPayload
     blobs_bundle*: BlobsBundle
@@ -87,6 +91,8 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
     block_number: v.body.execution_payload_header.block_number,
     # TODO checksum hex? shortlog?
+    block_hash: to0xHex(v.body.execution_payload_header.block_hash.data),
+    parent_hash: to0xHex(v.body.execution_payload_header.parent_hash.data),
     fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
     blob_kzg_commitments_len: 0,  # Deneb compat

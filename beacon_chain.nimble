@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -50,7 +50,7 @@ requires(
 
 requires "https://gitlab.com/status-im/nimbus-security-resources.git"
 
-import tables
+import std/tables
 let namedBin = {
   "beacon_chain/nimbus_beacon_node": "nimbus_beacon_node",
   "beacon_chain/nimbus_validator_client": "nimbus_validator_client",

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 import std/[algorithm, sequtils]
 import chronicles, chronos, metrics
-import common, api
+import "."/[common, api]
 
 {.push raises: [].}
 
@@ -466,12 +466,6 @@ proc fillSyncCommitteeSelectionProofs*(
                  validator_index = uint64(selection.validator_index),
                  reason = $error
             continue
-          selectionProof = selection.selection_proof.load().valueOr:
-            warn "Invalid signature encountered while processing " &
-                 "sync committee selections",
-                 validator_index = vindex, slot = slot,
-                 selection_proof = shortLog(selection.selection_proof)
-            continue
           validator =
             block:
               # Selections operating using validator indices, so we should check
@@ -509,6 +503,6 @@ proc fillSyncCommitteeSelectionProofs*(
           epochProofs[].proofs.withValue(validator.pubkey, signatures):
             signatures[].setSignature(request.sync_committee_index,
                                       selection.slot,
-                                      Opt.some(selection.selectionProof))
+                                      Opt.some(selection.selection_proof))
             inc(sigres.selectionsProcessed)
   sigres

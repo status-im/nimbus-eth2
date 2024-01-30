@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -70,7 +70,7 @@ proc unblindAndRouteBlockMEV*(
 
   const httpOk = 200
   if bundle.status != httpOk:
-    # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#proposer-slashing
+    # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#proposer-slashing
     # This means if a validator publishes a signature for a
     # `BlindedBeaconBlock` (via a dissemination of a
     # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
@@ -90,7 +90,7 @@ proc unblindAndRouteBlockMEV*(
 
   # Signature provided is consistent with unblinded execution payload,
   # so construct full beacon block
-  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
   var signedBlock = consensusFork.SignedBeaconBlock(
     signature: blindedBlock.signature)
   copyFields(

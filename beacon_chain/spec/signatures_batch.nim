@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,7 +15,8 @@
 import
   # Status lib
   blscurve,
-  stew/[byteutils, results],
+  stew/byteutils,
+  results,
   taskpools,
   bearssl/rand,
   # Internal
@@ -82,7 +83,7 @@ func aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   let
@@ -108,7 +109,7 @@ func aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   var attestersAgg{.noinit.}: AggregatePublicKey
@@ -231,9 +232,10 @@ func bls_to_execution_change_signature_set*(
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
        signed_block: ForkySignedBeaconBlock,
-       validatorKeys: auto,
+       validatorKeys: openArray[ImmutableValidatorData2],
        state: ForkedHashedBeaconState,
        genesis_fork: Fork,
+       capella_fork: Fork,
        cache: var StateCache): Result[void, cstring] =
   ## Collect all signature verifications that process_block would normally do
   ## except deposits, in one go.
@@ -392,7 +394,13 @@ proc collectSignatureSets*(
       return err("collectSignatureSets: invalid voluntary exit")
 
     sigs.add voluntary_exit_signature_set(
-      fork, genesis_validators_root, volex.message, key,
+      # https://eips.ethereum.org/EIPS/eip-7044
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+      (if state.kind >= ConsensusFork.Capella:
+         capella_fork
+       else:
+         fork),
+      genesis_validators_root, volex.message, key,
       volex.signature.load.valueOr do:
         return err(
           "collectSignatureSets: cannot load voluntary exit signature"))

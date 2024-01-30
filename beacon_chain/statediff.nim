@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Copyright (c) 2020-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -187,7 +187,7 @@ func getBeaconStateDiffSummary*(state0: capella.BeaconState):
       if state0.eth1_data_votes.len > 0:
         # replaceOrAddEncodeEth1Votes will check whether it needs to replace or add
         # the votes. Which happens is a function of effectively external data, i.e.
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#eth1-data
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#eth1-data
         # notes it depends on things not deterministic, from a pure consensus-layer
         # perspective. It thus must distinguish between adding and replacing votes,
         # which it accomplishes by checking lengths and the most recent votes. This

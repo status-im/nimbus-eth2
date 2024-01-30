@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2023 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -214,7 +214,6 @@ proc processObject(
     obj: SomeForkedLightClientObject,
     wallTime: BeaconTime): Result[void, VerifierError] =
   let
-    wallSlot = wallTime.slotOrZero()
     res = withForkyObject(obj):
       when lcDataFork > LightClientDataFork.None:
         when forkyObject is ForkyLightClientBootstrap:
@@ -242,7 +241,9 @@ proc processObject(
               self.store[].migrateToDataFork(lcDataFork)
             withForkyStore(self.store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgradedObject = obj.migratingToDataFork(lcDataFork)
+                let
+                  wallSlot = wallTime.slotOrZero()
+                  upgradedObject = obj.migratingToDataFork(lcDataFork)
                 process_light_client_update(
                   forkyStore, upgradedObject.forky(lcDataFork), wallSlot,
                   self.cfg, self.genesis_validators_root)
@@ -438,7 +439,7 @@ proc addObject*(
     self: var LightClientProcessor,
     src: MsgSource,
     obj: SomeForkedLightClientObject,
-    resfut: Future[Result[void, VerifierError]] = nil) =
+    resfut: Future[Result[void, VerifierError]].Raising([CancelledError]) = nil) =
   ## Enqueue a Gossip-validated light client object for verification
   # Backpressure:
   #   Only one object is validated at any time -
@@ -458,8 +459,19 @@ proc addObject*(
     (afterGenesis, _) = wallTime.toSlot()
 
   if not afterGenesis:
-    error "Processing LC object before genesis, clock turned back?"
-    quit 1
+    let mayProcessBeforeGenesis =
+      when obj is ForkedLightClientBootstrap:
+        withForkyBootstrap(obj):
+          when lcDataFork > LightClientDataFork.None:
+            forkyBootstrap.header.beacon.slot == GENESIS_SLOT and
+            self.cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH
+          else:
+            false
+      else:
+        false
+    if not mayProcessBeforeGenesis:
+      error "Processing LC object before genesis, clock turned back?"
+      quit 1
 
   let res = self.storeObject(src, wallTime, obj)
 
@@ -522,7 +534,7 @@ func toValidationError(
       # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -537,7 +549,7 @@ proc processLightClientFinalityUpdate*(
   self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

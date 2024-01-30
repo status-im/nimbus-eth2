@@ -1,14 +1,16 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/[strutils, os, options, uri, json, tables]
-import stew/[results, io2, base10]
-import confutils, chronicles, httputils,
-       chronos, chronos/streams/[asyncstream, tlsstream]
+import
+  std/[strutils, os, options, uri, json, tables],
+  results,
+  stew/[io2, base10],
+  confutils, chronicles, httputils,
+  chronos, chronos/streams/[asyncstream, tlsstream]
 
 const
   RestTesterName* = "Ethereum2 REST API Tester"
@@ -296,7 +298,7 @@ proc openConnection*(address: TransportAddress, uri: Uri,
   let transp =
     try:
       await connect(address)
-    except TransportOsError as exc:
+    except TransportOsError:
       raise newException(ConnectionError, "Unable to establish connection")
 
   let treader = newAsyncStreamReader(transp)
@@ -753,7 +755,7 @@ proc jsonBody(body: openArray[byte]): Result[JsonNode, cstring] =
   let res =
     try:
       parseJson(sbody)
-    except CatchableError as exc:
+    except CatchableError:
       return err("Unable to parse json")
     except Exception as exc:
       raiseAssert exc.msg
@@ -871,7 +873,7 @@ proc runTest(conn: HttpConnectionRef, uri: Uri,
   debug "Running test", name = testName, test_index = testIndex,
                         worker_index = workerIndex
 
-  let (requestUri, request) =
+  let (_, request) =
     block:
       let res = prepareRequest(uri, rule)
       if res.isErr():
@@ -1152,7 +1154,7 @@ proc run(conf: RestTesterConf): int =
          hostname = uri.hostname & ":" & uri.port
   try:
     waitFor(checkConnection(conf, uri))
-  except ConnectionError as exc:
+  except ConnectionError:
     return 1
 
   try:

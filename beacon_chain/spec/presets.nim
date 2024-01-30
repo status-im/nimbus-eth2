@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,15 +10,15 @@
 import
   std/[strutils, parseutils, tables, typetraits],
   chronos/timer,
-  stew/[byteutils], stint, web3/[ethtypes],
+  stew/[byteutils], stint, web3/primitives as web3types,
   ./datatypes/constants
 
 export constants
 
-export stint, ethtypes.toHex, ethtypes.`==`
+export stint, web3types.toHex, web3types.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
@@ -33,7 +33,7 @@ const
 
 type
   Version* = distinct array[4, byte]
-  Eth1Address* = ethtypes.Address
+  Eth1Address* = web3types.Address
 
   RuntimeConfig* = object
     ## https://github.com/ethereum/consensus-specs/tree/v1.4.0-beta.4/configs
@@ -422,7 +422,7 @@ elif const_preset == "minimal":
 
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/configs/minimal.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 
@@ -559,7 +559,7 @@ elif const_preset == "minimal":
   )
 
 else:
-  {.error: "Only mainnet and minimal presets supported".}
+  {.error: "Only mainnet, gnosis, and minimal presets supported".}
   # macro createConstantsFromPreset*(path: static string): untyped =
   #   result = newStmtList()
 
@@ -768,7 +768,7 @@ proc readRuntimeConfig*(
                      "MAX_REQUEST_BLOB_SIDECARS"
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/fork-choice.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
   checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -22,7 +22,7 @@ from ./datatypes/capella import HashedBeaconState, SignedBeaconBlock
 export ssz_codec, merkleization, proofs
 
 type
-  DepositsMerkleizer* = SszMerkleizer[DEPOSIT_CONTRACT_LIMIT]
+  DepositsMerkleizer* = SszMerkleizer2[DEPOSIT_CONTRACT_TREE_DEPTH + 1]
 
 # Can't use `ForkyHashedBeaconState`/`ForkyHashedSignedBeaconBlock` without
 # creating recursive module dependency through `forks`.
@@ -60,3 +60,6 @@ func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractSta
   #      not populated to its maximum size.
   result.branch[0..31] = merkleizer.getCombinedChunks[0..31]
   result.deposit_count[24..31] = merkleizer.getChunkCount().toBytesBE
+
+func getDepositsRoot*(m: var DepositsMerkleizer): Eth2Digest =
+  mixInLength(m.getFinalHash, int m.totalChunks)
