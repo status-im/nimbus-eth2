@@ -186,7 +186,13 @@ proc spawnProposalTask(vc: ValidatorClientRef,
   )
 
 proc isProduceBlockV3Supported(vc: ValidatorClientRef): bool =
-  for node in vc.beaconNodes:
+  let
+    # Both `statuses` and `roles` should be set to values which are used in
+    # api.produceBlockV3() call.
+    statuses = ViableNodeStatus
+    roles = {BeaconNodeRole.BlockProposalData}
+
+  for node in vc.filterNodes(statuses, roles):
     if RestBeaconNodeFeature.NoProduceBlockV3 notin node.features:
       return true
   false
@@ -627,9 +633,10 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
               error_name = exc.name, error_msg = exc.msg
         return
 
-
+  # TODO (cheatfate): This branch should be removed as soon as `produceBlockV2`
+  # call will be fully deprecated.
   if vc.isProduceBlockV3Supported():
-    # We call `V3` first, if call is failed and `isProduceBlockV3Supported()`
+    # We call `V3` first, if call fails and `isProduceBlockV3Supported()`
     # did not find any nodes which support `V3` we try to call `V2`.
     let res =
       await vc.publishBlockV3(currentSlot, slot, fork, randaoReveal, validator)

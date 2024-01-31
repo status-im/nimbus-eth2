@@ -47,10 +47,12 @@ type
     score*: float64
 
 const
-  ViableNodeStatus = {RestBeaconNodeStatus.Compatible,
-                      RestBeaconNodeStatus.NotSynced,
-                      RestBeaconNodeStatus.OptSynced,
-                      RestBeaconNodeStatus.Synced}
+  ViableNodeStatus* = {
+    RestBeaconNodeStatus.Compatible,
+    RestBeaconNodeStatus.NotSynced,
+    RestBeaconNodeStatus.OptSynced,
+    RestBeaconNodeStatus.Synced
+  }
 
 proc `$`*(s: ApiScore): string =
   var res = Base10.toString(uint64(s.index))

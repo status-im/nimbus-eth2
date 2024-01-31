@@ -114,8 +114,8 @@ type
     NoTimeCheck
 
   RestBeaconNodeFeature* {.pure.} = enum
-    NoNimbusExtensions, ## BN do not supports Nimbus Extensions
-    NoProduceBlockV3    ## BN do not supports produceBlockV3 call
+    NoNimbusExtensions, ## BN does not support Nimbus Extensions
+    NoProduceBlockV3    ## BN does not support produceBlockV3 call
 
   TimeOffset* = object
     value: int64

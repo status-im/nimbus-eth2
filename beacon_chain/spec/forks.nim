@@ -671,13 +671,6 @@ template init*(T: type ForkedSignedBlindedBeaconBlock,
     denebData: deneb_mev.SignedBlindedBeaconBlock(
       message: blck, signature: signature))
 
-template init*(T: type ForkedSignedBlindedBeaconBlock,
-               blck: bellatrix_mev.BlindedBeaconBlock, blockRoot: Eth2Digest,
-               signature: ValidatorSig): T =
-  T(kind: ConsensusFork.Bellatrix,
-    bellatrixData: bellatrix_mev.SignedBlindedBeaconBlock(
-      message: blck, signature: signature))
-
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: phase0.MsgTrustedSignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0,    phase0Data: blck)
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: altair.MsgTrustedSignedBeaconBlock): T =
