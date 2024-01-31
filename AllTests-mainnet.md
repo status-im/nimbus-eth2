@@ -74,6 +74,13 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + basics                                                                                     OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Blinded block conversions
+```diff
++ Bellatrix toSignedBlindedBlock                                                             OK
++ Capella toSignedBlindedBlock                                                               OK
++ Deneb toSignedBlindedBlock                                                                 OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -979,4 +986,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 664/669 Fail: 0/669 Skip: 5/669
+OK: 667/672 Fail: 0/672 Skip: 5/672
