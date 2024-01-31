@@ -258,7 +258,8 @@ proc initFullNode(
         index: data.index,
         slot: data.signed_block_header.message.slot,
         kzg_commitment: data.kzg_commitment,
-        versioned_hash: data.kzg_commitment.kzg_commitment_to_versioned_hash))
+        versioned_hash:
+          data.kzg_commitment.kzg_commitment_to_versioned_hash.to0xHex))
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
