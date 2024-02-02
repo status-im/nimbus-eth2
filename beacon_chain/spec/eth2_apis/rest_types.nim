@@ -356,6 +356,8 @@ type
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
 
+  ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
+
   VCRuntimeConfig* = Table[string, string]
 
   RestDepositContract* = object
@@ -629,6 +631,62 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.capellaData)
     of ConsensusFork.Deneb:
       ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: phase0.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Phase0,
+    phase0Data: phase0.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: altair.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Altair,
+    altairData: altair.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: bellatrix.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Bellatrix,
+    bellatrixData: bellatrix.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: capella.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Capella,
+    capellaData: capella.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: deneb.BlockContents, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Deneb,
+    denebData: DenebSignedBlockContents(
+      signed_block: deneb.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)

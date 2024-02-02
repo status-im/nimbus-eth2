@@ -47,10 +47,12 @@ type
     score*: float64
 
 const
-  ViableNodeStatus = {RestBeaconNodeStatus.Compatible,
-                      RestBeaconNodeStatus.NotSynced,
-                      RestBeaconNodeStatus.OptSynced,
-                      RestBeaconNodeStatus.Synced}
+  ViableNodeStatus* = {
+    RestBeaconNodeStatus.Compatible,
+    RestBeaconNodeStatus.NotSynced,
+    RestBeaconNodeStatus.OptSynced,
+    RestBeaconNodeStatus.Synced
+  }
 
 proc `$`*(s: ApiScore): string =
   var res = Base10.toString(uint64(s.index))
@@ -2097,6 +2099,129 @@ proc produceBlockV2*(
           false
         else:
           handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to produce block", data: failures)
+
+proc produceBlockV3*(
+       vc: ValidatorClientRef,
+       slot: Slot,
+       randao_reveal: ValidatorSig,
+       graffiti: GraffitiBytes,
+       strategy: ApiStrategyKind
+     ): Future[ProduceBlockResponseV3] {.async.} =
+  const
+    RequestName = "produceBlockV3"
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestPlainResponse,
+      ProduceBlockResponseV3,
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
+      produceBlockV3Plain(it, slot, randao_reveal, graffiti)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[ProduceBlockResponseV3].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let
+            version = response.headers.getString("eth-consensus-version")
+            blinded =
+              response.headers.getString("eth-execution-payload-blinded")
+            executionValue =
+              response.headers.getString("eth-execution-payload-value")
+            consensusValue =
+              response.headers.getString("eth-consensus-block-value")
+            res = decodeBytes(ProduceBlockResponseV3, response.data,
+                              response.contentType, version, blinded,
+                              executionValue, consensusValue)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[ProduceBlockResponseV3].err($res.error)
+          else:
+            ApiResponse[ProduceBlockResponseV3].ok(res.get())
+        of 400:
+          handle400()
+          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
+          ApiResponse[ProduceBlockResponseV3].err(ResponseInvalidError)
+        of 404:
+          # TODO (cheatfate): Remove this handler when produceBlockV2 support
+          # will be dropped.
+          handle400()
+          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
+          ApiResponse[ProduceBlockResponseV3].err(ResponseInvalidError)
+        of 500:
+          handle500()
+          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
+          ApiResponse[ProduceBlockResponseV3].err(ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[ProduceBlockResponseV3].err(ResponseNoSyncError)
+        else:
+          handleUnexpectedCode()
+          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
+          ApiResponse[ProduceBlockResponseV3].err(ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestPlainResponse,
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
+      produceBlockV3Plain(it, slot, randao_reveal, graffiti)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let
+            version = response.headers.getString("eth-consensus-version")
+            blinded =
+              response.headers.getString("eth-execution-payload-blinded")
+            executionValue =
+              response.headers.getString("eth-execution-payload-value")
+            consensusValue =
+              response.headers.getString("eth-consensus-block-value")
+            res = decodeBytes(ProduceBlockResponseV3, response.data,
+                              response.contentType, version, blinded,
+                              executionValue, consensusValue)
+          if res.isOk(): return res.get()
+          handleUnexpectedData()
+          false
+        of 400:
+          handle400()
+          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
+          false
+        of 404:
+          # TODO (cheatfate): Remove this handler when produceBlockV2 support
+          # will be dropped.
+          handle400()
+          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
+          false
+        of 500:
+          handle500()
+          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
+          false
+        of 503:
+          handle503()
+          false
+        else:
+          handleUnexpectedCode()
+          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
           false
 
     raise (ref ValidatorApiError)(
