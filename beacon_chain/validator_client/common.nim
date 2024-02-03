@@ -741,7 +741,10 @@ proc normalizeUri*(r: Uri): Result[Uri, cstring] =
 
 proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
   let
-    flags = {RestClientFlag.CommaSeparatedArray}
+    flags = {
+      RestClientFlag.CommaSeparatedArray,
+      RestClientFlag.ResolveAlways
+    }
     socketFlags = {SocketFlags.TcpNoDelay}
     address = ? getHttpAddress(uri)
     client = RestClientRef.new(address, flags = flags,
