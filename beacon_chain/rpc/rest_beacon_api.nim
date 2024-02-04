@@ -14,7 +14,7 @@ import
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
-  ../spec/datatypes/[phase0, altair, deneb],
+  ../spec/mev/bellatrix_mev,
   ../validators/message_router_mev
 
 export rest_utils
@@ -1011,6 +1011,48 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http202, BlockValidationError)
 
     RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.2#/Beacon/getBlindedBlock
+  # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/beacon/blocks/blinded_block.yaml
+  router.api2(MethodGet, "/eth/v1/beacon/blinded_blocks/{block_id}") do (
+    block_id: BlockIdent) -> RestApiResponse:
+    let
+      blockIdent = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+      bid = node.getBlockId(blockIdent).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+      contentType =
+        block:
+          let res = preferredContentType(jsonMediaType,
+                                         sszMediaType)
+          if res.isErr():
+            return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+          res.get()
+      bdata = node.dag.getForkedBlock(bid).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+
+    template respondSszOrJson(
+        signedMaybeBlindedBlck: auto, consensusFork: ConsensusFork): untyped =
+      if contentType == sszMediaType:
+        RestApiResponse.sszResponse(
+          signedMaybeBlindedBlck,
+          [("eth-consensus-version", consensusFork.toString())])
+      elif contentType == jsonMediaType:
+        RestApiResponse.jsonResponseBlock(
+          signedMaybeBlindedBlck,
+          consensusFork,
+          node.getBlockOptimistic(bdata),
+          node.dag.isFinalized(bid)
+        )
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+    withBlck(bdata.asSigned()):
+      when consensusFork <= ConsensusFork.Altair:
+        respondSszOrJson(forkyBlck, consensusFork)
+      else:
+        respondSszOrJson(toSignedBlindedBeaconBlock(forkyBlck), consensusFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/beacon/blocks/blinded_blocks.yaml

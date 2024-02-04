@@ -1,3 +1,32 @@
+2023-02-02 v24.2.0
+==================
+
+Nimbus `v24.2.0` is a `low-urgency` upgrade bringing important stability improvements for Deneb-enabled networks. It's highly recommended for users who are testing their setups in the Holešky testnet, which will be transitioned to Deneb on 7th of February.
+
+### Improvements
+
+* Nimbus now supports the `/eth/v1/beacon/blinded_blocks/{block_id}` Beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/5829
+  https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.2#/Beacon/getBlindedBlock
+
+* Nimbus now reports more comprehensive information in case of errors while interacting with an external builder:
+  https://github.com/status-im/nimbus-eth2/pull/5819
+
+## Fixes
+
+* Nimbus was frequently getting out of sync on Deneb-transitioned networks due to a regression introduced in the `v24.1.2` release:
+  https://github.com/status-im/nimbus-eth2/pull/5834
+
+* The `block_sidecar` event reported by the Beacon API had incorrect format for the `versioned_hash` value:
+  https://github.com/status-im/nimbus-eth2/pull/5844
+
+* Rare circumstances could cause the Nimbus validator client to permanently lose its connection to the configured beacon node when the two processes had system clock disparities:
+  https://github.com/status-im/nimbus-eth2/pull/5827
+
+* Nimbus now uses smaller Builder API validator registration batch size in order to prevent rarely triggered registration timeouts:
+  https://github.com/status-im/nimbus-eth2/pull/5837
+
+
 2023-01-25 v24.1.2
 ==================
 

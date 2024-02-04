@@ -22,13 +22,13 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
 proc getHeaderCapella*(slot: Slot,
                        parent_hash: Eth2Digest,
                        pubkey: ValidatorPubKey
-                      ): RestResponse[GetHeaderResponseCapella] {.
+                      ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
      meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/header.yaml
 
 proc submitBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock
-                        ): RestResponse[SubmitBlindedBlockResponseCapella] {.
+                        ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/blinded_blocks",
      meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml
