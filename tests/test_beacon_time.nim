@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,7 +21,7 @@ suite "Beacon time":
       s0.start_beacon_time() == BeaconTime()
       s0.sync_committee_period() == SyncCommitteePeriod(0)
 
-      # Roundtrip far times we treat these as "Infinitiy"
+      # Roundtrip far times we treat these as "Infinity"
       FAR_FUTURE_SLOT.epoch.start_slot() == FAR_FUTURE_SLOT
       FAR_FUTURE_SLOT.sync_committee_period.start_slot() == FAR_FUTURE_SLOT
       FAR_FUTURE_EPOCH.start_slot().epoch() == FAR_FUTURE_EPOCH

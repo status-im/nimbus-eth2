@@ -39,7 +39,7 @@ const
 type
   BlockVerifierFn* =
     proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
-      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+      Future[Result[void, VerifierError]] {.gcsafe, raises: [].}
   InhibitFn* = proc: bool {.gcsafe, raises:[].}
 
   RequestManager* = object
@@ -49,8 +49,8 @@ type
     quarantine: ref Quarantine
     blobQuarantine: ref BlobQuarantine
     blockVerifier: BlockVerifierFn
-    blockLoopFuture: Future[void].Raising([CancelledError])
-    blobLoopFuture: Future[void].Raising([CancelledError])
+    blockLoopFuture: Future[void]
+    blobLoopFuture: Future[void]
 
 func shortLog*(x: seq[Eth2Digest]): string =
   "[" & x.mapIt(shortLog(it)).join(", ") & "]"
@@ -104,7 +104,7 @@ proc checkResponse(idList: seq[BlobIdentifier],
         return false
   true
 
-proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: (raises: [CancelledError]).} =
+proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async.} =
   var peer: Peer
   try:
     peer = await rman.network.peerPool.acquire()
@@ -171,13 +171,19 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
         peer = peer, blocks = shortLog(items), err = blocks.error()
       peer.updateScore(PeerScoreNoValues)
 
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    peer.updateScore(PeerScoreNoValues)
+    debug "Error while fetching blocks by root", exc = exc.msg,
+          items = shortLog(items), peer = peer, peer_score = peer.getScore()
+    raise exc
   finally:
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
 proc fetchBlobsFromNetwork(self: RequestManager,
-                           idList: seq[BlobIdentifier])
-                           {.async: (raises: [CancelledError]).} =
+                           idList: seq[BlobIdentifier]) {.async.} =
   var peer: Peer
 
   try:
@@ -185,7 +191,7 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     debug "Requesting blobs by root", peer = peer, blobs = shortLog(idList),
                                              peer_score = peer.getScore()
 
-    let blobs = await blobSidecarsByRoot(peer, BlobIdentifierList idList)
+    let blobs = (await blobSidecarsByRoot(peer, BlobIdentifierList idList))
 
     if blobs.isOk:
       let ublobs = blobs.get()
@@ -213,11 +219,18 @@ proc fetchBlobsFromNetwork(self: RequestManager,
         peer = peer, blobs = shortLog(idList), err = blobs.error()
       peer.updateScore(PeerScoreNoValues)
 
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    peer.updateScore(PeerScoreNoValues)
+    debug "Error while fetching blobs by root", exc = exc.msg,
+          idList = shortLog(idList), peer = peer, peer_score = peer.getScore()
+    raise exc
   finally:
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
 
-proc requestManagerBlockLoop(rman: RequestManager) {.async: (raises: [CancelledError]).} =
+proc requestManagerBlockLoop(rman: RequestManager) {.async.} =
   while true:
     # TODO This polling could be replaced with an AsyncEvent that is fired
     #      from the quarantine when there's work to do
@@ -232,19 +245,33 @@ proc requestManagerBlockLoop(rman: RequestManager) {.async: (raises: [CancelledE
       continue
 
     debug "Requesting detected missing blocks", blocks = shortLog(blocks)
-    let start = SyncMoment.now(0)
+    try:
+      let start = SyncMoment.now(0)
 
-    var workers: array[PARALLEL_REQUESTS, Future[void].Raising([CancelledError])]
+      var workers: array[PARALLEL_REQUESTS, Future[void]]
 
-    for i in 0 ..< PARALLEL_REQUESTS:
-      workers[i] = rman.requestBlocksByRoot(blocks)
+      for i in 0 ..< PARALLEL_REQUESTS:
+        workers[i] = rman.requestBlocksByRoot(blocks)
 
-    await allFutures(workers)
+      await allFutures(workers)
 
-    let finish = SyncMoment.now(uint64(len(blocks)))
+      let finish = SyncMoment.now(uint64(len(blocks)))
 
-    debug "Request manager block tick", blocks = shortLog(blocks),
-                                        sync_speed = speed(start, finish)
+      var succeed = 0
+      for worker in workers:
+        if worker.completed():
+          inc(succeed)
+
+      debug "Request manager block tick", blocks = shortLog(blocks),
+                                          succeed = succeed,
+                                          failed = (len(workers) - succeed),
+                                          sync_speed = speed(start, finish)
+
+    except CancelledError:
+      break
+    except CatchableError as exc:
+      warn "Unexpected error in request manager block loop", exc = exc.msg
+
 
 proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
   let
@@ -281,28 +308,42 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
       rman.quarantine[].removeBlobless(blobless)
   fetches
 
-proc requestManagerBlobLoop(rman: RequestManager) {.async: (raises: [CancelledError]).} =
+
+proc requestManagerBlobLoop(rman: RequestManager) {.async.} =
   while true:
-    # TODO This polling could be replaced with an AsyncEvent that is fired
-    #      from the quarantine when there's work to do
+  # TODO This polling could be replaced with an AsyncEvent that is fired
+  #      from the quarantine when there's work to do
     await sleepAsync(POLL_INTERVAL)
     if rman.inhibit():
       continue
 
-  let fetches = rman.getMissingBlobs()
-  if fetches.len > 0:
-    debug "Requesting detected missing blobs", blobs = shortLog(fetches)
-    let start = SyncMoment.now(0)
-    var workers: array[PARALLEL_REQUESTS, Future[void].Raising([CancelledError])]
-    for i in 0 ..< PARALLEL_REQUESTS:
-      workers[i] = rman.fetchBlobsFromNetwork(fetches)
+    let fetches = rman.getMissingBlobs()
+    if fetches.len > 0:
+      debug "Requesting detected missing blobs", blobs = shortLog(fetches)
+      try:
+        let start = SyncMoment.now(0)
+        var workers: array[PARALLEL_REQUESTS, Future[void]]
+        for i in 0 ..< PARALLEL_REQUESTS:
+          workers[i] = rman.fetchBlobsFromNetwork(fetches)
 
-    await allFutures(workers)
-    let finish = SyncMoment.now(uint64(len(fetches)))
+        await allFutures(workers)
+        let finish = SyncMoment.now(uint64(len(fetches)))
 
-    debug "Request manager blob tick",
-          blobs_count = len(fetches),
-          sync_speed = speed(start, finish)
+        var succeed = 0
+        for worker in workers:
+          if worker.finished() and not(worker.failed()):
+            inc(succeed)
+
+        debug "Request manager blob tick",
+             blobs_count = len(fetches),
+             succeed = succeed,
+             failed = (len(workers) - succeed),
+             sync_speed = speed(start, finish)
+
+      except CancelledError:
+        break
+      except CatchableError as exc:
+        warn "Unexpected error in request manager blob loop", exc = exc.msg
 
 proc start*(rman: var RequestManager) =
   ## Start Request Manager's loops.
