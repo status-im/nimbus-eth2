@@ -204,6 +204,7 @@ RestJson.useDefaultSerializationFor(
   bellatrix.ExecutionPayload,
   bellatrix.ExecutionPayloadHeader,
   bellatrix.SignedBeaconBlock,
+  bellatrix_mev.BlindedBeaconBlockBody,
   bellatrix_mev.BlindedBeaconBlock,
   bellatrix_mev.SignedBlindedBeaconBlock,
   capella.BeaconBlock,
@@ -560,6 +561,33 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/json")
+
+proc jsonResponseBlock*(t: typedesc[RestApiResponse],
+                        data: ForkySignedBlindedBeaconBlock,
+                        consensusFork: ConsensusFork,
+                        execOpt: Opt[bool],
+                        finalized: bool): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", consensusFork.toString())]
+    res =
+      block:
+        var default: seq[byte]
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.beginRecord()
+          writer.writeField("version", consensusFork.toString())
+          if execOpt.isSome():
+            writer.writeField("execution_optimistic", execOpt.get())
+          writer.writeField("finalized", finalized)
+          writer.writeField("data", data)
+          writer.endRecord()
+          stream.getOutput(seq[byte])
+        except SerializationError:
+          default
+        except IOError:
+          default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseBlock*(t: typedesc[RestApiResponse],
                         data: ForkedSignedBeaconBlock,

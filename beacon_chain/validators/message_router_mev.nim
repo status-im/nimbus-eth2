@@ -55,7 +55,7 @@ proc unblindAndRouteBlockMEV*(
 
   # By time submitBlindedBlock is called, must already have done slashing
   # protection check
-  let bundle =
+  let response =
     try:
       awaitWithTimeout(
           payloadBuilderRestClient.submitBlindedBlock(blindedBlock),
@@ -63,13 +63,11 @@ proc unblindAndRouteBlockMEV*(
         return err("Submitting blinded block timed out")
       # From here on, including error paths, disallow local EL production by
       # returning Opt.some, regardless of whether on head or newBlock.
-    except RestDecodingError as exc:
-      return err("REST decoding error submitting blinded block: " & exc.msg)
     except CatchableError as exc:
       return err("exception in submitBlindedBlock: " & exc.msg)
 
   const httpOk = 200
-  if bundle.status != httpOk:
+  if response.status != httpOk:
     # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#proposer-slashing
     # This means if a validator publishes a signature for a
     # `BlindedBeaconBlock` (via a dissemination of a
@@ -77,12 +75,31 @@ proc unblindAndRouteBlockMEV*(
     # local build process as a fallback, even in the event of some failure
     # with the external builder network.
     return err("submitBlindedBlock failed with HTTP error code " &
-      $bundle.status & ": " & $shortLog(blindedBlock))
+      $response.status & ": " & $shortLog(blindedBlock))
 
   when consensusFork >= ConsensusFork.Deneb:
-    template execution_payload: untyped = bundle.data.data.execution_payload
+    let
+      res = decodeBytes(
+        SubmitBlindedBlockResponseDeneb, response.data, response.contentType)
+
+      bundle = res.valueOr:
+        return err("Could not decode Deneb blinded block: " & $res.error &
+          " with HTTP status " & $response.status & ", Content-Type " &
+          $response.contentType & " and content " & $response.data)
+
+    template execution_payload: untyped = bundle.data.execution_payload
   else:
-    template execution_payload: untyped = bundle.data.data
+    let
+      res = decodeBytes(
+        SubmitBlindedBlockResponseCapella, response.data, response.contentType)
+
+      bundle = res.valueOr:
+        return err("Could not decode Capella blinded block: " & $res.error &
+          " with HTTP status " & $response.status & ", Content-Type " &
+          $response.contentType & " and content " & $response.data)
+
+    template execution_payload: untyped = bundle.data
+
   if hash_tree_root(blindedBlock.message.body.execution_payload_header) !=
       hash_tree_root(execution_payload):
     return err("unblinded payload doesn't match blinded payload header: " &
@@ -105,9 +122,9 @@ proc unblindAndRouteBlockMEV*(
 
   let blobsOpt =
     when consensusFork >= ConsensusFork.Deneb:
-      template blobs_bundle: untyped = bundle.data.data.blobs_bundle
+      template blobs_bundle: untyped = bundle.data.blobs_bundle
       if blindedBlock.message.body.blob_kzg_commitments !=
-          bundle.data.data.blobs_bundle.commitments:
+          bundle.data.blobs_bundle.commitments:
         return err("unblinded blobs bundle has unexpected commitments")
       let ok = verifyProofs(
           asSeq blobs_bundle.blobs,

@@ -137,7 +137,7 @@ Each entry in the slot index is a fixed-length 8-byte two's complement signed in
 
 Only one entry per slot is supported, meaning that only one canonical history can be indexed this way.
 
-A `SlotIndex` record may appear in a stand-alone file which by convention ends with `.e2i` - in this case, the offset is counted as if the index was appened to its corresponding data file - offsets are thus negative and counted from the end of the data file. In particular, if the index is simply appended to the data file, it does not change in contents.
+A `SlotIndex` record may appear in a stand-alone file which by convention ends with `.e2i` - in this case, the offset is counted as if the index was appended to its corresponding data file - offsets are thus negative and counted from the end of the data file. In particular, if the index is simply appended to the data file, it does not change in contents.
 
 ### Reading
 
@@ -219,7 +219,7 @@ The structure of the era file gives it the following properties:
 * the indices at the end are fixed-length: they can be used to discover the beginning of an era if the end of it is known
 * the start slot field of the state slot index idenfifies which era the group pertains to
 * the state in the era file is the end state after having applied all the blocks in the era and, if applicable, the block at the first slot - the `block_roots` entries in the state can be used to discover the digest of the blocks - either to verify the intergrity of the era file or to quickly load block roots without computing them.
-* each group in the era file is full, indendent era file - groups can freely be split and combined
+* each group in the era file is full, independent era file - groups can freely be split and combined
 
 ## Reading era files
 
