@@ -51,4 +51,4 @@ Additionally, the URL of the service exposing the [builder API](https://ethereum
 
 - [Mainnet Relay Overview](https://beaconcha.in/relays)
 
-- [Goerli Relay Overview](https://goerli.beaconcha.in/relays)
+- [Holesky Relay Overview](https://holesky.beaconcha.in/relays)

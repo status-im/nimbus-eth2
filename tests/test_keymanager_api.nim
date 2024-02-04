@@ -332,7 +332,7 @@ proc startValidatorClient(basePort: int) {.async, thread.} =
 
 const
   password = "7465737470617373776f7264f09f9491"
-  # This is taken from the offical test vectors in test_keystores.nim
+  # This is taken from the official test vectors in test_keystores.nim
   secretBytes = hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
   salt = hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
   iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
