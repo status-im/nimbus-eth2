@@ -20,7 +20,7 @@ Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementati
 - [Developer resources](#developer-resources)
 - [Tooling and utilities](#tooling-and-utilities)
 - [For researchers](#for-researchers)
-  - [State transition simulation](#state-transition-simulation)
+  - [Block simulation](#block-simulation)
   - [Local network simulation](#local-network-simulation)
   - [Visualising simulation metrics](#visualising-simulation-metrics)
   - [CI setup](#ci-setup)
