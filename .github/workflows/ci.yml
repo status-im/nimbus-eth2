@@ -219,7 +219,7 @@ jobs:
 
       - name: Build with developer flags
         run: |
-          make -j nimbus_beacon_node NIMFLAGS="-d:chronicles_log_level=TRACE -d:has_deposit_root_checks=1"
+          make -j nimbus_beacon_node LOG_LEVEL=TRACE NIMFLAGS="-d:has_deposit_root_checks=1"
 
   lint:
     name: "Lint"
