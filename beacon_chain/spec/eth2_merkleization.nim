@@ -39,8 +39,6 @@ func hash_tree_root*(
        deneb.SignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
 
-static: doAssert ConsensusFork.high == ConsensusFork.Deneb
-
 func depositCountBytes*(x: uint64): array[32, byte] =
   doAssert(x <= 4294967295'u64)
   var z = x
