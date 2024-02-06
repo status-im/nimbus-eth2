@@ -1398,7 +1398,7 @@ when hasDepositRootChecks:
 
   proc fetchDepositContractData(connection: ELConnection,
                                 rpcClient: RpcClient,
-                                depositContact: Sender[DepositContract],
+                                depositContract: Sender[DepositContract],
                                 blk: Eth1Block): Future[DepositContractDataStatus] {.async.} =
     let
       startTime = Moment.now
@@ -1416,8 +1416,10 @@ when hasDepositRootChecks:
       failureAllowed = true)
 
     try:
-      let fetchedRoot = asEth2Digest(
-        awaitWithTimeout(depositRoot, deadline))
+      let fetchedRoot = asEth2Digest(block:
+        awaitWithTimeout(depositRoot, deadline):
+          raise newException(DataProviderTimeout,
+            "Request time out while obtaining deposits root"))
       if blk.depositRoot.isZero:
         blk.depositRoot = fetchedRoot
         result = Fetched
@@ -1432,8 +1434,10 @@ when hasDepositRootChecks:
       result = DepositRootUnavailable
 
     try:
-      let fetchedCount = bytes_to_uint64(
-        awaitWithTimeout(rawCount, deadline).toArray)
+      let fetchedCount = bytes_to_uint64((block:
+        awaitWithTimeout(rawCount, deadline):
+          raise newException(DataProviderTimeout,
+            "Request time out while obtaining deposits count")).toArray)
       if blk.depositCount == 0:
         blk.depositCount = fetchedCount
       elif blk.depositCount != fetchedCount:
@@ -1610,7 +1614,8 @@ proc syncBlockRange(m: ELManager,
       template lastBlock: auto = blocksWithDeposits[lastIdx]
 
       let status = when hasDepositRootChecks:
-        rpcClient.fetchDepositContractData(depositContract, lastBlock)
+        await fetchDepositContractData(
+          connection, rpcClient, depositContract, lastBlock)
       else:
         DepositRootUnavailable
 
