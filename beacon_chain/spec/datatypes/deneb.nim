@@ -16,6 +16,7 @@
 {.push raises: [].}
 
 import
+  std/typetraits,
   chronicles,
   std/[sequtils, strutils],
   stew/[bitops2, byteutils],
@@ -584,7 +585,7 @@ func shortLog*(v: ExecutionPayload): auto =
     gas_limit: v.gas_limit,
     gas_used: v.gas_used,
     timestamp: v.timestamp,
-    extra_data_len: len(v.extra_data),
+    extra_data: toPrettyString(distinctBase v.extra_data),
     base_fee_per_gas: $(v.base_fee_per_gas),
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
