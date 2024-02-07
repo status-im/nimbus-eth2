@@ -389,8 +389,8 @@ proc getExecutionPayload(
         forkyState.data.latest_execution_payload_header.block_hash
       else:
         (static(default(Eth2Digest)))
-    latestSafe = beaconHead.safeExecutionPayloadHash
-    latestFinalized = beaconHead.finalizedExecutionPayloadHash
+    latestSafe = beaconHead.safeExecutionBlockHash
+    latestFinalized = beaconHead.finalizedExecutionBlockHash
     timestamp = withState(proposalState[]):
       compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
     random = withState(proposalState[]):

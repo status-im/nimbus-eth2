@@ -640,8 +640,8 @@ proc storeBlock(
           discard await elManager.forkchoiceUpdated(
             headBlockHash =
               self.consensusManager[].optimisticExecutionPayloadHash,
-            safeBlockHash = newHead.get.safeExecutionPayloadHash,
-            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+            safeBlockHash = newHead.get.safeExecutionBlockHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
             payloadAttributes = none attributes)
 
       let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
@@ -667,8 +667,8 @@ proc storeBlock(
           await elManager.expectValidForkchoiceUpdated(
             headBlockPayloadAttributesType = payloadAttributeType,
             headBlockHash = headExecutionPayloadHash,
-            safeBlockHash = newHead.get.safeExecutionPayloadHash,
-            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+            safeBlockHash = newHead.get.safeExecutionBlockHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
             receivedBlock = signedBlock)
 
         template callForkChoiceUpdated: auto =

@@ -165,8 +165,8 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
   template callForkchoiceUpdated(attributes: untyped): auto =
     await self.elManager.forkchoiceUpdated(
       headBlockHash = headExecutionPayloadHash,
-      safeBlockHash = newHead.safeExecutionPayloadHash,
-      finalizedBlockHash = newHead.finalizedExecutionPayloadHash,
+      safeBlockHash = newHead.safeExecutionBlockHash,
+      finalizedBlockHash = newHead.finalizedExecutionBlockHash,
       payloadAttributes = none attributes)
 
   # Can't use dag.head here because it hasn't been updated yet
@@ -352,13 +352,13 @@ proc runProposalForkchoiceUpdated*(
   if headBlockHash.isZero:
     return err()
 
-  let safeBlockHash = beaconHead.safeExecutionPayloadHash
+  let safeBlockHash = beaconHead.safeExecutionBlockHash
 
   withState(self.dag.headState):
     template callForkchoiceUpdated(fcPayloadAttributes: auto) =
       let (status, _) = await self.elManager.forkchoiceUpdated(
         headBlockHash, safeBlockHash,
-        beaconHead.finalizedExecutionPayloadHash,
+        beaconHead.finalizedExecutionBlockHash,
         payloadAttributes = some fcPayloadAttributes)
       debug "Fork-choice updated for proposal", status
 

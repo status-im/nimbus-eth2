@@ -71,8 +71,8 @@ proc initLightClient*(
               template callForkchoiceUpdated(attributes: untyped) =
                 discard await node.elManager.forkchoiceUpdated(
                   headBlockHash = blckPayload.block_hash,
-                  safeBlockHash = beaconHead.safeExecutionPayloadHash,
-                  finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash,
+                  safeBlockHash = beaconHead.safeExecutionBlockHash,
+                  finalizedBlockHash = beaconHead.finalizedExecutionBlockHash,
                   payloadAttributes = none attributes)
 
               case node.dag.cfg.consensusForkAtEpoch(

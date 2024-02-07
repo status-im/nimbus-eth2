@@ -761,18 +761,18 @@ func getAggregatedAttestation*(pool: var AttestationPool,
 
 type BeaconHead* = object
   blck*: BlockRef
-  safeExecutionPayloadHash*, finalizedExecutionPayloadHash*: Eth2Digest
+  safeExecutionBlockHash*, finalizedExecutionBlockHash*: Eth2Digest
 
 proc getBeaconHead*(
     pool: AttestationPool, headBlock: BlockRef): BeaconHead =
   let
-    finalizedExecutionPayloadHash =
+    finalizedExecutionBlockHash =
       pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/fork_choice/safe-block.md#get_safe_execution_payload_hash
     safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
-    safeExecutionPayloadHash =
+    safeExecutionBlockHash =
       if safeBlock.isErr:
         # Safe block is currently the justified block determined by fork choice.
         # If finality already advanced beyond the current justified checkpoint,
@@ -780,14 +780,14 @@ proc getBeaconHead*(
         # the justified block may end up not having a `BlockRef` anymore.
         # Because we know that a different fork already finalized a later point,
         # let's just report the finalized execution payload hash instead.
-        finalizedExecutionPayloadHash
+        finalizedExecutionBlockHash
       else:
         pool.dag.loadExecutionBlockHash(safeBlock.get)
 
   BeaconHead(
     blck: headBlock,
-    safeExecutionPayloadHash: safeExecutionPayloadHash,
-    finalizedExecutionPayloadHash: finalizedExecutionPayloadHash)
+    safeExecutionBlockHash: safeExecutionBlockHash,
+    finalizedExecutionBlockHash: finalizedExecutionBlockHash)
 
 proc selectOptimisticHead*(
     pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
