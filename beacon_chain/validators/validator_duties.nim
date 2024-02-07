@@ -36,7 +36,8 @@ proc toAttestation*(
     registered.data, signature).expect("valid data")
 
 proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
-                           head: Opt[BlockRef] = Opt.none(BlockRef)) {.async.} =
+                           head: Opt[BlockRef] = Opt.none(BlockRef))
+                           {.async: (raises: [CancelledError]).} =
   # The expected block arrived (or expectBlock was called again which
   # shouldn't happen as this is the only place we use it) - in our async
   # loop however, we might have been doing other processing that caused delays
