@@ -303,7 +303,7 @@ proc addBlobless*(
   quarantine.cleanupBlobless(finalizedSlot)
 
   if quarantine.blobless.lenu64 >= MaxBlobless:
-    return false
+    return true
 
   debug "block quarantine: Adding blobless", blck = shortLog(signedBlock)
   quarantine.blobless[signedBlock.root] = signedBlock

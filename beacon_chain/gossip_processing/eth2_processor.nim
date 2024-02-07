@@ -246,12 +246,8 @@ proc processSignedBeaconBlock*(
         if self.blobQuarantine[].hasBlobs(signedBlock):
           Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
         else:
-          if not self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                               signedBlock):
-            notice "Block quarantine full (blobless)",
-              blockRoot = shortLog(signedBlock.root),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature)
+          discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
+                                                signedBlock)
           return v
       else:
         Opt.none(BlobSidecars)
