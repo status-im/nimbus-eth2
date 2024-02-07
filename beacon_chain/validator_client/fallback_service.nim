@@ -415,8 +415,7 @@ proc runTimeMonitor(service: FallbackServiceRef,
                 status = $exc.status, reason = $exc.msg,
                 error_message = $exc.message
         else:
-          notice NimbusExtensionsLog, status = $exc.status,
-                 reason = $exc.msg, error_message = $exc.message
+          notice NimbusExtensionsLog, status = $exc.status
           # Exiting loop
         node.disableNimbusExtensions()
         return
