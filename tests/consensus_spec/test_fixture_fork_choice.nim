@@ -210,18 +210,18 @@ proc stepOnBlock(
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
   when consensusFork >= ConsensusFork.Bellatrix:
-    let executionPayloadHash =
+    let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
-    if executionPayloadHash in invalidatedRoots:
+    if executionBlockHash in invalidatedRoots:
       # Mocks fork choice INVALID list application. These tests sequence this
       # in a way the block processor does not, specifying each payload_status
       # before the block itself, while Nimbus fork choice treats invalidating
       # a non-existent block root as a no-op and does not remember it for the
       # future.
       let lvh = invalidatedRoots.getOrDefault(
-        executionPayloadHash, static(default(Eth2Digest)))
+        executionBlockHash, static(default(Eth2Digest)))
       fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
-        signedBlock.message.parent_root, lvh, executionPayloadHash))
+        signedBlock.message.parent_root, lvh, executionBlockHash))
 
       return err VerifierError.Invalid
 
