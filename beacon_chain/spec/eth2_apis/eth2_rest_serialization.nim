@@ -122,6 +122,7 @@ RestJson.useDefaultSerializationFor(
   RestBeaconStatesFinalityCheckpoints,
   RestBlockHeader,
   RestBlockHeaderInfo,
+  RestChainHeadV2,
   RestCommitteeSubscription,
   RestContributionAndProof,
   RestDepositContract,
