@@ -221,6 +221,11 @@ jobs:
         run: |
           make -j nimbus_beacon_node LOG_LEVEL=TRACE NIMFLAGS="-d:has_deposit_root_checks=1"
 
+      - name: Build files with isMainModule
+        run: |
+          source env.sh
+          nim c beacon_chain/trusted_node_sync
+
   lint:
     name: "Lint"
     runs-on: ubuntu-latest
