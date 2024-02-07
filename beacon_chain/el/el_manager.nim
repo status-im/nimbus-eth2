@@ -30,7 +30,7 @@ export
   eth1_chain, el_conf, engine_api, base
 
 logScope:
-  topics = "elmon"
+  topics = "elman"
 
 type
   PubKeyBytes = DynamicBytes[48, 48]

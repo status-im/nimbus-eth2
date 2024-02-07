@@ -16,6 +16,9 @@ import
 
 export beacon_chain_db, deques, digest, base, forks
 
+logScope:
+  topics = "elchain"
+
 declarePublicGauge eth1_finalized_head,
   "Block number of the highest Eth1 block finalized by Eth2 consensus"
 
