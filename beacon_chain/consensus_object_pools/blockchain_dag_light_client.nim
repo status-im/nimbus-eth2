@@ -631,7 +631,11 @@ proc createLightClientUpdate(
   # Check if light client data improved
   let
     finalized_slot = attested_data.finalized_slot
-    finalized_bsi = dag.getExistingBlockIdAtSlot(finalized_slot)
+    finalized_bsi =
+      if finalized_slot >= dag.tail.slot:
+        dag.getExistingBlockIdAtSlot(finalized_slot)
+      else:
+        Opt.none(BlockSlotId)
     has_finality =
       finalized_bsi.isSome and
       finalized_bsi.get.bid.slot >= dag.tail.slot
@@ -702,8 +706,36 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
   if not dag.shouldImportLcData:
     return
 
-  # Initialize tail slot
-  let targetTailSlot = max(dag.targetLightClientTailSlot, dag.tail.slot)
+  # Initialize tail slot.
+  # Both state and blocks must be available to construct light client data,
+  # see `cacheLightClientData`. If blocks are unavailable, most parts of the
+  # `LightClientHeader` could be reconstructed from the corresponding post-state
+  # but `execution_branch` (since Capella) requires full block availability.
+  # If the assumed-to-be-available range of states / blocks turns out to be
+  # actually unavailable (database inconsistencies), the `tailSlot` will adjust
+  # using `handleUnexpectedLightClientError`. This is unexpected and is logged,
+  # but recoverable by excluding the unavailable range from LC data collection.
+  let targetTailSlot = max(
+    # User configured horizon
+    dag.targetLightClientTailSlot,
+    max(
+      # State availability, needed for `cacheLightClientData`
+      dag.tail.slot,
+      # Block availability, needed for `LightClientHeader.execution_branch`
+      if dag.backfill.slot != GENESIS_SLOT:
+        let existing = dag.getBlockIdAtSlot(dag.backfill.slot)
+        if existing.isSome:
+          if dag.getForkedBlock(existing.get.bid).isNone:
+            # Special case: when starting with only a checkpoint state,
+            # we will not have the head block data in the database
+            dag.backfill.slot + 1
+          else:
+            dag.backfill.slot
+        else:
+          dag.backfill.slot
+      else:
+        dag.backfill.slot))
+
   dag.lcDataStore.cache.tailSlot = max(dag.head.slot, targetTailSlot)
   if dag.head.slot < dag.lcDataStore.cache.tailSlot:
     return
@@ -725,7 +757,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
   logScope:
     lightClientDataMaxPeriods = dag.lcDataStore.maxPeriods
     importMode = dag.lcDataStore.importMode
-  debug "Initializing cached LC data", res
+  debug "Initializing cached LC data", res, targetTailSlot
 
   proc isSyncAggregateCanonical(
       dag: ChainDAGRef, state: ForkyHashedBeaconState,
