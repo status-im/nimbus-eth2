@@ -551,6 +551,10 @@ template PayloadAttributes*(
   else:
     {.error: "PayloadAttributes does not support " & $kind.}
 
+# `eth2_merkleization` cannot import `forks` (circular), so the check is here
+static: doAssert ConsensusFork.high == ConsensusFork.Deneb,
+  "eth2_merkleization has been checked and `hash_tree_root` is up to date"
+
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
 func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
