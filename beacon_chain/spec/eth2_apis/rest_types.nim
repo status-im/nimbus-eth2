@@ -266,7 +266,7 @@ type
   RestChainHeadV2* = object
     root*: Eth2Digest
     slot*: Slot
-    execution_optmistic*: bool
+    execution_optimistic*: bool
 
   RestMetadata* = object
     seq_number*: string
