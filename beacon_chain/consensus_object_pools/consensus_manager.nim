@@ -155,16 +155,16 @@ func setOptimisticHead*(
 
 proc updateExecutionClientHead(self: ref ConsensusManager,
                                newHead: BeaconHead): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
-  let headExecutionPayloadHash = self.dag.loadExecutionBlockHash(newHead.blck)
+  let headExecutionBlockHash = self.dag.loadExecutionBlockHash(newHead.blck)
 
-  if headExecutionPayloadHash.isZero:
+  if headExecutionBlockHash.isZero:
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(newHead.blck)
     return Opt[void].ok()
 
   template callForkchoiceUpdated(attributes: untyped): auto =
     await self.elManager.forkchoiceUpdated(
-      headBlockHash = headExecutionPayloadHash,
+      headBlockHash = headExecutionBlockHash,
       safeBlockHash = newHead.safeExecutionBlockHash,
       finalizedBlockHash = newHead.finalizedExecutionBlockHash,
       payloadAttributes = none attributes)

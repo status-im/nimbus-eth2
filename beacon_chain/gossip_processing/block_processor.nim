@@ -651,10 +651,10 @@ proc storeBlock(
           callForkchoiceUpdated(consensusFork.PayloadAttributes)
     else:
       let
-        headExecutionPayloadHash =
+        headExecutionBlockHash =
           dag.loadExecutionBlockHash(newHead.get.blck)
         wallSlot = self.getBeaconTime().slotOrZero
-      if  headExecutionPayloadHash.isZero or
+      if  headExecutionBlockHash.isZero or
           NewPayloadStatus.noResponse == payloadStatus:
         # Blocks without execution payloads can't be optimistic, and don't try
         # to fcU to a block the EL hasn't seen
@@ -666,7 +666,7 @@ proc storeBlock(
         template callExpectValidFCU(payloadAttributeType: untyped): auto =
           await elManager.expectValidForkchoiceUpdated(
             headBlockPayloadAttributesType = payloadAttributeType,
-            headBlockHash = headExecutionPayloadHash,
+            headBlockHash = headExecutionBlockHash,
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
             receivedBlock = signedBlock)
