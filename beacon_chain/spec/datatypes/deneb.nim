@@ -823,3 +823,13 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+type
+  # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml#L95-L124
+  PayloadAttributesInfoObject* = object
+    proposal_slot*: Slot
+    parent_block_root*: Eth2Digest
+    parent_block_number*: uint64
+    parent_block_hash*: Eth2Digest
+    proposer_index*: uint64
+    payload_attributes*: string

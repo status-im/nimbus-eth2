@@ -10,7 +10,8 @@
 import
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/[signatures, signatures_batch],
+  ../spec/[
+    eth2_apis/eth2_rest_serialization, signatures, signatures_batch],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -21,7 +22,7 @@ from ../consensus_object_pools/consensus_manager import
   updateHeadWithExecution
 from ../consensus_object_pools/blockchain_dag import
   getBlockRef, getProposer, forkAtEpoch, loadExecutionBlockHash,
-  markBlockVerified, validatorKey
+  loadExecutionBlockNumber, markBlockVerified, validatorKey
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
@@ -66,6 +67,9 @@ type
     validationDur*: Duration # Time it took to perform gossip validation
     src*: MsgSource
 
+  OnPayloadAttributesCallback =
+    proc(data: PayloadAttributesInfoObject) {.gcsafe, raises: [].}
+
   BlockProcessor* = object
     ## This manages the processing of blocks from different sources
     ## Blocks and attestations are enqueued in a gossip-validated state
@@ -109,6 +113,10 @@ type
       ## The slot at which we sent a payload to the execution client the last
       ## time
 
+    # SSE callback
+    # ----------------------------------------------------------------
+    onPayloadAttributesAdded: OnPayloadAttributesCallback
+
   NewPayloadStatus {.pure.} = enum
     valid
     notValid
@@ -129,7 +137,9 @@ proc new*(T: type BlockProcessor,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
-          getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
+          getBeaconTime: GetBeaconTimeFn,
+          onPayloadAttributesAdded: OnPayloadAttributesCallback):
+          ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
@@ -139,6 +149,7 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     getBeaconTime: getBeaconTime,
+    onPayloadAttributesAdded: onPayloadAttributesAdded,
     verifier: BatchVerifier.init(rng, taskpool)
   )
 
@@ -407,6 +418,52 @@ proc enqueueBlock*(
   except AsyncQueueFullError:
     raiseAssert "unbounded queue"
 
+proc sendNewPayloadAttributeNotification(
+    self: BlockProcessor, wallSlot: Slot, newHead: BlockRef) =
+  if not(isNil(self.onPayloadAttributesAdded)):
+    # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml#L95-L124
+    # `payload_attributes`: beacon API encoding of `PayloadAttributesV<N>` as
+    # defined by the `execution-apis` specification. The version `N` must match
+    # the payload attributes for the hard fork matching `version`.
+    #
+    # The beacon API encoded object must have equivalent fields to its
+    # counterpart in `execution-apis` with two differences: 1) `snake_case`
+    # identifiers must be used rather than `camelCase`; 2) integers must be
+    # encoded as quoted decimals rather than big-endian hex.
+    let
+      proposal_slot = wallSlot + 1
+      payload_attributes =
+        case self.consensusManager.dag.cfg.consensusForkAtEpoch(
+            proposal_slot.epoch)
+        of ConsensusFork.Deneb:
+          RestJson.encode(RestPayloadAttributesV3(
+            timestamp: 0'u64,
+            prev_randao: ZERO_HASH,
+            suggested_fee_recipient: default(Eth1Address),
+            withdrawals: @[],
+            parent_beacon_block_root: ZERO_HASH))
+        of ConsensusFork.Capella:
+          RestJson.encode(RestPayloadAttributesV2(
+            timestamp: 0'u64,
+            prev_randao: ZERO_HASH,
+            suggested_fee_recipient: default(Eth1Address),
+            withdrawals: @[]))
+        of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
+          RestJson.encode(RestPayloadAttributesV1(
+            timestamp: 0'u64,
+            prev_randao: ZERO_HASH,
+            suggested_fee_recipient: default(Eth1Address)))
+
+    self.onPayloadAttributesAdded(PayloadAttributesInfoObject(
+      proposal_slot: proposal_slot,
+      parent_block_root: newHead.root,
+      parent_block_number:
+        self.consensusManager.dag.loadExecutionBlockNumber(newHead),
+      parent_block_hash:
+        self.consensusManager.dag.loadExecutionBlockHash(newHead),
+      proposer_index: 0'u64,  # FIXME
+      payload_attributes: payload_attributes))
+
 proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
@@ -654,6 +711,7 @@ proc storeBlock(
         headExecutionPayloadHash =
           dag.loadExecutionBlockHash(newHead.get.blck)
         wallSlot = self.getBeaconTime().slotOrZero
+
       if  headExecutionPayloadHash.isZero or
           NewPayloadStatus.noResponse == payloadStatus:
         # Blocks without execution payloads can't be optimistic, and don't try
@@ -682,6 +740,8 @@ proc storeBlock(
               ConsensusFork.Bellatrix:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV1)
 
+        self[].sendNewPayloadAttributeNotification(wallSlot, newHead.get.blck)
+
         if self.consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
           callForkChoiceUpdated()
@@ -695,6 +755,9 @@ proc storeBlock(
       else:
         await self.consensusManager.updateHeadWithExecution(
           newHead.get, self.getBeaconTime)
+
+        self[].sendNewPayloadAttributeNotification(wallSlot, newHead.get.blck)
+
   else:
     warn "Head selection failed, using previous head",
       head = shortLog(dag.head), wallSlot

@@ -146,6 +146,10 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.attSlashQueue,
                                               "attester_slashing")
           res.add(handler)
+        if EventTopic.PayloadAttributes in eventTopics:
+          let handler = response.eventHandler(node.eventBus.payloadAttributesQueue,
+                                              "payload_attributes")
+          res.add(handler)
         if EventTopic.BlobSidecar in eventTopics:
           let handler = response.eventHandler(node.eventBus.blobSidecarQueue,
                                               "blob_sidecar")

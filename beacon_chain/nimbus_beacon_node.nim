@@ -251,6 +251,8 @@ proc initFullNode(
     node.eventBus.propSlashQueue.emit(data)
   proc onAttesterSlashingAdded(data: AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
+  proc onPayloadAttributesAdded(data: PayloadAttributesInfoObject) =
+    node.eventBus.payloadAttributesQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecar) =
     node.eventBus.blobSidecarQueue.emit(
       BlobSidecarInfoObject(
@@ -349,7 +351,7 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor,
-      blobQuarantine, getBeaconTime)
+      blobQuarantine, getBeaconTime, onPayloadAttributesAdded)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] =

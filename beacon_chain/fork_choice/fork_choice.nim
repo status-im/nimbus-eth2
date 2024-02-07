@@ -87,16 +87,15 @@ func extend[T](s: var seq[T], minLen: int) =
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef, blck: BlockRef, epoch: Epoch) =
-  let
-    epochRef = dag.getEpochRef(blck, epoch, false).valueOr:
-      # Shouldn't happen for justified data unless out of sync with ChainDAG
-      warn "Skipping justified checkpoint update, no EpochRef - report bug",
-        blck, epoch, error
-      return
-    justified = Checkpoint(root: blck.root, epoch: epochRef.epoch)
+  let epochRef = dag.getEpochRef(blck, epoch, false).valueOr:
+    # Shouldn't happen for justified data unless out of sync with ChainDAG
+    warn "Skipping justified checkpoint update, no EpochRef - report bug",
+      blck, epoch, error
+    return
 
   trace "Updating justified",
-    store = self.justified.checkpoint, state = justified
+    store = self.justified.checkpoint,
+    state = Checkpoint(root: blck.root, epoch: epochRef.epoch)
   self.justified = BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
     total_active_balance: epochRef.total_active_balance,
