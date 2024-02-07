@@ -817,7 +817,7 @@ suite "Backfill":
     let
       db = BeaconChainDB.new("", inMemory = true)
 
-  test "backfill to genesis":
+  test "Backfill to genesis":
     let
       tailBlock = blocks[^1]
       genBlock = get_initial_beacon_block(genState[])
@@ -860,15 +860,17 @@ suite "Backfill":
 
       dag.getFinalizedEpochRef() != nil
 
-      dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+      # Checkpoint block is unavailable, and should be backfileld first
+      not dag.containsBlock(dag.tail)
+      dag.backfill == BeaconBlockSummary(
+        slot: dag.tail.slot + 1,
+        parent_root: dag.tail.root)
 
       # Check that we can propose right from the checkpoint state
       dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
 
-    var
-      badBlock = blocks[^2].phase0Data
-    badBlock.signature = blocks[^3].phase0Data.signature
-
+    var badBlock = blocks[^1].phase0Data
+    badBlock.signature = blocks[^2].phase0Data.signature
     check:
       dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
 
@@ -878,6 +880,8 @@ suite "Backfill":
       dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
         AddBackRes.err VerifierError.MissingParent
 
+      dag.addBackfillBlock(blocks[^2].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
       dag.addBackfillBlock(tailBlock.phase0Data).isOk()
 
     check:
@@ -917,7 +921,10 @@ suite "Backfill":
     check:
       dag.getFinalizedEpochRef() != nil
 
-  test "reload backfill position":
+    for i in 0..<blocks.len:
+      check dag.containsBlock(blocks[i].toBlockId())
+
+  test "Reload backfill position":
     let
       tailBlock = blocks[^1]
 
@@ -929,6 +936,9 @@ suite "Backfill":
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
 
     check:
+      dag.addBackfillBlock(blocks[^1].phase0Data).isOk()
+      dag.backfill == blocks[^1].phase0Data.message.toBeaconBlockSummary()
+
       dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
@@ -962,6 +972,11 @@ suite "Backfill":
     check:
       dag.getFinalizedEpochRef() != nil
 
+    # Try importing blocks too early
+    for i in 0..<blocks.len - 1:
+      check dag.addBackfillBlock(blocks[i].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
+
     for i in 0..<blocks.len:
       check: dag.addBackfillBlock(
         blocks[blocks.len - i - 1].phase0Data).isOk()
@@ -990,6 +1005,50 @@ suite "Backfill":
       dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
     check:
       dag2.head.root == next.root
+
+  test "Restart after each block":
+    ChainDAGRef.preInit(db, tailState[])
+
+    for i in 1..blocks.len:
+      let
+        validatorMonitor = newClone(ValidatorMonitor.init())
+        dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+
+      check dag.backfill == (
+        if i > 1:
+          blocks[^(i - 1)].phase0Data.message.toBeaconBlockSummary()
+        else:
+          BeaconBlockSummary(
+            slot: blocks[^1].phase0Data.message.slot + 1,
+            parent_root: blocks[^1].phase0Data.root))
+
+      for j in 1..blocks.len:
+        if j < i:
+          check dag.addBackfillBlock(blocks[^j].phase0Data) ==
+            AddBackRes.err VerifierError.Duplicate
+        elif j > i:
+          check dag.addBackfillBlock(blocks[^j].phase0Data) ==
+            AddBackRes.err VerifierError.MissingParent
+        else:
+          discard
+
+      check:
+        dag.addBackfillBlock(blocks[^i].phase0Data).isOk()
+        dag.backfill == blocks[^i].phase0Data.message.toBeaconBlockSummary()
+
+    block:
+      let
+        validatorMonitor = newClone(ValidatorMonitor.init())
+        dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+        genBlock = get_initial_beacon_block(genState[])
+      check:
+        dag.addBackfillBlock(genBlock.phase0Data.asSigned()).isOk()
+        dag.backfill == default(BeaconBlockSummary)
+
+    let
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+    check dag.backfill == default(BeaconBlockSummary)
 
 suite "Starting states":
   setup:
@@ -1055,14 +1114,17 @@ suite "Starting states":
 
       dag.getFinalizedEpochRef() != nil
 
-      dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+      # Checkpoint block is unavailable, and should be backfileld first
+      not dag.containsBlock(dag.tail)
+      dag.backfill == BeaconBlockSummary(
+        slot: dag.tail.slot + 1,
+        parent_root: dag.tail.root)
 
       # Check that we can propose right from the checkpoint state
       dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
 
-    var
-      badBlock = blocks[^2].phase0Data
-    badBlock.signature = blocks[^3].phase0Data.signature
+    var badBlock = blocks[^1].phase0Data
+    badBlock.signature = blocks[^2].phase0Data.signature
     check:
       dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
 
@@ -1072,7 +1134,9 @@ suite "Starting states":
       dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
         AddBackRes.err VerifierError.MissingParent
 
-      dag.addBackfillBlock(tailBlock.phase0Data) == AddBackRes.ok()
+      dag.addBackfillBlock(blocks[^2].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
+      dag.addBackfillBlock(tailBlock.phase0Data).isOk()
 
     check:
       dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
@@ -1084,6 +1148,9 @@ suite "Starting states":
       dag.getBlockId(blocks[^2].root).get().root == blocks[^2].root
 
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
+      dag.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
+        blocks[^2].toBlockId().atSlot()
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).isNone
 
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
