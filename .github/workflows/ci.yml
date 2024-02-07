@@ -220,6 +220,7 @@ jobs:
       - name: Build with developer flags
         run: |
           make -j nimbus_beacon_node LOG_LEVEL=TRACE NIMFLAGS="-d:has_deposit_root_checks=1"
+          nim c beacon_chain/trusted_node_sync
 
   lint:
     name: "Lint"

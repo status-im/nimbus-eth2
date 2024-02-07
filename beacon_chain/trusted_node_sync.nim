@@ -540,16 +540,18 @@ proc doTrustedNodeSync*(
 
 when isMainModule:
   import
-    std/[os],
+    std/os,
     networking/network_metadata
 
   let
+    cfg = getRuntimeConfig(some os.paramStr(1))
+    databaseDir = os.paramStr(2)
     syncTarget = TrustedNodeSyncTarget(
       kind: TrustedNodeSyncKind.StateId,
       stateId: os.paramStr(5))
     backfill = os.paramCount() > 5 and os.paramStr(6) == "true"
     db = BeaconChainDB.new(databaseDir, cfg, inMemory = false)
   waitFor db.doTrustedNodeSync(
-    getRuntimeConfig(some os.paramStr(1)), os.paramStr(2), os.paramStr(3),
+    cfg, databaseDir, os.paramStr(3),
     os.paramStr(4), syncTarget, backfill, false, true)
   db.close()
