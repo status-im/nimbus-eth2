@@ -742,11 +742,8 @@ proc storeBlock(
               forkyBlck.root, forkyBlck)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
-            if not self.consensusManager.quarantine[].addBlobless(
-              dag.finalizedHead.slot, forkyBlck):
-              notice "Block quarantine full (blobless)",
-               blockRoot = shortLog(quarantined.root),
-               signature = shortLog(quarantined.signature)
+            discard self.consensusManager.quarantine[].addBlobless(
+              dag.finalizedHead.slot, forkyBlck)
 
   ok blck.value()
 
