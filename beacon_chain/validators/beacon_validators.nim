@@ -553,7 +553,7 @@ proc getBlindedExecutionPayload[
     EPH: capella.ExecutionPayloadHeader |
          deneb_mev.BlindedExecutionPayloadAndBlobsBundle](
     node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
-    executionBlockRoot: Eth2Digest, pubkey: ValidatorPubKey):
+    executionBlockHash: Eth2Digest, pubkey: ValidatorPubKey):
     Future[BlindedBlockResult[EPH]] {.async: (raises: [CancelledError, RestError]).} =
   # Not ideal to use `when` where instead of splitting into separate functions,
   # but Nim doesn't overload on generic EPH type parameter.
@@ -561,7 +561,7 @@ proc getBlindedExecutionPayload[
     let
       response = awaitWithTimeout(
         payloadBuilderClient.getHeaderCapella(
-          slot, executionBlockRoot, pubkey),
+          slot, executionBlockHash, pubkey),
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Capella blinded header from builder"
 
@@ -577,7 +577,7 @@ proc getBlindedExecutionPayload[
     let
       response = awaitWithTimeout(
         payloadBuilderClient.getHeaderDeneb(
-          slot, executionBlockRoot, pubkey),
+          slot, executionBlockHash, pubkey),
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Deneb blinded header from builder"
 
@@ -767,12 +767,12 @@ proc getBlindedBlockParts[
     Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
   let
-    executionBlockRoot = node.dag.loadExecutionBlockHash(head)
+    executionBlockHash = node.dag.loadExecutionBlockHash(head)
     executionPayloadHeader =
       try:
         awaitWithTimeout(
             getBlindedExecutionPayload[EPH](
-              node, payloadBuilderClient, slot, executionBlockRoot, pubkey),
+              node, payloadBuilderClient, slot, executionBlockHash, pubkey),
             BUILDER_PROPOSAL_DELAY_TOLERANCE):
           BlindedBlockResult[EPH].err("getBlindedExecutionPayload timed out")
       except RestDecodingError as exc:
