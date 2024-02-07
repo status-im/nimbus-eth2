@@ -39,7 +39,7 @@ type
     opOnBlock
     opOnMergeBlock
     opOnAttesterSlashing
-    opInvalidateRoot
+    opInvalidateHash
     opChecks
 
   BlobData = object
@@ -61,8 +61,8 @@ type
       powBlock: PowBlock
     of opOnAttesterSlashing:
       attesterSlashing: AttesterSlashing
-    of opInvalidateRoot:
-      invalidatedRoot: Eth2Digest
+    of opInvalidateHash:
+      invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
     of opChecks:
       checks: JsonNode
@@ -153,9 +153,9 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
         attesterSlashing: attesterSlashing)
     elif step.hasKey"payload_status":
       if step["payload_status"]["status"].getStr() == "INVALID":
-        result.add Operation(kind: opInvalidateRoot,
+        result.add Operation(kind: opInvalidateHash,
           valid: true,
-          invalidatedRoot: Eth2Digest.fromHex(step["block_hash"].getStr()),
+          invalidatedHash: Eth2Digest.fromHex(step["block_hash"].getStr()),
           latestValidHash: Eth2Digest.fromHex(
             step["payload_status"]["latest_valid_hash"].getStr()))
     elif step.hasKey"checks":
@@ -180,7 +180,7 @@ proc stepOnBlock(
        signedBlock: ForkySignedBeaconBlock,
        blobData: Opt[BlobData],
        time: BeaconTime,
-       invalidatedRoots: Table[Eth2Digest, Eth2Digest]):
+       invalidatedHashes: Table[Eth2Digest, Eth2Digest]):
        Result[BlockRef, VerifierError] =
   # 1. Validate blobs
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
@@ -212,13 +212,13 @@ proc stepOnBlock(
   when consensusFork >= ConsensusFork.Bellatrix:
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
-    if executionBlockHash in invalidatedRoots:
+    if executionBlockHash in invalidatedHashes:
       # Mocks fork choice INVALID list application. These tests sequence this
       # in a way the block processor does not, specifying each payload_status
       # before the block itself, while Nimbus fork choice treats invalidating
       # a non-existent block root as a no-op and does not remember it for the
       # future.
-      let lvh = invalidatedRoots.getOrDefault(
+      let lvh = invalidatedHashes.getOrDefault(
         executionBlockHash, static(default(Eth2Digest)))
       fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
         signedBlock.message.parent_root, lvh, executionBlockHash))
@@ -304,7 +304,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
 
   let steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
-  var invalidatedRoots: Table[Eth2Digest, Eth2Digest]
+  var invalidatedHashes: Table[Eth2Digest, Eth2Digest]
 
   let state = newClone(stores.dag.headState)
   var stateCache = StateCache()
@@ -325,7 +325,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
         let status = stepOnBlock(
           stores.dag, stores.fkChoice,
           verifier, state[], stateCache,
-          forkyBlck, step.blobData, time, invalidatedRoots)
+          forkyBlck, step.blobData, time, invalidatedHashes)
         doAssert status.isOk == step.valid
     of opOnAttesterSlashing:
       let indices =
@@ -334,8 +334,8 @@ proc doRunTest(path: string, fork: ConsensusFork) =
         for idx in indices.get:
           stores.fkChoice[].process_equivocation(idx)
       doAssert indices.isOk == step.valid
-    of opInvalidateRoot:
-      invalidatedRoots[step.invalidatedRoot] = step.latestValidHash
+    of opInvalidateHash:
+      invalidatedHashes[step.invalidatedHash] = step.latestValidHash
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:
