@@ -16,7 +16,7 @@ import
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
 from std/sequtils import mapIt
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
+  ConsensusManager, checkNextProposer, optimisticExecutionBlockHash,
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
   updateHeadWithExecution
 from ../consensus_object_pools/blockchain_dag import
@@ -636,10 +636,10 @@ proc storeBlock(
 
       template callForkchoiceUpdated(attributes: untyped) =
         if  NewPayloadStatus.noResponse != payloadStatus and
-            not self.consensusManager[].optimisticExecutionPayloadHash.isZero:
+            not self.consensusManager[].optimisticExecutionBlockHash.isZero:
           discard await elManager.forkchoiceUpdated(
             headBlockHash =
-              self.consensusManager[].optimisticExecutionPayloadHash,
+              self.consensusManager[].optimisticExecutionBlockHash,
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
             payloadAttributes = none attributes)

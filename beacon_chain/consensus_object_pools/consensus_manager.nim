@@ -145,7 +145,7 @@ func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
 func optimisticHead*(self: ConsensusManager): BlockId =
   self.optimisticHead.bid
 
-func optimisticExecutionPayloadHash*(self: ConsensusManager): Eth2Digest =
+func optimisticExecutionBlockHash*(self: ConsensusManager): Eth2Digest =
   self.optimisticHead.execution_block_hash
 
 func setOptimisticHead*(
