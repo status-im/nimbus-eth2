@@ -116,6 +116,16 @@ data: snappyFramed(ssz(BeaconState))
 
 The fork and thus the exact format of the `BeaconState` should be derived from the `slot`.
 
+## CompressedBlobSidecar
+```
+type: [0x02, 0x00]
+data: snappyFramed(ssz(BlobSidecar))
+```
+
+`CompressedBlobSidecar` contain `BlobSidecar` objects encoded using `SSZ` then compressed using the snappy [framing format](https://github.com/google/snappy/blob/master/framing_format.txt).
+
+# TODO in theory there might be other sidecars -- treat as distinct types, or use fork-dep implicitly? document in faq?
+
 ## Empty
 
 ```
@@ -175,6 +185,8 @@ def read_slot_index(f):
 
 Era files contain groups consisting of a state and the blocks that led up to it, limited to `SLOTS_PER_HISTORICAL_ROOT` slots each.
 
+# TODO strictly, this means era files can't hold blobs, though the rest can be similar
+
 In examples, we assume the mainnet configuration: `SLOTS_PER_HISTORICAL_ROOT == 8192`.
 
 Each era is identified by when it ends. Thus, the genesis era is era `0`, followed by era `1` which ends when slot `8192` has been processed.
@@ -194,6 +206,8 @@ Era files with multiple eras use the era number of the lowest era stored in the 
 An era file containing the mainnet genesis is thus named `mainnet-00000-4b363db9.era`, and the era after that `mainnet-00001-40cf2f3c.era`.
 
 ## Structure
+
+just use s/CompressedSignedBeaconBlock/CompressedBlobSidecars/? but try to pick a version (BlobCompressedSidecars?) which can be directly served/saved, no recompression, main criterion? but are there even req/resp things which can ask for individual blob indices? how are they stored in database right now, i.e. should be able to have those be subset of e2s version
 
 An `.era` file is structured in the following way:
 

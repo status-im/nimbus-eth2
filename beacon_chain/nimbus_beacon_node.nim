@@ -352,7 +352,7 @@ proc initFullNode(
       blobQuarantine, getBeaconTime)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
-        Future[Result[void, VerifierError]] =
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
@@ -361,27 +361,23 @@ proc initFullNode(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
-        Future[Result[void, VerifierError]] =
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when typeof(forkyBlck).kind >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              Future.completed(
-                Result[void, VerifierError].err(VerifierError.UnviableFork),
-                "rmanBlockVerifier")
+              err(VerifierError.UnviableFork)
             else:
-              Future.completed(
-                Result[void, VerifierError].err(VerifierError.MissingParent),
-                "rmanBlockVerifier")
+              err(VerifierError.MissingParent)
           else:
             let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.some(blobs),
                                       maybeFinalized = maybeFinalized)
         else:
-          blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars),
                                     maybeFinalized = maybeFinalized)
 
