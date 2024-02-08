@@ -289,20 +289,20 @@ proc requestManagerBlobLoop(rman: RequestManager) {.async: (raises: [CancelledEr
     if rman.inhibit():
       continue
 
-  let fetches = rman.getMissingBlobs()
-  if fetches.len > 0:
-    debug "Requesting detected missing blobs", blobs = shortLog(fetches)
-    let start = SyncMoment.now(0)
-    var workers: array[PARALLEL_REQUESTS, Future[void].Raising([CancelledError])]
-    for i in 0 ..< PARALLEL_REQUESTS:
-      workers[i] = rman.fetchBlobsFromNetwork(fetches)
+    let fetches = rman.getMissingBlobs()
+    if fetches.len > 0:
+      debug "Requesting detected missing blobs", blobs = shortLog(fetches)
+      let start = SyncMoment.now(0)
+      var workers: array[PARALLEL_REQUESTS, Future[void].Raising([CancelledError])]
+      for i in 0 ..< PARALLEL_REQUESTS:
+        workers[i] = rman.fetchBlobsFromNetwork(fetches)
 
-    await allFutures(workers)
-    let finish = SyncMoment.now(uint64(len(fetches)))
+      await allFutures(workers)
+      let finish = SyncMoment.now(uint64(len(fetches)))
 
-    debug "Request manager blob tick",
-          blobs_count = len(fetches),
-          sync_speed = speed(start, finish)
+      debug "Request manager blob tick",
+            blobs_count = len(fetches),
+            sync_speed = speed(start, finish)
 
 proc start*(rman: var RequestManager) =
   ## Start Request Manager's loops.
