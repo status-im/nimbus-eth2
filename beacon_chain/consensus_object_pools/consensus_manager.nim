@@ -25,6 +25,8 @@ from ../validators/keystore_management import
   getSuggestedGasLimit
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 
+logScope: topics = "cman"
+
 type
   ConsensusManager* = object
     expectedSlot: Slot
@@ -155,7 +157,20 @@ func setOptimisticHead*(
 
 proc updateExecutionClientHead(self: ref ConsensusManager,
                                newHead: BeaconHead): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
-  let headExecutionBlockHash = self.dag.loadExecutionBlockHash(newHead.blck)
+  let headExecutionBlockHash =
+    self.dag.loadExecutionBlockHash(newHead.blck).valueOr:
+      # `BlockRef` are only created for blocks that have passed
+      # execution block hash validation, either explicitly in
+      # `block_processor.storeBlock`, or implicitly, e.g., through
+      # checkpoint sync. With checkpoint sync, the checkpoint block
+      # is initially not available, so if there is a reorg to it,
+      # this may be triggered. Such a reorg could happen if the first
+      # imported chain is completely invalid (after the checkpoint block)
+      # and is subsequently pruned, in which case checkpoint block is head.
+      # Because execution block hash validation has already passed,
+      # we can treat this as `SYNCING`.
+      warn "Failed to load head execution block hash", head = newHead.blck
+      return Opt[void].ok()
 
   if headExecutionBlockHash.isZero:
     # Blocks without execution payloads can't be optimistic.
@@ -240,13 +255,15 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   ## `pruneFinalized` must be called for pruning.
 
   # Grab the new head according to our latest attestation data
-  let newHead = self.attestationPool[].selectOptimisticHead(
-      wallSlot.start_beacon_time).valueOr:
-    warn "Head selection failed, using previous head",
-      head = shortLog(self.dag.head), wallSlot
-    return
+  let
+    newHead = self.attestationPool[].selectOptimisticHead(
+        wallSlot.start_beacon_time).valueOr:
+      warn "Head selection failed, using previous head",
+        head = shortLog(self.dag.head), wallSlot
+      return
+    executionBlockHash = self.dag.loadExecutionBlockHash(newHead.blck)
 
-  if self.dag.loadExecutionBlockHash(newHead.blck).isZero:
+  if executionBlockHash.isSome and executionBlockHash.unsafeGet.isZero:
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(newHead.blck)
 
@@ -347,7 +364,7 @@ proc runProposalForkchoiceUpdated*(
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
-    headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck)
+    headBlockHash = ? self.dag.loadExecutionBlockHash(beaconHead.blck)
 
   if headBlockHash.isZero:
     return err()

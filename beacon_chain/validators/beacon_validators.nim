@@ -767,7 +767,14 @@ proc getBlindedBlockParts[
     Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
   let
-    executionBlockHash = node.dag.loadExecutionBlockHash(head)
+    executionBlockHash = node.dag.loadExecutionBlockHash(head).valueOr:
+      # With checkpoint sync, the checkpoint block may be unavailable,
+      # and it could already be the parent of the new block before backfill.
+      # Fallback to EL, hopefully the block is available on the local path.
+      warn "Failed to load parent execution block hash",
+        slot, validator_index, head = shortLog(head)
+      return err("loadExecutionBlockHash failed")
+
     executionPayloadHeader =
       try:
         awaitWithTimeout(

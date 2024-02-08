@@ -2226,20 +2226,25 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           if dag.db.clearBlocks(fork):
             break
 
-proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
+proc loadExecutionBlockHash*(
+    dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
   let blockData = dag.getForkedBlock(bid).valueOr:
-    return ZERO_HASH
+    # Besides database inconsistency issues, this is hit with checkpoint sync.
+    # The initial `BlockRef` is creted before the checkpoint block is loaded.
+    # It is backfilled later, so return `none` and keep retrying.
+    return Opt.none(Eth2Digest)
 
   withBlck(blockData):
     when consensusFork >= ConsensusFork.Bellatrix:
-      forkyBlck.message.body.execution_payload.block_hash
+      Opt.some forkyBlck.message.body.execution_payload.block_hash
     else:
-      ZERO_HASH
+      Opt.some ZERO_HASH
 
-proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
+proc loadExecutionBlockHash*(
+    dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   if blck.executionBlockHash.isNone:
-    blck.executionBlockHash = Opt.some dag.loadExecutionBlockHash(blck.bid)
-  blck.executionBlockHash.unsafeGet
+    blck.executionBlockHash = dag.loadExecutionBlockHash(blck.bid)
+  blck.executionBlockHash
 
 from std/packedsets import PackedSet, incl, items
 
@@ -2457,10 +2462,12 @@ proc updateHead*(
 
       dag.db.updateFinalizedBlocks(newFinalized)
 
-    if  dag.loadExecutionBlockHash(oldFinalizedHead.blck).isZero and
-        not dag.loadExecutionBlockHash(dag.finalizedHead.blck).isZero and
-        dag.vanityLogs.onFinalizedMergeTransitionBlock != nil:
-      dag.vanityLogs.onFinalizedMergeTransitionBlock()
+    let oldBlockHash = dag.loadExecutionBlockHash(oldFinalizedHead.blck)
+    if oldBlockHash.isSome and oldBlockHash.unsafeGet.isZero:
+      let newBlockHash = dag.loadExecutionBlockHash(dag.finalizedHead.blck)
+      if newBlockHash.isSome and not newBlockHash.unsafeGet.isZero:
+        if dag.vanityLogs.onFinalizedMergeTransitionBlock != nil:
+          dag.vanityLogs.onFinalizedMergeTransitionBlock()
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should
