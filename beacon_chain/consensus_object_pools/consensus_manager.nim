@@ -145,7 +145,7 @@ func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
 func optimisticHead*(self: ConsensusManager): BlockId =
   self.optimisticHead.bid
 
-func optimisticExecutionPayloadHash*(self: ConsensusManager): Eth2Digest =
+func optimisticExecutionBlockHash*(self: ConsensusManager): Eth2Digest =
   self.optimisticHead.execution_block_hash
 
 func setOptimisticHead*(
@@ -155,18 +155,18 @@ func setOptimisticHead*(
 
 proc updateExecutionClientHead(self: ref ConsensusManager,
                                newHead: BeaconHead): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
-  let headExecutionPayloadHash = self.dag.loadExecutionBlockHash(newHead.blck)
+  let headExecutionBlockHash = self.dag.loadExecutionBlockHash(newHead.blck)
 
-  if headExecutionPayloadHash.isZero:
+  if headExecutionBlockHash.isZero:
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(newHead.blck)
     return Opt[void].ok()
 
   template callForkchoiceUpdated(attributes: untyped): auto =
     await self.elManager.forkchoiceUpdated(
-      headBlockHash = headExecutionPayloadHash,
-      safeBlockHash = newHead.safeExecutionPayloadHash,
-      finalizedBlockHash = newHead.finalizedExecutionPayloadHash,
+      headBlockHash = headExecutionBlockHash,
+      safeBlockHash = newHead.safeExecutionBlockHash,
+      finalizedBlockHash = newHead.finalizedExecutionBlockHash,
       payloadAttributes = none attributes)
 
   # Can't use dag.head here because it hasn't been updated yet
@@ -352,13 +352,13 @@ proc runProposalForkchoiceUpdated*(
   if headBlockHash.isZero:
     return err()
 
-  let safeBlockHash = beaconHead.safeExecutionPayloadHash
+  let safeBlockHash = beaconHead.safeExecutionBlockHash
 
   withState(self.dag.headState):
     template callForkchoiceUpdated(fcPayloadAttributes: auto) =
       let (status, _) = await self.elManager.forkchoiceUpdated(
         headBlockHash, safeBlockHash,
-        beaconHead.finalizedExecutionPayloadHash,
+        beaconHead.finalizedExecutionBlockHash,
         payloadAttributes = some fcPayloadAttributes)
       debug "Fork-choice updated for proposal", status
 
