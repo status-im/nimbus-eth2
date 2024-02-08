@@ -173,6 +173,36 @@ func getBlockRef*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockRef] =
   else:
     err()
 
+func getBlockIdAtSlot*(
+    state: ForkyHashedBeaconState, slot: Slot): Opt[BlockSlotId] =
+  ## Use given state to attempt to find a historical `BlockSlotId`.
+  if slot > state.data.slot:
+    return Opt.none(BlockSlotId)  # State does not know about requested slot
+  if state.data.slot > slot + SLOTS_PER_HISTORICAL_ROOT:
+    return Opt.none(BlockSlotId)  # Cache has expired
+
+  var idx = slot mod SLOTS_PER_HISTORICAL_ROOT
+  let root =
+    if slot == state.data.slot:
+      state.latest_block_root
+    else:
+      state.data.block_roots[idx]
+  var bid = BlockId(slot: slot, root: root)
+
+  let availableSlots =
+    min(slot.uint64, slot + SLOTS_PER_HISTORICAL_ROOT - state.data.slot)
+  for i in 0 ..< availableSlots:
+    if idx == 0:
+      idx = SLOTS_PER_HISTORICAL_ROOT
+    dec idx
+    if state.data.block_roots[idx] != root:
+      return Opt.some BlockSlotId.init(bid, slot)
+    dec bid.slot
+
+  if bid.slot == GENESIS_SLOT:
+    return Opt.some BlockSlotId.init(bid, slot)
+  Opt.none(BlockSlotId)  # Unknown if there are more empty slots before
+
 func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   ## Retrieve the canonical block at the given slot, or the last block that
   ## comes before - similar to atSlot, but without the linear scan - may hit
@@ -188,6 +218,24 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
     # finalized head is still in memory
     return dag.finalizedHead.blck.atSlot(slot).toBlockSlotId()
 
+  # Load from memory, if the block ID is sufficiently recent.
+  # For checkpoint sync, this is the only available of historical block IDs
+  # until sufficient blocks have been backfilled.
+  template tryWithState(state: ForkedHashedBeaconState) =
+    block:
+      withState(state):
+        # State must be a descendent of the finalized chain to be viable
+        let finBsi = forkyState.getBlockIdAtSlot(dag.finalizedHead.slot)
+        if finBsi.isSome and  # DAG finalized bid slot wrong if CP not @ epoch
+            finBsi.unsafeGet.bid.root == dag.finalizedHead.blck.bid.root:
+          let bsi = forkyState.getBlockIdAtSlot(slot)
+          if bsi.isSome:
+            return bsi
+  tryWithState dag.headState
+  tryWithState dag.epochRefState
+  tryWithState dag.clearanceState
+
+  # Fallback to database, this only works for backfilled blocks
   let finlow = dag.db.finalizedBlocks.low.expect("at least tailRef written")
   if slot >= finlow:
     var pos = slot
