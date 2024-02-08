@@ -17,7 +17,7 @@ import
     ssz_codec],
   ../beacon_chain/sszdump,
   ../research/simutils,
-  ./e2store, ./ncli_common, ./validator_db_aggregator
+  ./era, ./ncli_common, ./validator_db_aggregator
 
 when defined(posix):
   import system/ansi_c
