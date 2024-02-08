@@ -289,13 +289,13 @@ template validateBeaconBlockBellatrix(
     if signed_beacon_block.message.is_execution_block:
       true
     else:
-      let parentExecutionBlockHash = dag.loadExecutionBlockHash(parent).valueOr:
-        # To disallow transitions from post-merge to pre-merge, ignore this if
-        # we cannot reliably determine whether the parent had execution enabled.
-        # E.g., with checkpoint sync, the checkpoint block may be unavailable,
-        # and it could already be the parent of the new block before backfill.
-        return errIgnore("BeaconBlock: parent execution payload unavailable")
-      not parentExecutionBlockHash.isZero
+      # If we don't know whether the parent block had execution enabled,
+      # assume it didn't. This way, we don't reject here if the timestamp
+      # is invalid, and let state transition check the timestamp.
+      # This is an edge case, and may be hit in a pathological scenario with
+      # checkpoint sync, because the checkpoint block may be unavailable
+      # and it could already be the parent of the new block before backfill.
+      not dag.loadExecutionBlockHash(parent).get(ZERO_HASH).isZero
   if isExecutionEnabled:
     # [REJECT] The block's execution payload timestamp is correct with respect
     # to the slot -- i.e. execution_payload.timestamp ==
