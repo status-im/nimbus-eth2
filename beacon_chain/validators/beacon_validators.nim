@@ -771,7 +771,7 @@ proc getBlindedBlockParts[
       # With checkpoint sync, the checkpoint block may be unavailable,
       # and it could already be the parent of the new block before backfill.
       # Fallback to EL, hopefully the block is available on the local path.
-      warn "Failed to load parent execution block hash",
+      warn "Failed to load parent execution block hash, skipping block builder",
         slot, validator_index, head = shortLog(head)
       return err("loadExecutionBlockHash failed")
 
