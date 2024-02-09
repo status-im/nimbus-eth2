@@ -349,7 +349,7 @@ proc addBackfillBlock*(
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
     signature = shortLog(signedBlock.signature)
-    backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root))
+    backfill = shortLog(dag.backfill)
 
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root
@@ -393,18 +393,22 @@ proc addBackfillBlock*(
     if existing.isSome:
       if existing.get().bid.slot == blck.slot and
           existing.get().bid.root == blockRoot:
-
-        # Special case: when starting with only a checkpoint state, we will not
-        # have the head block data in the database
-        if dag.getForkedBlock(existing.get().bid).isNone():
+        let isDuplicate = dag.containsBlock(existing.get().bid)
+        if isDuplicate:
+          debug "Duplicate block"
+        else:
           checkSignature()
-
-          debug "Block backfilled (checkpoint)"
+          debug "Block backfilled (known BlockId)"
           dag.putBlock(signedBlock.asTrusted())
-          return ok()
 
-        debug "Duplicate block"
-        return err(VerifierError.Duplicate)
+        if blockRoot == dag.backfill.parent_root:
+          dag.backfill = blck.toBeaconBlockSummary()
+
+        return
+          if isDuplicate:
+            err(VerifierError.Duplicate)
+          else:
+            ok()
 
       # Block is older than finalized, but different from the block in our
       # canonical history: it must be from an unviable branch

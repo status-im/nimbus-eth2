@@ -16,6 +16,7 @@
 {.push raises: [].}
 
 import
+  std/typetraits,
   chronicles,
   std/[sequtils, strutils],
   stew/[bitops2, byteutils],
@@ -40,6 +41,10 @@ type
 
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
+  # TODO make `distinct` then add a REST serialization for it specifically, via
+  # basically to0xHex, then fix BlobSidecarInfoObject to use VersionedHash, not
+  # string, and rely on REST serialization, rather than serialize VersionedHash
+  # field manually
   VersionedHash* = array[32, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/deneb/beacon-chain.md#custom-types
@@ -68,7 +73,7 @@ type
     index*: BlobIndex
     slot*: Slot
     kzg_commitment*: KzgCommitment
-    versioned_hash*: VersionedHash
+    versioned_hash*: string  # TODO should be string; VersionedHash not distinct
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object
@@ -580,7 +585,7 @@ func shortLog*(v: ExecutionPayload): auto =
     gas_limit: v.gas_limit,
     gas_used: v.gas_used,
     timestamp: v.timestamp,
-    extra_data_len: len(v.extra_data),
+    extra_data: toPrettyString(distinctBase v.extra_data),
     base_fee_per_gas: $(v.base_fee_per_gas),
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),

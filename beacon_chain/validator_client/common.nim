@@ -114,7 +114,8 @@ type
     NoTimeCheck
 
   RestBeaconNodeFeature* {.pure.} = enum
-    NoNimbusExtensions  ## BN do not supports Nimbus Extensions
+    NoNimbusExtensions, ## BN does not support Nimbus Extensions
+    NoProduceBlockV3    ## BN does not support produceBlockV3 call
 
   TimeOffset* = object
     value: int64
@@ -740,7 +741,10 @@ proc normalizeUri*(r: Uri): Result[Uri, cstring] =
 
 proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
   let
-    flags = {RestClientFlag.CommaSeparatedArray}
+    flags = {
+      RestClientFlag.CommaSeparatedArray,
+      RestClientFlag.ResolveAlways
+    }
     socketFlags = {SocketFlags.TcpNoDelay}
     address = ? getHttpAddress(uri)
     client = RestClientRef.new(address, flags = flags,

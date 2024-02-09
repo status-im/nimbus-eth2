@@ -42,7 +42,7 @@ proc setupEngineAPI*(server: RpcServer) =
 
     raise (ref InvalidRequest)(
       code: engineApiUnknownPayload,
-      msg: "Unkown payload"
+      msg: "Unknown payload"
     )
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1

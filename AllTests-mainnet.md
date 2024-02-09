@@ -23,11 +23,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Backfill
 ```diff
++ Backfill to genesis                                                                        OK
 + Init without genesis / block                                                               OK
-+ backfill to genesis                                                                        OK
-+ reload backfill position                                                                   OK
++ Reload backfill position                                                                   OK
++ Restart after each block                                                                   OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -74,6 +75,13 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + basics                                                                                     OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Blinded block conversions
+```diff
++ Bellatrix toSignedBlindedBlock                                                             OK
++ Capella toSignedBlindedBlock                                                               OK
++ Deneb toSignedBlindedBlock                                                                 OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -807,6 +815,11 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Starting state without block                                                               OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## State history
+```diff
++ getBlockIdAtSlot                                                                           OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Sync committee pool
 ```diff
 + Aggregating votes                                                                          OK
@@ -981,4 +994,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 666/671 Fail: 0/671 Skip: 5/671
+OK: 671/676 Fail: 0/676 Skip: 5/676

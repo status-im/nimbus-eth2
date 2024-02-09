@@ -202,7 +202,9 @@ type
   ForkySignedBlindedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
-    capella_mev.SignedBlindedBeaconBlock
+    bellatrix_mev.SignedBlindedBeaconBlock |
+    capella_mev.SignedBlindedBeaconBlock |
+    deneb_mev.SignedBlindedBeaconBlock
 
   ForkedSignedBlindedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -318,7 +320,8 @@ template kind*(
       bellatrix.TrustedBeaconBlockBody |
       bellatrix.SigVerifiedSignedBeaconBlock |
       bellatrix.MsgTrustedSignedBeaconBlock |
-      bellatrix.TrustedSignedBeaconBlock]): ConsensusFork =
+      bellatrix.TrustedSignedBeaconBlock] |
+      bellatrix_mev.SignedBlindedBeaconBlock): ConsensusFork =
   ConsensusFork.Bellatrix
 
 template kind*(
@@ -548,6 +551,10 @@ template PayloadAttributes*(
   else:
     {.error: "PayloadAttributes does not support " & $kind.}
 
+# `eth2_merkleization` cannot import `forks` (circular), so the check is here
+static: doAssert ConsensusFork.high == ConsensusFork.Deneb,
+  "eth2_merkleization has been checked and `hash_tree_root` is up to date"
+
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
 func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
@@ -656,6 +663,20 @@ func init*(T: type ForkedSignedBlindedBeaconBlock,
     T(kind: ConsensusFork.Deneb,
       denebData: deneb_mev.SignedBlindedBeaconBlock(message: forked.denebData,
                                                     signature: signature))
+
+template init*(T: type ForkedSignedBlindedBeaconBlock,
+               blck: capella_mev.BlindedBeaconBlock, blockRoot: Eth2Digest,
+               signature: ValidatorSig): T =
+  T(kind: ConsensusFork.Capella,
+    capellaData: capella_mev.SignedBlindedBeaconBlock(
+      message: blck, signature: signature))
+
+template init*(T: type ForkedSignedBlindedBeaconBlock,
+               blck: deneb_mev.BlindedBeaconBlock, blockRoot: Eth2Digest,
+               signature: ValidatorSig): T =
+  T(kind: ConsensusFork.Deneb,
+    denebData: deneb_mev.SignedBlindedBeaconBlock(
+      message: blck, signature: signature))
 
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: phase0.MsgTrustedSignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0,    phase0Data: blck)

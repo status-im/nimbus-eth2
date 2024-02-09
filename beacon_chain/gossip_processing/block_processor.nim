@@ -16,7 +16,7 @@ import
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
 from std/sequtils import mapIt
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
+  ConsensusManager, checkNextProposer, optimisticExecutionBlockHash,
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
   updateHeadWithExecution
 from ../consensus_object_pools/blockchain_dag import
@@ -636,12 +636,12 @@ proc storeBlock(
 
       template callForkchoiceUpdated(attributes: untyped) =
         if  NewPayloadStatus.noResponse != payloadStatus and
-            not self.consensusManager[].optimisticExecutionPayloadHash.isZero:
+            not self.consensusManager[].optimisticExecutionBlockHash.isZero:
           discard await elManager.forkchoiceUpdated(
             headBlockHash =
-              self.consensusManager[].optimisticExecutionPayloadHash,
-            safeBlockHash = newHead.get.safeExecutionPayloadHash,
-            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+              self.consensusManager[].optimisticExecutionBlockHash,
+            safeBlockHash = newHead.get.safeExecutionBlockHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
             payloadAttributes = none attributes)
 
       let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
@@ -651,10 +651,10 @@ proc storeBlock(
           callForkchoiceUpdated(consensusFork.PayloadAttributes)
     else:
       let
-        headExecutionPayloadHash =
+        headExecutionBlockHash =
           dag.loadExecutionBlockHash(newHead.get.blck)
         wallSlot = self.getBeaconTime().slotOrZero
-      if  headExecutionPayloadHash.isZero or
+      if  headExecutionBlockHash.isZero or
           NewPayloadStatus.noResponse == payloadStatus:
         # Blocks without execution payloads can't be optimistic, and don't try
         # to fcU to a block the EL hasn't seen
@@ -666,9 +666,9 @@ proc storeBlock(
         template callExpectValidFCU(payloadAttributeType: untyped): auto =
           await elManager.expectValidForkchoiceUpdated(
             headBlockPayloadAttributesType = payloadAttributeType,
-            headBlockHash = headExecutionPayloadHash,
-            safeBlockHash = newHead.get.safeExecutionPayloadHash,
-            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+            headBlockHash = headExecutionBlockHash,
+            safeBlockHash = newHead.get.safeExecutionBlockHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
             receivedBlock = signedBlock)
 
         template callForkChoiceUpdated: auto =
@@ -742,11 +742,8 @@ proc storeBlock(
               forkyBlck.root, forkyBlck)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
-            if not self.consensusManager.quarantine[].addBlobless(
-              dag.finalizedHead.slot, forkyBlck):
-              notice "Block quarantine full (blobless)",
-               blockRoot = shortLog(quarantined.root),
-               signature = shortLog(quarantined.signature)
+            discard self.consensusManager.quarantine[].addBlobless(
+              dag.finalizedHead.slot, forkyBlck)
 
   ok blck.value()
 

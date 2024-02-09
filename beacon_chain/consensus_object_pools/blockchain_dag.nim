@@ -117,7 +117,7 @@ proc updateFrontfillBlocks*(dag: ChainDAGRef) =
   # era files match the chain
   if dag.db.db.readOnly: return # TODO abstraction leak - where to put this?
 
-  if dag.frontfillBlocks.len == 0 or dag.backfill.slot > 0:
+  if dag.frontfillBlocks.len == 0 or dag.backfill.slot > GENESIS_SLOT:
     return
 
   info "Writing frontfill index", slots = dag.frontfillBlocks.len
@@ -173,6 +173,36 @@ func getBlockRef*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockRef] =
   else:
     err()
 
+func getBlockIdAtSlot*(
+    state: ForkyHashedBeaconState, slot: Slot): Opt[BlockSlotId] =
+  ## Use given state to attempt to find a historical `BlockSlotId`.
+  if slot > state.data.slot:
+    return Opt.none(BlockSlotId)  # State does not know about requested slot
+  if state.data.slot > slot + SLOTS_PER_HISTORICAL_ROOT:
+    return Opt.none(BlockSlotId)  # Cache has expired
+
+  var idx = slot mod SLOTS_PER_HISTORICAL_ROOT
+  let root =
+    if slot == state.data.slot:
+      state.latest_block_root
+    else:
+      state.data.block_roots[idx]
+  var bid = BlockId(slot: slot, root: root)
+
+  let availableSlots =
+    min(slot.uint64, slot + SLOTS_PER_HISTORICAL_ROOT - state.data.slot)
+  for i in 0 ..< availableSlots:
+    if idx == 0:
+      idx = SLOTS_PER_HISTORICAL_ROOT
+    dec idx
+    if state.data.block_roots[idx] != root:
+      return Opt.some BlockSlotId.init(bid, slot)
+    dec bid.slot
+
+  if bid.slot == GENESIS_SLOT:
+    return Opt.some BlockSlotId.init(bid, slot)
+  Opt.none(BlockSlotId)  # Unknown if there are more empty slots before
+
 func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   ## Retrieve the canonical block at the given slot, or the last block that
   ## comes before - similar to atSlot, but without the linear scan - may hit
@@ -188,6 +218,24 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
     # finalized head is still in memory
     return dag.finalizedHead.blck.atSlot(slot).toBlockSlotId()
 
+  # Load from memory, if the block ID is sufficiently recent.
+  # For checkpoint sync, this is the only available of historical block IDs
+  # until sufficient blocks have been backfilled.
+  template tryWithState(state: ForkedHashedBeaconState) =
+    block:
+      withState(state):
+        # State must be a descendent of the finalized chain to be viable
+        let finBsi = forkyState.getBlockIdAtSlot(dag.finalizedHead.slot)
+        if finBsi.isSome and  # DAG finalized bid slot wrong if CP not @ epoch
+            finBsi.unsafeGet.bid.root == dag.finalizedHead.blck.bid.root:
+          let bsi = forkyState.getBlockIdAtSlot(slot)
+          if bsi.isSome:
+            return bsi
+  tryWithState dag.headState
+  tryWithState dag.epochRefState
+  tryWithState dag.clearanceState
+
+  # Fallback to database, this only works for backfilled blocks
   let finlow = dag.db.finalizedBlocks.low.expect("at least tailRef written")
   if slot >= finlow:
     var pos = slot
@@ -210,6 +258,9 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
 proc containsBlock(
     cfg: RuntimeConfig, db: BeaconChainDB, slot: Slot, root: Eth2Digest): bool =
   db.containsBlock(root, cfg.consensusForkAtEpoch(slot.epoch))
+
+proc containsBlock*(dag: ChainDAGRef, bid: BlockId): bool =
+  dag.cfg.containsBlock(dag.db, bid.slot, bid.root)
 
 proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
@@ -1179,9 +1230,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       db.getBeaconBlockSummary(backfillRoot).expect(
         "Backfill block must have a summary: " & $backfillRoot)
-    else:
+    elif dag.containsBlock(dag.tail):
       db.getBeaconBlockSummary(dag.tail.root).expect(
         "Tail block must have a summary: " & $dag.tail.root)
+    else:
+      # Checkpoint sync, checkpoint block unavailable
+      BeaconBlockSummary(
+        slot: dag.tail.slot + 1,
+        parent_root: dag.tail.root)
 
   dag.forkDigests = newClone ForkDigests.init(
     cfg, getStateField(dag.headState, genesis_validators_root))
@@ -1193,8 +1249,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   let finalizedTick = Moment.now()
 
-  if dag.backfill.slot > 0: # See if we can frontfill blocks from era files
-    dag.frontfillBlocks = newSeqOfCap[Eth2Digest](dag.backfill.slot.int)
+  if dag.backfill.slot > GENESIS_SLOT:  # Try frontfill from era files
+    let backfillSlot = dag.backfill.slot - 1
+    dag.frontfillBlocks = newSeqOfCap[Eth2Digest](backfillSlot.int)
 
     let
       historical_roots = getStateField(dag.headState, historical_roots).asSeq()
@@ -1207,7 +1264,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # blocks from genesis to backfill, if possible.
     for bid in dag.era.getBlockIds(
         historical_roots, historical_summaries, Slot(0), Eth2Digest()):
-      if bid.slot >= dag.backfill.slot:
+      if bid.slot >= backfillSlot:
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
@@ -1256,7 +1313,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     head = shortLog(dag.head),
     finalizedHead = shortLog(dag.finalizedHead),
     tail = shortLog(dag.tail),
-    backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root)),
+    backfill = shortLog(dag.backfill),
 
     loadDur = loadTick - startTick,
     summariesDur = summariesTick - loadTick,
@@ -1585,13 +1642,8 @@ proc getBlockRange*(
     head = shortLog(dag.head.root), requestedCount, startSlot, skipStep, headSlot
 
   if startSlot < dag.backfill.slot:
-    if startSlot < dag.horizon:
-      # We will not backfill these
-      debug "Got request for pre-horizon slot",
-        startSlot, backfillSlot = dag.backfill.slot
-    else:
-      notice "Got request for pre-backfill slot",
-        startSlot, backfillSlot = dag.backfill.slot
+    debug "Got request for pre-backfill slot",
+      startSlot, backfillSlot = dag.backfill.slot, horizonSlot = dag.horizon
     return output.len
 
   if headSlot <= startSlot or requestedCount == 0:
