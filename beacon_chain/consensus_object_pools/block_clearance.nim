@@ -314,25 +314,6 @@ proc addHeadBlockWithParent*(
     sigVerifyDur = sigVerifyTick - stateDataTick,
     stateVerifyDur = stateVerifyTick - sigVerifyTick)
 
-proc addHeadBlock*(
-    dag: ChainDAGRef, verifier: var BatchVerifier,
-    signedBlock: ForkySignedBeaconBlock,
-    executionValid: bool,
-    onBlockAdded: OnForkyBlockAdded
-    ): Result[BlockRef, VerifierError] =
-  addHeadBlockWithParent(
-    dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
-    executionValid, onBlockAdded)
-
-proc addHeadBlock*(
-    dag: ChainDAGRef, verifier: var BatchVerifier,
-    signedBlock: ForkySignedBeaconBlock,
-    onBlockAdded: OnForkyBlockAdded
-    ): Result[BlockRef, VerifierError] =
-  addHeadBlockWithParent(
-    dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
-    executionValid = true, onBlockAdded)
-
 proc addBackfillBlock*(
     dag: ChainDAGRef,
     signedBlock: ForkySignedBeaconBlock | ForkySigVerifiedSignedBeaconBlock):
