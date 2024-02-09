@@ -817,7 +817,7 @@ suite "Backfill":
     let
       db = BeaconChainDB.new("", inMemory = true)
 
-  test "backfill to genesis":
+  test "Backfill to genesis":
     let
       tailBlock = blocks[^1]
       genBlock = get_initial_beacon_block(genState[])
@@ -839,10 +839,11 @@ suite "Backfill":
       dag.getBlockId(blocks[^2].root).isNone()
 
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
-      dag.getBlockIdAtSlot(dag.tail.slot - 1).isNone()
+      dag.getBlockIdAtSlot(dag.tail.slot - 1).get().bid ==
+        blocks[^2].toBlockId()  # recovered from tailState
 
-      dag.getBlockIdAtSlot(Slot(0)).isSome() # genesis stored in db
-      dag.getBlockIdAtSlot(Slot(1)).isNone()
+      dag.getBlockIdAtSlot(Slot(0)).isSome()  # genesis stored in db
+      dag.getBlockIdAtSlot(Slot(1)).isSome()  # recovered from tailState
 
       # No EpochRef for pre-tail epochs
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
@@ -853,22 +854,24 @@ suite "Backfill":
 
       # Should not get EpochRef for random block
       dag.getEpochRef(
-        BlockId(root: blocks[^2].root, slot: dag.tail.slot), # root/slot mismatch
+        BlockId(root: blocks[^2].root, slot: dag.tail.slot),  # incorrect slot
         dag.tail.slot.epoch, true).isErr()
 
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
 
       dag.getFinalizedEpochRef() != nil
 
-      dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+      # Checkpoint block is unavailable, and should be backfileld first
+      not dag.containsBlock(dag.tail)
+      dag.backfill == BeaconBlockSummary(
+        slot: dag.tail.slot + 1,
+        parent_root: dag.tail.root)
 
       # Check that we can propose right from the checkpoint state
       dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
 
-    var
-      badBlock = blocks[^2].phase0Data
-    badBlock.signature = blocks[^3].phase0Data.signature
-
+    var badBlock = blocks[^1].phase0Data
+    badBlock.signature = blocks[^2].phase0Data.signature
     check:
       dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
 
@@ -878,6 +881,8 @@ suite "Backfill":
       dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
         AddBackRes.err VerifierError.MissingParent
 
+      dag.addBackfillBlock(blocks[^2].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
       dag.addBackfillBlock(tailBlock.phase0Data).isOk()
 
     check:
@@ -892,7 +897,8 @@ suite "Backfill":
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
       dag.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
         blocks[^2].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 2).isNone
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
+        blocks[^3].toBlockId().atSlot()  # recovered from tailState
 
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
@@ -901,7 +907,8 @@ suite "Backfill":
 
       dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
         blocks[^3].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 3).isNone
+      dag.getBlockIdAtSlot(dag.tail.slot - 3).get() ==
+        blocks[^4].toBlockId().atSlot()  # recovered from tailState
 
     for i in 3..<blocks.len:
       check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
@@ -917,7 +924,10 @@ suite "Backfill":
     check:
       dag.getFinalizedEpochRef() != nil
 
-  test "reload backfill position":
+    for i in 0..<blocks.len:
+      check dag.containsBlock(blocks[i].toBlockId())
+
+  test "Reload backfill position":
     let
       tailBlock = blocks[^1]
 
@@ -929,6 +939,9 @@ suite "Backfill":
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
 
     check:
+      dag.addBackfillBlock(blocks[^1].phase0Data).isOk()
+      dag.backfill == blocks[^1].phase0Data.message.toBeaconBlockSummary()
+
       dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
@@ -947,7 +960,8 @@ suite "Backfill":
 
       dag2.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
         blocks[^2].toBlockId().atSlot()
-      dag2.getBlockIdAtSlot(dag.tail.slot - 2).isNone
+      dag2.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
+        blocks[^3].toBlockId().atSlot()  # recovered from tailState
       dag2.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
   test "Init without genesis / block":
@@ -961,6 +975,11 @@ suite "Backfill":
 
     check:
       dag.getFinalizedEpochRef() != nil
+
+    # Try importing blocks too early
+    for i in 0..<blocks.len - 1:
+      check dag.addBackfillBlock(blocks[i].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
 
     for i in 0..<blocks.len:
       check: dag.addBackfillBlock(
@@ -990,6 +1009,50 @@ suite "Backfill":
       dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
     check:
       dag2.head.root == next.root
+
+  test "Restart after each block":
+    ChainDAGRef.preInit(db, tailState[])
+
+    for i in 1..blocks.len:
+      let
+        validatorMonitor = newClone(ValidatorMonitor.init())
+        dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+
+      check dag.backfill == (
+        if i > 1:
+          blocks[^(i - 1)].phase0Data.message.toBeaconBlockSummary()
+        else:
+          BeaconBlockSummary(
+            slot: blocks[^1].phase0Data.message.slot + 1,
+            parent_root: blocks[^1].phase0Data.root))
+
+      for j in 1..blocks.len:
+        if j < i:
+          check dag.addBackfillBlock(blocks[^j].phase0Data) ==
+            AddBackRes.err VerifierError.Duplicate
+        elif j > i:
+          check dag.addBackfillBlock(blocks[^j].phase0Data) ==
+            AddBackRes.err VerifierError.MissingParent
+        else:
+          discard
+
+      check:
+        dag.addBackfillBlock(blocks[^i].phase0Data).isOk()
+        dag.backfill == blocks[^i].phase0Data.message.toBeaconBlockSummary()
+
+    block:
+      let
+        validatorMonitor = newClone(ValidatorMonitor.init())
+        dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+        genBlock = get_initial_beacon_block(genState[])
+      check:
+        dag.addBackfillBlock(genBlock.phase0Data.asSigned()).isOk()
+        dag.backfill == default(BeaconBlockSummary)
+
+    let
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+    check dag.backfill == default(BeaconBlockSummary)
 
 suite "Starting states":
   setup:
@@ -1039,8 +1102,8 @@ suite "Starting states":
       dag.getBlockId(tailBlock.root).get() == dag.tail
       dag.getBlockId(blocks[^2].root).isNone()
 
-      dag.getBlockIdAtSlot(Slot(0)).isNone() # no genesis stored in db
-      dag.getBlockIdAtSlot(Slot(1)).isNone()
+      dag.getBlockIdAtSlot(Slot(0)).isSome()  # recovered from tailState
+      dag.getBlockIdAtSlot(Slot(1)).isSome()  # recovered from tailState
 
       # Should get EpochRef for the tail however
       # dag.getEpochRef(dag.tail, dag.tail.slot.epoch, true).isOk()
@@ -1048,21 +1111,24 @@ suite "Starting states":
 
       # Should not get EpochRef for random block
       dag.getEpochRef(
-        BlockId(root: blocks[^2].root, slot: dag.tail.slot), # root/slot mismatch
+        BlockId(root: blocks[^2].root, slot: dag.tail.slot),  # incorrect slot
         dag.tail.slot.epoch, true).isErr()
 
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
 
       dag.getFinalizedEpochRef() != nil
 
-      dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+      # Checkpoint block is unavailable, and should be backfileld first
+      not dag.containsBlock(dag.tail)
+      dag.backfill == BeaconBlockSummary(
+        slot: dag.tail.slot + 1,
+        parent_root: dag.tail.root)
 
       # Check that we can propose right from the checkpoint state
       dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
 
-    var
-      badBlock = blocks[^2].phase0Data
-    badBlock.signature = blocks[^3].phase0Data.signature
+    var badBlock = blocks[^1].phase0Data
+    badBlock.signature = blocks[^2].phase0Data.signature
     check:
       dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
 
@@ -1072,7 +1138,9 @@ suite "Starting states":
       dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
         AddBackRes.err VerifierError.MissingParent
 
-      dag.addBackfillBlock(tailBlock.phase0Data) == AddBackRes.ok()
+      dag.addBackfillBlock(blocks[^2].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
+      dag.addBackfillBlock(tailBlock.phase0Data).isOk()
 
     check:
       dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
@@ -1084,6 +1152,10 @@ suite "Starting states":
       dag.getBlockId(blocks[^2].root).get().root == blocks[^2].root
 
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
+      dag.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
+        blocks[^2].toBlockId().atSlot()
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
+        blocks[^3].toBlockId().atSlot()  # recovered from tailState
 
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
@@ -1092,7 +1164,8 @@ suite "Starting states":
 
       dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
         blocks[^3].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 3).isNone
+      dag.getBlockIdAtSlot(dag.tail.slot - 3).get() ==
+        blocks[^4].toBlockId().atSlot()  # recovered from tailState
 
     for i in 3..<blocks.len:
       check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
@@ -1229,6 +1302,128 @@ suite "Pruning":
     check:
       dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
       not db.containsBlock(blocks[1].root)
+
+suite "State history":
+  test "getBlockIdAtSlot":
+    const numValidators = SLOTS_PER_EPOCH
+    let
+      cfg = defaultRuntimeConfig
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = ChainDAGRef.init(
+        cfg, makeTestDB(numValidators, cfg = cfg),
+        validatorMonitor, {})
+      quarantine = newClone(Quarantine.init())
+      rng = HmacDrbgContext.new()
+      taskpool = Taskpool.new()
+    var verifier = BatchVerifier.init(rng, taskpool)
+
+    var
+      cache: StateCache
+      info: ForkedEpochInfo
+      res: Result[void, cstring]
+    template state: untyped = dag.headState.phase0Data
+
+    let gen = get_initial_beacon_block(dag.headState).toBlockId()
+    check:
+      state.getBlockIdAtSlot(0.Slot) ==
+        Opt.some BlockSlotId.init(gen, 0.Slot)
+      state.getBlockIdAtSlot(1.Slot).isNone
+
+    # Miss 5 slots
+    res = process_slots(cfg, dag.headState, 5.Slot, cache, info, flags = {})
+    check res.isOk
+    for i in 0.Slot .. 5.Slot:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(gen, i.Slot)
+    check state.getBlockIdAtSlot(6.Slot).isNone
+
+    # Fill 5 slots
+    var bids: seq[BlockId]
+    for i in 0 ..< 5:
+      let blck = dag.headState.addTestBlock(cache, cfg = cfg)
+      bids.add blck.toBlockId()
+      let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
+      check added.isOk()
+      dag.updateHead(added[], quarantine[], [])
+    for i in 0.Slot .. 5.Slot:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(gen, i)
+    for i in 6.Slot .. 10.Slot:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+    check state.getBlockIdAtSlot(11.Slot).isNone
+
+    # Jump to SLOTS_PER_HISTORICAL_ROOT
+    let periodSlot = SLOTS_PER_HISTORICAL_ROOT.Slot
+    res = process_slots(cfg, dag.headState, periodSlot, cache, info, flags = {})
+    for i in 0.Slot .. 5.Slot:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(gen, i)
+    for i in 6.Slot .. 10.Slot:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+    check:
+      state.getBlockIdAtSlot(11.Slot) ==
+        Opt.some BlockSlotId.init(bids[^1], 11.Slot)
+      state.getBlockIdAtSlot(periodSlot) ==
+        Opt.some BlockSlotId.init(bids[^1], periodSlot)
+      state.getBlockIdAtSlot(periodSlot + 1).isNone
+
+    # Create a block at periodSlot + 1
+    let
+      blck = dag.headState.addTestBlock(cache, cfg = cfg)
+      added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
+    check added.isOk()
+    dag.updateHead(added[], quarantine[], [])
+    for i in 0.Slot .. 5.Slot:
+      check state.getBlockIdAtSlot(i).isNone
+    for i in 6.Slot .. 10.Slot:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+    check:
+      state.getBlockIdAtSlot(11.Slot) ==
+        Opt.some BlockSlotId.init(bids[^1], 11.Slot)
+      state.getBlockIdAtSlot(periodSlot) ==
+        Opt.some BlockSlotId.init(bids[^1], periodSlot)
+      state.getBlockIdAtSlot(periodSlot + 1) ==
+        Opt.some BlockSlotId.init(blck.toBlockId(), periodSlot + 1)
+      state.getBlockIdAtSlot(periodSlot + 2).isNone
+
+    # Go to periodSlot + 5
+    let plusFive = periodSlot + 5
+    res = process_slots(cfg, dag.headState, plusFive, cache, info, flags = {})
+    for i in 0.Slot .. 5.Slot:
+      check state.getBlockIdAtSlot(i).isNone
+    for i in 6.Slot .. 10.Slot:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+    check:
+      state.getBlockIdAtSlot(11.Slot) ==
+        Opt.some BlockSlotId.init(bids[^1], 11.Slot)
+      state.getBlockIdAtSlot(periodSlot) ==
+        Opt.some BlockSlotId.init(bids[^1], periodSlot)
+    for i in periodSlot + 1 .. plusFive:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(blck.toBlockId(), i)
+    check state.getBlockIdAtSlot(plusFive + 1).isNone
+
+    # Go to periodSlot + 6
+    let plusSix = periodSlot + 6
+    res = process_slots(cfg, dag.headState, plusSix, cache, info, flags = {})
+    for i in 0.Slot .. 6.Slot:
+      check state.getBlockIdAtSlot(i).isNone
+    for i in 7.Slot .. 10.Slot:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(bids[(i - 6).int], i)
+    check:
+      state.getBlockIdAtSlot(11.Slot) ==
+        Opt.some BlockSlotId.init(bids[^1], 11.Slot)
+      state.getBlockIdAtSlot(periodSlot) ==
+        Opt.some BlockSlotId.init(bids[^1], periodSlot)
+    for i in periodSlot + 1 .. plusSix:
+      check state.getBlockIdAtSlot(i) ==
+        Opt.some BlockSlotId.init(blck.toBlockId(), i)
+    check state.getBlockIdAtSlot(plusSix + 1).isNone
 
 suite "Ancestry":
   test "ancestorSlot":

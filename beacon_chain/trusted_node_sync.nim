@@ -407,7 +407,7 @@ proc doTrustedNodeSync*(
   let
     validatorMonitor = newClone(ValidatorMonitor.init(false, false))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, eraPath = eraDir)
-    backfillSlot = dag.backfill.slot
+    backfillSlot = max(dag.backfill.slot, 1.Slot) - 1
     horizon = max(dag.horizon, dag.frontfill.valueOr(BlockId()).slot)
 
   let canReindex = if backfillSlot <= horizon:
@@ -418,7 +418,7 @@ proc doTrustedNodeSync*(
     # detection to kick in, in addBackfillBlock
     let missingSlots = dag.backfill.slot - horizon + 1
 
-    notice "Downloading historical blocks - you can interrupt this process at any time and it automatically be completed when you start the beacon node",
+    notice "Downloading historical blocks - you can interrupt this process at any time and it will automatically be completed when you start the beacon node",
       backfillSlot, horizon, missingSlots
 
     var # Same averaging as SyncManager

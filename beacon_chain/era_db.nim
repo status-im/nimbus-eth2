@@ -8,12 +8,12 @@ import
   std/os,
   chronicles,
   results, snappy, taskpools,
-  ../ncli/e2store,
+  ../ncli/era,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[beaconstate, forks, signatures_batch],
   ./consensus_object_pools/block_dag # TODO move to somewhere else to avoid circular deps
 
-export results, forks, e2store
+export results, forks, era
 
 type
   EraFile* = ref object
