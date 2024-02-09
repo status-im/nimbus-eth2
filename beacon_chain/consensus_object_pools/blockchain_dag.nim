@@ -1633,13 +1633,8 @@ proc getBlockRange*(
     head = shortLog(dag.head.root), requestedCount, startSlot, skipStep, headSlot
 
   if startSlot < dag.backfill.slot:
-    if startSlot < dag.horizon:
-      # We will not backfill these
-      debug "Got request for pre-horizon slot",
-        startSlot, backfillSlot = dag.backfill.slot
-    else:
-      notice "Got request for pre-backfill slot",
-        startSlot, backfillSlot = dag.backfill.slot
+    debug "Got request for pre-backfill slot",
+      startSlot, backfillSlot = dag.backfill.slot, horizonSlot = dag.horizon
     return output.len
 
   if headSlot <= startSlot or requestedCount == 0:
