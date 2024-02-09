@@ -8,8 +8,6 @@
 {.used.}
 
 import
-  # Standard library
-  std/sequtils,
   # Status lib
   unittest2,
   chronos,
@@ -27,6 +25,9 @@ import
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
+
+from std/sequtils import count, toSeq
+from ./testbcutil import addHeadBlock
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():

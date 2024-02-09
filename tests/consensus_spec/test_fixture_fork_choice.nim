@@ -27,6 +27,7 @@ from std/json import
   JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains
+from ../testbcutil import addHeadBlock
 
 # Test format described at https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"

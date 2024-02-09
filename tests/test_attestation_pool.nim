@@ -8,7 +8,6 @@
 {.used.}
 
 import
-  std/sequtils,
   # Status lib
   unittest2,
   chronicles, chronos,
@@ -24,6 +23,9 @@ import
   ../beacon_chain/beacon_clock,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
+
+from std/sequtils import toSeq
+from ./testbcutil import addHeadBlock
 
 func combine(tgt: var Attestation, src: Attestation) =
   ## Combine the signature and participation bitfield, with the assumption that

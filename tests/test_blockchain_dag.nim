@@ -8,7 +8,6 @@
 {.used.}
 
 import
-  std/[random, sequtils],
   unittest2,
   taskpools,
   ../beacon_chain/el/merkle_minimal,
@@ -19,8 +18,11 @@ import
     attestation_pool, blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil
 
+from std/random import rand, randomize, sample
+from std/sequtils import toSeq
 from ../beacon_chain/spec/datatypes/capella import
   SignedBLSToExecutionChangeList
+from ./testbcutil import addHeadBlock
 
 func `$`(x: BlockRef): string = shortLog(x)
 

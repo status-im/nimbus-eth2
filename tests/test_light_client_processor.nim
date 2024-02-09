@@ -18,6 +18,8 @@ import
   # Test utilities
   ./testutil, ./testdbutil
 
+from ./testbcutil import addHeadBlock
+
 suite "Light client processor" & preset():
   const  # Test config, should be long enough to cover interesting transitions
     lowPeriod = 0.SyncCommitteePeriod

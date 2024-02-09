@@ -39,6 +39,7 @@ from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index,
   get_committee_count_per_slot, get_committee_indices
 from ../beacon_chain/spec/state_transition_block import process_block
+from ../tests/testbcutil import addHeadBlock
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
