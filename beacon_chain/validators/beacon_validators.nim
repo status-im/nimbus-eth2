@@ -1968,6 +1968,10 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
         node.consensusManager[].actionTracker.registerDuty(
           slot, subnet_id, validator_index, isAggregator)
 
+proc getConsensusBlockValue(node: BeaconNode,
+                            blck: RewardingBlock): Opt[UInt256] =
+  collectBlockRewards(node.dag.headState, blck)
+
 proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     node: BeaconNode, consensusFork: static ConsensusFork,
     randao_reveal: ValidatorSig, graffiti: GraffitiBytes,
@@ -2007,11 +2011,14 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
           payloadValue = blindedBid.blockValue
 
         return ResultType.ok((
-          blck: consensusFork.MaybeBlindedBeaconBlock(
-            isBlinded: true,
-            blindedData: blindedBid.blindedBlckPart.message),
-          executionValue: Opt.some(payloadValue),
-          consensusValue: Opt.none(UInt256)))
+          blck:
+            consensusFork.MaybeBlindedBeaconBlock(
+              isBlinded: true,
+              blindedData: blindedBid.blindedBlckPart.message),
+          executionValue:
+            Opt.some(payloadValue),
+          consensusValue:
+            node.getConsensusBlockValue(blindedBid.blindedBlckPart.message)))
 
       collectedBids.engineBid.value()
 
@@ -2028,14 +2035,14 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
           kzg_proofs: blobsBundle.proofs,
           blobs: blobsBundle.blobs)),
       executionValue: Opt.some(engineBid.blockValue),
-      consensusValue: Opt.none(UInt256)))
+      consensusValue: node.getConsensusBlockValue(engineBid.blck)))
   else:
     ResultType.ok((
       blck: consensusFork.MaybeBlindedBeaconBlock(
         isBlinded: false,
         data: forkyBlck),
       executionValue: Opt.some(engineBid.blockValue),
-      consensusValue: Opt.none(UInt256)))
+      consensusValue: node.getConsensusBlockValue(engineBid.blck)))
 
 proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     node: BeaconNode, consensusFork: static ConsensusFork,
