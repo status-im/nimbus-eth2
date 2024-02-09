@@ -156,12 +156,6 @@ type
       ## The backfill points to the oldest block with an unbroken ancestry from
       ## dag.tail - when backfilling, we'll move backwards in time starting
       ## with the parent of this block until we reach `frontfill`.
-      ##
-      ## - `backfill.slot` points to the earliest block that has been synced,
-      ##   or, if no blocks have been synced yet, to `checkpoint_state.slot + 1`
-      ##   which is the earliest slot that may have `parent_root` as ancestor.
-      ## - `backfill.parent_root` is the latest block that is not yet synced.
-      ## - Once backfill completes, `backfill.slot` refers to `GENESIS_SLOT`.
 
     frontfillBlocks*: seq[Eth2Digest]
       ## A temporary cache of blocks that we could load from era files, once
