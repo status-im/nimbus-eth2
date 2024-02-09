@@ -814,6 +814,11 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Starting state without block                                                               OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## State history
+```diff
++ getBlockIdAtSlot                                                                           OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Sync committee pool
 ```diff
 + Aggregating votes                                                                          OK
@@ -986,4 +991,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 667/672 Fail: 0/672 Skip: 5/672
+OK: 668/673 Fail: 0/673 Skip: 5/673
