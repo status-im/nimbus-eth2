@@ -28,7 +28,8 @@ proc updateExistingState(
   ## Wrapper around `updateState` for states expected to exist.
   let ok = dag.updateState(state, bsi, save, cache)
   if not ok:
-    error "State failed to load unexpectedly", bsi, tail = dag.tail.slot
+    error "State failed to load unexpectedly",
+      bsi, tail = dag.tail.slot, backfill = shortLog(dag.backfill)
     doAssert strictVerification notin dag.updateFlags
   ok
 
@@ -41,7 +42,8 @@ template withUpdatedExistingState(
     dag.withUpdatedState(stateParam, bsiParam) do:
       okBody
     do:
-      error "State failed to load unexpectedly", bsi, tail = dag.tail.slot
+      error "State failed to load unexpectedly",
+        bsi, tail = dag.tail.slot, backfill = shortLog(dag.backfill)
       doAssert strictVerification notin dag.updateFlags
       failureBody
 
@@ -49,7 +51,8 @@ proc getExistingBlockIdAtSlot(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   ## Wrapper around `getBlockIdAtSlot` for blocks expected to exist.
   let bsi = dag.getBlockIdAtSlot(slot)
   if bsi.isNone:
-    error "Block failed to load unexpectedly", slot, tail = dag.tail.slot
+    error "Block failed to load unexpectedly",
+      slot, tail = dag.tail.slot, backfill = shortLog(dag.backfill)
     doAssert strictVerification notin dag.updateFlags
   bsi
 
@@ -57,7 +60,8 @@ proc existingParent(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
   ## Wrapper around `parent` for parents known to exist.
   let parent = dag.parent(bid)
   if parent.isNone:
-    error "Parent failed to load unexpectedly", bid, tail = dag.tail.slot
+    error "Parent failed to load unexpectedly",
+      bid, tail = dag.tail.slot, backfill = shortLog(dag.backfill)
     doAssert strictVerification notin dag.updateFlags
   parent
 
@@ -66,7 +70,8 @@ proc getExistingForkedBlock(
   ## Wrapper around `getForkedBlock` for blocks expected to exist.
   let bdata = dag.getForkedBlock(bid)
   if bdata.isNone:
-    error "Block failed to load unexpectedly", bid, tail = dag.tail.slot
+    error "Block failed to load unexpectedly",
+      bid, tail = dag.tail.slot, backfill = shortLog(dag.backfill)
     doAssert strictVerification notin dag.updateFlags
   bdata
 
@@ -78,7 +83,7 @@ proc existingCurrentSyncCommitteeForPeriod(
   let syncCommittee = dag.currentSyncCommitteeForPeriod(tmpState, period)
   if syncCommittee.isNone:
     error "Current sync committee failed to load unexpectedly",
-      period, tail = dag.tail.slot
+      period, tail = dag.tail.slot, backfill = shortLog(dag.backfill)
     doAssert strictVerification notin dag.updateFlags
   syncCommittee
 
@@ -360,7 +365,7 @@ proc initLightClientUpdateForPeriod(
           continue
       finalizedSlot = finalizedEpoch.start_slot
       finalizedBsi =
-        if finalizedSlot >= dag.tail.slot:
+        if finalizedSlot >= max(dag.tail.slot, dag.backfill.slot):
           dag.getExistingBlockIdAtSlot(finalizedSlot).valueOr:
             dag.handleUnexpectedLightClientError(finalizedSlot)
             res.err()
@@ -542,7 +547,7 @@ proc assignLightClientData(
       when lcDataFork > LightClientDataFork.None:
         if finalized_slot == forkyObject.finalized_header.beacon.slot:
           forkyObject.finality_branch = attested_data.finality_branch
-        elif finalized_slot < dag.tail.slot:
+        elif finalized_slot < max(dag.tail.slot, dag.backfill.slot):
           forkyObject.finalized_header.reset()
           forkyObject.finality_branch.reset()
         else:
@@ -632,13 +637,13 @@ proc createLightClientUpdate(
   let
     finalized_slot = attested_data.finalized_slot
     finalized_bsi =
-      if finalized_slot >= dag.tail.slot:
+      if finalized_slot >= max(dag.tail.slot, dag.backfill.slot):
         dag.getExistingBlockIdAtSlot(finalized_slot)
       else:
         Opt.none(BlockSlotId)
     has_finality =
       finalized_bsi.isSome and
-      finalized_bsi.get.bid.slot >= dag.tail.slot
+      finalized_bsi.get.bid.slot >= max(dag.tail.slot, dag.backfill.slot)
     meta = LightClientUpdateMetadata(
       attested_slot: attested_slot,
       finalized_slot: finalized_slot,
@@ -722,19 +727,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       # State availability, needed for `cacheLightClientData`
       dag.tail.slot,
       # Block availability, needed for `LightClientHeader.execution_branch`
-      if dag.backfill.slot != GENESIS_SLOT:
-        let existing = dag.getBlockIdAtSlot(dag.backfill.slot)
-        if existing.isSome:
-          if dag.getForkedBlock(existing.get.bid).isNone:
-            # Special case: when starting with only a checkpoint state,
-            # we will not have the head block data in the database
-            dag.backfill.slot + 1
-          else:
-            dag.backfill.slot
-        else:
-          dag.backfill.slot
-      else:
-        dag.backfill.slot))
+      dag.backfill.slot))
 
   dag.lcDataStore.cache.tailSlot = max(dag.head.slot, targetTailSlot)
   if dag.head.slot < dag.lcDataStore.cache.tailSlot:
