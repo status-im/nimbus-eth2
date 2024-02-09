@@ -117,7 +117,7 @@ proc updateFrontfillBlocks*(dag: ChainDAGRef) =
   # era files match the chain
   if dag.db.db.readOnly: return # TODO abstraction leak - where to put this?
 
-  if dag.frontfillBlocks.len == 0 or dag.backfill.slot > 0:
+  if dag.frontfillBlocks.len == 0 or dag.backfill.slot > GENESIS_SLOT:
     return
 
   info "Writing frontfill index", slots = dag.frontfillBlocks.len
@@ -258,6 +258,9 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
 proc containsBlock(
     cfg: RuntimeConfig, db: BeaconChainDB, slot: Slot, root: Eth2Digest): bool =
   db.containsBlock(root, cfg.consensusForkAtEpoch(slot.epoch))
+
+proc containsBlock*(dag: ChainDAGRef, bid: BlockId): bool =
+  dag.cfg.containsBlock(dag.db, bid.slot, bid.root)
 
 proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
@@ -1227,9 +1230,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       db.getBeaconBlockSummary(backfillRoot).expect(
         "Backfill block must have a summary: " & $backfillRoot)
-    else:
+    elif dag.containsBlock(dag.tail):
       db.getBeaconBlockSummary(dag.tail.root).expect(
         "Tail block must have a summary: " & $dag.tail.root)
+    else:
+      # Checkpoint sync, checkpoint block unavailable
+      BeaconBlockSummary(
+        slot: dag.tail.slot + 1,
+        parent_root: dag.tail.root)
 
   dag.forkDigests = newClone ForkDigests.init(
     cfg, getStateField(dag.headState, genesis_validators_root))
@@ -1241,8 +1249,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   let finalizedTick = Moment.now()
 
-  if dag.backfill.slot > 0: # See if we can frontfill blocks from era files
-    dag.frontfillBlocks = newSeqOfCap[Eth2Digest](dag.backfill.slot.int)
+  if dag.backfill.slot > GENESIS_SLOT:  # Try frontfill from era files
+    let backfillSlot = dag.backfill.slot - 1
+    dag.frontfillBlocks = newSeqOfCap[Eth2Digest](backfillSlot.int)
 
     let
       historical_roots = getStateField(dag.headState, historical_roots).asSeq()
@@ -1255,7 +1264,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # blocks from genesis to backfill, if possible.
     for bid in dag.era.getBlockIds(
         historical_roots, historical_summaries, Slot(0), Eth2Digest()):
-      if bid.slot >= dag.backfill.slot:
+      if bid.slot >= backfillSlot:
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
@@ -1304,7 +1313,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     head = shortLog(dag.head),
     finalizedHead = shortLog(dag.finalizedHead),
     tail = shortLog(dag.tail),
-    backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root)),
+    backfill = shortLog(dag.backfill),
 
     loadDur = loadTick - startTick,
     summariesDur = summariesTick - loadTick,
