@@ -652,7 +652,7 @@ proc storeBlock(
     else:
       let
         headExecutionBlockHash =
-          dag.loadExecutionBlockHash(newHead.get.blck)
+          dag.loadExecutionBlockHash(newHead.get.blck).get(ZERO_HASH)
         wallSlot = self.getBeaconTime().slotOrZero
       if  headExecutionBlockHash.isZero or
           NewPayloadStatus.noResponse == payloadStatus:
