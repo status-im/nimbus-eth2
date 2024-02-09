@@ -1154,7 +1154,8 @@ suite "Starting states":
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
       dag.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
         blocks[^2].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 2).isNone
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
+        blocks[^3].toBlockId().atSlot()  # recovered from tailState
 
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
