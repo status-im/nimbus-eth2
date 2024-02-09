@@ -323,10 +323,7 @@ proc initFullNode(
     dag.finalizedHead.slot
 
   func getBackfillSlot(): Slot =
-    if dag.backfill.parent_root != dag.tail.root:
-      dag.backfill.slot
-    else:
-      dag.tail.slot
+    dag.backfill.slot
 
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
