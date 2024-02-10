@@ -1115,8 +1115,9 @@ proc proposeBlockAux(
         localBlockValueBoost,
         useBuilderBlock,
         builderBlockValue =
-          collectedBids.builderBid.value().blockValue,
-        engineBlockValue = collectedBids.engineBid.value().blockValue
+          toString(collectedBids.builderBid.value().blockValue, 10),
+        engineBlockValue =
+          toString(collectedBids.engineBid.value().blockValue, 10)
     elif payloadBuilderClient.isNil:
       discard  # builder API not configured for this block
     else:
