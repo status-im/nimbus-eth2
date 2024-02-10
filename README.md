@@ -113,7 +113,7 @@ make VALIDATORS=192 NUM_NODES=6 USER_NODES=1 local-testnet-minimal
 
 By default, validators will be split in half between beacon node and validator
 client processes (50/50), communicating through the
-[common validator API](https://ethereum.github.io/consensus-APIs/#/ValidatorRequiredApi)
+[common validator API](https://ethereum.github.io/beacon-APIs/#/ValidatorRequiredApi)
 (for example with `192` validators and `6` nodes you will roughly end up with 6
 beacon node and 6 validator client processes, where each of them will handle 16
 validators), but if you don't want to use external validator clients and instead
