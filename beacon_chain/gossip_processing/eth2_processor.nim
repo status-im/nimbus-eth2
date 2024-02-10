@@ -404,7 +404,7 @@ proc processAttestation*(
 
     ok()
   else:
-    debug "Dropping attestation", reason = v.error
+    debug "Dropping attestation", reason = $v.error
     beacon_attestations_dropped.inc(1, [$v.error[0]])
     err(v.error())
 
@@ -460,7 +460,7 @@ proc processSignedAggregateAndProof*(
 
     ok()
   else:
-    debug "Dropping aggregate", reason = v.error
+    debug "Dropping aggregate", reason = $v.error
     beacon_aggregates_dropped.inc(1, [$v.error[0]])
 
     err(v.error())
@@ -484,7 +484,7 @@ proc processBlsToExecutionChange*(
     self.validatorChangePool[].addMessage(
       blsToExecutionChange, src == MsgSource.api)
   else:
-    debug "Dropping BLS to execution change", reason = v.error
+    debug "Dropping BLS to execution change", reason = $v.error
     beacon_attester_slashings_dropped.inc(1, [$v.error[0]])
 
   return v
@@ -508,7 +508,7 @@ proc processAttesterSlashing*(
 
     beacon_attester_slashings_received.inc()
   else:
-    debug "Dropping attester slashing", reason = v.error
+    debug "Dropping attester slashing", reason = $v.error
     beacon_attester_slashings_dropped.inc(1, [$v.error[0]])
 
   v
@@ -531,7 +531,7 @@ proc processProposerSlashing*(
 
     beacon_proposer_slashings_received.inc()
   else:
-    debug "Dropping proposer slashing", reason = v.error
+    debug "Dropping proposer slashing", reason = $v.error
     beacon_proposer_slashings_dropped.inc(1, [$v.error[0]])
 
   v
@@ -555,7 +555,7 @@ proc processSignedVoluntaryExit*(
 
     beacon_voluntary_exits_received.inc()
   else:
-    debug "Dropping voluntary exit", reason = v.error
+    debug "Dropping voluntary exit", reason = $v.error
     beacon_voluntary_exits_dropped.inc(1, [$v.error[0]])
 
   v
@@ -601,7 +601,7 @@ proc processSyncCommitteeMessage*(
 
     ok()
   else:
-    debug "Dropping sync committee message", reason = v.error
+    debug "Dropping sync committee message", reason = $v.error
     beacon_sync_committee_messages_dropped.inc(1, [$v.error[0]])
     err(v.error())
 
@@ -646,7 +646,7 @@ proc processSignedContributionAndProof*(
 
     ok()
   else:
-    debug "Dropping contribution", reason = v.error
+    debug "Dropping contribution", reason = $v.error
     beacon_sync_committee_contributions_dropped.inc(1, [$v.error[0]])
 
     err(v.error())
