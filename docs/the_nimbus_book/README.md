@@ -12,4 +12,4 @@ The guide is divided into several sections - broadly:
 ## Resources
 
 * [material for mkdocs](https://squidfunk.github.io/mkdocs-material/) - doc generator
-* [divio](https://documentation.divio.com/introduction/) - useful resource diving into the above section structure
+* [divio](https://documentation.divio.com/introduction.html) - useful resource diving into the above section structure
