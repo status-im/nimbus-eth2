@@ -811,7 +811,7 @@ proc getStateByParent(
     dag.cfg, summary.parent_root, parentMinSlot..slot, state, rollback)
 
 proc getNearbyState(
-    dag: ChainDAGRef, state: ref ForkedHashedBeaconState, bid: BlockId,
+    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
     lowSlot: Slot): Opt[void] =
   ## Load state from DB that is close to `bid` and has at least slot `lowSlot`.
   var
@@ -823,7 +823,7 @@ proc getNearbyState(
       return err()
     b = (? dag.atSlot(b, max(stateSlot, 1.Slot) - 1)).bid
     let bsi = BlockSlotId.init(b, stateSlot)
-    if not dag.getState(bsi, state[]):
+    if not dag.getState(bsi, state):
       if e == GENESIS_EPOCH:
         return err()
       dec e
@@ -1426,7 +1426,7 @@ proc ancestorSlot*(
   Opt.some stateBid.slot
 
 proc computeRandaoMix(
-    dag: ChainDAGRef, bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
+    bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
     when consensusFork >= ConsensusFork.Bellatrix:
@@ -1449,7 +1449,7 @@ proc computeRandaoMix*(
   # If `blck` is post merge, RANDAO information is immediately available
   let
     bdata = ? dag.getForkedBlock(bid)
-    fullMix = dag.computeRandaoMix(bdata)
+    fullMix = computeRandaoMix(bdata)
   if fullMix.isSome:
     return fullMix
 
@@ -1502,8 +1502,8 @@ proc computeRandaoMixFromMemory*(
 proc computeRandaoMixFromDatabase*(
     dag: ChainDAGRef, bid: BlockId, lowSlot: Slot): Opt[Eth2Digest] =
   ## Compute requested RANDAO mix for `bid` using closest DB state (~500 ms).
-  let state = newClone(dag.headState)
-  ? dag.getNearbyState(state, bid, lowSlot)
+  let state = assignClone(dag.headState)
+  ? dag.getNearbyState(state[], bid, lowSlot)
   withState(state[]):
     dag.computeRandaoMix(forkyState, bid, lowSlot)
 
@@ -1514,10 +1514,17 @@ proc computeRandaoMix(
   if mix.isSome:
     return mix
 
+  # If `blck` is post merge, RANDAO information is immediately available
+  let
+    bdata = ? dag.getForkedBlock(bid)
+    fullMix = computeRandaoMix(bdata)
+  if fullMix.isSome:
+    return fullMix
+
   # Fall back to database
   dag.computeRandaoMixFromDatabase(bid, lowSlot)
 
-proc computeRandaoMix*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
+proc computeRandaoMix*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] {.deprecated.} =
   ## Compute requested RANDAO mix for `bid`.
   const maxSlotDistance = SLOTS_PER_HISTORICAL_ROOT
   let lowSlot = max(bid.slot, maxSlotDistance.Slot) - maxSlotDistance
@@ -1563,24 +1570,6 @@ proc computeShufflingRefFromMemory*(
   tryWithState dag.epochRefState
   tryWithState dag.clearanceState
 
-proc computeShufflingRefFromDatabase*(
-    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
-  ## Compute `ShufflingRef` for `blck@epoch` using closest DB state (~500 ms).
-  let state = newClone(dag.headState)
-  ? dag.getNearbyState(state, blck.bid, epoch.lowSlotForAttesterShuffling)
-  withState(state[]):
-    dag.computeShufflingRef(forkyState, blck, epoch)
-
-proc computeShufflingRef(
-    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
-  # Try to compute from states available in memory
-  let shufflingRef = dag.computeShufflingRefFromMemory(blck, epoch)
-  if shufflingRef.isOk:
-    return shufflingRef
-
-  # Fall back to database
-  dag.computeShufflingRefFromDatabase(blck, epoch)
-
 proc getShufflingRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
     preFinalized: bool): Opt[ShufflingRef] =
@@ -1592,15 +1581,12 @@ proc getShufflingRef*(
     return shufflingRef
 
   # Use existing states to quickly compute the shuffling
-  shufflingRef = dag.computeShufflingRef(blck, epoch)
+  shufflingRef = dag.computeShufflingRefFromMemory(blck, epoch)
   if shufflingRef.isSome:
     dag.putShufflingRef(shufflingRef.get)
     return shufflingRef
 
   # Last resort, this can take several seconds as this may replay states
-  # TODO here, we could check the existing cached states and see if any one
-  # has the right dependent root - unlike EpochRef, we don't need an _exact_
-  # epoch match
   let epochRef = dag.getEpochRef(blck, epoch, preFinalized).valueOr:
     return Opt.none ShufflingRef
   dag.putShufflingRef(epochRef.shufflingRef)
@@ -2630,7 +2616,7 @@ proc getProposalState*(
 
   # Start with the clearance state, since this one typically has been advanced
   # and thus has a hot hash tree cache
-  let state = newClone(dag.clearanceState)
+  let state = assignClone(dag.clearanceState)
 
   var
     info = ForkedEpochInfo()
