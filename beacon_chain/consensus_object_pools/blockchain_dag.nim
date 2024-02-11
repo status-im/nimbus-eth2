@@ -1524,7 +1524,7 @@ proc computeRandaoMix(
   # Fall back to database
   dag.computeRandaoMixFromDatabase(bid, lowSlot)
 
-proc computeRandaoMix*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] {.deprecated.} =
+proc computeRandaoMix*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
   ## Compute requested RANDAO mix for `bid`.
   const maxSlotDistance = SLOTS_PER_HISTORICAL_ROOT
   let lowSlot = max(bid.slot, maxSlotDistance.Slot) - maxSlotDistance
