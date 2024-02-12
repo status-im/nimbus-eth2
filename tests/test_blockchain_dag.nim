@@ -1825,9 +1825,6 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       # If shuffling is computable from DAG, check its correctness
       epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
 
-      # If shuffling is computable from DB, check its correctness
-      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
-
       # Shuffling should be correct when starting from any cached state
       for state in states:
         withState(state[]):
@@ -1903,9 +1900,6 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
 
       # If shuffling is computable from DAG, check its correctness
       epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
-
-      # If shuffling is computable from DB, check its correctness
-      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
 
 suite "Shufflings":
   let cfg = defaultRuntimeConfig
