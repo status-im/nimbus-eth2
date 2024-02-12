@@ -11,9 +11,11 @@
 
 import
   stew/endians2,
+  std/sets,
   ssz_serialization/[merkleization, proofs],
   ./ssz_codec
 
+from ./datatypes/base import HashedValidatorPubKeyItem
 from ./datatypes/phase0 import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/altair import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/bellatrix import HashedBeaconState, SignedBeaconBlock
@@ -66,3 +68,42 @@ func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractSta
 
 func getDepositsRoot*(m: var DepositsMerkleizer): Eth2Digest =
   mixInLength(m.getFinalHash, int m.totalChunks)
+
+func hash*(v: ref HashedValidatorPubKeyItem): Hash =
+  if not isNil(v):
+    hash(v[].key)
+  else:
+    default(Hash)
+
+func `==`*(a, b: ref HashedValidatorPubKeyItem): bool =
+  if isNil(a):
+    isNil(b)
+  elif isNil(b):
+    false
+  else:
+    a[].key == b[].key
+
+func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidatorPubKey =
+  {.noSideEffect.}:
+    var keys {.threadvar.}: HashSet[ref HashedValidatorPubKeyItem]
+
+    let
+      tmp = (ref HashedValidatorPubKeyItem)(
+        key: key,
+        root: hash_tree_root(key)
+      )
+      cached =
+        # raising `KeyError` is 1000x slower at least than `'in`-checking..
+        if tmp in keys:
+          try:
+            # The interface of HashSet is such that we must construct a full
+            # instance to check if it's in the set - then we can return that
+            # instace and discard the one we just created temporarily
+            keys[tmp]
+          except KeyError:
+            raiseAssert "just checked"
+        else:
+          keys.incl tmp
+          tmp
+
+  HashedValidatorPubKey(value: addr cached[])

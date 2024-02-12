@@ -57,7 +57,7 @@ func get_validator_from_deposit*(deposit: DepositData):
       amount - amount mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
 
   Validator(
-    pubkey: deposit.pubkey,
+    pubkeyData: HashedValidatorPubKey.init(deposit.pubkey),
     withdrawal_credentials: deposit.withdrawal_credentials,
     activation_eligibility_epoch: FAR_FUTURE_EPOCH,
     activation_epoch: FAR_FUTURE_EPOCH,

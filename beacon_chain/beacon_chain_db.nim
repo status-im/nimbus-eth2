@@ -1120,8 +1120,9 @@ proc getStateOnlyMutableValidators(
         dstValidator = addr output.validators.data[i]
 
       assign(
-        dstValidator.pubkey,
-        immutableValidators[i].pubkey.toPubKey())
+        dstValidator.pubkeyData,
+        HashedValidatorPubKey.init(
+          immutableValidators[i].pubkey.toPubKey()))
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
@@ -1158,7 +1159,10 @@ proc getStateOnlyMutableValidators(
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
 
-      assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
+      assign(
+        dstValidator.pubkeyData,
+         HashedValidatorPubKey.init(
+          immutableValidators[i].pubkey.toPubKey()))
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
@@ -1195,7 +1199,10 @@ proc getStateOnlyMutableValidators(
     for i in prevNumValidators ..< numValidators:
       # Bypass hash cache invalidation
       let dstValidator = addr output.validators.data[i]
-      assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
+      assign(
+        dstValidator.pubkeyData,
+        HashedValidatorPubKey.init(
+          immutableValidators[i].pubkey.toPubKey()))
       output.validators.clearCaches(i)
 
     true
