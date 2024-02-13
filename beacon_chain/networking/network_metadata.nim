@@ -274,10 +274,8 @@ when const_preset == "gnosis":
       doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
-    for network in [chiadoMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-    for network in [gnosisMetadata]:
-      doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
+      static: doAssert ConsensusFork.high == ConsensusFork.Deneb
 
 elif const_preset == "mainnet":
   when incbinEnabled:
@@ -342,6 +340,7 @@ elif const_preset == "mainnet":
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
+      static: doAssert ConsensusFork.high == ConsensusFork.Deneb
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
   template loadRuntimeMetadata(): auto =
