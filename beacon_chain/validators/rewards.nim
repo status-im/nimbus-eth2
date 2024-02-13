@@ -124,21 +124,29 @@ proc collectFromAttestations(
 ) =
   withStateAndMaybeBlindedBlck(forkedState, forkedBlock):
     when consensusFork > ConsensusFork.Phase0:
-      let base_reward_per_increment = get_base_reward_per_increment(
-        get_total_active_balance(forkyState.data, cache))
+      let
+        base_reward_per_increment =
+          get_base_reward_per_increment(
+            get_total_active_balance(forkyState.data, cache))
+        blockRoot = hash_tree_root(forkyBlck)
+
       doAssert base_reward_per_increment > 0
+
       for attestation in forkyBlck.body.attestations:
         doAssert check_attestation(
           forkyState.data, attestation, {}, cache).isOk
         let proposerReward =
-          if attestation.data.target.epoch == get_current_epoch(forkyState.data):
+          if attestation.data.target.epoch ==
+               get_current_epoch(forkyState.data):
             get_proposer_reward(forkyState.data, attestation,
               base_reward_per_increment, cache,
-              auxiliaryState.currentEpochParticipation)
+              auxiliaryState.currentEpochParticipation,
+              true, blockRoot)
           else:
             get_proposer_reward(
               forkyState.data, attestation, base_reward_per_increment, cache,
-              auxiliaryState.previousEpochParticipation)
+              auxiliaryState.previousEpochParticipation,
+              true, blockRoot)
         proposerOutcome += proposerReward
 
 proc collectFromSyncAggregate(
