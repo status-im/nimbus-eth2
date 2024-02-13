@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import ".."/spec/[forks, beaconstate, state_transition_block]
+import ".."/spec/[forks, beaconstate, state_transition_block, helpers]
 
 type
   AuxiliaryState = object
@@ -56,6 +56,8 @@ template withStateAndMaybeBlindedBlck(
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyState: untyped {.inject.} = s.denebData
     template forkyBlck: untyped {.inject.} = b
+  else:
+    {.error: "withStateAndMaybeBlindedBlock does not support " & $typeof(b).}
 
 func init(t: typedesc[AuxiliaryState],
           forkedState: ForkedHashedBeaconState): Opt[AuxiliaryState] =
@@ -166,9 +168,6 @@ proc collectFromSyncAggregate(
         if aggregate.sync_committee_bits[i]:
           proposerOutcome += proposer_reward
 
-proc gweiToWei(eth: Gwei): UInt256 =
-  eth.u256 * 1000000000000000000.u256
-
 proc collectBlockRewards*(
     forkedState: ForkedHashedBeaconState,
     forkedBlock: RewardingBlock
@@ -184,4 +183,4 @@ proc collectBlockRewards*(
   reward.collectFromAttestations(
     forkedState, forkedBlock, auxiliaryState, cache)
   reward.collectFromSyncAggregate(forkedState, forkedBlock, cache)
-  ok(gweiToWei(reward))
+  ok(reward.toWei)

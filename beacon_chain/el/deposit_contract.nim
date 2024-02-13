@@ -14,7 +14,7 @@ import
   ../networking/network_metadata,
   web3, web3/confutils_defs, eth/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils],
-  ../spec/eth2_merkleization,
+  ../spec/[eth2_merkleization, helpers],
   ../spec/datatypes/base,
   ../validators/keystore_management
 
@@ -136,15 +136,12 @@ proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
     `from`: web3.defaultAccount,
     gas: Quantity(3000000).some,
     gasPrice: Quantity(1).some,
-    value: some(valueEth.u256 * 1000000000000000000.u256),
+    value: some(valueEth.toWei),
     to: some(to))
   web3.send(tr)
 
 type
   DelayGenerator* = proc(): chronos.Duration {.gcsafe, raises: [].}
-
-proc ethToWei(eth: UInt256): UInt256 =
-  eth * 1000000000000000000.u256
 
 proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
   result = await newWeb3(web3Url)
@@ -180,7 +177,7 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
           SignatureBytes(@(dp.signature.toRaw())),
           FixedBytes[32](hash_tree_root(dp).data))
 
-        let status = await tx.send(value = 32.u256.ethToWei, gasPrice = gasPrice)
+        let status = await tx.send(value = 32.toWei, gasPrice = gasPrice)
 
         info "Deposit sent", tx = $status
 

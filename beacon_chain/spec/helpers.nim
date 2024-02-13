@@ -523,3 +523,9 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash blockToBlockHeader(blck)
+
+func toWei*(eth: SomeInteger): UInt256 =
+  eth.u256 * 1000000000000000000.u256
+
+func toWei*(eth: UInt256): UInt256 =
+  eth * 1000000000000000000.u256

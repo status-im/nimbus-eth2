@@ -15,7 +15,7 @@ import
   ../beacon_chain/conf,
   ../beacon_chain/el/el_manager,
   ../beacon_chain/networking/eth2_network,
-  ../beacon_chain/spec/eth2_merkleization,
+  ../beacon_chain/spec/[eth2_merkleization, helpers],
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/validators/keystore_management,
@@ -518,15 +518,12 @@ proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
     `from`: web3.defaultAccount,
     gas: Quantity(3000000).some,
     gasPrice: Quantity(1).some,
-    value: some(valueEth.u256 * 1000000000000000000.u256),
+    value: some(valueEth.toWei),
     to: some(to))
   web3.send(tr)
 
 type
   DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
-
-func ethToWei(eth: UInt256): UInt256 =
-  eth * 1000000000000000000.u256
 
 proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
   result = await newWeb3(web3Url)
@@ -562,7 +559,7 @@ proc sendDeposits(deposits: seq[LaunchPadDeposit],
           SignatureBytes(@(dp.signature.toRaw())),
           FixedBytes[32](hash_tree_root(dp).data))
 
-        let status = await tx.send(value = 32.u256.ethToWei, gasPrice = gasPrice)
+        let status = await tx.send(value = 32.toWei, gasPrice = gasPrice)
 
         info "Deposit sent", tx = $status
 
