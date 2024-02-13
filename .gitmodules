@@ -202,9 +202,9 @@
 	branch = master
 [submodule "vendor/gnosis-chain-configs"]
 	path = vendor/gnosis-chain-configs
-	url = https://github.com/gnosischain/configs.git
+	url = https://github.com/zah/gnosis-chain-configs
 	ignore = untracked
-	branch = main
+	branch = patch-1
 [submodule "vendor/sepolia"]
 	path = vendor/sepolia
 	url = https://github.com/eth-clients/sepolia.git

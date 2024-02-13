@@ -274,10 +274,7 @@ when const_preset == "gnosis":
       doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
-    for network in [chiadoMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-    for network in [gnosisMetadata]:
-      doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
   when incbinEnabled:
