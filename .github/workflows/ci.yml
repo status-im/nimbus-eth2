@@ -39,9 +39,6 @@ jobs:
               os: macos
             branch: upstream/version-1-6
           - target:
-              os: macos
-            branch: upstream/version-2-0
-          - target:
               os: windows
             branch: upstream/version-1-6
           - target:
@@ -58,7 +55,7 @@ jobs:
             builder: ['self-hosted','ubuntu-22.04']
           - target:
               os: macos
-            builder: macos-11
+            builder: macos-12
           - target:
               os: windows
             builder: windows-2019
