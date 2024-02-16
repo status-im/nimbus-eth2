@@ -1840,7 +1840,7 @@ proc updateState*(
     replayDur = Moment.now() - assignTick
 
   # TODO https://github.com/status-im/nim-chronicles/issues/108
-  if (assignDur + replayDur) >= 250.millis:
+  if (assignDur + replayDur) >= MinSignificantProcessingDuration:
     # This might indicate there's a cache that's not in order or a disk that is
     # too slow - for now, it's here for investigative purposes and the cutoff
     # time might need tuning
