@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.4.0-beta.6"
+const SPEC_VERSION* = "1.4.0-beta.7-hotfix"
 ## Spec version we're aiming to be compatible with, right now
 
 const
