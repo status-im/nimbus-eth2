@@ -52,7 +52,7 @@ declareGauge next_action_wait,
   "Seconds until the next attestation will be sent"
 
 declareCounter total_db_checkpoint_seconds,
-  "Total duration for checkpointing the database to clear the WAL file"
+  "Total time spent checkpointing the database to clear the WAL file"
 
 proc doRunTrustedNodeSync(
     db: BeaconChainDB,

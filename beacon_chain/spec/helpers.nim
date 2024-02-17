@@ -25,8 +25,6 @@ import
 export
   eth2_merkleization, forks, rlp, ssz_codec
 
-const MinSignificantProcessingDuration* = 250.millis
-
 func toEther*(gwei: Gwei): Ether =
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/weak-subjectivity.md#constants
   const ETH_TO_GWEI = 1_000_000_000
