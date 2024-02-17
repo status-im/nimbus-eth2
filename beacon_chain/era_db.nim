@@ -197,7 +197,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
       try:
         Taskpool.new()
       except Exception as exc:
-        return err("Failed to initialize TaskPool: " & exc.msg)
+        return err("Failed to initialize Taskpool: " & exc.msg)
   var verifier = BatchVerifier.init(rng, taskpool)
 
   var tmp: seq[byte]
