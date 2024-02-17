@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -71,7 +72,8 @@ type
 proc initialLoad(
     path: string, db: BeaconChainDB,
     StateType, BlockType: typedesc
-): tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice] =
+): tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice] {.raises: [
+    IOError, UnconsumedInput].} =
   let
     forkedState = loadForkedState(
       path/"anchor_state.ssz_snappy",
@@ -98,7 +100,11 @@ proc initialLoad(
 
   (dag, fkChoice)
 
-proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
+proc loadOps(
+    path: string, fork: ConsensusFork
+): seq[Operation] {.raises: [
+    IOError, KeyError, UnconsumedInput, ValueError,
+    YamlParserError, YamlConstructionError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
@@ -163,7 +169,7 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
       result.add Operation(kind: opChecks,
         checks: step["checks"])
     else:
-      doAssert false, "Unknown test step: " & $step
+      raiseAssert "Unknown test step: " & $step
 
     if step.hasKey"valid":
       doAssert step.len == 2 + numExtraFields
@@ -247,11 +253,10 @@ proc stepOnBlock(
   blockAdded
 
 proc stepChecks(
-       checks: JsonNode,
-       dag: ChainDAGRef,
-       fkChoice: ref ForkChoice,
-       time: BeaconTime
-     ) =
+    checks: JsonNode,
+    dag: ChainDAGRef,
+    fkChoice: ref ForkChoice,
+    time: BeaconTime) {.raises: [KeyError].} =
   doAssert checks.len >= 1, "No checks found"
   for check, val in checks:
     if check == "time":
@@ -287,9 +292,13 @@ proc stepChecks(
       # We do not store genesis in fork choice..
       discard
     else:
-      doAssert false, "Unsupported check '" & $check & "'"
+      raiseAssert "Unsupported check '" & $check & "'"
 
-proc doRunTest(path: string, fork: ConsensusFork) =
+proc doRunTest(
+    path: string, fork: ConsensusFork
+) {.raises: [
+    IOError, KeyError, UnconsumedInput, ValueError,
+    YamlParserError, YamlConstructionError].} =
   let db = BeaconChainDB.new("", inMemory = true)
   defer:
     db.close()
@@ -300,7 +309,13 @@ proc doRunTest(path: string, fork: ConsensusFork) =
         path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
 
     rng = HmacDrbgContext.new()
-    taskpool = Taskpool.new()
+    taskpool =
+      try:
+        Taskpool.new()
+      except Exception as exc:
+        fatal "Failed to initialize Taskpool", exc = exc.msg
+        fail()
+        return
   var verifier = BatchVerifier.init(rng, taskpool)
 
   let steps = loadOps(path, fork)
@@ -340,7 +355,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:
-      doAssert false, "Unsupported"
+      raiseAssert "Unsupported"
 
 proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
   const SKIP = [
@@ -363,7 +378,12 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
     "basic_is_head_root",
   ]
 
-  test suiteName & " - " & path.relativePath(SszTestsDir):
+  let relativePathComponent =
+    try:
+      path.relativePath(SszTestsDir)
+    except Exception as exc:
+      raiseAssert "relativePath failed unexpectedly: " & $exc.msg
+  test suiteName & " - " & relativePathComponent:
     when defined(windows):
       # Some test files have very long paths
       skip()
