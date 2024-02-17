@@ -221,6 +221,7 @@ jobs:
       - name: Build files with isMainModule
         run: |
           source env.sh
+          nim c beacon_chain/era_db
           nim c beacon_chain/trusted_node_sync
 
   lint:
