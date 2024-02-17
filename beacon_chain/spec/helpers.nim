@@ -49,10 +49,13 @@ func shortLog*(v: FinalityCheckpoints): auto =
 
 chronicles.formatIt FinalityCheckpoints: it.shortLog
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## Return the largest integer ``x`` such that ``x**2 <= n``.
   doAssert n >= 0'u64
+
+  if n == high(uint64):
+    return 4294967295'u64
 
   var
     x = n
