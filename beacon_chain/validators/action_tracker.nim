@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   stew/shims/[sets, hashes], chronicles,
   ../spec/forks
@@ -15,8 +17,6 @@ from ../consensus_object_pools/spec_cache import
   epoch, get_committee_assignments
 
 export forks, tables, sets
-
-{.push raises: [].}
 
 const
   SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS* = 4
