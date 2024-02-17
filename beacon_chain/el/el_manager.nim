@@ -158,7 +158,7 @@ type
       ## reconnecting after a lost connetion. You can wait on
       ## the future below for the moment the connection is active.
 
-    connectingFut: Future[Result[Web3, string]]
+    connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
       ## This future will be replaced when the connection is lost.
 
     etcStatus: EtcStatus
@@ -580,8 +580,9 @@ proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
           getJsonRpcRequestHeaders(engineUrl.jwtSecret),
           httpFlags = {HttpClientFlag.NewConnectionAlways})
 
-proc establishEngineApiConnection*(url: EngineApiUrl):
-                                   Future[Result[Web3, string]] {.async.} =
+proc establishEngineApiConnection(url: EngineApiUrl):
+                                  Future[Result[Web3, string]] {.
+                                  async: (raises: [CancelledError]).} =
   try:
     ok(await newWeb3(url).wait(engineApiConnectionTimeout))
   except AsyncTimeoutError:
@@ -589,9 +590,10 @@ proc establishEngineApiConnection*(url: EngineApiUrl):
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
-    err "Engine API connection failed: " & exc.msg
+    err exc.msg
 
-proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
+proc tryConnecting(connection: ELConnection): Future[bool] {.
+    async: (raises: [CancelledError]).} =
   if connection.isConnected:
     return true
 
@@ -601,12 +603,14 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
 
   let web3Res = await connection.connectingFut
   if web3Res.isErr:
+    warn "Engine API connection failed", err = web3Res.error
     return false
   else:
     connection.web3 = some web3Res.get
     return true
 
-proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.async.} =
+proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
+    async: (raises: [CancelledError]).} =
   while not connection.isConnected:
     if not await connection.tryConnecting():
       await sleepAsync(chronos.seconds(10))
@@ -796,9 +800,11 @@ proc getPayload*(m: ELManager,
   var bestPayloadIdx = none int
   for idx, req in requests:
     if not req.finished:
+      warn "Timeout while getting execution payload",
+        url = m.elConnections[idx].engineUrl.url
       req.cancelSoon()
     elif req.failed:
-      error "Failed to get execution payload from EL",
+      warn "Failed to get execution payload from EL",
              url = m.elConnections[idx].engineUrl.url,
              err = req.error.msg
     else:
@@ -826,10 +832,12 @@ proc getPayload*(m: ELManager,
             withdrawals_from_el =
               mapIt(
                 req.value().executionPayload.withdrawals.maybeDeref,
-                it.asConsensusWithdrawal)
+                it.asConsensusWithdrawal),
+            url = m.elConnections[idx].engineUrl.url
 
       if req.value().executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
         warn "Execution client provided a block with invalid extraData (size exceeds limit)",
+             url = m.elConnections[idx].engineUrl.url,
              size = req.value().executionPayload.extraData.len,
              limit = MAX_EXTRA_DATA_BYTES
         continue
@@ -839,6 +847,8 @@ proc getPayload*(m: ELManager,
       else:
         if cmpGetPayloadResponses(req.value(), requests[bestPayloadIdx.get].value()) > 0:
           bestPayloadIdx = some idx
+
+  deadline.cancelSoon()
 
   if bestPayloadIdx.isSome:
     return ok requests[bestPayloadIdx.get].value().asConsensusType
