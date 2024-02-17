@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import std/strutils
 import chronicles, stew/base10
 import ".."/spec/eth2_apis/eth2_rest_serialization,
@@ -123,7 +125,7 @@ proc apiResponseOr[T](future: FutureBase, timerFut: Future[void],
     if future.failed():
       ApiResponse[T].err($future.error.msg)
     else:
-      ApiResponse[T].ok(Future[T](future).read())
+      ApiResponse[T].ok(Future[T](future).value())
   else:
     if timerFut.finished():
       ApiResponse[T].err(message)
