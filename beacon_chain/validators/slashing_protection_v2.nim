@@ -240,7 +240,6 @@ func version*(_: type SlashingProtectionDB_v2): static int =
 # Internal
 # -------------------------------------------------------------
 
-{.push raises: [].}
 logScope:
   topics = "antislash"
 
