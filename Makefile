@@ -163,7 +163,7 @@ DEPOSITS_DELAY := 0
 #- "--define:release" cannot be added to "config.nims"
 #- disable Nim's default parallelisation because it starts too many processes for too little gain
 #- https://github.com/status-im/nim-libp2p#use-identify-metrics
-NIM_PARAMS := -d:release --parallelBuild:1 -d:libp2p_agents_metrics -d:KnownLibP2PAgents=nimbus,lighthouse,lodestar,prysm,teku $(NIM_PARAMS)
+NIM_PARAMS := -d:release --parallelBuild:1 -d:libp2p_agents_metrics -d:libp2p_expensive_metrics -d:chronicles_log_level=DEBUG -d:KnownLibP2PAgents=nimbus,lighthouse,lodestar,prysm,teku $(NIM_PARAMS)
 
 ifeq ($(USE_LIBBACKTRACE), 0)
 NIM_PARAMS += -d:disable_libbacktrace
