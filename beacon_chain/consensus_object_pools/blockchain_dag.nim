@@ -15,7 +15,7 @@ import
     state_transition, validator],
   ../spec/forks,
   ../spec/datatypes/[phase0, altair, bellatrix, capella],
-  ".."/[beacon_chain_db, era_db],
+  ".."/[beacon_chain_db, beacon_clock, era_db],
   "."/[block_pools_types, block_quarantine]
 
 from ../spec/datatypes/deneb import shortLog
@@ -23,6 +23,8 @@ from ../spec/datatypes/deneb import shortLog
 export
   eth2_merkleization, eth2_ssz_serialization,
   block_pools_types, results, beacon_chain_db
+
+logScope: topics = "chaindag"
 
 # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
@@ -47,7 +49,7 @@ declareGauge beacon_current_active_validators, "Number of validators in the acti
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-logScope: topics = "chaindag"
+declareCounter total_state_replay_seconds, "Total time spent replaying states"
 
 const
   EPOCHS_PER_STATE_SNAPSHOT* = 32
@@ -1838,9 +1840,10 @@ proc updateState*(
   let
     assignDur = assignTick - startTick
     replayDur = Moment.now() - assignTick
+  total_state_replay_seconds.inc(replayDur.toFloatSeconds)
 
   # TODO https://github.com/status-im/nim-chronicles/issues/108
-  if (assignDur + replayDur) >= 250.millis:
+  if (assignDur + replayDur) >= MinSignificantProcessingDuration:
     # This might indicate there's a cache that's not in order or a disk that is
     # too slow - for now, it's here for investigative purposes and the cutoff
     # time might need tuning

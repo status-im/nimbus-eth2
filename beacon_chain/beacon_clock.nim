@@ -128,3 +128,5 @@ func fromFloatSeconds*(T: type Duration, f: float): Duration =
   of fcInf: InfiniteDuration
 
 chronicles.formatIt Duration: $it
+
+const MinSignificantProcessingDuration* = 250.millis
