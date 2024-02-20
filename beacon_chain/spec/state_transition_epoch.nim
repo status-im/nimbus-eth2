@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # State transition - epoch processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#epoch-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#epoch-processing
@@ -20,14 +22,13 @@
 #   improvements to be made - other than that, keep things similar to spec unless
 #   motivated by security or performance considerations
 
-{.push raises: [].}
-
 import
-  stew/bitops2, chronicles,
+  stew/assign2, chronicles,
   ../extras,
   "."/[beaconstate, eth2_merkleization, validator]
 
 from std/math import sum, `^`
+from stew/bitops2 import setBit
 from ./datatypes/capella import
   BeaconState, HistoricalSummary, Withdrawal, WithdrawalIndex
 
@@ -290,20 +291,33 @@ func get_block_root(state: FinalityState, epoch: Epoch): Eth2Digest =
     doAssert epoch == get_previous_epoch(state)
     state.previous_epoch_ancestor_root
 
+type
+  JustificationAndFinalizationInfo = object
+    previous_justified_checkpoint: Checkpoint
+    current_justified_checkpoint: Checkpoint
+    finalized_checkpoint: Checkpoint
+    justification_bits: JustificationBits
+
 proc weigh_justification_and_finalization(
-    state: var (ForkyBeaconState | FinalityState),
+    state: ForkyBeaconState | FinalityState,
     total_active_balance: Gwei,
     previous_epoch_target_balance: Gwei,
     current_epoch_target_balance: Gwei,
-    flags: UpdateFlags = {}) =
+    flags: UpdateFlags = {}): JustificationAndFinalizationInfo =
   let
     previous_epoch = get_previous_epoch(state)
     current_epoch = get_current_epoch(state)
     old_previous_justified_checkpoint = state.previous_justified_checkpoint
     old_current_justified_checkpoint = state.current_justified_checkpoint
 
+  var res = JustificationAndFinalizationInfo(
+    previous_justified_checkpoint: state.previous_justified_checkpoint,
+    current_justified_checkpoint: state.current_justified_checkpoint,
+    finalized_checkpoint: state.finalized_checkpoint,
+    justification_bits: state.justification_bits)
+
   # Process justifications
-  state.previous_justified_checkpoint = state.current_justified_checkpoint
+  res.previous_justified_checkpoint = res.current_justified_checkpoint
 
   ## Spec:
   ## state.justification_bits[1:] = state.justification_bits[:-1]
@@ -312,19 +326,18 @@ proc weigh_justification_and_finalization(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#misc
   const JUSTIFICATION_BITS_LENGTH = 4
 
-  state.justification_bits = JustificationBits(
-    (uint8(state.justification_bits) shl 1) and
+  res.justification_bits = JustificationBits(
+    (uint8(res.justification_bits) shl 1) and
     uint8((2^JUSTIFICATION_BITS_LENGTH) - 1))
 
   if previous_epoch_target_balance * 3 >= total_active_balance * 2:
-    state.current_justified_checkpoint =
-      Checkpoint(epoch: previous_epoch,
-                 root: get_block_root(state, previous_epoch))
-    uint8(state.justification_bits).setBit 1
+    res.current_justified_checkpoint = Checkpoint(
+      epoch: previous_epoch, root: get_block_root(state, previous_epoch))
+    uint8(res.justification_bits).setBit 1
 
     trace "Justified with previous epoch",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.current_justified_checkpoint)
+      checkpoint = shortLog(res.current_justified_checkpoint)
   elif strictVerification in flags:
     fatal "Low attestation participation in previous epoch",
       total_active_balance,
@@ -334,57 +347,58 @@ proc weigh_justification_and_finalization(
     quit 1
 
   if current_epoch_target_balance * 3 >= total_active_balance * 2:
-    state.current_justified_checkpoint =
-      Checkpoint(epoch: current_epoch,
-                 root: get_block_root(state, current_epoch))
-    uint8(state.justification_bits).setBit 0
+    res.current_justified_checkpoint = Checkpoint(
+      epoch: current_epoch, root: get_block_root(state, current_epoch))
+    uint8(res.justification_bits).setBit 0
 
     trace "Justified with current epoch",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.current_justified_checkpoint)
+      checkpoint = shortLog(res.current_justified_checkpoint)
 
   # Process finalizations
-  let bitfield = uint8(state.justification_bits)
+  let bitfield = uint8(res.justification_bits)
 
   ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
   ## as source
   if (bitfield and 0b1110) == 0b1110 and
      old_previous_justified_checkpoint.epoch + 3 == current_epoch:
-    state.finalized_checkpoint = old_previous_justified_checkpoint
+    res.finalized_checkpoint = old_previous_justified_checkpoint
 
     trace "Finalized with rule 234",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint)
+      checkpoint = shortLog(res.finalized_checkpoint)
 
   ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
   ## source
   if (bitfield and 0b110) == 0b110 and
      old_previous_justified_checkpoint.epoch + 2 == current_epoch:
-    state.finalized_checkpoint = old_previous_justified_checkpoint
+    res.finalized_checkpoint = old_previous_justified_checkpoint
 
     trace "Finalized with rule 23",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint)
+      checkpoint = shortLog(res.finalized_checkpoint)
 
   ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
   ## source
   if (bitfield and 0b111) == 0b111 and
      old_current_justified_checkpoint.epoch + 2 == current_epoch:
-    state.finalized_checkpoint = old_current_justified_checkpoint
+    res.finalized_checkpoint = old_current_justified_checkpoint
 
     trace "Finalized with rule 123",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint)
+      checkpoint = shortLog(res.finalized_checkpoint)
 
   ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
   ## source
   if (bitfield and 0b11) == 0b11 and
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
-    state.finalized_checkpoint = old_current_justified_checkpoint
+    res.finalized_checkpoint = old_current_justified_checkpoint
 
     trace "Finalized with rule 12",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint)
+      checkpoint = shortLog(res.finalized_checkpoint)
+
+  res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(
@@ -396,10 +410,16 @@ proc process_justification_and_finalization*(
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
 
-  weigh_justification_and_finalization(
+  let jfRes = weigh_justification_and_finalization(
     state, balances.current_epoch,
     balances.previous_epoch_target_attesters,
     balances.current_epoch_target_attesters, flags)
+  assign(
+    state.previous_justified_checkpoint, jfRes.previous_justified_checkpoint)
+  assign(
+    state.current_justified_checkpoint, jfRes.current_justified_checkpoint)
+  assign(state.finalized_checkpoint, jfRes.finalized_checkpoint)
+  assign(state.justification_bits, jfRes.justification_bits)
 
 proc compute_unrealized_finality*(
     state: phase0.BeaconState, cache: var StateCache): FinalityCheckpoints =
@@ -414,13 +434,13 @@ proc compute_unrealized_finality*(
   template balances(): auto = info.balances
 
   var finalityState = state.toFinalityState()
-  weigh_justification_and_finalization(
+  let jfRes = weigh_justification_and_finalization(
     finalityState, balances.current_epoch,
     balances.previous_epoch_target_attesters,
     balances.current_epoch_target_attesters)
   FinalityCheckpoints(
-    justified: finalityState.current_justified_checkpoint,
-    finalized: finalityState.finalized_checkpoint)
+    justified: jfRes.current_justified_checkpoint,
+    finalized: jfRes.finalized_checkpoint)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(
@@ -434,10 +454,16 @@ proc process_justification_and_finalization*(
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
 
-  weigh_justification_and_finalization(
+  let jfRes = weigh_justification_and_finalization(
     state, balances.current_epoch,
     balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
     balances.current_epoch_TIMELY_TARGET, flags)
+  assign(
+    state.previous_justified_checkpoint, jfRes.previous_justified_checkpoint)
+  assign(
+    state.current_justified_checkpoint, jfRes.current_justified_checkpoint)
+  assign(state.finalized_checkpoint, jfRes.finalized_checkpoint)
+  assign(state.justification_bits, jfRes.justification_bits)
 
 proc compute_unrealized_finality*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
@@ -450,13 +476,13 @@ proc compute_unrealized_finality*(
   let balances = get_unslashed_participating_balances(state)
 
   var finalityState = state.toFinalityState()
-  weigh_justification_and_finalization(
+  let jfRes = weigh_justification_and_finalization(
     finalityState, balances.current_epoch,
     balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
     balances.current_epoch_TIMELY_TARGET)
   FinalityCheckpoints(
-    justified: finalityState.current_justified_checkpoint,
-    finalized: finalityState.finalized_checkpoint)
+    justified: jfRes.current_justified_checkpoint,
+    finalized: jfRes.finalized_checkpoint)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#helpers
 func get_base_reward_sqrt*(state: phase0.BeaconState, index: ValidatorIndex,
@@ -796,6 +822,7 @@ func process_rewards_and_penalties*(
   for validator_index, reward0, reward1, reward2, penalty0, penalty1, penalty2 in
       get_flag_and_inactivity_deltas(
         cfg, state, base_reward_per_increment, info, finality_delay):
+    # templatize this loop? or replicate a couple lines of code?
     info.validators[validator_index].delta.rewards += reward0 + reward1 + reward2
     info.validators[validator_index].delta.penalties += penalty0 + penalty1 + penalty2
 
@@ -1031,6 +1058,31 @@ func process_sync_committee_updates*(
     state.next_sync_committee = get_next_sync_committee(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#inactivity-scores
+template compute_inactivity_update(
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           deneb.BeaconState,
+    info: altair.EpochInfo, pre_inactivity_score: Gwei): Gwei =
+  if not is_eligible_validator(info.validators[index]):
+    continue
+
+  let previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
+
+  # Increase the inactivity score of inactive validators
+  var inactivity_score = pre_inactivity_score
+  # TODO activeness already checked; remove redundant checks between
+  # is_active_validator and is_unslashed_participating_index
+  if is_unslashed_participating_index(
+      state, TIMELY_TARGET_FLAG_INDEX, previous_epoch, index.ValidatorIndex):
+    inactivity_score -= min(1'u64, inactivity_score)
+  else:
+    inactivity_score += cfg.INACTIVITY_SCORE_BIAS
+  # Decrease the inactivity score of all eligible validators during a
+  # leak-free epoch
+  if not_in_inactivity_leak:
+    inactivity_score -= min(INACTIVITY_SCORE_RECOVERY_RATE.uint64, inactivity_score)
+  inactivity_score
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#inactivity-scores
 func process_inactivity_updates*(
     cfg: RuntimeConfig,
     state: var (altair.BeaconState | bellatrix.BeaconState |
@@ -1041,28 +1093,15 @@ func process_inactivity_updates*(
     return
 
   let
-    previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
     finality_delay = get_finality_delay(state)
     not_in_inactivity_leak = not is_in_inactivity_leak(finality_delay)
 
   for index in 0'u64 ..< state.validators.lenu64:
-    if not is_eligible_validator(info.validators[index]):
-      continue
+    let
+      pre_inactivity_score = state.inactivity_scores.asSeq()[index]
+      inactivity_score =
+        compute_inactivity_update(state, info, pre_inactivity_score)
 
-    # Increase the inactivity score of inactive validators
-    let pre_inactivity_score = state.inactivity_scores.asSeq()[index]
-    var inactivity_score = pre_inactivity_score
-    # TODO activeness already checked; remove redundant checks between
-    # is_active_validator and is_unslashed_participating_index
-    if is_unslashed_participating_index(
-        state, TIMELY_TARGET_FLAG_INDEX, previous_epoch, index.ValidatorIndex):
-      inactivity_score -= min(1'u64, inactivity_score)
-    else:
-      inactivity_score += cfg.INACTIVITY_SCORE_BIAS
-    # Decrease the inactivity score of all eligible validators during a
-    # leak-free epoch
-    if not_in_inactivity_leak:
-      inactivity_score -= min(INACTIVITY_SCORE_RECOVERY_RATE.uint64, inactivity_score)
     # Most inactivity scores remain at 0 - avoid invalidating cache
     if pre_inactivity_score != inactivity_score:
       state.inactivity_scores[index] = inactivity_score

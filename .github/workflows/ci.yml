@@ -39,9 +39,6 @@ jobs:
               os: macos
             branch: upstream/version-1-6
           - target:
-              os: macos
-            branch: upstream/version-2-0
-          - target:
               os: windows
             branch: upstream/version-1-6
           - target:
@@ -58,7 +55,7 @@ jobs:
             builder: ['self-hosted','ubuntu-22.04']
           - target:
               os: macos
-            builder: macos-11
+            builder: macos-12
           - target:
               os: windows
             builder: windows-2019
@@ -224,6 +221,7 @@ jobs:
       - name: Build files with isMainModule
         run: |
           source env.sh
+          nim c beacon_chain/era_db
           nim c beacon_chain/trusted_node_sync
 
   lint:
@@ -243,18 +241,37 @@ jobs:
           excluded_extensions="ans|cfg|json|json\\.template|md|png|service|ssz|txt"
 
           current_year=$(date +"%Y")
-          outdated_files=()
+          problematic_files=()
           while read -r file; do
             if ! grep -qE 'Copyright \(c\) .*'$current_year' Status Research & Development GmbH' "$file"; then
-              outdated_files+=("$file")
+              problematic_files+=("$file")
             fi
           done < <(git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '(\.('$excluded_extensions')|'$excluded_files')$' || true)
 
-          if (( ${#outdated_files[@]} )); then
+          if (( ${#problematic_files[@]} )); then
             echo "The following files do not have an up-to-date copyright year:"
-            for file in "${outdated_files[@]}"; do
+            for file in "${problematic_files[@]}"; do
               echo "- $file"
             done
+            exit 2
+          fi
+
+      - name: Check exception tracking
+        if: ${{ !cancelled() }} && github.event_name == 'pull_request'
+        run: |
+          problematic_files=()
+          while read -r file; do
+            if ! grep -qE '^{\.push raises: \[\]\.}' "$file"; then
+              problematic_files+=("$file")
+            fi
+          done < <(git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -E '\.nim$' || true)
+
+          if (( ${#problematic_files[@]} )); then
+            echo "The following files do not have '{.push raises: []}':"
+            for file in "${problematic_files[@]}"; do
+              echo "- $file"
+            done
+            echo "See https://status-im.github.io/nim-style-guide/errors.exceptions.html"
             exit 2
           fi
 
