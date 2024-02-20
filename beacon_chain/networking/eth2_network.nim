@@ -14,7 +14,7 @@ import
   # Status libs
   results,
   stew/[leb128, endians2, byteutils, io2, bitops2],
-  stew/shims/macros,
+  stew/shims/[net, macros],
   snappy,
   json_serialization, json_serialization/std/[net, sets, options],
   chronos, chronos/ratelimit, chronicles, metrics,
