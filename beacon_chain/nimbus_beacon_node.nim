@@ -1392,7 +1392,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let
     dbCheckpointTick = Moment.now()
     dbCheckpointDur = dbCheckpointTick - gcCollectionTick
-  db_checkpoint_seconds.set(dbCheckpointDur.toFloatSeconds)
+  db_checkpoint_seconds.inc(dbCheckpointDur.toFloatSeconds)
   if dbCheckpointDur >= MinSignificantProcessingDuration:
     info "Database checkpointed", dur = dbCheckpointDur
   else:

@@ -1845,7 +1845,7 @@ proc updateState*(
   let
     assignDur = assignTick - startTick
     replayDur = Moment.now() - assignTick
-  state_replay_seconds.set(replayDur.toFloatSeconds)
+  state_replay_seconds.inc(replayDur.toFloatSeconds)
 
   # TODO https://github.com/status-im/nim-chronicles/issues/108
   if (assignDur + replayDur) >= MinSignificantProcessingDuration:
