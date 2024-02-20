@@ -1313,7 +1313,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         let
           response = await client.setGraffitiPlain(
             pubkey,
-            default SetGasLimitRequest,
+            default SetGraffitiRequest,
             extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
           responseJson = Json.decode(response.data, JsonNode)
 
@@ -1350,7 +1350,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         let
           response = await client.setGraffitiPlain(
             pubkey,
-            default SetGasLimitRequest,
+            default SetGraffitiRequest,
             extraHeaders = @[("Authorization", "Bearer InvalidToken")])
           responseJson = Json.decode(response.data, JsonNode)
 
