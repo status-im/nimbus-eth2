@@ -1321,7 +1321,6 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
-
       block:
         let
           response = await client.deleteGraffitiPlain(
@@ -1338,7 +1337,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
       block:
         let
-          response = await client.listGasLimitPlain(
+          response = await client.getGraffitiPlain(
             pubkey,
             extraHeaders = @[("Authorization", "Bearer InvalidToken")])
           responseJson = Json.decode(response.data, JsonNode)
@@ -1349,7 +1348,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
       block:
         let
-          response = await client.setGasLimitPlain(
+          response = await client.setGraffitiPlain(
             pubkey,
             default SetGasLimitRequest,
             extraHeaders = @[("Authorization", "Bearer InvalidToken")])
@@ -1361,15 +1360,45 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
       block:
         let
-          response = await client.deleteGasLimitPlain(
+          response = await client.deleteGraffitiPlain(
             pubkey,
-            EmptyBody(),
             extraHeaders = @[("Authorization", "Bearer InvalidToken")])
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
           response.status == 403
           responseJson["message"].getStr() == InvalidAuthorizationError
+
+    asyncTest "Obtaining the graffiti of a missing validator returns 404" &
+              testFlavour:
+      let
+        pubkey =
+          ValidatorPubKey.fromHex(unusedPublicKeys[0]).expect("valid key")
+        response = await client.getGasLimitPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+      check:
+        response.status == 404
+
+    asyncTest "Setting the graffiti on a missing validator creates " &
+              "a record for it" & testFlavour:
+      let
+        pubkey =
+          ValidatorPubKey.fromHex(unusedPublicKeys[1]).expect("valid key")
+        graffiti =
+          SetGraffitiRequest(
+            graffiti: GraffitiString.init("🚀\"🍻\"🚀"))
+
+      await client.setGraffitiPlain(pubkey, graffiti,
+        extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+      let resultFromApi =
+        await client.getGraffitiPlain(pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+      check:
+        resultFromApi.pubkey == pubkey
+        $resultFromApi.graffiti == "🚀\"🍻\"🚀"
 
   suite "ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys" & testFlavour:
     asyncTest "Importing list of remote keys" & testFlavour:
