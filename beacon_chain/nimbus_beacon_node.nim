@@ -51,8 +51,8 @@ declareGauge ticks_delay,
 declareGauge next_action_wait,
   "Seconds until the next attestation will be sent"
 
-declareCounter total_db_checkpoint_seconds,
-  "Total time spent checkpointing the database to clear the WAL file"
+declareCounter db_checkpoint_seconds,
+  "Time spent checkpointing the database to clear the WAL file"
 
 proc doRunTrustedNodeSync(
     db: BeaconChainDB,
@@ -1392,7 +1392,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let
     dbCheckpointTick = Moment.now()
     dbCheckpointDur = dbCheckpointTick - gcCollectionTick
-  total_db_checkpoint_seconds.inc(dbCheckpointDur.toFloatSeconds)
+  db_checkpoint_seconds.set(dbCheckpointDur.toFloatSeconds)
   if dbCheckpointDur >= MinSignificantProcessingDuration:
     info "Database checkpointed", dur = dbCheckpointDur
   else:

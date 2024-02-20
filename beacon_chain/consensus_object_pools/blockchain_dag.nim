@@ -49,7 +49,7 @@ declareGauge beacon_current_active_validators, "Number of validators in the acti
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-declareCounter total_state_replay_seconds, "Total time spent replaying states"
+declareCounter state_replay_seconds, "Time spent replaying states"
 
 const
   EPOCHS_PER_STATE_SNAPSHOT* = 32
@@ -1845,7 +1845,7 @@ proc updateState*(
   let
     assignDur = assignTick - startTick
     replayDur = Moment.now() - assignTick
-  total_state_replay_seconds.inc(replayDur.toFloatSeconds)
+  state_replay_seconds.set(replayDur.toFloatSeconds)
 
   # TODO https://github.com/status-im/nim-chronicles/issues/108
   if (assignDur + replayDur) >= MinSignificantProcessingDuration:
