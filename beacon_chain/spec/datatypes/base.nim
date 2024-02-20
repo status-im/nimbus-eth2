@@ -553,13 +553,22 @@ type
     flags*: set[RewardFlags]
 
 func pubkey*(v: HashedValidatorPubKey): ValidatorPubKey =
-  v.value[].key
+  if isNil(v.value):
+    # This should never happen but we guard against it in case a
+    # default-initialized Validator instance makes it through the other safety
+    # nets
+    ValidatorPubKey()
+  else:
+    v.value[].key
 
 template pubkey*(v: Validator): ValidatorPubKey =
   v.pubkeyData.pubkey
 
 func hash_tree_root*(v: HashedValidatorPubKey): Eth2Digest =
-  v.value[].root
+  if isNil(v.value):
+    Eth2Digest() # Safety net
+  else:
+    v.value[].root
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
   let cookedKey = validator.pubkey.loadValid()  # `Validator` has valid key
