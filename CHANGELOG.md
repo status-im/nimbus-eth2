@@ -1,3 +1,43 @@
+2023-02-20 v24.2.1
+==================
+
+Nimbus `v24.2.1` is a `medium-urgency` release that includes full support for the upcoming Ethereum mainnet Deneb hard-fork that will be executed on 13th of March. The same support is also provided for Gnosis Chain where the hard-fork will be executed on 11th of March. Other stability and performance improvements make this release a compelling upgrade for all Nimbus users.
+
+### Improvements
+
+* The Deneb hard-fork has been scheduled for Mainnet and Gnosis Chain:
+  https://github.com/status-im/nimbus-eth2/pull/5868
+
+* The Nimbus validator client now uses the `/eth/v3/validator/blocks/{slot}` Beacon API endpoint when the configured beacon node supports it:
+  https://github.com/status-im/nimbus-eth2/pull/5842
+
+* The list of bootstrap nodes for Mainnet has been updated:
+  https://github.com/status-im/nimbus-eth2/pull/5848
+
+* Improved use of buffering reduces the risk of EL request timeouts:
+  https://github.com/status-im/nimbus-eth2/pull/5893
+
+### Fixes
+
+* A regression in the implementation of `eth_getLogs` was preventing Nimbus from syncing deposits correctly:
+  https://github.com/status-im/nimbus-eth2/pull/5857
+
+* A performance regression was causing high CPU load during the backfill process after checkpoint sync:
+  https://github.com/status-im/nimbus-eth2/pull/5869
+
+* Under certain conditions, the backfill process after checkpoint sync could fail to persist the starting checkpoint block:
+  https://github.com/status-im/nimbus-eth2/pull/5863
+
+* Under certain conditions, valid blocks with blobs that are not observed yet were permanently considered unviable for inclusion in the blockchain:
+  https://github.com/status-im/nimbus-eth2/pull/5858
+
+ * The Nimbus validator client was not tracking DNS record changes when dynamic host names are used instead of IP addresses:
+ https://github.com/status-im/nimbus-eth2/pull/5846
+
+ * The REST server was becoming unresponsive under certain rare conditions:
+  https://github.com/status-im/nimbus-eth2/pull/5892
+
+
 2023-02-02 v24.2.0
 ==================
 
