@@ -5,13 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # Types used by both client and server in the common REST API:
 # https://ethereum.github.io/beacon-APIs/
 # Be mindful that changing these changes the serialization and deserialization
 # in the API which may lead to incompatibilities between clients - tread
 # carefully!
-
-{.push raises: [].}
 
 import
   std/[json, tables],

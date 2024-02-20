@@ -15,7 +15,7 @@ import
     state_transition, validator],
   ../spec/forks,
   ../spec/datatypes/[phase0, altair, bellatrix, capella],
-  ".."/[beacon_chain_db, era_db],
+  ".."/[beacon_chain_db, beacon_clock, era_db],
   "."/[block_pools_types, block_quarantine]
 
 from ../spec/datatypes/deneb import shortLog
@@ -23,6 +23,8 @@ from ../spec/datatypes/deneb import shortLog
 export
   eth2_merkleization, eth2_ssz_serialization,
   block_pools_types, results, beacon_chain_db
+
+logScope: topics = "chaindag"
 
 # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
@@ -47,7 +49,7 @@ declareGauge beacon_current_active_validators, "Number of validators in the acti
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-logScope: topics = "chaindag"
+declareCounter beacon_dag_state_replay_seconds, "Time spent replaying states"
 
 const
   EPOCHS_PER_STATE_SNAPSHOT* = 32
@@ -811,7 +813,7 @@ proc getStateByParent(
     dag.cfg, summary.parent_root, parentMinSlot..slot, state, rollback)
 
 proc getNearbyState(
-    dag: ChainDAGRef, state: ref ForkedHashedBeaconState, bid: BlockId,
+    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
     lowSlot: Slot): Opt[void] =
   ## Load state from DB that is close to `bid` and has at least slot `lowSlot`.
   var
@@ -823,7 +825,7 @@ proc getNearbyState(
       return err()
     b = (? dag.atSlot(b, max(stateSlot, 1.Slot) - 1)).bid
     let bsi = BlockSlotId.init(b, stateSlot)
-    if not dag.getState(bsi, state[]):
+    if not dag.getState(bsi, state):
       if e == GENESIS_EPOCH:
         return err()
       dec e
@@ -954,9 +956,14 @@ proc advanceSlots*(
       # which is an acceptable tradeoff for monitoring.
       withState(state):
         let postEpoch = forkyState.data.slot.epoch
-        if preEpoch != postEpoch:
+        if preEpoch != postEpoch and postEpoch >= 2:
+          var proposers: array[SLOTS_PER_EPOCH, Opt[ValidatorIndex]]
+          let epochRef = dag.findEpochRef(stateBid, postEpoch - 2)
+          if epochRef.isSome():
+            proposers = epochRef[][].beacon_proposers
+
           dag.validatorMonitor[].registerEpochInfo(
-            postEpoch, info, forkyState.data)
+            forkyState.data, proposers, info)
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
@@ -1426,7 +1433,7 @@ proc ancestorSlot*(
   Opt.some stateBid.slot
 
 proc computeRandaoMix(
-    dag: ChainDAGRef, bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
+    bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
     when consensusFork >= ConsensusFork.Bellatrix:
@@ -1449,7 +1456,7 @@ proc computeRandaoMix*(
   # If `blck` is post merge, RANDAO information is immediately available
   let
     bdata = ? dag.getForkedBlock(bid)
-    fullMix = dag.computeRandaoMix(bdata)
+    fullMix = computeRandaoMix(bdata)
   if fullMix.isSome:
     return fullMix
 
@@ -1502,8 +1509,8 @@ proc computeRandaoMixFromMemory*(
 proc computeRandaoMixFromDatabase*(
     dag: ChainDAGRef, bid: BlockId, lowSlot: Slot): Opt[Eth2Digest] =
   ## Compute requested RANDAO mix for `bid` using closest DB state (~500 ms).
-  let state = newClone(dag.headState)
-  ? dag.getNearbyState(state, bid, lowSlot)
+  let state = assignClone(dag.headState)
+  ? dag.getNearbyState(state[], bid, lowSlot)
   withState(state[]):
     dag.computeRandaoMix(forkyState, bid, lowSlot)
 
@@ -1513,6 +1520,13 @@ proc computeRandaoMix(
   let mix = dag.computeRandaoMixFromMemory(bid, lowSlot)
   if mix.isSome:
     return mix
+
+  # If `blck` is post merge, RANDAO information is immediately available
+  let
+    bdata = ? dag.getForkedBlock(bid)
+    fullMix = computeRandaoMix(bdata)
+  if fullMix.isSome:
+    return fullMix
 
   # Fall back to database
   dag.computeRandaoMixFromDatabase(bid, lowSlot)
@@ -1563,24 +1577,6 @@ proc computeShufflingRefFromMemory*(
   tryWithState dag.epochRefState
   tryWithState dag.clearanceState
 
-proc computeShufflingRefFromDatabase*(
-    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
-  ## Compute `ShufflingRef` for `blck@epoch` using closest DB state (~500 ms).
-  let state = newClone(dag.headState)
-  ? dag.getNearbyState(state, blck.bid, epoch.lowSlotForAttesterShuffling)
-  withState(state[]):
-    dag.computeShufflingRef(forkyState, blck, epoch)
-
-proc computeShufflingRef(
-    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
-  # Try to compute from states available in memory
-  let shufflingRef = dag.computeShufflingRefFromMemory(blck, epoch)
-  if shufflingRef.isOk:
-    return shufflingRef
-
-  # Fall back to database
-  dag.computeShufflingRefFromDatabase(blck, epoch)
-
 proc getShufflingRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
     preFinalized: bool): Opt[ShufflingRef] =
@@ -1592,15 +1588,12 @@ proc getShufflingRef*(
     return shufflingRef
 
   # Use existing states to quickly compute the shuffling
-  shufflingRef = dag.computeShufflingRef(blck, epoch)
+  shufflingRef = dag.computeShufflingRefFromMemory(blck, epoch)
   if shufflingRef.isSome:
     dag.putShufflingRef(shufflingRef.get)
     return shufflingRef
 
   # Last resort, this can take several seconds as this may replay states
-  # TODO here, we could check the existing cached states and see if any one
-  # has the right dependent root - unlike EpochRef, we don't need an _exact_
-  # epoch match
   let epochRef = dag.getEpochRef(blck, epoch, preFinalized).valueOr:
     return Opt.none ShufflingRef
   dag.putShufflingRef(epochRef.shufflingRef)
@@ -1852,9 +1845,10 @@ proc updateState*(
   let
     assignDur = assignTick - startTick
     replayDur = Moment.now() - assignTick
+  beacon_dag_state_replay_seconds.inc(replayDur.toFloatSeconds)
 
   # TODO https://github.com/status-im/nim-chronicles/issues/108
-  if (assignDur + replayDur) >= 250.millis:
+  if (assignDur + replayDur) >= MinSignificantProcessingDuration:
     # This might indicate there's a cache that's not in order or a disk that is
     # too slow - for now, it's here for investigative purposes and the cutoff
     # time might need tuning
@@ -2278,20 +2272,25 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           if dag.db.clearBlocks(fork):
             break
 
-proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
+proc loadExecutionBlockHash*(
+    dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
   let blockData = dag.getForkedBlock(bid).valueOr:
-    return ZERO_HASH
+    # Besides database inconsistency issues, this is hit with checkpoint sync.
+    # The initial `BlockRef` is creted before the checkpoint block is loaded.
+    # It is backfilled later, so return `none` and keep retrying.
+    return Opt.none(Eth2Digest)
 
   withBlck(blockData):
     when consensusFork >= ConsensusFork.Bellatrix:
-      forkyBlck.message.body.execution_payload.block_hash
+      Opt.some forkyBlck.message.body.execution_payload.block_hash
     else:
-      ZERO_HASH
+      Opt.some ZERO_HASH
 
-proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
+proc loadExecutionBlockHash*(
+    dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   if blck.executionBlockHash.isNone:
-    blck.executionBlockHash = Opt.some dag.loadExecutionBlockHash(blck.bid)
-  blck.executionBlockHash.unsafeGet
+    blck.executionBlockHash = dag.loadExecutionBlockHash(blck.bid)
+  blck.executionBlockHash
 
 from std/packedsets import PackedSet, incl, items
 
@@ -2509,10 +2508,12 @@ proc updateHead*(
 
       dag.db.updateFinalizedBlocks(newFinalized)
 
-    if  dag.loadExecutionBlockHash(oldFinalizedHead.blck).isZero and
-        not dag.loadExecutionBlockHash(dag.finalizedHead.blck).isZero and
-        dag.vanityLogs.onFinalizedMergeTransitionBlock != nil:
-      dag.vanityLogs.onFinalizedMergeTransitionBlock()
+    let oldBlockHash = dag.loadExecutionBlockHash(oldFinalizedHead.blck)
+    if oldBlockHash.isSome and oldBlockHash.unsafeGet.isZero:
+      let newBlockHash = dag.loadExecutionBlockHash(dag.finalizedHead.blck)
+      if newBlockHash.isSome and not newBlockHash.unsafeGet.isZero:
+        if dag.vanityLogs.onFinalizedMergeTransitionBlock != nil:
+          dag.vanityLogs.onFinalizedMergeTransitionBlock()
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should
@@ -2623,7 +2624,7 @@ proc getProposalState*(
 
   # Start with the clearance state, since this one typically has been advanced
   # and thus has a hot hash tree cache
-  let state = newClone(dag.clearanceState)
+  let state = assignClone(dag.clearanceState)
 
   var
     info = ForkedEpochInfo()

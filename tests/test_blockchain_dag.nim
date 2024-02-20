@@ -5,10 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
-  std/[random, sequtils],
   unittest2,
   taskpools,
   ../beacon_chain/el/merkle_minimal,
@@ -19,8 +19,11 @@ import
     attestation_pool, blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil
 
+from std/random import rand, randomize, sample
+from std/sequtils import toSeq
 from ../beacon_chain/spec/datatypes/capella import
   SignedBLSToExecutionChangeList
+from ./testbcutil import addHeadBlock
 
 func `$`(x: BlockRef): string = shortLog(x)
 
@@ -1823,9 +1826,6 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
       # If shuffling is computable from DAG, check its correctness
       epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
 
-      # If shuffling is computable from DB, check its correctness
-      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
-
       # Shuffling should be correct when starting from any cached state
       for state in states:
         withState(state[]):
@@ -1901,9 +1901,6 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
 
       # If shuffling is computable from DAG, check its correctness
       epochRef.checkShuffling dag.computeShufflingRefFromMemory(blck, epoch)
-
-      # If shuffling is computable from DB, check its correctness
-      epochRef.checkShuffling dag.computeShufflingRefFromDatabase(blck, epoch)
 
 suite "Shufflings":
   let cfg = defaultRuntimeConfig

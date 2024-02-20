@@ -1,8 +1,11 @@
+# beacon_chain
 # Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
 
 import
   std/os,
@@ -186,15 +189,19 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
   # We'll load the full state and compute its root - then we'll load the blocks
   # and make sure that they match the state and that their signatures check out
   let
-    startSlot = f.stateIdx.startSlot
-    era = startSlot.era
+    slot = f.stateIdx.startSlot
+    era = slot.era
 
     rng = HmacDrbgContext.new()
-    taskpool = Taskpool.new()
+    taskpool =
+      try:
+        Taskpool.new()
+      except Exception as exc:
+        return err("Failed to initialize Taskpool: " & exc.msg)
   var verifier = BatchVerifier.init(rng, taskpool)
 
   var tmp: seq[byte]
-  ? f.getStateSSZ(startSlot, tmp)
+  ? f.getStateSSZ(slot, tmp)
 
   let
     state =
@@ -463,8 +470,6 @@ proc new*(
 when isMainModule:
   # Testing EraDB gets messy because of the large amounts of data involved:
   # this snippet contains some sanity checks for mainnet at least
-
-  import stew/arrayops
 
   let
     dbPath =

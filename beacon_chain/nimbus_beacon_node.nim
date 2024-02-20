@@ -35,6 +35,8 @@ from
 import
   TopicParams, validateParameters, init
 
+logScope: topics = "beacnde"
+
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_current_epoch, "Current epoch"
@@ -49,7 +51,8 @@ declareGauge ticks_delay,
 declareGauge next_action_wait,
   "Seconds until the next attestation will be sent"
 
-logScope: topics = "beacnde"
+declareCounter db_checkpoint_seconds,
+  "Time spent checkpointing the database to clear the WAL file"
 
 proc doRunTrustedNodeSync(
     db: BeaconChainDB,
@@ -1382,10 +1385,19 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     except Exception:
       # TODO upstream
       raiseAssert "Unexpected exception during GC collection"
+  let gcCollectionTick = Moment.now()
 
   # Checkpoint the database to clear the WAL file and make sure changes in
   # the database are synced with the filesystem.
   node.db.checkpoint()
+  let
+    dbCheckpointTick = Moment.now()
+    dbCheckpointDur = dbCheckpointTick - gcCollectionTick
+  db_checkpoint_seconds.inc(dbCheckpointDur.toFloatSeconds)
+  if dbCheckpointDur >= MinSignificantProcessingDuration:
+    info "Database checkpointed", dur = dbCheckpointDur
+  else:
+    debug "Database checkpointed", dur = dbCheckpointDur
 
   node.syncCommitteeMsgPool[].pruneData(slot)
   if slot.is_epoch:

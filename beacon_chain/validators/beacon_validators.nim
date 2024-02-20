@@ -59,12 +59,6 @@ declareCounter beacon_blocks_proposed,
 declareCounter beacon_block_production_errors,
   "Number of times we failed to produce a block"
 
-declareCounter beacon_block_payload_errors,
-  "Number of times execution client failed to produce block payload"
-
-declareCounter beacon_blobs_sidecar_payload_errors,
-  "Number of times execution client failed to produce blobs sidecar"
-
 # Metrics for tracking external block builder usage
 declareCounter beacon_block_builder_missed_with_fallback,
   "Number of beacon chain blocks where an attempt to use an external block builder failed with fallback"
@@ -369,12 +363,14 @@ from ../spec/beaconstate import get_expected_withdrawals
 
 proc getExecutionPayload(
     PayloadType: type ForkyExecutionPayloadForSigning,
-    node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
-    epoch: Epoch, validator_index: ValidatorIndex): Future[Opt[PayloadType]]
-    {.async: (raises: [CancelledError]).} =
+    node: BeaconNode, head: BlockRef, proposalState: ref ForkedHashedBeaconState,
+    validator_index: ValidatorIndex): Future[Opt[PayloadType]]
+    {.async: (raises: [CancelledError], raw: true).} =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#executionpayload
 
   let
+    epoch = withState(proposalState[]):
+      forkyState.data.slot.epoch
     feeRecipient = block:
       let pubkey = node.dag.validatorKey(validator_index)
       if pubkey.isNone():
@@ -383,7 +379,7 @@ proc getExecutionPayload(
       else:
         node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
 
-    beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
+    beaconHead = node.attestationPool[].getBeaconHead(head)
     executionHead = withState(proposalState[]):
       when consensusFork >= ConsensusFork.Bellatrix:
         forkyState.data.latest_execution_payload_header.block_hash
@@ -407,13 +403,9 @@ proc getExecutionPayload(
     validatorIndex = validator_index,
     feeRecipient = $feeRecipient
 
-  let payload = await node.elManager.getPayload(
+  node.elManager.getPayload(
       PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
       latestFinalized, timestamp, random, feeRecipient, withdrawals)
-  if payload.isNone():
-    warn "Failed to obtain execution payload from EL",
-            executionHeadBlock = executionHead
-  payload
 
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning,
@@ -479,7 +471,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         fut
       else:
         # Create execution payload while packing attestations
-        getExecutionPayload(PayloadType, node, state, slot.epoch, validator_index)
+        getExecutionPayload(PayloadType, node, head, state, validator_index)
 
     eth1Proposal = node.getBlockProposalEth1Data(state[])
 
@@ -767,7 +759,14 @@ proc getBlindedBlockParts[
     Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
   let
-    executionBlockHash = node.dag.loadExecutionBlockHash(head)
+    executionBlockHash = node.dag.loadExecutionBlockHash(head).valueOr:
+      # With checkpoint sync, the checkpoint block may be unavailable,
+      # and it could already be the parent of the new block before backfill.
+      # Fallback to EL, hopefully the block is available on the local path.
+      warn "Failed to load parent execution block hash, skipping block builder",
+        slot, validator_index, head = shortLog(head)
+      return err("loadExecutionBlockHash failed")
+
     executionPayloadHeader =
       try:
         awaitWithTimeout(
@@ -1022,7 +1021,7 @@ proc collectBids(
       if payloadBuilderBidFut.value().isOk:
         Opt.some(payloadBuilderBidFut.value().value())
       elif usePayloadBuilder:
-        info "Payload builder error",
+        notice "Payload builder error",
           slot, head = shortLog(head), validator = shortLog(validator_pubkey),
           err = payloadBuilderBidFut.value().error()
         Opt.none(BuilderBid[SBBB])
@@ -1030,7 +1029,7 @@ proc collectBids(
         # Effectively the same case, but without the log message
         Opt.none(BuilderBid[SBBB])
     else:
-      info "Payload builder bid future failed",
+      notice "Payload builder bid request failed",
         slot, head = shortLog(head), validator = shortLog(validator_pubkey),
         err = payloadBuilderBidFut.error.msg
       Opt.none(BuilderBid[SBBB])
@@ -1040,12 +1039,12 @@ proc collectBids(
       if engineBlockFut.value.isOk:
         Opt.some(engineBlockFut.value().value())
       else:
-        info "Engine block building error",
+        notice "Engine block building error",
           slot, head = shortLog(head), validator = shortLog(validator_pubkey),
           err = engineBlockFut.value.error()
         Opt.none(EngineBid)
     else:
-      info "Engine block building failed",
+      notice "Engine block building failed",
         slot, head = shortLog(head), validator = shortLog(validator_pubkey),
         err = engineBlockFut.error.msg
       Opt.none(EngineBid)
@@ -1108,8 +1107,9 @@ proc proposeBlockAux(
         localBlockValueBoost,
         useBuilderBlock,
         builderBlockValue =
-          collectedBids.builderBid.value().blockValue,
-        engineBlockValue = collectedBids.engineBid.value().blockValue
+          toString(collectedBids.builderBid.value().blockValue, 10),
+        engineBlockValue =
+          toString(collectedBids.engineBid.value().blockValue, 10)
     elif payloadBuilderClient.isNil:
       discard  # builder API not configured for this block
     else:
