@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # `block_sim` is a block, attestation, and sync committee simulator, whose task
 # is to run the beacon chain without considering the network or the wall clock.
 #
@@ -26,7 +28,6 @@ import
 
 from std/random import Rand, gauss, initRand, rand
 from std/stats import RunningStat
-from std/strformat import `&`
 from ../beacon_chain/consensus_object_pools/attestation_pool import
   AttestationPool, addAttestation, addForkChoice, getAttestationsForBlock,
   init, prune
@@ -39,6 +40,7 @@ from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index,
   get_committee_count_per_slot, get_committee_indices
 from ../beacon_chain/spec/state_transition_block import process_block
+from ../tests/testbcutil import addHeadBlock
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
@@ -166,7 +168,11 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     eth1Chain = Eth1Chain.init(cfg, db, 0, default Eth2Digest)
     merkleizer = DepositsMerkleizer.init(depositTreeSnapshot.depositContractState)
-    taskpool = Taskpool.new()
+    taskpool =
+      try:
+        Taskpool.new()
+      except Exception as exc:
+        raiseAssert "Failed to initialize Taskpool: " & exc.msg
     verifier = BatchVerifier.init(rng, taskpool)
     quarantine = newClone(Quarantine.init())
     attPool = AttestationPool.init(dag, quarantine)
@@ -251,7 +257,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
             validator_index: uint64 validatorIdx,
             signature: signature.toValidatorSig)
 
-        let res = waitFor dag.validateSyncCommitteeMessage(
+        let res = waitFor noCancel dag.validateSyncCommitteeMessage(
           quarantine,
           batchCrypto,
           syncCommitteePool,
@@ -304,7 +310,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
               fork, genesis_validators_root, contributionAndProof,
               validatorPrivKey).toValidatorSig)
 
-          res = waitFor dag.validateContribution(
+          res = waitFor noCancel dag.validateContribution(
             quarantine,
             batchCrypto,
             syncCommitteePool,
@@ -484,10 +490,12 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     verifyConsensus(dag.headState, attesterRatio * blockRatio)
 
     if t == tEpoch:
-      echo &". slot: {shortLog(slot)} ",
-        &"epoch: {shortLog(slot.epoch)}"
+      echo ". slot: ", shortLog(slot), "epoch: ", shortLog(slot.epoch)
     else:
-      write(stdout, ".")
+      try:
+        write(stdout, ".")
+      except IOError:
+        discard
       flushFile(stdout)
 
   if replay:

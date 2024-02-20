@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -407,7 +408,7 @@ proc doTrustedNodeSync*(
   let
     validatorMonitor = newClone(ValidatorMonitor.init(false, false))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, eraPath = eraDir)
-    backfillSlot = dag.backfill.slot
+    backfillSlot = max(dag.backfill.slot, 1.Slot) - 1
     horizon = max(dag.horizon, dag.frontfill.valueOr(BlockId()).slot)
 
   let canReindex = if backfillSlot <= horizon:
@@ -418,7 +419,7 @@ proc doTrustedNodeSync*(
     # detection to kick in, in addBackfillBlock
     let missingSlots = dag.backfill.slot - horizon + 1
 
-    notice "Downloading historical blocks - you can interrupt this process at any time and it automatically be completed when you start the beacon node",
+    notice "Downloading historical blocks - you can interrupt this process at any time and it will automatically be completed when you start the beacon node",
       backfillSlot, horizon, missingSlots
 
     var # Same averaging as SyncManager
@@ -540,16 +541,18 @@ proc doTrustedNodeSync*(
 
 when isMainModule:
   import
-    std/[os],
+    std/os,
     networking/network_metadata
 
   let
+    cfg = getRuntimeConfig(some os.paramStr(1))
+    databaseDir = os.paramStr(2)
     syncTarget = TrustedNodeSyncTarget(
       kind: TrustedNodeSyncKind.StateId,
       stateId: os.paramStr(5))
     backfill = os.paramCount() > 5 and os.paramStr(6) == "true"
     db = BeaconChainDB.new(databaseDir, cfg, inMemory = false)
   waitFor db.doTrustedNodeSync(
-    getRuntimeConfig(some os.paramStr(1)), os.paramStr(2), os.paramStr(3),
+    cfg, databaseDir, os.paramStr(3),
     os.paramStr(4), syncTarget, backfill, false, true)
   db.close()

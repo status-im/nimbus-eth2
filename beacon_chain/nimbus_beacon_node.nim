@@ -35,6 +35,8 @@ from
 import
   TopicParams, validateParameters, init
 
+logScope: topics = "beacnde"
+
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_current_epoch, "Current epoch"
@@ -49,7 +51,8 @@ declareGauge ticks_delay,
 declareGauge next_action_wait,
   "Seconds until the next attestation will be sent"
 
-logScope: topics = "beacnde"
+declareCounter total_db_checkpoint_seconds,
+  "Total time spent checkpointing the database to clear the WAL file"
 
 proc doRunTrustedNodeSync(
     db: BeaconChainDB,
@@ -323,7 +326,10 @@ proc initFullNode(
     dag.finalizedHead.slot
 
   func getBackfillSlot(): Slot =
-    dag.backfill.slot
+    if dag.backfill.parent_root != dag.tail.root:
+      dag.backfill.slot
+    else:
+      dag.tail.slot
 
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
@@ -352,7 +358,7 @@ proc initFullNode(
       blobQuarantine, getBeaconTime)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
-        Future[Result[void, VerifierError]] =
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
@@ -361,27 +367,23 @@ proc initFullNode(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
-        Future[Result[void, VerifierError]] =
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when typeof(forkyBlck).kind >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              Future.completed(
-                Result[void, VerifierError].err(VerifierError.UnviableFork),
-                "rmanBlockVerifier")
+              err(VerifierError.UnviableFork)
             else:
-              Future.completed(
-                Result[void, VerifierError].err(VerifierError.MissingParent),
-                "rmanBlockVerifier")
+              err(VerifierError.MissingParent)
           else:
             let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.some(blobs),
                                       maybeFinalized = maybeFinalized)
         else:
-          blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars),
                                     maybeFinalized = maybeFinalized)
 
@@ -1382,10 +1384,19 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     except Exception:
       # TODO upstream
       raiseAssert "Unexpected exception during GC collection"
+  let gcCollectionTick = Moment.now()
 
   # Checkpoint the database to clear the WAL file and make sure changes in
   # the database are synced with the filesystem.
   node.db.checkpoint()
+  let
+    dbCheckpointTick = Moment.now()
+    dbCheckpointDur = dbCheckpointTick - gcCollectionTick
+  total_db_checkpoint_seconds.inc(dbCheckpointDur.toFloatSeconds)
+  if dbCheckpointDur >= MinSignificantProcessingDuration:
+    info "Database checkpointed", dur = dbCheckpointDur
+  else:
+    debug "Database checkpointed", dur = dbCheckpointDur
 
   node.syncCommitteeMsgPool[].pruneData(slot)
   if slot.is_epoch:

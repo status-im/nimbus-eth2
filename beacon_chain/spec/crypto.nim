@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # At the time of writing, the exact definitions of what should be used for
 # cryptography in the spec is in flux, with sizes and test vectors still being
 # hashed out. This layer helps isolate those chagnes.
@@ -20,8 +22,6 @@
 # combined overlapping aggregates - ie if we have an aggregate of signatures of
 # A, B and C, and another with B, C and D, we cannot practically combine them
 # even if in theory it is possible to allow this in BLS.
-
-{.push raises: [].}
 
 import
   # Status

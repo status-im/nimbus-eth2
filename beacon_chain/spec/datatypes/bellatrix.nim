@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # Types specific to bellatrix (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
@@ -13,9 +15,8 @@
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
-{.push raises: [].}
-
 import
+  std/typetraits,
   stew/byteutils,
   json_serialization,
   ssz_serialization/types as sszTypes,
@@ -425,7 +426,7 @@ func shortLog*(v: ExecutionPayload): auto =
     gas_limit: v.gas_limit,
     gas_used: v.gas_used,
     timestamp: v.timestamp,
-    extra_data_len: len(v.extra_data),
+    extra_data: toPrettyString(distinctBase v.extra_data),
     base_fee_per_gas: $(v.base_fee_per_gas),
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions)

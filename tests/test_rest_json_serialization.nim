@@ -1,10 +1,11 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -217,17 +218,28 @@ func fromHex(T: typedesc[KzgCommitment], s: string): T {.
 
 suite "REST JSON encoding and decoding":
   test "DenebSignedBlockContents decoding":
-    check: hash_tree_root(RestJson.decode(
+    let blck = RestJson.decode(
       denebSignedContents, DenebSignedBlockContents, requireAllFields = true,
-      allowUnknownFields = true)) == Eth2Digest.fromHex(
-        "0xe02803d15690a13e5d04c2b269ed8628394b502716bca3b14837b289292e8e80")
+      allowUnknownFields = true)
+    check:
+      hash_tree_root(blck.signed_block.message) == Eth2Digest.fromHex(
+        "0xc67166e600d76d9d129244d10e4f35279d75d800fb39a5ce35e98328d53939da")
+      blck.signed_block.signature == ValidatorSig.fromHex(
+        "0x8e2cd6cf4457825818eb380f1ea74f2fc99665041194ab5bcbdbf96f2e22bad4376d2a94f69d762c999ffd500e2525ab0561b01a79158456c83cf5bf0f2104e26f7b0d22f41dcc8f49a0e1cc29bb09aee1c548903fa04bdfcd20603c400d948d")[]
+      blck.kzg_proofs.len == 0
+      blck.blobs.len == 0
 
   test "RestPublishedSignedBlockContents decoding":
-    check: hash_tree_root(RestJson.decode(
+    let blck = RestJson.decode(
       denebSignedContents, RestPublishedSignedBlockContents,
-      requireAllFields = true, allowUnknownFields = true).denebData) ==
-        Eth2Digest.fromHex(
-          "0xe02803d15690a13e5d04c2b269ed8628394b502716bca3b14837b289292e8e80")
+      requireAllFields = true, allowUnknownFields = true).denebData
+    check:
+      hash_tree_root(blck.signed_block.message) == Eth2Digest.fromHex(
+        "0xc67166e600d76d9d129244d10e4f35279d75d800fb39a5ce35e98328d53939da")
+      blck.signed_block.signature == ValidatorSig.fromHex(
+        "0x8e2cd6cf4457825818eb380f1ea74f2fc99665041194ab5bcbdbf96f2e22bad4376d2a94f69d762c999ffd500e2525ab0561b01a79158456c83cf5bf0f2104e26f7b0d22f41dcc8f49a0e1cc29bb09aee1c548903fa04bdfcd20603c400d948d")[]
+      blck.kzg_proofs.len == 0
+      blck.blobs.len == 0
 
   test "KzgCommitment":
     let

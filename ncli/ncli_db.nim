@@ -5,8 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
-  std/[os, stats, strformat, tables],
+  std/[os, stats, tables],
   snappy,
   chronicles, confutils, stew/[byteutils, io2], eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
@@ -17,7 +19,7 @@ import
     ssz_codec],
   ../beacon_chain/sszdump,
   ../research/simutils,
-  ./e2store, ./ncli_common, ./validator_db_aggregator
+  ./era, ./ncli_common, ./validator_db_aggregator
 
 when defined(posix):
   import system/ansi_c
@@ -240,7 +242,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[capella.TrustedSignedBeaconBlock],
       seq[deneb.TrustedSignedBeaconBlock])
 
-  echo &"Loaded head slot {dag.head.slot}, selected {blockRefs.len} blocks"
+  echo "Loaded head slot ", dag.head.slot,
+    " selected ", blockRefs.len, " blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
 
   for b in 0 ..< blockRefs.len:
@@ -390,8 +393,18 @@ proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
 
   for file in conf.stateFile:
     if shouldShutDown: quit QuitSuccess
-    let state = newClone(readSszForkedHashedBeaconState(
-        cfg, readAllBytes(file).tryGet()))
+
+    let state =
+      try:
+        newClone(readSszForkedHashedBeaconState(
+          cfg, readAllBytes(file).tryGet()))
+      except ResultError[IoErrorCode] as e:
+        echo "Couldn't load ", file, ": ", e.msg
+        continue
+      except SerializationError as e:
+        echo "Malformed ", file, ": ", e.msg
+        continue
+
     withState(state[]):
       db.putState(forkyState)
 
@@ -427,8 +440,16 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
   for file in conf.blckFile:
     if shouldShutDown: quit QuitSuccess
 
-    let blck = readSszForkedSignedBeaconBlock(
-        cfg, readAllBytes(file).tryGet())
+    let blck =
+      try:
+        readSszForkedSignedBeaconBlock(
+          cfg, readAllBytes(file).tryGet())
+      except ResultError[IoErrorCode] as e:
+        echo "Couldn't load ", file, ": ", e.msg
+        continue
+      except SerializationError as e:
+        echo "Malformed ", file, ": ", e.msg
+        continue
 
     withBlck(blck.asTrusted()):
       db.putBlock(forkyBlck)
@@ -576,7 +597,13 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       try:
         moveFile(tmpName, name)
       except IOError as e:
-        warn "Failed to rename era file to its final name",
+        warn "Failed to rename era file to its final name (IOError)",
+          name, tmpName, error = e.msg
+      except OSError as e:
+        warn "Failed to rename era file to its final name (OSError)",
+          name, tmpName, error = e.msg
+      except Exception as e:
+        warn "Failed to rename era file to its final name (Exception)",
           name, tmpName, error = e.msg
     else:
       if (let e = io2.removeFile(name); e.isErr):
@@ -915,18 +942,25 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       if conf.startEpoch.isSome:
         Epoch(conf.startEpoch.get)
       else:
-        let unaggregatedFilesNextEpoch = getUnaggregatedFilesLastEpoch(
-          unaggregatedFilesOutputDir) + 1
-        let aggregatedFilesNextEpoch = getAggregatedFilesLastEpoch(
-          aggregatedFilesOutputDir) + 1
-        if conf.writeUnaggregatedFiles and conf.writeAggregatedFiles:
-          min(unaggregatedFilesNextEpoch, aggregatedFilesNextEpoch)
-        elif conf.writeUnaggregatedFiles:
-          unaggregatedFilesNextEpoch
-        elif conf.writeAggregatedFiles:
-          aggregatedFilesNextEpoch
-        else:
-          min(unaggregatedFilesNextEpoch, aggregatedFilesNextEpoch)
+        try:
+          let unaggregatedFilesNextEpoch = getUnaggregatedFilesLastEpoch(
+            unaggregatedFilesOutputDir) + 1
+          let aggregatedFilesNextEpoch = getAggregatedFilesLastEpoch(
+            aggregatedFilesOutputDir) + 1
+          if conf.writeUnaggregatedFiles and conf.writeAggregatedFiles:
+            min(unaggregatedFilesNextEpoch, aggregatedFilesNextEpoch)
+          elif conf.writeUnaggregatedFiles:
+            unaggregatedFilesNextEpoch
+          elif conf.writeAggregatedFiles:
+            aggregatedFilesNextEpoch
+          else:
+            min(unaggregatedFilesNextEpoch, aggregatedFilesNextEpoch)
+        except OSError as e:
+          fatal "Failed to iterate epoch files", e = e.msg
+          quit QuitFailure
+        except ValueError as e:
+          fatal "Failed to parse epoch file name", e = e.msg
+          quit QuitFailure
     endEpoch =
       if conf.endEpoch.isSome:
         Epoch(conf.endEpoch.get)
@@ -947,10 +981,28 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
     blockRefs = dag.getBlockRange(startSlot, endSlot)
 
   if not unaggregatedFilesOutputDir.dirExists:
-    unaggregatedFilesOutputDir.createDir
+    try:
+      unaggregatedFilesOutputDir.createDir()
+    except IOError as e:
+      fatal "Failed to create unaggregated files directory (IOError)",
+        dirName = unaggregatedFilesOutputDir, e = e.msg
+      quit QuitFailure
+    except OSError as e:
+      fatal "Failed to create unaggregated files directory (OSError)",
+        dirName = unaggregatedFilesOutputDir, e = e.msg
+      quit QuitFailure
 
   if not aggregatedFilesOutputDir.dirExists:
-    aggregatedFilesOutputDir.createDir
+    try:
+      aggregatedFilesOutputDir.createDir()
+    except IOError as e:
+      fatal "Failed to create aggregated files directory (IOError)",
+        dirName = aggregatedFilesOutputDir, e = e.msg
+      quit QuitFailure
+    except OSError as e:
+      fatal "Failed to create aggregated files directory (OSError)",
+        dirName = aggregatedFilesOutputDir, e = e.msg
+      quit QuitFailure
 
   let tmpState = newClone(dag.headState)
   var cache = StateCache()

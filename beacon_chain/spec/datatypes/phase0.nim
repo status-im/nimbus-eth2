@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # Types specific to phase0 (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
@@ -12,8 +14,6 @@
 #      likely change in future versions of the language:
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
-
-{.push raises: [].}
 
 import
   chronicles,

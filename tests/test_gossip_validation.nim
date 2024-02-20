@@ -5,11 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
-  # Standard library
-  std/sequtils,
   # Status lib
   unittest2,
   chronos,
@@ -27,6 +26,9 @@ import
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
+
+from std/sequtils import count, toSeq
+from ./testbcutil import addHeadBlock
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -331,7 +333,7 @@ suite "Gossip validation - Altair":
         (validator, _, msg) = dag.getSyncCommitteeMessage(
           slot, subcommitteeIdx, indexInSubcommittee,
           signatureSlot = Opt.some(signatureSlot))
-        msgVerdict = waitFor dag.validateSyncCommitteeMessage(
+        msgVerdict = waitFor noCancel dag.validateSyncCommitteeMessage(
           quarantine, batchCrypto, syncCommitteePool,
           msg, subcommitteeIdx, slot.start_beacon_time(),
           checkSignature = true)
@@ -371,15 +373,15 @@ suite "Gossip validation - Altair":
           contrib.message.contribution)
         syncCommitteePool[].addContribution(
           contrib[], bid, contrib.message.contribution.signature.load.get)
-        let signRes = waitFor validator.getContributionAndProofSignature(
+        let res = waitFor noCancel validator.getContributionAndProofSignature(
           getStateField(dag.headState, fork),
           getStateField(dag.headState, genesis_validators_root),
           contrib[].message)
-        doAssert(signRes.isOk())
-        contrib[].signature = signRes.get()
+        doAssert(res.isOk())
+        contrib[].signature = res.get()
         contrib
       syncCommitteePool[] = SyncCommitteeMsgPool.init(rng, cfg)
-      let contribVerdict = waitFor dag.validateContribution(
+      let contribVerdict = waitFor noCancel dag.validateContribution(
         quarantine, batchCrypto, syncCommitteePool,
         contrib[], slot.start_beacon_time(),
         checkSignature = true)

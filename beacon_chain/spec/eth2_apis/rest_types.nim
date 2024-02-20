@@ -5,13 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # Types used by both client and server in the common REST API:
 # https://ethereum.github.io/beacon-APIs/
 # Be mindful that changing these changes the serialization and deserialization
 # in the API which may lead to incompatibilities between clients - tread
 # carefully!
-
-{.push raises: [].}
 
 import
   std/[json, tables],
@@ -263,9 +263,10 @@ type
     connected*: uint64
     disconnecting*: uint64
 
-  RestChainHead* = object
+  RestChainHeadV2* = object
     root*: Eth2Digest
     slot*: Slot
+    execution_optimistic*: bool
 
   RestMetadata* = object
     seq_number*: string
@@ -355,6 +356,8 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
+
+  ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
   VCRuntimeConfig* = Table[string, string]
 
@@ -539,7 +542,7 @@ type
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
-  GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]
+  GetDebugChainHeadsV2Response* = DataEnclosedObject[seq[RestChainHeadV2]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
   GetDepositSnapshotResponse* = DataEnclosedObject[RestDepositSnapshot]
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
@@ -629,6 +632,62 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.capellaData)
     of ConsensusFork.Deneb:
       ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: phase0.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Phase0,
+    phase0Data: phase0.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: altair.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Altair,
+    altairData: altair.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: bellatrix.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Bellatrix,
+    bellatrixData: bellatrix.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: capella.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Capella,
+    capellaData: capella.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: deneb.BlockContents, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Deneb,
+    denebData: DenebSignedBlockContents(
+      signed_block: deneb.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
