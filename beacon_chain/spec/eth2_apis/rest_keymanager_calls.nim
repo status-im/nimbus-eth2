@@ -111,27 +111,27 @@ proc setGasLimitPlain*(pubkey: ValidatorPubKey,
      meth: MethodPost.}
   ## https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/setGasLimit
 
-proc deleteGraffitiPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/validator/{pubkey}/graffiti",
-     meth: MethodDelete.}
-  ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/deleteGraffiti
-
-proc getGasLimitPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/validator/{pubkey}/gas_limit",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/getGraffiti
-
-proc setGasLimitPlain*(pubkey: ValidatorPubKey,
-                       body: SetGraffitiRequest): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/validator/{pubkey}/gas_limit",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/setGraffiti
-
 proc deleteGasLimitPlain *(pubkey: ValidatorPubKey,
                            body: EmptyBody): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/{pubkey}/gas_limit",
      meth: MethodDelete.}
   ## https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/deleteGasLimit
+
+proc getGraffitiPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/graffiti",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/getGraffiti
+
+proc setGraffitiPlain*(pubkey: ValidatorPubKey,
+                       body: SetGraffitiRequest): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/graffiti",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/setGraffiti
+
+proc deleteGraffitiPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/graffiti",
+     meth: MethodDelete.}
+  ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/deleteGraffiti
 
 proc listRemoteDistributedKeysPlain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/remotekeys/distributed",
