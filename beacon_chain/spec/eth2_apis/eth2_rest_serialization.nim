@@ -27,7 +27,7 @@ from ".."/datatypes/deneb import BeaconState
 export
   eth2_ssz_serialization, results, peerid, common, serialization, chronicles,
   json_serialization, net, sets, rest_types, slashing_protection_common,
-  jsonSerializationResults
+  jsonSerializationResults, rest_keymanager_types
 
 from web3/primitives import BlockHash
 export primitives.BlockHash
@@ -109,6 +109,7 @@ RestJson.useDefaultSerializationFor(
   KeystoreInfo,
   ListFeeRecipientResponse,
   ListGasLimitResponse,
+  GraffitiResponse,
   PendingAttestation,
   PostKeystoresResponse,
   PrepareBeaconProposer,
@@ -161,6 +162,7 @@ RestJson.useDefaultSerializationFor(
   SPDIR_Validator,
   SetFeeRecipientRequest,
   SetGasLimitRequest,
+  SetGraffitiRequest,
   SignedAggregateAndProof,
   SignedBLSToExecutionChange,
   SignedBeaconBlockHeader,
@@ -314,7 +316,8 @@ type
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
-    RestNimbusTimestamp1
+    RestNimbusTimestamp1 |
+    SetGraffitiRequest
 
   EncodeOctetTypes* =
     altair.SignedBeaconBlock |
@@ -3406,6 +3409,18 @@ proc parseRoot(value: string): Result[Eth2Digest, cstring] =
     ok(Eth2Digest(data: hexToByteArray[32](value)))
   except ValueError:
     err("Unable to decode root value")
+
+## GraffitiString
+proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiString) {.
+     raises: [IOError].} =
+  writeValue(writer, $value)
+
+proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiString): T {.
+     raises: [IOError, SerializationError].} =
+  let res = init(GraffitiString, reader.readValue(string))
+  if res.isErr():
+    reader.raiseUnexpectedValue res.error
+  res.get
 
 proc decodeBody*(
        t: typedesc[RestPublishedSignedBeaconBlock],

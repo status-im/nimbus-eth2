@@ -1261,6 +1261,116 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       check:
         finalResultFromApi == defaultGasLimit
 
+  suite "Graffiti management" & testFlavour:
+    asyncTest "Missing Authorization header" & testFlavour:
+      let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+
+      block:
+        let
+          response = await client.getGraffitiPlain(pubkey)
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.setGraffitiPlain(
+            pubkey,
+            default SetGraffitiRequest)
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.deleteGraffitiPlain(pubkey)
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+
+    asyncTest "Invalid Authorization Header" & testFlavour:
+      let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+
+      block:
+        let
+          response = await client.getGraffitiPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.setGraffitiPlain(
+            pubkey,
+            default SetGasLimitRequest,
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+
+      block:
+        let
+          response = await client.deleteGraffitiPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+    asyncTest "Invalid Authorization Token" & testFlavour:
+      let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+
+      block:
+        let
+          response = await client.listGasLimitPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 403
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.setGasLimitPlain(
+            pubkey,
+            default SetGasLimitRequest,
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 403
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.deleteGasLimitPlain(
+            pubkey,
+            EmptyBody(),
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 403
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
   suite "ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys" & testFlavour:
     asyncTest "Importing list of remote keys" & testFlavour:
       let

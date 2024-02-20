@@ -5,7 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
+  std/typetraits,
+  stew/byteutils,
   ".."/[crypto, keystore],
   ../../validators/slashing_protection_common
 
@@ -99,9 +103,45 @@ type
   KeymanagerGenericError* = object
     message*: string
 
+  GraffitiString* = distinct array[MAX_GRAFFITI_SIZE, byte]
+
+  GraffitiResponse* = object
+    pubkey*: ValidatorPubKey
+    graffiti*: GraffitiString
+
+  SetGraffitiRequest* = object
+    graffiti*: GraffitiString
+
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):
     let c = cmp(a, b)
     if c < 0: return true
     if c > 0: return false
   return false
+
+func init*(T: type GraffitiString,
+           input: string): Result[GraffitiString, string] =
+  var res: GraffitiString
+  if len(input) > MAX_GRAFFITI_SIZE:
+    return err("The graffiti value should be 32 characters or less")
+  distinctBase(res)[0 ..< len(input)] = toBytes(input)
+  ok(res)
+
+func init*(T: type GraffitiBytes, input: GraffitiString): GraffitiBytes =
+  var res: GraffitiBytes
+  distinctBase(res)[0 ..< MAX_GRAFFITI_SIZE] =
+    distinctBase(input)[0 ..< MAX_GRAFFITI_SIZE]
+  res
+
+func init*(T: type GraffitiString, input: GraffitiBytes): GraffitiString =
+  var res: GraffitiString
+  distinctBase(res)[0 ..< MAX_GRAFFITI_SIZE] =
+    distinctBase(input)[0 ..< MAX_GRAFFITI_SIZE]
+  res
+
+func `$`*(input: GraffitiString): string =
+  var res = newStringOfCap(MAX_GRAFFITI_SIZE)
+  for ch in distinctBase(input):
+    if ch != byte(0):
+      res.add(char(ch))
+  res

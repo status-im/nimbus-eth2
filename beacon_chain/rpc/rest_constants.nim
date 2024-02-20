@@ -54,6 +54,8 @@ const
     "Bad request. Request was malformed and could not be processed"
   InvalidGasLimitRequestError* =
     "Bad request. Request was malformed and could not be processed"
+  InvalidGraffitiRequestError* =
+    "Bad request. Request was malformed and could not be processed"
   VoluntaryExitValidationError* =
     "Invalid voluntary exit, it will never pass validation so it's rejected"
   VoluntaryExitValidationSuccess* =
@@ -253,3 +255,7 @@ const
     "Invalid blob index"
   InvalidBroadcastValidationType* =
     "Invalid broadcast_validation type value"
+  PathNotFoundError* =
+    "Path not found"
+  FileReadError* =
+    "Error reading file"
