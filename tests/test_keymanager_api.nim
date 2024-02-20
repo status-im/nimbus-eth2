@@ -1374,7 +1374,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         pubkey =
           ValidatorPubKey.fromHex(unusedPublicKeys[0]).expect("valid key")
-        response = await client.getGasLimitPlain(
+        response = await client.getGraffitiPlain(
           pubkey,
           extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
 
