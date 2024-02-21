@@ -93,8 +93,7 @@ func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidator
         root: hash_tree_root(key)
       )
       cached =
-        # raising `KeyError` is 1000x slower at least than `'in`-checking..
-        if tmp in keys:
+        if keys.containsOrIncl(tmp):
           try:
             # The interface of HashSet is such that we must construct a full
             # instance to check if it's in the set - then we can return that
@@ -103,7 +102,6 @@ func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidator
           except KeyError:
             raiseAssert "just checked"
         else:
-          keys.incl tmp
           tmp
 
   HashedValidatorPubKey(value: addr cached[])
