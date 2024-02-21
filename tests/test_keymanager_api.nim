@@ -1044,7 +1044,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
-          response.status == 403
+          response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Obtaining the fee recipient of a missing validator returns 404" & testFlavour:
@@ -1206,7 +1206,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
-          response.status == 403
+          response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Obtaining the gas limit of a missing validator returns 404" & testFlavour:
@@ -1366,7 +1366,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
-          response.status == 403
+          response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Obtaining the graffiti of a missing validator returns 404" &
@@ -1388,12 +1388,17 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           ValidatorPubKey.fromHex(unusedPublicKeys[1]).expect("valid key")
         graffiti =
           SetGraffitiRequest(
-            graffiti: GraffitiString.init("🚀\"🍻\"🚀"))
+            graffiti: GraffitiString.init("🚀\"🍻\"🚀").get())
 
-      await client.setGraffitiPlain(pubkey, graffiti,
-        extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+      let response =
+        await client.setGraffitiPlain(pubkey, graffiti,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+      check:
+        response.status == 202
+
       let resultFromApi =
-        await client.getGraffitiPlain(pubkey,
+        await client.getGraffitiPlain(
+          pubkey,
           extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
 
       check:
