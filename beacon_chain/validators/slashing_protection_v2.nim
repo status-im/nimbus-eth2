@@ -789,7 +789,7 @@ proc getValidatorInternalID(
     db.internalIds.withValue(index.get(), internal) do:
       return Opt.some(internal[])
 
-  let serializedPubkey = validator.toRaw() # Miracl/BLST to bytes
+  let serializedPubkey = validator.toRaw() # Backend-specific to bytes
   var valID: ValidatorInternalID
   let status = db.sqlGetValidatorInternalID.exec(serializedPubkey) do (res: ValidatorInternalID):
     valID = res
@@ -1080,7 +1080,7 @@ proc registerValidator(db: SlashingProtectionDB_v2, validator: ValidatorPubKey) 
   ## Get validator from the database
   ## or register it
   ## Assumes the validator does not exist
-  let serializedPubkey = validator.toRaw() # Miracl/BLST to bytes
+  let serializedPubkey = validator.toRaw() # Backend-specific to bytes
   let status = db.sqlInsertValidator.exec(serializedPubkey)
   doAssert status.isOk()
 

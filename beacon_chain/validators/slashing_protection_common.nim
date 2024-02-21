@@ -45,7 +45,7 @@ type
   PubKeyBytes* = array[RawPubKeySize, byte]
     ## This is the serialized byte representation
     ## of a Validator Public Key.
-    ## Portable between Miracl/BLST
+    ## Portable between backend implementations
     ## and limits serialization/deserialization call
 
   PubKey0x* = distinct PubKeyBytes
