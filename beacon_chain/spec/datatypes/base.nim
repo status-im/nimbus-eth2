@@ -332,7 +332,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#validator
   Validator* = object
-    pubkeyData*: HashedValidatorPubKey
+    pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
 
     withdrawal_credentials*: Eth2Digest
       ## Commitment to pubkey for withdrawals and transfers

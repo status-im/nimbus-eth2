@@ -333,3 +333,24 @@ suite "REST JSON encoding and decoding":
       zeroBlob[] == zeroBlobRoundTrip[]
       nonzeroBlob[] == nonzeroBlobRoundTrip[]
       zeroBlob[] != nonzeroBlob[]
+
+  test "Validator pubkey hack":
+
+    let
+      encoded = """
+      {
+        "pubkey": "0x933ad9491b62059dd065b560d256d8957a8c402cc6e8d8ee7290ae11e8f7329267a8811c397529dac52ae1342ba58c95",
+        "withdrawal_credentials": "0x00f50428677c60f997aadeab24aabf7fceaef491c96a52b463ae91f95611cf71",
+        "effective_balance": "32000000000",
+        "slashed": false,
+        "activation_eligibility_epoch": "0",
+        "activation_epoch": "0",
+        "exit_epoch": "18446744073709551615",
+        "withdrawable_epoch": "18446744073709551615"
+      }"""
+
+    let validator = RestJson.decode(encoded, Validator)
+    check:
+      validator.pubkey == ValidatorPubKey.fromHex(
+        "0x933ad9491b62059dd065b560d256d8957a8c402cc6e8d8ee7290ae11e8f7329267a8811c397529dac52ae1342ba58c95")[]
+      validator.exit_epoch == FAR_FUTURE_EPOCH
