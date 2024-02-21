@@ -102,8 +102,11 @@ proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =
     result = Format.decode(readFileBytes(path), T)
   except SerializationError as err:
     writeStackTrace()
-    stderr.write $Format & " load issue for file \"", path, "\"\n"
-    stderr.write err.formatMsg(path), "\n"
+    try:
+      stderr.write $Format & " load issue for file \"", path, "\"\n"
+      stderr.write err.formatMsg(path), "\n"
+    except IOError:
+      discard
     quit 1
 
 proc sszDecodeEntireInput*(
