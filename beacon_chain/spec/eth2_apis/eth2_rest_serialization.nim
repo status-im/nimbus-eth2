@@ -110,6 +110,7 @@ RestJson.useDefaultSerializationFor(
   ListFeeRecipientResponse,
   ListGasLimitResponse,
   GraffitiResponse,
+  GetGraffitiResponse,
   PendingAttestation,
   PostKeystoresResponse,
   PrepareBeaconProposer,
@@ -370,7 +371,7 @@ type
     SomeForkedLightClientObject |
     seq[SomeForkedLightClientObject] |
     RestNimbusTimestamp1 |
-    RestNimbusTimestamp2
+    RestNimbusTimestamp2 |
 
   DecodeConsensysTypes* =
     ProduceBlockResponseV2 | ProduceBlindedBlockResponse

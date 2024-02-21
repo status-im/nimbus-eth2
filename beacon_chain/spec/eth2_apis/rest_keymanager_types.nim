@@ -109,6 +109,9 @@ type
     pubkey*: ValidatorPubKey
     graffiti*: GraffitiString
 
+  GetGraffitiResponse* = object
+    data: GraffitiResponse
+
   SetGraffitiRequest* = object
     graffiti*: GraffitiString
 

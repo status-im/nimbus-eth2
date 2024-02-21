@@ -1396,14 +1396,21 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       check:
         response.status == 202
 
-      let resultFromApi =
+      let fromApi =
         await client.getGraffitiPlain(
           pubkey,
           extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
 
       check:
-        resultFromApi.pubkey == pubkey
-        $resultFromApi.graffiti == "🚀\"🍻\"🚀"
+        fromApi.status == 200
+
+      let res =
+        decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+
+      check:
+        res.isOk()
+        res.get().data.pubkey == pubkey
+        $res.get().data.graffiti == "🚀\"🍻\"🚀"
 
   suite "ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys" & testFlavour:
     asyncTest "Importing list of remote keys" & testFlavour:
