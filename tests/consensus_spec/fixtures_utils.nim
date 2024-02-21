@@ -90,6 +90,12 @@ const
   SszTestsDir* = FixturesDir / "tests-v" & SPEC_VERSION
   MaxObjectSize* = 3_000_000
 
+proc relativeTestPathComponent*(path: string, suitePath = SszTestsDir): string =
+  try:
+    path.relativePath(suitePath)
+  except Exception as exc:
+    raiseAssert "relativePath failed unexpectedly: " & $exc.msg
+
 proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =
   try:
     # debugEcho "          [Debug] Loading file: \"", path, '\"'
@@ -100,7 +106,10 @@ proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =
     stderr.write err.formatMsg(path), "\n"
     quit 1
 
-proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
+proc sszDecodeEntireInput*(
+    input: openArray[byte],
+    Decoded: type
+): Decoded {.raises: [IOError, SerializationError, UnconsumedInput].} =
   let stream = unsafeMemoryInput(input)
   var reader = init(SszReader, stream)
   reader.readValue(result)
@@ -117,10 +126,29 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
   try:
     # debugEcho "          [Debug] Loading file: \"", path, '\"'
     sszDecodeEntireInput(snappy.decode(readFileBytes(path), MaxObjectSize), T)
+  except IOError as err:
+    writeStackTrace()
+    try:
+      stderr.write $Format & " load issue for file \"", path, "\"\n"
+      stderr.write "IOError: " & err.msg, "\n"
+    except IOError:
+      discard
+    quit 1
   except SerializationError as err:
     writeStackTrace()
-    stderr.write $Format & " load issue for file \"", path, "\"\n"
-    stderr.write err.formatMsg(path), "\n"
+    try:
+      stderr.write $Format & " load issue for file \"", path, "\"\n"
+      stderr.write err.formatMsg(path), "\n"
+    except IOError:
+      discard
+    quit 1
+  except UnconsumedInput as err:
+    writeStackTrace()
+    try:
+      stderr.write $Format & " load issue for file \"", path, "\"\n"
+      stderr.write "UnconsumedInput: " & err.msg, "\n"
+    except IOError:
+      discard
     quit 1
 
 proc loadForkedState*(

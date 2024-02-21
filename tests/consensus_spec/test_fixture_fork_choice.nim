@@ -378,12 +378,7 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
     "basic_is_head_root",
   ]
 
-  let relativePathComponent =
-    try:
-      path.relativePath(SszTestsDir)
-    except Exception as exc:
-      raiseAssert "relativePath failed unexpectedly: " & $exc.msg
-  test suiteName & " - " & relativePathComponent:
+  test suiteName & " - " & path.relativeTestPathComponent():
     when defined(windows):
       # Some test files have very long paths
       skip()
