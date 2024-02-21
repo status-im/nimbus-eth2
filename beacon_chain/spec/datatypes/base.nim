@@ -566,7 +566,11 @@ template pubkey*(v: Validator): ValidatorPubKey =
 
 func hash_tree_root*(v: HashedValidatorPubKey): Eth2Digest =
   if isNil(v.value):
-    Eth2Digest() # Safety net
+    # Safety net - have to use a constant because the general hash_tree_root
+    # function is not yet declared at this point
+    const zeroPubkeyHash = Eth2Digest.fromHex(
+      "fa324a462bcb0f10c24c9e17c326a4e0ebad204feced523eccaf346c686f06ee")
+    zeroPubkeyHash
   else:
     v.value[].root
 
