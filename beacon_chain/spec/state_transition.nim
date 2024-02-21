@@ -373,7 +373,7 @@ func partialBeaconBlock*(
   when consensusFork >= ConsensusFork.Bellatrix:
     res.body.execution_payload = execution_payload.executionPayload
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/capella/validator.md#block-proposal
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/capella/validator.md#block-proposal
   when consensusFork >= ConsensusFork.Capella:
     res.body.bls_to_execution_changes =
       validator_changes.bls_to_execution_changes
