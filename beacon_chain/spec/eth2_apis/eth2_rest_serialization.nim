@@ -1217,6 +1217,17 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorPubKey) {.
   else:
     reader.raiseUnexpectedValue($res.error())
 
+proc readValue*(reader: var JsonReader[RestJson], value: var HashedValidatorPubKey) {.
+     raises: [IOError, SerializationError].} =
+  var key: ValidatorPubKey
+  readValue(reader, key)
+
+  value = HashedValidatorPubKey.init(key)
+
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: HashedValidatorPubKey) {.raises: [IOError].} =
+  writeValue(writer, value.pubkey)
+
 ## BitSeq
 proc readValue*(reader: var JsonReader[RestJson], value: var BitSeq) {.
      raises: [IOError, SerializationError].} =

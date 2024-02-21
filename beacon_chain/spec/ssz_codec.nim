@@ -66,3 +66,5 @@ func fromSszBytes*(
   # TODO https://github.com/nim-lang/Nim/issues/21123
   let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr result)
   readSszValue(bytes, tmp[])
+
+template toSszType*(v: HashedValidatorPubKey): auto = toRaw(v.pubkey)

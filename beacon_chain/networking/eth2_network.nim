@@ -1276,11 +1276,15 @@ proc toPeerAddr*(r: enr.TypedRecord,
   case proto
   of tcpProtocol:
     if r.ip.isSome and r.tcp.isSome:
-      let ip = ipv4(r.ip.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv4,
+        address_v4: r.ip.get)
       addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
 
     if r.ip6.isSome:
-      let ip = ipv6(r.ip6.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv6,
+        address_v6: r.ip6.get)
       if r.tcp6.isSome:
         addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
       elif r.tcp.isSome:
@@ -1290,11 +1294,15 @@ proc toPeerAddr*(r: enr.TypedRecord,
 
   of udpProtocol:
     if r.ip.isSome and r.udp.isSome:
-      let ip = ipv4(r.ip.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv4,
+        address_v4: r.ip.get)
       addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
 
     if r.ip6.isSome:
-      let ip = ipv6(r.ip6.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv6,
+        address_v6: r.ip6.get)
       if r.udp6.isSome:
         addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp6.get)
       elif r.udp.isSome:
@@ -2189,7 +2197,7 @@ proc getPersistentNetKeys*(
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/p2p-interface.md#topics-and-messages
   const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
     h.update(MESSAGE_DOMAIN_VALID_SNAPPY)
@@ -2514,7 +2522,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
