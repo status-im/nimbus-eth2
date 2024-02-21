@@ -1276,11 +1276,15 @@ proc toPeerAddr*(r: enr.TypedRecord,
   case proto
   of tcpProtocol:
     if r.ip.isSome and r.tcp.isSome:
-      let ip = ipv4(r.ip.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv4,
+        address_v4: r.ip.get)
       addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
 
     if r.ip6.isSome:
-      let ip = ipv6(r.ip6.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv6,
+        address_v6: r.ip6.get)
       if r.tcp6.isSome:
         addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
       elif r.tcp.isSome:
@@ -1290,11 +1294,15 @@ proc toPeerAddr*(r: enr.TypedRecord,
 
   of udpProtocol:
     if r.ip.isSome and r.udp.isSome:
-      let ip = ipv4(r.ip.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv4,
+        address_v4: r.ip.get)
       addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
 
     if r.ip6.isSome:
-      let ip = ipv6(r.ip6.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv6,
+        address_v6: r.ip6.get)
       if r.udp6.isSome:
         addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp6.get)
       elif r.udp.isSome:
