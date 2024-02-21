@@ -117,7 +117,7 @@ proc sszDecodeEntireInput*(
   if stream.readable:
     raise newException(UnconsumedInput, "Remaining bytes in the input")
 
-iterator walkTests*(dir: static string): string =
+iterator walkTests*(dir: static string): string {.raises: [OSError].} =
    for kind, path in walkDir(
        dir/"pyspec_tests", relative = true, checkDir = true):
      yield path
