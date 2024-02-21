@@ -395,7 +395,7 @@ proc collectSignatureSets*(
 
     sigs.add voluntary_exit_signature_set(
       # https://eips.ethereum.org/EIPS/eip-7044
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
       (if state.kind >= ConsensusFork.Capella:
          capella_fork
        else:
