@@ -7,7 +7,6 @@
 
 {.push raises: [].}
 {.used.}
-{.push raises: [].}
 
 import
   # Standard library
