@@ -700,8 +700,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
 + RestPublishedSignedBlockContents decoding                                                  OK
++ Validator pubkey hack                                                                      OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Remove keystore testing suite
 ```diff
 + Many remotes                                                                               OK
@@ -992,4 +993,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 669/674 Fail: 0/674 Skip: 5/674
+OK: 670/675 Fail: 0/675 Skip: 5/675

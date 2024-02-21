@@ -323,9 +323,16 @@ type
     pubkey*: CookedPubKey
     withdrawal_credentials*: Eth2Digest
 
+  HashedValidatorPubKeyItem* = object
+    key*: ValidatorPubKey
+    root*: Eth2Digest
+
+  HashedValidatorPubKey* = object
+    value*: ptr HashedValidatorPubKeyItem
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#validator
   Validator* = object
-    pubkey*: ValidatorPubKey
+    pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
 
     withdrawal_credentials*: Eth2Digest
       ## Commitment to pubkey for withdrawals and transfers
@@ -441,7 +448,7 @@ type
     # serialized. They're represented in memory to allow in-place SSZ reading
     # and writing compatibly with the full Validator object.
 
-    pubkey* {.dontSerialize.}: ValidatorPubKey
+    pubkeyData* {.dontSerialize.}: HashedValidatorPubKey
 
     withdrawal_credentials* {.dontSerialize.}: Eth2Digest
       ## Commitment to pubkey for withdrawals
@@ -467,7 +474,7 @@ type
     # serialized. They're represented in memory to allow in-place SSZ reading
     # and writing compatibly with the full Validator object.
 
-    pubkey* {.dontSerialize.}: ValidatorPubKey
+    pubkeyData* {.dontSerialize.}: HashedValidatorPubKey
 
     withdrawal_credentials*: Eth2Digest
       ## Commitment to pubkey for withdrawals
@@ -544,6 +551,28 @@ type
     delta*: RewardDelta
 
     flags*: set[RewardFlags]
+
+func pubkey*(v: HashedValidatorPubKey): ValidatorPubKey =
+  if isNil(v.value):
+    # This should never happen but we guard against it in case a
+    # default-initialized Validator instance makes it through the other safety
+    # nets
+    ValidatorPubKey()
+  else:
+    v.value[].key
+
+template pubkey*(v: Validator): ValidatorPubKey =
+  v.pubkeyData.pubkey
+
+func hash_tree_root*(v: HashedValidatorPubKey): Eth2Digest =
+  if isNil(v.value):
+    # Safety net - have to use a constant because the general hash_tree_root
+    # function is not yet declared at this point
+    const zeroPubkeyHash = Eth2Digest.fromHex(
+      "fa324a462bcb0f10c24c9e17c326a4e0ebad204feced523eccaf346c686f06ee")
+    zeroPubkeyHash
+  else:
+    v.value[].root
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
   let cookedKey = validator.pubkey.loadValid()  # `Validator` has valid key

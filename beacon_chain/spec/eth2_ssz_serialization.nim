@@ -71,3 +71,11 @@ func readSszBytes(
   var res: T
   readSszBytes(data, res, updateRoot)
   res
+
+proc fromSszBytes*(
+    T: type HashedValidatorPubKey, bytes: openArray[byte]
+): T {.raises: [SszError].} =
+  let
+    key = ValidatorPubKey.fromSszBytes(bytes)
+
+  HashedValidatorPubKey.init(key)
