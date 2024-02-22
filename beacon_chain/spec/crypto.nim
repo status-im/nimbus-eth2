@@ -47,7 +47,7 @@ const
   RawSigSize* = 96
   RawPubKeySize* = 48
   UncompressedPubKeySize* = 96
-  # RawPrivKeySize* = 48 for Miracl / 32 for BLST
+  # RawPrivKeySize* = 32 for BLST
 
 type
   ValidatorPubKey* = object ##\
@@ -388,13 +388,9 @@ func `$`*(x: ValidatorPubKey | ValidatorSig): string =
 
 func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
-  when BLS_BACKEND == BLST:
-    result = SecretKey(x).exportRaw()
-  else:
-    # Miracl exports to 384-bit arrays, but Curve order is 256-bit
-    let raw = SecretKey(x).exportRaw()
-    result[0..32-1] = raw.toOpenArray(48-32, 48-1)
-
+  static: doAssert BLS_BACKEND == BLST
+  result = SecretKey(x).exportRaw()
+  
 template toRaw*(x: ValidatorPubKey | ValidatorSig): auto =
   x.blob
 
