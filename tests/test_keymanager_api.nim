@@ -1432,7 +1432,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         res.get().data.pubkey == pubkey
         $res.get().data.graffiti == ""
 
-    asyncTest "Configuring the gas limit" & testFlavour:
+    asyncTest "Configuring the graffiti" & testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(oldPublicKeys[1]).expect("valid key")
         firstGraffiti = "🚀"
