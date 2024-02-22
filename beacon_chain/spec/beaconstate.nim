@@ -12,6 +12,7 @@ import
   json_serialization/std/sets,
   chronicles,
   ../extras,
+  ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, signatures, validator]
 
 from std/algorithm import fill
@@ -529,32 +530,13 @@ func check_attestation_index(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
-    data: AttestationData, inclusion_delay: uint64,
-    allow_same_state_data_slot: static bool,
-    same_state_data_slot_block_root: Eth2Digest): set[TimelyFlag] =
+    data: AttestationData, inclusion_delay: uint64): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
-  #
-  # To support state.slot == data.slot, which get_block_root_at_slot() doesn't
-  # support, allow the caller to specify a value for get_block_root_at_slot in
-  # that situation.
   let justified_checkpoint =
     if data.target.epoch == get_current_epoch(state):
       state.current_justified_checkpoint
     else:
       state.previous_justified_checkpoint
-
-  when allow_same_state_data_slot:
-    # get_block_root_at_slot() asserts that data.slot < state.slot, and in
-    # general this is reasonable because state.block_roots does not have a
-    # block root for that slot yet, but when producing a block this can be
-    # safely provided out-of-band.
-    let block_root_at_data_slot =
-      if data.slot == state.slot:
-        same_state_data_slot_block_root
-      else:
-        get_block_root_at_slot(state, data.slot)
-  else:
-    let block_root_at_data_slot = get_block_root_at_slot(state, data.slot)
 
   # Matching roots
   let
@@ -563,7 +545,8 @@ func get_attestation_participation_flag_indices(
       is_matching_source and
         data.target.root == get_block_root(state, data.target.epoch)
     is_matching_head =
-      is_matching_target and data.beacon_block_root == block_root_at_data_slot
+      is_matching_target and
+        data.beacon_block_root == get_block_root_at_slot(state, data.slot)
 
   # Checked by check_attestation()
   doAssert is_matching_source
@@ -584,28 +567,11 @@ func get_attestation_participation_flag_indices(
     state: deneb.BeaconState | electra.BeaconState,
     data: AttestationData, inclusion_delay: uint64): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
-  #
-  # To support state.slot == data.slot, which get_block_root_at_slot() doesn't
-  # support, allow the caller to specify a value for get_block_root_at_slot in
-  # that situation.
   let justified_checkpoint =
     if data.target.epoch == get_current_epoch(state):
       state.current_justified_checkpoint
     else:
       state.previous_justified_checkpoint
-
-  when allow_same_state_data_slot:
-    # get_block_root_at_slot() asserts that data.slot < state.slot, and in
-    # general this is reasonable because state.block_roots does not have a
-    # block root for that slot yet, but when producing a block this can be
-    # safely provided out-of-band.
-    let block_root_at_data_slot =
-      if data.slot == state.slot:
-        same_state_data_slot_block_root
-      else:
-        get_block_root_at_slot(state, data.slot)
-  else:
-    let block_root_at_data_slot = get_block_root_at_slot(state, data.slot)
 
   # Matching roots
   let
@@ -614,7 +580,8 @@ func get_attestation_participation_flag_indices(
       is_matching_source and
         data.target.root == get_block_root(state, data.target.epoch)
     is_matching_head =
-      is_matching_target and data.beacon_block_root == block_root_at_data_slot
+      is_matching_target and
+        data.beacon_block_root == get_block_root_at_slot(state, data.slot)
 
   # Checked by check_attestation
   doAssert is_matching_source
@@ -628,13 +595,6 @@ func get_attestation_participation_flag_indices(
     participation_flag_indices.incl(TIMELY_HEAD_FLAG_INDEX)
 
   participation_flag_indices
-
-func get_attestation_participation_flag_indices(
-    state: ForkyBeaconState, data: AttestationData, inclusion_delay: uint64):
-    set[TimelyFlag] =
-  ## Return the flag indices that are satisfied by an attestation.
-  get_attestation_participation_flag_indices(
-    state, data, inclusion_delay, false, ZERO_HASH)
 
 # TODO these aren't great here
 # TODO these duplicate some stuff in state_transition_epoch which uses TotalBalances
@@ -741,18 +701,17 @@ proc check_bls_to_execution_change*(
 
   ok()
 
-func get_proposer_reward*(
-    state: ForkyBeaconState, attestation: SomeAttestation,
-    base_reward_per_increment: Gwei, cache: var StateCache,
-    epoch_participation: var EpochParticipationFlags,
-    allow_same_state_data_slot: static bool = false,
-    same_state_data_slot_block_root: Eth2Digest = ZERO_HASH): uint64 =
+func get_proposer_reward*(state: ForkyBeaconState,
+                          attestation: SomeAttestation,
+                          base_reward_per_increment: Gwei,
+                          cache: var StateCache,
+                          epoch_participation: var EpochParticipationFlags): uint64 =
   let participation_flag_indices = get_attestation_participation_flag_indices(
-    state, attestation.data, state.slot - attestation.data.slot,
-    allow_same_state_data_slot, same_state_data_slot_block_root)
+    state, attestation.data, state.slot - attestation.data.slot)
   for index in get_attesting_indices_iter(
       state, attestation.data, attestation.aggregation_bits, cache):
-    let base_reward = get_base_reward(state, index, base_reward_per_increment)
+    let
+      base_reward = get_base_reward(state, index, base_reward_per_increment)
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
          not has_flag(epoch_participation.item(index), flag_index):
@@ -765,7 +724,7 @@ func get_proposer_reward*(
     (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
     WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
 
-  result div proposer_reward_denominator
+  return result div proposer_reward_denominator
 
 proc process_attestation*(
     state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
