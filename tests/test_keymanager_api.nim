@@ -55,6 +55,7 @@ const
   correctTokenValue = "some secret token"
   defaultFeeRecipient = Eth1Address.fromHex("0x000000000000000000000000000000000000DEAD")
   defaultGasLimit = 30_000_000
+  defaultGraffiti = ""
 
   newPrivateKeys = [
     "0x598c9b81749ba7bb8eb37781027359e3ffe87d0e1579e21c453ce22af0c05e35",
@@ -1411,6 +1412,106 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         res.isOk()
         res.get().data.pubkey == pubkey
         $res.get().data.graffiti == "🚀\"🍻\"🚀"
+
+    asyncTest "Obtaining the graffiti of an unconfigured validator returns " &
+              "the suggested default" & testFlavour:
+      let
+        pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+        fromApi = await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+      check:
+        fromApi.status == 200
+
+      let res =
+        decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+
+      check:
+        res.isOk()
+        res.get().data.pubkey == pubkey
+        $res.get().data.graffiti == ""
+
+    asyncTest "Configuring the gas limit" & testFlavour:
+      let
+        pubkey = ValidatorPubKey.fromHex(oldPublicKeys[1]).expect("valid key")
+        firstGraffiti = "🚀"
+        secondGraffiti = "🚀🚀"
+        firstRequest =
+          SetGraffitiRequest(
+            graffiti: GraffitiString.init(firstGraffiti).get())
+        secondRequest =
+          SetGraffitiRequest(
+            graffiti: GraffitiString.init(secondGraffiti).get())
+
+      block:
+        let response =
+          await client.setGraffitiPlain(pubkey, firstRequest,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          response.status == 202
+
+      block:
+        let resApi = await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+        check:
+          resApi.status == 200
+
+        let res =
+          decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+
+        check:
+          res.isOk()
+          res.get().data.pubkey == pubkey
+          $res.get().data.graffiti == firstGraffiti
+
+      block:
+        let response =
+          await client.setGraffitiPlain(pubkey, secondRequest,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          response.status == 202
+
+      block:
+        let resApi = await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+        check:
+          resApi.status == 200
+
+        let res =
+          decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+
+        check:
+          res.isOk()
+          res.get().data.pubkey == pubkey
+          $res.get().data.graffiti == secondGraffiti
+
+      block:
+        let response = await client.deleteGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          response.status == 204
+
+      block:
+        let resApi = await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+        check:
+          resApi.status == 200
+
+        let res =
+          decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+
+        check:
+          res.isOk()
+          res.get().data.pubkey == pubkey
+          $res.get().data.graffiti == defaultGraffiti
 
   suite "ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys" & testFlavour:
     asyncTest "Importing list of remote keys" & testFlavour:

@@ -110,7 +110,7 @@ type
     graffiti*: GraffitiString
 
   GetGraffitiResponse* = object
-    data: GraffitiResponse
+    data*: GraffitiResponse
 
   SetGraffitiRequest* = object
     graffiti*: GraffitiString
