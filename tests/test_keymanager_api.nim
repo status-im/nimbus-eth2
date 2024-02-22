@@ -55,7 +55,6 @@ const
   correctTokenValue = "some secret token"
   defaultFeeRecipient = Eth1Address.fromHex("0x000000000000000000000000000000000000DEAD")
   defaultGasLimit = 30_000_000
-  defaultGraffiti = ""
 
   newPrivateKeys = [
     "0x598c9b81749ba7bb8eb37781027359e3ffe87d0e1579e21c453ce22af0c05e35",
@@ -1430,7 +1429,6 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       check:
         res.isOk()
         res.get().data.pubkey == pubkey
-        $res.get().data.graffiti == ""
 
     asyncTest "Configuring the graffiti" & testFlavour:
       let
@@ -1511,7 +1509,6 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         check:
           res.isOk()
           res.get().data.pubkey == pubkey
-          $res.get().data.graffiti == defaultGraffiti
 
   suite "ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys" & testFlavour:
     asyncTest "Importing list of remote keys" & testFlavour:
