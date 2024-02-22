@@ -8,10 +8,10 @@
 {.push raises: [].}
 
 # State transition - block processing, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
@@ -402,7 +402,7 @@ proc check_voluntary_exit*(
   withState(state):
     check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -687,7 +687,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
     state: var (capella.BeaconState | deneb.BeaconState),
     payload: capella.ExecutionPayload | deneb.ExecutionPayload):

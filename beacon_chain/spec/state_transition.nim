@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -460,7 +460,7 @@ proc makeBeaconBlock*(
             transactions_root.get
 
           when executionPayload is deneb.ExecutionPayloadForSigning:
-            # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#beaconblockbody
+            # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
               [hash_tree_root(randao_reveal),
                hash_tree_root(eth1_data),

@@ -188,7 +188,7 @@ NTC 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt
 ```
 
 !!! note
-    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
+    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
     As this is a new protocol, not all implementations are supporting it yet.
     Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
 

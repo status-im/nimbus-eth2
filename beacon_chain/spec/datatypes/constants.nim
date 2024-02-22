@@ -23,7 +23,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#constants
   NODE_ID_BITS* = 256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/p2p-interface.md#configuration
   EPOCHS_PER_SUBNET_SUBSCRIPTION* = 256'u64
   SUBNETS_PER_NODE* = 2'u64
   ATTESTATION_SUBNET_COUNT*: uint64 = 64
@@ -40,7 +40,7 @@ const
   FAR_FUTURE_EPOCH* = Epoch(not 0'u64)
   FAR_FUTURE_PERIOD* = SyncCommitteePeriod(not 0'u64)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#domain-types
   DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
   DOMAIN_BEACON_ATTESTER* = DomainType([byte 0x01, 0x00, 0x00, 0x00])
   DOMAIN_RANDAO* = DomainType([byte 0x02, 0x00, 0x00, 0x00])
@@ -64,7 +64,7 @@ const
   REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
   REORG_MAX_EPOCHS_SINCE_FINALIZATION* = Epoch(2)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/p2p-interface.md#configuration
   BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 6
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration

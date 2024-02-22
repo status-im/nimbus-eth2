@@ -901,7 +901,7 @@ func process_registry_updates*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#slashings
 func get_adjusted_total_slashing_balance*(
@@ -920,14 +920,14 @@ func get_adjusted_total_slashing_balance*(
       {.fatal: "process_slashings: incorrect BeaconState type".}
   min(sum(state.slashings.data) * multiplier, total_balance)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#slashings
 func slashing_penalty_applies*(validator: Validator, epoch: Epoch): bool =
   validator.slashed and
   epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 == validator.withdrawable_epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#slashings
 func get_slashing_penalty*(validator: Validator,
@@ -939,7 +939,7 @@ func get_slashing_penalty*(validator: Validator,
                           adjusted_total_slashing_balance
   penalty_numerator div total_balance * increment
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#slashings
 func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
@@ -963,7 +963,7 @@ func process_eth1_data_reset*(state: var ForkyBeaconState) =
   if next_epoch mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
     state.eth1_data_votes = default(type state.eth1_data_votes)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#effective-balances-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#effective-balances-updates
 template effective_balance_might_update*(
     balance: Gwei, effective_balance: Gwei): bool =
   const
@@ -973,7 +973,7 @@ template effective_balance_might_update*(
   balance + DOWNWARD_THRESHOLD < effective_balance or
     effective_balance + UPWARD_THRESHOLD < balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#effective-balances-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#effective-balances-updates
 func process_effective_balance_updates*(state: var ForkyBeaconState) =
   # Update effective balances with hysteresis
   for vidx in state.validators.vindices:
