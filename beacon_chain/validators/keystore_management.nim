@@ -914,7 +914,7 @@ proc getSuggestedGraffiti*(
   let graffitiPath =
     validatorsDir.configFilePath(ConfigFileKind.GraffitiFile, pubkey)
   if not fileExists(graffitiPath):
-    return err defaultGraffitiBytes
+    return ok defaultGraffitiBytes
 
   let data = readAllChars(graffitiPath).valueOr:
     warn "Failed to load graffiti file; falling back to default graffiti",
