@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   # Standard library
   std/[strutils, typetraits],
@@ -88,17 +90,29 @@ const
   SszTestsDir* = FixturesDir / "tests-v" & SPEC_VERSION
   MaxObjectSize* = 3_000_000
 
+proc relativeTestPathComponent*(path: string, suitePath = SszTestsDir): string =
+  try:
+    path.relativePath(suitePath)
+  except Exception as exc:
+    raiseAssert "relativePath failed unexpectedly: " & $exc.msg
+
 proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =
   try:
     # debugEcho "          [Debug] Loading file: \"", path, '\"'
     result = Format.decode(readFileBytes(path), T)
   except SerializationError as err:
     writeStackTrace()
-    stderr.write $Format & " load issue for file \"", path, "\"\n"
-    stderr.write err.formatMsg(path), "\n"
+    try:
+      stderr.write $Format & " load issue for file \"", path, "\"\n"
+      stderr.write err.formatMsg(path), "\n"
+    except IOError:
+      discard
     quit 1
 
-proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
+proc sszDecodeEntireInput*(
+    input: openArray[byte],
+    Decoded: type
+): Decoded {.raises: [IOError, SerializationError, UnconsumedInput].} =
   let stream = unsafeMemoryInput(input)
   var reader = init(SszReader, stream)
   reader.readValue(result)
@@ -106,7 +120,7 @@ proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
   if stream.readable:
     raise newException(UnconsumedInput, "Remaining bytes in the input")
 
-iterator walkTests*(dir: static string): string =
+iterator walkTests*(dir: static string): string {.raises: [OSError].} =
    for kind, path in walkDir(
        dir/"pyspec_tests", relative = true, checkDir = true):
      yield path
@@ -115,10 +129,29 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
   try:
     # debugEcho "          [Debug] Loading file: \"", path, '\"'
     sszDecodeEntireInput(snappy.decode(readFileBytes(path), MaxObjectSize), T)
+  except IOError as err:
+    writeStackTrace()
+    try:
+      stderr.write $Format & " load issue for file \"", path, "\"\n"
+      stderr.write "IOError: " & err.msg, "\n"
+    except IOError:
+      discard
+    quit 1
   except SerializationError as err:
     writeStackTrace()
-    stderr.write $Format & " load issue for file \"", path, "\"\n"
-    stderr.write err.formatMsg(path), "\n"
+    try:
+      stderr.write $Format & " load issue for file \"", path, "\"\n"
+      stderr.write err.formatMsg(path), "\n"
+    except IOError:
+      discard
+    quit 1
+  except UnconsumedInput as err:
+    writeStackTrace()
+    try:
+      stderr.write $Format & " load issue for file \"", path, "\"\n"
+      stderr.write "UnconsumedInput: " & err.msg, "\n"
+    except IOError:
+      discard
     quit 1
 
 proc loadForkedState*(
