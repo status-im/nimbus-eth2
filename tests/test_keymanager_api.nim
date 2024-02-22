@@ -1460,7 +1460,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           resApi.status == 200
 
         let res =
-          decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+          decodeBytes(GetGraffitiResponse, resApi.data, resApi.contentType)
 
         check:
           res.isOk()
@@ -1483,7 +1483,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           resApi.status == 200
 
         let res =
-          decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+          decodeBytes(GetGraffitiResponse, resApi.data, resApi.contentType)
 
         check:
           res.isOk()
@@ -1506,7 +1506,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           resApi.status == 200
 
         let res =
-          decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+          decodeBytes(GetGraffitiResponse, resApi.data, resApi.contentType)
 
         check:
           res.isOk()
