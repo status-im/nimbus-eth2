@@ -1522,7 +1522,15 @@ proc setGasLimit*(host: KeymanagerHost,
 proc setGraffiti*(host: KeymanagerHost,
                   pubkey: ValidatorPubKey,
                   graffiti: GraffitiBytes): Result[void, string] =
-  let path = host.graffitiPath(pubkey)
+  let
+    validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
+    path = host.graffitiPath(pubkey)
+
+  ? secureCreatePath(validatorKeystoreDir)
+    .mapErr(proc(e: auto): string =
+      "Could not create wallet directory [" & validatorKeystoreDir & "], " &
+        "reason: (" & $int(e) & ") " & ioErrorMsg(e))
+
   io2.writeFile(path, to0xHex(distinctBase(graffiti)))
     .mapErr(proc(e: auto): string =
       "Failed to write graffiti file," &
