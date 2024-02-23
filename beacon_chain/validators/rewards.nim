@@ -140,13 +140,11 @@ proc collectFromAttestations(
                get_current_epoch(forkyState.data):
             get_proposer_reward(forkyState.data, attestation,
               base_reward_per_increment, cache,
-              auxiliaryState.currentEpochParticipation,
-              true, blockRoot)
+              auxiliaryState.currentEpochParticipation)
           else:
             get_proposer_reward(
               forkyState.data, attestation, base_reward_per_increment, cache,
-              auxiliaryState.previousEpochParticipation,
-              true, blockRoot)
+              auxiliaryState.previousEpochParticipation)
         proposerOutcome += proposerReward
 
 proc collectFromSyncAggregate(
@@ -179,10 +177,10 @@ proc collectFromSyncAggregate(
 proc collectBlockRewards*(
     forkedState: ForkedHashedBeaconState,
     forkedBlock: RewardingBlock
-): Opt[UInt256] =
+): Opt[Gwei] =
   var
     auxiliaryState = AuxiliaryState.init(forkedState).valueOr:
-      return Opt.none(UInt256)
+      return Opt.none(Gwei)
     cache: StateCache
     reward = Gwei(0'u64)
 
@@ -191,4 +189,4 @@ proc collectBlockRewards*(
   reward.collectFromAttestations(
     forkedState, forkedBlock, auxiliaryState, cache)
   reward.collectFromSyncAggregate(forkedState, forkedBlock, cache)
-  ok(reward.toWei)
+  ok(reward)
