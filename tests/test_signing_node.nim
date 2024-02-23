@@ -17,6 +17,7 @@ import
 
 from std/os import getEnv, osErrorMsg
 
+{.push raises: [].}
 {.used.}
 
 const
@@ -102,25 +103,28 @@ func init(T: type ForkedBeaconBlock, contents: ProduceBlockResponseV2): T =
 
 proc getBlock(fork: ConsensusFork,
               feeRecipient = SigningExpectedFeeRecipient): ForkedBeaconBlock =
-  debugRaiseAssert "getBlock; ConsensusFork.Electra shouldn't use DenebBlockContents, but not tested, so do that together"
-  let
-    blckData =
-      case fork
-      of ConsensusFork.Phase0:    Phase0Block
-      of ConsensusFork.Altair:    AltairBlock
-      of ConsensusFork.Bellatrix: BellatrixBlock % [feeRecipient]
-      of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
-      of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
-      of ConsensusFork.Electra:   DenebBlockContents % [feeRecipient]
-    contentType = ContentTypeData(
-      mediaType: MediaType.init("application/json"))
+  try:
+    debugRaiseAssert "getBlock; ConsensusFork.Electra shouldn't use DenebBlockContents, but not tested, so do that together"
+    let
+      blckData =
+        case fork
+        of ConsensusFork.Phase0:    Phase0Block
+        of ConsensusFork.Altair:    AltairBlock
+        of ConsensusFork.Bellatrix: BellatrixBlock % [feeRecipient]
+        of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
+        of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
+        of ConsensusFork.Electra:   DenebBlockContents % [feeRecipient]
+      contentType = ContentTypeData(
+        mediaType: MediaType.init("application/json"))
 
 
-  let b = decodeBytes(ProduceBlockResponseV2,
-                      blckData.toOpenArrayByte(0, len(blckData) - 1),
-                      Opt.some(contentType),
-                      $fork).tryGet()
-  ForkedBeaconBlock.init(b)
+    let b = decodeBytes(ProduceBlockResponseV2,
+                        blckData.toOpenArrayByte(0, len(blckData) - 1),
+                        Opt.some(contentType),
+                        $fork).tryGet()
+    ForkedBeaconBlock.init(b)
+  except ValueError:
+    raiseAssert "unreachable"
 
 func init(t: typedesc[Web3SignerForkedBeaconBlock],
           forked: ForkedBeaconBlock): Web3SignerForkedBeaconBlock =
