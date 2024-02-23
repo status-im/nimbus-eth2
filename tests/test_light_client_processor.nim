@@ -28,12 +28,14 @@ suite "Light client processor" & preset():
     highPeriod = 5.SyncCommitteePeriod
   let
     cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
-      static: doAssert ConsensusFork.high == ConsensusFork.Deneb
+      static: doAssert ConsensusFork.high == ConsensusFork.Electra
       var res = defaultRuntimeConfig
       res.ALTAIR_FORK_EPOCH = 1.Epoch
       res.BELLATRIX_FORK_EPOCH = 2.Epoch
       res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
       res.DENEB_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
+      res.ELECTRA_FORK_EPOCH = FAR_FUTURE_EPOCH
+      debugRaiseAssert "Light client processor test, once define/works add Electra to tests"
       res
 
   const numValidators = SLOTS_PER_EPOCH

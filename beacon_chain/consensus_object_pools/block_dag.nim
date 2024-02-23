@@ -73,7 +73,8 @@ func init*(
     T: type BlockRef, root: Eth2Digest, executionValid: bool,
     blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock |
           capella.SomeBeaconBlock | capella.TrustedBeaconBlock |
-          deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock): BlockRef =
+          deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock |
+          electra.SomeBeaconBlock | electra.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root, Opt.some Eth2Digest(blck.body.execution_payload.block_hash),
     executionValid =

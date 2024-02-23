@@ -177,7 +177,8 @@ from ./datatypes/deneb import BeaconState
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#get_unslashed_participating_indices
 func get_unslashed_participating_balances*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState): UnslashedParticipatingBalances =
+           deneb.BeaconState | electra.BeaconState):
+    UnslashedParticipatingBalances =
   let
     previous_epoch = get_previous_epoch(state)
     current_epoch = get_current_epoch(state)
@@ -228,7 +229,7 @@ func get_unslashed_participating_balances*(
 
 func is_unslashed_participating_index(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState,
+           deneb.BeaconState | electra.BeaconState,
     flag_index: TimelyFlag, epoch: Epoch, validator_index: ValidatorIndex): bool =
   doAssert epoch in [get_previous_epoch(state), get_current_epoch(state)]
   # TODO hoist this conditional
@@ -445,7 +446,7 @@ proc compute_unrealized_finality*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     balances: UnslashedParticipatingBalances,
     flags: UpdateFlags = {}) =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
@@ -467,7 +468,7 @@ proc process_justification_and_finalization*(
 
 proc compute_unrealized_finality*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState): FinalityCheckpoints =
+           deneb.BeaconState | electra.BeaconState): FinalityCheckpoints =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return FinalityCheckpoints(
       justified: state.current_justified_checkpoint,
@@ -658,7 +659,7 @@ func get_attestation_deltas(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward_increment*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState,
+           deneb.BeaconState | electra.BeaconState,
     index: ValidatorIndex, base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
@@ -669,7 +670,7 @@ func get_base_reward_increment*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_flag_index_reward*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState,
+           deneb.BeaconState | electra.BeaconState,
     base_reward: Gwei, active_increments: Gwei,
     unslashed_participating_increments: Gwei,
     weight, finality_delay: uint64): Gwei =
@@ -697,7 +698,7 @@ func get_active_increments*(
 iterator get_flag_and_inactivity_deltas*(
     cfg: RuntimeConfig,
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState,
+           deneb.BeaconState | electra.BeaconState,
     base_reward_per_increment: Gwei, info: var altair.EpochInfo,
     finality_delay: uint64):
     (ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei) =
@@ -807,7 +808,7 @@ func process_rewards_and_penalties*(
 func process_rewards_and_penalties*(
     cfg: RuntimeConfig,
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     info: var altair.EpochInfo) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -914,7 +915,7 @@ func get_adjusted_total_slashing_balance*(
     elif state is altair.BeaconState:
       PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR
     elif state is bellatrix.BeaconState or state is capella.BeaconState or
-         state is deneb.BeaconState:
+         state is deneb.BeaconState or state is electra.BeaconState:
       PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX
     else:
       {.fatal: "process_slashings: incorrect BeaconState type".}
@@ -1037,7 +1038,8 @@ func process_participation_record_updates*(state: var phase0.BeaconState) =
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#participation-flags-updates
 func process_participation_flag_updates*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState)) =
+                capella.BeaconState | deneb.BeaconState |
+                electra.BeaconState)) =
   state.previous_epoch_participation = state.current_epoch_participation
 
   const zero = 0.ParticipationFlags
@@ -1051,7 +1053,8 @@ func process_participation_flag_updates*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#sync-committee-updates
 func process_sync_committee_updates*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState)) =
+                capella.BeaconState | deneb.BeaconState |
+                electra.BeaconState)) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch.is_sync_committee_period():
     state.current_sync_committee = state.next_sync_committee
@@ -1060,7 +1063,7 @@ func process_sync_committee_updates*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#inactivity-scores
 template compute_inactivity_update(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState,
+           deneb.BeaconState | electra.BeaconState,
     info: altair.EpochInfo, pre_inactivity_score: Gwei): Gwei =
   if not is_eligible_validator(info.validators[index]):
     continue
@@ -1086,7 +1089,7 @@ template compute_inactivity_update(
 func process_inactivity_updates*(
     cfg: RuntimeConfig,
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     info: altair.EpochInfo) =
   # Score updates based on previous epoch participation, skip genesis epoch
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -1108,7 +1111,7 @@ func process_inactivity_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#historical-summaries-updates
 func process_historical_summaries_update*(
-    state: var (capella.BeaconState | deneb.BeaconState)):
+    state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState)):
     Result[void, cstring] =
   # Set historical block root accumulator.
   let next_epoch = get_current_epoch(state) + 1
@@ -1159,7 +1162,7 @@ proc process_epoch*(
 func init*(
     info: var altair.EpochInfo,
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState) =
+           deneb.BeaconState | electra.BeaconState) =
   # init participation, overwriting the full structure
   info.balances = get_unslashed_participating_balances(state)
   info.validators.setLen(state.validators.len())
@@ -1229,7 +1232,7 @@ proc process_epoch*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig,
-    state: var (capella.BeaconState | deneb.BeaconState),
+    state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
   let epoch = get_current_epoch(state)

@@ -159,17 +159,14 @@ func noRollback*(state: var altair.HashedBeaconState) =
 func noRollback*(state: var bellatrix.HashedBeaconState) =
   trace "Skipping rollback of broken Bellatrix state"
 
-from ./datatypes/capella import
-  ExecutionPayload, HashedBeaconState, SignedBLSToExecutionChangeList,
-  asSigVerified
-
 func noRollback*(state: var capella.HashedBeaconState) =
   trace "Skipping rollback of broken Capella state"
 
-from ./datatypes/deneb import HashedBeaconState
-
 func noRollback*(state: var deneb.HashedBeaconState) =
   trace "Skipping rollback of broken Deneb state"
+
+func noRollback*(state: var electra.HashedBeaconState) =
+  trace "Skipping rollback of broken Electra state"
 
 func maybeUpgradeStateToAltair(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
@@ -225,6 +222,7 @@ func maybeUpgradeState*(
   cfg.maybeUpgradeStateToBellatrix(state)
   cfg.maybeUpgradeStateToCapella(state)
   cfg.maybeUpgradeStateToDeneb(state)
+  # TODO cfg.maybeUpgradeStateToElectra
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
@@ -477,6 +475,8 @@ proc makeBeaconBlock*(
             ])
           else:
             raiseAssert "Attempt to use non-Deneb payload with post-Deneb state"
+        elif consensusFork == ConsensusFork.Electra:
+          debugRaiseAssert "makeBeaconBlock"
         else:
           static: raiseAssert "Unreachable"
 
@@ -501,6 +501,10 @@ proc makeBeaconBlock*(
     case state.kind
     of ConsensusFork.Deneb:     makeBeaconBlock(deneb)
     else: raiseAssert "Attempt to use Deneb payload with non-Deneb state"
+  elif payloadFork == ConsensusFork.Electra:
+    case state.kind
+    of ConsensusFork.Electra:     makeBeaconBlock(electra)
+    else: raiseAssert "Attempt to use Electra payload with non-Electra state"
   else:
     {.error: "Unsupported fork".}
 

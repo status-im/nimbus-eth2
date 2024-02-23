@@ -17,6 +17,7 @@ import
 
 from std/os import getEnv, osErrorMsg
 
+{.push raises: [].}
 {.used.}
 
 const
@@ -97,26 +98,33 @@ func init(T: type ForkedBeaconBlock, contents: ProduceBlockResponseV2): T =
     return ForkedBeaconBlock.init(contents.capellaData)
   of ConsensusFork.Deneb:
     return ForkedBeaconBlock.init(contents.denebData.`block`)
+  of ConsensusFork.Electra:
+    return ForkedBeaconBlock.init(contents.electraData.`block`)
 
 proc getBlock(fork: ConsensusFork,
               feeRecipient = SigningExpectedFeeRecipient): ForkedBeaconBlock =
-  let
-    blckData =
-      case fork
-      of ConsensusFork.Phase0:    Phase0Block
-      of ConsensusFork.Altair:    AltairBlock
-      of ConsensusFork.Bellatrix: BellatrixBlock % [feeRecipient]
-      of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
-      of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
-    contentType = ContentTypeData(
-      mediaType: MediaType.init("application/json"))
+  try:
+    debugRaiseAssert "getBlock; ConsensusFork.Electra shouldn't use DenebBlockContents, but not tested, so do that together"
+    let
+      blckData =
+        case fork
+        of ConsensusFork.Phase0:    Phase0Block
+        of ConsensusFork.Altair:    AltairBlock
+        of ConsensusFork.Bellatrix: BellatrixBlock % [feeRecipient]
+        of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
+        of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
+        of ConsensusFork.Electra:   DenebBlockContents % [feeRecipient]
+      contentType = ContentTypeData(
+        mediaType: MediaType.init("application/json"))
 
 
-  let b = decodeBytes(ProduceBlockResponseV2,
-                      blckData.toOpenArrayByte(0, len(blckData) - 1),
-                      Opt.some(contentType),
-                      $fork).tryGet()
-  ForkedBeaconBlock.init(b)
+    let b = decodeBytes(ProduceBlockResponseV2,
+                        blckData.toOpenArrayByte(0, len(blckData) - 1),
+                        Opt.some(contentType),
+                        $fork).tryGet()
+    ForkedBeaconBlock.init(b)
+  except ValueError:
+    raiseAssert "unreachable"
 
 func init(t: typedesc[Web3SignerForkedBeaconBlock],
           forked: ForkedBeaconBlock): Web3SignerForkedBeaconBlock =
@@ -135,6 +143,11 @@ func init(t: typedesc[Web3SignerForkedBeaconBlock],
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Deneb,
       data: forked.denebData.toBeaconBlockHeader)
+  of ConsensusFork.Electra:
+    debugRaiseAssert "init typedesc[Web3SignerForkedBeaconBlock]"
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Deneb,
+      data: forked.electraData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =
