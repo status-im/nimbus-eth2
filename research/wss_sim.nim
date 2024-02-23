@@ -31,7 +31,7 @@ template findIt*(s: openArray, predicate: untyped): int =
       break
   res
 
-proc findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
+func findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
     Opt[ValidatorIndex] =
   let idx = validators.findIt(it.pubkey == pubKey)
   if idx == -1:
@@ -208,6 +208,14 @@ cli do(validatorsDir: string, secretsDir: string,
         blockRoot = hash_tree_root(message.denebData)
         let signedBlock = deneb.SignedBeaconBlock(
           message: message.denebData,
+          root: blockRoot,
+          signature: get_block_signature(
+            fork, genesis_validators_root, slot, blockRoot,
+            validators[proposer]).toValidatorSig())
+      of ConsensusFork.Electra:
+        blockRoot = hash_tree_root(message.electraData)
+        let signedBlock = electra.SignedBeaconBlock(
+          message: message.electraData,
           root: blockRoot,
           signature: get_block_signature(
             fork, genesis_validators_root, slot, blockRoot,

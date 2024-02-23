@@ -83,11 +83,6 @@ proc initialLoad(
       path/"anchor_block.ssz_snappy",
       SSZ, BlockType)
 
-    signedBlock = ForkedSignedBeaconBlock.init(BlockType.kind.SignedBeaconBlock(
-      message: blck,
-      # signature: - unused as it's trusted
-      root: hash_tree_root(blck)))
-
   ChainDAGRef.preInit(db, forkedState[])
 
   let

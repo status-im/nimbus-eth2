@@ -927,6 +927,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           await node.router.routeSignedBeaconBlock(
             blck, Opt.some(blck.create_blob_sidecars(
               restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
+        of ConsensusFork.Electra:
+          debugRaiseAssert "/eth/v1/beacon/blocks POST; can't reach here unless in Electra per check above, but this keeps return value consistent"
+          var blck = restBlock.denebData.signed_block
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(
+            blck, Opt.some(blck.create_blob_sidecars(
+              restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -1003,6 +1010,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           await node.router.routeSignedBeaconBlock(
             blck, Opt.some(blck.create_blob_sidecars(
               restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
+        of ConsensusFork.Electra:
+          debugRaiseAssert "electra missing; /eth/v2/beacon/blocks will only trigger this codepath when in Electra"
+          var blck = restBlock.denebData.signed_block
+          blck.root = hash_tree_root(blck.message)
+          await node.router.routeSignedBeaconBlock(
+            blck, Opt.some(blck.create_blob_sidecars(
+              restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -1049,7 +1063,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     withBlck(bdata.asSigned()):
-      when consensusFork <= ConsensusFork.Altair:
+      when consensusFork == ConsensusFork.Electra:
+        debugRaiseAssert "/eth/v1/beacon/blinded_block POST"
+        RestApiResponse.jsonError(Http500, "electra missing")
+      elif consensusFork <= ConsensusFork.Altair:
         respondSszOrJson(forkyBlck, consensusFork)
       else:
         respondSszOrJson(toSignedBlindedBeaconBlock(forkyBlck), consensusFork)
@@ -1080,7 +1097,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     withConsensusFork(currentEpochFork):
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Electra:
+        debugRaiseAssert "/eth/v1/beacon/blinded_blocks POST"
+        return RestApiResponse.jsonError(
+          Http400, $consensusFork & " builder API unsupported")
+      elif consensusFork >= ConsensusFork.Capella:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:

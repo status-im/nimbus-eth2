@@ -294,8 +294,7 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
 
 proc addBlobless*(
     quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: deneb.SignedBeaconBlock): bool =
-
+    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
   if not isViable(finalizedSlot, signedBlock.message.slot):
     quarantine.addUnviable(signedBlock.root)
     return false
@@ -306,8 +305,10 @@ proc addBlobless*(
     return true
 
   debug "block quarantine: Adding blobless", blck = shortLog(signedBlock)
-  quarantine.blobless[signedBlock.root] = signedBlock
-  quarantine.missing.del(signedBlock.root)
+  debugRaiseAssert "addBlobless; needs consideration how to handle deneb and electra"
+  when not (signedBlock is electra.SignedBeaconBlock):
+    quarantine.blobless[signedBlock.root] = signedBlock
+    quarantine.missing.del(signedBlock.root)
   true
 
 func popBlobless*(quarantine: var Quarantine, root: Eth2Digest):

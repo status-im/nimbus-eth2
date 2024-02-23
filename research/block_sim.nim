@@ -142,6 +142,49 @@ proc makeSimulationBlock(
 
   ok(blck)
 
+proc makeSimulationBlock(
+    cfg: RuntimeConfig,
+    state: var electra.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    exits: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate,
+    execution_payload: electra.ExecutionPayloadForSigning,
+    bls_to_execution_changes: SignedBLSToExecutionChangeList,
+    rollback: RollbackHashedProc[electra.HashedBeaconState],
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[electra.BeaconBlock, cstring] =
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = partialBeaconBlock(
+    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
+    attestations, deposits, exits, sync_aggregate, execution_payload)
+
+  let res = process_block(
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
+
+  if res.isErr:
+    rollback(state)
+    return err(res.error())
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  ok(blck)
+
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 7,
        validators = SLOTS_PER_EPOCH * 500,
@@ -343,6 +386,8 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
           addr state.capellaData
         elif T is deneb.SignedBeaconBlock:
           addr state.denebData
+        elif T is electra.SignedBeaconBlock:
+          addr state.electraData
         else:
           static: doAssert false
       message = makeSimulationBlock(
@@ -359,7 +404,9 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
         eth1ProposalData.deposits,
         BeaconBlockValidatorChanges(),
         sync_aggregate,
-        when T is deneb.SignedBeaconBlock:
+        when T is electra.SignedBeaconBlock:
+          default(electra.ExecutionPayloadForSigning)
+        elif T is deneb.SignedBeaconBlock:
           default(deneb.ExecutionPayloadForSigning)
         elif T is capella.SignedBeaconBlock:
           default(capella.ExecutionPayloadForSigning)
@@ -432,6 +479,28 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     do:
       raiseAssert "withUpdatedState failed"
 
+  proc proposeElectraBlock(slot: Slot) =
+    if rand(r, 1.0) > blockRatio:
+      return
+
+    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
+      let
+        newBlock = getNewBlock[electra.SignedBeaconBlock](updatedState, slot, cache)
+        added = dag.addHeadBlock(verifier, newBlock) do (
+            blckRef: BlockRef, signedBlock: electra.TrustedSignedBeaconBlock,
+            epochRef: EpochRef, unrealized: FinalityCheckpoints):
+          # Callback add to fork choice if valid
+          attPool.addForkChoice(
+            epochRef, blckRef, unrealized, signedBlock.message,
+            blckRef.slot.start_beacon_time)
+
+      dag.updateHead(added[], quarantine[], [])
+      if dag.needStateCachesAndForkChoicePruning():
+        dag.pruneStateCachesDAG()
+        attPool.prune()
+    do:
+      raiseAssert "withUpdatedState failed"
+
   var
     lastEth1BlockAt = genesisTime
     eth1BlockNum = 1000
@@ -472,6 +541,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.consensusForkAtEpoch(slot.epoch)
+        of ConsensusFork.Electra:   proposeElectraBlock(slot)
         of ConsensusFork.Deneb:     proposeDenebBlock(slot)
         of ConsensusFork.Capella:   proposeCapellaBlock(slot)
         of ConsensusFork.Bellatrix, ConsensusFork.Altair, ConsensusFork.Phase0:

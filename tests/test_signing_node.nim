@@ -97,9 +97,12 @@ func init(T: type ForkedBeaconBlock, contents: ProduceBlockResponseV2): T =
     return ForkedBeaconBlock.init(contents.capellaData)
   of ConsensusFork.Deneb:
     return ForkedBeaconBlock.init(contents.denebData.`block`)
+  of ConsensusFork.Electra:
+    return ForkedBeaconBlock.init(contents.electraData.`block`)
 
 proc getBlock(fork: ConsensusFork,
               feeRecipient = SigningExpectedFeeRecipient): ForkedBeaconBlock =
+  debugRaiseAssert "getBlock; ConsensusFork.Electra shouldn't use DenebBlockContents, but not tested, so do that together"
   let
     blckData =
       case fork
@@ -108,6 +111,7 @@ proc getBlock(fork: ConsensusFork,
       of ConsensusFork.Bellatrix: BellatrixBlock % [feeRecipient]
       of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
       of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
+      of ConsensusFork.Electra:   DenebBlockContents % [feeRecipient]
     contentType = ContentTypeData(
       mediaType: MediaType.init("application/json"))
 
@@ -135,6 +139,11 @@ func init(t: typedesc[Web3SignerForkedBeaconBlock],
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Deneb,
       data: forked.denebData.toBeaconBlockHeader)
+  of ConsensusFork.Electra:
+    debugRaiseAssert "init typedesc[Web3SignerForkedBeaconBlock]"
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Deneb,
+      data: forked.electraData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =

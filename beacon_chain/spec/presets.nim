@@ -60,6 +60,8 @@ type
     CAPELLA_FORK_EPOCH*: Epoch
     DENEB_FORK_VERSION*: Version
     DENEB_FORK_EPOCH*: Epoch
+    ELECTRA_FORK_VERSION*: Version
+    ELECTRA_FORK_EPOCH*: Epoch
 
     # Time parameters
     # TODO SECONDS_PER_SLOT*: uint64
@@ -194,6 +196,9 @@ when const_preset == "mainnet":
     # Deneb
     DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x00],
     DENEB_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Electra
+    ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x00],
+    ELECTRA_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -338,6 +343,9 @@ elif const_preset == "gnosis":
     # Deneb
     DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x64],
     DENEB_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Electra
+    ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x64],
+    ELECTRA_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
 
     # Time parameters
@@ -478,6 +486,9 @@ elif const_preset == "minimal":
     # Deneb
     DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x01],
     DENEB_FORK_EPOCH: Epoch(uint64.high),
+    # Electra
+    ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x01],
+    ELECTRA_FORK_EPOCH: Epoch(uint64.high),
 
 
     # Time parameters

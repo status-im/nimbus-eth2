@@ -95,6 +95,7 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   of ConsensusFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
   of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
   of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
+  of ConsensusFork.Electra:   SSZ.saveFile(filename, value.electraData.data)
 
 proc loadFile(filename: string, bytes: openArray[byte], T: type): T =
   let

@@ -17,7 +17,7 @@ import
   std/[json, tables],
   stew/base10, web3/primitives, httputils,
   ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix, deneb],
+  ".."/datatypes/[phase0, altair, bellatrix, deneb, electra],
   ".."/mev/[capella_mev, deneb_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
@@ -331,6 +331,11 @@ type
     kzg_proofs*: deneb.KzgProofs
     blobs*: deneb.Blobs
 
+  ElectraSignedBlockContents* = object
+    signed_block*: electra.SignedBeaconBlock
+    kzg_proofs*: deneb.KzgProofs
+    blobs*: deneb.Blobs
+
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
@@ -338,6 +343,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.SignedBeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.SignedBeaconBlock
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
+    of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
 
@@ -348,6 +354,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
+    of ConsensusFork.Electra:   electraBody*:   electra.BeaconBlockBody
 
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
@@ -356,6 +363,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
+    of ConsensusFork.Electra:   electraData*:   electra.BlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -632,6 +640,8 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.capellaData)
     of ConsensusFork.Deneb:
       ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
+    of ConsensusFork.Electra:
+      ForkedSignedBeaconBlock.init(contents.electraData.signed_block)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -688,6 +698,12 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
       blobs: contents.blobs
     )
   )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: electra.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  debugRaiseAssert "init*(t: typedesc[RestPublishedSignedBlockContents],"
+  default(RestPublishedSignedBlockContents)
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
@@ -1024,4 +1040,8 @@ template withBlck*(x: ProduceBlockResponseV2,
   of ConsensusFork.Deneb:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template blck: untyped {.inject.} = x.denebData.blck
+    body
+  of ConsensusFork.Electra:
+    const consensusFork {.inject, used.} = ConsensusFork.Electra
+    template blck: untyped {.inject.} = x.electraData.blck
     body

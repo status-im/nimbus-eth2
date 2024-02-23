@@ -255,7 +255,6 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
 
   var fetches: seq[BlobIdentifier]
   for blobless in rman.quarantine[].peekBlobless():
-
     # give blobs a chance to arrive over gossip
     if blobless.message.slot == wallSlot and delay < waitDur:
       debug "Not handling missing blobs early in slot"

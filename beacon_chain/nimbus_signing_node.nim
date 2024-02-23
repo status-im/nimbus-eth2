@@ -235,6 +235,9 @@ proc installApiHandlers*(node: SigningNodeRef) =
             (GeneralizedIndex(401), request.beaconBlockHeader.data)
           of ConsensusFork.Deneb:
             (GeneralizedIndex(801), request.beaconBlockHeader.data)
+          of ConsensusFork.Electra:
+            debugRaiseAssert "/api/v1/eth2/sign/{validator_key} TODO verify correctness"
+            (GeneralizedIndex(801), request.beaconBlockHeader.data)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
           return errorResponse(Http400, MissingMerkleProofError)
