@@ -593,6 +593,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
             proofs)
       elif blck is ForkedMaybeBlindedBeaconBlock:
         withForkyMaybeBlindedBlck(blck):
+          # TODO why isn't this a case statement
           when consensusFork < ConsensusFork.Bellatrix:
             return SignatureResult.err("Invalid beacon block fork version")
           elif consensusFork == ConsensusFork.Bellatrix:
