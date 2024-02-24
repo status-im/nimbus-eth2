@@ -96,6 +96,9 @@ proc produceBlock(
                                         data: ForkedBeaconBlock.init(blck),
                                         kzgProofsOpt: Opt.some(kzgProofs),
                                         blobsOpt: Opt.some(blobs)))
+  of ConsensusFork.Electra:
+    debugRaiseAssert "produceBlock in block_service.nim"
+    return Opt.none(PreparedBeaconBlock)
 
 proc produceBlindedBlock(
        vc: ValidatorClientRef,
@@ -305,8 +308,11 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
         blockRoot = hash_tree_root(
           when consensusFork < ConsensusFork.Deneb:
             forkyMaybeBlindedBlck
-          else:
+          elif consensusFork < ConsensusFork.Electra:
             forkyMaybeBlindedBlck.`block`
+          else:
+            debugRaiseAssert "publishBlockV3 1"
+            default(Attestation)
         )
         signingRoot =
           compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
@@ -318,8 +324,11 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
         blck = shortLog(
           when consensusFork < ConsensusFork.Deneb:
             forkyMaybeBlindedBlck
-          else:
+          elif consensusFork < ConsensusFork.Electra:
             forkyMaybeBlindedBlck.`block`
+          else:
+            debugRaiseAssert "publishBlockV3 2"
+            default(bellatrix.BeaconBlock)
         )
         block_root = shortLog(blockRoot)
         signing_root = shortLog(signingRoot)
@@ -572,6 +581,9 @@ proc publishBlockV2(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   signature: signature),
                 kzg_proofs: preparedBlock.kzgProofsOpt.get,
                 blobs: preparedBlock.blobsOpt.get))
+          of ConsensusFork.Electra:
+            debugRaiseAssert "publishBlockV2 2"
+            default(RestPublishedSignedBlockContents)
 
         res =
           try:

@@ -379,7 +379,16 @@ proc runProposalForkchoiceUpdated*(
         payloadAttributes = some fcPayloadAttributes)
       debug "Fork-choice updated for proposal", status
 
-    static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+    static: doAssert high(ConsensusFork) == ConsensusFork.Electra
+    when consensusFork >= ConsensusFork.Electra:
+      debugRaiseAssert "runProposalForkchoiceUpdated, probably will be a new payload attributes type here"
+      callForkchoiceUpdated(PayloadAttributesV3(
+        timestamp: Quantity timestamp,
+        prevRandao: FixedBytes[32] randomData,
+        suggestedFeeRecipient: feeRecipient,
+        withdrawals:
+          toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+        parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
     when consensusFork >= ConsensusFork.Deneb:
       callForkchoiceUpdated(PayloadAttributesV3(
         timestamp: Quantity timestamp,

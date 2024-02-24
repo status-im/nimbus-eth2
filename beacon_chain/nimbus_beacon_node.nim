@@ -137,6 +137,9 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
+  of ConsensusFork.Electra:
+    debugRaiseAssert "getVanityMascot"
+    " "
   of ConsensusFork.Deneb:
     "🐟"
   of ConsensusFork.Capella:
@@ -860,7 +863,8 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.altair,
     node.dag.forkDigests.bellatrix,
     node.dag.forkDigests.capella,
-    node.dag.forkDigests.deneb]
+    node.dag.forkDigests.deneb,
+    node.dag.forkDigests.electra]
   forkDigestsArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
@@ -1293,7 +1297,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeDenebMessageHandlers
+    removeDenebMessageHandlers,
+    removeDenebMessageHandlers    # Electra (Deneb handler, different forkDigest)
   ]
 
   for gossipFork in oldGossipForks:
@@ -1304,7 +1309,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addDenebMessageHandlers
+    addDenebMessageHandlers,
+    addDenebMessageHandlers    # Electra (Deneb handler, different forkDigest)
   ]
 
   for gossipFork in newGossipForks:

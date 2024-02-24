@@ -1316,7 +1316,10 @@ proc proposeBlock(node: BeaconNode,
         genesis_validators_root, node.config.localBlockValueBoost)
 
   return withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork >= ConsensusFork.Capella:
+    when consensusFork >= ConsensusFork.Electra:
+      debugRaiseAssert "proposeBlock; fill in Electra support"
+      default(BlockRef)
+    elif consensusFork >= ConsensusFork.Capella:
       proposeBlockContinuation(
         consensusFork.SignedBlindedBeaconBlock,
         consensusFork.ExecutionPayloadForSigning)
