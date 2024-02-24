@@ -16,7 +16,7 @@ import
   "."/[
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb],
+  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra],
   ./mev/bellatrix_mev, ./mev/capella_mev, ./mev/deneb_mev
 
 export
@@ -53,14 +53,16 @@ type
     altair.BeaconState |
     bellatrix.BeaconState |
     capella.BeaconState |
-    deneb.BeaconState
+    deneb.BeaconState |
+    electra.BeaconState
 
   ForkyHashedBeaconState* =
     phase0.HashedBeaconState |
     altair.HashedBeaconState |
     bellatrix.HashedBeaconState |
     capella.HashedBeaconState |
-    deneb.HashedBeaconState
+    deneb.HashedBeaconState |
+    electra.HashedBeaconState
 
   ForkedHashedBeaconState* = object
     case kind*: ConsensusFork
@@ -73,7 +75,8 @@ type
   ForkyExecutionPayload* =
     bellatrix.ExecutionPayload |
     capella.ExecutionPayload |
-    deneb.ExecutionPayload
+    deneb.ExecutionPayload |
+    electra.ExecutionPayload
 
   ForkyExecutionPayloadHeader* =
     bellatrix.ExecutionPayloadHeader |
@@ -85,21 +88,24 @@ type
     altair.BeaconBlockBody |
     bellatrix.BeaconBlockBody |
     capella.BeaconBlockBody |
-    deneb.BeaconBlockBody
+    deneb.BeaconBlockBody |
+    electra.BeaconBlockBody
 
   ForkySigVerifiedBeaconBlockBody* =
     phase0.SigVerifiedBeaconBlockBody |
     altair.SigVerifiedBeaconBlockBody |
     bellatrix.SigVerifiedBeaconBlockBody |
     capella.SigVerifiedBeaconBlockBody |
-    deneb.SigVerifiedBeaconBlockBody
+    deneb.SigVerifiedBeaconBlockBody |
+    electra.SigVerifiedBeaconBlockBody
 
   ForkyTrustedBeaconBlockBody* =
     phase0.TrustedBeaconBlockBody |
     altair.TrustedBeaconBlockBody |
     bellatrix.TrustedBeaconBlockBody |
     capella.TrustedBeaconBlockBody |
-    deneb.TrustedBeaconBlockBody
+    deneb.TrustedBeaconBlockBody |
+    electra.TrustedBeaconBlockBody
 
   SomeForkyBeaconBlockBody* =
     ForkyBeaconBlockBody |
@@ -111,21 +117,24 @@ type
     altair.BeaconBlock |
     bellatrix.BeaconBlock |
     capella.BeaconBlock |
-    deneb.BeaconBlock
+    deneb.BeaconBlock |
+    electra.BeaconBlock
 
   ForkySigVerifiedBeaconBlock* =
     phase0.SigVerifiedBeaconBlock |
     altair.SigVerifiedBeaconBlock |
     bellatrix.SigVerifiedBeaconBlock |
     capella.SigVerifiedBeaconBlock |
-    deneb.SigVerifiedBeaconBlock
+    deneb.SigVerifiedBeaconBlock |
+    electra.SigVerifiedBeaconBlock
 
   ForkyTrustedBeaconBlock* =
     phase0.TrustedBeaconBlock |
     altair.TrustedBeaconBlock |
     bellatrix.TrustedBeaconBlock |
     capella.TrustedBeaconBlock |
-    deneb.TrustedBeaconBlock
+    deneb.TrustedBeaconBlock |
+    electra.TrustedBeaconBlock
 
   SomeForkyBeaconBlock* =
     ForkyBeaconBlock |
@@ -135,7 +144,8 @@ type
   ForkyExecutionPayloadForSigning* =
     bellatrix.ExecutionPayloadForSigning |
     capella.ExecutionPayloadForSigning |
-    deneb.ExecutionPayloadForSigning
+    deneb.ExecutionPayloadForSigning |
+    electra.ExecutionPayloadForSigning
 
   ForkyBlindedBeaconBlock* =
     capella_mev.BlindedBeaconBlock |
@@ -189,7 +199,8 @@ type
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
     capella.SignedBeaconBlock |
-    deneb.SignedBeaconBlock
+    deneb.SignedBeaconBlock |
+    electra.SignedBeaconBlock
 
   ForkedSignedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -219,21 +230,24 @@ type
     altair.SigVerifiedSignedBeaconBlock |
     bellatrix.SigVerifiedSignedBeaconBlock |
     capella.SigVerifiedSignedBeaconBlock |
-    deneb.SigVerifiedSignedBeaconBlock
+    deneb.SigVerifiedSignedBeaconBlock |
+    electra.SigVerifiedSignedBeaconBlock
 
   ForkyMsgTrustedSignedBeaconBlock* =
     phase0.MsgTrustedSignedBeaconBlock |
     altair.MsgTrustedSignedBeaconBlock |
     bellatrix.MsgTrustedSignedBeaconBlock |
     capella.MsgTrustedSignedBeaconBlock |
-    deneb.MsgTrustedSignedBeaconBlock
+    deneb.MsgTrustedSignedBeaconBlock |
+    electra.MsgTrustedSignedBeaconBlock
 
   ForkyTrustedSignedBeaconBlock* =
     phase0.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock |
     capella.TrustedSignedBeaconBlock |
-    deneb.TrustedSignedBeaconBlock
+    deneb.TrustedSignedBeaconBlock |
+    electra.TrustedSignedBeaconBlock
 
   ForkedMsgTrustedSignedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -274,6 +288,7 @@ type
     bellatrix*: ForkDigest
     capella*:   ForkDigest
     deneb*:     ForkDigest
+    electra*:   ForkDigest
 
 template kind*(
     x: typedesc[
@@ -799,7 +814,7 @@ template withEpochInfo*(
 
 template withEpochInfo*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState,
+           deneb.BeaconState | electra.BeaconState,
     x: var ForkedEpochInfo, body: untyped): untyped =
   if x.kind != EpochInfoFork.Altair:
     # Rare, so efficiency not critical
@@ -1165,6 +1180,12 @@ func denebFork*(cfg: RuntimeConfig): Fork =
     current_version: cfg.DENEB_FORK_VERSION,
     epoch: cfg.DENEB_FORK_EPOCH)
 
+func electraFork*(cfg: RuntimeConfig): Fork =
+  Fork(
+    previous_version: cfg.DENEB_FORK_VERSION,
+    current_version: cfg.ELECTRA_FORK_VERSION,
+    epoch: cfg.ELECTRA_FORK_EPOCH)
+
 func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.consensusForkAtEpoch(epoch)
   of ConsensusFork.Deneb:     cfg.denebFork
@@ -1315,7 +1336,9 @@ func init*(T: type ForkDigests,
     capella:
       compute_fork_digest(cfg.CAPELLA_FORK_VERSION, genesis_validators_root),
     deneb:
-      compute_fork_digest(cfg.DENEB_FORK_VERSION, genesis_validators_root)
+      compute_fork_digest(cfg.DENEB_FORK_VERSION, genesis_validators_root),
+    electra:
+      compute_fork_digest(cfg.ELECTRA_FORK_VERSION, genesis_validators_root)
   )
 
 func toBlockId*(header: BeaconBlockHeader): BlockId =
