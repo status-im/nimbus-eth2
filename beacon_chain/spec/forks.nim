@@ -20,7 +20,7 @@ import
   ./mev/bellatrix_mev, ./mev/capella_mev, ./mev/deneb_mev
 
 export
-  extras, block_id, phase0, altair, bellatrix, capella, deneb,
+  extras, block_id, phase0, altair, bellatrix, capella, deneb, electra,
   eth2_merkleization, eth2_ssz_serialization, forks_light_client,
   presets, capella_mev, deneb_mev
 
