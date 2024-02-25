@@ -17,6 +17,8 @@ import
 
 from std/os import getEnv, osErrorMsg
 
+{.push raises: [].}
+{.pop.}    # TODO want actual revert, so placate linter
 {.used.}
 
 const
