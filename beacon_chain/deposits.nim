@@ -254,7 +254,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
            reason = exc.msg
     quit 1
 
-  debug "Signing fork obtained", fork = fork
+  debug "Signing fork obtained", fork, signingFork
 
   if not config.printData:
     case askForExitConfirmation()
@@ -292,7 +292,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
                                         validatorKeyAsStr,
                                         exitAtEpoch,
                                         validatorIdx,
-                                        fork,
+                                        signingFork,
                                         genesis_validators_root)
 
     if config.printData:
