@@ -447,8 +447,6 @@ iterator getBlockIds*(
       if not getPartialState(
           db, historical_roots, historical_summaries, stateSlot, state[]):
         state = nil # No `return` in iterators
-    of ConsensusFork.Electra:
-      debugRaiseAssert "getBlockIds"
 
     if state == nil:
       break

@@ -293,11 +293,10 @@ type
   OnBellatrixBlockAdded* = OnBlockAdded[bellatrix.TrustedSignedBeaconBlock]
   OnCapellaBlockAdded* = OnBlockAdded[capella.TrustedSignedBeaconBlock]
   OnDenebBlockAdded* = OnBlockAdded[deneb.TrustedSignedBeaconBlock]
-  OnElectraBlockAdded* = OnBlockAdded[electra.TrustedSignedBeaconBlock]
 
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
-    OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded
+    OnCapellaBlockAdded | OnDenebBlockAdded
 
   HeadChangeInfoObject* = object
     slot*: Slot
@@ -329,9 +328,7 @@ type
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
 template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Electra:
-    typedesc[OnElectraBlockAdded]
-  elif kind == ConsensusFork.Deneb:
+  when kind == ConsensusFork.Deneb:
     typedesc[OnDenebBlockAdded]
   elif kind == ConsensusFork.Capella:
     typedesc[OnCapellaBlockAdded]

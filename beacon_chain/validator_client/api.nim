@@ -2259,9 +2259,6 @@ proc publishBlock*(
           publishBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
           publishBlock(it, data.denebData)
-        of ConsensusFork.Electra:
-          debugRaiseAssert "publishBlock RestPublishedSignedBlockContents; denebData will assert via mismatched case object discriminator"
-          publishBlock(it, data.denebData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2307,9 +2304,6 @@ proc publishBlock*(
       of ConsensusFork.Capella:
         publishBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
-        publishBlock(it, data.denebData)
-      of ConsensusFork.Electra:
-        debugRaiseAssert "publishBlock RestPublishedSignedBlockContents; denebData will create invalid case discriminator"
         publishBlock(it, data.denebData)
 
     do:
@@ -2467,9 +2461,6 @@ proc publishBlindedBlock*(
           publishBlindedBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
           publishBlindedBlock(it, data.denebData)
-        of ConsensusFork.Electra:
-          debugRaiseAssert "publishBlindedBlock ForkedSignedBlindedBeaconBlock; denebData mismatches discriminator"
-          publishBlindedBlock(it, data.denebData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2514,9 +2505,6 @@ proc publishBlindedBlock*(
       of ConsensusFork.Capella:
         publishBlindedBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
-        publishBlindedBlock(it, data.denebData)
-      of ConsensusFork.Electra:
-        debugRaiseAssert "publishBlindedBlock ForkedSignedBlindedBeaconBlock; denebData mismatches discriminator"
         publishBlindedBlock(it, data.denebData)
     do:
       if apiResponse.isErr():

@@ -328,7 +328,7 @@ proc newExecutionPayload*(
 proc getExecutionValidity(
     elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-          deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
+          deneb.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
@@ -361,10 +361,9 @@ proc getExecutionValidity(
       blck = shortLog(blck)
     return NewPayloadStatus.noResponse
 
-proc checkBloblessSignature(
-    self: BlockProcessor,
-    signed_beacon_block: deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
-    Result[void, cstring] =
+proc checkBloblessSignature(self: BlockProcessor,
+                            signed_beacon_block: deneb.SignedBeaconBlock):
+                              Result[void, cstring] =
   let dag = self.consensusManager.dag
   let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
     return err("checkBloblessSignature called with orphan block")
@@ -675,9 +674,6 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
-          of ConsensusFork.Electra:
-            debugRaiseAssert "storeBlock, probably will become PayloadAttributesV3"
-            callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
           of ConsensusFork.Deneb:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
           of ConsensusFork.Capella:

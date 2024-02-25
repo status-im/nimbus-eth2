@@ -603,7 +603,6 @@ func kzg_commitment_inclusion_proof_gindex*(
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/ssz/merkle-proofs.md
-  debugRaiseAssert "kzg_commitment_inclusion_proof_gindex; ensure still applies to Electra after whatever changes happen"
   const
     # blob_kzg_commitments
     BLOB_KZG_COMMITMENTS_GINDEX =

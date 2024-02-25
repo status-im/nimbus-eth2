@@ -408,13 +408,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       withBlck(message.blck):
         let data =
-          when consensusFork >= ConsensusFork.Electra:
-            debugRaiseAssert "/eth/v2/validator/blocks/{slot} GET"
-            let blobsBundle = message.blobsBundleOpt.get()
-            deneb.BlockContents(
-              kzg_proofs: blobsBundle.proofs,
-              blobs: blobsBundle.blobs)
-          elif consensusFork >= ConsensusFork.Deneb:
+          when consensusFork >= ConsensusFork.Deneb:
             let blobsBundle = message.blobsBundleOpt.get()
             deneb.BlockContents(
               `block`: forkyBlck,
@@ -528,11 +522,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
 
     withConsensusFork(contextFork):
-      when consensusFork >= ConsensusFork.Electra:
-        debugRaiseAssert "/eth/v1/validator/blinded_blocks/{slot} GET 1"
-        return RestApiResponse.jsonError(
-          Http400, "Electra builder API not yet supported")
-      elif consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Capella:
         let res = await makeBlindedBeaconBlockForHeadAndSlot[
             consensusFork.BlindedBeaconBlock](
           node, payloadBuilderClient, qrandao,
@@ -551,11 +541,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
         withBlck(res.get().blck):
-          when consensusFork >= ConsensusFork.Electra:
-            debugRaiseAssert "/eth/v1/validator/blinded_blocks/{slot} GET 2"
-            return RestApiResponse.jsonError(Http400, "")
-          else:
-            return responseVersioned(forkyBlck, contextFork)
+          return responseVersioned(forkyBlck, contextFork)
 
   func getMaybeBlindedHeaders(
       consensusFork: ConsensusFork,
@@ -646,10 +632,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(node.dag.cfg.consensusForkAtEpoch(qslot.epoch)):
-      when consensusFork >= ConsensusFork.Electra:
-        debugRaiseAssert "/eth/v3/validator/blocks/{slot} GET 1"
-        return RestApiResponse.jsonError(Http500, "")
-      elif consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Capella:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
               consensusFork, qrandao, qgraffiti, qhead, qslot)).valueOr:
