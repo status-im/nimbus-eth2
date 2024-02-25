@@ -226,7 +226,7 @@ func voluntary_exit_signature_fork*(
     Fork(
       previous_version: capella_fork_version,
       current_version: capella_fork_version,
-      epoch: GENESIS_EPOCH)
+      epoch: GENESIS_EPOCH)  # irrelevant when current/previous identical
   else:
     state_fork
 
