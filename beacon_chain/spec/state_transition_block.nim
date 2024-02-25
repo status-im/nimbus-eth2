@@ -379,16 +379,11 @@ proc check_voluntary_exit*(
 
   # Verify signature
   if skipBlsValidation notin flags:
-    let exitSignatureFork =
-      when typeof(state).kind >= ConsensusFork.Deneb:
-        Fork(
-          previous_version: cfg.CAPELLA_FORK_VERSION,
-          current_version: cfg.CAPELLA_FORK_VERSION,
-          epoch: cfg.CAPELLA_FORK_EPOCH)
-      else:
-        state.fork
+    const consensusFork = typeof(state).kind
+    let voluntary_exit_fork = consensusFork.voluntary_exit_signature_fork(
+      state.fork, cfg.CAPELLA_FORK_VERSION)
     if not verify_voluntary_exit_signature(
-        exitSignatureFork, state.genesis_validators_root, voluntary_exit,
+        voluntary_exit_fork, state.genesis_validators_root, voluntary_exit,
         validator[].pubkey, signed_voluntary_exit.signature):
       return err("Exit: invalid signature")
 
