@@ -107,34 +107,6 @@ pipeline {
       } } }
     }
 
-    stage('Finalizations') {
-      stages {  /* parallel builds of minimal / mainnet not yet supported */
-        stage('minimal') {
-          steps { timeout(26) {
-            sh 'make local-testnet-minimal'
-          } }
-          post { always {
-            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
-          } }
-        }
-
-        stage('mainnet') {
-          steps { timeout(62) {
-            sh 'make local-testnet-mainnet'
-          } }
-          post { always {
-            sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/logs/*'
-          } }
-        }
-      }
-      post { always { timeout(5) {
-        archiveArtifacts(
-          artifacts: '*.tar.gz',
-          excludes: '**/geth-*.tar.gz',  /* `scripts/geth_binaries.sh` */
-          allowEmptyArchive: true
-        )
-      } } }
-    }
   }
 
   post {
@@ -144,6 +116,10 @@ pipeline {
         deleteDirs: true
       )
     }
+
+    success { script {
+      build(job: env.JOB_NAME, propagate: false, wait: false)
+    } }
   }
 }
 
