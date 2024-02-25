@@ -561,6 +561,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     let
       qpubkey = pubkey.valueOr:
         return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      currentEpoch = host.getBeaconTimeFn().slotOrZero().epoch()
       qepoch =
         if epoch.isSome():
           let res = epoch.get()
@@ -568,7 +569,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
             return keymanagerApiError(Http400, InvalidEpochValueError)
           res.get()
         else:
-          host.getBeaconTimeFn().slotOrZero().epoch()
+          currentEpoch
       validator =
         block:
           let res = host.validatorPool[].getValidator(qpubkey).valueOr:
@@ -581,10 +582,16 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
                       validator_index: uint64(validator.index.get()))
       fork = host.getForkFn(qepoch).valueOr:
         return keymanagerApiError(Http500, FailedToObtainForkError)
+      capellaForkVersion = host.getCapellaForkVersionFn().valueOr:
+        return keymanagerApiError(Http500, FailedToObtainForkVersionError)
+      denebForkEpoch = host.getDenebForkEpochFn().valueOr:
+        return keymanagerApiError(Http500, FailedToObtainConsensusForkError)
+      signingFork = voluntary_exit_signature_fork(
+        fork, capellaForkVersion, currentEpoch, denebForkEpoch)
       signature =
         try:
           let res = await validator.getValidatorExitSignature(
-            fork, host.getGenesisFn(), voluntaryExit)
+            signingFork, host.getGenesisFn(), voluntaryExit)
           if res.isErr():
             return keymanagerApiError(Http500, res.error())
           res.get()

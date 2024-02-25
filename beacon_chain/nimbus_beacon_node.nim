@@ -758,6 +758,12 @@ proc init*(T: type BeaconNode,
     withState(dag.headState):
       getValidator(forkyState().data.validators.asSeq(), pubkey)
 
+  func getCapellaForkVersion(): Opt[Version] =
+    Opt.some(cfg.CAPELLA_FORK_VERSION)
+
+  func getDenebForkEpoch(): Opt[Epoch] =
+    Opt.some(cfg.DENEB_FORK_EPOCH)
+
   proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
     Opt.some(dag.forkAtEpoch(epoch))
 
@@ -787,6 +793,8 @@ proc init*(T: type BeaconNode,
         config.getPayloadBuilderAddress,
         getValidatorAndIdx,
         getBeaconTime,
+        getCapellaForkVersion,
+        getDenebForkEpoch,
         getForkForEpoch,
         getGenesisRoot)
     else: nil

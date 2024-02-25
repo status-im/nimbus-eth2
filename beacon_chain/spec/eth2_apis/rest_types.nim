@@ -14,8 +14,8 @@
 # carefully!
 
 import
-  std/[json, tables],
-  stew/base10, web3/primitives, httputils,
+  std/[json, strutils, tables],
+  stew/[base10, byteutils], web3/primitives, httputils,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb, electra],
   ".."/mev/[capella_mev, deneb_mev]
@@ -368,6 +368,11 @@ type
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
   VCRuntimeConfig* = Table[string, string]
+  VCForkConfig* = object
+    ALTAIR_FORK_EPOCH*: Epoch
+    CAPELLA_FORK_VERSION*: Opt[Version]
+    CAPELLA_FORK_EPOCH*: Epoch
+    DENEB_FORK_EPOCH*: Epoch
 
   RestDepositContract* = object
     chain_id*: string
@@ -622,6 +627,92 @@ type
     finalized_checkpoint*: Checkpoint
     fork_choice_nodes*: seq[RestNode]
     extra_data*: RestExtraData
+
+func forkVersionConfigKey*(consensusFork: ConsensusFork): string =
+  if consensusFork > ConsensusFork.Phase0:
+    ($consensusFork).toUpperAscii() & "_FORK_VERSION"
+  else:
+    "GENESIS_FORK_VERSION"
+
+func forkEpochConfigKey*(consensusFork: ConsensusFork): string =
+  doAssert consensusFork > ConsensusFork.Phase0
+  ($consensusFork).toUpperAscii() & "_FORK_EPOCH"
+
+proc getOrDefault*(info: VCRuntimeConfig, name: string,
+                   default: uint64): uint64 =
+  let numstr = info.getOrDefault(name, "missing")
+  if numstr == "missing": return default
+  Base10.decode(uint64, numstr).valueOr:
+    return default
+
+proc getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
+  Epoch(info.getOrDefault(name, uint64(default)))
+
+func getForkVersion(
+    info: VCRuntimeConfig,
+    consensusFork: Consensusfork): Result[Opt[Version], string] =
+  let key = consensusFork.forkVersionConfigKey()
+  if not info.hasKey(key):
+    return ok Opt.none(Version)
+  let stringValue =
+    try:
+      info[key]
+    except KeyError:
+      raiseAssert "just checked"
+  var value: Version
+  try:
+    hexToByteArrayStrict(stringValue, distinctBase(value))
+  except ValueError as exc:
+    return err(key & " is invalid: " & exc.msg)
+  ok Opt.some value
+
+func getForkEpoch(info: VCRuntimeConfig, consensusFork: ConsensusFork): Epoch =
+  if consensusFork > ConsensusFork.Phase0:
+    let key = consensusFork.forkEpochConfigKey()
+    info.getOrDefault(key, FAR_FUTURE_EPOCH)
+  else:
+    GENESIS_EPOCH
+
+func getConsensusForkConfig*(
+    info: VCRuntimeConfig): Result[VCForkConfig, string] =
+  ## This extracts all `_FORK_VERSION` and `_FORK_EPOCH` constants
+  ## that are relevant for Validator Client operation.
+  ##
+  ## Note that the fork schedule (`/eth/v1/config/fork_schedule`) cannot be used
+  ## because it does not indicate whether the forks refer to `ConsensusFork` or
+  ## to a different fork sequence from an incompatible network (e.g., devnet)
+  let
+    res = VCForkConfig(
+      ALTAIR_FORK_EPOCH: info.getForkEpoch(ConsensusFork.Altair),
+      CAPELLA_FORK_VERSION: ? info.getForkVersion(ConsensusFork.Capella),
+      CAPELLA_FORK_EPOCH: info.getForkEpoch(ConsensusFork.Capella),
+      DENEB_FORK_EPOCH: info.getForkEpoch(ConsensusFork.Deneb))
+
+  if res.CAPELLA_FORK_EPOCH < res.ALTAIR_FORK_EPOCH:
+    return err(
+      "Fork epochs are inconsistent, " &
+      $ConsensusFork.Capella &
+      " is scheduled at epoch " &
+      $res.CAPELLA_FORK_EPOCH &
+      " which is before prior fork epoch " &
+      $res.ALTAIR_FORK_EPOCH)
+  if res.DENEB_FORK_EPOCH < res.CAPELLA_FORK_EPOCH:
+    return err(
+      "Fork epochs are inconsistent, " &
+      $ConsensusFork.Deneb &
+      " is scheduled at epoch " &
+      $res.DENEB_FORK_EPOCH &
+      " which is before prior fork epoch " &
+      $res.CAPELLA_FORK_EPOCH)
+
+  if res.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH and
+      res.CAPELLA_FORK_VERSION.isNone:
+    return err(
+      "Beacon node has scheduled " &
+      ConsensusFork.Capella.forkEpochConfigKey() &
+      " but does not report " &
+      ConsensusFork.Capella.forkVersionConfigKey())
+  ok res
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)

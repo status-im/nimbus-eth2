@@ -348,6 +348,18 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
   let
     keymanagerInitResult = initKeymanagerServer(vc.config, nil)
 
+  func getCapellaForkVersion(): Opt[Version] =
+    if vc.runtimeConfig.forkConfig.isSome():
+      vc.runtimeConfig.forkConfig.get().CAPELLA_FORK_VERSION
+    else:
+      Opt.none(Version)
+
+  func getDenebForkEpoch(): Opt[Epoch] =
+    if vc.runtimeConfig.forkConfig.isSome():
+      Opt.some(vc.runtimeConfig.forkConfig.get().DENEB_FORK_EPOCH)
+    else:
+      Opt.none(Epoch)
+
   proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
     if len(vc.forks) > 0:
       Opt.some(vc.forkAtEpoch(epoch))
@@ -379,6 +391,8 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         Opt.none(string),
         nil,
         vc.beaconClock.getBeaconTimeFn,
+        getCapellaForkVersion,
+        getDenebForkEpoch,
         getForkForEpoch,
         getGenesisRoot
         )
