@@ -1459,9 +1459,9 @@ proc updateRuntimeConfig*(vc: ValidatorClientRef,
                        $consensusFork & " config value")
 
     ? ConsensusFork.Capella.validateForkVersionCompatibility(
-      localForkConfig.CAPELLA_FORK_VERSION,
-      localForkConfig.CAPELLA_FORK_EPOCH,
-      forkConfig.CAPELLA_FORK_VERSION)
+      localForkConfig.capellaVersion,
+      localForkConfig.capellaEpoch,
+      forkConfig.capellaVersion)
 
     proc validateForkEpochCompatibility(
         consensusFork: ConsensusFork,
@@ -1487,24 +1487,21 @@ proc updateRuntimeConfig*(vc: ValidatorClientRef,
                        $consensusFork & " config value")
 
     ? ConsensusFork.Altair.validateForkEpochCompatibility(
-      localForkConfig.ALTAIR_FORK_EPOCH,
-      forkConfig.ALTAIR_FORK_EPOCH)
+      localForkConfig.altairEpoch, forkConfig.altairEpoch)
     ? ConsensusFork.Capella.validateForkEpochCompatibility(
-      localForkConfig.CAPELLA_FORK_EPOCH,
-      forkConfig.CAPELLA_FORK_EPOCH)
+      localForkConfig.capellaEpoch, forkConfig.capellaEpoch)
     ? ConsensusFork.Deneb.validateForkEpochCompatibility(
-      localForkConfig.DENEB_FORK_EPOCH,
-      forkConfig.DENEB_FORK_EPOCH)
+      localForkConfig.denebEpoch, forkConfig.denebEpoch)
 
     # Save newly discovered forks.
-    if localForkConfig.ALTAIR_FORK_EPOCH == FAR_FUTURE_EPOCH:
-      localForkConfig.ALTAIR_FORK_EPOCH = forkConfig.ALTAIR_FORK_EPOCH
-    if localForkConfig.CAPELLA_FORK_VERSION.isNone():
-      localForkConfig.CAPELLA_FORK_VERSION = forkConfig.CAPELLA_FORK_VERSION
-    if localForkConfig.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH:
-      localForkConfig.CAPELLA_FORK_EPOCH = forkConfig.CAPELLA_FORK_EPOCH
-    if localForkConfig.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH:
-      localForkConfig.DENEB_FORK_EPOCH = forkConfig.DENEB_FORK_EPOCH
+    if localForkConfig.altairEpoch == FAR_FUTURE_EPOCH:
+      localForkConfig.altairEpoch = forkConfig.altairEpoch
+    if localForkConfig.capellaVersion.isNone():
+      localForkConfig.capellaVersion = forkConfig.capellaVersion
+    if localForkConfig.capellaEpoch == FAR_FUTURE_EPOCH:
+      localForkConfig.capellaEpoch = forkConfig.capellaEpoch
+    if localForkConfig.denebEpoch == FAR_FUTURE_EPOCH:
+      localForkConfig.denebEpoch = forkConfig.denebEpoch
 
   ok()
 
