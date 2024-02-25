@@ -210,7 +210,8 @@ proc pollForSyncCommitteeDuties*(
   let
     vc = service.client
     indices = toSeq(vc.attachedValidators[].indices())
-    epoch = max(period.start_epoch(), vc.runtimeConfig.altairEpoch.get())
+    altairEpoch = vc.consensusForkEpoch(ConsensusFork.Altair).get()
+    epoch = max(period.start_epoch(), altairEpoch)
     relevantDuties =
       block:
         var duties: seq[RestSyncCommitteeDuty]
@@ -369,7 +370,7 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
     currentEpoch = currentSlot.epoch()
-    altairEpoch = vc.runtimeConfig.altairEpoch.valueOr:
+    altairEpoch = vc.consensusForkEpoch(ConsensusFork.Altair).valueOr:
       return
 
   if currentEpoch < altairEpoch:

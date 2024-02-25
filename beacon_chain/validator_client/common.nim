@@ -192,7 +192,7 @@ type
     waiters*: seq[BlockWaiter]
 
   ValidatorRuntimeConfig* = object
-    altairEpoch*: Opt[Epoch]
+    forkConfig*: Opt[VCForkConfig]
 
   ValidatorClient* = object
     config*: ValidatorClientConf
@@ -517,16 +517,6 @@ proc equals*(info: VCRuntimeConfig, name: string, check: DomainType): bool =
 
 proc equals*(info: VCRuntimeConfig, name: string, check: Epoch): bool =
   info.equals(name, uint64(check))
-
-proc getOrDefault*(info: VCRuntimeConfig, name: string,
-                   default: uint64): uint64 =
-  let numstr = info.getOrDefault(name, "missing")
-  if numstr == "missing": return default
-  Base10.decode(uint64, numstr).valueOr:
-    return default
-
-proc getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
-  Epoch(info.getOrDefault(name, uint64(default)))
 
 proc checkConfig*(c: VCRuntimeConfig): bool =
   c.equals("MAX_VALIDATORS_PER_COMMITTEE", MAX_VALIDATORS_PER_COMMITTEE) and
@@ -898,6 +888,14 @@ proc getValidatorForDuties*(vc: ValidatorClientRef,
                             key: ValidatorPubKey, slot: Slot,
                             slashingSafe = false): Opt[AttachedValidator] =
   vc.attachedValidators[].getValidatorForDuties(key, slot, slashingSafe)
+
+func consensusForkEpoch*(vc: ValidatorClientRef,
+                         consensusFork: ConsensusFork): Opt[Epoch] =
+  if vc.runtimeConfig.forkConfig.isSome():
+    Opt.some(
+      vc.runtimeConfig.forkConfig.get().consensusForkEpoch(consensusFork))
+  else:
+    Opt.none(Epoch)
 
 proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
   # If schedule is present, it MUST not be empty.
@@ -1436,33 +1434,71 @@ func `==`*(a, b: SyncCommitteeDuty): bool =
 proc updateRuntimeConfig*(vc: ValidatorClientRef,
                           node: BeaconNodeServerRef,
                           info: VCRuntimeConfig): Result[void, string] =
-  if not(info.hasKey("ALTAIR_FORK_EPOCH")):
-    debug "Beacon node's configuration missing ALTAIR_FORK_EPOCH value",
-          node = node
+  var forkConfig = ? info.getConsensusForkConfig()
+  for consensusFork, forkVersion in forkConfig.forkVersions.mpairs():
+    if forkConfig.forkEpochs[consensusFork] == FAR_FUTURE_EPOCH:
+      # Fork is not scheduled and its fork version may still change
+      forkVersion.reset()
 
-  let
-    res = info.getOrDefault("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH)
-    wallEpoch = vc.beaconClock.now().slotOrZero().epoch()
+  if vc.runtimeConfig.forkConfig.isNone():
+    vc.runtimeConfig.forkConfig = Opt.some(forkConfig)
+  else:
+    template localForkConfig: untyped = vc.runtimeConfig.forkConfig.get()
+    let wallEpoch = vc.beaconClock.now().slotOrZero().epoch()
 
-  return
-    if vc.runtimeConfig.altairEpoch.get(FAR_FUTURE_EPOCH) == FAR_FUTURE_EPOCH:
-      vc.runtimeConfig.altairEpoch = Opt.some(res)
-      ok()
-    else:
-      if res == vc.runtimeConfig.altairEpoch.get():
-        ok()
+    # Validate fork version compatibility.
+    for consensusFork, forkVersion in forkConfig.forkVersions:
+      let localForkVersion = localForkConfig.forkVersions[consensusFork]
+      if localForkVersion.isNone():
+        discard  # Potentially discovered new fork, save it at end of function
       else:
-        if res == FAR_FUTURE_EPOCH:
-          if wallEpoch < vc.runtimeConfig.altairEpoch.get():
-            debug "Beacon node must be updated before Altair activates",
-                  node = node,
-                  altairForkEpoch = vc.runtimeConfig.altairEpoch.get()
-            ok()
+        if forkVersion.isSome():
+          if forkVersion.get() == localForkVersion.get():
+            discard  # Already known
           else:
-            err("Beacon node must be updated and report correct " &
-                "ALTAIR_FORK_EPOCH value")
+            return err("Beacon node has conflicting " &
+                       consensusFork.forkVersionConfigKey() & " value")
         else:
-          err("Beacon node has conflicting ALTAIR_FORK_EPOCH value")
+          let localForkEpoch = localForkConfig.forkEpochs[consensusFork]
+          if wallEpoch < localForkEpoch:
+            debug "Beacon node must be updated before fork activates",
+                  node = node,
+                  consensusFork,
+                  forkEpoch = localForkEpoch
+          else:
+            return err("Beacon node must be updated and report correct " &
+                       $consensusFork & " config value")
+
+    # Validate fork epoch compatibility.
+    for consensusFork, forkEpoch in forkConfig.forkEpochs:
+      let localForkEpoch = localForkConfig.forkEpochs[consensusFork]
+      if localForkEpoch == FAR_FUTURE_EPOCH:
+        discard  # Potentially discovered new fork, save it at end of function
+      else:
+        if forkEpoch != FAR_FUTURE_EPOCH:
+          if forkEpoch == localForkEpoch:
+            discard  # Already known
+          else:
+            return err("Beacon node has conflicting " &
+                       consensusFork.forkEpochConfigKey() & " value")
+        else:
+          if wallEpoch < localForkEpoch:
+            debug "Beacon node must be updated before fork activates",
+                  node = node,
+                  consensusFork,
+                  forkEpoch = localForkEpoch
+          else:
+            return err("Beacon node must be updated and report correct " &
+                       $consensusFork & " config value")
+
+    # Save newly discovered forks.
+    for consensusFork, localForkEpoch in localForkConfig.forkEpochs:
+      if localForkEpoch == FAR_FUTURE_EPOCH:
+        localForkConfig.forkVersions[consensusFork] =
+          forkConfig.forkVersions[consensusFork]
+        localForkConfig.forkEpochs[consensusFork] =
+          forkConfig.forkEpochs[consensusFork]
+  ok()
 
 proc `+`*(slot: Slot, epochs: Epoch): Slot =
   slot + uint64(epochs) * SLOTS_PER_EPOCH

@@ -220,33 +220,20 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
            reason = exc.msg
     quit 1
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#voluntary-exits
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
   let signingFork = try:
     let response = await client.getSpecVC()
     if response.status == 200:
-      let
-        spec = response.data.data
-        denebForkEpoch =
-          block:
-            let s = spec.getOrDefault("DENEB_FORK_EPOCH", $FAR_FUTURE_EPOCH)
-            Epoch(Base10.decode(uint64, s).get(uint64(FAR_FUTURE_EPOCH)))
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#voluntary-exits
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
-      if currentEpoch >= denebForkEpoch:
-        let capellaForkVersion =
-          block:
-            var res: Version
-            # CAPELLA_FOR_VERSION has specific format - "0x01000000", so
-            # default empty string is invalid, so `hexToByteArrayStrict`
-            # will raise exception on empty string.
-            let s = spec.getOrDefault("CAPELLA_FORK_VERSION", "")
-            hexToByteArrayStrict(s, distinctBase(res))
-            res
-        Fork(
-          current_version: capellaForkVersion,
-          previous_version: capellaForkVersion,
-          epoch: GENESIS_EPOCH)  # irrelevant when current/previous identical
-      else:
-        fork
+      let forkConfig = response.data.data.getConsensusForkConfig()
+      if forkConfig.isErr:
+        raise newException(RestError, "Invalid config: " & forkConfig.error)
+      let capellaForkVersion =
+        forkConfig.get.consensusForkVersion(ConsensusFork.Capella).valueOr:
+          raise newException(RestError,
+            ConsensusFork.Capella.forkVersionConfigKey() & " missing")
+      withConsensusFork(forkConfig.get.consensusForkAtEpoch(currentEpoch)):
+        consensusFork.voluntary_exit_signature_fork(fork, capellaForkVersion)
     else:
       raise newException(RestError, "Error response (" & $response.status & ")")
   except CatchableError as exc:

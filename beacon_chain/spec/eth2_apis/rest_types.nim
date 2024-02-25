@@ -14,8 +14,8 @@
 # carefully!
 
 import
-  std/[json, tables],
-  stew/base10, web3/primitives, httputils,
+  std/[json, strutils, tables],
+  stew/[base10, byteutils], web3/primitives, httputils,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, deneb, electra],
   ".."/mev/[capella_mev, deneb_mev]
@@ -368,6 +368,11 @@ type
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
   VCRuntimeConfig* = Table[string, string]
+  VCForkVersions = array[ConsensusFork, Opt[Version]]
+  VCForkEpochs = array[ConsensusFork, Epoch]
+  VCForkConfig* = object
+    forkVersions*: VCForkVersions
+    forkEpochs*: VCForkEpochs
 
   RestDepositContract* = object
     chain_id*: string
@@ -622,6 +627,94 @@ type
     finalized_checkpoint*: Checkpoint
     fork_choice_nodes*: seq[RestNode]
     extra_data*: RestExtraData
+
+func forkVersionConfigKey*(consensusFork: ConsensusFork): string =
+  if consensusFork > ConsensusFork.Phase0:
+    ($consensusFork).toUpperAscii() & "_FORK_VERSION"
+  else:
+    "GENESIS_FORK_VERSION"
+
+func forkEpochConfigKey*(consensusFork: ConsensusFork): string =
+  doAssert consensusFork > ConsensusFork.Phase0
+  ($consensusFork).toUpperAscii() & "_FORK_EPOCH"
+
+proc getOrDefault*(info: VCRuntimeConfig, name: string,
+                   default: uint64): uint64 =
+  let numstr = info.getOrDefault(name, "missing")
+  if numstr == "missing": return default
+  Base10.decode(uint64, numstr).valueOr:
+    return default
+
+proc getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
+  Epoch(info.getOrDefault(name, uint64(default)))
+
+func getForkVersions(info: VCRuntimeConfig): Result[VCForkVersions, string] =
+  var res: VCForkVersions
+  for consensusFork in ConsensusFork:
+    let key = consensusFork.forkVersionConfigKey()
+    if not info.hasKey(key):
+      continue
+    let stringValue =
+      try:
+        info[key]
+      except KeyError:
+        raiseAssert "just checked"
+    var value: Version
+    try:
+      hexToByteArrayStrict(stringValue, distinctBase(value))
+    except ValueError as exc:
+      return err(key & " is invalid: " & exc.msg)
+    res[consensusFork] = Opt.some value
+  ok res
+
+func getForkEpochs(info: VCRuntimeConfig): Result[VCForkEpochs, string] =
+  var res {.noinit.}: VCForkEpochs
+  for consensusFork in ConsensusFork:
+    if consensusFork > ConsensusFork.Phase0:
+      let key = consensusFork.forkEpochConfigKey()
+      res[consensusFork] = info.getOrDefault(key, FAR_FUTURE_EPOCH)
+    else:
+      res[consensusFork] = GENESIS_EPOCH
+
+  # Check consistency of the entire fork schedule
+  var lastEpoch = GENESIS_EPOCH
+  for consensusFork, forkEpoch in res:
+    if forkEpoch < lastEpoch:
+      return err(
+        "Fork epochs are inconsistent, " &
+        $consensusFork & " is scheduled at epoch " & $forkEpoch &
+        " which is before prior fork epoch " & $lastEpoch)
+  ok res
+
+func getConsensusForkConfig*(
+    info: VCRuntimeConfig): Result[VCForkConfig, string] =
+  ## This extracts all `_FORK_VERSION` and `_FORK_EPOCH` constants
+  ## that we know about (`ConsensusFork`) from a config.
+  ##
+  ## Note that the fork schedule (`/eth/v1/config/fork_schedule`) cannot be used
+  ## because it does not indicate whether the forks refer to `ConsensusFork` or
+  ## to a different fork sequence from an incompatible network (e.g., devnet)
+  var res = VCForkConfig(
+    forkVersions: ? info.getForkVersions(),
+    forkEpochs: ? info.getForkEpochs())
+  for consensusFork, forkVersion in res.forkVersions:
+    if res.forkEpochs[consensusFork] != FAR_FUTURE_EPOCH and forkVersion.isNone:
+      return err(
+        "Beacon node has scheduled " & consensusFork.forkEpochConfigKey() &
+        " but does not report " & consensusFork.forkVersionConfigKey())
+  ok res
+
+func consensusForkVersion*(
+    forkConfig: VCForkConfig, consensusFork: ConsensusFork): Opt[Version] =
+  forkConfig.forkVersions[consensusFork]
+
+func consensusForkAtEpoch*(
+    forkConfig: VCForkConfig, epoch: Epoch): ConsensusFork =
+  var res = ConsensusFork.high
+  while epoch < forkConfig.forkEpochs[res]:
+    doAssert res > ConsensusFork.Phase0  # epoch cannot be < GENESIS_EPOCH
+    res.dec()
+  res
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)
