@@ -216,6 +216,20 @@ func compute_voluntary_exit_signing_root*(
       fork, DOMAIN_VOLUNTARY_EXIT, epoch, genesis_validators_root)
   compute_signing_root(voluntary_exit, domain)
 
+func voluntary_exit_signature_fork*(
+    consensusFork: static ConsensusFork,
+    state_fork: Fork,
+    capella_fork_version: Version): Fork =
+  when consensusFork >= ConsensusFork.Deneb:
+    # Always use Capella fork version, disregarding `VoluntaryExit` epoch
+    # [Modified in Deneb:EIP7044]
+    Fork(
+      previous_version: capella_fork_version,
+      current_version: capella_fork_version,
+      epoch: GENESIS_EPOCH)
+  else:
+    state_fork
+
 func get_voluntary_exit_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     voluntary_exit: VoluntaryExit,

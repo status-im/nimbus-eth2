@@ -346,19 +346,6 @@ proc process_deposit*(cfg: RuntimeConfig,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
-func voluntary_exit_signature_fork*(
-    cfg: RuntimeConfig,
-    state: ForkyBeaconState): Fork =
-  when typeof(state).kind >= ConsensusFork.Deneb:
-    # Always use Capella fork version, disregarding `VoluntaryExit` epoch
-    # [Modified in Deneb:EIP7044]
-    Fork(
-      previous_version: cfg.CAPELLA_FORK_VERSION,
-      current_version: cfg.CAPELLA_FORK_VERSION,
-      epoch: cfg.CAPELLA_FORK_EPOCH)
-  else:
-    state.fork
-
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
     state: ForkyBeaconState,
@@ -392,9 +379,12 @@ proc check_voluntary_exit*(
 
   # Verify signature
   if skipBlsValidation notin flags:
+    const consensusFork = typeof(state).kind
+    let voluntary_exit_fork = consensusFork.voluntary_exit_signature_fork(
+      state.fork, cfg.CAPELLA_FORK_VERSION)
     if not verify_voluntary_exit_signature(
-        cfg.voluntary_exit_signature_fork(state), state.genesis_validators_root,
-        voluntary_exit, validator[].pubkey, signed_voluntary_exit.signature):
+        voluntary_exit_fork, state.genesis_validators_root, voluntary_exit,
+        validator[].pubkey, signed_voluntary_exit.signature):
       return err("Exit: invalid signature")
 
   # Checked above
