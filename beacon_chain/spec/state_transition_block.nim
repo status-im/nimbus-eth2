@@ -410,7 +410,8 @@ proc process_voluntary_exit*(
   ok()
 
 proc process_bls_to_execution_change*(
-    cfg: RuntimeConfig, state: var (capella.BeaconState | deneb.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   ? check_bls_to_execution_change(
     cfg.genesisFork, state, signed_address_change, {})
@@ -481,7 +482,7 @@ func get_proposer_reward*(participant_reward: Gwei): Gwei =
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#sync-aggregate-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     flags: UpdateFlags,
     cache: var StateCache):
@@ -682,10 +683,67 @@ proc process_execution_payload*(
 
   ok()
 
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+# copy of datatypes/electra.nim
+type SomeElectraBeaconBlockBody =
+  electra.BeaconBlockBody | electra.SigVerifiedBeaconBlockBody |
+  electra.TrustedBeaconBlockBody
+
+# TODO spec ref URL when available
+proc process_execution_payload*(
+    state: var electra.BeaconState, body: SomeElectraBeaconBlockBody,
+    notify_new_payload: electra.ExecutePayload): Result[void, cstring] =
+  template payload: auto = body.execution_payload
+
+  # Verify consistency of the parent hash with respect to the previous
+  # execution payload header
+  if not (payload.parent_hash ==
+      state.latest_execution_payload_header.block_hash):
+    return err("process_execution_payload: payload and state parent hash mismatch")
+
+  # Verify prev_randao
+  if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
+    return err("process_execution_payload: payload and state randomness mismatch")
+
+  # Verify timestamp
+  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+    return err("process_execution_payload: invalid timestamp")
+
+  # [New in Deneb] Verify commitments are under limit
+  if not (lenu64(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK):
+    return err("process_execution_payload: too many KZG commitments")
+
+  # Verify the execution payload is valid
+  if not notify_new_payload(payload):
+    return err("process_execution_payload: execution payload invalid")
+
+  # Cache execution payload header
+  state.latest_execution_payload_header = electra.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals),
+    blob_gas_used: payload.blob_gas_used,
+    excess_blob_gas: payload.excess_blob_gas)
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
-    state: var (capella.BeaconState | deneb.BeaconState),
-    payload: capella.ExecutionPayload | deneb.ExecutionPayload):
+    state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
+    payload: capella.ExecutionPayload | deneb.ExecutionPayload |
+             electra.ExecutionPayload):
     Result[void, cstring] =
   let expected_withdrawals = get_expected_withdrawals(state)
 
@@ -884,6 +942,41 @@ proc process_block*(
     ? process_execution_payload(
         state, blck.body,
         func(_: deneb.ExecutionPayload): bool = true)  # [Modified in Deneb]
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+
+  let
+    total_active_balance = get_total_active_balance(state, cache)
+    base_reward_per_increment =
+      get_base_reward_per_increment(total_active_balance)
+  ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  ? process_sync_aggregate(
+    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#block-processing
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+type SomeElectraBlock =
+  electra.BeaconBlock | electra.SigVerifiedBeaconBlock | electra.TrustedBeaconBlock
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var electra.BeaconState, blck: SomeElectraBlock,
+    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
+
+  ? process_block_header(state, blck, flags, cache)
+
+  # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
+  # true, but intentionally keep such a check.
+  if is_execution_enabled(state, blck.body):
+    ? process_withdrawals(state, blck.body.execution_payload)
+    ? process_execution_payload(
+        state, blck.body,
+        func(_: electra.ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 
