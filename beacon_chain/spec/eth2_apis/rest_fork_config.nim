@@ -12,16 +12,15 @@ import
   stew/[base10, byteutils],
   ../forks
 
-export forks
+from ./rest_types import VCRuntimeConfig
 
-type
-  VCRuntimeConfig* = Table[string, string]
+export forks, rest_types
 
-  VCForkConfig* = object
-    altairEpoch*: Epoch
-    capellaVersion*: Opt[Version]
-    capellaEpoch*: Epoch
-    denebEpoch*: Epoch
+type VCForkConfig* = object
+  altairEpoch*: Epoch
+  capellaVersion*: Opt[Version]
+  capellaEpoch*: Epoch
+  denebEpoch*: Epoch
 
 func forkVersionConfigKey*(consensusFork: ConsensusFork): string =
   if consensusFork > ConsensusFork.Phase0:

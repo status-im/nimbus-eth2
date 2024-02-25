@@ -22,10 +22,8 @@ import
 
 from ".."/datatypes/capella import BeaconBlockBody
 
-from ./rest_fork_config import VCRuntimeConfig
-
 export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
-       tables, httputils, rest_fork_config
+       tables, httputils
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -368,6 +366,8 @@ type
     of ConsensusFork.Electra:   electraData*:   electra.BlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
+
+  VCRuntimeConfig* = Table[string, string]
 
   RestDepositContract* = object
     chain_id*: string
