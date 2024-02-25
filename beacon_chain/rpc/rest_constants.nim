@@ -244,7 +244,7 @@ const
   FailedToObtainForkVersionError* =
     "Failed to obtain fork version"
   FailedToObtainConsensusForkError* =
-    "Failed to obtain ConsensusFork information"
+    "Failed to obtain consensus fork information"
   FailedToObtainForkError* =
     "Failed to obtain fork information"
   InvalidTimestampValue* =
