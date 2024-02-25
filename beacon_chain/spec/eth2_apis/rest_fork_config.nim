@@ -46,7 +46,7 @@ func getForkVersion(
     info: VCRuntimeConfig,
     consensusFork: Consensusfork): Result[Opt[Version], string] =
   let key = consensusFork.forkVersionConfigKey()
-  let stringValue = info.getOrDefault("missing")
+  let stringValue = info.getOrDefault(key, "missing")
   if stringValue == "missing": return ok Opt.none(Version)
   var value: Version
   try:
