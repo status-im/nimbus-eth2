@@ -565,9 +565,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
               Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                 data: blck.denebData.toBeaconBlockHeader),
               proofs)
-        of ConsensusFork.Electra:
-          debugRaiseAssert "getBlockSignature 2"
-          default(Web3SignerRequest)
       elif blck is capella_mev.BlindedBeaconBlock:
         case v.data.remoteType
         of RemoteSignerType.Web3Signer:
@@ -671,9 +668,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                   Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                     data: forkyMaybeBlindedBlck.`block`.toBeaconBlockHeader),
                       proofs)
-          elif consensusFork == ConsensusFork.Electra:
-            debugRaiseAssert "getBlockSignature 1"
-            default(Web3SignerRequest)
       else:
         case blck.kind
         of ConsensusFork.Phase0, ConsensusFork.Altair:
@@ -717,9 +711,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
               Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                 data: blck.denebData.toBeaconBlockHeader),
               proofs)
-        of ConsensusFork.Electra:
-          debugRaiseAssert "getBlockSignature"
-          return SignatureResult.err("Invalid beacon block fork version")
     await v.signData(web3signerRequest)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/validator.md#aggregate-signature

@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra],
+  ./datatypes/[phase0, altair, bellatrix, capella, deneb],
   ./eth2_merkleization
 
 type
@@ -957,14 +957,9 @@ func toLightClientHeader*(
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock |
-      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
-      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock,
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock,
     kind: static LightClientDataFork): auto =
-  when  blck is electra.SignedBeaconBlock or
-        blck is electra.TrustedSignedBeaconBlock:
-    debugRaiseAssert "toLightClientHeader"
-    default(deneb.LightClientHeader)
-  elif kind == LightClientDataFork.Deneb:
+  when kind == LightClientDataFork.Deneb:
     blck.toDenebLightClientHeader()
   elif kind == LightClientDataFork.Capella:
     blck.toCapellaLightClientHeader()

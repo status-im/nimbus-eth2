@@ -483,8 +483,7 @@ func init(
 func init(
     T: type AttestationCache,
     state: altair.HashedBeaconState | bellatrix.HashedBeaconState |
-           capella.HashedBeaconState | deneb.HashedBeaconState |
-           electra.HashedBeaconState,
+           capella.HashedBeaconState | deneb.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let

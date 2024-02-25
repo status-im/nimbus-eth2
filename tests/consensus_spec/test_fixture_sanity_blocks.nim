@@ -94,5 +94,4 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
         RandomDir, suiteName, path)
 
 withAll(ConsensusFork):
-  when consensusFork != ConsensusFork.Electra:
-    runForkBlockTests(consensusFork)
+  runForkBlockTests(consensusFork)

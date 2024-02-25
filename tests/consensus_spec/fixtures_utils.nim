@@ -47,12 +47,6 @@ func readValue*(r: var JsonReader, a: var seq[byte]) =
 func genesisTestRuntimeConfig*(consensusFork: ConsensusFork): RuntimeConfig =
   var res = defaultRuntimeConfig
   case consensusFork
-  of ConsensusFork.Electra:
-    res.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
-    res.DENEB_FORK_EPOCH = GENESIS_EPOCH
-    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
-    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
   of ConsensusFork.Deneb:
     res.DENEB_FORK_EPOCH = GENESIS_EPOCH
     res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
