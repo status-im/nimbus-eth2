@@ -235,7 +235,7 @@ proc collectSignatureSets*(
        validatorKeys: openArray[ImmutableValidatorData2],
        state: ForkedHashedBeaconState,
        genesis_fork: Fork,
-       capella_fork: Fork,
+       voluntary_exit_fork: Fork,
        cache: var StateCache): Result[void, cstring] =
   ## Collect all signature verifications that process_block would normally do
   ## except deposits, in one go.
@@ -396,11 +396,7 @@ proc collectSignatureSets*(
     sigs.add voluntary_exit_signature_set(
       # https://eips.ethereum.org/EIPS/eip-7044
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
-      (if state.kind >= ConsensusFork.Capella:
-         capella_fork
-       else:
-         fork),
-      genesis_validators_root, volex.message, key,
+      voluntary_exit_fork, genesis_validators_root, volex.message, key,
       volex.signature.load.valueOr do:
         return err(
           "collectSignatureSets: cannot load voluntary exit signature"))

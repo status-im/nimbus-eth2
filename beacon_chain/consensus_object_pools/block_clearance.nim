@@ -13,7 +13,7 @@ import
   stew/assign2,
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
-    state_transition, state_transition_epoch],
+    state_transition, state_transition_block, state_transition_epoch],
   "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
 
 from ../spec/datatypes/capella import asSigVerified, asTrusted, shortLog
@@ -285,7 +285,9 @@ proc addHeadBlockWithParent*(
     var sigs: seq[SignatureSet]
     if (let e = sigs.collectSignatureSets(
         signedBlock, dag.db.immutableValidators,
-        dag.clearanceState, dag.cfg.genesisFork(), dag.cfg.capellaFork(),
+        dag.clearanceState, dag.cfg.genesisFork(),
+        withState(dag.clearanceState,
+          dag.cfg.voluntary_exit_signature_fork(forkyState.data)),
         cache); e.isErr()):
       # A PublicKey or Signature isn't on the BLS12-381 curve
       info "Unable to load signature sets",
