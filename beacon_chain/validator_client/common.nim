@@ -1440,23 +1440,24 @@ proc updateRuntimeConfig*(vc: ValidatorClientRef,
         localForkEpoch: Epoch,
         forkVersion: Opt[Version]): Result[void, string] =
       if localForkVersion.isNone():
-        discard  # Potentially discovered new fork, save it at end of function
+        ok()  # Potentially discovered new fork, save it at end of function
       else:
         if forkVersion.isSome():
           if forkVersion.get() == localForkVersion.get():
-            discard  # Already known
+            ok()  # Already known
           else:
-            return err("Beacon node has conflicting " &
-                       consensusFork.forkVersionConfigKey() & " value")
+            err("Beacon node has conflicting " &
+                consensusFork.forkVersionConfigKey() & " value")
         else:
           if wallEpoch < localForkEpoch:
             debug "Beacon node must be updated before fork activates",
                   node = node,
                   consensusFork,
                   forkEpoch = localForkEpoch
+            ok()
           else:
-            return err("Beacon node must be updated and report correct " &
-                       $consensusFork & " config value")
+            err("Beacon node must be updated and report correct " &
+                $consensusFork & " config value")
 
     ? ConsensusFork.Capella.validateForkVersionCompatibility(
       localForkConfig.capellaVersion,
@@ -1468,23 +1469,24 @@ proc updateRuntimeConfig*(vc: ValidatorClientRef,
         localForkEpoch: Epoch,
         forkEpoch: Epoch): Result[void, string] =
       if localForkEpoch == FAR_FUTURE_EPOCH:
-        discard  # Potentially discovered new fork, save it at end of function
+        ok()  # Potentially discovered new fork, save it at end of function
       else:
         if forkEpoch != FAR_FUTURE_EPOCH:
           if forkEpoch == localForkEpoch:
-            discard  # Already known
+            ok()  # Already known
           else:
-            return err("Beacon node has conflicting " &
-                       consensusFork.forkEpochConfigKey() & " value")
+            err("Beacon node has conflicting " &
+                consensusFork.forkEpochConfigKey() & " value")
         else:
           if wallEpoch < localForkEpoch:
             debug "Beacon node must be updated before fork activates",
                   node = node,
                   consensusFork,
                   forkEpoch = localForkEpoch
+            ok()
           else:
-            return err("Beacon node must be updated and report correct " &
-                       $consensusFork & " config value")
+            err("Beacon node must be updated and report correct " &
+                $consensusFork & " config value")
 
     ? ConsensusFork.Altair.validateForkEpochCompatibility(
       localForkConfig.altairEpoch, forkConfig.altairEpoch)
