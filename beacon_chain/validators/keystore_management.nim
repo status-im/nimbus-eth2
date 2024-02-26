@@ -73,6 +73,10 @@ type
     proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
          {.raises: [], gcsafe.}
 
+  GetCapellaForkVersionFn* =
+    proc (): Opt[Version] {.raises: [], gcsafe.}
+  GetDenebForkEpochFn* =
+    proc (): Opt[Epoch] {.raises: [], gcsafe.}
   GetForkFn* =
     proc (epoch: Epoch): Opt[Fork] {.raises: [], gcsafe.}
   GetGenesisFn* =
@@ -90,6 +94,8 @@ type
     defaultBuilderAddress*: Opt[string]
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
+    getCapellaForkVersionFn*: GetCapellaForkVersionFn
+    getDenebForkEpochFn*: GetDenebForkEpochFn
     getForkFn*: GetForkFn
     getGenesisFn*: GetGenesisFn
 
@@ -122,6 +128,8 @@ func init*(T: type KeymanagerHost,
            defaultBuilderAddress: Opt[string],
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
            getBeaconTimeFn: GetBeaconTimeFn,
+           getCapellaForkVersionFn: GetCapellaForkVersionFn,
+           getDenebForkEpochFn: GetDenebForkEpochFn,
            getForkFn: GetForkFn,
            getGenesisFn: GetGenesisFn): T =
   T(validatorPool: validatorPool,
@@ -135,6 +143,8 @@ func init*(T: type KeymanagerHost,
     defaultBuilderAddress: defaultBuilderAddress,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
     getBeaconTimeFn: getBeaconTimeFn,
+    getCapellaForkVersionFn: getCapellaForkVersionFn,
+    getDenebForkEpochFn: getDenebForkEpochFn,
     getForkFn: getForkFn,
     getGenesisFn: getGenesisFn)
 

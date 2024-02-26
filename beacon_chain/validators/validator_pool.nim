@@ -22,6 +22,7 @@ import
 
 export
   streams, keystore, phase0, altair, tables, uri, crypto,
+  signatures.voluntary_exit_signature_fork,
   rest_types, eth2_rest_serialization, rest_remote_signer_calls,
   slashing_protection
 

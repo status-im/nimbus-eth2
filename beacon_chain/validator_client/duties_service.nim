@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import std/[sets, sequtils]
 import chronicles, metrics
 import "."/[common, api, block_service, selection_proofs]
@@ -210,7 +212,8 @@ proc pollForSyncCommitteeDuties*(
   let
     vc = service.client
     indices = toSeq(vc.attachedValidators[].indices())
-    epoch = max(period.start_epoch(), vc.runtimeConfig.altairEpoch.get())
+    altairEpoch = vc.runtimeConfig.forkConfig.get().altairEpoch
+    epoch = max(period.start_epoch(), altairEpoch)
     relevantDuties =
       block:
         var duties: seq[RestSyncCommitteeDuty]
@@ -369,8 +372,11 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
     currentEpoch = currentSlot.epoch()
-    altairEpoch = vc.runtimeConfig.altairEpoch.valueOr:
-      return
+    altairEpoch =
+      if vc.runtimeConfig.forkConfig.isSome():
+        vc.runtimeConfig.forkConfig.get().altairEpoch
+      else:
+        return
 
   if currentEpoch < altairEpoch:
     # We are not going to poll for sync committee duties until `altairEpoch`.
