@@ -4014,7 +4014,7 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
           Opt.none(Uint256)
         else:
           try:
-            Opt.some parse(headerPayloadValue, UInt256, 10)
+            Opt.some parse(headerConsensusValue, UInt256, 10)
           except ValueError:
             return err("Incorrect `Eth-Consensus-Block-Value` header value")
     withConsensusFork(fork):
