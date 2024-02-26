@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import std/[strutils, sequtils]
@@ -50,8 +51,8 @@ proc collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   # the BlockProcessor and this test
   proc verify(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
               maybeFinalized: bool):
-      Future[Result[void, VerifierError]] =
-    let fut = newFuture[Result[void, VerifierError]]()
+      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+    let fut = Future[Result[void, VerifierError]].Raising([CancelledError]).init()
     try: queue.addLastNoWait(BlockEntry(blck: signedBlock, resfut: fut))
     except CatchableError as exc: raiseAssert exc.msg
     return fut

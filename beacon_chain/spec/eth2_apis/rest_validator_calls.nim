@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -43,6 +44,15 @@ proc produceBlockV2Plain*(
      rest, endpoint: "/eth/v2/validator/blocks/{slot}",
      accept: preferSSZ, meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
+
+proc produceBlockV3Plain*(
+       slot: Slot,
+       randao_reveal: ValidatorSig,
+       graffiti: GraffitiBytes
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v3/validator/blocks/{slot}",
+     accept: preferSSZ, meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV3
 
 proc produceBlindedBlockPlain*(
        slot: Slot,

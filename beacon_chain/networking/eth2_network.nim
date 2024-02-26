@@ -346,7 +346,7 @@ proc openStream(node: Eth2Node,
   try:
     ok await dial(node.switch, peer.peerId, protocolId)
   except LPError as exc:
-    debug "Dialling failed", exc = exc.msg
+    debug "Dialing failed", exc = exc.msg
     neterr BrokenConnection
   except CancelledError as exc:
     raise exc

@@ -85,7 +85,8 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[seq[BlobSidecar]]): Future[RouteBlockResult] {.async.} =
+    blobsOpt: Opt[seq[BlobSidecar]]):
+    Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
@@ -191,7 +192,8 @@ proc routeSignedBeaconBlock*(
 
 proc routeAttestation*(
     router: ref MessageRouter, attestation: Attestation,
-    subnet_id: SubnetId, checkSignature: bool): Future[SendResult] {.async.} =
+    subnet_id: SubnetId, checkSignature: bool):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
   ## the attestation pool
   block:
@@ -222,7 +224,7 @@ proc routeAttestation*(
 
 proc routeAttestation*(
     router: ref MessageRouter, attestation: Attestation):
-    Future[SendResult] {.async.} =
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   # Compute subnet, then route attestation
   let
     target = router[].dag.getBlockRef(attestation.data.target.root).valueOr:
@@ -252,7 +254,7 @@ proc routeAttestation*(
 proc routeSignedAggregateAndProof*(
     router: ref MessageRouter, proof: SignedAggregateAndProof,
     checkSignature = true):
-    Future[SendResult] {.async.} =
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
   block:
     # Because the aggregate was (most likely) produced by this beacon node,
@@ -292,7 +294,8 @@ proc routeSignedAggregateAndProof*(
 proc routeSyncCommitteeMessage*(
     router: ref MessageRouter, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    checkSignature: bool): Future[SendResult] {.async.} =
+    checkSignature: bool):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = await router[].processor.processSyncCommitteeMessage(
       MsgSource.api, msg, subcommitteeIdx, checkSignature)
@@ -325,7 +328,7 @@ proc routeSyncCommitteeMessage*(
 
 proc routeSyncCommitteeMessages*(
     router: ref MessageRouter, msgs: seq[SyncCommitteeMessage]):
-    Future[seq[SendResult]] {.async.} =
+    Future[seq[SendResult]] {.async: (raises: [CancelledError]).} =
   return withState(router[].dag.headState):
     when consensusFork >= ConsensusFork.Altair:
       var statuses = newSeq[Opt[SendResult]](len(msgs))
@@ -382,13 +385,13 @@ proc routeSyncCommitteeMessages*(
 
       for index, future in pending:
         if future.completed():
-          let fres = future.read()
+          let fres = future.value()
           if fres.isErr():
             statuses[indices[index]] = Opt.some(SendResult.err(fres.error()))
           else:
             statuses[indices[index]] = Opt.some(SendResult.ok())
         elif future.failed() or future.cancelled():
-          let exc = future.readError()
+          let exc = future.error()
           debug "Unexpected failure while sending committee message",
             message = msgs[indices[index]], error = $exc.msg
           statuses[indices[index]] = Opt.some(SendResult.err(
@@ -410,7 +413,8 @@ proc routeSyncCommitteeMessages*(
 proc routeSignedContributionAndProof*(
     router: ref MessageRouter,
     msg: SignedContributionAndProof,
-    checkSignature: bool): Future[SendResult] {.async.} =
+    checkSignature: bool):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = await router[].processor.processSignedContributionAndProof(
       MsgSource.api, msg)
@@ -445,7 +449,7 @@ proc routeSignedContributionAndProof*(
 
 proc routeSignedVoluntaryExit*(
     router: ref MessageRouter, exit: SignedVoluntaryExit):
-    Future[SendResult] {.async.} =
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res =
       router[].processor[].processSignedVoluntaryExit(MsgSource.api, exit)
@@ -465,7 +469,7 @@ proc routeSignedVoluntaryExit*(
 
 proc routeAttesterSlashing*(
     router: ref MessageRouter, slashing: AttesterSlashing):
-    Future[SendResult] {.async.} =
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res =
       router[].processor[].processAttesterSlashing(MsgSource.api, slashing)
@@ -486,7 +490,7 @@ proc routeAttesterSlashing*(
 
 proc routeProposerSlashing*(
     router: ref MessageRouter, slashing: ProposerSlashing):
-    Future[SendResult] {.async.} =
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res =
       router[].processor[].processProposerSlashing(MsgSource.api, slashing)
@@ -508,7 +512,7 @@ proc routeProposerSlashing*(
 proc routeBlsToExecutionChange*(
     router: ref MessageRouter,
     bls_to_execution_change: SignedBLSToExecutionChange):
-    Future[SendResult] {.async.} =
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = await router.processor.processBlsToExecutionChange(
       MsgSource.api, bls_to_execution_change)

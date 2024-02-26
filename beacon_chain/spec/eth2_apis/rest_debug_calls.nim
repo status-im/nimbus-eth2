@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -12,6 +13,12 @@ import
   "."/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
+
+proc getDebugChainHeadsV2*(): RestResponse[GetDebugChainHeadsV2Response] {.
+     rest, endpoint: "/eth/v2/debug/beacon/heads",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getDebugChainHeadsV2
+
 
 proc getStateV2Plain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",

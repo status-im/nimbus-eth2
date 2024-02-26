@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/[tables, os, sets, sequtils, strutils, uri, algorithm],
   results,
@@ -114,7 +116,8 @@ type
     NoTimeCheck
 
   RestBeaconNodeFeature* {.pure.} = enum
-    NoNimbusExtensions  ## BN do not supports Nimbus Extensions
+    NoNimbusExtensions, ## BN does not support Nimbus Extensions
+    NoProduceBlockV3    ## BN does not support produceBlockV3 call
 
   TimeOffset* = object
     value: int64
@@ -740,7 +743,10 @@ proc normalizeUri*(r: Uri): Result[Uri, cstring] =
 
 proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
   let
-    flags = {RestClientFlag.CommaSeparatedArray}
+    flags = {
+      RestClientFlag.CommaSeparatedArray,
+      RestClientFlag.ResolveAlways
+    }
     socketFlags = {SocketFlags.TcpNoDelay}
     address = ? getHttpAddress(uri)
     client = RestClientRef.new(address, flags = flags,
@@ -1041,12 +1047,12 @@ proc getValidatorRegistration(
     if sigfut.finished():
       # This is short-path if we able to create signature locally.
       if not(sigfut.completed()):
-        let exc = sigfut.readError()
+        let exc = sigfut.error()
         debug "Got unexpected exception while signing validator registration",
               validator = shortLog(validator), error_name = $exc.name,
               error_msg = $exc.msg
         return err(RegistrationKind.ErrorSignature)
-      let sigres = sigfut.read()
+      let sigres = sigfut.value()
       if sigres.isErr():
         debug "Failed to get signature for validator registration",
               validator = shortLog(validator), error = sigres.error()

@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/tables,
   metrics, chronicles,
@@ -14,8 +16,6 @@ import
 
 # TODO when forks re-exports capella, drop this
 from ../spec/datatypes/capella import shortLog
-
-{.push raises: [].}
 
 logScope: topics = "val_mon"
 

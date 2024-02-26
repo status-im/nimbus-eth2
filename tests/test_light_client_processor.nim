@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -17,6 +18,8 @@ import
   ../beacon_chain/spec/[beacon_time, light_client_sync, state_transition],
   # Test utilities
   ./testutil, ./testdbutil
+
+from ./testbcutil import addHeadBlock
 
 suite "Light client processor" & preset():
   const  # Test config, should be long enough to cover interesting transitions

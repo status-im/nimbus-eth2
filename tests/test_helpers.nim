@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -21,12 +22,17 @@ import
 suite "Spec helpers":
   test "integer_squareroot":
     check:
-      integer_squareroot(0'u64) == 0'u64
       integer_squareroot(1'u64) == 1'u64
       integer_squareroot(2'u64) == 1'u64
       integer_squareroot(3'u64) == 1'u64
       integer_squareroot(4'u64) == 2'u64
       integer_squareroot(5'u64) == 2'u64
+
+      # https://github.com/ethereum/consensus-specs/pull/3600
+      integer_squareroot(0'u64) == 0'u64
+      integer_squareroot(100'u64) == 10'u64
+      integer_squareroot(18446744073709551614'u64) == 4294967295'u64
+      integer_squareroot(18446744073709551615'u64) == 4294967295'u64
 
   test "build_proof - BeaconState":
     var

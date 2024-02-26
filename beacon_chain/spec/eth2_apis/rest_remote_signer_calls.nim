@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -91,10 +92,10 @@ proc signDataPlain*(identifier: ValidatorPubKey,
 proc init(t: typedesc[Web3SignerError], kind: Web3SignerErrorKind,
           message: string): Web3SignerError =
   Web3SignerError(kind: kind, message: message)
-
 proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
                body: Web3SignerRequest
-              ): Future[Web3SignerDataResponse] {.async.} =
+              ): Future[Web3SignerDataResponse]
+              {.async: (raises: [CancelledError]).} =
   inc(nbc_remote_signer_requests)
 
   let
@@ -111,124 +112,118 @@ proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
       except RestError as exc:
         return Web3SignerDataResponse.err(
           Web3SignerError.init(Web3SignerErrorKind.CommError, $exc.msg))
-      except CancelledError as exc:
-        raise exc
-      except CatchableError as exc:
-        return Web3SignerDataResponse.err(
-          Web3SignerError.init(Web3SignerErrorKind.UnexpectedError, $exc.msg))
 
-  return
-    case response.status
-    of 200:
-      inc(nbc_remote_signer_200_responses)
-      let sig =
-        if response.contentType.isNone() or
-           isWildCard(response.contentType.get().mediaType):
-          inc(nbc_remote_signer_failures)
-          return Web3SignerDataResponse.err(
-            Web3SignerError.init(
-              Web3SignerErrorKind.InvalidContentType,
-              "Unable to decode signature from missing or incorrect content"
-            )
-          )
-        else:
-          let mediaType = response.contentType.get().mediaType
-          if mediaType == TextPlainMediaType:
-            let
-              asStr = fromBytes(string, response.data)
-              sigFromText = fromHex(ValidatorSig, asStr).valueOr:
-                inc(nbc_remote_signer_failures)
-                return Web3SignerDataResponse.err(
-                  Web3SignerError.init(
-                    Web3SignerErrorKind.InvalidPlain,
-                    "Unable to decode signature from plain text"
-                  )
-                )
-            sigFromText.load()
-          else:
-            let res = decodeBytes(Web3SignerSignatureResponse, response.data,
-                                  response.contentType).valueOr:
-              inc(nbc_remote_signer_failures)
-              return Web3SignerDataResponse.err(
-                Web3SignerError.init(
-                  Web3SignerErrorKind.InvalidContent,
-                  "Unable to decode remote signer response [" & $error & "]"
-                )
-              )
-            res.signature.load()
-
-      if sig.isNone():
+  case response.status
+  of 200:
+    inc(nbc_remote_signer_200_responses)
+    let sig = block:
+      if response.contentType.isNone() or
+          isWildCard(response.contentType.get().mediaType):
         inc(nbc_remote_signer_failures)
         return Web3SignerDataResponse.err(
           Web3SignerError.init(
-            Web3SignerErrorKind.InvalidSignature,
-            "Remote signer returns invalid signature"
+            Web3SignerErrorKind.InvalidContentType,
+            "Unable to decode signature from missing or incorrect content"
           )
         )
 
-      inc(nbc_remote_signer_signatures)
-      Web3SignerDataResponse.ok(sig.get())
-    of 400:
-      inc(nbc_remote_signer_400_responses)
-      let message =
-        block:
-          let res = decodeBytes(Web3SignerErrorResponse, response.data,
-                                response.contentType)
-          if res.isErr():
-            "Remote signer returns 400 Bad Request Format Error"
-          else:
-            res.get().error
-      Web3SignerDataResponse.err(
-        Web3SignerError.init(Web3SignerErrorKind.Error400, message))
-    of 404:
-      inc(nbc_remote_signer_404_responses)
-      let message =
-        block:
-          let res = decodeBytes(Web3SignerErrorResponse, response.data,
-                                response.contentType)
-          if res.isErr():
-            "Remote signer returns 404 Validator's Key Not Found Error"
-          else:
-            res.get().error
-      Web3SignerDataResponse.err(
-        Web3SignerError.init(Web3SignerErrorKind.Error404, message))
-    of 412:
-      inc(nbc_remote_signer_412_responses)
-      let message =
-        block:
-          let res = decodeBytes(Web3SignerErrorResponse, response.data,
-                                response.contentType)
-          if res.isErr():
-            "Remote signer returns 412 Slashing Protection Error"
-          else:
-            res.get().error
-      Web3SignerDataResponse.err(
-        Web3SignerError.init(Web3SignerErrorKind.Error412, message))
-    of 500:
-      inc(nbc_remote_signer_500_responses)
-      let message =
-        block:
-          let res = decodeBytes(Web3SignerErrorResponse, response.data,
-                                response.contentType)
-          if res.isErr():
-            "Remote signer returns 500 Internal Server Error"
-          else:
-            res.get().error
-      Web3SignerDataResponse.err(
-        Web3SignerError.init(Web3SignerErrorKind.Error500, message))
-    else:
-      inc(nbc_remote_signer_unknown_responses)
-      let message =
-        block:
-          let res = decodeBytes(Web3SignerErrorResponse, response.data,
-                                response.contentType)
-          if res.isErr():
-            "Remote signer returns unexpected status code " &
-              Base10.toString(uint64(response.status))
-          else:
-            res.get().error
-      Web3SignerDataResponse.err(
-        Web3SignerError.init(Web3SignerErrorKind.UknownStatus, message))
+      let mediaType = response.contentType.get().mediaType
+      if mediaType == TextPlainMediaType:
+        let
+          asStr = fromBytes(string, response.data)
+          sigFromText = fromHex(ValidatorSig, asStr).valueOr:
+            inc(nbc_remote_signer_failures)
+            return Web3SignerDataResponse.err(
+              Web3SignerError.init(
+                Web3SignerErrorKind.InvalidPlain,
+                "Unable to decode signature from plain text"
+              )
+            )
+        sigFromText.load()
+      else:
+        let res = decodeBytes(Web3SignerSignatureResponse, response.data,
+                              response.contentType).valueOr:
+          inc(nbc_remote_signer_failures)
+          return Web3SignerDataResponse.err(
+            Web3SignerError.init(
+              Web3SignerErrorKind.InvalidContent,
+              "Unable to decode remote signer response [" & $error & "]"
+            )
+          )
+        res.signature.load()
+
+    if sig.isNone():
+      inc(nbc_remote_signer_failures)
+      return Web3SignerDataResponse.err(
+        Web3SignerError.init(
+          Web3SignerErrorKind.InvalidSignature,
+          "Remote signer returns invalid signature"
+        )
+      )
+
+    inc(nbc_remote_signer_signatures)
+    Web3SignerDataResponse.ok(sig.get())
+  of 400:
+    inc(nbc_remote_signer_400_responses)
+    let message =
+      block:
+        let res = decodeBytes(Web3SignerErrorResponse, response.data,
+                              response.contentType)
+        if res.isErr():
+          "Remote signer returns 400 Bad Request Format Error"
+        else:
+          res.get().error
+    Web3SignerDataResponse.err(
+      Web3SignerError.init(Web3SignerErrorKind.Error400, message))
+  of 404:
+    inc(nbc_remote_signer_404_responses)
+    let message =
+      block:
+        let res = decodeBytes(Web3SignerErrorResponse, response.data,
+                              response.contentType)
+        if res.isErr():
+          "Remote signer returns 404 Validator's Key Not Found Error"
+        else:
+          res.get().error
+    Web3SignerDataResponse.err(
+      Web3SignerError.init(Web3SignerErrorKind.Error404, message))
+  of 412:
+    inc(nbc_remote_signer_412_responses)
+    let message =
+      block:
+        let res = decodeBytes(Web3SignerErrorResponse, response.data,
+                              response.contentType)
+        if res.isErr():
+          "Remote signer returns 412 Slashing Protection Error"
+        else:
+          res.get().error
+    Web3SignerDataResponse.err(
+      Web3SignerError.init(Web3SignerErrorKind.Error412, message))
+  of 500:
+    inc(nbc_remote_signer_500_responses)
+    let message =
+      block:
+        let res = decodeBytes(Web3SignerErrorResponse, response.data,
+                              response.contentType)
+        if res.isErr():
+          "Remote signer returns 500 Internal Server Error"
+        else:
+          res.get().error
+    Web3SignerDataResponse.err(
+      Web3SignerError.init(Web3SignerErrorKind.Error500, message))
+  else:
+    inc(nbc_remote_signer_unknown_responses)
+    let message =
+      block:
+        let res = decodeBytes(Web3SignerErrorResponse, response.data,
+                              response.contentType)
+        if res.isErr():
+          "Remote signer returns unexpected status code " &
+            Base10.toString(uint64(response.status))
+        else:
+          res.get().error
+    Web3SignerDataResponse.err(
+      Web3SignerError.init(Web3SignerErrorKind.UknownStatus, message))
 
 proc signData*(
        client: RestClientRef,
@@ -236,7 +231,7 @@ proc signData*(
        timerFut: Future[void],
        attemptsCount: int,
        body: Web3SignerRequest
-     ): Future[Web3SignerDataResponse] {.async.} =
+     ): Future[Web3SignerDataResponse] {.async: (raises: [CancelledError]).} =
   doAssert(attemptsCount >= 1)
 
   const BackoffTimeouts = [
@@ -249,14 +244,17 @@ proc signData*(
 
   while true:
     var
-      operationFut: Future[Web3SignerDataResponse]
+      operationFut: Future[Web3SignerDataResponse].Raising([CancelledError])
       lastError: Opt[Web3SignerError]
     try:
       operationFut = signData(client, identifier, body)
       if isNil(timerFut):
         await allFutures(operationFut)
       else:
-        discard await race(timerFut, operationFut)
+        try:
+          discard await race(timerFut, operationFut)
+        except ValueError:
+          raiseAssert "race precondition satisfied"
     except CancelledError as exc:
       if not(operationFut.finished()):
         await operationFut.cancelAndWait()
@@ -275,7 +273,7 @@ proc signData*(
           )
         )
     else:
-      let resp = operationFut.read()
+      let resp = await operationFut
       if resp.isOk():
         return resp
 

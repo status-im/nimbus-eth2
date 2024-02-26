@@ -30,7 +30,7 @@ export
   eth1_chain, el_conf, engine_api, base
 
 logScope:
-  topics = "elmon"
+  topics = "elman"
 
 type
   PubKeyBytes = DynamicBytes[48, 48]
@@ -158,7 +158,7 @@ type
       ## reconnecting after a lost connetion. You can wait on
       ## the future below for the moment the connection is active.
 
-    connectingFut: Future[Result[Web3, string]]
+    connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
       ## This future will be replaced when the connection is lost.
 
     etcStatus: EtcStatus
@@ -580,8 +580,9 @@ proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
           getJsonRpcRequestHeaders(engineUrl.jwtSecret),
           httpFlags = {HttpClientFlag.NewConnectionAlways})
 
-proc establishEngineApiConnection*(url: EngineApiUrl):
-                                   Future[Result[Web3, string]] {.async.} =
+proc establishEngineApiConnection(url: EngineApiUrl):
+                                  Future[Result[Web3, string]] {.
+                                  async: (raises: [CancelledError]).} =
   try:
     ok(await newWeb3(url).wait(engineApiConnectionTimeout))
   except AsyncTimeoutError:
@@ -589,9 +590,10 @@ proc establishEngineApiConnection*(url: EngineApiUrl):
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
-    err "Engine API connection failed: " & exc.msg
+    err exc.msg
 
-proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
+proc tryConnecting(connection: ELConnection): Future[bool] {.
+    async: (raises: [CancelledError]).} =
   if connection.isConnected:
     return true
 
@@ -601,12 +603,14 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
 
   let web3Res = await connection.connectingFut
   if web3Res.isErr:
+    warn "Engine API connection failed", err = web3Res.error
     return false
   else:
     connection.web3 = some web3Res.get
     return true
 
-proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.async.} =
+proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
+    async: (raises: [CancelledError]).} =
   while not connection.isConnected:
     if not await connection.tryConnecting():
       await sleepAsync(chronos.seconds(10))
@@ -768,7 +772,7 @@ proc getPayload*(m: ELManager,
                  randomData: Eth2Digest,
                  suggestedFeeRecipient: Eth1Address,
                  withdrawals: seq[capella.Withdrawal]):
-                 Future[Opt[PayloadType]] {.async.} =
+                 Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return err()
 
@@ -790,14 +794,17 @@ proc getPayload*(m: ELManager,
     ))
     requestsCompleted = allFutures(requests)
 
+  # TODO cancel requests on cancellation
   await requestsCompleted or deadline
 
   var bestPayloadIdx = none int
   for idx, req in requests:
     if not req.finished:
+      warn "Timeout while getting execution payload",
+        url = m.elConnections[idx].engineUrl.url
       req.cancelSoon()
     elif req.failed:
-      error "Failed to get execution payload from EL",
+      warn "Failed to get execution payload from EL",
              url = m.elConnections[idx].engineUrl.url,
              err = req.error.msg
     else:
@@ -807,40 +814,44 @@ proc getPayload*(m: ELManager,
           # TODO: The engine_api module may offer an alternative API where it is guaranteed
           #       to return the correct response type (i.e. the rule below will be enforced
           #       during deserialization).
-          if req.read.executionPayload.withdrawals.isNone:
+          if req.value().executionPayload.withdrawals.isNone:
             warn "Execution client returned a block without a 'withdrawals' field for a post-Shanghai block",
                   url = m.elConnections[idx].engineUrl.url
             continue
 
-        if engineApiWithdrawals != req.read.executionPayload.withdrawals.maybeDeref:
+        if engineApiWithdrawals != req.value().executionPayload.withdrawals.maybeDeref:
           # otherwise it formats as "@[(index: ..., validatorIndex: ...,
           # address: ..., amount: ...), (index: ..., validatorIndex: ...,
           # address: ..., amount: ...)]"
           warn "Execution client did not return correct withdrawals",
             withdrawals_from_cl_len = engineApiWithdrawals.len,
             withdrawals_from_el_len =
-              req.read.executionPayload.withdrawals.maybeDeref.len,
+              req.value().executionPayload.withdrawals.maybeDeref.len,
             withdrawals_from_cl =
               mapIt(engineApiWithdrawals, it.asConsensusWithdrawal),
             withdrawals_from_el =
               mapIt(
-                req.read.executionPayload.withdrawals.maybeDeref,
-                it.asConsensusWithdrawal)
+                req.value().executionPayload.withdrawals.maybeDeref,
+                it.asConsensusWithdrawal),
+            url = m.elConnections[idx].engineUrl.url
 
-      if req.read.executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
+      if req.value().executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
         warn "Execution client provided a block with invalid extraData (size exceeds limit)",
-             size = req.read.executionPayload.extraData.len,
+             url = m.elConnections[idx].engineUrl.url,
+             size = req.value().executionPayload.extraData.len,
              limit = MAX_EXTRA_DATA_BYTES
         continue
 
       if bestPayloadIdx.isNone:
         bestPayloadIdx = some idx
       else:
-        if cmpGetPayloadResponses(req.read, requests[bestPayloadIdx.get].read) > 0:
+        if cmpGetPayloadResponses(req.value(), requests[bestPayloadIdx.get].value()) > 0:
           bestPayloadIdx = some idx
 
+  deadline.cancelSoon()
+
   if bestPayloadIdx.isSome:
-    return ok requests[bestPayloadIdx.get].read.asConsensusType
+    return ok requests[bestPayloadIdx.get].value().asConsensusType
   else:
     return err()
 
@@ -1274,26 +1285,6 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
 
   connection.etcStatus = EtcStatus.match
 
-  # https://github.com/ethereum/execution-apis/blob/c4089414bbbe975bbc4bf1ccf0a3d31f76feb3e1/src/engine/cancun.md#deprecate-engine_exchangetransitionconfigurationv1
-  # Consensus layer clients MUST NOT call this method.
-  if m.eth1Chain.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    return
-
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
-  let
-    ourConf = TransitionConfigurationV1(
-      terminalTotalDifficulty: m.eth1Chain.cfg.TERMINAL_TOTAL_DIFFICULTY,
-      terminalBlockHash: m.eth1Chain.cfg.TERMINAL_BLOCK_HASH,
-      terminalBlockNumber: Quantity 0)
-  try:
-    discard connection.trackedRequestWithTimeout(
-      "exchangeTransitionConfiguration",
-      rpcClient.engine_exchangeTransitionConfigurationV1(ourConf),
-      timeout = 1.seconds)
-  except CatchableError as err:
-    warn "Failed to exchange transition configuration",
-          url = connection.engineUrl, err = err.msg
-
 proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
   if m.elConnections.len == 0:
     return
@@ -1398,7 +1389,7 @@ when hasDepositRootChecks:
 
   proc fetchDepositContractData(connection: ELConnection,
                                 rpcClient: RpcClient,
-                                depositContact: Sender[DepositContract],
+                                depositContract: Sender[DepositContract],
                                 blk: Eth1Block): Future[DepositContractDataStatus] {.async.} =
     let
       startTime = Moment.now
@@ -1416,8 +1407,10 @@ when hasDepositRootChecks:
       failureAllowed = true)
 
     try:
-      let fetchedRoot = asEth2Digest(
-        awaitWithTimeout(depositRoot, deadline))
+      let fetchedRoot = asEth2Digest(block:
+        awaitWithTimeout(depositRoot, deadline):
+          raise newException(DataProviderTimeout,
+            "Request time out while obtaining deposits root"))
       if blk.depositRoot.isZero:
         blk.depositRoot = fetchedRoot
         result = Fetched
@@ -1432,8 +1425,10 @@ when hasDepositRootChecks:
       result = DepositRootUnavailable
 
     try:
-      let fetchedCount = bytes_to_uint64(
-        awaitWithTimeout(rawCount, deadline).toArray)
+      let fetchedCount = bytes_to_uint64((block:
+        awaitWithTimeout(rawCount, deadline):
+          raise newException(DataProviderTimeout,
+            "Request time out while obtaining deposits count")).toArray)
       if blk.depositCount == 0:
         blk.depositCount = fetchedCount
       elif blk.depositCount != fetchedCount:
@@ -1610,7 +1605,8 @@ proc syncBlockRange(m: ELManager,
       template lastBlock: auto = blocksWithDeposits[lastIdx]
 
       let status = when hasDepositRootChecks:
-        rpcClient.fetchDepositContractData(depositContract, lastBlock)
+        await fetchDepositContractData(
+          connection, rpcClient, depositContract, lastBlock)
       else:
         DepositRootUnavailable
 

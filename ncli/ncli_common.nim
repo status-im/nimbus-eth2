@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/[os, strutils],
   stew/bitops2,
@@ -124,8 +126,9 @@ static:
       "15227487_86601706.echop"]: # Wrong extension
     doAssert not filename.matchFilenameAggregatedFiles
 
-proc getUnaggregatedFilesEpochRange*(dir: string):
-    tuple[firstEpoch, lastEpoch: Epoch] =
+proc getUnaggregatedFilesEpochRange*(
+    dir: string
+): tuple[firstEpoch, lastEpoch: Epoch] {.raises: [OSError, ValueError].} =
   var smallestEpochFileName =
     '9'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   var largestEpochFileName =
@@ -141,10 +144,12 @@ proc getUnaggregatedFilesEpochRange*(dir: string):
   result.lastEpoch = parseUInt(
     largestEpochFileName[0 ..< epochInfoFileNameDigitsCount]).Epoch
 
-proc getUnaggregatedFilesLastEpoch*(dir: string): Epoch =
+proc getUnaggregatedFilesLastEpoch*(
+    dir: string): Epoch {.raises: [OSError, ValueError].} =
   dir.getUnaggregatedFilesEpochRange.lastEpoch
 
-proc getAggregatedFilesLastEpoch*(dir: string): Epoch =
+proc getAggregatedFilesLastEpoch*(
+    dir: string): Epoch {.raises: [OSError, ValueError].}=
   var largestEpochInFileName = 0'u
   for (_, fn) in walkDir(dir.string, relative = true):
     if fn.matchFilenameAggregatedFiles:
@@ -403,9 +408,15 @@ proc collectFromDeposits(
       var index = findValidatorIndex(forkyState.data, pubkey)
       if index.isNone:
         if pubkey in pubkeyToIndex:
-          index = Opt[ValidatorIndex].ok(pubkeyToIndex[pubkey])
+          try:
+            index = Opt[ValidatorIndex].ok(pubkeyToIndex[pubkey])
+          except KeyError as e:
+            raiseAssert "pubkey was checked to exist: " & e.msg
       if index.isSome:
-        rewardsAndPenalties[index.get()].deposits += amount
+        try:
+          rewardsAndPenalties[index.get()].deposits += amount
+        except KeyError as e:
+          raiseAssert "rewardsAndPenalties lacks expected index " & $index.get()
       elif verify_deposit_signature(cfg, deposit.data):
         pubkeyToIndex[pubkey] = ValidatorIndex(rewardsAndPenalties.len)
         rewardsAndPenalties.add(

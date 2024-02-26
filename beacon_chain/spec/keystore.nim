@@ -449,7 +449,7 @@ proc validateMnemonic*(inputWords: string,
 
   # TODO consider using a SecretString type for inputWords
 
-  let words = strutils.strip(inputWords.string.toNFKD).split(Whitespace)
+  let words = strutils.strip(inputWords.toNFKD).split(Whitespace)
   if words.len < 12 or words.len > 24 or words.len mod 3 != 0:
     return false
 
