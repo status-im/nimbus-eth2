@@ -261,7 +261,6 @@ local-testnet-minimal:
 		--kill-old-processes \
 		--run-geth --dl-geth \
 		-- \
-		--verify-finalization \
 		--discv5:no \
 		--num-threads:1
 
@@ -290,7 +289,6 @@ local-testnet-mainnet:
 		--kill-old-processes \
 		--run-geth --dl-geth \
 		-- \
-		--verify-finalization \
 		--discv5:no
 
 # test binaries that can output an XML report
