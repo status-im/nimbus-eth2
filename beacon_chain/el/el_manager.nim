@@ -561,6 +561,32 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
+func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
+    ExecutionPayloadV3 =
+  debugRaiseAssert "asEngineExecutionPayload for electra.ExecutionPayload probably won't use ExecutionPayloadV3"
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  engine_api.ExecutionPayloadV3(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.fee_recipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+    blobGasUsed: Quantity(executionPayload.blob_gas_used),
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
@@ -752,6 +778,10 @@ template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): typ
 template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
 
+template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): type =
+  debugRaiseAssert "EngineApiResponseType electra.ExecutionPayloadForSigning; presumably will be a GetPayloadV4Response"
+  engine_api.GetPayloadV3Response
+
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
 
@@ -850,9 +880,15 @@ proc getPayload*(m: ELManager,
 
   deadline.cancelSoon()
 
-  if bestPayloadIdx.isSome:
-    return ok requests[bestPayloadIdx.get].value().asConsensusType
+  when PayloadType.kind != ConsensusFork.Electra:
+    if bestPayloadIdx.isSome:
+      return ok requests[bestPayloadIdx.get].value().asConsensusType
+    else:
+      return err()
   else:
+    # right now, asConsensusType is confused by Deneb and Electra sharing a
+    # Payload type. this will probably be resolved in time naturally.
+    debugRaiseAssert "getPayload ForkyExecutionPayloadForSigning"
     return err()
 
 proc waitELToSyncDeposits(connection: ELConnection,

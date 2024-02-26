@@ -343,6 +343,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.SignedBeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.SignedBeaconBlock
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
+    of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
 
@@ -353,6 +354,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
+    of ConsensusFork.Electra:   electraBody*:   electra.BeaconBlockBody
 
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
@@ -361,6 +363,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
+    of ConsensusFork.Electra:   electraData*:   electra.BlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -637,6 +640,8 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.capellaData)
     of ConsensusFork.Deneb:
       ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
+    of ConsensusFork.Electra:
+      ForkedSignedBeaconBlock.init(contents.electraData.signed_block)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -1035,4 +1040,8 @@ template withBlck*(x: ProduceBlockResponseV2,
   of ConsensusFork.Deneb:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template blck: untyped {.inject.} = x.denebData.blck
+    body
+  of ConsensusFork.Electra:
+    const consensusFork {.inject, used.} = ConsensusFork.Electra
+    template blck: untyped {.inject.} = x.electraData.blck
     body

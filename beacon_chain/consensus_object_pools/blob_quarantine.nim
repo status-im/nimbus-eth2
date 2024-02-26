@@ -69,7 +69,8 @@ func hasBlob*(
 
 func popBlobs*(
     quarantine: var BlobQuarantine, digest: Eth2Digest,
-    blck: deneb.SignedBeaconBlock): seq[ref BlobSidecar] =
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
+    seq[ref BlobSidecar] =
   var r: seq[ref BlobSidecar] = @[]
   for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
     var b: ref BlobSidecar
@@ -77,8 +78,9 @@ func popBlobs*(
       r.add(b)
   r
 
-func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
-     bool =
+func hasBlobs*(
+    quarantine: BlobQuarantine,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
   for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
     if (blck.root, BlobIndex idx, kzg_commitment) notin quarantine.blobs:
       return false

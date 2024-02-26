@@ -675,6 +675,9 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
+          of ConsensusFork.Electra:
+            debugRaiseAssert "storeBlock, probably will become PayloadAttributesV3"
+            callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
           of ConsensusFork.Deneb:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
           of ConsensusFork.Capella:
