@@ -1,8 +1,11 @@
+# beacon_chain
 # Copyright (c) 2021-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
 
 # NOTE: This module has been used in both `beacon_node` and `validator_client`,
 # please keep imports clear of `rest_utils` or any other module which imports
@@ -561,6 +564,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     let
       qpubkey = pubkey.valueOr:
         return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      currentEpoch = host.getBeaconTimeFn().slotOrZero().epoch()
       qepoch =
         if epoch.isSome():
           let res = epoch.get()
@@ -568,7 +572,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
             return keymanagerApiError(Http400, InvalidEpochValueError)
           res.get()
         else:
-          host.getBeaconTimeFn().slotOrZero().epoch()
+          currentEpoch
       validator =
         block:
           let res = host.validatorPool[].getValidator(qpubkey).valueOr:
@@ -581,10 +585,16 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
                       validator_index: uint64(validator.index.get()))
       fork = host.getForkFn(qepoch).valueOr:
         return keymanagerApiError(Http500, FailedToObtainForkError)
+      capellaForkVersion = host.getCapellaForkVersionFn().valueOr:
+        return keymanagerApiError(Http500, FailedToObtainForkVersionError)
+      denebForkEpoch = host.getDenebForkEpochFn().valueOr:
+        return keymanagerApiError(Http500, FailedToObtainConsensusForkError)
+      signingFork = voluntary_exit_signature_fork(
+        fork, capellaForkVersion, currentEpoch, denebForkEpoch)
       signature =
         try:
           let res = await validator.getValidatorExitSignature(
-            fork, host.getGenesisFn(), voluntaryExit)
+            signingFork, host.getGenesisFn(), voluntaryExit)
           if res.isErr():
             return keymanagerApiError(Http500, res.error())
           res.get()

@@ -216,11 +216,11 @@ func compute_voluntary_exit_signing_root*(
       fork, DOMAIN_VOLUNTARY_EXIT, epoch, genesis_validators_root)
   compute_signing_root(voluntary_exit, domain)
 
-func voluntary_exit_signature_fork*(
-    consensusFork: static ConsensusFork,
+func voluntary_exit_signature_fork(
+    is_post_deneb: static bool,
     state_fork: Fork,
     capella_fork_version: Version): Fork =
-  when consensusFork >= ConsensusFork.Deneb:
+  when is_post_deneb:
     # Always use Capella fork version, disregarding `VoluntaryExit` epoch
     # [Modified in Deneb:EIP7044]
     Fork(
@@ -229,6 +229,27 @@ func voluntary_exit_signature_fork*(
       epoch: GENESIS_EPOCH)  # irrelevant when current/previous identical
   else:
     state_fork
+
+func voluntary_exit_signature_fork*(
+    consensusFork: static ConsensusFork,
+    state_fork: Fork,
+    capella_fork_version: Version): Fork =
+  const is_post_deneb = (consensusFork >= ConsensusFork.Deneb)
+  voluntary_exit_signature_fork(is_post_deneb, state_fork, capella_fork_version)
+
+func voluntary_exit_signature_fork*(
+    state_fork: Fork,
+    capella_fork_version: Version,
+    current_epoch: Epoch,
+    deneb_fork_epoch: Epoch): Fork =
+  if current_epoch >= deneb_fork_epoch:
+    const is_post_deneb = true
+    voluntary_exit_signature_fork(
+      is_post_deneb, state_fork, capella_fork_version)
+  else:
+    const is_post_deneb = false
+    voluntary_exit_signature_fork(
+      is_post_deneb, state_fork, capella_fork_version)
 
 func get_voluntary_exit_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
