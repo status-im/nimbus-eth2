@@ -17,7 +17,7 @@ import
   std/[json, tables],
   stew/base10, web3/primitives, httputils,
   ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix, deneb],
+  ".."/datatypes/[phase0, altair, bellatrix, deneb, electra],
   ".."/mev/[capella_mev, deneb_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
@@ -328,6 +328,11 @@ type
 
   DenebSignedBlockContents* = object
     signed_block*: deneb.SignedBeaconBlock
+    kzg_proofs*: deneb.KzgProofs
+    blobs*: deneb.Blobs
+
+  ElectraSignedBlockContents* = object
+    signed_block*: electra.SignedBeaconBlock
     kzg_proofs*: deneb.KzgProofs
     blobs*: deneb.Blobs
 
@@ -688,6 +693,12 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
       blobs: contents.blobs
     )
   )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: electra.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  debugRaiseAssert "init*(t: typedesc[RestPublishedSignedBlockContents],"
+  default(RestPublishedSignedBlockContents)
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
