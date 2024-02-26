@@ -1178,6 +1178,13 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
         &> "${DATA_DIR}/logs/lighthouse_vc.${NUM_NODE}.txt" &
       echo $! > "$DATA_DIR/pids/lighthouse_vc.${NUM_NODE}"
     else
+      allBNs=()
+      for bn in $(seq 1 $NUM_NODES); do
+        allBNs+=(
+          "--beacon-node=http://127.0.0.1:$(( BASE_REST_PORT + bn - 1 ))"
+        )
+      done
+
       ./build/nimbus_validator_client \
         --log-level="${LOG_LEVEL}" \
         ${STOP_AT_EPOCH_FLAG} \
@@ -1188,7 +1195,7 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
         ${KEYMANAGER_FLAG} \
         --keymanager-port=$(( BASE_VC_KEYMANAGER_PORT + NUM_NODE - 1 )) \
         --keymanager-token-file="${DATA_DIR}/keymanager-token" \
-        --beacon-node="http://127.0.0.1:$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
+        "${allBNs[@]}" \
         &> "${DATA_DIR}/logs/nimbus_validator_client.${NUM_NODE}.jsonl" &
       PID=$!
       PIDS_TO_WAIT="${PIDS_TO_WAIT},$PID"
