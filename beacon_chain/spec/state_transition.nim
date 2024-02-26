@@ -159,17 +159,14 @@ func noRollback*(state: var altair.HashedBeaconState) =
 func noRollback*(state: var bellatrix.HashedBeaconState) =
   trace "Skipping rollback of broken Bellatrix state"
 
-from ./datatypes/capella import
-  ExecutionPayload, HashedBeaconState, SignedBLSToExecutionChangeList,
-  asSigVerified
-
 func noRollback*(state: var capella.HashedBeaconState) =
   trace "Skipping rollback of broken Capella state"
 
-from ./datatypes/deneb import HashedBeaconState
-
 func noRollback*(state: var deneb.HashedBeaconState) =
   trace "Skipping rollback of broken Deneb state"
+
+func noRollback*(state: var electra.HashedBeaconState) =
+  trace "Skipping rollback of broken Electra state"
 
 func maybeUpgradeStateToAltair(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =

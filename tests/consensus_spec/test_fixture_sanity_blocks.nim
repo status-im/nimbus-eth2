@@ -94,4 +94,5 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
         RandomDir, suiteName, path)
 
 withAll(ConsensusFork):
-  runForkBlockTests(consensusFork)
+  when consensusFork <= ConsensusFork.Deneb:
+    runForkBlockTests(consensusFork)
