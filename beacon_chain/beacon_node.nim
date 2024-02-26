@@ -154,4 +154,7 @@ proc getPayloadBuilderClient*(
   if res.isOk and res.get.isNil:
     err "Got nil payload builder REST client reference"
   else:
+    if res.isOk:
+      echo "====== got RestClientRef! ===== "
+      echo "session is at " & $repr(cast[pointer](unsafeAddr (res.get.session)))
     res

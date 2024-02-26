@@ -109,18 +109,18 @@ pipeline {
 
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
-        stage('minimal') {
-          steps { timeout(26) {
-            sh 'make NIMFLAGS="-d:useSysAssert" local-testnet-minimal'
-          } }
-          post { always {
-            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
-          } }
-        }
+        // stage('minimal') {
+        //   steps { timeout(26) {
+        //     sh 'make NIMFLAGS="-d:useSysAssert" local-testnet-minimal'
+        //   } }
+        //   post { always {
+        //     sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
+        //   } }
+        // }
 
         stage('mainnet') {
           steps { timeout(62) {
-            sh 'make local-testnet-mainnet'
+            sh 'make NIMFLAGS="-d:useSysAssert" local-testnet-mainnet'
           } }
           post { always {
             sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/logs/*'

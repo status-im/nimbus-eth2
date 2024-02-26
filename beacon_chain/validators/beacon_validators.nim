@@ -885,6 +885,9 @@ proc proposeBlockMEV(
     blindedBlock: capella_mev.SignedBlindedBeaconBlock |
                   deneb_mev.SignedBlindedBeaconBlock):
     Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
+  echo "proposeBlockMEV triggering unblindAndRouteBlockMEV"
+  echo "restclient is at " & $repr(cast[pointer](unsafeAddr payloadBuilderClient))
+  echo "session is at " & $repr(cast[pointer](unsafeAddr (payloadBuilderClient.session)))
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
     payloadBuilderClient, blindedBlock)
   return if unblindedBlockRef.isOk and unblindedBlockRef.get.isSome:
@@ -1162,7 +1165,11 @@ proc proposeBlockAux(
         builderBlockValue =
           collectedBids.builderBid.value().blockValue
 
-  if useBuilderBlock:
+  if useBuilderBlock and payloadBuilderClient != nil:
+    echo "proposeBlockAux triggering proposeBlockMEV after slashing check"
+    echo "restclient is at " & $repr(cast[pointer](unsafeAddr payloadBuilderClient))
+    echo "session is at " & $repr(cast[pointer](unsafeAddr (payloadBuilderClient.session)))
+
     let
       blindedBlock = (await blindedBlockCheckSlashingAndSign(
         node, slot, validator, validator_index,

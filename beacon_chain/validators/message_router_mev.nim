@@ -52,6 +52,14 @@ proc unblindAndRouteBlockMEV*(
 
   info "Proposing blinded Builder API block",
     blindedBlock = shortLog(blindedBlock)
+  echo "going into submitBlindedBlock"
+  echo "restclient is at " & $repr(cast[pointer](unsafeAddr payloadBuilderRestClient))
+  echo "session is at " & $repr(cast[pointer](unsafeAddr (payloadBuilderRestClient.session)))
+  let b = encodeBytes(blindedBlock, "application/json")
+  if b.isErr:
+    echo "failed to encode to json with error = " & $b.error
+  else:
+    echo "encoded to json with len = " & $len(b.get)
 
   # By time submitBlindedBlock is called, must already have done slashing
   # protection check

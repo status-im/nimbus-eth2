@@ -1091,6 +1091,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               restBlock.message.proposer_index).valueOr:
             return RestApiResponse.jsonError(
               Http400, "Unable to initialize payload builder client: " & $error)
+          foo =
+            if true:
+              echo "/eth/v1/beacon/blinded_blocks triggering unblindAndRouteBlockMEV"
+              echo "restclient is at " & $repr(cast[pointer](unsafeAddr payloadBuilderClient))
+              echo "session is at " & $repr(cast[pointer](unsafeAddr (payloadBuilderClient.session)))
+              true
+            else:
+              false
           res = await node.unblindAndRouteBlockMEV(
             payloadBuilderClient, restBlock)
 

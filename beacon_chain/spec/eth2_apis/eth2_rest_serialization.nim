@@ -3809,6 +3809,7 @@ proc decodeBodyJsonOrSsz*[T](t: typedesc[T],
 
 proc encodeBytes*[T: EncodeTypes](value: T,
                                   contentType: string): RestResult[seq[byte]] =
+  warn "encodeBytes[EncodeTypes]", t = T.name, contentType
   case contentType
   of "application/json":
     let data =
@@ -3828,6 +3829,7 @@ proc encodeBytes*[T: EncodeTypes](value: T,
 
 proc encodeBytes*[T: EncodeArrays](value: T,
                                    contentType: string): RestResult[seq[byte]] =
+  warn "encodeBytes[EncodeArrays]", t = T.name, contentType
   case contentType
   of "application/json":
     let data =
