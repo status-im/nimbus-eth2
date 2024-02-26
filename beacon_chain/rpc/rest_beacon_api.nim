@@ -1066,6 +1066,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     ## to be included in the beacon chain. The beacon node is not required to
     ## validate the signed `BeaconBlock`, and a successful response (20X) only
     ## indicates that the broadcast has been successful.
+    return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 

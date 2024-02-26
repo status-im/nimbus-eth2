@@ -1016,8 +1016,45 @@ proc collectBids(
   await allFutures(payloadBuilderBidFut, engineBlockFut)
   doAssert payloadBuilderBidFut.finished and engineBlockFut.finished
 
+  let fakeBid =
+    if engineBlockFut.completed:
+      if engineBlockFut.value.isOk:
+        let engineBid = engineBlockFut.value().value()
+        withBlck(engineBid.blck):
+          when consensusFork == ConsensusFork.Capella and
+              SBBB is capella_mev.SignedBlindedBeaconBlock:
+            let payload = forkyBlck.body.execution_payload
+            Opt.some((
+              blindedBlckPart: constructSignableBlindedBlock[SBBB](
+                forkyBlck, capella.ExecutionPayloadHeader(
+                  parent_hash: payload.parent_hash,
+                  fee_recipient: payload.fee_recipient,
+                  state_root: payload.state_root,
+                  receipts_root: payload.receipts_root,
+                  logs_bloom: payload.logs_bloom,
+                  prev_randao: payload.prev_randao,
+                  block_number: payload.block_number,
+                  gas_limit: payload.gas_limit,
+                  gas_used: payload.gas_used,
+                  timestamp: payload.timestamp,
+                  extra_data: payload.extra_data,
+                  base_fee_per_gas: payload.base_fee_per_gas,
+                  block_hash: payload.block_hash,
+                  transactions_root: hash_tree_root(payload.transactions),
+                  withdrawals_root: hash_tree_root(payload.withdrawals))),
+              blockValue: UInt256(engineBid.blockValue) + 1000000000000.u256))
+          else:
+            Opt.none(BuilderBid[SBBB])
+      else:
+        Opt.none(BuilderBid[SBBB])
+    else:
+      Opt.none(BuilderBid[SBBB])
+
   let builderBid =
-    if payloadBuilderBidFut.completed:
+    if fakeBid.isSome:
+      warn "injecting fake bid"
+      fakeBid
+    elif payloadBuilderBidFut.completed:
       if payloadBuilderBidFut.value().isOk:
         Opt.some(payloadBuilderBidFut.value().value())
       elif usePayloadBuilder:
