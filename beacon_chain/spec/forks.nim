@@ -186,14 +186,6 @@ type
     of ConsensusFork.Capella:   capellaData*:   capella_mev.BlindedBeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb_mev.BlindedBeaconBlock
 
-  ForkedTrustedBeaconBlock* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:     phase0.TrustedBeaconBlock
-    of ConsensusFork.Altair:    altairData*:     altair.TrustedBeaconBlock
-    of ConsensusFork.Bellatrix: bellatrixData*:  bellatrix.TrustedBeaconBlock
-    of ConsensusFork.Capella:   capellaData*:    capella.TrustedBeaconBlock
-    of ConsensusFork.Deneb:     denebData*:      deneb.TrustedBeaconBlock
-
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
@@ -603,15 +595,6 @@ template init*(T: type ForkedBeaconBlock, blck: capella.BeaconBlock): T =
   T(kind: ConsensusFork.Capella, capellaData: blck)
 template init*(T: type ForkedBeaconBlock, blck: deneb.BeaconBlock): T =
   T(kind: ConsensusFork.Deneb, denebData: blck)
-
-template init*(T: type ForkedTrustedBeaconBlock, blck: phase0.TrustedBeaconBlock): T =
-  T(kind: ConsensusFork.Phase0, phase0Data: blck)
-template init*(T: type ForkedTrustedBeaconBlock, blck: altair.TrustedBeaconBlock): T =
-  T(kind: ConsensusFork.Altair, altairData: blck)
-template init*(T: type ForkedTrustedBeaconBlock, blck: bellatrix.TrustedBeaconBlock): T =
-  T(kind: ConsensusFork.Bellatrix, bellatrixData: blck)
-template init*(T: type ForkedTrustedBeaconBlock, blck: capella.TrustedBeaconBlock): T =
-  T(kind: ConsensusFork.Capella, capellaData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0, phase0Data: blck)

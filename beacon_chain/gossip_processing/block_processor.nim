@@ -328,7 +328,7 @@ proc newExecutionPayload*(
 proc getExecutionValidity(
     elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-          deneb.SignedBeaconBlock):
+          deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
@@ -361,9 +361,10 @@ proc getExecutionValidity(
       blck = shortLog(blck)
     return NewPayloadStatus.noResponse
 
-proc checkBloblessSignature(self: BlockProcessor,
-                            signed_beacon_block: deneb.SignedBeaconBlock):
-                              Result[void, cstring] =
+proc checkBloblessSignature(
+    self: BlockProcessor,
+    signed_beacon_block: deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
+    Result[void, cstring] =
   let dag = self.consensusManager.dag
   let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
     return err("checkBloblessSignature called with orphan block")

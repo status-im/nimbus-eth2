@@ -275,6 +275,7 @@ when const_preset == "gnosis":
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
       static: doAssert ConsensusFork.high == ConsensusFork.Deneb
 
 elif const_preset == "mainnet":
@@ -340,6 +341,7 @@ elif const_preset == "mainnet":
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
       static: doAssert ConsensusFork.high == ConsensusFork.Deneb
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
