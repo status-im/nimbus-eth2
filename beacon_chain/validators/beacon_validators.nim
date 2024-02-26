@@ -1230,6 +1230,55 @@ proc proposeBlockAux(
     # [2024-01-12T11:54:34.870Z] vendor/nimbus-build-system/vendor/Nim/lib/system/excpt.nim(631) signalHandler
     # [2024-01-12T11:54:34.870Z] SIGSEGV: Illegal storage access. (Attempt to read from nil?)
     #
+    # This appeared again around 25 Feb 2024, in a CI run for PR #5959,
+    # despite the extra `let` having been applied -- once more observed on
+    # macOS (aarch64) in Jenkins, and much rarer than before.
+    #
+    # [2024-02-25T23:21:24.533Z] Wrote test_keymanager_api/bootstrap_node.enr
+    # [2024-02-25T23:21:32.756Z] Serialization/deserialization [Beacon Node] [Preset: mainnet] . (0.00s)
+    # [2024-02-25T23:21:32.756Z] ListKeys requests [Beacon Node] [Preset: mainnet] .... (0.01s)
+    # [2024-02-25T23:21:37.219Z] ImportKeystores requests [Beacon Node] [Preset: mainnet] Traceback (most recent call last, using override)
+    # [2024-02-25T23:21:37.219Z] vendor/nim-libp2p/libp2p/protocols/pubsub/pubsub.nim(1068) main
+    # [2024-02-25T23:21:37.219Z] vendor/nim-libp2p/libp2p/protocols/pubsub/pubsub.nim(1058) NimMain
+    # [2024-02-25T23:21:37.219Z] vendor/nim-libp2p/libp2p/protocols/pubsub/pubsub.nim(1049) PreMain
+    # [2024-02-25T23:21:37.219Z] tests/test_keymanager_api.nim(1501) atmtest_keymanager_apidotnim_Init000
+    # [2024-02-25T23:21:37.219Z] tests/test_keymanager_api.nim(1474) main
+    # [2024-02-25T23:21:37.219Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) futureContinue
+    # [2024-02-25T23:21:37.219Z] tests/test_keymanager_api.nim(1480) main
+    # [2024-02-25T23:21:37.219Z] tests/test_keymanager_api.nim(307) startBeaconNode
+    # [2024-02-25T23:21:37.219Z] beacon_chain/nimbus_beacon_node.nim(1916) start
+    # [2024-02-25T23:21:37.219Z] beacon_chain/nimbus_beacon_node.nim(1863) run
+    # [2024-02-25T23:21:37.219Z] vendor/nim-chronos/chronos/internal/asyncengine.nim(150) poll
+    # [2024-02-25T23:21:37.219Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) futureContinue
+    # [2024-02-25T23:21:37.219Z] tests/test_keymanager_api.nim(1464) delayedTests
+    # [2024-02-25T23:21:37.219Z] tests/test_keymanager_api.nim(391) runTests
+    # [2024-02-25T23:21:37.219Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) futureContinue
+    # [2024-02-25T23:21:37.219Z] vendor/nim-unittest2/unittest2.nim(1151) runTests
+    # [2024-02-25T23:21:37.219Z] vendor/nim-unittest2/unittest2.nim(1086) runDirect
+    # [2024-02-25T23:21:37.219Z] vendor/nim-testutils/testutils/unittests.nim(16) runTestX60gensym3188
+    # [2024-02-25T23:21:37.219Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(660) waitFor
+    # [2024-02-25T23:21:37.219Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(635) pollFor
+    # [2024-02-25T23:21:37.219Z] vendor/nim-chronos/chronos/internal/asyncengine.nim(150) poll
+    # [2024-02-25T23:21:37.219Z] vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) futureContinue
+    # [2024-02-25T23:21:37.219Z] vendor/nim-chronicles/chronicles.nim(251) proposeBlockAux
+    # [2024-02-25T23:21:37.219Z] SIGSEGV: Illegal storage access. (Attempt to read from nil?)
+    #
+    # One theory is that PR #5946 may increase the frequency, as there were
+    # times where the Jenkins CI failed almost every time using a shorter trace.
+    # However, the problem was once more flaky, with some passes in-between.
+    # For now, PR #5946 was reverted (low priority), and the problem is gone,
+    # whether related or not.
+    #
+    # [2024-02-23T23:11:47.700Z] Wrote test_keymanager_api/bootstrap_node.enr
+    # [2024-02-23T23:11:54.728Z] Serialization/deserialization [Beacon Node] [Preset: mainnet] . (0.00s)
+    # [2024-02-23T23:11:54.728Z] ListKeys requests [Beacon Node] [Preset: mainnet] .... (0.01s)
+    # [2024-02-23T23:11:59.523Z] ImportKeystores requests [Beacon Node] [Preset: mainnet] Traceback (most recent call last, using override)
+    # [2024-02-23T23:11:59.523Z] vendor/nim-libp2p/libp2p/protocols/pubsub/pubsub.nim(1067) main
+    # [2024-02-23T23:11:59.523Z] vendor/nim-libp2p/libp2p/protocols/pubsub/pubsub.nim(1057) NimMain
+    # [2024-02-23T23:11:59.523Z] vendor/nim-chronos/chronos/internal/asyncengine.nim(150) poll
+    # [2024-02-23T23:11:59.523Z] vendor/nim-chronos/chronos/internal/asyncengine.nim(150) poll
+    # [2024-02-23T23:11:59.523Z] SIGSEGV: Illegal storage access. (Attempt to read from nil?)
+    #
     # The generated `nimcache` differs slightly if the `let` are separated from
     # a single block; separation introduces an additional state in closure iter.
     # This change, maybe combined with some macOS specific compiler specifics,
