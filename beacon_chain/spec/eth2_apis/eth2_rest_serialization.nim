@@ -3849,6 +3849,7 @@ proc encodeBytes*[T: EncodeOctetTypes](
        value: T,
        contentType: string
      ): RestResult[seq[byte]] =
+  warn "encodeBytes[EncodeOctetTypes]", t = T.name, contentType
   case contentType
   of "application/json":
     let data =

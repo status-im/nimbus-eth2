@@ -111,7 +111,7 @@ pipeline {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
           steps { timeout(26) {
-            sh 'make local-testnet-minimal'
+            sh 'make NIMFLAGS="-d:useSysAssert" local-testnet-minimal'
           } }
           post { always {
             sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
