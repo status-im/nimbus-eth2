@@ -1082,7 +1082,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     withConsensusFork(currentEpochFork):
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Deneb:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:

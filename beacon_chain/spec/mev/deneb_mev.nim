@@ -10,10 +10,23 @@
 import ".."/datatypes/[altair, deneb]
 
 from stew/byteutils import to0xHex
+from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/eth2_merkleization import hash_tree_root
 
 type
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#validatorregistrationv1
+  ValidatorRegistrationV1* = object
+    fee_recipient*: ExecutionAddress
+    gas_limit*: uint64
+    timestamp*: uint64
+    pubkey*: ValidatorPubKey
+
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedvalidatorregistrationv1
+  SignedValidatorRegistrationV1* = object
+    message*: ValidatorRegistrationV1
+    signature*: ValidatorSig
+
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/deneb/builder.md#builderbid
   BuilderBid* = object
     header*: deneb.ExecutionPayloadHeader # [Modified in Deneb]
