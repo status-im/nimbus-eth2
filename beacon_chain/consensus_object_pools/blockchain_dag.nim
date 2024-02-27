@@ -956,9 +956,14 @@ proc advanceSlots*(
       # which is an acceptable tradeoff for monitoring.
       withState(state):
         let postEpoch = forkyState.data.slot.epoch
-        if preEpoch != postEpoch:
+        if preEpoch != postEpoch and postEpoch >= 2:
+          var proposers: array[SLOTS_PER_EPOCH, Opt[ValidatorIndex]]
+          let epochRef = dag.findEpochRef(stateBid, postEpoch - 2)
+          if epochRef.isSome():
+            proposers = epochRef[][].beacon_proposers
+
           dag.validatorMonitor[].registerEpochInfo(
-            postEpoch, info, forkyState.data)
+            forkyState.data, proposers, info)
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,

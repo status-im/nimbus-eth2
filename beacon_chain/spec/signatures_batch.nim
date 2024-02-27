@@ -235,7 +235,7 @@ proc collectSignatureSets*(
        validatorKeys: openArray[ImmutableValidatorData2],
        state: ForkedHashedBeaconState,
        genesis_fork: Fork,
-       capella_fork: Fork,
+       capella_fork_version: Version,
        cache: var StateCache): Result[void, cstring] =
   ## Collect all signature verifications that process_block would normally do
   ## except deposits, in one go.
@@ -385,25 +385,24 @@ proc collectSignatureSets*(
   #   SSZ deserialization guarantees that blocks received from random sources
   #   including peer or RPC
   #   have at most MAX_VOLUNTARY_EXITS voluntary exits.
-  for i in 0 ..< signed_block.message.body.voluntary_exits.len:
-    # don't use "items" for iterating over large type
-    # due to https://github.com/nim-lang/Nim/issues/14421
-    # fixed in 1.4.2
-    template volex: untyped = signed_block.message.body.voluntary_exits[i]
-    let key = validatorKeys.load(volex.message.validator_index).valueOr:
-      return err("collectSignatureSets: invalid voluntary exit")
+  if signed_block.message.body.voluntary_exits.len > 0:
+    let voluntary_exit_fork = withConsensusFork(state.kind):
+      consensusFork.voluntary_exit_signature_fork(fork, capella_fork_version)
+    for i in 0 ..< signed_block.message.body.voluntary_exits.len:
+      # don't use "items" for iterating over large type
+      # due to https://github.com/nim-lang/Nim/issues/14421
+      # fixed in 1.4.2
+      template volex: untyped = signed_block.message.body.voluntary_exits[i]
+      let key = validatorKeys.load(volex.message.validator_index).valueOr:
+        return err("collectSignatureSets: invalid voluntary exit")
 
-    sigs.add voluntary_exit_signature_set(
-      # https://eips.ethereum.org/EIPS/eip-7044
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
-      (if state.kind >= ConsensusFork.Capella:
-         capella_fork
-       else:
-         fork),
-      genesis_validators_root, volex.message, key,
-      volex.signature.load.valueOr do:
-        return err(
-          "collectSignatureSets: cannot load voluntary exit signature"))
+      sigs.add voluntary_exit_signature_set(
+        # https://eips.ethereum.org/EIPS/eip-7044
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+        voluntary_exit_fork, genesis_validators_root, volex.message, key,
+        volex.signature.load.valueOr do:
+          return err(
+            "collectSignatureSets: cannot load voluntary exit signature"))
 
   block:
     when signed_block is phase0.SignedBeaconBlock:
