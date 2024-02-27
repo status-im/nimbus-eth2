@@ -287,10 +287,13 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
     if state.validators.asSeq[vidx - 1].pubkey == pubkey:
       return Opt[ValidatorIndex].ok((vidx - 1).ValidatorIndex)
 
-proc process_deposit*(cfg: RuntimeConfig,
-                      state: var ForkyBeaconState,
-                      deposit: Deposit,
-                      flags: UpdateFlags): Result[void, cstring] =
+from ".."/bloomfilter import
+  PubkeyBloomFilter, constructBloomFilter, incl, mightContain
+
+proc process_deposit*(
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    bloom_filter: var PubkeyBloomFilter, deposit: Deposit, flags: UpdateFlags):
+    Result[void, cstring] =
   ## Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
@@ -309,7 +312,11 @@ proc process_deposit*(cfg: RuntimeConfig,
   let
     pubkey = deposit.data.pubkey
     amount = deposit.data.amount
-    index = findValidatorIndex(state, pubkey)
+    index =
+      if bloom_filter.mightContain(pubkey):
+        findValidatorIndex(state, pubkey)
+      else:
+        Opt.none(ValidatorIndex)
 
   if index.isSome():
     # Increase balance by deposit amount
@@ -335,6 +342,7 @@ proc process_deposit*(cfg: RuntimeConfig,
           return err("process_deposit: too many validators (inactivity_scores)")
 
       doAssert state.validators.len == state.balances.len
+      bloom_filter.incl pubkey
     else:
       # Deposits may come with invalid signatures - in that case, they are not
       # turned into a validator but still get processed to keep the deposit
@@ -465,8 +473,10 @@ proc process_operations(cfg: RuntimeConfig,
   for op in body.attestations:
     operations_rewards.attestations +=
       ? process_attestation(state, op, flags, base_reward_per_increment, cache)
-  for op in body.deposits:
-    ? process_deposit(cfg, state, op, flags)
+  if body.deposits.len > 0:
+    let bloom_filter = constructBloomFilter(state.validators.asSeq)
+    for op in body.deposits:
+      ? process_deposit(cfg, state, bloom_filter[], op, flags)
   for op in body.voluntary_exits:
     ? process_voluntary_exit(cfg, state, op, flags, cache)
   when typeof(body).kind >= ConsensusFork.Capella:

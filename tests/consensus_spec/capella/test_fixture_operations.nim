@@ -137,11 +137,15 @@ suite baseDescription & "BLS to execution change " & preset():
       OpBlsToExecutionChangeDir, suiteName, "BLS to execution change", "address_change",
       applyBlsToExecutionChange, path)
 
+from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
+
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
       preState: var capella.BeaconState, deposit: Deposit):
       Result[void, cstring] =
-    process_deposit(defaultRuntimeConfig, preState, deposit, {})
+    process_deposit(
+      defaultRuntimeConfig, preState,
+      constructBloomFilter(preState.validators.asSeq)[], deposit, {})
 
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
