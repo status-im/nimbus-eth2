@@ -35,9 +35,10 @@ proc runTest(consensusFork: static ConsensusFork,
         testPath = testDir / path
         preState = newClone(parseTest(testPath / "pre.ssz_snappy",
                      SSZ, consensusFork.BeaconState))
+        postState = testPath / "post.ssz_snappy"
         blockPath = testPath / "blocks_0.ssz_snappy"
 
-      if not(fileExists(blockPath)):
+      if not(fileExists(blockPath)) or not(fileExists(postState)):
         discard
       else:
         var
