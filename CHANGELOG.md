@@ -1,3 +1,25 @@
+2023-02-27 v24.2.2
+==================
+
+Nimbus `v24.2.2` is a hotfix release addressing a consensus violation issue affecting Deneb-transitioned network such as Holešky. Please upgrade as soon as possible if your node is affected.
+
+### Improvements
+
+* Added metrics `validator_monitor_block_hit` and `validator_monitor_block_miss` tracking the number of successful and missed block proposals:
+  https://github.com/status-im/nimbus-eth2/pull/5913
+
+### Fixes
+
+* Nimbus had an incomplete implementation of EIP-7044 (Perpetually Valid Signed Voluntary Exits):
+  https://github.com/status-im/nimbus-eth2/pull/5953
+  https://github.com/status-im/nimbus-eth2/pull/5954
+  https://github.com/status-im/nimbus-eth2/pull/5959
+  https://github.com/status-im/nimbus-eth2/pull/5966
+
+* The Nimbus `v24.2.1` validator client was crashing with a `RangeDefect` error message during block proposal when paired with a `v24.1.x` beacon node:
+  https://github.com/status-im/nim-stint/pull/148
+
+
 2023-02-20 v24.2.1
 ==================
 
