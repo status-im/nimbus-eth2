@@ -192,11 +192,12 @@ proc checkBitList(
     expectedHash: SSZHashTreeRoot
 ) {.raises: [IOError, SerializationError, UnconsumedInput, ValueError].} =
   var maxLen: int
-  discard (
+  let wasMatched =
     try:
       scanf(sszSubType, "bitlist_$i", maxLen)
     except ValueError:
-      false)  # Raised if the parsed integer is out of the valid range
+      false  # Raised if the parsed integer is out of the valid range
+  doAssert wasMatched
   case maxLen
   of 0: checkBasic(BitList[0], dir, expectedHash)
   of 1: checkBasic(BitList[1], dir, expectedHash)
