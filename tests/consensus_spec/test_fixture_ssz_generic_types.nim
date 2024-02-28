@@ -191,6 +191,22 @@ proc checkBitList(
     sszSubType, dir: string,
     expectedHash: SSZHashTreeRoot
 ) {.raises: [IOError, SerializationError, UnconsumedInput, ValueError].} =
+  if sszSubType.startsWith("bitlist_n"):
+    # Invalid data, ensure that it does not deserialize with different sizes
+    checkBasic(BitList[0], dir, expectedHash)
+    checkBasic(BitList[1], dir, expectedHash)
+    checkBasic(BitList[2], dir, expectedHash)
+    checkBasic(BitList[3], dir, expectedHash)
+    checkBasic(BitList[4], dir, expectedHash)
+    checkBasic(BitList[5], dir, expectedHash)
+    checkBasic(BitList[8], dir, expectedHash)
+    checkBasic(BitList[16], dir, expectedHash)
+    checkBasic(BitList[31], dir, expectedHash)
+    checkBasic(BitList[32], dir, expectedHash)
+    checkBasic(BitList[512], dir, expectedHash)
+    checkBasic(BitList[513], dir, expectedHash)
+    return
+
   var maxLen: int
   let wasMatched =
     try:
