@@ -99,6 +99,7 @@ proc main() =
             compile[0].getStr().replace('\\', '/')])
           makefile.writeLine("\t+ $#\n" % cmd)
         except ValueError:
+          # https://github.com/nim-lang/Nim/pull/23356
           raiseAssert "Arguments match the format string"
     except KeyError:
       echo "File lacks `compile` key: ", jsonPath
@@ -114,6 +115,7 @@ proc main() =
     try:
       makefile.writeLine("OBJECTS := $#\n" % objects.join(" \\\n"))
     except ValueError:
+      # https://github.com/nim-lang/Nim/pull/23356
       raiseAssert "Arguments match the format string"
 
     makefile.writeLine(".PHONY: build")
@@ -126,6 +128,7 @@ proc main() =
       echo "Failed to write file: ", linkerArgs, " - [IOError]: ", exc.msg
       quit(QuitFailure)
     except ValueError:
+      # https://github.com/nim-lang/Nim/pull/23356
       raiseAssert "Arguments match the format string"
     if data.hasKey("extraCmds"):
       try:
@@ -133,6 +136,7 @@ proc main() =
           try:
             makefile.writeLine("\t+ $#" % cmd.getStr().replace('\\', '/'))
           except ValueError:
+            # https://github.com/nim-lang/Nim/pull/23356
             raiseAssert "Arguments match the format string"
       except KeyError:
         raiseAssert "just checked"
