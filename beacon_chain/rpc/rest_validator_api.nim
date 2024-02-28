@@ -522,7 +522,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
 
     withConsensusFork(contextFork):
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Deneb:
         let res = await makeBlindedBeaconBlockForHeadAndSlot[
             consensusFork.BlindedBeaconBlock](
           node, payloadBuilderClient, qrandao,
@@ -532,7 +532,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return responseVersioned(res.get().blindedBlckPart, contextFork)
       elif consensusFork >= ConsensusFork.Bellatrix:
         return RestApiResponse.jsonError(
-          Http400, "Pre-Capella builder API unsupported")
+          Http400, "Pre-Deneb builder API unsupported")
       else:
         # Pre-Bellatrix, this endpoint will return a BeaconBlock
         let res = await makeBeaconBlockForHeadAndSlot(
