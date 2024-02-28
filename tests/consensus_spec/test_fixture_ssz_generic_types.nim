@@ -156,7 +156,7 @@ proc checkVector(
     try:
       scanf(sszSubType, "vec_$+_$i", typeIdent, size)
     except ValueError:
-      false  # Raised if the parsed integer is out of the valid range
+      false  # Parsed `size` is out of range
   doAssert wasMatched
   testVector(typeIdent, size)
 
@@ -169,7 +169,7 @@ proc checkBitVector(
     try:
       scanf(sszSubType, "bitvec_$i", size)
     except ValueError:
-      false  # Raised if the parsed integer is out of the valid range
+      false  # Parsed `size` is out of range
   doAssert wasMatched
   case size
   of 1: checkBasic(BitArray[1], dir, expectedHash)
@@ -196,7 +196,7 @@ proc checkBitList(
     try:
       scanf(sszSubType, "bitlist_$i", maxLen)
     except ValueError:
-      false  # Raised if the parsed integer is out of the valid range
+      false  # Parsed `size` is out of range
   doAssert wasMatched
   case maxLen
   of 0: checkBasic(BitList[0], dir, expectedHash)
@@ -240,7 +240,7 @@ proc sszCheck(
       try:
         scanf(sszSubType, "uint_$i", bitsize)
       except ValueError:
-        false  # Raised if the parsed integer is out of the valid range
+        false  # Parsed `size` is out of range
     doAssert wasMatched
     case bitsize
     of 8:   checkBasic(uint8, dir, expectedHash)
