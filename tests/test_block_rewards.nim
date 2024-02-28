@@ -25,7 +25,7 @@ from ./consensus_spec/fixtures_utils import
 proc runTest(consensusFork: static ConsensusFork,
              testDir: static[string], suiteName, path: string) =
   test "Block rewards test -" & preset():
-    echo "testName = ", testName
+    echo ""
     echo "path = ", path
 
     when consensusFork == ConsensusFork.Phase0:
@@ -52,29 +52,54 @@ proc runTest(consensusFork: static ConsensusFork,
           forkedBlock = ForkedBeaconBlock.init(blck.message)
           consensusBlockValue = collectBlockRewards(fhPreState[], forkedBlock)
 
-        let (proposerIndex, preStateBalance, blockValue) =
+        let (proposerIndex, preStateBalance, blockValue, stateSlot, blckSlot) =
           withStateAndBlck(fhPreState[], forkedBlock):
             (forkyBlck.proposer_index,
              forkyState.data.balances.item(forkyBlck.proposer_index),
-             consensusBlockValue.get())
+             consensusBlockValue.get(),
+             forkyState.data.slot,
+             forkyBlck.slot)
 
-        let res = state_transition(
-          defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
-          noRollback)
+        info "Perform state_transition with block",
+             blck = shortLog(forkedBlock),
+             block_consensus_value = blockValue,
+             proposer_index = proposerIndex,
+             validator_balance = preStateBalance,
+             state_slot = stateSlot,
+             expected_balance = preStateBalance + blockValue
 
-        if res.isErr():
-          # Ignore failed states.
-          return
+        block:
+          let res =
+            process_slots(defaultRuntimeConfig, fhPreState[],
+                          blckSlot, cache, info, flags = {})
+          if res.isErr():
+            # Ignore failed states.
+            info "State advance failed", reason = $res.error
+            return
 
-        echo "proposer_index = ", proposerIndex
-        echo "before balance = ", preStateBalance
-        echo "block value = ", blockValue
+        let advanceBalance =
+          withState(fhPreState[]):
+            forkyState.data.balances.item(proposerIndex)
+
+        block:
+          let res =
+            state_transition_block(defaultRuntimeConfig, fhPreState[], blck,
+                                   cache, flags = {}, noRollback)
+          if res.isErr():
+            # Ignore failed states.
+            info "State transition failed", reason = $res.error
+            return
 
         let balance =
           withState(fhPreState[]):
             forkyState.data.balances.item(proposerIndex)
 
-        echo "after balance = ", balance
+        info "State transition succesfull",
+             actual_validator_balance = balance,
+             snapshot0_balance = preStateBalance,
+             snapshot1_balance = advanceBalance,
+             calculated_value0 = preStateBalance + blockValue,
+             calculated_value1 = advanceBalance + blockValue
 
 template runForkBlockTests(consensusFork: static ConsensusFork) =
   const
