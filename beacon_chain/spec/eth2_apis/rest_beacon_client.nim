@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -12,7 +13,8 @@ import
     rest_beacon_calls, rest_builder_calls, rest_config_calls, rest_debug_calls,
     rest_keymanager_calls, rest_light_client_calls,
     rest_node_calls, rest_validator_calls,
-    rest_nimbus_calls, rest_event_calls, rest_common
+    rest_nimbus_calls, rest_event_calls, rest_common,
+    rest_fork_config
   ]
 
 export
@@ -20,4 +22,5 @@ export
   rest_beacon_calls, rest_builder_calls, rest_config_calls, rest_debug_calls,
   rest_keymanager_calls, rest_light_client_calls,
   rest_node_calls, rest_validator_calls,
-  rest_nimbus_calls, rest_event_calls, rest_common
+  rest_nimbus_calls, rest_event_calls, rest_common,
+  rest_fork_config

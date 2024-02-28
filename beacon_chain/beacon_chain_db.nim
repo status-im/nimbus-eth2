@@ -204,6 +204,9 @@ type
     slot*: Slot
     parent_root*: Eth2Digest
 
+func shortLog*(v: BeaconBlockSummary): auto =
+  (v.slot, shortLog(v.parent_root))
+
 # Subkeys essentially create "tables" within the key-value store by prefixing
 # each entry with a table id
 

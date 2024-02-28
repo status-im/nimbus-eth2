@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # State transition - block processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#block-processing
@@ -20,8 +22,6 @@
 # * When updating the code, add TODO sections to mark where there are clear
 #   improvements to be made - other than that, keep things similar to spec unless
 #   motivated by security or performance considerations
-
-{.push raises: [].}
 
 import
   chronicles, metrics,
@@ -269,9 +269,23 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
   # given that each block can hold no more than 16 deposits, it's slower to
   # build the table and use it for lookups than to scan it like this.
   # Once we have a reusable, long-lived cache, this should be revisited
-  for vidx in state.validators.vindices:
-    if state.validators.asSeq[vidx].pubkey == pubkey:
-      return Opt[ValidatorIndex].ok(vidx)
+  #
+  # For deposit processing purposes, two broad cases exist, either
+  #
+  # (a) someone has deposited all 32 required ETH as a single transaction,
+  #     in which case the index doesn't yet exist so the search order does
+  #     not matter so long as it's generally in an order memory controller
+  #     prefetching can predict; or
+  #
+  # (b) the deposit has been split into multiple parts, typically not far
+  #     apart from each other, such that on average one would expect this
+  #     validator index to be nearer the maximal than minimal index.
+  #
+  # countdown() infinite-loops if the lower bound with uint32 is 0, so
+  # shift indices by 1, which avoids triggering unsigned wraparound.
+  for vidx in countdown(state.validators.len.uint32, 1):
+    if state.validators.asSeq[vidx - 1].pubkey == pubkey:
+      return Opt[ValidatorIndex].ok((vidx - 1).ValidatorIndex)
 
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,
@@ -365,16 +379,11 @@ proc check_voluntary_exit*(
 
   # Verify signature
   if skipBlsValidation notin flags:
-    let exitSignatureFork =
-      when typeof(state).kind >= ConsensusFork.Deneb:
-        Fork(
-          previous_version: cfg.CAPELLA_FORK_VERSION,
-          current_version: cfg.CAPELLA_FORK_VERSION,
-          epoch: cfg.CAPELLA_FORK_EPOCH)
-      else:
-        state.fork
+    const consensusFork = typeof(state).kind
+    let voluntary_exit_fork = consensusFork.voluntary_exit_signature_fork(
+      state.fork, cfg.CAPELLA_FORK_VERSION)
     if not verify_voluntary_exit_signature(
-        exitSignatureFork, state.genesis_validators_root, voluntary_exit,
+        voluntary_exit_fork, state.genesis_validators_root, voluntary_exit,
         validator[].pubkey, signed_voluntary_exit.signature):
       return err("Exit: invalid signature")
 

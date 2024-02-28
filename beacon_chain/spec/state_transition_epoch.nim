@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # State transition - epoch processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#epoch-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#epoch-processing
@@ -19,8 +21,6 @@
 # * When updating the code, add TODO sections to mark where there are clear
 #   improvements to be made - other than that, keep things similar to spec unless
 #   motivated by security or performance considerations
-
-{.push raises: [].}
 
 import
   stew/bitops2, chronicles,

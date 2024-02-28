@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # This file contains data types that are part of the spec and thus subject to
 # serialization and spec updates.
 #
@@ -58,8 +60,6 @@
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
-{.push raises: [].}
-
 import
   std/[macros, hashes, sets, strutils, tables, typetraits],
   results,
@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.4.0-beta.6"
+const SPEC_VERSION* = "1.4.0-beta.7-hotfix"
 ## Spec version we're aiming to be compatible with, right now
 
 const

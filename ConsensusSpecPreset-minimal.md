@@ -2465,6 +2465,7 @@ OK: 78/78 Fail: 0/78 Skip: 0/78
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Deneb - Transition  [Preset: minimal]
 ```diff
++ EF - Deneb - Transition - higher_churn_limit_to_lower [Preset: minimal]                    OK
 + EF - Deneb - Transition - non_empty_historical_roots [Preset: minimal]                     OK
 + EF - Deneb - Transition - normal_transition [Preset: minimal]                              OK
 + EF - Deneb - Transition - simple_transition [Preset: minimal]                              OK
@@ -2495,7 +2496,7 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Deneb - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
 + EF - Deneb - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
 ```
-OK: 29/29 Fail: 0/29 Skip: 0/29
+OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Deneb - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -3193,4 +3194,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2585/2607 Fail: 0/2607 Skip: 22/2607
+OK: 2586/2608 Fail: 0/2608 Skip: 22/2608

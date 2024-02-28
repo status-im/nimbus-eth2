@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/[tables, os, sets, sequtils, strutils, uri, algorithm],
   results,
@@ -114,7 +116,8 @@ type
     NoTimeCheck
 
   RestBeaconNodeFeature* {.pure.} = enum
-    NoNimbusExtensions  ## BN do not supports Nimbus Extensions
+    NoNimbusExtensions, ## BN does not support Nimbus Extensions
+    NoProduceBlockV3    ## BN does not support produceBlockV3 call
 
   TimeOffset* = object
     value: int64
@@ -189,7 +192,7 @@ type
     waiters*: seq[BlockWaiter]
 
   ValidatorRuntimeConfig* = object
-    altairEpoch*: Opt[Epoch]
+    forkConfig*: Opt[VCForkConfig]
 
   ValidatorClient* = object
     config*: ValidatorClientConf
@@ -515,16 +518,6 @@ proc equals*(info: VCRuntimeConfig, name: string, check: DomainType): bool =
 proc equals*(info: VCRuntimeConfig, name: string, check: Epoch): bool =
   info.equals(name, uint64(check))
 
-proc getOrDefault*(info: VCRuntimeConfig, name: string,
-                   default: uint64): uint64 =
-  let numstr = info.getOrDefault(name, "missing")
-  if numstr == "missing": return default
-  Base10.decode(uint64, numstr).valueOr:
-    return default
-
-proc getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
-  Epoch(info.getOrDefault(name, uint64(default)))
-
 proc checkConfig*(c: VCRuntimeConfig): bool =
   c.equals("MAX_VALIDATORS_PER_COMMITTEE", MAX_VALIDATORS_PER_COMMITTEE) and
   c.equals("SLOTS_PER_EPOCH", SLOTS_PER_EPOCH) and
@@ -740,7 +733,10 @@ proc normalizeUri*(r: Uri): Result[Uri, cstring] =
 
 proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
   let
-    flags = {RestClientFlag.CommaSeparatedArray}
+    flags = {
+      RestClientFlag.CommaSeparatedArray,
+      RestClientFlag.ResolveAlways
+    }
     socketFlags = {SocketFlags.TcpNoDelay}
     address = ? getHttpAddress(uri)
     client = RestClientRef.new(address, flags = flags,
@@ -1041,12 +1037,12 @@ proc getValidatorRegistration(
     if sigfut.finished():
       # This is short-path if we able to create signature locally.
       if not(sigfut.completed()):
-        let exc = sigfut.readError()
+        let exc = sigfut.error()
         debug "Got unexpected exception while signing validator registration",
               validator = shortLog(validator), error_name = $exc.name,
               error_msg = $exc.msg
         return err(RegistrationKind.ErrorSignature)
-      let sigres = sigfut.read()
+      let sigres = sigfut.value()
       if sigres.isErr():
         debug "Failed to get signature for validator registration",
               validator = shortLog(validator), error = sigres.error()
@@ -1430,33 +1426,86 @@ func `==`*(a, b: SyncCommitteeDuty): bool =
 proc updateRuntimeConfig*(vc: ValidatorClientRef,
                           node: BeaconNodeServerRef,
                           info: VCRuntimeConfig): Result[void, string] =
-  if not(info.hasKey("ALTAIR_FORK_EPOCH")):
-    debug "Beacon node's configuration missing ALTAIR_FORK_EPOCH value",
-          node = node
+  var forkConfig = ? info.getConsensusForkConfig()
 
-  let
-    res = info.getOrDefault("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH)
-    wallEpoch = vc.beaconClock.now().slotOrZero().epoch()
+  if vc.runtimeConfig.forkConfig.isNone():
+    vc.runtimeConfig.forkConfig = Opt.some(forkConfig)
+  else:
+    template localForkConfig: untyped = vc.runtimeConfig.forkConfig.get()
+    let wallEpoch = vc.beaconClock.now().slotOrZero().epoch()
 
-  return
-    if vc.runtimeConfig.altairEpoch.get(FAR_FUTURE_EPOCH) == FAR_FUTURE_EPOCH:
-      vc.runtimeConfig.altairEpoch = Opt.some(res)
-      ok()
-    else:
-      if res == vc.runtimeConfig.altairEpoch.get():
-        ok()
+    proc validateForkVersionCompatibility(
+        consensusFork: ConsensusFork,
+        localForkVersion: Opt[Version],
+        localForkEpoch: Epoch,
+        forkVersion: Opt[Version]): Result[void, string] =
+      if localForkVersion.isNone():
+        ok()  # Potentially discovered new fork, save it at end of function
       else:
-        if res == FAR_FUTURE_EPOCH:
-          if wallEpoch < vc.runtimeConfig.altairEpoch.get():
-            debug "Beacon node must be updated before Altair activates",
+        if forkVersion.isSome():
+          if forkVersion.get() == localForkVersion.get():
+            ok()  # Already known
+          else:
+            err("Beacon node has conflicting " &
+                consensusFork.forkVersionConfigKey() & " value")
+        else:
+          if wallEpoch < localForkEpoch:
+            debug "Beacon node must be updated before fork activates",
                   node = node,
-                  altairForkEpoch = vc.runtimeConfig.altairEpoch.get()
+                  consensusFork,
+                  forkEpoch = localForkEpoch
             ok()
           else:
             err("Beacon node must be updated and report correct " &
-                "ALTAIR_FORK_EPOCH value")
+                $consensusFork & " config value")
+
+    ? ConsensusFork.Capella.validateForkVersionCompatibility(
+      localForkConfig.capellaVersion,
+      localForkConfig.capellaEpoch,
+      forkConfig.capellaVersion)
+
+    proc validateForkEpochCompatibility(
+        consensusFork: ConsensusFork,
+        localForkEpoch: Epoch,
+        forkEpoch: Epoch): Result[void, string] =
+      if localForkEpoch == FAR_FUTURE_EPOCH:
+        ok()  # Potentially discovered new fork, save it at end of function
+      else:
+        if forkEpoch != FAR_FUTURE_EPOCH:
+          if forkEpoch == localForkEpoch:
+            ok()  # Already known
+          else:
+            err("Beacon node has conflicting " &
+                consensusFork.forkEpochConfigKey() & " value")
         else:
-          err("Beacon node has conflicting ALTAIR_FORK_EPOCH value")
+          if wallEpoch < localForkEpoch:
+            debug "Beacon node must be updated before fork activates",
+                  node = node,
+                  consensusFork,
+                  forkEpoch = localForkEpoch
+            ok()
+          else:
+            err("Beacon node must be updated and report correct " &
+                $consensusFork & " config value")
+
+    ? ConsensusFork.Altair.validateForkEpochCompatibility(
+      localForkConfig.altairEpoch, forkConfig.altairEpoch)
+    ? ConsensusFork.Capella.validateForkEpochCompatibility(
+      localForkConfig.capellaEpoch, forkConfig.capellaEpoch)
+    ? ConsensusFork.Deneb.validateForkEpochCompatibility(
+      localForkConfig.denebEpoch, forkConfig.denebEpoch)
+
+    # Save newly discovered forks.
+    if localForkConfig.altairEpoch == FAR_FUTURE_EPOCH:
+      localForkConfig.altairEpoch = forkConfig.altairEpoch
+    if localForkConfig.capellaVersion.isNone():
+      localForkConfig.capellaVersion = forkConfig.capellaVersion
+    if localForkConfig.capellaEpoch == FAR_FUTURE_EPOCH:
+      localForkConfig.capellaEpoch = forkConfig.capellaEpoch
+    if localForkConfig.denebEpoch == FAR_FUTURE_EPOCH:
+      localForkConfig.denebEpoch = forkConfig.denebEpoch
+
+  ok()
 
 proc `+`*(slot: Slot, epochs: Epoch): Slot =
   slot + uint64(epochs) * SLOTS_PER_EPOCH

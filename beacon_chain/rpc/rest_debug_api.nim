@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import std/sequtils
 import chronicles
 import ".."/beacon_node,
@@ -72,8 +74,11 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
               "/eth/v2/debug/beacon/heads") do () -> RestApiResponse:
     RestApiResponse.jsonResponse(
       node.dag.heads.mapIt(
-        (root: it.root, slot: it.slot,
-         execution_optimistic: not it.executionValid)
+        RestChainHeadV2(
+          root: it.root,
+          slot: it.slot,
+          execution_optimistic: not it.executionValid
+        )
       )
     )
 
@@ -123,7 +128,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
               RestNodeValidity.optimistic
             else:
               RestNodeValidity.valid,
-        execution_block_hash: node.dag.loadExecutionBlockHash(item.bid),
+        execution_block_hash:
+          node.dag.loadExecutionBlockHash(item.bid).get(ZERO_HASH),
         extra_data: some RestNodeExtraData(
           justified_root: item.checkpoints.justified.root,
           finalized_root: item.checkpoints.finalized.root,

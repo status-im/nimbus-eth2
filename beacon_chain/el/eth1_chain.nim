@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/[deques, tables, strformat],
   chronicles, metrics,
@@ -15,6 +17,9 @@ import
   ./merkle_minimal
 
 export beacon_chain_db, deques, digest, base, forks
+
+logScope:
+  topics = "elchain"
 
 declarePublicGauge eth1_finalized_head,
   "Block number of the highest Eth1 block finalized by Eth2 consensus"

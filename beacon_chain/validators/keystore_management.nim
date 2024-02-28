@@ -73,6 +73,10 @@ type
     proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
          {.raises: [], gcsafe.}
 
+  GetCapellaForkVersionFn* =
+    proc (): Opt[Version] {.raises: [], gcsafe.}
+  GetDenebForkEpochFn* =
+    proc (): Opt[Epoch] {.raises: [], gcsafe.}
   GetForkFn* =
     proc (epoch: Epoch): Opt[Fork] {.raises: [], gcsafe.}
   GetGenesisFn* =
@@ -90,6 +94,8 @@ type
     defaultBuilderAddress*: Opt[string]
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
+    getCapellaForkVersionFn*: GetCapellaForkVersionFn
+    getDenebForkEpochFn*: GetDenebForkEpochFn
     getForkFn*: GetForkFn
     getGenesisFn*: GetGenesisFn
 
@@ -122,6 +128,8 @@ func init*(T: type KeymanagerHost,
            defaultBuilderAddress: Opt[string],
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
            getBeaconTimeFn: GetBeaconTimeFn,
+           getCapellaForkVersionFn: GetCapellaForkVersionFn,
+           getDenebForkEpochFn: GetDenebForkEpochFn,
            getForkFn: GetForkFn,
            getGenesisFn: GetGenesisFn): T =
   T(validatorPool: validatorPool,
@@ -135,6 +143,8 @@ func init*(T: type KeymanagerHost,
     defaultBuilderAddress: defaultBuilderAddress,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
     getBeaconTimeFn: getBeaconTimeFn,
+    getCapellaForkVersionFn: getCapellaForkVersionFn,
+    getDenebForkEpochFn: getDenebForkEpochFn,
     getForkFn: getForkFn,
     getGenesisFn: getGenesisFn)
 
@@ -632,7 +642,8 @@ proc existsKeystore(keystoreDir: string,
       return true
   false
 
-proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl): Future[QueryResult] {.async.} =
+proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl):
+    Future[QueryResult] {.async: (raises: [CancelledError]).} =
   var keystores: seq[KeystoreData]
 
   logScope:
@@ -670,13 +681,6 @@ proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl): Future[QueryResult] {
         res.get()
       except RestError as exc:
         warn "Unable to poll validator's source", reason = $exc.msg
-        return QueryResult.err($exc.msg)
-      except CancelledError as exc:
-        debug "The polling of validator's source was interrupted"
-        raise exc
-      except CatchableError as exc:
-        warn "Unexpected error occured while polling validator's source",
-             error = $exc.name, reason = $exc.msg
         return QueryResult.err($exc.msg)
 
     remoteType = if web3signerUrl.provenBlockProperties.len == 0:
@@ -999,13 +1003,7 @@ proc saveNetKeystore*(rng: var HmacDrbgContext, keystorePath: string,
 
   let keyStore = createNetKeystore(kdfScrypt, rng, netKey,
                                    KeystorePass.init password)
-  var encodedStorage: string
-  try:
-    encodedStorage = Json.encode(keyStore)
-  except SerializationError as exc:
-    error "Could not serialize network key storage", key_path = keystorePath
-    return err(KeystoreGenerationError(
-      kind: FailedToCreateKeystoreFile, error: exc.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   let res = secureWriteFile(keystorePath, encodedStorage)
   if res.isOk():
@@ -1182,14 +1180,7 @@ proc saveKeystore*(
   let keyStore = createKeystore(kdfPbkdf2, rng, signingKey,
                                 keypass, signingKeyPath,
                                 mode = mode, salt = salt)
-
-  let encodedStorage =
-    try:
-      Json.encode(keyStore)
-    except SerializationError as e:
-      error "Could not serialize keystorage", key_path = keystoreFile
-      return err(KeystoreGenerationError(
-        kind: FailedToCreateKeystoreFile, error: e.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   ? createLocalValidatorFiles(secretsDir, validatorsDir,
                               keystoreDir,
@@ -1223,13 +1214,7 @@ proc saveLockedKeystore(
                                 keypass, signingKeyPath,
                                 mode = mode)
 
-  let encodedStorage =
-    try:
-      Json.encode(keyStore)
-    except SerializationError as e:
-      error "Could not serialize keystorage", key_path = keystoreFile
-      return err(KeystoreGenerationError(
-        kind: FailedToCreateKeystoreFile, error: e.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   let lock = ? createLockedLocalValidatorFiles(secretsDir, validatorsDir,
                                                keystoreDir,
@@ -1268,13 +1253,7 @@ proc saveKeystore(
     return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
       error: "Keystore file already exists"))
 
-  let encodedStorage =
-    try:
-      Json.encode(keyStore)
-    except SerializationError as exc:
-      error "Could not serialize keystorage", key_path = keystoreFile
-      return err(KeystoreGenerationError(
-        kind: FailedToCreateKeystoreFile, error: exc.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   ? createRemoteValidatorFiles(validatorsDir, keystoreDir, keystoreFile,
                                encodedStorage)
@@ -1310,13 +1289,7 @@ proc saveLockedKeystore(
     return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
       error: "Keystore file already exists"))
 
-  let encodedStorage =
-    try:
-      Json.encode(keyStore)
-    except SerializationError as exc:
-      error "Could not serialize keystorage", key_path = keystoreFile
-      return err(KeystoreGenerationError(
-        kind: FailedToCreateKeystoreFile, error: exc.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   let lock = ? createLockedRemoteValidatorFiles(validatorsDir, keystoreDir,
                                                 keystoreFile, encodedStorage)
@@ -1633,12 +1606,9 @@ proc generateDeposits*(cfg: RuntimeConfig,
   ok deposits
 
 proc saveWallet(wallet: Wallet, outWalletPath: string): Result[void, string] =
-  let walletDir = splitFile(outWalletPath).dir
-  var encodedWallet: string
-  try:
+  let
+    walletDir = splitFile(outWalletPath).dir
     encodedWallet = Json.encode(wallet, pretty = true)
-  except SerializationError:
-    return err("Could not serialize wallet")
 
   ? secureCreatePath(walletDir).mapErr(proc(e: auto): string =
     "Could not create wallet directory [" & walletDir & "]: " & $e)
