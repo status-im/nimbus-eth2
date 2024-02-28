@@ -81,7 +81,7 @@ proc unblindAndRouteBlockMEV*(
       SubmitBlindedBlockResponseDeneb, response.data, response.contentType)
 
     bundle = res.valueOr:
-      return err("Could not decode Deneb blinded block: " & $res.error &
+      return err("Could not decode " & $consensusFork & " blinded block: " & $res.error &
         " with HTTP status " & $response.status & ", Content-Type " &
         $response.contentType & " and content " & $response.data)
 
