@@ -3442,7 +3442,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field `data` is missing")
 
   withConsensusFork(version.get):
-    when consensusFork >= ConsensusFork.Capella:
+    when consensusFork >= ConsensusFork.Deneb:
       if blinded.get:
         value = ForkedMaybeBlindedBeaconBlock.init(
           RestJson.decode(
@@ -4018,7 +4018,7 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
           except ValueError:
             return err("Incorrect `Eth-Consensus-Block-Value` header value")
     withConsensusFork(fork):
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Deneb:
         if blinded:
           let contents =
             ? readSszResBytes(consensusFork.BlindedBlockContents, value)

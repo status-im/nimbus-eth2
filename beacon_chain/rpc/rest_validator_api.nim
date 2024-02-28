@@ -632,7 +632,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(node.dag.cfg.consensusForkAtEpoch(qslot.epoch)):
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Deneb:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
               consensusFork, qrandao, qgraffiti, qhead, qslot)).valueOr:
