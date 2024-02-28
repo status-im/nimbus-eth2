@@ -68,12 +68,12 @@ jobs:
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Restore llvm-mingw (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-mingw-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: external/mingw-${{ matrix.target.cpu }}
           key: 'mingw-llvm-17-${{ matrix.target.cpu }}'
@@ -93,7 +93,7 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
@@ -182,7 +182,7 @@ jobs:
 
       - name: Restore Ethereum Foundation fixtures from cache
         id: fixtures-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: fixturesCache
           key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
@@ -210,7 +210,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
@@ -229,7 +229,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 2  # In PR, has extra merge commit: ^1 = PR, ^2 = base
           submodules: 'recursive'

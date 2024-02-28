@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 name: Daily
 on:
   schedule:
@@ -44,13 +51,13 @@ jobs:
     steps:
       - name: Checkout
         if: ${{ github.event_name != 'pull_request' }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: unstable
 
       - name: Checkout (pull request)
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
@@ -85,7 +92,7 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: external/dlls
           key: 'dlls-${{ matrix.target.cpu }}'
@@ -168,7 +175,7 @@ jobs:
 
       - name: Restore Ethereum Foundation fixtures from cache
         id: fixtures-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: fixturesCache
           key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
