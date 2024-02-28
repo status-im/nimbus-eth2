@@ -9,6 +9,7 @@
 
 import
   chronicles,
+  ../../beacon_chain/spec/beaconstate,
   ../../beacon_chain/spec/forks,
   ../../beacon_chain/spec/state_transition,
   ../../beacon_chain/validators/rewards,
@@ -68,6 +69,8 @@ proc runTest(consensusFork: static ConsensusFork,
              state_slot = stateSlot,
              expected_balance = preStateBalance + blockValue
 
+        debugTrackedValidator = ValidatorIndex.high
+
         block:
           let res =
             process_slots(defaultRuntimeConfig, fhPreState[],
@@ -80,6 +83,7 @@ proc runTest(consensusFork: static ConsensusFork,
         let advanceBalance =
           withState(fhPreState[]):
             forkyState.data.balances.item(proposerIndex)
+        debugTrackedValidator = ValidatorIndex(proposerIndex)
 
         block:
           let res =
