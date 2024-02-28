@@ -13,7 +13,7 @@ import chronos
 import ../beacon_chain/networking/peer_pool
 import ./testutil
 
-template closureScope*(raisesAnnotation: untyped, body: untyped): untyped =
+template closureScope(raisesAnnotation: untyped, body: untyped): untyped =
   (proc() {.raises: raisesAnnotation} = body)()
 
 type
