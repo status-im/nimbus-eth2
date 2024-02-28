@@ -33,9 +33,11 @@ func fakeValidator(index: SomeInteger): ValidatorPubKey =
   result.blob[0 ..< 8] = (1'u64 shl 48 + index.uint64).toBytesBE()
 
 proc sqlite3db_delete(basepath, dbname: string) =
-  removeFile(basepath / dbname&".sqlite3-shm")
-  removeFile(basepath / dbname&".sqlite3-wal")
-  removeFile(basepath / dbname&".sqlite3")
+  for extension in [".sqlite3-shm", ".sqlite3-wal", ".sqlite3"]:
+    try:
+      removeFile(basepath / dbname&extension)
+    except OSError:
+      discard
 
 const TestDir = ""
 const TestDbName = "test_slashprot"
