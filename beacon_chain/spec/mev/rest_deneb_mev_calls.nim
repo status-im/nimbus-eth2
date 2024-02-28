@@ -13,6 +13,13 @@ import
 
 export chronos, client, rest_types, eth2_rest_serialization
 
+proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
+                       ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/builder/validators",
+     meth: MethodPost, connection: {Dedicated, Close}.}
+  ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/validators.yaml
+  ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
+
 proc getHeaderDeneb*(slot: Slot,
                      parent_hash: Eth2Digest,
                      pubkey: ValidatorPubKey
