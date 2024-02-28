@@ -56,9 +56,6 @@ declareCounter nbc_remote_signer_500_responses,
 declareCounter nbc_remote_signer_unknown_responses,
   "Number of unrecognized responses (unknown response code)"
 
-declareCounter nbc_remote_signer_communication_errors,
-  "Number of communication errors"
-
 declareHistogram nbc_remote_signer_duration,
   "Time(s) used to generate signature usign remote signer",
    buckets = [0.050, 0.100, 0.500, 1.0, 5.0, 10.0]
