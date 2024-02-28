@@ -1,10 +1,11 @@
-# Nimbus
+# beacon_chain
 # Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -86,9 +87,11 @@ chronicles.formatIt CandidateBlock: it.toHexLogs
 chronicles.formatIt CandidateVote: it.toHexLogs
 
 proc sqlite3db_delete(basepath, dbname: string) =
-  removeFile(basepath / dbname&".sqlite3-shm")
-  removeFile(basepath / dbname&".sqlite3-wal")
-  removeFile(basepath / dbname&".sqlite3")
+  for extension in [".sqlite3-shm", ".sqlite3-wal", ".sqlite3"]:
+    try:
+      removeFile(basepath / dbname&extension)
+    except OSError:
+      discard
 
 const InterchangeTestsDir = FixturesDir / "tests-slashing-v5.3.0" / "tests" / "generated"
 const TestDir = ""
@@ -147,7 +150,7 @@ proc statusOkOrDuplicateOrMinEpochViolation(
     return true
   return false
 
-proc runTest(identifier: string) =
+proc runTest(identifier: string) {.raises: [IOError, SerializationError].} =
 
   # The tests produce a lot of log noise
   # echo "\n\n===========================================\n\n"
