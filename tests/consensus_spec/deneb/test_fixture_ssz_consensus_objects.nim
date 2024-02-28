@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -45,7 +46,11 @@ type
 # Note this only tracks HashTreeRoot
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
-proc checkSSZ(T: type deneb.SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkSSZ(
+    T: type deneb.SignedBeaconBlock,
+    dir: string,
+    expectedHash: SSZHashTreeRoot
+) {.raises: [IOError, SerializationError, UnconsumedInput].} =
    # Deserialize into a ref object to not fill Nim stack
    let encoded = snappy.decode(
      readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
@@ -63,7 +68,11 @@ proc checkSSZ(T: type deneb.SignedBeaconBlock, dir: string, expectedHash: SSZHas
 
    # TODO check the value (requires YAML loader)
 
-proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkSSZ(
+    T: type,
+    dir: string,
+    expectedHash: SSZHashTreeRoot
+) {.raises: [IOError, SerializationError, UnconsumedInput].} =
   # Deserialize into a ref object to not fill Nim stack
   let encoded = snappy.decode(
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
@@ -76,7 +85,10 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
 
   # TODO check the value (requires YAML loader)
 
-proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
+proc loadExpectedHashTreeRoot(
+    dir: string
+): SSZHashTreeRoot {.raises: [
+    Exception, IOError, OSError, YamlConstructionError, YamlParserError].} =
   let s = openFileStream(dir/"roots.yaml")
   yaml.load(s, result)
   s.close()

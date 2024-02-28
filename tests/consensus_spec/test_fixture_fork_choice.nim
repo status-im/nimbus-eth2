@@ -96,10 +96,11 @@ proc initialLoad(
   (dag, fkChoice)
 
 proc loadOps(
-    path: string, fork: ConsensusFork
+    path: string,
+    fork: ConsensusFork
 ): seq[Operation] {.raises: [
     IOError, KeyError, UnconsumedInput, ValueError,
-    YamlParserError, YamlConstructionError].} =
+    YamlConstructionError, YamlParserError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
@@ -290,10 +291,11 @@ proc stepChecks(
       raiseAssert "Unsupported check '" & $check & "'"
 
 proc doRunTest(
-    path: string, fork: ConsensusFork
+    path: string,
+    fork: ConsensusFork
 ) {.raises: [
     IOError, KeyError, UnconsumedInput, ValueError,
-    YamlParserError, YamlConstructionError].} =
+    YamlConstructionError, YamlParserError].} =
   let db = BeaconChainDB.new("", inMemory = true)
   defer:
     db.close()

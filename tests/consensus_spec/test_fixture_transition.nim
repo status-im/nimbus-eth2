@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -25,7 +26,8 @@ type
     fork_block {.defaultVal: -1.}: int
     bls_setting {.defaultVal: 1.}: int
 
-proc getTransitionInfo(testPath: string): TransitionInfo =
+proc getTransitionInfo(
+    testPath: string): TransitionInfo {.raises: [Exception, IOError].} =
   var transitionInfo: TransitionInfo
   let s = openFileStream(testPath/"meta.yaml")
   defer: close(s)

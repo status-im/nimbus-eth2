@@ -42,7 +42,11 @@ type
 # Note this only tracks HashTreeRoot
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
-proc checkSSZ(T: type capella.SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkSSZ(
+    T: type capella.SignedBeaconBlock,
+    dir: string,
+    expectedHash: SSZHashTreeRoot
+) {.raises: [IOError, SerializationError, UnconsumedInput].} =
    # Deserialize into a ref object to not fill Nim stack
    let encoded = snappy.decode(
      readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
@@ -60,7 +64,11 @@ proc checkSSZ(T: type capella.SignedBeaconBlock, dir: string, expectedHash: SSZH
 
    # TODO check the value (requires YAML loader)
 
-proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkSSZ(
+    T: type,
+    dir: string,
+    expectedHash: SSZHashTreeRoot
+) {.raises: [IOError, SerializationError, UnconsumedInput].} =
   # Deserialize into a ref object to not fill Nim stack
   let encoded = snappy.decode(
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
@@ -73,7 +81,10 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
 
   # TODO check the value (requires YAML loader)
 
-proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
+proc loadExpectedHashTreeRoot(
+    dir: string
+): SSZHashTreeRoot {.raises: [
+    Exception, IOError, OSError, YamlConstructionError, YamlParserError].} =
   let s = openFileStream(dir/"roots.yaml")
   yaml.load(s, result)
   s.close()
