@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -146,7 +147,7 @@ suite baseDescription & "Execution Payload " & preset():
   proc makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
         preState: var capella.BeaconState, body: capella.BeaconBlockBody):
-        Result[void, cstring] =
+        Result[void, cstring] {.raises: [IOError].} =
       let payloadValid = os_ops.readFile(
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")

@@ -24,10 +24,6 @@ type
   Eth2DiscoveryProtocol* = protocol.Protocol
   Eth2DiscoveryId* = NodeId
 
-export
-  Eth2DiscoveryProtocol, open, start, close, closeWait,
-    updateRecord, results
-
 func parseBootstrapAddress*(address: string):
     Result[enr.Record, cstring] =
   let lowerCaseAddress = toLowerAscii(string address)
