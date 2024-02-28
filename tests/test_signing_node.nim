@@ -1,9 +1,11 @@
-# nimbus_signing_node
+# beacon_chain
 # Copyright (c) 2023-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
 
 import
   std/algorithm,
@@ -17,8 +19,6 @@ import
 
 from std/os import getEnv, osErrorMsg
 
-{.push raises: [].}
-{.pop.}    # TODO want actual revert, so placate linter
 {.used.}
 
 const
@@ -100,19 +100,24 @@ func init(T: type ForkedBeaconBlock, contents: ProduceBlockResponseV2): T =
   of ConsensusFork.Deneb:
     return ForkedBeaconBlock.init(contents.denebData.`block`)
 
-proc getBlock(fork: ConsensusFork,
-              feeRecipient = SigningExpectedFeeRecipient): ForkedBeaconBlock =
+proc getBlock(
+    fork: ConsensusFork,
+    feeRecipient = SigningExpectedFeeRecipient
+): ForkedBeaconBlock {.raises: [ResultError[cstring]].} =
   let
     blckData =
-      case fork
-      of ConsensusFork.Phase0:    Phase0Block
-      of ConsensusFork.Altair:    AltairBlock
-      of ConsensusFork.Bellatrix: BellatrixBlock % [feeRecipient]
-      of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
-      of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
+      try:
+        case fork
+        of ConsensusFork.Phase0:    Phase0Block
+        of ConsensusFork.Altair:    AltairBlock
+        of ConsensusFork.Bellatrix: BellatrixBlock % [feeRecipient]
+        of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
+        of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
+      except ValueError:
+        # https://github.com/nim-lang/Nim/pull/23356
+        raiseAssert "Arguments match the format string"
     contentType = ContentTypeData(
       mediaType: MediaType.init("application/json"))
-
 
   let b = decodeBytes(ProduceBlockResponseV2,
                       blckData.toOpenArrayByte(0, len(blckData) - 1),
