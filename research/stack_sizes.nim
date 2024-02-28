@@ -15,6 +15,7 @@ proc print(t: auto, n: string, indent: int) =
   try:
     echo fmt"{sizeof(t):>8}  {spaces(indent)}{n}: {typeof(t).name}"
   except ValueError:
+    # https://github.com/nim-lang/Nim/pull/23356
     raiseAssert "Arguments match the format string"
 
   when t is object|tuple:

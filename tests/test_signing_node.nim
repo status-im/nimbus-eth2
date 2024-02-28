@@ -114,6 +114,7 @@ proc getBlock(
         of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
         of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
       except ValueError:
+        # https://github.com/nim-lang/Nim/pull/23356
         raiseAssert "Arguments match the format string"
     contentType = ContentTypeData(
       mediaType: MediaType.init("application/json"))
