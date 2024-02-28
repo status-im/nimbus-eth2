@@ -1365,16 +1365,16 @@ proc proposeBlock(node: BeaconNode,
         genesis_validators_root, node.config.localBlockValueBoost)
 
   return withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork >= ConsensusFork.Capella:
+    when consensusFork >= ConsensusFork.Deneb:
       proposeBlockContinuation(
         consensusFork.SignedBlindedBeaconBlock,
         consensusFork.ExecutionPayloadForSigning)
     else:
-      # Bellatrix MEV is not supported; this signals that, because it triggers
+      # Pre-Deneb MEV is not supported; this signals that, because it triggers
       # intentional SignedBlindedBeaconBlock/ExecutionPayload mismatches.
       proposeBlockContinuation(
-        capella_mev.SignedBlindedBeaconBlock,
-        bellatrix.ExecutionPayloadForSigning)
+        deneb_mev.SignedBlindedBeaconBlock,
+        max(ConsensusFork.Bellatrix, consensusFork).ExecutionPayloadForSigning)
 
 proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
