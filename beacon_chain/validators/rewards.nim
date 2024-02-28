@@ -172,7 +172,12 @@ proc collectFromSyncAggregate(
 
       for i in 0 ..< SYNC_COMMITTEE_SIZE:
         if aggregate.sync_committee_bits[i]:
+          if indices[i] == forkyBlck.proposer_index:
+            proposerOutcome += participant_reward
           proposerOutcome += proposer_reward
+        else:
+          if indices[i] == forkyBlck.proposer_index:
+            proposerOutcome -= participant_reward
 
 proc collectBlockRewards*(
     forkedState: ForkedHashedBeaconState,
