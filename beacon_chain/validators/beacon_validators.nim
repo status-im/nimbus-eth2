@@ -41,7 +41,7 @@ import
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     keystore_management, slashing_protection, validator_duties, validator_pool],
-  ".."/spec/mev/[rest_capella_mev_calls, rest_deneb_mev_calls]
+  ".."/spec/mev/rest_deneb_mev_calls
 
 from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
@@ -542,30 +542,13 @@ proc makeBeaconBlockForHeadAndSlot*(
     kzg_commitments = Opt.none(KzgCommitments))
 
 proc getBlindedExecutionPayload[
-    EPH: capella.ExecutionPayloadHeader |
-         deneb_mev.BlindedExecutionPayloadAndBlobsBundle](
+    EPH: deneb_mev.BlindedExecutionPayloadAndBlobsBundle](
     node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
     executionBlockHash: Eth2Digest, pubkey: ValidatorPubKey):
     Future[BlindedBlockResult[EPH]] {.async: (raises: [CancelledError, RestError]).} =
   # Not ideal to use `when` where instead of splitting into separate functions,
   # but Nim doesn't overload on generic EPH type parameter.
-  when EPH is capella.ExecutionPayloadHeader:
-    let
-      response = awaitWithTimeout(
-        payloadBuilderClient.getHeaderCapella(
-          slot, executionBlockHash, pubkey),
-        BUILDER_PROPOSAL_DELAY_TOLERANCE):
-          return err "Timeout obtaining Capella blinded header from builder"
-
-      res = decodeBytes(
-        GetHeaderResponseCapella, response.data, response.contentType)
-
-      blindedHeader = res.valueOr:
-        return err(
-          "Unable to decode Capella blinded header: " & $res.error &
-            " with HTTP status " & $response.status & ", Content-Type " &
-            $response.contentType & " and content " & $response.data)
-  elif EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
+  when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
     let
       response = awaitWithTimeout(
         payloadBuilderClient.getHeaderDeneb(

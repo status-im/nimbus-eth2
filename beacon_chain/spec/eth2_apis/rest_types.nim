@@ -553,7 +553,6 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponseCapella* = DataVersionEnclosedObject[capella_mev.SignedBuilderBid]
   GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
@@ -580,7 +579,6 @@ type
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
   SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]

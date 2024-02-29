@@ -429,29 +429,9 @@ proc makeBeaconBlock*(
     # Override for Builder API
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
-        when consensusFork < ConsensusFork.Capella:
-          # Nimbus doesn't support pre-Capella builder API
+        when consensusFork < ConsensusFork.Deneb:
+          # Nimbus doesn't support pre-Deneb builder API
           discard
-        elif consensusFork == ConsensusFork.Capella:
-          forkyState.data.latest_execution_payload_header.transactions_root =
-            transactions_root.get
-
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconblockbody
-          # Effectively hash_tree_root(ExecutionPayload) with the beacon block
-          # body, with the execution payload replaced by the execution payload
-          # header. htr(payload) == htr(payload header), so substitute.
-          forkyState.data.latest_block_header.body_root = hash_tree_root(
-            [hash_tree_root(randao_reveal),
-             hash_tree_root(eth1_data),
-             hash_tree_root(graffiti),
-             hash_tree_root(validator_changes.proposer_slashings),
-             hash_tree_root(validator_changes.attester_slashings),
-             hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
-             hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
-             hash_tree_root(validator_changes.voluntary_exits),
-             hash_tree_root(sync_aggregate),
-             execution_payload_root.get,
-             hash_tree_root(validator_changes.bls_to_execution_changes)])
         elif consensusFork == ConsensusFork.Deneb:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
