@@ -79,9 +79,7 @@ proc verify_epoch_signature*(
 
 func compute_block_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader |
-          # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signing
-          capella_mev.BlindedBeaconBlock): Eth2Digest =
+    blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader): Eth2Digest =
   let
     epoch = epoch(slot)
     domain = get_domain(
@@ -373,8 +371,7 @@ proc verify_contribution_and_proof_signature*(
 # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signing
 func compute_builder_signing_root(
     fork: Fork,
-    msg: capella_mev.BuilderBid | deneb_mev.BuilderBid |
-         ValidatorRegistrationV1): Eth2Digest =
+    msg: deneb_mev.BuilderBid | ValidatorRegistrationV1): Eth2Digest =
   # Uses genesis fork version regardless
   doAssert fork.current_version == fork.previous_version
 
@@ -389,7 +386,7 @@ proc get_builder_signature*(
   blsSign(privkey, signing_root.data)
 
 proc verify_builder_signature*(
-    fork: Fork, msg: capella_mev.BuilderBid | deneb_mev.BuilderBid,
+    fork: Fork, msg: deneb_mev.BuilderBid,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_builder_signing_root(fork, msg)
   blsVerify(pubkey, signing_root.data, signature)
