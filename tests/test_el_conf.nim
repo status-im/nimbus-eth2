@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -18,12 +19,15 @@ type
     dataDir* {.name: "data-dir".}: string
     el* {.name: "el".}: seq[EngineApiUrlConfigValue]
 
-proc loadExampleConfig(content: string, cmdLine = newSeq[string]()): ExampleConfigFile =
+proc loadExampleConfig(
+    content: string,
+    cmdLine = newSeq[string]()
+): ExampleConfigFile {.raises: [ConfigurationError, OSError].} =
   ExampleConfigFile.load(
     cmdLine = cmdLine,
     secondarySources = proc (
-        config: ExampleConfigFile, sources: ref SecondarySources
-    ) {.raises: [ConfigurationError].} =
+        config: ExampleConfigFile,
+        sources: ref SecondarySources) {.raises: [ConfigurationError].} =
       sources.addConfigFileContent(Toml, content))
 
 const
