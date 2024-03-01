@@ -695,6 +695,59 @@ func get_active_increments*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
 # Combines get_flag_index_deltas() and get_inactivity_penalty_deltas()
+template get_flag_and_inactivity_delta(
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           deneb.BeaconState | electra.BeaconState,
+    base_reward_per_increment: Gwei, finality_delay: uint64,
+    previous_epoch: Epoch, active_increments: Gwei,
+    penalty_denominator: uint64,
+    epoch_participation: ptr EpochParticipationFlags,
+    participating_increments: array[3, Gwei], info: var altair.EpochInfo,
+    vidx: ValidatorIndex): auto  =
+  let
+    base_reward = get_base_reward_increment(state, vidx, base_reward_per_increment)
+    pflags =
+      if  is_active_validator(state.validators[vidx], previous_epoch) and
+          not state.validators[vidx].slashed:
+        epoch_participation[].item(vidx)
+      else:
+        0
+
+  if has_flag(pflags, TIMELY_SOURCE_FLAG_INDEX):
+    info.validators[vidx].flags.incl ParticipationFlag.timelySourceAttester
+  if has_flag(pflags, TIMELY_TARGET_FLAG_INDEX):
+    info.validators[vidx].flags.incl ParticipationFlag.timelyTargetAttester
+  if has_flag(pflags, TIMELY_HEAD_FLAG_INDEX):
+    info.validators[vidx].flags.incl ParticipationFlag.timelyHeadAttester
+
+  template reward(flag: untyped): untyped =
+    if has_flag(pflags, flag):
+      get_flag_index_reward(
+        state, base_reward, active_increments,
+        participating_increments[ord(flag)],
+        PARTICIPATION_FLAG_WEIGHTS[flag], finality_delay)
+    else:
+      0
+
+  template penalty(flag: untyped): untyped =
+    if not has_flag(pflags, flag):
+      base_reward * PARTICIPATION_FLAG_WEIGHTS[flag] div WEIGHT_DENOMINATOR
+    else:
+      0
+
+  let inactivity_penalty =
+    if has_flag(pflags, TIMELY_TARGET_FLAG_INDEX):
+      0.Gwei
+    else:
+      let penalty_numerator =
+        state.validators[vidx].effective_balance * state.inactivity_scores[vidx]
+      penalty_numerator div penalty_denominator
+
+  (vidx, reward(TIMELY_SOURCE_FLAG_INDEX),
+   reward(TIMELY_TARGET_FLAG_INDEX), reward(TIMELY_HEAD_FLAG_INDEX),
+   penalty(TIMELY_SOURCE_FLAG_INDEX), penalty(TIMELY_TARGET_FLAG_INDEX),
+   inactivity_penalty)
+
 iterator get_flag_and_inactivity_deltas*(
     cfg: RuntimeConfig,
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
@@ -735,51 +788,12 @@ iterator get_flag_and_inactivity_deltas*(
     if not is_eligible_validator(info.validators[vidx]):
       continue
 
-    let
-      base_reward = get_base_reward_increment(state, vidx, base_reward_per_increment)
-      pflags =
-        if  is_active_validator(state.validators[vidx], previous_epoch) and
-            not state.validators[vidx].slashed:
-          epoch_participation[].item(vidx)
-        else:
-          0
-
-    if has_flag(pflags, TIMELY_SOURCE_FLAG_INDEX):
-      info.validators[vidx].flags.incl ParticipationFlag.timelySourceAttester
-    if has_flag(pflags, TIMELY_TARGET_FLAG_INDEX):
-      info.validators[vidx].flags.incl ParticipationFlag.timelyTargetAttester
-    if has_flag(pflags, TIMELY_HEAD_FLAG_INDEX):
-      info.validators[vidx].flags.incl ParticipationFlag.timelyHeadAttester
-
-    template reward(flag: untyped): untyped =
-      if has_flag(pflags, flag):
-        get_flag_index_reward(
-          state, base_reward, active_increments,
-          participating_increments[ord(flag)],
-          PARTICIPATION_FLAG_WEIGHTS[flag], finality_delay)
-      else:
-        0
-
-    template penalty(flag: untyped): untyped =
-      if not has_flag(pflags, flag):
-        base_reward * PARTICIPATION_FLAG_WEIGHTS[flag] div WEIGHT_DENOMINATOR
-      else:
-        0
-
-    let inactivity_penalty =
-      if has_flag(pflags, TIMELY_TARGET_FLAG_INDEX):
-        0.Gwei
-      else:
-        let penalty_numerator = state.validators[vidx].effective_balance * state.inactivity_scores[vidx]
-        penalty_numerator div penalty_denominator
-
     # Yielding these as a structure with identifiable names rather than
     # multiple-return-value style creates spurious nimZeroMem calls.
-    yield
-      (vidx, reward(TIMELY_SOURCE_FLAG_INDEX),
-       reward(TIMELY_TARGET_FLAG_INDEX), reward(TIMELY_HEAD_FLAG_INDEX),
-       penalty(TIMELY_SOURCE_FLAG_INDEX), penalty(TIMELY_TARGET_FLAG_INDEX),
-       inactivity_penalty)
+    yield get_flag_and_inactivity_delta(
+      state, base_reward_per_increment, finality_delay, previous_epoch,
+      active_increments, penalty_denominator, epoch_participation,
+      participating_increments, info, vidx)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties*(
@@ -1065,9 +1079,6 @@ template compute_inactivity_update(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState,
     info: altair.EpochInfo, pre_inactivity_score: Gwei): Gwei =
-  if not is_eligible_validator(info.validators[index]):
-    continue
-
   let previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
 
   # Increase the inactivity score of inactive validators
@@ -1100,6 +1111,9 @@ func process_inactivity_updates*(
     not_in_inactivity_leak = not is_in_inactivity_leak(finality_delay)
 
   for index in 0'u64 ..< state.validators.lenu64:
+    if not is_eligible_validator(info.validators[index]):
+      continue
+
     let
       pre_inactivity_score = state.inactivity_scores.asSeq()[index]
       inactivity_score =
