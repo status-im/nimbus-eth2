@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  std/strutils,
   confutils, json_serialization,
   snappy,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
@@ -16,6 +15,7 @@ import
 
 from std/os import splitFile
 from std/stats import RunningStat
+from std/strutils import cmpIgnoreCase
 from stew/byteutils import toHex
 from stew/io2 import readAllBytes
 from ../beacon_chain/networking/network_metadata import getRuntimeConfig
@@ -23,7 +23,7 @@ from ../research/simutils import printTimers, withTimer, withTimerRet
 
 type
   Cmd* = enum
-    hashTreeRoot = "Compute hash tree root of SSZ object"
+    hash_tree_root = "Compute hash tree root of SSZ object"
     pretty = "Pretty-print SSZ object"
     transition = "Run state transition function"
     slots = "Apply empty slots"
@@ -41,7 +41,7 @@ type
     # TODO confutils argument pragma doesn't seem to do much; also, the cases
     # are largely equivalent, but this helps create command line usage text
     case cmd* {.command}: Cmd
-    of hashTreeRoot:
+    of hash_tree_root:
       htrKind* {.
         argument
         desc: "kind of SSZ object: attester_slashing, attestation, signed_block, block, block_body, block_header, deposit, deposit_data, eth1_data, state, proposer_slashing, or voluntary_exit"}: string
@@ -202,7 +202,7 @@ proc doSSZ(conf: NcliConf) =
 
   let (kind, file) =
     case conf.cmd:
-    of hashTreeRoot: (conf.htrKind, conf.htrFile)
+    of hash_tree_root: (conf.htrKind, conf.htrFile)
     of pretty: (conf.prettyKind, conf.prettyFile)
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
@@ -214,7 +214,7 @@ proc doSSZ(conf: NcliConf) =
       newClone(loadFile(file, bytes, t))
 
     case conf.cmd:
-    of hashTreeRoot:
+    of hash_tree_root:
       let root = withTimerRet(timers[tCompute]):
         when t is ForkySignedBeaconBlock:
           hash_tree_root(v[].message)
@@ -265,7 +265,7 @@ when isMainModule:
     conf = NcliConf.load()
 
   case conf.cmd:
-  of hashTreeRoot: doSSZ(conf)
+  of hash_tree_root: doSSZ(conf)
   of pretty: doSSZ(conf)
   of transition: doTransition(conf)
   of slots: doSlots(conf)

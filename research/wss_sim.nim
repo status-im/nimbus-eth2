@@ -33,9 +33,9 @@ template findIt*(s: openArray, predicate: untyped): int =
       break
   res
 
-func findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
+func findValidator(validators: seq[Validator], pubkey: ValidatorPubKey):
     Opt[ValidatorIndex] =
-  let idx = validators.findIt(it.pubkey == pubKey)
+  let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
     Opt.none ValidatorIndex
   else:
