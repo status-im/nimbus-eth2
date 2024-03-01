@@ -576,11 +576,7 @@ proc getBlindedExecutionPayload[
         blindedHeader.data.message.pubkey, blindedHeader.data.signature):
       return err "getBlindedExecutionPayload: signature verification failed"
 
-    when EPH is capella.ExecutionPayloadHeader:
-      return ok((
-        blindedBlckPart: blindedHeader.data.message.header,
-        blockValue: blindedHeader.data.message.value))
-    elif EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
+    when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
       template builderBid: untyped = blindedHeader.data.message
       return ok((
         blindedBlckPart: EPH(
@@ -592,24 +588,6 @@ proc getBlindedExecutionPayload[
 
 from ./message_router_mev import
   copyFields, getFieldNames, unblindAndRouteBlockMEV
-
-func constructSignableBlindedBlock[T: capella_mev.SignedBlindedBeaconBlock](
-    blck: capella.BeaconBlock,
-    executionPayloadHeader: capella.ExecutionPayloadHeader): T =
-  # Leaves signature field default, to be filled in by caller
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock.message, blck, blckFields)
-  copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
-  assign(
-    blindedBlock.message.body.execution_payload_header, executionPayloadHeader)
-
-  blindedBlock
 
 proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
     blck: deneb.BeaconBlock,
@@ -630,25 +608,6 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
   assign(
     blindedBlock.message.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
-
-  blindedBlock
-
-func constructPlainBlindedBlock[T: capella_mev.BlindedBeaconBlock](
-    blck: ForkyBeaconBlock,
-    executionPayloadHeader: capella.ExecutionPayloadHeader): T =
-  # https://github.com/nim-lang/Nim/issues/23020 workaround
-  static: doAssert T is capella_mev.BlindedBeaconBlock
-
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock, blck, blckFields)
-  copyFields(blindedBlock.body, blck.body, blckBodyFields)
-  assign(blindedBlock.body.execution_payload_header, executionPayloadHeader)
 
   blindedBlock
 
@@ -676,10 +635,7 @@ func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
 
   blindedBlock
 
-proc blindedBlockCheckSlashingAndSign[
-    T:
-      capella_mev.SignedBlindedBeaconBlock |
-      deneb_mev.SignedBlindedBeaconBlock](
+proc blindedBlockCheckSlashingAndSign[T: deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
     Future[Result[T, string]] {.async: (raises: [CancelledError]).} =
@@ -711,9 +667,7 @@ proc blindedBlockCheckSlashingAndSign[
 
   return ok blindedBlock
 
-proc getUnsignedBlindedBeaconBlock[
-    T: capella_mev.SignedBlindedBeaconBlock |
-       deneb_mev.SignedBlindedBeaconBlock](
+proc getUnsignedBlindedBeaconBlock[T: deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: capella.ExecutionPayloadHeader |

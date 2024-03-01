@@ -89,6 +89,17 @@ type
     execution_payload_header*: deneb.ExecutionPayloadHeader
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
+const
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#domain-types
+  DOMAIN_APPLICATION_BUILDER* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
+
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#constants
+  EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION* = 1
+
+  # Spec is 1 second, but mev-boost indirection can induce delay when the relay
+  # itself has already consumed the entire second.
+  BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1500.milliseconds
+
 func shortLog*(v: BlindedBeaconBlock): auto =
   (
     slot: shortLog(v.slot),

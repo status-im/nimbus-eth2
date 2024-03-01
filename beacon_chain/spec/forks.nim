@@ -17,12 +17,12 @@ import
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra],
-  ./mev/bellatrix_mev, ./mev/capella_mev, ./mev/deneb_mev
+  ./mev/[bellatrix_mev, capella_mev, deneb_mev]
 
 export
   extras, block_id, phase0, altair, bellatrix, capella, deneb, electra,
   eth2_merkleization, eth2_ssz_serialization, forks_light_client,
-  presets, capella_mev, deneb_mev
+  presets, deneb_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
