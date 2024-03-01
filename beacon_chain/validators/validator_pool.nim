@@ -502,7 +502,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         block_root: Eth2Digest,
                         blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock |
                               ForkedMaybeBlindedBeaconBlock |
-                              capella_mev.BlindedBeaconBlock |
                               deneb_mev.BlindedBeaconBlock
                        ): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
@@ -510,7 +509,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
     bellatrix.BeaconBlockBody |
     capella.BeaconBlockBody |
     deneb.BeaconBlockBody |
-    capella_mev.BlindedBeaconBlockBody |
     deneb_mev.BlindedBeaconBlockBody
 
   template blockPropertiesProofs(blockBody: SomeBlockBody,
@@ -538,21 +536,8 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
     let web3signerRequest =
       when blck is ForkedBlindedBeaconBlock:
         case blck.kind
-        of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
-          return SignatureResult.err("Invalid beacon block fork version")
-        of ConsensusFork.Capella:
-          case v.data.remoteType
-          of RemoteSignerType.Web3Signer:
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                data: blck.capellaData.toBeaconBlockHeader))
-          of RemoteSignerType.VerifyingWeb3Signer:
-            let proofs = blockPropertiesProofs(
-              blck.capellaData.body, capellaIndex)
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                data: blck.capellaData.toBeaconBlockHeader),
-              proofs)
+        of ConsensusFork.Phase0 .. ConsensusFork.Capella:
+          return SignatureResult.err("Invalid blinded beacon block fork")
         of ConsensusFork.Deneb:
           case v.data.remoteType
           of RemoteSignerType.Web3Signer:
@@ -566,19 +551,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
               Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                 data: blck.denebData.toBeaconBlockHeader),
               proofs)
-      elif blck is capella_mev.BlindedBeaconBlock:
-        case v.data.remoteType
-        of RemoteSignerType.Web3Signer:
-          Web3SignerRequest.init(fork, genesis_validators_root,
-            Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-              data: blck.toBeaconBlockHeader))
-        of RemoteSignerType.VerifyingWeb3Signer:
-          let proofs = blockPropertiesProofs(
-            blck.body, capellaIndex)
-          Web3SignerRequest.init(fork, genesis_validators_root,
-            Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-              data: blck.toBeaconBlockHeader),
-            proofs)
       elif blck is deneb_mev.BlindedBeaconBlock:
         case v.data.remoteType
         of RemoteSignerType.Web3Signer:

@@ -16,7 +16,7 @@ import
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
-  ../spec/mev/bellatrix_mev,
+  ../spec/mev/[bellatrix_mev, capella_mev],
   ../validators/message_router_mev
 
 export rest_utils

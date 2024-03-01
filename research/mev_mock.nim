@@ -10,8 +10,10 @@
 import
   confutils, presto,
   ../beacon_chain/spec/datatypes/capella,
-  ../beacon_chain/rpc/rest_utils,
-  ../beacon_chain/spec/eth2_apis/rest_beacon_client
+  ../beacon_chain/spec/eth2_apis/rest_beacon_client,
+  ../beacon_chain/rpc/rest_utils
+
+from ../beacon_chain/spec/mev/capella_mev import SignedBlindedBeaconBlock
 
 const HttpOk = 200
 

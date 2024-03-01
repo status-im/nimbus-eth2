@@ -674,18 +674,16 @@ proc getUnsignedBlindedBeaconBlock[T: deneb_mev.SignedBlindedBeaconBlock](
                             deneb_mev.BlindedExecutionPayloadAndBlobsBundle):
     Result[T, string] =
   withBlck(forkedBlock):
-    when consensusFork >= ConsensusFork.Capella:
+    when consensusFork >= ConsensusFork.Deneb:
       when not (
           (T is deneb_mev.SignedBlindedBeaconBlock and
-           consensusFork == ConsensusFork.Deneb) or
-          (T is capella_mev.SignedBlindedBeaconBlock and
-           consensusFork == ConsensusFork.Capella)):
+           consensusFork == ConsensusFork.Deneb)):
         return err("getUnsignedBlindedBeaconBlock: mismatched block/payload types")
       else:
         return ok constructSignableBlindedBlock[T](
           forkyBlck, executionPayloadHeader)
     else:
-      return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Capella blinded block")
+      return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Deneb blinded block")
 
 proc getBlindedBlockParts[
     EPH: capella.ExecutionPayloadHeader |
@@ -781,18 +779,14 @@ proc getBlindedBlockParts[
      executionPayloadHeader.get.blockValue,
      forkedBlck.blck))
 
-proc getBuilderBid[
-    SBBB: capella_mev.SignedBlindedBeaconBlock |
-          deneb_mev.SignedBlindedBeaconBlock](
+proc getBuilderBid[SBBB: deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     validator_pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async: (raises: [CancelledError]).} =
   ## Returns the unsigned blinded block obtained from the Builder API.
   ## Used by the BN's own validators, but not the REST server
-  when SBBB is capella_mev.SignedBlindedBeaconBlock:
-    type EPH = capella.ExecutionPayloadHeader
-  elif SBBB is deneb_mev.SignedBlindedBeaconBlock:
+  when SBBB is deneb_mev.SignedBlindedBeaconBlock:
     type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
   else:
     static: doAssert false
@@ -819,8 +813,7 @@ proc getBuilderBid[
 
 proc proposeBlockMEV(
     node: BeaconNode, payloadBuilderClient: RestClientRef,
-    blindedBlock: capella_mev.SignedBlindedBeaconBlock |
-                  deneb_mev.SignedBlindedBeaconBlock):
+    blindedBlock: deneb_mev.SignedBlindedBeaconBlock):
     Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
     payloadBuilderClient, blindedBlock)
@@ -865,8 +858,6 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
   ## its own validators.
   when BBB is deneb_mev.BlindedBeaconBlock:
     type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
-  elif BBB is capella_mev.BlindedBeaconBlock:
-    type EPH = capella.ExecutionPayloadHeader
   else:
     static: doAssert false
 

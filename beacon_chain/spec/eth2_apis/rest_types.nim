@@ -17,13 +17,11 @@ import
   std/[json, tables],
   stew/base10, web3/primitives, httputils,
   ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix, deneb, electra],
-  ".."/mev/[capella_mev, deneb_mev]
+  ".."/mev/deneb_mev
 
 from ".."/datatypes/capella import BeaconBlockBody
 
-export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
-       tables, httputils
+export forks, phase0, altair, bellatrix, capella, deneb_mev, tables, httputils
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
