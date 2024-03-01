@@ -1789,7 +1789,7 @@ proc registerValidatorsPerBuilder(
           error "Timeout when registering validator with builder"
           continue  # Try next batch regardless
       except RestError as exc:
-        error "Error when registering validator(s) with builder", err = exc.msg
+        warn "Error when registering validator(s) with builder", err = exc.msg
         continue
 
     if HttpOk != registerValidatorResult.status:
