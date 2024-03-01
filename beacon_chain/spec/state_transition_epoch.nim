@@ -703,7 +703,8 @@ template get_flag_and_inactivity_delta(
     penalty_denominator: uint64,
     epoch_participation: ptr EpochParticipationFlags,
     participating_increments: array[3, Gwei], info: var altair.EpochInfo,
-    vidx: ValidatorIndex): auto  =
+    vidx: ValidatorIndex):
+    (ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei) =
   let
     base_reward = get_base_reward_increment(state, vidx, base_reward_per_increment)
     pflags =

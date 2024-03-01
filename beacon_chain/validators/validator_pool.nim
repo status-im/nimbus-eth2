@@ -568,10 +568,10 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
         withForkyMaybeBlindedBlck(blck):
           # TODO why isn't this a case statement
           when consensusFork < ConsensusFork.Bellatrix:
-            return SignatureResult.err("Invalid beacon block fork version")
+            return SignatureResult.err("Invalid beacon block fork")
           elif consensusFork == ConsensusFork.Bellatrix:
             when isBlinded:
-              return SignatureResult.err("Invalid beacon block fork version")
+              return SignatureResult.err("Invalid blinded beacon block fork")
             else:
               case v.data.remoteType
               of RemoteSignerType.Web3Signer:
@@ -587,18 +587,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                       proofs)
           elif consensusFork == ConsensusFork.Capella:
             when isBlinded:
-              case v.data.remoteType
-              of RemoteSignerType.Web3Signer:
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader))
-              of RemoteSignerType.VerifyingWeb3Signer:
-                let proofs =
-                  blockPropertiesProofs(forkyMaybeBlindedBlck.body,
-                                        capellaIndex)
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
-                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader), proofs)
+              return SignatureResult.err("Invalid blinded beacon block fork")
             else:
               case v.data.remoteType
               of RemoteSignerType.Web3Signer:
@@ -644,7 +633,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
       else:
         case blck.kind
         of ConsensusFork.Phase0, ConsensusFork.Altair:
-          return SignatureResult.err("Invalid beacon block fork version")
+          return SignatureResult.err("Invalid beacon block fork")
         of ConsensusFork.Bellatrix:
           case v.data.remoteType
           of RemoteSignerType.Web3Signer:
