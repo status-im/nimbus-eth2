@@ -85,7 +85,7 @@ proc getInfo(parent_hash: Eth2Digest):
     parent_hash: parent_hash,
     fee_recipient: default(ExecutionAddress), # only a CL suggestion
     logs_bloom: default(BloomLogs),
-    timestamp: parentBlockInfo.timestamp,
+    timestamp: parent_block_info.timestamp,
     prev_randao: prev_randao,
     block_number: parent_block_info.block_number,
     gas_limit: DEFAULT_GAS_LIMIT,

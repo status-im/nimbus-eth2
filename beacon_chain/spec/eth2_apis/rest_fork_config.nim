@@ -32,19 +32,19 @@ func forkEpochConfigKey*(consensusFork: ConsensusFork): string =
   doAssert consensusFork > ConsensusFork.Phase0
   ($consensusFork).toUpperAscii() & "_FORK_EPOCH"
 
-proc getOrDefault*(info: VCRuntimeConfig, name: string,
+func getOrDefault*(info: VCRuntimeConfig, name: string,
                    default: uint64): uint64 =
   let numstr = info.getOrDefault(name, "missing")
   if numstr == "missing": return default
   Base10.decode(uint64, numstr).valueOr:
     return default
 
-proc getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
+func getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
   Epoch(info.getOrDefault(name, uint64(default)))
 
 func getForkVersion(
     info: VCRuntimeConfig,
-    consensusFork: Consensusfork): Result[Opt[Version], string] =
+    consensusFork: ConsensusFork): Result[Opt[Version], string] =
   let key = consensusFork.forkVersionConfigKey()
   let stringValue = info.getOrDefault(key, "missing")
   if stringValue == "missing": return ok Opt.none(Version)
