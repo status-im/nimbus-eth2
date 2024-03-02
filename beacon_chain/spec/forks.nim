@@ -147,9 +147,7 @@ type
     deneb.ExecutionPayloadForSigning |
     electra.ExecutionPayloadForSigning
 
-  ForkyBlindedBeaconBlock* =
-    capella_mev.BlindedBeaconBlock |
-    deneb_mev.BlindedBeaconBlock
+  ForkyBlindedBeaconBlock* = deneb_mev.BlindedBeaconBlock
 
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -1086,10 +1084,8 @@ template withStateAndBlck*(
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock |
-          capella_mev.BlindedBeaconBlock |
-          deneb_mev.BlindedBeaconBlock
-): BeaconBlockHeader =
+    blck: SomeForkyBeaconBlock | deneb_mev.BlindedBeaconBlock):
+    BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(
     slot: blck.slot,
@@ -1111,9 +1107,7 @@ template toBeaconBlockHeader*(
 
 func toSignedBeaconBlockHeader*(
     signedBlock: SomeForkySignedBeaconBlock |
-                 capella_mev.SignedBlindedBeaconBlock |
-                 deneb_mev.SignedBlindedBeaconBlock
-): SignedBeaconBlockHeader =
+                 deneb_mev.SignedBlindedBeaconBlock): SignedBeaconBlockHeader =
   ## Reduce a given `SignedBeaconBlock` to its `SignedBeaconBlockHeader`.
   SignedBeaconBlockHeader(
     message: signedBlock.message.toBeaconBlockHeader(),
