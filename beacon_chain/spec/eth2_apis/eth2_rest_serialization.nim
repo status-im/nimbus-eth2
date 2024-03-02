@@ -1413,18 +1413,8 @@ template prepareForkedBlockReading(blockType: typedesc,
         reader.raiseUnexpectedField("Multiple version fields found",
                                     blockType.name)
       let vres = reader.readValue(string).toLowerAscii()
-      case vres
-      of "phase0":
-        version = Opt.some(ConsensusFork.Phase0)
-      of "altair":
-        version = Opt.some(ConsensusFork.Altair)
-      of "bellatrix":
-        version = Opt.some(ConsensusFork.Bellatrix)
-      of "capella":
-        version = Opt.some(ConsensusFork.Capella)
-      of "deneb":
-        version = Opt.some(ConsensusFork.Deneb)
-      else:
+      version = ConsensusFork.init(vres)
+      if version.isNone():
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       when (blockType is ProduceBlockResponseV2) or
