@@ -1470,25 +1470,21 @@ proc ETHTransactionsCreateFromJson(
           return nil
         TxLegacy
       of 1.Quantity:
-        if data.yParity.isNone or data.chainId.isNone or
-            data.accessList.isNone:
+        if data.chainId.isNone or data.accessList.isNone:
           return nil
         if data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
             data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
           return nil
         TxEip2930
       of 2.Quantity:
-        if data.yParity.isNone or data.chainId.isNone or
-            data.accessList.isNone or
+        if data.chainId.isNone or data.accessList.isNone or
             data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone:
           return nil
         if data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
           return nil
         TxEip1559
       of 3.Quantity:
-        if data.to.isNone or
-            data.yParity.isNone or data.chainId.isNone or
-            data.accessList.isNone or
+        if data.to.isNone or data.chainId.isNone or data.accessList.isNone or
             data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone or
             data.maxFeePerBlobGas.isNone or data.blobVersionedHashes.isNone:
           return nil
@@ -1519,6 +1515,7 @@ proc ETHTransactionsCreateFromJson(
     if distinctBase(data.v) > int64.high.uint64:
       return nil
     if data.yParity.isSome:
+      # This is not always included, but if it is, make sure it's correct
       let yParity = data.yParity.get
       if distinctBase(yParity) > 1:
         return nil
