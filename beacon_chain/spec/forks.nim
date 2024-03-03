@@ -471,6 +471,11 @@ template SignedBlindedBeaconBlock*(kind: static ConsensusFork): auto =
   else:
     static: raiseAssert "Unreachable"
 
+template Forky*(
+    x: typedesc[ForkedSignedBeaconBlock],
+    kind: static ConsensusFork): auto =
+  kind.SignedBeaconBlock
+
 template withAll*(
     x: typedesc[ConsensusFork], body: untyped): untyped =
   static: doAssert ConsensusFork.high == ConsensusFork.Deneb
