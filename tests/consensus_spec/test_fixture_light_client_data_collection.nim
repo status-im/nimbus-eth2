@@ -83,7 +83,7 @@ proc loadSteps(
     path: string,
     fork_digests: ForkDigests
 ): seq[TestStep] {.raises: [
-    IOError, KeyError, ValueError, YamlParserError, YamlConstructionError].} =
+    IOError, KeyError, ValueError, YamlConstructionError, YamlParserError].} =
   template loadForked[T](t: typedesc[T], s: JsonNode): T =
     loadForked(t, s, path, fork_digests)
 
