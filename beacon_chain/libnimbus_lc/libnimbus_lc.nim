@@ -1459,32 +1459,36 @@ proc ETHTransactionsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(TransactionObject) == 21,
+    static: doAssert totalSerializedFields(TransactionObject) == 22,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):
       of 0.Quantity:
-        if data.accessList.isSome or
+        if data.yParity.isSome or data.accessList.isSome or
             data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
             data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
           return nil
         TxLegacy
       of 1.Quantity:
-        if data.chainId.isNone or data.accessList.isNone:
+        if data.yParity.isNone or data.chainId.isNone or
+            data.accessList.isNone:
           return nil
         if data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
             data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
           return nil
         TxEip2930
       of 2.Quantity:
-        if data.chainId.isNone or data.accessList.isNone or
+        if data.yParity.isNone or data.chainId.isNone or
+            data.accessList.isNone or
             data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone:
           return nil
         if data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
           return nil
         TxEip1559
       of 3.Quantity:
-        if data.to.isNone or data.chainId.isNone or data.accessList.isNone or
+        if data.to.isNone or
+            data.yParity.isNone or data.chainId.isNone or
+            data.accessList.isNone or
             data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone or
             data.maxFeePerBlobGas.isNone or data.blobVersionedHashes.isNone:
           return nil
@@ -1512,8 +1516,14 @@ proc ETHTransactionsCreateFromJson(
       return nil
     if distinctBase(data.gas) > int64.high.uint64:
       return nil
-    if data.v.uint64 > int64.high.uint64:
+    if distinctBase(data.v) > int64.high.uint64:
       return nil
+    if data.yParity.isSome:
+      let yParity = data.yParity.get
+      if distinctBase(yParity) > 1:
+        return nil
+      if yParity != data.v:
+        return nil
     let
       tx = ExecutionTransaction(
         txType: txType,
