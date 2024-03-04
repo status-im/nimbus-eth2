@@ -150,8 +150,6 @@ type
   ProvenProperty* = object
     path*: string
     description*: Option[string]
-    phase0Index*: Option[GeneralizedIndex]
-    altairIndex*: Option[GeneralizedIndex]
     bellatrixIndex*: Option[GeneralizedIndex]
     capellaIndex*: Option[GeneralizedIndex]
     denebIndex*: Option[GeneralizedIndex]
