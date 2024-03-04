@@ -1433,8 +1433,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       node.consensusManager[].actionTracker.getNextAttestationSlot(slot)
     nextProposalSlot =
       node.consensusManager[].actionTracker.getNextProposalSlot(slot)
-    nextActionWaitTime = saturate(fromNow(
-      node.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
+    nextActionSlot = min(nextAttestationSlot, nextProposalSlot)
+    nextActionWaitTime = saturate(fromNow(node.beaconClock, nextActionSlot))
 
   # -1 is a more useful output than 18446744073709551615 as an indicator of
   # no future attestation/proposal known.
@@ -1465,7 +1465,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   info "Slot end",
     slot = shortLog(slot),
     nextActionWait =
-      if nextAttestationSlot == FAR_FUTURE_SLOT:
+      if nextActionSlot == FAR_FUTURE_SLOT:
         "n/a"
       else:
         shortLog(nextActionWaitTime),
@@ -1474,7 +1474,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     syncCommitteeDuties = formatSyncCommitteeStatus(),
     head = shortLog(head)
 
-  if nextAttestationSlot != FAR_FUTURE_SLOT:
+  if nextActionSlot != FAR_FUTURE_SLOT:
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
 
   let epoch = slot.epoch
