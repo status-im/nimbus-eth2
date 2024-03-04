@@ -188,7 +188,7 @@ proc process_proposer_slashing*(
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
     cache: var StateCache): Result[Gwei, cstring] =
   let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
-  ok(? slash_validator(cfg, state, proposer_index, cache))
+  slash_validator(cfg, state, proposer_index, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
