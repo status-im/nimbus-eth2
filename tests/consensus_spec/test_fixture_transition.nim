@@ -60,7 +60,9 @@ proc runTest(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
 
-        res.expect("no failure when applying block " & $i)
+        # The return value is the block rewards, which aren't tested here;
+        # the .expect() already handles the the validaty check.
+        discard res.expect("no failure when applying block " & $i)
       else:
         let
           blck = parseTest(
@@ -69,7 +71,9 @@ proc runTest(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
 
-        res.expect("no failure when applying block " & $i)
+        # The return value is the block rewards, which aren't tested here;
+        # the .expect() already handles the the validaty check.
+        discard res.expect("no failure when applying block " & $i)
 
     let postState = newClone(
       parseTest(testPath/"post.ssz_snappy", SSZ, PostBeaconState))

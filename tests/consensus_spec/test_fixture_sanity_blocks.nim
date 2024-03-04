@@ -47,7 +47,9 @@ proc runTest(
         SSZ, consensusFork.SignedBeaconBlock)
 
       if hasPostState:
-        state_transition(
+        # The return value is the block rewards, which aren't tested here;
+        # the .expect() already handles the the validaty check.
+        discard state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
           noRollback).expect("should apply block")
       else:

@@ -9,8 +9,6 @@
 {.used.}
 
 import
-  # Standard library
-  std/[sequtils, sets],
   # Utilities
   chronicles,
   unittest2,
@@ -22,6 +20,8 @@ import
   ../../testutil,
   ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
+
+from std/sequtils import mapIt, toSeq
 
 const
   OpDir                 = SszTestsDir/const_preset/"altair"/"operations"
@@ -72,14 +72,17 @@ suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
       preState: var altair.BeaconState, attestation: Attestation):
       Result[void, cstring] =
-    var cache = StateCache()
+    var cache: StateCache
     let
       total_active_balance = get_total_active_balance(preState, cache)
       base_reward_per_increment =
         get_base_reward_per_increment(total_active_balance)
 
-    process_attestation(
+    # This returns the proposer reward for including the attestation, which
+    # isn't tested here.
+    discard ? process_attestation(
       preState, attestation, {}, base_reward_per_increment, cache)
+    ok()
 
   for path in walkTests(OpAttestationsDir):
     runTest[Attestation, typeof applyAttestation](
@@ -90,9 +93,10 @@ suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
       preState: var altair.BeaconState, attesterSlashing: AttesterSlashing):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)
+    var cache: StateCache
+    doAssert (? process_attester_slashing(
+      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)) > 0
+    ok()
 
   for path in walkTests(OpAttSlashingDir):
     runTest[AttesterSlashing, typeof applyAttesterSlashing](
@@ -103,7 +107,7 @@ suite baseDescription & "Block Header " & preset():
   func applyBlockHeader(
       preState: var altair.BeaconState, blck: altair.BeaconBlock):
       Result[void, cstring] =
-    var cache = StateCache()
+    var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
@@ -124,9 +128,10 @@ suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
       preState: var altair.BeaconState, proposerSlashing: ProposerSlashing):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)
+    var cache: StateCache
+    doAssert (? process_proposer_slashing(
+      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)) > 0
+    ok()
 
   for path in walkTests(OpProposerSlashingDir):
     runTest[ProposerSlashing, typeof applyProposerSlashing](
@@ -137,10 +142,11 @@ suite baseDescription & "Sync Aggregate " & preset():
   proc applySyncAggregate(
       preState: var altair.BeaconState, syncAggregate: SyncAggregate):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_sync_aggregate(
+    var cache: StateCache
+    doAssert (? process_sync_aggregate(
       preState, syncAggregate, get_total_active_balance(preState, cache),
-      {}, cache)
+      {}, cache)) > 0
+    ok()
 
   for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](
@@ -151,7 +157,7 @@ suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
       preState: var altair.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
-    var cache = StateCache()
+    var cache: StateCache
     process_voluntary_exit(
       defaultRuntimeConfig, preState, voluntaryExit, {}, cache)
 

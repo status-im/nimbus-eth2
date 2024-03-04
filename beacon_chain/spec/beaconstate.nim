@@ -184,7 +184,7 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     slashed_index: ValidatorIndex, cache: var StateCache):
-    Result[void, cstring] =
+    Result[Gwei, cstring] =
   ## Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
   ? initiate_validator_exit(cfg, state, slashed_index, cache)
@@ -212,7 +212,7 @@ proc slash_validator*(
   # The rest doesn't make sense without there being any proposer index, so skip
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     debug "No beacon proposer index and probably no active validators"
-    return ok()
+    return ok(0.Gwei)
 
   # Apply proposer and whistleblower rewards
   let
@@ -227,7 +227,7 @@ proc slash_validator*(
   increase_balance(
     state, whistleblower_index, whistleblower_reward - proposer_reward)
 
-  ok()
+  ok(proposer_reward)
 
 func genesis_time_from_eth1_timestamp(
     cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
@@ -729,7 +729,7 @@ func get_proposer_reward*(state: ForkyBeaconState,
 proc process_attestation*(
     state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     base_reward_per_increment: Gwei, cache: var StateCache):
-    Result[void, cstring] =
+    Result[Gwei, cstring] =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
@@ -761,23 +761,23 @@ proc process_attestation*(
       addPendingAttestation(state.current_epoch_attestations)
     else:
       addPendingAttestation(state.previous_epoch_attestations)
-  elif state is altair.BeaconState or state is bellatrix.BeaconState or
-       state is capella.BeaconState or state is deneb.BeaconState or
-       state is electra.BeaconState:
-    template updateParticipationFlags(epoch_participation: untyped) =
+
+    const proposer_reward = 0.Gwei
+  else:
+    template updateParticipationFlags(epoch_participation: untyped): Gwei =
       let proposer_reward = get_proposer_reward(
         state, attestation, base_reward_per_increment, cache, epoch_participation)
       increase_balance(state, proposer_index, proposer_reward)
+      proposer_reward
 
     doAssert base_reward_per_increment > 0.Gwei
-    if attestation.data.target.epoch == get_current_epoch(state):
-      updateParticipationFlags(state.current_epoch_participation)
-    else:
-      updateParticipationFlags(state.previous_epoch_participation)
-  else:
-    static: doAssert false
+    let proposer_reward =
+      if attestation.data.target.epoch == get_current_epoch(state):
+        updateParticipationFlags(state.current_epoch_participation)
+      else:
+        updateParticipationFlags(state.previous_epoch_participation)
 
-  ok()
+  ok(proposer_reward)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_keys(

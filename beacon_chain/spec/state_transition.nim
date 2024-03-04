@@ -252,7 +252,7 @@ proc state_transition_block_aux(
     cfg: RuntimeConfig,
     state: var ForkyHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags): Result[void, cstring] =
+    cache: var StateCache, flags: UpdateFlags): Result[BlockRewards, cstring] =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
@@ -264,7 +264,8 @@ proc state_transition_block_aux(
     signature = shortLog(signedBlock.signature),
     blockRoot = shortLog(signedBlock.root)
 
-  ? process_block(cfg, state.data, signedBlock.message, flags, cache)
+  let blockRewards =
+    ? process_block(cfg, state.data, signedBlock.message, flags, cache)
 
   if skipStateRootValidation notin flags:
     ? verifyStateRoot(state.data, signedBlock.message)
@@ -275,7 +276,7 @@ proc state_transition_block_aux(
     "see makeBeaconBlock for block production"
   state.root = signedBlock.message.state_root
 
-  ok()
+  ok(blockRewards)
 
 func noRollback*(state: var ForkedHashedBeaconState) =
   trace "Skipping rollback of broken state"
@@ -285,7 +286,7 @@ proc state_transition_block*(
     state: var ForkedHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): Result[void, cstring] =
+    rollback: RollbackForkedHashedProc): Result[BlockRewards, cstring] =
   ## `rollback` is called if the transition fails and the given state has been
   ## partially changed. If a temporary state was given to `state_transition`,
   ## it is safe to use `noRollback` and leave it broken, else the state
@@ -309,7 +310,7 @@ proc state_transition*(
     state: var ForkedHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock,
     cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): Result[void, cstring] =
+    rollback: RollbackForkedHashedProc): Result[BlockRewards, cstring] =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
