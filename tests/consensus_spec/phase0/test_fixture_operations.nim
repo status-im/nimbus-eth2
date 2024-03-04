@@ -9,8 +9,6 @@
 {.used.}
 
 import
-  # Standard library
-  std/[sequtils, sets],
   # Utilities
   chronicles,
   unittest2,
@@ -22,6 +20,8 @@ import
   ../../testutil,
   ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
+
+from std/sequtils import mapIt, toSeq
 
 const
   OpDir                 = SszTestsDir/const_preset/"phase0"/"operations"
@@ -70,8 +70,10 @@ suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
       preState: var phase0.BeaconState, attestation: Attestation):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_attestation(preState, attestation, {}, 0.Gwei, cache)
+    var cache: StateCache
+    doAssert (? process_attestation(
+      preState, attestation, {}, 0.Gwei, cache)) == 0
+    ok()
 
   for path in walkTests(OpAttestationsDir):
     runTest[Attestation, typeof applyAttestation](
@@ -82,9 +84,10 @@ suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
       preState: var phase0.BeaconState, attesterSlashing: AttesterSlashing):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)
+    var cache: StateCache
+    doAssert (? process_attester_slashing(
+      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)) > 0
+    ok()
 
   for path in walkTests(OpAttSlashingDir):
     runTest[AttesterSlashing, typeof applyAttesterSlashing](
@@ -95,7 +98,7 @@ suite baseDescription & "Block Header " & preset():
   func applyBlockHeader(
       preState: var phase0.BeaconState, blck: phase0.BeaconBlock):
       Result[void, cstring] =
-    var cache = StateCache()
+    var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
@@ -117,9 +120,10 @@ suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
       preState: var phase0.BeaconState, proposerSlashing: ProposerSlashing):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)
+    var cache: StateCache
+    doAssert (? process_proposer_slashing(
+      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)) > 0
+    ok()
 
   for path in walkTests(OpProposerSlashingDir):
     runTest[ProposerSlashing, typeof applyProposerSlashing](
@@ -130,7 +134,7 @@ suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
       preState: var phase0.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
-    var cache = StateCache()
+    var cache: StateCache
     process_voluntary_exit(
       defaultRuntimeConfig, preState, voluntaryExit, {}, cache)
 

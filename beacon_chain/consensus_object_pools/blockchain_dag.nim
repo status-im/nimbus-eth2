@@ -968,40 +968,41 @@ proc advanceSlots*(
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
     cache: var StateCache, info: var ForkedEpochInfo): Result[void, cstring] =
-
   loadStateCache(dag, cache, bid, getStateField(state, slot).epoch)
 
-  case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+  discard case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
   of ConsensusFork.Phase0:
     let data = getBlock(dag, bid, phase0.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Altair:
     let data = getBlock(dag, bid, altair.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Bellatrix:
     let data = getBlock(dag, bid, bellatrix.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Capella:
     let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Deneb:
     let data = getBlock(dag, bid, deneb.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
+
+  ok()
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
