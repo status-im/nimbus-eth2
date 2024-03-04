@@ -26,8 +26,13 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [version-1-6, devel]
+        branch: [upstream/version-1-6, upstream/devel]
         include:
+          - branch: upstream/version-1-6
+            branch-short: version-1-6
+          - branch: upstream/devel
+            branch-short: devel
+            nimflags-extra: --mm:refc
           - target:
               os: linux
             builder: ubuntu-20.04
@@ -45,7 +50,7 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
 
-    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
+    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch-short }})'
     runs-on: ${{ matrix.builder }}
     continue-on-error: ${{ matrix.branch == 'devel' }}
     steps:
