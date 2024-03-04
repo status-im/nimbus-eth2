@@ -137,7 +137,6 @@ jobs:
           # Stack usage test on recent enough gcc:
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
             export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
-            echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
           fi
 
           # libminiupnp / natpmp
@@ -145,6 +144,9 @@ jobs:
             export CFLAGS="${CFLAGS} -m32 -mno-adx"
             echo "CFLAGS=${CFLAGS}" >> $GITHUB_ENV
           fi
+
+          export NIMFLAGS="${NIMFLAGS} ${{ matrix.nimflags-extra }}"
+          echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
 
           ncpu=""
           make_cmd="make"
