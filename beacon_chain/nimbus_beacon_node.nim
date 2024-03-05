@@ -52,7 +52,7 @@ declareGauge next_action_wait,
   "Seconds until the next attestation will be sent"
 
 declareGauge next_proposal_wait,
-  "Seconds until the next proposal will be sent, or -1 if no proposal scheduled"
+  "Seconds until the next proposal will be sent, or Inf if not known"
 
 declareGauge sync_committee_active,
   "1 if there are current sync committee duties, 0 otherwise"
@@ -1487,9 +1487,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   next_proposal_wait.set(
     if nextProposalSlot != FAR_FUTURE_SLOT:
-      saturate(fromNow(node.beaconClock, nextProposalSlot))
+      saturate(fromNow(node.beaconClock, nextProposalSlot)).toFloatSeconds()
     else:
-      -1)
+      Inf)
 
   sync_committee_active.set(if inCurrentSyncCommittee: 1 else: 0)
 
