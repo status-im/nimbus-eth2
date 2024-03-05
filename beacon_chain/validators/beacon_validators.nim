@@ -107,6 +107,10 @@ proc getValidator*(validators: auto,
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
                                validator: validators[idx])
 
+func sum*(r: BlockRewards): Gwei =
+  Gwei(uint64(r.attestations) + uint64(r.sync_aggregate) +
+       uint64(r.proposer_slashings) + uint64(r.attester_slashings))
+
 proc addValidatorsFromWeb3Signer(
     node: BeaconNode, web3signerUrl: Web3SignerUrl, epoch: Epoch)
     {.async: (raises: [CancelledError]).} =
@@ -497,7 +501,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         slot, validator_index
       return err("Unable to get execution payload")
 
-  let blck = makeBeaconBlock(
+  let res = makeBeaconBlockWithRewards(
       node.dag.cfg,
       state[],
       validator_index,
@@ -527,17 +531,15 @@ proc makeBeaconBlockForHeadAndSlot*(
   when payload is deneb.ExecutionPayloadForSigning:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
 
-  let reward = collectBlockRewards(state[], blck.get())
-
-  return if blck.isOk:
+  return if res.isOk:
     ok(EngineBid(
-      blck: blck.get(),
+      blck: res.get().blck,
       executionPayloadValue: payload.blockValue,
-      consensusBlockValue: reward.get,
+      consensusBlockValue: res.get().rewards.sum.u256,
       blobsBundleOpt: blobsBundleOpt
     ))
   else:
-    err(blck.error)
+    err(res.error)
 
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
@@ -1989,10 +1991,6 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
 
         node.consensusManager[].actionTracker.registerDuty(
           slot, subnet_id, validator_index, isAggregator)
-
-proc getConsensusBlockValue(node: BeaconNode,
-                            blck: RewardingBlock): Opt[UInt256] =
-  collectBlockRewards(node.dag.headState, blck)
 
 proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     node: BeaconNode, consensusFork: static ConsensusFork,
