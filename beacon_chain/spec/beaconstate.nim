@@ -22,25 +22,15 @@ from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 
 export extras, forks, validator, chronicles
 
-var debugTrackedValidator* = ValidatorIndex.high
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(balance: var Gwei, delta: Gwei) =
   balance += delta
 
-func increase_balance(
-    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei,
-    info: typeof(instantiationInfo())) =
+func increase_balance*(
+    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Increase the validator balance at index ``index`` by ``delta``.
   if delta != 0: # avoid dirtying the balance cache if not needed
-    {.noSideEffect.}:
-      if index == debugTrackedValidator:
-        debugEcho "+", $delta, " ", $info
     increase_balance(state.balances.mitem(index), delta)
-
-template increase_balance*(
-    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
-  increase_balance(state, index, delta, instantiationInfo())
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(balance: var Gwei, delta: Gwei) =
@@ -50,20 +40,12 @@ func decrease_balance*(balance: var Gwei, delta: Gwei) =
     else:
       balance - delta
 
-func decrease_balance(
-    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei,
-    info: typeof(instantiationInfo())) =
+func decrease_balance*(
+    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Decrease the validator balance at index ``index`` by ``delta``, with
   ## underflow protection.
   if delta != 0: # avoid dirtying the balance cache if not needed
-    {.noSideEffect.}:
-      if index == debugTrackedValidator:
-        debugEcho "-", $delta, " ", $info
     decrease_balance(state.balances.mitem(index), delta)
-
-template decrease_balance*(
-    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
-  decrease_balance(state, index, delta, instantiationInfo())
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#deposits
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#modified-apply_deposit
