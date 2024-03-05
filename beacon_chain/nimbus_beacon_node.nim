@@ -54,6 +54,43 @@ declareGauge next_action_wait,
 declareCounter db_checkpoint_seconds,
   "Time spent checkpointing the database to clear the WAL file"
 
+proc fetchGenesisState(
+    config: BeaconNodeConf,
+    metadata: Eth2NetworkMetadata
+): Future[ref ForkedHashedBeaconState] {.async: (raises: []).} =
+  let genesisBytes =
+    if metadata.genesis.kind != BakedIn and config.genesisState.isSome:
+      let res = io2.readAllBytes(config.genesisState.get.string)
+      res.valueOr:
+        error "Failed to read genesis state file", err = res.error.ioErrorMsg
+        quit 1
+    elif metadata.hasGenesis:
+      try:
+        if metadata.genesis.kind == BakedInUrl:
+          info "Obtaining genesis state",
+               sourceUrl = $config.genesisStateUrl
+                 .get(parseUri metadata.genesis.url)
+        await metadata.fetchGenesisBytes(config.genesisStateUrl)
+      except CatchableError as err:
+        error "Failed to obtain genesis state",
+              source = metadata.genesis.sourceDesc,
+              err = err.msg
+        quit 1
+    else:
+      @[]
+
+  if genesisBytes.len > 0:
+    try:
+      newClone readSszForkedHashedBeaconState(metadata.cfg, genesisBytes)
+    except CatchableError as err:
+      error "Invalid genesis state",
+            size = genesisBytes.len,
+            digest = eth2digest(genesisBytes),
+            err = err.msg
+      quit 1
+  else:
+    nil
+
 proc doRunTrustedNodeSync(
     db: BeaconChainDB,
     metadata: Eth2NetworkMetadata,
@@ -64,38 +101,27 @@ proc doRunTrustedNodeSync(
     trustedBlockRoot: Option[Eth2Digest],
     backfill: bool,
     reindex: bool,
-    downloadDepositSnapshot: bool) {.async.} =
-  let
-    cfg = metadata.cfg
-    syncTarget =
-      if stateId.isSome:
-        if trustedBlockRoot.isSome:
-          warn "Ignoring `trustedBlockRoot`, `stateId` is set",
-            stateId, trustedBlockRoot
-        TrustedNodeSyncTarget(
-          kind: TrustedNodeSyncKind.StateId,
-          stateId: stateId.get)
-      elif trustedBlockRoot.isSome:
-        TrustedNodeSyncTarget(
-          kind: TrustedNodeSyncKind.TrustedBlockRoot,
-          trustedBlockRoot: trustedBlockRoot.get)
-      else:
-        TrustedNodeSyncTarget(
-          kind: TrustedNodeSyncKind.StateId,
-          stateId: "finalized")
-    genesis =
-      if metadata.hasGenesis:
-        let genesisBytes = try: await metadata.fetchGenesisBytes()
-        except CatchableError as err:
-          error "Failed to obtain genesis state",
-                source = metadata.genesis.sourceDesc,
-                err = err.msg
-          quit 1
-        newClone(readSszForkedHashedBeaconState(cfg, genesisBytes))
-      else: nil
+    downloadDepositSnapshot: bool,
+    genesisState: ref ForkedHashedBeaconState) {.async.} =
+  let syncTarget =
+    if stateId.isSome:
+      if trustedBlockRoot.isSome:
+        warn "Ignoring `trustedBlockRoot`, `stateId` is set",
+          stateId, trustedBlockRoot
+      TrustedNodeSyncTarget(
+        kind: TrustedNodeSyncKind.StateId,
+        stateId: stateId.get)
+    elif trustedBlockRoot.isSome:
+      TrustedNodeSyncTarget(
+        kind: TrustedNodeSyncKind.TrustedBlockRoot,
+        trustedBlockRoot: trustedBlockRoot.get)
+    else:
+      TrustedNodeSyncTarget(
+        kind: TrustedNodeSyncKind.StateId,
+        stateId: "finalized")
 
   await db.doTrustedNodeSync(
-    cfg,
+    metadata.cfg,
     databaseDir,
     eraDir,
     restUrl,
@@ -103,7 +129,7 @@ proc doRunTrustedNodeSync(
     backfill,
     reindex,
     downloadDepositSnapshot,
-    genesis)
+    genesisState)
 
 func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   case stdoutKind
@@ -544,13 +570,36 @@ proc init*(T: type BeaconNode,
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
-    if config.trustedStateRoot.isNone and config.trustedBlockRoot.isNone:
+    var genesisState: ref ForkedHashedBeaconState
+    let trustedBlockRoot =
+      if config.trustedStateRoot.isSome or config.trustedBlockRoot.isSome:
+        config.trustedBlockRoot
+      elif cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH:
+        # Sync can be bootstrapped from the genesis block root
+        genesisState = await fetchGenesisState(config, metadata)
+        if genesisState != nil:
+          let genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
+          notice "Neither `--trusted-block-root` nor `--trusted-state-root` " &
+            "provided with `--external-beacon-api-url`, " &
+            "falling back to genesis block root",
+            externalBeaconApiUrl = config.externalBeaconApiUrl.get,
+            trustedBlockRoot = config.trustedBlockRoot,
+            trustedStateRoot = config.trustedStateRoot,
+            genesisBlockRoot = $genesisBlockRoot
+          some genesisBlockRoot
+        else:
+          none[Eth2Digest]()
+      else:
+        none[Eth2Digest]()
+    if config.trustedStateRoot.isNone and trustedBlockRoot.isNone:
       warn "Ignoring `--external-beacon-api-url`, neither " &
-        "`--trusted-block-root` nor `--trusted-state-root` are provided",
+        "`--trusted-block-root` nor `--trusted-state-root` provided",
         externalBeaconApiUrl = config.externalBeaconApiUrl.get,
         trustedBlockRoot = config.trustedBlockRoot,
         trustedStateRoot = config.trustedStateRoot
     else:
+      if genesisState == nil:
+        genesisState = await fetchGenesisState(config, metadata)
       await db.doRunTrustedNodeSync(
         metadata,
         config.databaseDir,
@@ -558,10 +607,11 @@ proc init*(T: type BeaconNode,
         config.externalBeaconApiUrl.get,
         config.trustedStateRoot.map do (x: Eth2Digest) -> string:
           "0x" & x.data.toHex,
-        config.trustedBlockRoot,
+        trustedBlockRoot,
         backfill = false,
         reindex = false,
-        downloadDepositSnapshot = false)
+        downloadDepositSnapshot = false,
+        genesisState)
 
   if config.finalizedCheckpointBlock.isSome:
     warn "--finalized-checkpoint-block has been deprecated, ignoring"
@@ -609,40 +659,12 @@ proc init*(T: type BeaconNode,
   var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
   if not ChainDAGRef.isInitialized(db).isOk():
-    let genesisState = if checkpointState != nil and getStateField(checkpointState[], slot) == 0:
-      checkpointState
-    else:
-      let genesisBytes = block:
-        if metadata.genesis.kind != BakedIn and config.genesisState.isSome:
-          let res = io2.readAllBytes(config.genesisState.get.string)
-          res.valueOr:
-            error "Failed to read genesis state file", err = res.error.ioErrorMsg
-            quit 1
-        elif metadata.hasGenesis:
-          try:
-            if metadata.genesis.kind == BakedInUrl:
-              info "Obtaining genesis state",
-                    sourceUrl = $config.genesisStateUrl.get(parseUri metadata.genesis.url)
-            await metadata.fetchGenesisBytes(config.genesisStateUrl)
-          except CatchableError as err:
-            error "Failed to obtain genesis state",
-                  source = metadata.genesis.sourceDesc,
-                  err = err.msg
-            quit 1
-        else:
-          @[]
-
-      if genesisBytes.len > 0:
-        try:
-          newClone readSszForkedHashedBeaconState(cfg, genesisBytes)
-        except CatchableError as err:
-          error "Invalid genesis state",
-                size = genesisBytes.len,
-                digest = eth2digest(genesisBytes),
-                err = err.msg
-          quit 1
+    let genesisState =
+      if checkpointState != nil and
+          getStateField(checkpointState[], slot) == 0:
+        checkpointState
       else:
-        nil
+        await fetchGenesisState(config, metadata)
 
     if genesisState == nil and checkpointState == nil:
       fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
@@ -2263,6 +2285,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
     let
       metadata = loadEth2Network(config)
       db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
+      genesisState = waitFor fetchGenesisState(config, metadata)
     waitFor db.doRunTrustedNodeSync(
       metadata,
       config.databaseDir,
@@ -2272,7 +2295,8 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
       config.lcTrustedBlockRoot,
       config.backfillBlocks,
       config.reindex,
-      config.downloadDepositSnapshot)
+      config.downloadDepositSnapshot,
+      genesisState)
     db.close()
 
 {.pop.} # TODO moduletests exceptions
