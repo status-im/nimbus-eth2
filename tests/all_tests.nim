@@ -35,6 +35,7 @@ import # Unit test
   ./test_helpers,
   ./test_honest_validator,
   ./test_keystore,
+  ./test_keystore_management,
   ./test_key_splitting,
   ./test_light_client_processor,
   ./test_light_client,
@@ -59,10 +60,6 @@ import # Unit test
   ./test_validator_client
 
 when not defined(i386):
-  # Avoids "Out of memory" CI failures
-  import
-    ./test_keystore_management
-
   when not defined(windows):
     import ./test_keymanager_api
 
