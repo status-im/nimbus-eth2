@@ -17,6 +17,7 @@ import # Unit test
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beacon_time,
+  ./test_blockchain_dag,
   ./test_block_dag,
   ./test_block_processor,
   ./test_block_quarantine,
@@ -59,7 +60,6 @@ import # Unit test
 when not defined(i386):
   # Avoids "Out of memory" CI failures
   import
-    ./test_blockchain_dag,
     ./test_keystore,
     ./test_keystore_management
 
