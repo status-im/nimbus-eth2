@@ -59,8 +59,7 @@ import # Unit test
   ./slashing_protection/test_slashing_protection_db,
   ./test_validator_client
 
-when not defined(i386):
-  when not defined(windows):
-    import ./test_keymanager_api
+when not defined(windows):
+  import ./test_keymanager_api
 
 summarizeLongTests("AllTests")
