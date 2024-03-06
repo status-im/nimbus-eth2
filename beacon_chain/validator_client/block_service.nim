@@ -34,7 +34,7 @@ type
     data*: ForkedBlindedBeaconBlock
 
 func shortLog(v: Opt[UInt256]): auto =
-  if v.isNone(): "<not available>" else: toString(v.get)
+  if v.isNone(): "<not available>" else: toString(v.get, 10)
 
 func shortLog(v: ForkedMaybeBlindedBeaconBlock): auto =
   withForkyMaybeBlindedBlck(v):
