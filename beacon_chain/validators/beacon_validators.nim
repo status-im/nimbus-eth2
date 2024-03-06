@@ -107,9 +107,11 @@ proc getValidator*(validators: auto,
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
                                validator: validators[idx])
 
-func sum*(r: BlockRewards): Gwei =
-  Gwei(uint64(r.attestations) + uint64(r.sync_aggregate) +
-       uint64(r.proposer_slashings) + uint64(r.attester_slashings))
+func blockConsensusValue(r: BlockRewards): UInt256 =
+  # Returns value of `block-consensus-value` in Wei units.
+  (uint64(r.attestations) + uint64(r.sync_aggregate) +
+    uint64(r.proposer_slashings) +
+    uint64(r.attester_slashings)).u256 * 1000000000.u256
 
 proc addValidatorsFromWeb3Signer(
     node: BeaconNode, web3signerUrl: Web3SignerUrl, epoch: Epoch)
@@ -531,11 +533,11 @@ proc makeBeaconBlockForHeadAndSlot*(
   when payload is deneb.ExecutionPayloadForSigning:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
 
-  return if res.isOk:
+  if res.isOk:
     ok(EngineBid(
       blck: res.get().blck,
       executionPayloadValue: payload.blockValue,
-      consensusBlockValue: res.get().rewards.sum.u256,
+      consensusBlockValue: res.get().rewards.blockConsensusValue(),
       blobsBundleOpt: blobsBundleOpt
     ))
   else:
