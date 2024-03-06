@@ -1,10 +1,3 @@
-# beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 import std/strutils
 
 --noNimblePath
@@ -73,25 +66,6 @@ if defined(limitStackUsage):
   switch("passC", "-fstack-usage -Werror=stack-usage=1048576")
   switch("passL", "-fstack-usage -Werror=stack-usage=1048576")
 
-if defined(windows):
-  # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
-  switch("passL", "-Wl,--no-insert-timestamp")
-  # increase stack size
-  switch("passL", "-Wl,--stack,8388608")
-  # https://github.com/nim-lang/Nim/issues/4057
-  --tlsEmulation:off
-  if defined(i386):
-    # set the IMAGE_FILE_LARGE_ADDRESS_AWARE flag so we can use PAE, if enabled, and access more than 2 GiB of RAM
-    switch("passL", "-Wl,--large-address-aware")
-
-  # The dynamic Chronicles output currently prevents us from using colors on Windows
-  # because these require direct manipulations of the stdout File object.
-  switch("define", "chronicles_colors=off")
-
-  # Avoid some rare stack corruption while using exceptions with a SEH-enabled
-  # toolchain: https://github.com/status-im/nimbus-eth2/issues/3121
-  switch("define", "nimRawSetjmp")
-
 # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#ssse3-supplemental-sse3
 # suggests that SHA256 hashing with SSSE3 is 20% faster than without SSSE3, so
 # given its near-ubiquity in the x86 installed base, it renders a distribution
@@ -148,13 +122,6 @@ switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
 
 switch("import", "testutils/moduletests")
-
-when not defined(disable_libbacktrace):
-  --define:nimStackTraceOverride
-  switch("import", "libbacktrace")
-else:
-  --stacktrace:on
-  --linetrace:on
 
 var canEnableDebuggingSymbols = true
 if defined(macosx):
