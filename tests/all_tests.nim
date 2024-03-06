@@ -17,6 +17,7 @@ import # Unit test
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beacon_time,
+  ./test_blockchain_dag,
   ./test_block_dag,
   ./test_block_processor,
   ./test_block_quarantine,
@@ -33,6 +34,8 @@ import # Unit test
   ./test_gossip_validation,
   ./test_helpers,
   ./test_honest_validator,
+  ./test_keystore,
+  ./test_keystore_management,
   ./test_key_splitting,
   ./test_light_client_processor,
   ./test_light_client,
@@ -56,14 +59,8 @@ import # Unit test
   ./slashing_protection/test_slashing_protection_db,
   ./test_validator_client
 
-when not defined(i386):
-  # Avoids "Out of memory" CI failures
-  import
-    ./test_blockchain_dag,
-    ./test_keystore,
-    ./test_keystore_management
-
-  when not defined(windows):
-    import ./test_keymanager_api
+# https://github.com/status-im/nimbus-eth2/pull/6029
+when not defined(windows) and not (defined(macosx) and defined(arm64)):
+  import ./test_keymanager_api
 
 summarizeLongTests("AllTests")
