@@ -411,11 +411,7 @@ proc publishBlockV2(vc: ValidatorClientRef, currentSlot, slot: Slot,
                     validator: AttachedValidator) {.async.} =
   let
     genesisRoot = vc.beaconGenesis.genesis_validators_root
-    graffiti =
-      if vc.config.graffiti.isSome():
-        vc.config.graffiti.get()
-      else:
-        defaultGraffitiBytes()
+    graffiti = vc.getGraffitiBytes(validator)
     vindex = validator.index.get()
 
   logScope:
@@ -633,11 +629,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   validator: AttachedValidator) {.async.} =
   let
     genesisRoot = vc.beaconGenesis.genesis_validators_root
-    graffiti =
-      if vc.config.graffiti.isSome():
-        vc.config.graffiti.get()
-      else:
-        defaultGraffitiBytes()
+    graffiti = vc.getGraffitiBytes(validator)
     fork = vc.forkAtEpoch(slot.epoch)
     vindex = validator.index.get()
 
