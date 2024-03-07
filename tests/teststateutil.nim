@@ -10,9 +10,11 @@
 import
   chronicles,
   ./mocking/mock_deposits,
-  ./helpers/math_helpers,
   ../beacon_chain/spec/[
-    forks, helpers, state_transition, state_transition_block]
+    forks, state_transition, state_transition_block]
+
+from "."/helpers/math_helpers import round_multiple_down
+from ".."/beacon_chain/bloomfilter import constructBloomFilter
 
 proc valid_deposit(state: var ForkyHashedBeaconState) =
   const deposit_amount = MAX_EFFECTIVE_BALANCE
@@ -29,7 +31,9 @@ proc valid_deposit(state: var ForkyHashedBeaconState) =
                       state.data.balances.item(validator_index)
                     else:
                       0
-  doAssert process_deposit(defaultRuntimeConfig, state.data, deposit, {}).isOk
+  doAssert process_deposit(
+    defaultRuntimeConfig, state.data,
+    constructBloomFilter(state.data.validators.asSeq)[], deposit, {}).isOk
   doAssert state.data.validators.len == pre_val_count + 1
   doAssert state.data.balances.len == pre_val_count + 1
   doAssert state.data.balances.item(validator_index) == pre_balance + deposit.data.amount

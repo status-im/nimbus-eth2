@@ -898,6 +898,12 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Dynamic validator set: updateDynamicValidators() test                                      OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## ValidatorPubKey Bloom filter
+```diff
++ incremental construction with no false positives/negatives                                 OK
++ one-shot construction with no false positives/negatives                                    OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -993,4 +999,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 670/675 Fail: 0/675 Skip: 5/675
+OK: 672/677 Fail: 0/677 Skip: 5/677

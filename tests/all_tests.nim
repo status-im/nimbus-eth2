@@ -21,6 +21,7 @@ import # Unit test
   ./test_block_dag,
   ./test_block_processor,
   ./test_block_quarantine,
+  ./test_bloom_filter,
   ./test_conf,
   ./test_datatypes,
   ./test_deposit_snapshots,
