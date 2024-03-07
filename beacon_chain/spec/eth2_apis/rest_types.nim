@@ -16,7 +16,7 @@
 import
   std/[json, tables],
   stew/base10, web3/primitives, httputils,
-  ".."/forks,
+  ".."/[deposit_snapshots, forks],
   ".."/mev/deneb_mev
 
 from ".."/datatypes/capella import BeaconBlockBody
@@ -368,13 +368,6 @@ type
     chain_id*: string
     address*: string
 
-  RestDepositSnapshot* = object
-    finalized*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
-    deposit_root*: Eth2Digest
-    deposit_count*: uint64
-    execution_block_hash*: Eth2Digest
-    execution_block_height*: uint64
-
   RestBlockInfo* = object
     slot*: Slot
     blck* {.serializedFieldName: "block".}: Eth2Digest
@@ -547,7 +540,7 @@ type
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsV2Response* = DataEnclosedObject[seq[RestChainHeadV2]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
-  GetDepositSnapshotResponse* = DataEnclosedObject[RestDepositSnapshot]
+  GetDepositSnapshotResponse* = DataEnclosedObject[DepositTreeSnapshot]
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]

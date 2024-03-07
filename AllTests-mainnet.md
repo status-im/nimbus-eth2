@@ -433,6 +433,15 @@ OK: 253/253 Fail: 0/253 Skip: 0/253
 + Testing uints        inputs - valid                                                        OK
 ```
 OK: 10/12 Fail: 0/12 Skip: 2/12
+## EIP-4881
+```diff
++ deposit_cases                                                                              OK
++ empty_root                                                                                 OK
++ finalization                                                                               OK
++ invalid_snapshot                                                                           OK
++ snapshot_cases                                                                             OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
@@ -993,4 +1002,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 670/675 Fail: 0/675 Skip: 5/675
+OK: 675/680 Fail: 0/680 Skip: 5/680

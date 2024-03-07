@@ -141,13 +141,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http404,
                                        NoFinalizedSnapshotAvailableError)
 
-    RestApiResponse.jsonResponse(
-      RestDepositSnapshot(
-        finalized: snapshot.depositContractState.branch,
-        deposit_root: snapshot.getDepositRoot(),
-        deposit_count: snapshot.getDepositCountU64(),
-        execution_block_hash: snapshot.eth1Block,
-        execution_block_height: snapshot.blockHeight))
+    RestApiResponse.jsonResponse(snapshot.getTreeSnapshot())
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api2(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:

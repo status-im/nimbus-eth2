@@ -442,6 +442,17 @@ type
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
+  # https://eips.ethereum.org/EIPS/eip-4881
+  FinalizedDepositTreeBranch* =
+    List[Eth2Digest, Limit DEPOSIT_CONTRACT_TREE_DEPTH]
+
+  DepositTreeSnapshot* = object
+    finalized*: FinalizedDepositTreeBranch
+    deposit_root*: Eth2Digest
+    deposit_count*: uint64
+    execution_block_hash*: Eth2Digest
+    execution_block_height*: uint64
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts

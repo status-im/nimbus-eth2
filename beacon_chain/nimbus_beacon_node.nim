@@ -51,12 +51,6 @@ declareGauge ticks_delay,
 declareGauge next_action_wait,
   "Seconds until the next attestation will be sent"
 
-declareGauge next_proposal_wait,
-  "Seconds until the next proposal will be sent, or Inf if not known"
-
-declareGauge sync_committee_active,
-  "1 if there are current sync committee duties, 0 otherwise"
-
 declareCounter db_checkpoint_seconds,
   "Time spent checkpointing the database to clear the WAL file"
 
@@ -646,14 +640,18 @@ proc init*(T: type BeaconNode,
   if config.finalizedDepositTreeSnapshot.isSome:
     let
       depositTreeSnapshotPath = config.finalizedDepositTreeSnapshot.get.string
-      depositContractSnapshot = try:
-        SSZ.loadFile(depositTreeSnapshotPath, DepositContractSnapshot)
-      except SszError as err:
-        fatal "Deposit tree snapshot loading failed",
-              err = formatMsg(err, depositTreeSnapshotPath)
-        quit 1
-      except CatchableError as err:
-        fatal "Failed to read deposit tree snapshot file", err = err.msg
+      snapshot =
+        try:
+          SSZ.loadFile(depositTreeSnapshotPath, DepositTreeSnapshot)
+        except SszError as err:
+          fatal "Deposit tree snapshot loading failed",
+                err = formatMsg(err, depositTreeSnapshotPath)
+          quit 1
+        except CatchableError as err:
+          fatal "Failed to read deposit tree snapshot file", err = err.msg
+          quit 1
+      depositContractSnapshot = DepositContractSnapshot.init(snapshot).valueOr:
+        fatal "Invalid deposit tree snapshot file"
         quit 1
     db.putDepositContractSnapshot(depositContractSnapshot)
 
@@ -1472,21 +1470,19 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     else:
       toGaugeValue(x)
 
-  let
-    syncCommitteeSlot = slot + 1
-    syncCommitteeEpoch = syncCommitteeSlot.epoch
-    inCurrentSyncCommittee =
-      not node.getCurrentSyncCommiteeSubnets(syncCommitteeEpoch).isZeros()
-
   template formatSyncCommitteeStatus(): string =
-    if inCurrentSyncCommittee:
-      "current"
-    elif not node.getNextSyncCommitteeSubnets(syncCommitteeEpoch).isZeros():
-      let slotsToNextSyncCommitteePeriod =
+    let
+      syncCommitteeSlot = slot + 1
+      slotsToNextSyncCommitteePeriod =
         SLOTS_PER_SYNC_COMMITTEE_PERIOD -
         since_sync_committee_period_start(syncCommitteeSlot)
-      # int64 conversion is safe
-      doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
+
+    # int64 conversion is safe
+    doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
+
+    if not node.getCurrentSyncCommiteeSubnets(syncCommitteeSlot.epoch).isZeros:
+      "current"
+    elif not node.getNextSyncCommitteeSubnets(syncCommitteeSlot.epoch).isZeros:
       "in " & toTimeLeftString(
         SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
     else:
@@ -1506,14 +1502,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   if nextActionSlot != FAR_FUTURE_SLOT:
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
-
-  next_proposal_wait.set(
-    if nextProposalSlot != FAR_FUTURE_SLOT:
-      saturate(fromNow(node.beaconClock, nextProposalSlot)).toFloatSeconds()
-    else:
-      Inf)
-
-  sync_committee_active.set(if inCurrentSyncCommittee: 1 else: 0)
 
   let epoch = slot.epoch
   if epoch + 1 >= node.network.forkId.next_fork_epoch:

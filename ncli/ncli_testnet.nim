@@ -477,7 +477,7 @@ proc doCreateTestnet*(config: CliConfig,
       createDepositContractSnapshot(
         deposits,
         genesisExecutionPayloadHeader.block_hash,
-        genesisExecutionPayloadHeader.block_number))
+        genesisExecutionPayloadHeader.block_number).getTreeSnapshot())
 
     initialState[].genesis_validators_root
 
