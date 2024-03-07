@@ -160,7 +160,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
   defer: db.close()
 
   ChainDAGRef.preInit(db, genesisState[])
-  db.putDepositTreeSnapshot(depositTreeSnapshot)
+  db.putDepositContractSnapshot(depositTreeSnapshot)
 
   let rng = HmacDrbgContext.new()
   var

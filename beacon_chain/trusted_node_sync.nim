@@ -24,8 +24,9 @@ const
   largeRequestsTimeout = 60.seconds # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
 
-proc fetchDepositSnapshot(client: RestClientRef):
-                          Future[Result[DepositTreeSnapshot, string]] {.async.} =
+proc fetchDepositSnapshot(
+    client: RestClientRef
+): Future[Result[DepositContractSnapshot, string]] {.async.} =
   let resp = try:
     awaitWithTimeout(client.getDepositSnapshot(), smallRequestsTimeout):
       return err "Fetching /eth/v1/beacon/deposit_snapshot timed out"
@@ -33,7 +34,7 @@ proc fetchDepositSnapshot(client: RestClientRef):
     return err("The trusted node likely does not support the /eth/v1/beacon/deposit_snapshot end-point:" & e.msg)
 
   let data = resp.data.data
-  let snapshot = DepositTreeSnapshot(
+  let snapshot = DepositContractSnapshot(
     eth1Block: data.execution_block_hash,
     depositContractState: DepositContractState(
       branch: data.finalized,
@@ -393,7 +394,7 @@ proc doTrustedNodeSync*(
           info "Writing deposit contracts snapshot",
                depositRoot = depositSnapshot.get.getDepositRoot(),
                depositCount = depositSnapshot.get.getDepositCountU64
-          db.putDepositTreeSnapshot(depositSnapshot.get)
+          db.putDepositContractSnapshot(depositSnapshot.get)
         else:
           warn "The downloaded deposit snapshot does not agree with the downloaded state"
       else:

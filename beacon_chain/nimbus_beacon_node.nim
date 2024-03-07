@@ -640,8 +640,8 @@ proc init*(T: type BeaconNode,
   if config.finalizedDepositTreeSnapshot.isSome:
     let
       depositTreeSnapshotPath = config.finalizedDepositTreeSnapshot.get.string
-      depositTreeSnapshot = try:
-        SSZ.loadFile(depositTreeSnapshotPath, DepositTreeSnapshot)
+      depositContractSnapshot = try:
+        SSZ.loadFile(depositTreeSnapshotPath, DepositContractSnapshot)
       except SszError as err:
         fatal "Deposit tree snapshot loading failed",
               err = formatMsg(err, depositTreeSnapshotPath)
@@ -649,7 +649,7 @@ proc init*(T: type BeaconNode,
       except CatchableError as err:
         fatal "Failed to read deposit tree snapshot file", err = err.msg
         quit 1
-    db.putDepositTreeSnapshot(depositTreeSnapshot)
+    db.putDepositContractSnapshot(depositContractSnapshot)
 
   let engineApiUrls = config.engineApiUrls
 

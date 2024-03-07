@@ -16,7 +16,7 @@ from std/stats import RunningStat, mean, push, standardDeviationS
 from std/strformat import `&`
 from std/times import cpuTime
 from ../beacon_chain/filepath import secureCreatePath
-from ../beacon_chain/spec/deposit_snapshots import DepositTreeSnapshot
+from ../beacon_chain/spec/deposit_snapshots import DepositContractSnapshot
 
 template withTimer*(stats: var RunningStat, body: untyped) =
   # TODO unify timing somehow
@@ -63,8 +63,9 @@ func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   cfg.DENEB_FORK_EPOCH = 2.Epoch
   cfg
 
-proc loadGenesis*(validators: Natural, validate: bool):
-                 (ref ForkedHashedBeaconState, DepositTreeSnapshot) =
+proc loadGenesis*(
+    validators: Natural,
+    validate: bool): (ref ForkedHashedBeaconState, DepositContractSnapshot) =
   const genesisDir = "test_sim"
   if (let res = secureCreatePath(genesisDir); res.isErr):
     fatal "Could not create directory",
@@ -110,7 +111,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
 
       let contractSnapshot =
         try:
-          SSZ.loadFile(contractSnapshotFn, DepositTreeSnapshot)
+          SSZ.loadFile(contractSnapshotFn, DepositContractSnapshot)
         except IOError as exc:
           fatal "Deposit contract snapshot failed to load",
             fileName = contractSnapshotFn, exc = exc.msg
@@ -133,7 +134,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
     var merkleizer = init DepositsMerkleizer
     for d in deposits:
       merkleizer.addChunk hash_tree_root(d).data
-    let contractSnapshot = DepositTreeSnapshot(
+    let contractSnapshot = DepositContractSnapshot(
       depositContractState: merkleizer.toDepositContractState)
 
     let res = (ref ForkedHashedBeaconState)(

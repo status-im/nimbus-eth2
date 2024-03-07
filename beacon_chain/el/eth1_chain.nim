@@ -166,7 +166,7 @@ proc pruneOldBlocks(chain: var Eth1Chain, depositIndex: uint64) =
 
   if chain.finalizedDepositsMerkleizer.getChunkCount > initialChunks:
     chain.finalizedBlockHash = lastBlock.hash
-    chain.db.putDepositTreeSnapshot DepositTreeSnapshot(
+    chain.db.putDepositContractSnapshot DepositContractSnapshot(
       eth1Block: lastBlock.hash,
       depositContractState: chain.finalizedDepositsMerkleizer.toDepositContractState,
       blockHeight: lastBlock.number)
@@ -370,7 +370,7 @@ proc init*(T: type Eth1Chain,
   let
     (finalizedBlockHash, depositContractState) =
       if db != nil:
-        let treeSnapshot = db.getDepositTreeSnapshot()
+        let treeSnapshot = db.getDepositContractSnapshot()
         if treeSnapshot.isSome:
           (treeSnapshot.get.eth1Block, treeSnapshot.get.depositContractState)
         else:
@@ -378,7 +378,7 @@ proc init*(T: type Eth1Chain,
           if oldSnapshot.isSome:
             (oldSnapshot.get.eth1Block, oldSnapshot.get.depositContractState)
           else:
-            db.putDepositTreeSnapshot DepositTreeSnapshot(
+            db.putDepositContractSnapshot DepositContractSnapshot(
               eth1Block: depositContractBlockHash,
               blockHeight: depositContractBlockNumber)
             (depositContractBlockHash, default(DepositContractState))

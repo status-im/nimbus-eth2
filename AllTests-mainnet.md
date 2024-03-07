@@ -141,7 +141,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
-## DepositTreeSnapshot
+## DepositContractSnapshot
 ```diff
 + Migration                                                                                  OK
 + SSZ                                                                                        OK
