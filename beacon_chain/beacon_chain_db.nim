@@ -179,7 +179,7 @@ type
     kOldDepositContractSnapshot
       ## Deprecated:
       ## This was the merkleizer checkpoint produced by processing the
-      ## finalized deposits (similar to kDepositTreeSnapshot, but before
+      ## finalized deposits (similar to kDepositContractSnapshot, but before
       ## the EIP-4881 support was introduced). Currently, we read from
       ## it during upgrades and we keep writing data to it as a measure
       ## allowing the users to downgrade to a previous version of Nimbus.
@@ -194,7 +194,12 @@ type
     kHashToStateDiff # Obsolete
     kHashToStateOnlyMutableValidators
     kBackfillBlock # Obsolete, was in `unstable` for a while, but never released
-    kDepositTreeSnapshot # EIP-4881-compatible deposit contract state snapshot
+    kDepositContractSnapshot
+      ## Deposit contract state snapshot derived from EIP-4881 data.
+      ## This key also stores intermediate hashes that are no longer used
+      ## for future deposits, beyond the `finalized` branch from EIP-4881.
+      ## Those extra hashes may be set to ZERO_HASH when importing from a
+      ## compressed EIP-4881 `DepositTreeSnapshot`.
 
   BeaconBlockSummary* = object
     ## Cache of beacon block summaries - during startup when we construct the
@@ -909,10 +914,10 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
-proc putDepositTreeSnapshot*(db: BeaconChainDB,
-                             snapshot: DepositTreeSnapshot) =
+proc putDepositContractSnapshot*(
+    db: BeaconChainDB, snapshot: DepositContractSnapshot) =
   db.withManyWrites:
-    db.keyValues.putSnappySSZ(subkey(kDepositTreeSnapshot),
+    db.keyValues.putSnappySSZ(subkey(kDepositContractSnapshot),
                               snapshot)
     # TODO: We currently store this redundant old snapshot in order
     #       to allow the users to rollback to a previous version
@@ -921,12 +926,13 @@ proc putDepositTreeSnapshot*(db: BeaconChainDB,
     db.keyValues.putSnappySSZ(subkey(kOldDepositContractSnapshot),
                               snapshot.toOldDepositContractSnapshot)
 
-proc hasDepositTreeSnapshot*(db: BeaconChainDB): bool =
-  expectDb(subkey(kDepositTreeSnapshot) in db.keyValues)
+proc hasDepositContractSnapshot*(db: BeaconChainDB): bool =
+  expectDb(subkey(kDepositContractSnapshot) in db.keyValues)
 
-proc getDepositTreeSnapshot*(db: BeaconChainDB): Opt[DepositTreeSnapshot] =
-  result.ok(default DepositTreeSnapshot)
-  let r = db.keyValues.getSnappySSZ(subkey(kDepositTreeSnapshot), result.get)
+proc getDepositContractSnapshot*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
+  result.ok(default DepositContractSnapshot)
+  let r = db.keyValues.getSnappySSZ(
+    subkey(kDepositContractSnapshot), result.get)
   if r != GetResult.found: result.err()
 
 proc getUpgradableDepositSnapshot*(db: BeaconChainDB): Option[OldDepositContractSnapshot] =

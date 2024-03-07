@@ -347,15 +347,16 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
     excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
 
-func createDepositTreeSnapshot(deposits: seq[DepositData],
-                               blockHash: Eth2Digest,
-                               blockHeight: uint64): DepositTreeSnapshot =
+func createDepositContractSnapshot(
+    deposits: seq[DepositData],
+    blockHash: Eth2Digest,
+    blockHeight: uint64): DepositContractSnapshot =
   var merkleizer = DepositsMerkleizer.init()
   for i, deposit in deposits:
     let htr = hash_tree_root(deposit)
     merkleizer.addChunk(htr.data)
 
-  DepositTreeSnapshot(
+  DepositContractSnapshot(
     eth1Block: blockHash,
     depositContractState: merkleizer.toDepositContractState,
     blockHeight: blockHeight)
@@ -473,7 +474,7 @@ proc doCreateTestnet*(config: CliConfig,
 
     SSZ.saveFile(
       config.outputDepositTreeSnapshot.string,
-      createDepositTreeSnapshot(
+      createDepositContractSnapshot(
         deposits,
         genesisExecutionPayloadHeader.block_hash,
         genesisExecutionPayloadHeader.block_number))

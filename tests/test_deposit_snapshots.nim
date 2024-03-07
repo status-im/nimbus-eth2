@@ -25,15 +25,16 @@ template databaseRoot: string = getTempDir().joinPath(ROOT)
 template key1: array[1, byte] = [byte(kOldDepositContractSnapshot)]
 
 type
-  DepositSnapshotUpgradeProc = proc(old: OldDepositContractSnapshot): DepositTreeSnapshot
-                                   {.gcsafe, raises: [].}
+  DepositSnapshotUpgradeProc = proc(
+      old: OldDepositContractSnapshot
+  ): DepositContractSnapshot {.gcsafe, raises: [].}
 
 proc ifNecessaryMigrateDCS(db: BeaconChainDB,
                            upgradeProc: DepositSnapshotUpgradeProc) =
-  if not db.hasDepositTreeSnapshot():
+  if not db.hasDepositContractSnapshot():
     let oldSnapshot = db.getUpgradableDepositSnapshot()
     if oldSnapshot.isSome:
-      db.putDepositTreeSnapshot upgradeProc(oldSnapshot.get)
+      db.putDepositContractSnapshot upgradeProc(oldSnapshot.get)
 
 # Hexlified copy of
 # eth2-networks/shared/mainnet/genesis_deposit_contract_snapshot.ssz
@@ -84,7 +85,8 @@ proc fixture1() =
   kv.put(key1, compressed).expect("")
   db.close()
 
-proc inspectDCS(snapshot: OldDepositContractSnapshot | DepositTreeSnapshot) =
+proc inspectDCS(
+    snapshot: OldDepositContractSnapshot | DepositContractSnapshot) =
   ## Inspects a DCS and checks if all of its data corresponds to
   ## what's encoded in ds1.
   const zero = toDigest("0000000000000000000000000000000000000000000000000000000000000000")
@@ -118,11 +120,11 @@ proc inspectDCS(snapshot: OldDepositContractSnapshot | DepositTreeSnapshot) =
   # Check deposit root.
   check(snapshot.getDepositRoot == root)
 
-proc inspectDCS(snapshot: DepositTreeSnapshot, wantedBlockHeight: uint64) =
+proc inspectDCS(snapshot: DepositContractSnapshot, wantedBlockHeight: uint64) =
   inspectDCS(snapshot)
   check(snapshot.blockHeight == wantedBlockHeight)
 
-suite "DepositTreeSnapshot":
+suite "DepositContractSnapshot":
   setup:
     randomize()
 
@@ -139,21 +141,22 @@ suite "DepositTreeSnapshot":
     # Start with a fresh database.
     removeDir(databaseRoot)
     createDir(databaseRoot)
-    # Make sure there's no DepositTreeSnapshot yet.
+    # Make sure there's no DepositContractSnapshot yet.
     let db = BeaconChainDB.new(databaseRoot, inMemory=false)
-    check(db.getDepositTreeSnapshot().isErr())
+    check(db.getDepositContractSnapshot().isErr())
     # Setup fixture.
     fixture1()
-    # Make sure there's still no DepositTreeSnapshot as
-    # BeaconChainDB::getDepositTreeSnapshot() checks only for DCSv2.
-    check(db.getDepositTreeSnapshot().isErr())
+    # Make sure there's still no DepositContractSnapshot as
+    # BeaconChainDB::getDepositContractSnapshot() checks only for DCSv2.
+    check(db.getDepositContractSnapshot().isErr())
     # Migrate DB.
-    db.ifNecessaryMigrateDCS do (d: OldDepositContractSnapshot) -> DepositTreeSnapshot:
-      d.toDepositTreeSnapshot(11052984)
+    db.ifNecessaryMigrateDCS do (
+        d: OldDepositContractSnapshot) -> DepositContractSnapshot:
+      d.toDepositContractSnapshot(11052984)
     # Make sure now there actually is a snapshot.
-    check(db.getDepositTreeSnapshot().isOk())
+    check(db.getDepositContractSnapshot().isOk())
     # Inspect content.
-    let snapshot = db.getDepositTreeSnapshot().expect("")
+    let snapshot = db.getDepositContractSnapshot().expect("")
     inspectDCS(snapshot, 11052984)
 
   test "depositCount":
@@ -169,7 +172,7 @@ suite "DepositTreeSnapshot":
     var model: OldDepositContractSnapshot
     check(decodeSSZ(ds1, model))
     # Check blockHeight.
-    var dcs = model.toDepositTreeSnapshot(0)
+    var dcs = model.toDepositContractSnapshot(0)
     check(not dcs.isValid(ds1Root))
     dcs.blockHeight = 11052984
     check(dcs.isValid(ds1Root))
@@ -188,5 +191,6 @@ suite "DepositTreeSnapshot":
     for i in 0..len(dcs.depositContractState.deposit_count)-1:
       dcs.depositContractState.deposit_count[i] = 0
     check(not dcs.isValid(ds1Root))
-    dcs.depositContractState.deposit_count = model.depositContractState.deposit_count
+    dcs.depositContractState.deposit_count =
+      model.depositContractState.deposit_count
     check(dcs.isValid(ds1Root))
