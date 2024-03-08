@@ -55,9 +55,7 @@ func getDepositRoot*(
 func isValid*(d: DepositContractSnapshot, wantedDepositRoot: Eth2Digest): bool =
   ## `isValid` requires the snapshot to be self-consistent and
   ## to point to a specific Ethereum block
-  return not (d.eth1Block.isZeroMemory or
-              d.blockHeight == 0 or
-              d.getDepositRoot() != wantedDepositRoot)
+  not d.eth1Block.isZeroMemory and d.getDepositRoot() == wantedDepositRoot
 
 func matches*(snapshot: DepositContractSnapshot, eth1_data: Eth1Data): bool =
   snapshot.getDepositCountU64() == eth1_data.deposit_count and
