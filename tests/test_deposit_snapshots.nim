@@ -173,10 +173,8 @@ suite "DepositContractSnapshot":
     # Use our hard-coded ds1 as a model.
     var model: OldDepositContractSnapshot
     check(decodeSSZ(ds1, model))
-    # Check blockHeight.
-    var dcs = model.toDepositContractSnapshot(0)
-    check(not dcs.isValid(ds1Root))
-    dcs.blockHeight = 11052984
+    # Check initialization. blockHeight cannot be validated and may be 0.
+    var dcs = model.toDepositContractSnapshot(11052984)
     check(dcs.isValid(ds1Root))
     # Check eth1Block.
     dcs.eth1Block = ZERO
