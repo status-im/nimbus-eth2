@@ -230,3 +230,8 @@
 	url = https://github.com/eth-clients/holesky
 	ignore = untracked
 	branch = main
+[submodule "vendor/EIPs"]
+	path = vendor/EIPs
+	url = https://github.com/ethereum/EIPs
+	ignore = untracked
+	branch = master

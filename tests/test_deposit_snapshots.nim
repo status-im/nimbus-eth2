@@ -9,10 +9,12 @@
 {.used.}
 
 import
-  std/[os, random, strutils, times],
-  chronos, stew/results, unittest2, chronicles,
+  std/[json, os, random, sequtils, strutils, times],
+  chronos, stew/[base10, results], chronicles, unittest2,
+  yaml,
   ../beacon_chain/beacon_chain_db,
-  ../beacon_chain/spec/deposit_snapshots
+  ../beacon_chain/spec/deposit_snapshots,
+  ./consensus_spec/os_ops
 
 from eth/db/kvstore import kvStore
 from nimcrypto import toDigest
@@ -171,10 +173,8 @@ suite "DepositContractSnapshot":
     # Use our hard-coded ds1 as a model.
     var model: OldDepositContractSnapshot
     check(decodeSSZ(ds1, model))
-    # Check blockHeight.
-    var dcs = model.toDepositContractSnapshot(0)
-    check(not dcs.isValid(ds1Root))
-    dcs.blockHeight = 11052984
+    # Check initialization. blockHeight cannot be validated and may be 0.
+    var dcs = model.toDepositContractSnapshot(11052984)
     check(dcs.isValid(ds1Root))
     # Check eth1Block.
     dcs.eth1Block = ZERO
@@ -194,3 +194,117 @@ suite "DepositContractSnapshot":
     dcs.depositContractState.deposit_count =
       model.depositContractState.deposit_count
     check(dcs.isValid(ds1Root))
+
+suite "EIP-4881":
+  type DepositTestCase = object
+    deposit_data: DepositData
+    deposit_data_root: Eth2Digest
+    eth1_data: Eth1Data
+    block_height: uint64
+    snapshot: DepositTreeSnapshot
+
+  proc loadTestCases(
+      path: string
+  ): seq[DepositTestCase] {.raises: [
+      IOError, KeyError, ValueError, YamlConstructionError, YamlParserError].} =
+    yaml.loadToJson(os_ops.readFile(path))[0].mapIt:
+      DepositTestCase(
+        deposit_data: DepositData(
+          pubkey: ValidatorPubKey.fromHex(
+            it["deposit_data"]["pubkey"].getStr()).expect("valid"),
+          withdrawal_credentials: Eth2Digest.fromHex(
+            it["deposit_data"]["withdrawal_credentials"].getStr()),
+          amount: Gwei(Base10.decode(uint64,
+            it["deposit_data"]["amount"].getStr()).expect("valid")),
+          signature: ValidatorSig.fromHex(
+            it["deposit_data"]["signature"].getStr()).expect("valid")),
+        deposit_data_root: Eth2Digest.fromHex(it["deposit_data_root"].getStr()),
+        eth1_data: Eth1Data(
+          deposit_root: Eth2Digest.fromHex(
+            it["eth1_data"]["deposit_root"].getStr()),
+          deposit_count: Base10.decode(uint64,
+            it["eth1_data"]["deposit_count"].getStr()).expect("valid"),
+          block_hash: Eth2Digest.fromHex(
+            it["eth1_data"]["block_hash"].getStr())),
+        block_height: uint64(it["block_height"].getInt()),
+        snapshot: DepositTreeSnapshot(
+          finalized: it["snapshot"]["finalized"].foldl((block:
+            check: a[].add Eth2Digest.fromHex(b.getStr())
+            a), newClone default(List[
+              Eth2Digest, Limit DEPOSIT_CONTRACT_TREE_DEPTH]))[],
+          deposit_root: Eth2Digest.fromHex(
+            it["snapshot"]["deposit_root"].getStr()),
+          deposit_count: uint64(
+            it["snapshot"]["deposit_count"].getInt()),
+          execution_block_hash: Eth2Digest.fromHex(
+            it["snapshot"]["execution_block_hash"].getStr()),
+          execution_block_height: uint64(
+            it["snapshot"]["execution_block_height"].getInt())))
+
+  const path = currentSourcePath.rsplit(DirSep, 1)[0]/
+    ".."/"vendor"/"EIPs"/"assets"/"eip-4881"/"test_cases.yaml"
+  let testCases = loadTestCases(path)
+  for testCase in testCases:
+    check testCase.deposit_data_root == hash_tree_root(testCase.deposit_data)
+
+  test "empty_root":
+    var empty = DepositsMerkleizer.init()
+    check empty.getDepositsRoot() == Eth2Digest.fromHex(
+      "0xd70a234731285c6804c2a4f56711ddb8c82c99740f207854891028af34e27e5e")
+
+  test "deposit_cases":
+    var tree = DepositsMerkleizer.init()
+    for testCase in testCases:
+      tree.addChunk testCase.deposit_data_root.data
+      var snapshot = DepositsMerkleizer.init(tree.toDepositContractState())
+      let expected = testCase.eth1_data.deposit_root
+      check:
+        snapshot.getDepositsRoot() == expected
+        tree.getDepositsRoot() == expected
+
+  test "finalization":
+    var tree = DepositsMerkleizer.init()
+    for testCase in testCases[0 ..< 128]:
+      tree.addChunk testCase.deposit_data_root.data
+    let originalRoot = tree.getDepositsRoot()
+    check originalRoot == testCases[127].eth1_data.deposit_root
+    var finalized = DepositsMerkleizer.init()
+    for testCase in testCases[0 .. 100]:
+      finalized.addChunk testCase.deposit_data_root.data
+    var snapshot = finalized.getTreeSnapshot(
+      testCases[100].eth1_data.block_hash, testCases[100].block_height)
+    check snapshot == testCases[100].snapshot
+    var copy = DepositsMerkleizer.init(snapshot).expect("just produced")
+    for testCase in testCases[101 ..< 128]:
+      copy.addChunk testCase.deposit_data_root.data
+    check tree.getDepositsRoot() == copy.getDepositsRoot()
+    for testCase in testCases[101 .. 105]:
+      finalized.addChunk testCase.deposit_data_root.data
+    snapshot = finalized.getTreeSnapshot(
+      testCases[105].eth1_data.block_hash, testCases[105].block_height)
+    copy = DepositsMerkleizer.init(snapshot).expect("just produced")
+    var fullTreeCopy = DepositsMerkleizer.init()
+    for testCase in testCases[0 .. 105]:
+      fullTreeCopy.addChunk testCase.deposit_data_root.data
+    let
+      depositRoots = testCases[106 ..< 128].mapIt(it.deposit_data_root)
+      proofs1 = copy.addChunksAndGenMerkleProofs(depositRoots)
+      proofs2 = fullTreeCopy.addChunksAndGenMerkleProofs(depositRoots)
+    check proofs1 == proofs2
+
+  test "snapshot_cases":
+    var tree = DepositsMerkleizer.init()
+    for testCase in testCases:
+      tree.addChunk testCase.deposit_data_root.data
+      let snapshot = tree.getTreeSnapshot(
+        testCase.eth1_data.block_hash, testCase.block_height)
+      check snapshot == testCase.snapshot
+
+  test "invalid_snapshot":
+    let invalidSnapshot = DepositTreeSnapshot(
+      finalized: default(FinalizedDepositTreeBranch),
+      deposit_root: ZERO_HASH,
+      deposit_count: 0,
+      execution_block_hash: ZERO_HASH,
+      execution_block_height: 0)
+    check DepositsMerkleizer.init(invalidSnapshot).isNone()

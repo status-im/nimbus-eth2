@@ -362,17 +362,18 @@ func clear*(chain: var Eth1Chain) =
   chain.headMerkleizer = chain.finalizedDepositsMerkleizer
   chain.hasConsensusViolation = false
 
-proc init*(T: type Eth1Chain,
-           cfg: RuntimeConfig,
-           db: BeaconChainDB,
-           depositContractBlockNumber: uint64,
-           depositContractBlockHash: Eth2Digest): T =
+proc init*(
+    T: type Eth1Chain,
+    cfg: RuntimeConfig,
+    db: BeaconChainDB,
+    depositContractBlockNumber: uint64,
+    depositContractBlockHash: Eth2Digest): T =
   let
     (finalizedBlockHash, depositContractState) =
       if db != nil:
-        let treeSnapshot = db.getDepositContractSnapshot()
-        if treeSnapshot.isSome:
-          (treeSnapshot.get.eth1Block, treeSnapshot.get.depositContractState)
+        let snapshot = db.getDepositContractSnapshot()
+        if snapshot.isSome:
+          (snapshot.get.eth1Block, snapshot.get.depositContractState)
         else:
           let oldSnapshot = db.getUpgradableDepositSnapshot()
           if oldSnapshot.isSome:
