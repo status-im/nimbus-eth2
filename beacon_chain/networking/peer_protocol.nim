@@ -58,6 +58,7 @@ func forkDigestAtEpoch(state: PeerSyncNetworkState,
                        epoch: Epoch): ForkDigest =
   state.forkDigests[].atEpoch(epoch, state.cfg)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/p2p-interface.md#status
 proc getCurrentStatus(state: PeerSyncNetworkState): StatusMsg =
   let
     dag = state.dag
@@ -66,14 +67,22 @@ proc getCurrentStatus(state: PeerSyncNetworkState): StatusMsg =
   if dag != nil:
     StatusMsg(
       forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
-      finalizedRoot: dag.finalizedHead.blck.root,
+      finalizedRoot:
+        (if dag.finalizedHead.slot.epoch != GENESIS_EPOCH:
+           dag.finalizedHead.blck.root
+         else:
+           # this defaults to `Root(b'\x00' * 32)` for the genesis finalized
+           # checkpoint
+           ZERO_HASH),
       finalizedEpoch: dag.finalizedHead.slot.epoch,
       headRoot: dag.head.root,
       headSlot: dag.head.slot)
   else:
     StatusMsg(
       forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
-      finalizedRoot: state.genesisBlockRoot,
+      # this defaults to `Root(b'\x00' * 32)` for the genesis finalized
+      # checkpoint
+      finalizedRoot: ZERO_HASH,
       finalizedEpoch: GENESIS_EPOCH,
       headRoot: state.genesisBlockRoot,
       headSlot: GENESIS_SLOT)
@@ -94,6 +103,7 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg):
   if state.forkDigestAtEpoch(wallSlot.epoch) != status.forkDigest:
     return err("fork digests differ")
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/p2p-interface.md#status
   if dag != nil:
     if status.finalizedEpoch <= dag.finalizedHead.slot.epoch:
       let blockId = dag.getBlockIdAtSlot(status.finalizedEpoch.start_slot())
@@ -103,7 +113,10 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg):
         return err("peer following different finality")
   else:
     if status.finalizedEpoch == GENESIS_EPOCH:
-      if status.finalizedRoot != state.genesisBlockRoot:
+      # "this defaults to `Root(b'\x00' * 32)` for the genesis finalized checkpoint"
+      # keep compatibility with Lighthouse and other Nimbus for a while, which
+      # apparently don't use spec ZERO_HASH as of this writing
+      if not (status.finalizedRoot in [state.genesisBlockRoot, ZERO_HASH]):
         return err("peer following different finality")
 
   ok()
