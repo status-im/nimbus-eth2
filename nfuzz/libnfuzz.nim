@@ -8,6 +8,8 @@
 # Required for deserialisation of ValidatorSig in Attestation due to
 # https://github.com/nim-lang/Nim/issues/11225
 
+{.push raises: [].}
+
 import
   stew/ptrops, chronicles,
   ../beacon_chain/networking/network_metadata,
@@ -41,7 +43,7 @@ type
   FuzzCrashError = object of CatchableError
 
 # TODO: change ptr uint to ptr csize_t when available in newer Nim version.
-proc copyState(state: phase0.BeaconState, xoutput: ptr byte,
+func copyState(state: phase0.BeaconState, xoutput: ptr byte,
     xoutput_size: ptr uint): bool {.raises: [FuzzCrashError].} =
   var resultState =
     try:
@@ -132,15 +134,20 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
     state_transition(
       getRuntimeConfig(some "mainnet"), data, data.beaconBlock, flags, noRollback).isOk
 
-proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
+func nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(BlockHeaderInput):
     process_block_header(data.state, data.beaconBlock.message, flags, cache).isOk
 
+from ".."/beacon_chain/bloomfilter import constructBloomFilter
+
 proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(DepositInput):
-    process_deposit(getRuntimeConfig(some "mainnet"), data.state, data.deposit, flags).isOk
+    process_deposit(
+      getRuntimeConfig(some "mainnet"), data.state,
+      constructBloomFilter(data.state.validators.asSeq)[], data.deposit,
+      flags).isOk
 
 proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
@@ -156,7 +163,7 @@ proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
 # However, list_size needs to be known also outside this proc to allocate xoutput.
 # TODO: rework to copy immediatly in an uint8 openArray, considering we have to
 # go over the list anyhow?
-proc nfuzz_shuffle(input_seed: ptr byte, xoutput: var openArray[uint64]): bool
+func nfuzz_shuffle(input_seed: ptr byte, xoutput: var openArray[uint64]): bool
     {.exportc, raises: [].} =
   var seed: Eth2Digest
   # Should be OK as max 2 bytes are passed by the framework.
