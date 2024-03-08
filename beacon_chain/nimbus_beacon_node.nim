@@ -61,12 +61,13 @@ declareCounter db_checkpoint_seconds,
   "Time spent checkpointing the database to clear the WAL file"
 
 proc fetchGenesisState(
-    config: BeaconNodeConf,
-    metadata: Eth2NetworkMetadata
+    metadata: Eth2NetworkMetadata,
+    genesisState = none(InputFile),
+    genesisStateUrl = none(Uri)
 ): Future[ref ForkedHashedBeaconState] {.async: (raises: []).} =
   let genesisBytes =
-    if metadata.genesis.kind != BakedIn and config.genesisState.isSome:
-      let res = io2.readAllBytes(config.genesisState.get.string)
+    if metadata.genesis.kind != BakedIn and genesisState.isSome:
+      let res = io2.readAllBytes(genesisState.get.string)
       res.valueOr:
         error "Failed to read genesis state file", err = res.error.ioErrorMsg
         quit 1
@@ -74,9 +75,9 @@ proc fetchGenesisState(
       try:
         if metadata.genesis.kind == BakedInUrl:
           info "Obtaining genesis state",
-               sourceUrl = $config.genesisStateUrl
+               sourceUrl = $genesisStateUrl
                  .get(parseUri metadata.genesis.url)
-        await metadata.fetchGenesisBytes(config.genesisStateUrl)
+        await metadata.fetchGenesisBytes(genesisStateUrl)
       except CatchableError as err:
         error "Failed to obtain genesis state",
               source = metadata.genesis.sourceDesc,
@@ -582,7 +583,8 @@ proc init*(T: type BeaconNode,
         config.trustedBlockRoot
       elif cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH:
         # Sync can be bootstrapped from the genesis block root
-        genesisState = await fetchGenesisState(config, metadata)
+        genesisState = await fetchGenesisState(
+          metadata, config.genesisState, config.genesisStateUrl)
         if genesisState != nil:
           let genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
           notice "Neither `--trusted-block-root` nor `--trusted-state-root` " &
@@ -605,7 +607,8 @@ proc init*(T: type BeaconNode,
         trustedStateRoot = config.trustedStateRoot
     else:
       if genesisState == nil:
-        genesisState = await fetchGenesisState(config, metadata)
+        genesisState = await fetchGenesisState(
+          metadata, config.genesisState, config.genesisStateUrl)
       await db.doRunTrustedNodeSync(
         metadata,
         config.databaseDir,
@@ -674,7 +677,8 @@ proc init*(T: type BeaconNode,
           getStateField(checkpointState[], slot) == 0:
         checkpointState
       else:
-        await fetchGenesisState(config, metadata)
+        await fetchGenesisState(
+          metadata, config.genesisState, config.genesisStateUrl)
 
     if genesisState == nil and checkpointState == nil:
       fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
@@ -2305,7 +2309,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
     let
       metadata = loadEth2Network(config)
       db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
-      genesisState = waitFor fetchGenesisState(config, metadata)
+      genesisState = waitFor fetchGenesisState(metadata)
     waitFor db.doRunTrustedNodeSync(
       metadata,
       config.databaseDir,
