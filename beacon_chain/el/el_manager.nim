@@ -1724,8 +1724,10 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[^1])
 
+  var latestBlockNumber: Eth1BlockNumber
   while true:
-    debug "syncEth1Chain tick"
+    debug "syncEth1Chain tick",
+      shouldProcessDeposits, latestBlockNumber, eth1SyncedTo
 
     if bnStatus == BeaconNodeStatus.Stopping:
       await m.stop()
@@ -1742,6 +1744,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
     except CatchableError as err:
       warn "Failed to obtain the latest block from the EL", err = err.msg
       raise err
+    latestBlockNumber = Eth1BlockNumber(latestBlock.number)
 
     m.syncTargetBlock = some(
       if Eth1BlockNumber(latestBlock.number) > m.cfg.ETH1_FOLLOW_DISTANCE:
