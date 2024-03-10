@@ -332,7 +332,7 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
         )
 
       debug "Block produced",
-            block_type = "normal",
+            block_type = "non-blinded",
             block_root = shortLog(blockRoot),
             blck = shortLog(maybeBlock),
             execution_value = shortLog(maybeBlock.executionValue),

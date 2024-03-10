@@ -107,11 +107,10 @@ proc getValidator*(validators: auto,
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
                                validator: validators[idx])
 
-func blockConsensusValue(r: BlockRewards): UInt256 =
+func blockConsensusValue(r: BlockRewards): UInt256 {.noinit.} =
   # Returns value of `block-consensus-value` in Wei units.
-  (uint64(r.attestations) + uint64(r.sync_aggregate) +
-    uint64(r.proposer_slashings) +
-    uint64(r.attester_slashings)).u256 * 1000000000.u256
+  u256(r.attestations + r.sync_aggregate +
+    r.proposer_slashings + r.attester_slashings) * u256(1000000000)
 
 proc addValidatorsFromWeb3Signer(
     node: BeaconNode, web3signerUrl: Web3SignerUrl, epoch: Epoch)
