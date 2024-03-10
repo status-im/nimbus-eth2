@@ -533,6 +533,17 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Graffiti management [Beacon Node] [Preset: mainnet]
+```diff
++ Configuring the graffiti [Beacon Node] [Preset: mainnet]                                   OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
++ Obtaining the graffiti of a missing validator returns 404 [Beacon Node] [Preset: mainnet]  OK
++ Obtaining the graffiti of an unconfigured validator returns the suggested default [Beacon  OK
++ Setting the graffiti on a missing validator creates a record for it [Beacon Node] [Preset: OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
@@ -649,16 +660,18 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
++ Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
 + Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Nimbus remote signer/signing test (web3signer)
 ```diff
 + Connection timeout test                                                                    OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
++ Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
 + Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
@@ -673,7 +686,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -1006,4 +1019,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 675/680 Fail: 0/680 Skip: 5/680
+OK: 684/689 Fail: 0/689 Skip: 5/689
