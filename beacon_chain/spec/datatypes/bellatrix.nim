@@ -1,18 +1,4 @@
-# beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
-
-# Types specific to bellatrix (i.e. known to have changed across hard forks) - see
-# `base` for types and guidelines common across forks
-
-# TODO Careful, not nil analysis is broken / incomplete and the semantics will
-#      likely change in future versions of the language:
-#      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
 import

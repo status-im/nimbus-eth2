@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  chronicles,
   "."/[beacon_time, digest]
 
 export beacon_time, digest
@@ -61,6 +60,3 @@ func shortLog*(v: BlockSlotId): string =
     shortLog(v.bid)
   else: # There was a gap - log it
     shortLog(v.bid) & "@" & $v.slot
-
-chronicles.formatIt BlockId: shortLog(it)
-chronicles.formatIt BlockSlotId: shortLog(it)

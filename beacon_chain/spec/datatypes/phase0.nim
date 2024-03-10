@@ -1,10 +1,3 @@
-# beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 # Types specific to phase0 (i.e. known to have changed across hard forks) - see
@@ -16,7 +9,6 @@
 {.experimental: "notnil".}
 
 import
-  chronicles,
   ./base
 
 export base
@@ -275,8 +267,6 @@ type
     ## Information about the outcome of epoch processing
     validators*: seq[RewardStatus]
     balances*: TotalBalances
-
-chronicles.formatIt BeaconBlock: it.shortLog
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)

@@ -1,1 +1,0 @@
-wallets restore --name:"some wallet name" --deposits:10 --out:"some wallet name.json"

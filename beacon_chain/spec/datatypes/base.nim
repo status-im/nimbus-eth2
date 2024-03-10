@@ -1,73 +1,12 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
-
-# This file contains data types that are part of the spec and thus subject to
-# serialization and spec updates.
-#
-# The spec folder in general contains code that has been hoisted from the
-# specification and that follows the spec as closely as possible, so as to make
-# it easy to keep up-to-date.
-#
-# These datatypes are used as specifications for serialization - thus should not
-# be altered outside of what the spec says. Likewise, they should not be made
-# `ref` - this can be achieved by wrapping them in higher-level
-# types / composition.
-#
-# Most integers in the spec correspond to little-endian `uint64` in their binary
-# SSZ encoding and thus may take values from the full `uint64` range. Some
-# integers have maximum valid values specified in spec constants, but still use
-# an `uint64` in the SSZ encoding, meaning that out-of-range values may be seen
-# in the encoded byte stream.
-#
-# In types derived from the spec, we use unsigned integers throughout which
-# cover the full range of possible values in the binary encoding. This leads to
-# some friction compared to "normal" Nim code, and special care must be taken
-# on the boundary between the "raw" `uint64` data from the wire (which may not
-# be trusted, generally) and "sanitized" data. In many cases, we use `uint64`
-# directly in code:
-#
-# * Unsigned arithmetic is not overflow-checked - instead, it wraps at the
-#   boundary
-# * Converting an unsigned integer to a signed integer may lead to a Defect -
-#   before doing so, the value must always be checked in the unsigned domain
-# * Because unsigned arithmetic was added late to the language, there are
-#   lingering edge cases and bugs - when using features on the boundary between
-#   signed and unsigned, careful testing is advised
-#
-# In cases where the range of valid values are statically known, we further
-# "sanitize" data using `distinct` types such as `CommitteeIndex` - in these
-# cases, two levels of sanitization is possible:
-#
-# * static range checking, where valid range is known at compile time
-# * dynamic range checking, where valid is tied to a particular state or block,
-#   such as a list index
-#
-# For static range checking, we use `distinct` types to mark that the range
-# check has been performed. However, this does not imply that the value is
-# valid for a particular state or block - dynamic range checking must still be
-# performed at every usage site - this applies in particular to `ValidatorIndex`
-# and `CommitteeIndex` which have upper bounds in the spec that are far above
-# their dynamically valid range when used to access lists in the state.
-
-# TODO Careful, not nil analysis is broken / incomplete and the semantics will
-#      likely change in future versions of the language:
-#      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
 import
   std/[macros, hashes, sets, strutils, tables, typetraits],
   results,
   stew/[assign2, byteutils, endians2],
-  chronicles,
   json_serialization,
   ssz_serialization/types as sszTypes,
-  ../../version,
   ".."/[beacon_time, crypto, digest, presets]
 
 export
@@ -861,10 +800,6 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
     signature: shortLog(v.signature)
   )
 
-chronicles.formatIt AttestationData: it.shortLog
-chronicles.formatIt Attestation: it.shortLog
-chronicles.formatIt Checkpoint: it.shortLog
-
 const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm
   PrintableAsciiChars = {' '..'~'}
@@ -911,11 +846,7 @@ func init*(
     signature: signature
   )
 
-func defaultGraffitiBytes*(): GraffitiBytes =
-  const graffitiBytes =
-    toBytes("Nimbus/" & fullVersionStr)
-  static: doAssert graffitiBytes.len <= MAX_GRAFFITI_SIZE
-  distinctBase(result)[0 ..< graffitiBytes.len] = graffitiBytes
+func defaultGraffitiBytes*(): GraffitiBytes = default(GraffitiBytes)
 
 proc writeValue*(
     w: var JsonWriter, value: GraffitiBytes) {.raises: [IOError].} =

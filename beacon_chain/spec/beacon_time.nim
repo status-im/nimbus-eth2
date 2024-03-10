@@ -9,7 +9,6 @@
 
 import
   std/[hashes, typetraits],
-  chronicles,
   chronos/timer,
   json_serialization,
   ./presets
@@ -272,9 +271,3 @@ func `$`*(t: TimeDiff): string =
     "-" & $(timer.nanoseconds(-t.nanoseconds))
 
 func shortLog*(t: BeaconTime | TimeDiff): string = $t
-
-chronicles.formatIt BeaconTime: it.shortLog
-chronicles.formatIt TimeDiff: it.shortLog
-chronicles.formatIt Slot: it.shortLog
-chronicles.formatIt Epoch: it.shortLog
-chronicles.formatIt SyncCommitteePeriod: it.shortLog

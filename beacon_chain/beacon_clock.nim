@@ -1,16 +1,9 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 import
   std/math,
   results,
-  chronos/timer, chronicles,
+  chronos/timer,
   ./spec/beacon_time
 
 from std/times import Time, getTime, fromUnix, toUnix, `<`, `-`, inNanoseconds
@@ -126,7 +119,5 @@ func fromFloatSeconds*(T: type Duration, f: float): Duration =
     else: nanoseconds(int64(f * 1_000_000_000))
   of fcSubnormal, fcZero, fcNegZero, fcNan, fcNegInf: ZeroDuration
   of fcInf: InfiniteDuration
-
-chronicles.formatIt Duration: $it
 
 const MinSignificantProcessingDuration* = 250.millis

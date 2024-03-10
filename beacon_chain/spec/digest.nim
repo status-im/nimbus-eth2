@@ -26,7 +26,6 @@ import
   # Standard library
   std/hashes,
   # Status libraries
-  chronicles,
   nimcrypto/[sha2, hash],
   stew/[arrayops, byteutils, endians2, objects],
   json_serialization
@@ -79,9 +78,6 @@ func `$`*(x: Eth2Digest): string =
 
 func shortLog*(x: Eth2Digest): string =
   x.data.toOpenArray(0, 3).toHex()
-
-chronicles.formatIt Eth2Digest:
-  shortLog(it)
 
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer

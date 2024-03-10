@@ -1,10 +1,3 @@
-# beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 import
@@ -15,30 +8,14 @@ import
   ../extras,
   "."/[
     block_id, eth2_merkleization, eth2_ssz_serialization,
-    forks_light_client, presets],
+    presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra],
   ./mev/bellatrix_mev, ./mev/capella_mev, ./mev/deneb_mev
 
 export
   extras, block_id, phase0, altair, bellatrix, capella, deneb, electra,
-  eth2_merkleization, eth2_ssz_serialization, forks_light_client,
+  eth2_merkleization, eth2_ssz_serialization,
   presets, capella_mev, deneb_mev
-
-# This file contains helpers for dealing with forks - we have two ways we can
-# deal with forks:
-# * generics - this means using the static typing and differentiating forks
-#   at compile time - this is preferred in fork-specific code where the fork
-#   is known up-front, for example spec functions.
-# * variants - this means using a variant object and determining the fork at
-#   runtime - this carries the obvious risk and complexity of dealing with
-#   runtime checking, but is of course needed for external data that may be
-#   of any fork kind.
-#
-# For generics, we define `Forky*` type classes that cover "similar" objects
-# across forks - for variants, they're called `Forked*` instead.
-# See withXxx and `init` for convenient ways of moving between these two worlds.
-# A clever programmer would use templates, macros and dark magic to create all
-# these types and converters :)
 
 type
   ConsensusFork* {.pure.} = enum
@@ -1305,18 +1282,6 @@ func forkVersion*(cfg: RuntimeConfig, consensusFork: ConsensusFork): Version =
   of ConsensusFork.Capella:     cfg.CAPELLA_FORK_VERSION
   of ConsensusFork.Deneb:       cfg.DENEB_FORK_VERSION
   of ConsensusFork.Electra:     cfg.ELECTRA_FORK_VERSION
-
-func lcDataForkAtConsensusFork*(
-    consensusFork: ConsensusFork): LightClientDataFork =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
-  if consensusFork >= ConsensusFork.Deneb:
-    LightClientDataFork.Deneb
-  elif consensusFork >= ConsensusFork.Capella:
-    LightClientDataFork.Capella
-  elif consensusFork >= ConsensusFork.Altair:
-    LightClientDataFork.Altair
-  else:
-    LightClientDataFork.None
 
 func getForkSchedule*(cfg: RuntimeConfig): array[5, Fork] =
   ## This procedure returns list of known and/or scheduled forks.

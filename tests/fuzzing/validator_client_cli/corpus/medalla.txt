@@ -1,1 +1,0 @@
-build/nimbus_validator_client --log-level=INFO --log-file=build/data/shared_medalla_0/nbc_vc_20201009202103.log --data-dir=build/data/shared_medalla_0 --rpc-port=9190
