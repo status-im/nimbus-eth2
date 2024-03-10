@@ -1,21 +1,14 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 import
   # Standard library
-  std/[algorithm, math, parseutils, strformat, strutils, typetraits, unicode,
+  std/[math, parseutils, strformat, strutils, typetraits, unicode,
        uri, hashes],
   # Third-party libraries
   normalize,
   # Status libraries
   results,
-  stew/[bitops2, base10, io2, endians2], stew/shims/macros,
+  stew/[base10, io2, endians2], stew/shims/macros,
   eth/keyfile/uuid, blscurve,
   json_serialization, json_serialization/std/options,
   chronos/timer,
@@ -127,9 +120,6 @@ type
     uuid*: string
     version*: int
 
-  KeystoreKind* = enum
-    Local, Remote
-
   RemoteKeystoreFlag* {.pure.} = enum
     IgnoreSSLVerification, DynamicKeystore
 
@@ -161,20 +151,9 @@ type
     pubkey*: ValidatorPubKey
     description*: Option[string]
     handle*: FileLockHandle
-    case kind*: KeystoreKind
-    of KeystoreKind.Local:
-      privateKey*: ValidatorPrivKey
-      path*: KeyPath
-      uuid*: string
-    of KeystoreKind.Remote:
-      flags*: set[RemoteKeystoreFlag]
-      remotes*: seq[RemoteSignerInfo]
-      threshold*: uint32
-      case remoteType*: RemoteSignerType
-      of RemoteSignerType.Web3Signer:
-        discard
-      of RemoteSignerType.VerifyingWeb3Signer:
-        provenBlockProperties*: seq[ProvenProperty]
+    privateKey*: ValidatorPrivKey
+    path*: KeyPath
+    uuid*: string
 
   NetKeystore* = object
     crypto*: Crypto
@@ -257,10 +236,6 @@ const
   eth2CoinType* = 3600
   baseKeyPath* = [Natural eth2KeyPurpose, eth2CoinType]
 
-  # https://github.com/bitcoin/bips/blob/master/bip-0039/bip-0039-wordlists.md
-  wordListLen = 2048
-  maxWordLen = 16
-
   KeystoreCachePruningTime* = 5.minutes
 
 UUID.serializesAsBaseIn Json
@@ -306,38 +281,6 @@ func longName*(wallet: Wallet): string =
     wallet.name.string
   else:
     wallet.name.string & " (" & wallet.uuid.string & ")"
-
-macro wordListArray*(filename: static string,
-                     maxWords: static int = 0,
-                     minWordLen: static int = 0,
-                     maxWordLen: static int = high(int)): untyped =
-  result = newTree(nnkBracket)
-  let words = slurp(filename.replace('\\', '/')).splitLines()
-  for word in words:
-    if word.len >= minWordLen and word.len <= maxWordLen:
-      result.add newCall("cstring", newLit(word))
-      if maxWords > 0 and result.len >= maxWords:
-        return
-
-const
-  englishWords = wordListArray("english_word_list.txt",
-                                maxWords = wordListLen,
-                                maxWordLen = maxWordLen)
-  englishWordsDigest =
-    "AD90BF3BEB7B0EB7E5ACD74727DC0DA96E0A280A258354E7293FB7E211AC03DB".toDigest
-
-proc checkEnglishWords(): bool =
-  if len(englishWords) != wordListLen:
-    false
-  else:
-    var ctx: sha256
-    ctx.init()
-    for item in englishWords:
-      ctx.update($item)
-    ctx.finish() == englishWordsDigest
-
-static:
-  doAssert(checkEnglishWords(), "English words array is corrupted!")
 
 func validateKeyPath*(path: string): Result[KeyPath, cstring] =
   var digitCount: int
@@ -394,78 +337,9 @@ func getSeed*(mnemonic: Mnemonic, password: KeystorePass): KeySeed =
   let salt = toNFKD("mnemonic" & password.str)
   KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
 
-template add(m: var Mnemonic, s: cstring) =
-  m.string.add s
-
 proc generateMnemonic*(
     rng: var HmacDrbgContext,
-    words: openArray[cstring] = englishWords,
-    entropyParam: openArray[byte] = @[]): Mnemonic =
-  ## Generates a valid BIP-0039 mnenomic:
-  ## https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
-  var entropy =
-    if entropyParam.len == 0:
-      rng.generateBytes(32)
-    else:
-      doAssert entropyParam.len >= 128 and
-               entropyParam.len <= 256 and
-               entropyParam.len mod 32 == 0
-      @entropyParam
-
-  let
-    checksumBits = entropy.len div 4 # ranges from 4 to 8
-    mnemonicWordCount = 12 + (checksumBits - 4) * 3
-    checksum = sha256.digest(entropy)
-
-  entropy.add byte(checksum.data.getBitsBE(0 ..< checksumBits))
-
-  # Make sure the string won't be reallocated as this may
-  # leave partial copies of the mnemonic in memory:
-  result = Mnemonic newStringOfCap(mnemonicWordCount * maxWordLen)
-  result.add words[entropy.getBitsBE(0..10)]
-
-  for i in 1 ..< mnemonicWordCount:
-    let
-      firstBit = i*11
-      lastBit = firstBit + 10
-    result.add " "
-    result.add words[entropy.getBitsBE(firstBit..lastBit)]
-
-proc cmpIgnoreCase(lhs: cstring, rhs: string): int =
-  # TODO: This is a bit silly.
-  # Nim should have a `cmp` function for C strings.
-  cmpIgnoreCase($lhs, rhs)
-
-proc validateMnemonic*(inputWords: string,
-                       outputMnemonic: var Mnemonic): bool =
-  ## Accept a case-insensitive input string and returns `true`
-  ## if it represents a valid mnenomic. The `outputMnemonic`
-  ## value will be populated with a normalized lower-case
-  ## version of the mnemonic using a single space separator.
-  ##
-  ## The `outputMnemonic` value may be populated partially
-  ## with sensitive data even in case of validator failure.
-  ## Make sure to burn the received data after usage.
-
-  # TODO consider using a SecretString type for inputWords
-
-  let words = strutils.strip(inputWords.toNFKD).split(Whitespace)
-  if words.len < 12 or words.len > 24 or words.len mod 3 != 0:
-    return false
-
-  # Make sure the string won't be re-allocated as this may
-  # leave partial copies of the mnemonic in memory:
-  outputMnemonic = Mnemonic newStringOfCap(words.len * maxWordLen)
-
-  for word in words:
-    let foundIdx = binarySearch(englishWords, word, cmpIgnoreCase)
-    if foundIdx == -1:
-      return false
-    if outputMnemonic.string.len > 0:
-      outputMnemonic.add " "
-    outputMnemonic.add englishWords[foundIdx]
-
-  return true
+    entropyParam: openArray[byte] = @[]): Mnemonic = default(Mnemonic)
 
 proc deriveChildKey*(parentKey: ValidatorPrivKey,
                      index: Natural): ValidatorPrivKey =
@@ -1405,5 +1279,5 @@ proc prepareDeposit*(cfg: RuntimeConfig,
     pubkey: signingPubKey.toPubKey(),
     withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
 
-  res.signature = get_deposit_signature(cfg, res, signingKey).toValidatorSig()
+  res.signature = get_deposit_signature(cfg, res).toValidatorSig()
   return res

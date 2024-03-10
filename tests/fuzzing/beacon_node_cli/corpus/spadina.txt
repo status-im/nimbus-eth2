@@ -1,1 +1,0 @@
---network=spadina --log-level=INFO --log-file=build/data/shared_spadina_0/nbc_bn_20201001212647.log --data-dir=build/data/shared_spadina_0 --web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a --tcp-port=9000 --udp-port=9000 --metrics --metrics-port=8008 --rpc --rpc-port=9190

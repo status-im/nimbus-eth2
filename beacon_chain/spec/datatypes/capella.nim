@@ -1,23 +1,8 @@
-# beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
-
-# Types specific to capella (i.e. known to have changed across hard forks) - see
-# `base` for types and guidelines common across forks
-
-# TODO Careful, not nil analysis is broken / incomplete and the semantics will
-#      likely change in future versions of the language:
-#      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
 import
   std/typetraits,
-  chronicles,
   stew/[bitops2, byteutils],
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -761,11 +746,6 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot,
   )
-
-chronicles.formatIt LightClientBootstrap: shortLog(it)
-chronicles.formatIt LightClientUpdate: shortLog(it)
-chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
-chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/capella/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_capella*(

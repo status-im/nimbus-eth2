@@ -1,35 +1,19 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 import
   # Standard library
   std/[sets, tables, hashes],
-  # Status libraries
-  chronicles,
   # Internals
-  ../spec/[signatures_batch, forks, helpers],
+  ../spec/[forks, helpers],
   ../spec/datatypes/[phase0, altair, bellatrix],
-  ".."/[beacon_chain_db, era_db],
-  ../validators/validator_monitor,
-  ./block_dag, block_pools_types_light_client
+  ".."/[beacon_chain_db],
+  ./block_dag
 
 from ../spec/datatypes/capella import TrustedSignedBeaconBlock
 from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
 
-from "."/vanity_logs/vanity_logs import VanityLogs
-
 export
-  sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
-  block_pools_types_light_client, validator_monitor, VanityLogs
-
-# ChainDAG and types related to forming a DAG of blocks, keeping track of their
-# relationships and allowing various forms of lookups
+  sets, tables, hashes, helpers, beacon_chain_db, block_dag
 
 type
   VerifierError* {.pure.} = enum
@@ -128,10 +112,6 @@ type
       ## the DAG and the canonical head are stored here, as well as several
       ## caches.
 
-    era*: EraDB
-
-    validatorMonitor*: ref ValidatorMonitor
-
     forkBlocks*: HashSet[KeyedBlockRef]
       ## root -> BlockRef mapping of blocks relevant to fork choice, ie
       ## those that have not yet been finalized - covers the slots
@@ -218,27 +198,6 @@ type
       ## database. We use a ref type to facilitate sharing this small
       ## value with other components which don't have access to the
       ## full ChainDAG.
-
-    vanityLogs*: VanityLogs
-      ## Logs for celebratory events, typically featuring ANSI art.
-
-    # -----------------------------------
-    # Light client data
-
-    lcDataStore*: LightClientDataStore
-      # Data store to enable light clients to sync with the network
-
-    # -----------------------------------
-    # Callbacks
-
-    onBlockAdded*: OnBlockCallback
-      ## On block added callback
-    onHeadChanged*: OnHeadCallback
-      ## On head changed callback
-    onReorgHappened*: OnReorgCallback
-      ## On beacon chain reorganization
-    onFinHappened*: OnFinalizedCallback
-      ## On finalization callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
@@ -398,9 +357,6 @@ func shortLog*(v: EpochRef): string =
     "0:nil"
   else:
     shortLog(v.key)
-
-chronicles.formatIt EpochKey: shortLog(it)
-chronicles.formatIt EpochRef: shortLog(it)
 
 func hash*(key: KeyedBlockRef): Hash =
   hash(key.data.root)

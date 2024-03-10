@@ -1,18 +1,10 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 import
-  std/[os, unicode, sequtils],
+  std/[os, unicode],
   chronicles, chronos, json_serialization,
   bearssl/rand,
   serialization, blscurve, eth/common/eth_types, confutils,
-  nimbus_security_resources,
   ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
   stew/io2, libp2p/crypto/crypto as lcrypto,
@@ -108,11 +100,6 @@ const
   minPasswordLen = 12
   minPasswordEntropy = 60.0
 
-  mostCommonPasswords = wordListArray(
-    nimbusSecurityResourcesPath /
-      "passwords" / "10-million-password-list-top-100000.txt",
-    minWordLen = minPasswordLen)
-
 func dispose*(decryptor: var MultipleKeystoresDecryptor) =
   burnMem(decryptor.previouslyUsedPassword)
 
@@ -157,7 +144,6 @@ func init*(T: type KeystoreData,
            privateKey: ValidatorPrivKey,
            keystore: Keystore, handle: FileLockHandle): T {.raises: [].} =
   KeystoreData(
-    kind: KeystoreKind.Local,
     privateKey: privateKey,
     description: keystore.description,
     path: keystore.path,
@@ -167,56 +153,9 @@ func init*(T: type KeystoreData,
     pubkey: privateKey.toPubKey().toPubKey()
   )
 
-func init(T: type KeystoreData, keystore: RemoteKeystore,
-          handle: FileLockHandle): Result[T, cstring] {.raises: [].} =
-  let cookedKey = keystore.pubkey.load().valueOr:
-        return err("Invalid validator's public key")
-
-  ok case keystore.remoteType
-  of RemoteSignerType.Web3Signer:
-    KeystoreData(
-      kind: KeystoreKind.Remote,
-      handle: handle,
-      pubkey: cookedKey.toPubKey,
-      description: keystore.description,
-      version: keystore.version,
-      remotes: keystore.remotes,
-      threshold: keystore.threshold,
-      remoteType: RemoteSignerType.Web3Signer)
-  of RemoteSignerType.VerifyingWeb3Signer:
-    KeystoreData(
-      kind: KeystoreKind.Remote,
-      handle: handle,
-      pubkey: cookedKey.toPubKey,
-      description: keystore.description,
-      version: keystore.version,
-      remotes: keystore.remotes,
-      threshold: keystore.threshold,
-      remoteType: RemoteSignerType.VerifyingWeb3Signer,
-      provenBlockProperties: keystore.provenBlockProperties)
-
-func init(T: type KeystoreData, cookedKey: CookedPubKey,
-          remotes: seq[RemoteSignerInfo], threshold: uint32,
-          handle: FileLockHandle): T =
-  KeystoreData(
-    kind: KeystoreKind.Remote,
-    handle: handle,
-    pubkey: cookedKey.toPubKey(),
-    version: 2'u64,
-    remotes: remotes,
-    threshold: threshold,
-  )
-
 func init(T: type AddValidatorFailure, status: AddValidatorStatus,
           msg = ""): AddValidatorFailure {.raises: [].} =
   AddValidatorFailure(status: status, message: msg)
-
-func toKeystoreKind(kind: ValidatorKind): KeystoreKind {.raises: [].} =
-  case kind
-  of ValidatorKind.Local:
-    KeystoreKind.Local
-  of ValidatorKind.Remote:
-    KeystoreKind.Remote
 
 proc checkAndCreateDataDir*(dataDir: string): bool =
   when defined(posix):
@@ -232,17 +171,13 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
         let currPerms = currPermsRes.get()
         if currPerms != requiredPerms:
           warn "Data directory has insecure permissions. Correcting them.",
-                data_dir = dataDir,
-                current_permissions = currPerms.toOct(4),
-                required_permissions = requiredPerms.toOct(4)
+                data_dir = dataDir
           let newPermsRes = setPermissions(dataDir, requiredPerms)
           if newPermsRes.isErr():
             fatal "Could not set data directory permissions",
                    data_dir = dataDir,
                    errorCode = $newPermsRes.error,
-                   errorMsg = ioErrorMsg(newPermsRes.error),
-                   old_permissions = currPerms.toOct(4),
-                   new_permissions = requiredPerms.toOct(4)
+                   errorMsg = ioErrorMsg(newPermsRes.error)
             return false
     else:
       if (let res = secureCreatePath(dataDir); res.isErr):
@@ -300,17 +235,13 @@ proc checkSensitiveFilePermissions*(filePath: string): bool =
       let currPerms = currPermsRes.get()
       if currPerms != requiredPerms:
         warn "File has insecure permissions. Correcting them.",
-              key_path = filePath,
-              current_permissions = currPerms.toOct(4),
-              required_permissions = requiredPerms.toOct(4)
+              key_path = filePath
         let newPermsRes = setPermissions(filePath, requiredPerms)
         if newPermsRes.isErr():
           fatal "Could not set data directory permissions",
                  key_path = filePath,
                  errorCode = $newPermsRes.error,
-                 errorMsg = ioErrorMsg(newPermsRes.error),
-                 old_permissions = currPerms.toOct(4),
-                 new_permissions = requiredPerms.toOct(4)
+                 errorMsg = ioErrorMsg(newPermsRes.error)
           return false
 
   return true
@@ -340,11 +271,6 @@ proc keyboardCreatePassword(prompt: string,
         echoP "The entered password has low entropy and may be easy to " &
               "brute-force with automated tools. Please increase the " &
               "variety of the user characters."
-        continue
-      elif cstring(password) in mostCommonPasswords:
-        echoP "The entered password is too commonly used and it would be " &
-              "easy to brute-force with automated tools."
-        echo ""
         continue
     else:
       echoP "Entered password is not valid UTF-8 string"
@@ -393,54 +319,6 @@ proc loadSecretFile(path: string): KsResult[KeystorePass] {.
   if res.isErr():
     return err(ioErrorMsg(res.error()))
   ok(KeystorePass.init(res.get()))
-
-proc loadRemoteKeystoreImpl(validatorsDir,
-                            keyName: string): Opt[KeystoreData] =
-  let keystorePath = validatorsDir / keyName / RemoteKeystoreFileName
-
-  if not(checkSensitiveFilePermissions(keystorePath)):
-    error "Remote keystorage file has insecure permissions",
-          key_path = keystorePath
-    return Opt.none(KeystoreData)
-
-  let handle =
-    block:
-      let res = openLockedFile(keystorePath)
-      if res.isErr():
-        error "Unable to lock keystore file", key_path = keystorePath,
-              error_msg = ioErrorMsg(res.error())
-        return Opt.none(KeystoreData)
-      res.get()
-
-  var success = false
-  defer:
-    if not(success):
-      discard handle.closeLockedFile()
-
-  let keystore =
-    block:
-      let gres = handle.getData(MaxKeystoreFileSize)
-      if gres.isErr():
-        error "Could not read remote keystore file", key_path = keystorePath,
-              error_msg = ioErrorMsg(gres.error())
-        return Opt.none(KeystoreData)
-      let buffer = gres.get()
-      let data =
-        try:
-          parseRemoteKeystore(buffer)
-        except SerializationError as e:
-          error "Invalid remote keystore file", key_path = keystorePath,
-                error_msg = e.formatMsg(keystorePath)
-          return Opt.none(KeystoreData)
-      let kres = KeystoreData.init(data, handle)
-      if kres.isErr():
-        error "Invalid remote keystore file", key_path = keystorePath,
-              error_msg = kres.error()
-        return Opt.none(KeystoreData)
-      kres.get()
-
-  success = true
-  Opt.some(keystore)
 
 proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
                            nonInteractive: bool,
@@ -538,24 +416,16 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
   if fileExists(localKeystorePath):
     loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName, nonInteractive,
                           cache)
-  elif fileExists(remoteKeystorePath):
-    loadRemoteKeystoreImpl(validatorsDir, keyName)
   else:
     error "Unable to find any keystore files", keystorePath
     Opt.none(KeystoreData)
 
 proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
-                           kind: KeystoreKind
                           ): KmResult[RemoveValidatorStatus] {.
      raises: [].} =
   let
     keystoreDir = validatorsDir / keyName
-    keystoreFile =
-      case kind
-      of KeystoreKind.Local:
-        keystoreDir / KeystoreFileName
-      of KeystoreKind.Remote:
-        keystoreDir / RemoteKeystoreFileName
+    keystoreFile = keystoreDir / KeystoreFileName
     secretFile = secretsDir / keyName
 
   if not(dirExists(keystoreDir)):
@@ -564,54 +434,24 @@ proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
   if not(fileExists(keystoreFile)):
     return ok(RemoveValidatorStatus.notFound)
 
-  case kind
-  of KeystoreKind.Local:
-    block:
-      let res = io2.removeFile(keystoreFile)
-      if res.isErr():
-        return err("Could not remove keystore file")
-    block:
-      let res = io2.removeFile(secretFile)
-      if res.isErr() and fileExists(secretFile):
-        return err("Could not remove password file")
-    # We remove folder with all subfolders and files inside.
-    try:
-      removeDir(keystoreDir, false)
-    except OSError:
-      return err("Could not remove keystore directory")
-  of KeystoreKind.Remote:
-    block:
-      let res = io2.removeFile(keystoreFile)
-      if res.isErr():
-        return err("Could not remove keystore file")
-    # We remove folder with all subfolders and files inside.
-    try:
-      removeDir(keystoreDir, false)
-    except OSError:
-      return err("Could not remove keystore directory")
+  block:
+    let res = io2.removeFile(keystoreFile)
+    if res.isErr():
+      return err("Could not remove keystore file")
+  block:
+    let res = io2.removeFile(secretFile)
+    if res.isErr() and fileExists(secretFile):
+      return err("Could not remove password file")
+  # We remove folder with all subfolders and files inside.
+  try:
+    removeDir(keystoreDir, false)
+  except OSError:
+    return err("Could not remove keystore directory")
 
   ok(RemoveValidatorStatus.deleted)
 
 func fsName(pubkey: ValidatorPubKey|CookedPubKey): string =
   "0x" & pubkey.toHex()
-
-proc removeValidator*(pool: var ValidatorPool,
-                      validatorsDir, secretsDir: string,
-                      publicKey: ValidatorPubKey,
-                      kind: KeystoreKind): KmResult[RemoveValidatorStatus] {.
-     raises: [].} =
-  let validator = pool.getValidator(publicKey).valueOr:
-    return ok(RemoveValidatorStatus.notFound)
-  if validator.kind.toKeystoreKind() != kind:
-    return ok(RemoveValidatorStatus.notFound)
-  let cres = validator.data.handle.closeLockedFile()
-  if cres.isErr():
-    return err("Could not unlock validator keystore file")
-  let res = removeValidatorFiles(validatorsDir, secretsDir, publicKey.fsName, kind)
-  if res.isErr():
-    return err(res.error())
-  pool.removeValidator(publicKey)
-  ok(res.value())
 
 func checkKeyName(keyName: string): Result[void, string] =
   const keyAlphabet = {'a'..'f', 'A'..'F', '0'..'9'}
@@ -624,98 +464,17 @@ func checkKeyName(keyName: string): Result[void, string] =
       return err("Incorrect characters found in name")
   ok()
 
-proc existsKeystore(keystoreDir: string, keyKind: KeystoreKind): bool {.
+proc existsKeystore(keystoreDir: string): bool {.
      raises: [].} =
-  case keyKind
-  of KeystoreKind.Local:
-    fileExists(keystoreDir / KeystoreFileName)
-  of KeystoreKind.Remote:
-    fileExists(keystoreDir / RemoteKeystoreFileName)
-
-proc existsKeystore(keystoreDir: string,
-                    keysMask: set[KeystoreKind]): bool {.raises: [].} =
-  if KeystoreKind.Local in keysMask:
-    if existsKeystore(keystoreDir, KeystoreKind.Local):
-      return true
-  if KeystoreKind.Remote in keysMask:
-    if existsKeystore(keystoreDir, KeystoreKind.Remote):
-      return true
-  false
+  fileExists(keystoreDir / KeystoreFileName)
 
 proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl):
     Future[QueryResult] {.async: (raises: [CancelledError]).} =
-  var keystores: seq[KeystoreData]
+  return QueryResult.err("")
 
-  logScope:
-    web3signer_url = web3signerUrl.url
-
-  let
-    httpFlags: HttpClientFlags = {}
-    prestoFlags = {RestClientFlag.CommaSeparatedArray}
-    socketFlags = {SocketFlags.TcpNoDelay}
-    client =
-      block:
-        let res = RestClientRef.new($web3signerUrl.url, prestoFlags,
-                                    httpFlags, socketFlags = socketFlags)
-        if res.isErr():
-          warn "Unable to resolve validator's source distributed signer " &
-               "address", reason = $res.error
-          return QueryResult.err($res.error)
-        res.get()
-    keys =
-      try:
-        let response = await getKeysPlain(client)
-        if response.status != 200:
-          warn "Remote validator's source responded with error",
-               error = response.status
-          return QueryResult.err(
-            "Remote validator's source responded with error [" &
-              $response.status & "]")
-
-        let res = decodeBytes(Web3SignerKeysResponse, response.data,
-                              response.contentType)
-        if res.isErr():
-          warn "Unable to obtain validator's source response",
-               reason = res.error
-          return QueryResult.err($res.error)
-        res.get()
-      except RestError as exc:
-        warn "Unable to poll validator's source", reason = $exc.msg
-        return QueryResult.err($exc.msg)
-
-    remoteType = if web3signerUrl.provenBlockProperties.len == 0:
-      RemoteSignerType.Web3Signer
-    else:
-      RemoteSignerType.VerifyingWeb3Signer
-
-    provenBlockProperties = mapIt(web3signerUrl.provenBlockProperties,
-                                  block:
-                                    parseProvenBlockProperty(it).valueOr:
-                                      return QueryResult.err(error))
-
-  for pubkey in keys:
-    keystores.add(KeystoreData(
-      kind: KeystoreKind.Remote,
-      handle: FileLockHandle(opened: false),
-      pubkey: pubkey,
-      remotes: @[RemoteSignerInfo(
-        url: HttpHostUri(web3signerUrl.url),
-        pubkey: pubkey)],
-      flags: {RemoteKeystoreFlag.DynamicKeystore},
-      remoteType: remoteType))
-
-    if provenBlockProperties.len > 0:
-      keystores[^1].provenBlockProperties = provenBlockProperties
-
-  QueryResult.ok(keystores)
-
-iterator listLoadableKeys*(validatorsDir, secretsDir: string,
-                           keysMask: set[KeystoreKind]): CookedPubKey =
+iterator listLoadableKeys*(validatorsDir, secretsDir: string): CookedPubKey =
   const IncorrectName = "Incorrect keystore directory name, ignoring"
   try:
-    logScope:
-      keystore_dir = keystoreDir
-
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
         let
@@ -727,7 +486,7 @@ iterator listLoadableKeys*(validatorsDir, secretsDir: string,
           notice IncorrectName, reason = nameres.error
           continue
 
-        if not(existsKeystore(keystoreDir, keysMask)):
+        if not(existsKeystore(keystoreDir)):
           notice "Incorrect keystore directory, ignoring",
                  reason = "Missing keystore files ('keystore.json' or " &
                           "'remote_keystore.json')"
@@ -756,13 +515,9 @@ iterator listLoadableKeys*(validatorsDir, secretsDir: string,
 
 iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
                                 nonInteractive: bool,
-                                keysMask: set[KeystoreKind],
                                 cache: KeystoreCacheRef): KeystoreData =
   const IncorrectName = "Incorrect keystore directory name, ignoring"
   try:
-    logScope:
-      keystore_dir = keystoreDir
-
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
         let
@@ -774,7 +529,7 @@ iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
           notice IncorrectName, reason = nameres.error
           continue
 
-        if not(existsKeystore(keystoreDir, keysMask)):
+        if not(existsKeystore(keystoreDir)):
           notice "Incorrect keystore directory, ignoring",
                  reason = "Missing keystore files ('keystore.json' or " &
                           "'remote_keystore.json')"
@@ -798,7 +553,6 @@ iterator listLoadableKeystores*(config: AnyConf,
   for el in listLoadableKeystores(config.validatorsDir(),
                                   config.secretsDir(),
                                   config.nonInteractive,
-                                  {KeystoreKind.Local, KeystoreKind.Remote},
                                   cache):
     yield el
 
@@ -822,6 +576,9 @@ func gasLimitPath(validatorsDir: string,
 func builderConfigPath(validatorsDir: string,
                         pubkey: ValidatorPubKey): string =
   validatorsDir.validatorKeystoreDir(pubkey) / BuilderConfigPath
+
+from std/strutils import
+  cmpIgnoreCase, endsWith, parseBiggestUint, startsWith, strip, toLowerAscii
 
 proc getSuggestedFeeRecipient*(
     validatorsDir: string, pubkey: ValidatorPubKey,
@@ -1223,117 +980,6 @@ proc saveLockedKeystore(
                                                keystoreFile, encodedStorage)
   ok(lock)
 
-proc saveKeystore(
-       validatorsDir: string,
-       publicKey: ValidatorPubKey,
-       urls: seq[RemoteSignerInfo],
-       threshold: uint32,
-       flags: set[RemoteKeystoreFlag] = {},
-       remoteType = RemoteSignerType.Web3Signer,
-       desc = ""
-     ): Result[void, KeystoreGenerationError] {.raises: [].} =
-  let
-    keyName = publicKey.fsName
-    keystoreDir = validatorsDir / keyName
-    keystoreFile = keystoreDir / RemoteKeystoreFileName
-    keystoreDesc = if len(desc) == 0: none[string]() else: some(desc)
-    keyStore = RemoteKeystore(
-      version: 2'u64,
-      description: keystoreDesc,
-      remoteType: remoteType,
-      pubkey: publicKey,
-      threshold: threshold,
-      remotes: urls,
-      flags: flags)
-
-  if dirExists(keystoreDir):
-    return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
-      error: "Keystore directory already exists"))
-  if fileExists(keystoreFile):
-    return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
-      error: "Keystore file already exists"))
-
-  let encodedStorage = Json.encode(keyStore)
-
-  ? createRemoteValidatorFiles(validatorsDir, keystoreDir, keystoreFile,
-                               encodedStorage)
-  ok()
-
-proc saveLockedKeystore(
-       validatorsDir: string,
-       publicKey: ValidatorPubKey,
-       urls: seq[RemoteSignerInfo],
-       threshold: uint32,
-       flags: set[RemoteKeystoreFlag] = {},
-       remoteType = RemoteSignerType.Web3Signer,
-       desc = ""
-     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [].} =
-  let
-    keyName = publicKey.fsName
-    keystoreDir = validatorsDir / keyName
-    keystoreFile = keystoreDir / RemoteKeystoreFileName
-    keystoreDesc = if len(desc) == 0: none[string]() else: some(desc)
-    keyStore = RemoteKeystore(
-      version: 2'u64,
-      description: keystoreDesc,
-      remoteType: remoteType,
-      pubkey: publicKey,
-      threshold: threshold,
-      remotes: urls,
-      flags: flags)
-
-  if dirExists(keystoreDir):
-    return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
-      error: "Keystore directory already exists"))
-  if fileExists(keystoreFile):
-    return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
-      error: "Keystore file already exists"))
-
-  let encodedStorage = Json.encode(keyStore)
-
-  let lock = ? createLockedRemoteValidatorFiles(validatorsDir, keystoreDir,
-                                                keystoreFile, encodedStorage)
-  ok(lock)
-
-proc saveKeystore*(
-       validatorsDir: string,
-       publicKey: ValidatorPubKey,
-       url:  HttpHostUri
-     ): Result[void, KeystoreGenerationError] {.raises: [].} =
-  let remoteInfo = RemoteSignerInfo(url: url, id: 0)
-  saveKeystore(validatorsDir, publicKey, @[remoteInfo], 1)
-
-proc importKeystore*(pool: var ValidatorPool,
-                     validatorsDir: string,
-                     keystore: RemoteKeystore): ImportResult[KeystoreData] {.
-     raises: [].} =
-  let
-    publicKey = keystore.pubkey
-    keyName = publicKey.fsName
-    keystoreDir = validatorsDir / keyName
-
-  # We check `publicKey`.
-  let cookedKey = publicKey.load().valueOr:
-    return err(
-      AddValidatorFailure.init(AddValidatorStatus.failed,
-                               "Invalid validator's public key"))
-
-  # We check `publicKey` in memory storage first.
-  if publicKey in pool:
-    return err(AddValidatorFailure.init(AddValidatorStatus.existingArtifacts))
-
-  # We check `publicKey` in filesystem.
-  if existsKeystore(keystoreDir, {KeystoreKind.Local, KeystoreKind.Remote}):
-    return err(AddValidatorFailure.init(AddValidatorStatus.existingArtifacts))
-
-  let res = saveLockedKeystore(validatorsDir, publicKey, keystore.remotes,
-                               keystore.threshold)
-  if res.isErr():
-    return err(AddValidatorFailure.init(AddValidatorStatus.failed,
-                                        $res.error()))
-  ok(KeystoreData.init(cookedKey, keystore.remotes, keystore.threshold,
-                       res.get()))
-
 proc importKeystore*(pool: var ValidatorPool,
                      rng: var HmacDrbgContext,
                      validatorsDir, secretsDir: string,
@@ -1354,7 +1000,7 @@ proc importKeystore*(pool: var ValidatorPool,
     return err(AddValidatorFailure.init(AddValidatorStatus.existingArtifacts))
 
   # We check `publicKey` in filesystem.
-  if existsKeystore(keystoreDir, {KeystoreKind.Local, KeystoreKind.Remote}):
+  if existsKeystore(keystoreDir):
     return err(AddValidatorFailure.init(AddValidatorStatus.existingArtifacts))
 
   let res = saveLockedKeystore(rng, validatorsDir, secretsDir,
@@ -1365,39 +1011,6 @@ proc importKeystore*(pool: var ValidatorPool,
                                         $res.error()))
 
   ok(KeystoreData.init(privateKey, keystore, res.get()))
-
-proc generateDistributedStore*(rng: var HmacDrbgContext,
-                               shares: seq[SecretShare],
-                               pubKey: ValidatorPubKey,
-                               validatorIdx: Natural,
-                               shareSecretsDir: string,
-                               shareValidatorDir: string,
-                               remoteValidatorDir: string,
-                               remoteSignersUrls: seq[string],
-                               threshold: uint32,
-                               mode = KeystoreMode.Secure): Result[void, KeystoreGenerationError] =
-  var signers: seq[RemoteSignerInfo]
-  for idx, share in shares:
-    var password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
-    # remote signer shares
-    defer: burnMem(password)
-    ? saveKeystore(rng,
-                   shareValidatorDir / $share.id,
-                   shareSecretsDir / $share.id,
-                   share.key,
-                   share.key.toPubKey,
-                   makeKeyPath(validatorIdx, signingKeyKind),
-                   password.str,
-                   @[],
-                   mode)
-
-    signers.add RemoteSignerInfo(
-      url: HttpHostUri(parseUri(remoteSignersUrls[idx])),
-      id: share.id,
-      pubkey: share.key.toPubKey.toPubKey)
-
-  # actual validator
-  saveKeystore(remoteValidatorDir, pubKey, signers, threshold)
 
 func validatorKeystoreDir(host: KeymanagerHost,
                           pubkey: ValidatorPubKey): string =
@@ -1524,9 +1137,6 @@ proc generateDeposits*(cfg: RuntimeConfig,
                        firstValidatorIdx, totalNewValidators: int,
                        validatorsDir: string,
                        secretsDir: string,
-                       remoteSignersUrls: seq[string] = @[],
-                       threshold: uint32 = 1,
-                       remoteValidatorsCount: uint32 = 0,
                        mode = Secure): Result[seq[DepositData],
                                               KeystoreGenerationError] =
   var deposits: seq[DepositData]
@@ -1547,7 +1157,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
     burnMem(salt)
     burnMem(password)
 
-  let localValidatorsCount = totalNewValidators - int(remoteValidatorsCount)
+  let localValidatorsCount = totalNewValidators
   for i in 0 ..< localValidatorsCount:
     let validatorIdx = firstValidatorIdx + i
 
@@ -1565,40 +1175,6 @@ proc generateDeposits*(cfg: RuntimeConfig,
                    derivedKey, signingPubKey,
                    makeKeyPath(validatorIdx, signingKeyKind), password.str,
                    salt, mode)
-
-    deposits.add prepareDeposit(
-      cfg, withdrawalPubKey, derivedKey, signingPubKey)
-
-  for i in 0 ..< remoteValidatorsCount:
-    let validatorIdx = int(firstValidatorIdx) + localValidatorsCount + int(i)
-
-    # We'll reuse a single variable here to make the secret
-    # scrubbing (burnMem) easier to handle:
-    var derivedKey = baseKey
-    defer: burnMem(derivedKey)
-    derivedKey = deriveChildKey(derivedKey, validatorIdx)
-    derivedKey = deriveChildKey(derivedKey, 0) # This is witdrawal key
-    let withdrawalPubKey = derivedKey.toPubKey
-    derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
-    let signingPubKey = derivedKey.toPubKey
-
-    let sharesCount = uint32 len(remoteSignersUrls)
-
-    let shares = generateSecretShares(derivedKey, rng, threshold, sharesCount)
-    if shares.isErr():
-      error "Failed to generate distributed key: ", threshold, sharesCount
-      continue
-
-    ? generateDistributedStore(rng,
-                               shares.get,
-                               signingPubKey.toPubKey,
-                               validatorIdx,
-                               secretsDir & "_shares",
-                               validatorsDir & "_shares",
-                               validatorsDir,
-                               remoteSignersUrls,
-                               threshold,
-                               mode)
 
     deposits.add prepareDeposit(
       cfg, withdrawalPubKey, derivedKey, signingPubKey)
@@ -1684,22 +1260,8 @@ proc importKeystoreFromFile*(
       let privateKey = ValidatorPrivKey.fromRaw(secret).valueOr:
         return err("Keystore holds invalid private key [" & $error & "]")
       return ok(privateKey)
-    of DecryptionStatus.InvalidKeystore:
+    else:
       return err("Invalid keystore format")
-    of DecryptionStatus.InvalidPassword:
-      if firstDecryptionAttempt:
-        try:
-          const msg = "Please enter the password for decrypting '$1'"
-          echo msg % [fileName]
-        except ValueError:
-          raiseAssert "The format string above is correct"
-        firstDecryptionAttempt = false
-      else:
-        echo "The entered password was incorrect. Please try again."
-
-      if not(readPasswordInput("Password: ", decryptor.previouslyUsedPassword)):
-        echo "System error while entering password. Please try again."
-        if len(decryptor.previouslyUsedPassword) == 0: break
 
 proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
                              importedDir, validatorsDir, secretsDir: string) =
@@ -1789,7 +1351,6 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
             try:
               const msg = "Please enter the password for decrypting '$1' " &
                           "or press ENTER to skip importing this keystore"
-              echo msg % [file]
             except ValueError:
               raiseAssert "The format string above is correct"
           else:
@@ -1812,246 +1373,10 @@ template ask(prompt: string): string =
   except IOError:
     return err "failure to read data from stdin"
 
-proc pickPasswordAndSaveWallet(rng: var HmacDrbgContext,
-                               config: BeaconNodeConf,
-                               seed: KeySeed): Result[WalletPathPair, string] =
-  echoP "When you perform operations with your wallet such as withdrawals " &
-        "and additional deposits, you'll be asked to enter a signing " &
-        "password. Please note that this password is local to the current " &
-        "machine and you can change it at any time."
-  echo ""
+template clearScreen =
+  echo "\e[1;1H\e[2J\e[3J"
 
-  var password =
-    block:
-      let prompt = "Please enter a password: "
-      let confirm = "Please repeat the password: "
-      ? keyboardCreatePassword(prompt, confirm)
-  defer: burnMem(password)
-
-  var name: WalletName
-  let outWalletName = config.outWalletName
-  if outWalletName.isSome:
-    name = outWalletName.get
-  else:
-    echoP "For your convenience, the wallet can be identified with a name " &
-          "of your choice. Please enter a wallet name below or press ENTER " &
-          "to continue with a machine-generated name."
-    echo ""
-
-    while true:
-      let enteredName = ask "Wallet name"
-      if enteredName.len > 0:
-        name =
-          try:
-            WalletName.parseCmdArg(enteredName)
-          except CatchableError as err:
-            echo err.msg & ". Please try again."
-            continue
-      break
-
-  let nextAccount =
-    if config.cmd == wallets and config.walletsCmd == WalletsCmd.restore:
-      config.restoredDepositsCount
-    else:
-      none Natural
-
-  let wallet = createWallet(kdfPbkdf2, rng, seed,
-                            name = name,
-                            nextAccount = nextAccount,
-                            password = KeystorePass.init password)
-
-  let outWalletFileFlag = config.outWalletFile
-  let outWalletFile =
-    if outWalletFileFlag.isSome:
-      string outWalletFileFlag.get
-    else:
-      config.walletsDir / addFileExt(string wallet.name, "json")
-
-  let status = saveWallet(wallet, outWalletFile)
-  if status.isErr:
-    return err("failure to create wallet file due to " & status.error)
-
-  echo "\nWallet file successfully written to \"", outWalletFile, "\""
-  return ok WalletPathPair(wallet: wallet, path: outWalletFile)
-
-when defined(windows):
-  proc clearScreen =
-    discard execShellCmd("cls")
-else:
-  template clearScreen =
-    echo "\e[1;1H\e[2J\e[3J"
-
-proc createWalletInteractively*(
-    rng: var HmacDrbgContext,
-    config: BeaconNodeConf): Result[CreatedWallet, string] =
-
-  if config.nonInteractive:
-    return err "not running in interactive mode"
-
-  echoP "The generated wallet is uniquely identified by a seed phrase " &
-        "consisting of 24 words. In case you lose your wallet and you " &
-        "need to restore it on a different machine, you can use the " &
-        "seed phrase to re-generate your signing and withdrawal keys."
-  echoP "The seed phrase should be kept secret in a safe location as if " &
-        "you are protecting a sensitive password. It can be used to withdraw " &
-        "funds from your wallet."
-  echoP "We will display the seed phrase on the next screen. Please make sure " &
-        "you are in a safe environment and there are no cameras or potentially " &
-        "unwanted eye witnesses around you. Please prepare everything necessary " &
-        "to copy the seed phrase to a safe location and type 'continue' in " &
-        "the prompt below to proceed to the next screen or 'q' to exit now."
-  echo ""
-
-  while true:
-    let answer = ask "Action"
-    if answer.len > 0 and answer[0] == 'q': quit 1
-    if answer == "continue": break
-    echoP "To proceed to your seed phrase, please type 'continue' (without the quotes). " &
-          "Type 'q' to exit now."
-    echo ""
-
-  var mnemonic = generateMnemonic(rng)
-  defer: burnMem(mnemonic)
-
-  try:
-    echoP "Your seed phrase is:"
-    setStyleNoError({styleBright})
-    setForegroundColorNoError fgCyan
-    echoP $mnemonic
-    resetAttributesNoError()
-  except IOError, ValueError:
-    return err "failure to write to the standard output"
-
-  echoP "Press any key to continue."
-  try:
-    discard getch()
-  except IOError as err:
-    fatal "Failed to read a key from stdin", err = err.msg
-    quit 1
-
-  clearScreen()
-
-  echoP "To confirm that you've saved the seed phrase, please enter the " &
-        "first and the last three words of it. In case you've saved the " &
-        "seek phrase in your clipboard, we strongly advice clearing the " &
-        "clipboard now."
-  echo ""
-
-  for i in countdown(2, 0):
-    let answer = ask "Answer"
-    let parts = answer.split(' ', maxsplit = 1)
-    if parts.len == 2:
-      if count(parts[1], ' ') == 2 and
-         mnemonic.string.startsWith(parts[0]) and
-         mnemonic.string.endsWith(parts[1]):
-        break
-    else:
-      doAssert parts.len == 1
-
-    if i > 0:
-      echo "\nYour answer was not correct. You have ", i, " more attempts"
-      echoP "Please enter 4 words separated with a single space " &
-            "(the first word from the seed phrase, followed by the last 3)"
-      echo ""
-    else:
-      quit 1
-
-  clearScreen()
-
-  var mnenomicPassword = KeystorePass.init ""
-  defer: burnMem(mnenomicPassword)
-
-  echoP "The recovery of your wallet can be additionally protected by a" &
-        "recovery password. Since the seed phrase itself can be considered " &
-        "a password, setting such an additional password is optional. " &
-        "To ensure the strongest possible security, we recommend writing " &
-        "down your seed phrase and remembering your recovery password. " &
-        "If you don't want to set a recovery password, just press ENTER."
-
-  var recoveryPassword = keyboardCreatePassword(
-    "Recovery password: ", "Confirm password: ", allowEmpty = true)
-  defer:
-    if recoveryPassword.isOk:
-      burnMem(recoveryPassword.get)
-
-  if recoveryPassword.isErr:
-    fatal "Failed to read password from stdin: "
-    quit 1
-
-  var keystorePass = KeystorePass.init recoveryPassword.get
-  defer: burnMem(keystorePass)
-
-  var seed = getSeed(mnemonic, keystorePass)
-  defer: burnMem(seed)
-
-  let walletPath = ? pickPasswordAndSaveWallet(rng, config, seed)
-  return ok CreatedWallet(walletPath: walletPath, seed: seed)
-
-proc restoreWalletInteractively*(rng: var HmacDrbgContext,
-                                 config: BeaconNodeConf) =
-  var
-    enteredMnemonic: string
-    validatedMnemonic: Mnemonic
-
-  defer:
-    burnMem enteredMnemonic
-    burnMem validatedMnemonic
-
-  echo "To restore your wallet, please enter your backed-up seed phrase."
-  while true:
-    if not readPasswordInput("Seedphrase: ", enteredMnemonic):
-      fatal "failure to read password from stdin"
-      quit 1
-
-    if validateMnemonic(enteredMnemonic, validatedMnemonic):
-      break
-    else:
-      echo "The entered mnemonic was not valid. Please try again."
-
-  echoP "If your seed phrase was protected with a recovery password, " &
-        "please enter it below. Please ENTER to attempt to restore " &
-        "the wallet without a recovery password."
-
-  var recoveryPassword = keyboardCreatePassword(
-    "Recovery password: ", "Confirm password: ", allowEmpty = true)
-  defer:
-    if recoveryPassword.isOk:
-      burnMem(recoveryPassword.get)
-
-  if recoveryPassword.isErr:
-    fatal "Failed to read password from stdin"
-    quit 1
-
-  var keystorePass = KeystorePass.init recoveryPassword.get
-  defer: burnMem(keystorePass)
-
-  var seed = getSeed(validatedMnemonic, keystorePass)
-  defer: burnMem(seed)
-
-  discard pickPasswordAndSaveWallet(rng, config, seed)
-
-proc unlockWalletInteractively*(wallet: Wallet): Result[KeySeed, string] =
-  echo "Please enter the password for unlocking the wallet"
-
-  let res = keyboardGetPassword[KeySeed]("Password: ", 3,
-    proc (password: string): KsResult[KeySeed] =
-      var secret: seq[byte]
-      defer: burnMem(secret)
-      let status = decryptCryptoField(wallet.crypto, KeystorePass.init password, secret)
-      case status
-      of DecryptionStatus.Success:
-        ok(KeySeed secret)
-      else:
-        # TODO Handle InvalidKeystore in a special way here
-        let failed = "Unlocking of the wallet failed. Please try again"
-        echo failed
-        err(failed)
-  )
-
-  if res.isOk():
-    ok(res.get())
-  else:
-    err "Unlocking of the wallet failed."
+import std/strutils
 
 proc loadWallet*(fileName: string): Result[Wallet, string] =
   try:

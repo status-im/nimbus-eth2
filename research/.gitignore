@@ -1,6 +1,0 @@
-*.dSYM/
-*.json
-block_sim
-stack_sizes
-state_sim
-wss_sim

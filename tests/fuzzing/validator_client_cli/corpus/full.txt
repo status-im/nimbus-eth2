@@ -1,1 +1,0 @@
---log-level=TRACE --log-file:"foo/bar.log" --data-dir=/tmp/data --non-interactive --secrets-dir:secrets --graffiti:"some message" --graffiti:0xaa2311aa21 --stop-at-epoch:4 --rpc-port:10000 --rpc-address:127.0.0.1 --retry-delay:10

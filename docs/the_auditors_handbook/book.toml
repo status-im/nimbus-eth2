@@ -1,6 +1,0 @@
-[book]
-authors = ["Mamy André-Ratsimbazafy"]
-language = "en"
-multilingual = false
-src = "src"
-title = "The Auditors Handbook to Nimbus Beacon Chain"

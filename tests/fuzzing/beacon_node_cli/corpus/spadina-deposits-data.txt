@@ -1,1 +1,0 @@
-deposits createTestnetDeposits --network=spadina --new-wallet-file=build/data/shared_spadina_0/wallet.json --out-validators-dir=build/data/shared_spadina_0/validators --out-secrets-dir=build/data/shared_spadina_0/secrets --out-deposits-file=spadina-deposits_data-20201001212925.json --count=1

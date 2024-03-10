@@ -11,7 +11,7 @@ import
   std/[typetraits, tables],
   results,
   stew/[arrayops, assign2, byteutils, endians2, io2, objects],
-  serialization, chronicles, snappy,
+  serialization, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
   ./spec/[deposit_snapshots,
@@ -21,7 +21,7 @@ import
           presets,
           state_transition],
   ./spec/datatypes/[phase0, altair, bellatrix],
-  "."/[beacon_chain_db_light_client, filepath]
+  "."/filepath
 
 from ./spec/datatypes/capella import BeaconState
 from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
@@ -29,8 +29,6 @@ from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
   kvstore_sqlite3, deposit_snapshots
-
-logScope: topics = "bc_db"
 
 type
   DbSeq*[T] = object
@@ -151,9 +149,6 @@ type
       ## May contain entries for blocks that are not stored in the database.
       ##
       ## See `summaries` for an index in the other direction.
-
-    lcData: LightClientDataDB
-      ## Persistent light client data to avoid expensive recomputations
 
   DbKeyKind* = enum
     # BEWARE. You should never remove entries from this enum.
@@ -486,14 +481,8 @@ proc new*(T: type BeaconChainDB,
           cfg: RuntimeConfig = defaultRuntimeConfig
     ): BeaconChainDB =
   if not db.readOnly:
-    # Remove the deposits table we used before we switched
-    # to storing only deposit contract checkpoints
-    if db.exec("DROP TABLE IF EXISTS deposits;").isErr:
-      debug "Failed to drop the deposits table"
-
-    # An old pubkey->index mapping that hasn't been used on any mainnet release
-    if db.exec("DROP TABLE IF EXISTS validatorIndexFromPubKey;").isErr:
-      debug "Failed to drop the validatorIndexFromPubKey table"
+    discard db.exec("DROP TABLE IF EXISTS deposits;")
+    discard db.exec("DROP TABLE IF EXISTS validatorIndexFromPubKey;")
 
   var
     genesisDepositsSeq =
@@ -525,25 +514,6 @@ proc new*(T: type BeaconChainDB,
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
     finalizedBlocks = FinalizedBlocks.init(db, "finalized_blocks").expectDb()
 
-    lcData = db.initLightClientDataDB(LightClientDataDBNames(
-      altairHeaders: "lc_altair_headers",
-      capellaHeaders:
-        if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_capella_headers"
-        else:
-          "",
-      denebHeaders:
-        if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_deneb_headers"
-        else:
-          "",
-      altairCurrentBranches: "lc_altair_current_branches",
-      altairSyncCommittees: "lc_altair_sync_committees",
-      legacyAltairBestUpdates: "lc_altair_best_updates",
-      bestUpdates: "lc_best_updates",
-      sealedPeriods: "lc_sealed_periods")).expectDb()
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
-
   var blobs : KvStoreRef
   if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
     blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
@@ -559,8 +529,6 @@ proc new*(T: type BeaconChainDB,
       db, "immutable_validators", readOnly = true).expectDb()
 
     if immutableValidatorsDb.len() < immutableValidatorsDb1.len():
-      notice "Migrating validator keys, this may take a minute",
-        len = immutableValidatorsDb1.len()
       while immutableValidatorsDb.len() < immutableValidatorsDb1.len():
         let val = immutableValidatorsDb1.get(immutableValidatorsDb.len())
         immutableValidatorsDb.add(ImmutableValidatorDataDb2(
@@ -587,8 +555,7 @@ proc new*(T: type BeaconChainDB,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
     summaries: summaries,
-    finalizedBlocks: finalizedBlocks,
-    lcData: lcData
+    finalizedBlocks: finalizedBlocks
   )
 
 proc new*(T: type BeaconChainDB,
@@ -603,26 +570,17 @@ proc new*(T: type BeaconChainDB,
         "working database (out of memory?)")
     else:
       if (let res = secureCreatePath(dir); res.isErr):
-        fatal "Failed to create create database directory",
-          path = dir, err = ioErrorMsg(res.error)
         quit 1
 
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
   BeaconChainDB.new(db, cfg)
 
-template getLightClientDataDB*(db: BeaconChainDB): LightClientDataDB =
-  db.lcData
-
 proc decodeSSZ*[T](data: openArray[byte], output: var T): bool =
   try:
     readSszBytes(data, output, updateRoot = false)
     true
-  except SerializationError as e:
-    # If the data can't be deserialized, it could be because it's from a
-    # version of the software that uses a different SSZ encoding
-    warn "Unable to deserialize data, old database?",
-      err = e.msg, typ = name(T), dataLen = data.len
+  except SerializationError:
     false
 
 proc decodeSnappySSZ[T](data: openArray[byte], output: var T): bool =
@@ -630,11 +588,7 @@ proc decodeSnappySSZ[T](data: openArray[byte], output: var T): bool =
     let decompressed = snappy.decode(data)
     readSszBytes(decompressed, output, updateRoot = false)
     true
-  except SerializationError as e:
-    # If the data can't be deserialized, it could be because it's from a
-    # version of the software that uses a different SSZ encoding
-    warn "Unable to deserialize data, old database?",
-      err = e.msg, typ = name(T), dataLen = data.len
+  except SerializationError:
     false
 
 proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
@@ -642,11 +596,7 @@ proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
     let decompressed = decodeFramed(data, checkIntegrity = false)
     readSszBytes(decompressed, output, updateRoot = false)
     true
-  except CatchableError as e:
-    # If the data can't be deserialized, it could be because it's from a
-    # version of the software that uses a different SSZ encoding
-    warn "Unable to deserialize data, old database?",
-      err = e.msg, typ = name(T), dataLen = data.len
+  except CatchableError:
     false
 
 func encodeSSZ*(v: auto): seq[byte] =
@@ -676,10 +626,6 @@ proc getRaw(db: KvStoreRef, key: openArray[byte], T: type Eth2Digest): Opt[T] =
     if data.len == sizeof(Eth2Digest):
       res.ok Eth2Digest(data: toArray(sizeof(Eth2Digest), data))
     else:
-      # If the data can't be deserialized, it could be because it's from a
-      # version of the software that uses a different SSZ encoding
-      warn "Unable to deserialize data, old database?",
-       typ = name(T), dataLen = data.len
       discard
 
   discard db.get(key, decode).expectDb()
@@ -752,7 +698,6 @@ proc close*(db: BeaconChainDB) =
   # Close things roughly in reverse order
   if not isNil(db.blobs):
     discard db.blobs.close()
-  db.lcData.close()
   db.finalizedBlocks.close()
   discard db.summaries.close()
   discard db.stateDiffs.close()
@@ -1408,8 +1353,6 @@ proc loadStateRoots*(db: BeaconChainDB): Table[(Slot, Eth2Digest), Eth2Digest] =
         (Slot(uint64.fromBytesBE(tmp)),
         Eth2Digest(data: toArray(sizeof(Eth2Digest), k.toOpenArray(8, 39))))] =
         Eth2Digest(data: toArray(sizeof(Eth2Digest), v))
-    else:
-      warn "Invalid state root in database", klen = k.len(), vlen = v.len()
   )
 
   state_roots
@@ -1424,8 +1367,6 @@ proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
 
     if k.len() == sizeof(Eth2Digest) and decodeSSZ(v, output):
       summaries[Eth2Digest(data: toArray(sizeof(Eth2Digest), k))] = output
-    else:
-      warn "Invalid summary in database", klen = k.len(), vlen = v.len()
   )
 
   summaries

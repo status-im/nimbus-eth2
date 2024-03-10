@@ -1,1 +1,0 @@
-wallets create --name:"my wallet" --next-account:10 --out:/tmp/wallet.json

@@ -8,14 +8,13 @@
 {.push raises: [].}
 
 import
-  chronicles,
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/forks
 
 from ../spec/datatypes/capella import SomeBeaconBlock, TrustedBeaconBlock
 from ../spec/datatypes/deneb import SomeBeaconBlock, TrustedBeaconBlock
 
-export chronicles, forks
+export forks
 
 type
   BlockRef* = ref object
@@ -228,6 +227,3 @@ func shortLog*(v: BlockSlot): string =
     shortLog(v.blck)
   else: # There was a gap - log it
     shortLog(v.blck) & "@" & $v.slot
-
-chronicles.formatIt BlockSlot: shortLog(it)
-chronicles.formatIt BlockRef: shortLog(it)

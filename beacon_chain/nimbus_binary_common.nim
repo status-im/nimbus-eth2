@@ -1,40 +1,21 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
-
-# Common routines for a BeaconNode and a ValidatorClient
 
 import
   # Standard library
   std/[tables, strutils, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils, presto, toml_serialization, metrics,
-  chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
+  chronicles, chronos, confutils, presto,
+  chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
 
   # Local modules
   ./spec/[helpers, keystore],
   ./spec/datatypes/base,
-  "."/[beacon_clock, beacon_node_status, conf, conf_common, version]
-
-when defined(posix):
-  import termios
-
-declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
-versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
-
-declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
-nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
+  "."/[beacon_clock, conf]
 
 export
-  confutils, toml_serialization, beacon_clock, beacon_node_status, conf,
-  conf_common
+  confutils, beacon_clock, conf
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
@@ -241,40 +222,6 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
   {.pop.}
   config
 
-proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
-                               stopAtEpoch: uint64): bool =
-  # Offset backwards slightly to allow this epoch's finalization check to occur
-  if scheduledSlot > 3 and stopAtEpoch > 0'u64 and
-      (scheduledSlot - 3).epoch() >= stopAtEpoch:
-    info "Stopping at pre-chosen epoch",
-      chosenEpoch = stopAtEpoch,
-      epoch = scheduledSlot.epoch(),
-      slot = scheduledSlot
-    true
-  else:
-    false
-
-proc resetStdin*() =
-  when defined(posix):
-    # restore echoing, in case it was disabled by a password prompt
-    let fd = stdin.getFileHandle()
-    var attrs: Termios
-    discard fd.tcGetAttr(attrs.addr)
-    attrs.c_lflag = attrs.c_lflag or Cflag(ECHO)
-    discard fd.tcSetAttr(TCSANOW, attrs.addr)
-
-proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
-  while true:
-    let exitLoop =
-      try:
-        await sleepAsync(60.seconds)
-        false
-      except CatchableError:
-        cache.clear()
-        true
-    if exitLoop: break
-    cache.pruneExpiredKeys()
-
 proc sleepAsync*(t: TimeDiff): Future[void] =
   sleepAsync(nanoseconds(
     if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
@@ -312,7 +259,6 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
         fatal "System time adjusted backwards significantly - clock may be inaccurate - shutting down",
           nextSlot = shortLog(nextSlot),
           wallSlot = shortLog(wallSlot)
-        bnStatus = BeaconNodeStatus.Stopping
         return
 
       # Time moved back by a single slot - this could be a minor adjustment,
@@ -351,102 +297,3 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
     curSlot = wallSlot
     nextSlot = wallSlot + 1
     timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
-
-proc init*(T: type RestServerRef,
-           ip: IpAddress,
-           port: Port,
-           allowedOrigin: Option[string],
-           validateFn: PatternCallback,
-           config: AnyConf): T =
-  let
-    address = initTAddress(ip, port)
-    serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
-                   HttpServerFlags.NotifyDisconnect}
-  # We increase default timeout to help validator clients who poll our server
-  # at least once per slot (12.seconds).
-  let
-    headersTimeout =
-      if config.restRequestTimeout == 0:
-        chronos.InfiniteDuration
-      else:
-        seconds(int64(config.restRequestTimeout))
-    maxHeadersSize = config.restMaxRequestHeadersSize * 1024
-    maxRequestBodySize = config.restMaxRequestBodySize * 1024
-
-  let res = RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
-                              address, serverFlags = serverFlags,
-                              httpHeadersTimeout = headersTimeout,
-                              maxHeadersSize = maxHeadersSize,
-                              maxRequestBodySize = maxRequestBodySize,
-                              errorType = string)
-  if res.isErr():
-    notice "REST HTTP server could not be started", address = $address,
-           reason = res.error()
-    nil
-  else:
-    let server = res.get()
-    notice "Starting REST HTTP server", url = "http://" & $server.localAddress()
-    server
-
-type
-  KeymanagerInitResult* = object
-    server*: RestServerRef
-    token*: string
-
-proc initKeymanagerServer*(
-    config: AnyConf,
-    existingRestServer: RestServerRef = nil): KeymanagerInitResult
-    {.raises: [].} =
-
-  var token: string
-  let keymanagerServer = if config.keymanagerEnabled:
-    if config.keymanagerTokenFile.isNone:
-      echo "To enable the Keymanager API, you must also specify " &
-           "the --keymanager-token-file option."
-      quit 1
-
-    let
-      tokenFilePath = config.keymanagerTokenFile.get.string
-      tokenFileReadRes = readAllChars(tokenFilePath)
-
-    if tokenFileReadRes.isErr:
-      fatal "Failed to read the keymanager token file",
-            error = $tokenFileReadRes.error
-      quit 1
-
-    token = tokenFileReadRes.value.strip
-    if token.len == 0:
-      fatal "The keymanager token should not be empty", tokenFilePath
-      quit 1
-
-    when config is BeaconNodeConf:
-      if existingRestServer != nil and
-         config.restAddress == config.keymanagerAddress and
-        config.restPort == config.keymanagerPort:
-        existingRestServer
-      else:
-        RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                           config.keymanagerAllowedOrigin,
-                           validateKeymanagerApiQueries,
-                           config)
-    else:
-      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                         config.keymanagerAllowedOrigin,
-                         validateKeymanagerApiQueries,
-                         config)
-  else:
-    nil
-
-  KeymanagerInitResult(server: keymanagerServer, token: token)
-
-proc quitDoppelganger*() =
-  # Avoid colliding with
-  # https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Process%20Exit%20Codes
-  # This error code is used to permanently shut down validators
-  fatal "Doppelganger detection triggered! It appears a validator loaded into " &
-    "this process is already live on the network - the validator is at high " &
-    "risk of being slashed due to the same keys being used in two setups. " &
-    "See https://nimbus.guide/doppelganger-detection.html for more information!"
-
-  const QuitDoppelganger = 129
-  quit QuitDoppelganger

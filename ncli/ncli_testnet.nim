@@ -1,10 +1,3 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 import
@@ -13,35 +6,25 @@ import
   web3, eth/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils], json_rpc/jsonmarshal,
   ../beacon_chain/conf,
-  ../beacon_chain/el/el_manager,
-  ../beacon_chain/networking/eth2_network,
   ../beacon_chain/spec/eth2_merkleization,
   ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-  ../beacon_chain/validators/keystore_management,
-  ./logtrace
+  ../beacon_chain/validators/keystore_management
 
 from std/os import changeFileExt, fileExists
-from std/sequtils import mapIt, toSeq
 from std/times import toUnix
 from ../beacon_chain/spec/beaconstate import initialize_beacon_state_from_eth1
-from ../tests/mocking/mock_genesis import mockEth1BlockHash
-
-# Compiled version of /scripts/depositContract.v.py in this repo
-# The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
-const depositContractCode =
-  hexToSeqByte staticRead "../beacon_chain/el/deposit_contract_code.txt"
 
 # For nim-confutils, which uses this kind of init(Type, value) pattern
 func init(T: type IpAddress, ip: IpAddress): T = ip
 
+const mockEth1BlockHash* =
+  Eth2Digest.fromHex("0x4242424242424242424242424242424242424242")
 type
   Eth1Address = web3.Address
 
   StartUpCommand {.pure.} = enum
     generateDeposits
     createTestnet
-    createTestnetEnr
     run
     sendDeposits
     analyzeLogs
@@ -116,12 +99,6 @@ type
         desc: "The number of validator deposits in the newly created chain"
         name: "total-validators" .}: uint64
 
-      bootstrapAddress* {.
-        desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "bootstrap-address" .}: IpAddress
-
       bootstrapPort* {.
         desc: "The TCP/UDP port that will be used by the bootstrap node"
         defaultValue: defaultEth2TcpPort
@@ -174,36 +151,6 @@ type
       outputBootstrapFile* {.
         desc: "Output file with list of bootstrap nodes for the network"
         name: "output-bootstrap-file" .}: OutFile
-
-    of StartUpCommand.createTestnetEnr:
-      inputBootstrapEnr* {.
-        desc: "Path to the bootstrap ENR"
-        name: "bootstrap-enr" .}: InputFile
-
-      enrDataDir* {.
-        desc: "Nimbus data directory where the keys of the node will be placed"
-        name: "data-dir" .}: OutDir
-
-      enrNetKeyFile* {.
-        desc: "Source of network (secp256k1) private key file"
-        name: "enr-netkey-file" .}: OutFile
-
-      enrNetKeyInsecurePassword* {.
-        desc: "Use pre-generated INSECURE password for network private key file"
-        defaultValue: false,
-        name: "insecure-netkey-password" .}: bool
-
-      enrAddress* {.
-        desc: "The public IP address of that ENR"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "enr-address" .}: IpAddress
-
-      enrPort* {.
-        desc: "The TCP/UDP port of that ENR"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "enr-port" .}: Port
 
     of StartUpCommand.sendDeposits:
       depositsFile* {.
@@ -283,8 +230,16 @@ contract(DepositContract):
                signature: SignatureBytes,
                deposit_data_root: FixedBytes[32])
 
+from ".."/beacon_chain/spec/datatypes/bellatrix import BloomLogs, ExecutionAddress
+
 template `as`(address: Eth1Address, T: type bellatrix.ExecutionAddress): T =
   T(data: distinctBase(address))
+
+func asEth2Digest*(x: BlockHash): Eth2Digest =
+  Eth2Digest(data: array[32, byte](x))
+
+template asBlockHash*(x: Eth2Digest): BlockHash =
+  BlockHash(x.data)
 
 template `as`(address: BlockHash, T: type Eth2Digest): T =
   asEth2Digest(address)
@@ -311,6 +266,8 @@ func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest)
 
+from ".."/beacon_chain/spec/datatypes/capella import ExecutionPayloadHeader
+
 func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
     fee_recipient: blk.miner as ExecutionAddress,
@@ -327,6 +284,8 @@ func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
     withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest)
+
+from ".."/beacon_chain/spec/datatypes/deneb import ExecutionPayloadHeader
 
 func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
   T(parent_hash: blk.parentHash as Eth2Digest,
@@ -347,6 +306,8 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
     excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
 
+from ".."/beacon_chain/spec/deposit_snapshots import DepositTreeSnapshot
+
 func createDepositTreeSnapshot(deposits: seq[DepositData],
                                blockHash: Eth2Digest,
                                blockHeight: uint64): DepositTreeSnapshot =
@@ -360,45 +321,9 @@ func createDepositTreeSnapshot(deposits: seq[DepositData],
     depositContractState: merkleizer.toDepositContractState,
     blockHeight: blockHeight)
 
-proc createEnr(rng: var HmacDrbgContext,
-               dataDir: string,
-               netKeyFile: string,
-               netKeyInsecurePassword: bool,
-               cfg: RuntimeConfig,
-               forkId: seq[byte],
-               address: IpAddress,
-               port: Port): enr.Record
-               {.raises: [CatchableError].} =
-  type MetaData = altair.MetaData
-  let
-    networkKeys = rng.getPersistentNetKeys(
-      dataDir, netKeyFile, netKeyInsecurePassword, allowLoadExisting = false)
-
-    netMetadata = MetaData()
-    bootstrapEnr = enr.Record.init(
-      1, # sequence number
-      networkKeys.seckey.asEthKey,
-      some(address),
-      some(port),
-      some(port),
-      [
-        toFieldPair(enrForkIdField, forkId),
-        toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
-      ])
-  bootstrapEnr.tryGet()
-
-proc doCreateTestnetEnr(config: CliConfig,
-                        rng: var HmacDrbgContext)
-                       {.raises: [CatchableError].} =
-  let
-    cfg = getRuntimeConfig(config.eth2Network)
-    bootstrapEnr = parseBootstrapAddress(toSeq(lines(string config.inputBootstrapEnr))[0]).get()
-    forkIdField = bootstrapEnr.tryGet(enrForkIdField, seq[byte]).get()
-    enr =
-      createEnr(rng, string config.enrDataDir, string config.enrNetKeyFile,
-        config.enrNetKeyInsecurePassword, cfg, forkIdField,
-        config.enrAddress, config.enrPort)
-  stderr.writeLine(enr.toURI)
+import ssz_serialization
+import ".."/beacon_chain/extras
+import ".."/beacon_chain/spec/ssz_codec
 
 proc doCreateTestnet*(config: CliConfig,
                       rng: var HmacDrbgContext)
@@ -429,17 +354,13 @@ proc doCreateTestnet*(config: CliConfig,
   var genesisBlock = BlockObject()
 
   if config.executionGenesisBlock.isSome:
-    logScope:
-      path = config.executionGenesisBlock.get.string
-
     if not fileExists(config.executionGenesisBlock.get.string):
       error "The specified execution genesis block file doesn't exist"
       quit 1
 
     let genesisBlockContents = readAllChars(config.executionGenesisBlock.get.string)
     if genesisBlockContents.isErr:
-      error "Failed to read the specified execution genesis block file",
-            err = genesisBlockContents.error
+      error "Failed to read the specified execution genesis block file"
       quit 1
 
     try:
@@ -468,9 +389,6 @@ proc doCreateTestnet*(config: CliConfig,
 
     let outSszGenesis = outGenesis.changeFileExt "ssz"
     SSZ.saveFile(outSszGenesis, initialState[])
-    info "SSZ genesis file written",
-          path = outSszGenesis, fork = kind(typeof initialState[])
-
     SSZ.saveFile(
       config.outputDepositTreeSnapshot.string,
       createDepositTreeSnapshot(
@@ -495,11 +413,6 @@ proc doCreateTestnet*(config: CliConfig,
         cfg,
         Epoch(0),
         genesisValidatorsRoot)
-      enr =
-        createEnr(rng, string config.dataDir, string config.netKeyFile,
-          config.netKeyInsecurePassword, cfg, SSZ.encode(forkId),
-          config.bootstrapAddress, config.bootstrapPort)
-    writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
 proc deployContract(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
@@ -657,10 +570,6 @@ when isMainModule:
     of StartUpCommand.createTestnet:
       let rng = HmacDrbgContext.new()
       doCreateTestnet(conf, rng[])
-
-    of StartUpCommand.createTestnetEnr:
-      let rng = HmacDrbgContext.new()
-      doCreateTestnetEnr(conf, rng[])
 
     of StartUpCommand.deployDepositContract:
       let web3 = await initWeb3(conf.web3Url, conf.privateKey)

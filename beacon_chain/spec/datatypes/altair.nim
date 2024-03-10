@@ -1,23 +1,8 @@
-# beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
-
-# Types specific to altair (i.e. known to have changed across hard forks) - see
-# `base` for types and guidelines common across forks
-
-# TODO Careful, not nil analysis is broken / incomplete and the semantics will
-#      likely change in future versions of the language:
-#      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
 import
   std/[typetraits, sets, hashes],
-  chronicles,
   stew/[bitops2, objects],
   "."/[base, phase0]
 
@@ -538,9 +523,6 @@ type
   SyncSubcommitteeIndex* = distinct uint8
   IndexInSyncCommittee* = distinct uint16
 
-chronicles.formatIt BeaconBlock: it.shortLog
-chronicles.formatIt SyncSubcommitteeIndex: uint8(it)
-
 template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto =
   a[i.asInt]
 
@@ -664,11 +646,6 @@ func shortLog*(v: SignedContributionAndProof): auto =
     signature: shortLog(v.signature)
   )
 
-chronicles.formatIt SyncCommitteeMessage: shortLog(it)
-chronicles.formatIt SyncCommitteeContribution: shortLog(it)
-chronicles.formatIt ContributionAndProof: shortLog(it)
-chronicles.formatIt SignedContributionAndProof: shortLog(it)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
@@ -708,11 +685,6 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot,
   )
-
-chronicles.formatIt LightClientBootstrap: shortLog(it)
-chronicles.formatIt LightClientUpdate: shortLog(it)
-chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
-chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
