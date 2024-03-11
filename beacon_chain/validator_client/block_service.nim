@@ -33,6 +33,19 @@ type
     blockRoot*: Eth2Digest
     data*: ForkedBlindedBeaconBlock
 
+func shortLog(v: Opt[UInt256]): auto =
+  if v.isNone(): "<not available>" else: toString(v.get, 10)
+
+func shortLog(v: ForkedMaybeBlindedBeaconBlock): auto =
+  withForkyMaybeBlindedBlck(v):
+    when consensusFork < ConsensusFork.Deneb:
+      shortLog(forkyMaybeBlindedBlck)
+    else:
+      when isBlinded:
+        shortLog(forkyMaybeBlindedBlck)
+      else:
+        shortLog(forkyMaybeBlindedBlck.`block`)
+
 proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
                   proposerKey: ValidatorPubKey) {.async.}
 
@@ -237,6 +250,15 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
     when isBlinded:
       let
         blockRoot = hash_tree_root(forkyMaybeBlindedBlck)
+
+      debug "Block produced",
+            block_type = "blinded",
+            block_root = shortLog(blockRoot),
+            blck = shortLog(maybeBlock),
+            execution_value = shortLog(maybeBlock.executionValue),
+            consensus_value = shortLog(maybeBlock.consensusValue)
+
+      let
         signingRoot =
           compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
         notSlashable = vc.attachedValidators[]
@@ -308,6 +330,15 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
           else:
             forkyMaybeBlindedBlck.`block`
         )
+
+      debug "Block produced",
+            block_type = "non-blinded",
+            block_root = shortLog(blockRoot),
+            blck = shortLog(maybeBlock),
+            execution_value = shortLog(maybeBlock.executionValue),
+            consensus_value = shortLog(maybeBlock.consensusValue)
+
+      let
         signingRoot =
           compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
         notSlashable = vc.attachedValidators[]

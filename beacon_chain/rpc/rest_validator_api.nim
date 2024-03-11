@@ -672,8 +672,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           message = (await PayloadType.makeBeaconBlockForHeadAndSlot(
               node, qrandao, proposer, qgraffiti, qhead, qslot)).valueOr:
             return RestApiResponse.jsonError(Http500, error)
-          executionValue = Opt.some(UInt256(message.blockValue))
-          consensusValue = Opt.none(UInt256)
+          executionValue = Opt.some(UInt256(message.executionPayloadValue))
+          consensusValue = Opt.some(UInt256(message.consensusBlockValue))
           headers = consensusFork.getMaybeBlindedHeaders(
             isBlinded = false, executionValue, consensusValue)
 

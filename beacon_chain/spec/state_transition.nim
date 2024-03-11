@@ -48,7 +48,7 @@ import
     beaconstate, eth2_merkleization, forks, helpers, signatures,
     state_transition_block, state_transition_epoch, validator]
 
-export results, extras
+export results, extras, state_transition_block
 
 logScope:
   topics = "state_transition"
@@ -382,7 +382,7 @@ func partialBeaconBlock*(
 
   res
 
-proc makeBeaconBlock*(
+proc makeBeaconBlockWithRewards*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -403,13 +403,15 @@ proc makeBeaconBlock*(
     transactions_root: Opt[Eth2Digest],
     execution_payload_root: Opt[Eth2Digest],
     kzg_commitments: Opt[KzgCommitments]):
-    Result[ForkedBeaconBlock, cstring] =
+    Result[tuple[blck: ForkedBeaconBlock, rewards: BlockRewards], cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
   ## the block is to be created.
 
-  template makeBeaconBlock(kind: untyped): Result[ForkedBeaconBlock, cstring] =
+  template makeBeaconBlock(
+      kind: untyped
+  ): Result[tuple[blck: ForkedBeaconBlock, rewards: BlockRewards], cstring] =
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
 
@@ -458,11 +460,10 @@ proc makeBeaconBlock*(
         else:
           static: raiseAssert "Unreachable"
 
-
     state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)
     blck.`kind Data`.state_root = state.`kind Data`.root
 
-    ok(blck)
+    ok((blck: blck, rewards: res.get))
 
   const payloadFork = typeof(executionPayload).kind
   when payloadFork == ConsensusFork.Bellatrix:
@@ -481,6 +482,28 @@ proc makeBeaconBlock*(
     else: raiseAssert "Attempt to use Deneb payload with non-Deneb state"
   else:
     {.error: "Unsupported fork".}
+
+proc makeBeaconBlock*(
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
+    proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data, graffiti: GraffitiBytes,
+    attestations: seq[Attestation], deposits: seq[Deposit],
+    validator_changes: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate,
+    executionPayload: ForkyExecutionPayloadForSigning,
+    rollback: RollbackForkedHashedProc, cache: var StateCache,
+    verificationFlags: UpdateFlags,
+    transactions_root: Opt[Eth2Digest],
+    execution_payload_root: Opt[Eth2Digest],
+    kzg_commitments: Opt[KzgCommitments]):
+    Result[ForkedBeaconBlock, cstring] =
+  let blockAndRewards =
+    ? makeBeaconBlockWithRewards(
+      cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
+      attestations, deposits, validator_changes, sync_aggregate,
+      executionPayload, rollback, cache, verificationFlags, transactions_root,
+      execution_payload_root, kzg_commitments)
+  ok(blockAndRewards.blck)
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,

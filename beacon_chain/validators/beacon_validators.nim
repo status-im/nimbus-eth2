@@ -76,13 +76,16 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
-  EngineBid = tuple[
-    blck: ForkedBeaconBlock,
-    blockValue: Wei,
-    blobsBundleOpt: Opt[BlobsBundle]]
+  EngineBid* = object
+    blck*: ForkedBeaconBlock
+    executionPayloadValue*: Wei
+    consensusBlockValue*: UInt256
+    blobsBundleOpt*: Opt[BlobsBundle]
 
-  BuilderBid[SBBB] = tuple[
-    blindedBlckPart: SBBB, blockValue: UInt256]
+  BuilderBid[SBBB] = object
+    blindedBlckPart*: SBBB
+    executionPayloadValue*: UInt256
+    consensusBlockValue*: UInt256
 
   ForkedBlockResult =
     Result[EngineBid, string]
@@ -103,6 +106,11 @@ proc getValidator*(validators: auto,
   else:
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
                                validator: validators[idx])
+
+func blockConsensusValue(r: BlockRewards): UInt256 {.noinit.} =
+  # Returns value of `block-consensus-value` in Wei units.
+  u256(r.attestations + r.sync_aggregate +
+    r.proposer_slashings + r.attester_slashings) * u256(1000000000)
 
 proc addValidatorsFromWeb3Signer(
     node: BeaconNode, web3signerUrl: Web3SignerUrl, epoch: Epoch)
@@ -494,7 +502,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         slot, validator_index
       return err("Unable to get execution payload")
 
-  let blck = makeBeaconBlock(
+  let res = makeBeaconBlockWithRewards(
       node.dag.cfg,
       state[],
       validator_index,
@@ -523,10 +531,16 @@ proc makeBeaconBlockForHeadAndSlot*(
   var blobsBundleOpt = Opt.none(BlobsBundle)
   when payload is deneb.ExecutionPayloadForSigning:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
-  return if blck.isOk:
-    ok((blck.get, payload.blockValue, blobsBundleOpt))
+
+  if res.isOk:
+    ok(EngineBid(
+      blck: res.get().blck,
+      executionPayloadValue: payload.blockValue,
+      consensusBlockValue: res.get().rewards.blockConsensusValue(),
+      blobsBundleOpt: blobsBundleOpt
+    ))
   else:
-    err(blck.error)
+    err(res.error)
 
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
@@ -578,11 +592,11 @@ proc getBlindedExecutionPayload[
 
     when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
       template builderBid: untyped = blindedHeader.data.message
-      return ok((
+      return ok(BuilderBid[EPH](
         blindedBlckPart: EPH(
           execution_payload_header: builderBid.header,
           blob_kzg_commitments: builderBid.blob_kzg_commitments),
-        blockValue: builderBid.value))
+        executionPayloadValue: builderBid.value))
     else:
       static: doAssert false
 
@@ -691,7 +705,7 @@ proc getBlindedBlockParts[
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes):
-    Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
+    Future[Result[(EPH, UInt256, UInt256, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
   let
     executionBlockHash = node.dag.loadExecutionBlockHash(head).valueOr:
@@ -776,7 +790,8 @@ proc getBlindedBlockParts[
 
   return ok(
     (executionPayloadHeader.get.blindedBlckPart,
-     executionPayloadHeader.get.blockValue,
+     executionPayloadHeader.get.executionPayloadValue,
+     forkedBlck.consensusBlockValue,
      forkedBlck.blck))
 
 proc getBuilderBid[SBBB: deneb_mev.SignedBlindedBeaconBlock](
@@ -801,7 +816,8 @@ proc getBuilderBid[SBBB: deneb_mev.SignedBlindedBeaconBlock](
 
   # These, together, get combined into the blinded block for signing and
   # proposal through the relay network.
-  let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
+  let (executionPayloadHeader, bidValue, consensusValue, forkedBlck) =
+    blindedBlockParts.get
 
   let unsignedBlindedBlock = getUnsignedBlindedBeaconBlock[SBBB](
     node, slot, validator_index, forkedBlck, executionPayloadHeader)
@@ -809,7 +825,11 @@ proc getBuilderBid[SBBB: deneb_mev.SignedBlindedBeaconBlock](
   if unsignedBlindedBlock.isErr:
     return err unsignedBlindedBlock.error()
 
-  return ok (unsignedBlindedBlock.get, bidValue)
+  ok(BuilderBid[SBBB](
+    blindedBlckPart: unsignedBlindedBlock.get,
+    executionPayloadValue: bidValue,
+    consensusBlockValue: consensusValue
+  ))
 
 proc proposeBlockMEV(
     node: BeaconNode, payloadBuilderClient: RestClientRef,
@@ -886,15 +906,20 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
     # Don't try EL fallback -- VC specifically requested a blinded block
     return err("Unable to create blinded block")
 
-  let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
+  let (executionPayloadHeader, bidValue, consensusValue, forkedBlck) =
+    blindedBlockParts.get
   withBlck(forkedBlck):
     when consensusFork >= ConsensusFork.Capella:
       when ((consensusFork == ConsensusFork.Deneb and
              EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle) or
             (consensusFork == ConsensusFork.Capella and
              EPH is capella.ExecutionPayloadHeader)):
-        return ok (constructPlainBlindedBlock[BBB](
-          forkyBlck, executionPayloadHeader), bidValue)
+        return ok(
+          BuilderBid[BBB](
+            blindedBlckPart:
+              constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
+            executionPayloadValue: bidValue,
+            consensusBlockValue: consensusValue))
       else:
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
     else:
@@ -1013,8 +1038,8 @@ proc proposeBlockAux(
       if collectedBids.builderBid.isSome():
         collectedBids.engineBid.isNone() or builderBetterBid(
           localBlockValueBoost,
-          collectedBids.builderBid.value().blockValue,
-          collectedBids.engineBid.value().blockValue)
+          collectedBids.builderBid.value().executionPayloadValue,
+          collectedBids.engineBid.value().executionPayloadValue)
       else:
         if not collectedBids.engineBid.isSome():
           return head   # errors logged in router
@@ -1035,14 +1060,14 @@ proc proposeBlockAux(
         localBlockValueBoost,
         useBuilderBlock,
         builderBlockValue =
-          toString(collectedBids.builderBid.value().blockValue, 10),
+          toString(collectedBids.builderBid.value().executionPayloadValue, 10),
         engineBlockValue =
-          toString(collectedBids.engineBid.value().blockValue, 10)
+          toString(collectedBids.engineBid.value().executionPayloadValue, 10)
     elif payloadBuilderClient.isNil:
       discard  # builder API not configured for this block
     else:
       info "Did not receive expected builder bid; using engine block",
-        engineBlockValue = collectedBids.engineBid.value().blockValue
+        engineBlockValue = collectedBids.engineBid.value().executionPayloadValue
   else:
     # Similar three cases: builder bid expected and absent, builder bid
     # expected and present, and builder bid not expected. However, only
@@ -1051,7 +1076,7 @@ proc proposeBlockAux(
     if collectedBids.builderBid.isSome:
       info "Did not receive expected engine bid; using builder block",
         builderBlockValue =
-          collectedBids.builderBid.value().blockValue
+          collectedBids.builderBid.value().executionPayloadValue
 
   if useBuilderBlock:
     let
@@ -1993,8 +2018,8 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
       if collectedBids.builderBid.isSome():
         collectedBids.engineBid.isNone() or builderBetterBid(
           localBlockValueBoost,
-          collectedBids.builderBid.value().blockValue,
-          collectedBids.engineBid.value().blockValue)
+          collectedBids.builderBid.value().executionPayloadValue,
+          collectedBids.engineBid.value().executionPayloadValue)
       else:
         if not(collectedBids.engineBid.isSome):
           return ResultType.err("Engine bid is not available")
@@ -2002,16 +2027,14 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
     engineBid = block:
       if useBuilderBlock:
-        let
-          blindedBid = collectedBids.builderBid.value()
-          payloadValue = blindedBid.blockValue
-
+        let blindedBid = collectedBids.builderBid.value()
         return ResultType.ok((
-          blck: consensusFork.MaybeBlindedBeaconBlock(
-            isBlinded: true,
-            blindedData: blindedBid.blindedBlckPart.message),
-          executionValue: Opt.some(payloadValue),
-          consensusValue: Opt.none(UInt256)))
+          blck:
+            consensusFork.MaybeBlindedBeaconBlock(
+              isBlinded: true,
+              blindedData: blindedBid.blindedBlckPart.message),
+          executionValue: Opt.some(blindedBid.executionPayloadValue),
+          consensusValue: Opt.some(blindedBid.consensusBlockValue)))
 
       collectedBids.engineBid.value()
 
@@ -2027,15 +2050,15 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
           `block`: forkyBlck,
           kzg_proofs: blobsBundle.proofs,
           blobs: blobsBundle.blobs)),
-      executionValue: Opt.some(engineBid.blockValue),
-      consensusValue: Opt.none(UInt256)))
+      executionValue: Opt.some(engineBid.executionPayloadValue),
+      consensusValue: Opt.some(engineBid.consensusBlockValue)))
   else:
     ResultType.ok((
       blck: consensusFork.MaybeBlindedBeaconBlock(
         isBlinded: false,
         data: forkyBlck),
-      executionValue: Opt.some(engineBid.blockValue),
-      consensusValue: Opt.none(UInt256)))
+      executionValue: Opt.some(engineBid.executionPayloadValue),
+      consensusValue: Opt.some(engineBid.consensusBlockValue)))
 
 proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     node: BeaconNode, consensusFork: static ConsensusFork,
