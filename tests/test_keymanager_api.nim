@@ -6,6 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.used.}
+{.push raises: [].}
+# TODO (cheatfate): This test is going to be rewrited from scratch.
+{.pop.}
 
 import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
