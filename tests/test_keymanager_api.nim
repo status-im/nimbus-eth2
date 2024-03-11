@@ -6,6 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.used.}
+{.push raises: [].}
 
 import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
@@ -116,7 +117,7 @@ func contains*(keylist: openArray[KeystoreInfo], key: ValidatorPubKey): bool =
   false
 
 func contains*(keylist: openArray[KeystoreInfo], key: string): bool =
-  let pubkey = ValidatorPubKey.fromHex(key).tryGet()
+  let pubkey = ValidatorPubKey.fromHex(key).get()
   contains(keylist, pubkey)
 
 proc prepareNetwork =
@@ -155,7 +156,11 @@ proc prepareNetwork =
   let launchPadDeposits =
     mapIt(deposits.value, LaunchPadDeposit.init(cfg, it))
 
-  Json.saveFile(depositsFile, launchPadDeposits)
+  try:
+    Json.saveFile(depositsFile, launchPadDeposits)
+  except CatchableError as exc:
+    raiseAssert exc.msg
+
   notice "Deposit data written", filename = depositsFile
 
   let runtimeConfigWritten = secureWriteFile(runtimeConfigFile, """
@@ -183,7 +188,10 @@ BELLATRIX_FORK_EPOCH: 0
   except Exception as exc: # TODO Fix confutils exceptions
     raiseAssert exc.msg
 
-  doCreateTestnet(createTestnetConf, rng[])
+  try:
+    doCreateTestnet(createTestnetConf, rng[])
+  except CatchableError as exc:
+    raiseAssert exc.msg
 
   let tokenFileRes = secureWriteFile(tokenFilePath, correctTokenValue)
   if tokenFileRes.isErr:
@@ -209,60 +217,63 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
              path = dstSecretsDir, err = ioErrorMsg(status.error)
       quit 1
 
-  var validatorIdx = 0
-  for validator in walkDir(validatorsDir):
-    if (validatorIdx < simulationDepositsCount div 2) == firstHalf:
-      let
-        currValidator = os.splitPath(validator.path).tail
-        secretFile = secretsDir / currValidator
-        secretRes = readAllChars(secretFile)
+  try:
+    var validatorIdx = 0
+    for validator in walkDir(validatorsDir):
+      if (validatorIdx < simulationDepositsCount div 2) == firstHalf:
+        let
+          currValidator = os.splitPath(validator.path).tail
+          secretFile = secretsDir / currValidator
+          secretRes = readAllChars(secretFile)
 
-      if secretRes.isErr:
-        fatal "Failed to read secret file",
-               path = secretFile, err = $secretRes.error
-        quit 1
+        if secretRes.isErr:
+          fatal "Failed to read secret file",
+                 path = secretFile, err = $secretRes.error
+          quit 1
 
-      let
-        dstSecretFile = dstSecretsDir / currValidator
-        secretFileStatus = secureWriteFile(dstSecretFile, secretRes.get)
+        let
+          dstSecretFile = dstSecretsDir / currValidator
+          secretFileStatus = secureWriteFile(dstSecretFile, secretRes.get)
 
-      if secretFileStatus.isErr:
-        fatal "Failed to write secret file",
-               path = dstSecretFile, err = $secretFileStatus.error
-        quit 1
+        if secretFileStatus.isErr:
+          fatal "Failed to write secret file",
+                 path = dstSecretFile, err = $secretFileStatus.error
+          quit 1
 
-      let
-        dstValidatorDir = dstDataDir / "validators" / currValidator
-        validatorDirRes = secureCreatePath(dstValidatorDir)
+        let
+          dstValidatorDir = dstDataDir / "validators" / currValidator
+          validatorDirRes = secureCreatePath(dstValidatorDir)
 
-      if validatorDirRes.isErr:
-        fatal "Failed to create validator dir",
-               path = dstValidatorDir, err = $validatorDirRes.error
-        quit 1
+        if validatorDirRes.isErr:
+          fatal "Failed to create validator dir",
+                 path = dstValidatorDir, err = $validatorDirRes.error
+          quit 1
 
-      let
-        keystoreFile = validatorsDir / currValidator / "keystore.json"
-        readKeystoreRes = readAllChars(keystoreFile)
+        let
+          keystoreFile = validatorsDir / currValidator / "keystore.json"
+          readKeystoreRes = readAllChars(keystoreFile)
 
-      if readKeystoreRes.isErr:
-        fatal "Failed to read keystore file",
-               path = keystoreFile, err = $readKeystoreRes.error
-        quit 1
+        if readKeystoreRes.isErr:
+          fatal "Failed to read keystore file",
+                 path = keystoreFile, err = $readKeystoreRes.error
+          quit 1
 
-      let
-        dstKeystore = dstValidatorDir / "keystore.json"
-        writeKeystoreRes = secureWriteFile(dstKeystore, readKeystoreRes.get)
+        let
+          dstKeystore = dstValidatorDir / "keystore.json"
+          writeKeystoreRes = secureWriteFile(dstKeystore, readKeystoreRes.get)
 
-      if writeKeystoreRes.isErr:
-        fatal "Failed to write keystore file",
-               path = dstKeystore, err = $writeKeystoreRes.error
-        quit 1
+        if writeKeystoreRes.isErr:
+          fatal "Failed to write keystore file",
+                 path = dstKeystore, err = $writeKeystoreRes.error
+          quit 1
 
-    inc validatorIdx
+      inc validatorIdx
+  except CatchableError as exc:
+    raiseAssert exc.msg
 
 proc addPreTestRemoteKeystores(validatorsDir: string) =
   for item in oldPublicKeys:
-    let key = ValidatorPubKey.fromHex(item).tryGet()
+    let key = ValidatorPubKey.fromHex(item).get()
     let res = saveKeystore(validatorsDir, key, oldPublicKeysUrl)
     if res.isErr():
       fatal "Failed to create remote keystore file",
