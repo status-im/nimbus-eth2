@@ -135,7 +135,6 @@ suite "Remove keystore testing suite":
       check keystore.remotes[0].id == 0
       check keystore.remotes[0].pubkey.toHex == "8b9c875fbe539c6429c4fc304675062579ce47fb6b2ac6b6a1ba1188ca123a80affbfe381dbbc8e7f2437709a4c3325c"
       check keystore.provenBlockProperties.len == 1
-      check keystore.provenBlockProperties[0].bellatrixIndex == some GeneralizedIndex(401)
       check keystore.provenBlockProperties[0].capellaIndex == some GeneralizedIndex(401)
       check keystore.provenBlockProperties[0].denebIndex == some GeneralizedIndex(801)
 
@@ -184,6 +183,5 @@ suite "Remove keystore testing suite":
       check keystore.remotes[2].pubkey.toHex == "8f5f9e305e7fcbde94182747f5ecec573d1786e8320a920347a74c0ff5e70f12ca22607c98fdc8dbe71161db59e0ac9d"
       check keystore.threshold == 2
       check keystore.provenBlockProperties.len == 1
-      check keystore.provenBlockProperties[0].bellatrixIndex == some GeneralizedIndex(401)
       check keystore.provenBlockProperties[0].capellaIndex == some GeneralizedIndex(401)
       check keystore.provenBlockProperties[0].denebIndex == some GeneralizedIndex(801)
