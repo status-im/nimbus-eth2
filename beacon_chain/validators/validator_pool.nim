@@ -506,7 +506,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                        ): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
   type SomeBlockBody =
-    bellatrix.BeaconBlockBody |
     capella.BeaconBlockBody |
     deneb.BeaconBlockBody |
     deneb_mev.BlindedBeaconBlockBody
@@ -567,24 +566,8 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
       elif blck is ForkedMaybeBlindedBeaconBlock:
         withForkyMaybeBlindedBlck(blck):
           # TODO why isn't this a case statement
-          when consensusFork < ConsensusFork.Bellatrix:
+          when consensusFork < ConsensusFork.Capella:
             return SignatureResult.err("Invalid beacon block fork")
-          elif consensusFork == ConsensusFork.Bellatrix:
-            when isBlinded:
-              return SignatureResult.err("Invalid blinded beacon block fork")
-            else:
-              case v.data.remoteType
-              of RemoteSignerType.Web3Signer:
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
-                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader))
-              of RemoteSignerType.VerifyingWeb3Signer:
-                let proofs = blockPropertiesProofs(
-                  blck.bellatrixData.body, bellatrixIndex)
-                Web3SignerRequest.init(fork, genesis_validators_root,
-                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
-                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader),
-                      proofs)
           elif consensusFork == ConsensusFork.Capella:
             when isBlinded:
               return SignatureResult.err("Invalid blinded beacon block fork")
@@ -632,21 +615,8 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                       proofs)
       else:
         case blck.kind
-        of ConsensusFork.Phase0, ConsensusFork.Altair:
+        of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
           return SignatureResult.err("Invalid beacon block fork")
-        of ConsensusFork.Bellatrix:
-          case v.data.remoteType
-          of RemoteSignerType.Web3Signer:
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
-                data: blck.bellatrixData.toBeaconBlockHeader))
-          of RemoteSignerType.VerifyingWeb3Signer:
-            let proofs = blockPropertiesProofs(
-              blck.bellatrixData.body, bellatrixIndex)
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
-                data: blck.bellatrixData.toBeaconBlockHeader),
-              proofs)
         of ConsensusFork.Capella:
           case v.data.remoteType
           of RemoteSignerType.Web3Signer:

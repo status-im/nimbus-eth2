@@ -229,11 +229,11 @@ proc installApiHandlers*(node: SigningNodeRef) =
 
         let (feeRecipientIndex, blockHeader) =
           case request.beaconBlockHeader.kind
-          of ConsensusFork.Phase0, ConsensusFork.Altair:
+          of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
             # `phase0` and `altair` blocks do not have `fee_recipient`, so
             # we return an error.
             return errorResponse(Http400, BlockIncorrectFork)
-          of ConsensusFork.Bellatrix, ConsensusFork.Capella:
+          of ConsensusFork.Capella:
             (GeneralizedIndex(401), request.beaconBlockHeader.data)
           of ConsensusFork.Deneb:
             (GeneralizedIndex(801), request.beaconBlockHeader.data)
