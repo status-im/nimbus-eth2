@@ -14,7 +14,7 @@ Compared to a full beacon node, a light client has several advantages and disadv
 
 | Feature | Beacon Node | Light Client |
 | -- | -- | -- |
-| Disk usage | ~70GB | **<1MB** |
+| Disk usage | ~200GB | **<1MB** |
 | Bandwidth | *TBD* | **TBD (low)** |
 | Sync time | Hours | **Seconds** |
 | Head delay | **None** | 4/3 slot (15 s) |
