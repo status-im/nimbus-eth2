@@ -5997,7 +5997,7 @@
         "x": 0,
         "y": 111
       },
-      "id": 89,
+      "id": 125,
       "options": {
         "legend": {
           "calcs": [],
@@ -6017,37 +6017,17 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS-PROXY}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_head_attester_miss_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]))*384",
-          "interval": "384s",
-          "legendFormat": "head",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS-PROXY}"
-          },
-          "exemplar": true,
-          "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_target_attester_miss_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]))*384",
-          "interval": "384s",
-          "legendFormat": "target",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS-PROXY}"
-          },
-          "exemplar": true,
-          "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_source_attester_miss_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]))*384",
+          "expr": "sum(rate(validator_monitor_block_miss_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]))*384",
           "hide": false,
           "interval": "384s",
-          "legendFormat": "source",
+          "legendFormat": "miss ({{validator}})",
+          "range": true,
           "refId": "C"
         }
       ],
-      "title": "Attestation misses",
+      "title": "Block misses",
       "type": "timeseries"
     },
     {
@@ -6146,6 +6126,141 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS-PROXY}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "source"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 119
+      },
+      "id": 89,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_head_attester_miss_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]))*384",
+          "interval": "384s",
+          "legendFormat": "head",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_target_attester_miss_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]))*384",
+          "interval": "384s",
+          "legendFormat": "target",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_source_attester_miss_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]))*384",
+          "hide": false,
+          "interval": "384s",
+          "legendFormat": "source",
+          "refId": "C"
+        }
+      ],
+      "title": "Attestation misses",
+      "type": "timeseries"
+    },
+    {
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
@@ -6155,7 +6270,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 119
+        "y": 127
       },
       "id": 75,
       "panels": [
@@ -6495,6 +6610,6 @@
   "timezone": "",
   "title": "NBC local testnet/sim (all nodes)",
   "uid": "pgeNfj2Wz23",
-  "version": 15,
+  "version": 16,
   "weekStart": ""
 }

@@ -149,6 +149,11 @@ declareCounter validator_monitor_proposer_slashing,
 declareCounter validator_monitor_attester_slashing,
   "Number of attester slashings seen", labels = ["src", "validator"]
 
+declareCounter validator_monitor_block_hit,
+  "Number of times a block proposed by the validator was included an epoch later", labels = ["validator"]
+declareCounter validator_monitor_block_miss,
+  "Number of times the validator was expected to propose a block but no block was included", labels = ["validator"]
+
 const
   total = "total" # what we use for label when using "totals" mode
 
@@ -405,11 +410,14 @@ func is_active_unslashed_in_previous_epoch(status: ParticipationInfo): bool =
   ParticipationFlag.eligible in status.flags
 
 proc registerEpochInfo*(
-    self: var ValidatorMonitor, epoch: Epoch, info: ForkedEpochInfo,
-    state: ForkyBeaconState) =
+    self: var ValidatorMonitor, state: ForkyBeaconState,
+    proposers: array[SLOTS_PER_EPOCH, Opt[ValidatorIndex]],
+    info: ForkedEpochInfo) =
   # Register rewards, as computed during the epoch transition that lands in
   # `epoch` - the rewards will be from attestations that were created at
   # `epoch - 2`.
+
+  let epoch = state.slot.epoch
 
   if epoch < 2 or self.monitors.len == 0:
     return
@@ -441,6 +449,24 @@ proc registerEpochInfo*(
         # or being exited/withdrawn. Do not attempt to report on its
         # attestations.
         continue
+
+      # Check that block proposals are sticky an epoch later
+      for i in 0..<SLOTS_PER_EPOCH:
+        let slot = prev_epoch.start_slot + i
+        if slot == 0:
+          continue
+
+        if proposers[i] == Opt.some(idx):
+          let hasBlock =
+            # When a block is missing in a slot, the beacon root repeats
+            get_block_root_at_slot(state, slot - 1) !=
+              get_block_root_at_slot(state, slot)
+          if hasBlock:
+            validator_monitor_block_hit.inc(1, [metricId])
+            info "Block proposal included", slot, validator = id
+          else:
+            validator_monitor_block_miss.inc(1, [metricId])
+            notice "Block proposal missing", slot, validator = id
 
       let
         previous_epoch_matched_source = status.is_previous_epoch_source_attester()

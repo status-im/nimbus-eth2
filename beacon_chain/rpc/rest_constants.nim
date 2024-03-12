@@ -241,6 +241,10 @@ const
     "The given Merkle proof is invalid"
   InvalidMerkleProofIndexError* =
     "The given Merkle proof index is invalid"
+  FailedToObtainForkVersionError* =
+    "Failed to obtain fork version"
+  FailedToObtainConsensusForkError* =
+    "Failed to obtain consensus fork information"
   FailedToObtainForkError* =
     "Failed to obtain fork information"
   InvalidTimestampValue* =
