@@ -586,9 +586,9 @@ type
 
       syncHorizon* {.
         hidden
-        desc: "Number of empty slots to process before considering the client out of sync"
-        defaultValue: MaxEmptySlotCount
-        defaultValueDesc: "50"
+        desc: "Number of empty slots to process before considering the client out of sync. Defaults to the number of slots in 10 minutes"
+        defaultValue: defaultSyncHorizon
+        defaultValueDesc: $defaultSyncHorizon
         name: "sync-horizon" .}: uint64
 
       terminalTotalDifficultyOverride* {.

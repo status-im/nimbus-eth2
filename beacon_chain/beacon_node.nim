@@ -103,9 +103,6 @@ type
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
 
-const
-  MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
-
 # TODO stew/sequtils2
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1

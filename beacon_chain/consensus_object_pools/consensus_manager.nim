@@ -278,8 +278,6 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   # the defaultSyncHorizon, it will start triggering in time so that potential
   # discrepancies between the head here, and the head the DAG has (which might
   # not yet be updated) won't be visible.
-  const defaultSyncHorizon = 50
-
   if dag.head.slot + defaultSyncHorizon < wallSlot:
     false
   else:
