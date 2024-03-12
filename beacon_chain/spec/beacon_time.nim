@@ -278,3 +278,6 @@ chronicles.formatIt TimeDiff: it.shortLog
 chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt SyncCommitteePeriod: it.shortLog
+
+const defaultSyncHorizon* =
+  (uint64(10*60) + SECONDS_PER_SLOT - 1) div SECONDS_PER_SLOT
