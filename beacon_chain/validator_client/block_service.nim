@@ -59,7 +59,7 @@ proc produceBlock(
   logScope:
     slot = slot
     wall_slot = currentSlot
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
   let
     produceBlockResponse =
       try:
@@ -120,7 +120,7 @@ proc produceBlindedBlock(
   logScope:
     slot = slot
     wall_slot = currentSlot
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
   let
     beaconBlock =
       try:
@@ -178,17 +178,17 @@ proc prepareRandao(vc: ValidatorClientRef, slot: Slot,
       timeElapsed = Moment.now() - start
     if rsig.isErr():
       debug "Unable to prepare RANDAO signature", epoch = epoch,
-            validator = shortLog(validator), elapsed_time = timeElapsed,
+            validator = validatorLog(validator), elapsed_time = timeElapsed,
             current_slot = currentSlot, destination_slot = destSlot,
             delay = vc.getDelay(deadline)
     else:
       debug "RANDAO signature has been prepared", epoch = epoch,
-            validator = shortLog(validator), elapsed_time = timeElapsed,
+            validator = validatorLog(validator), elapsed_time = timeElapsed,
             current_slot = currentSlot, destination_slot = destSlot,
             delay = vc.getDelay(deadline)
   else:
     debug "RANDAO signature preparation timed out", epoch = epoch,
-          validator = shortLog(validator),
+          validator = validatorLog(validator),
           current_slot = currentSlot, destination_slot = destSlot,
           delay = vc.getDelay(deadline)
 
@@ -225,7 +225,7 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
     vindex = validator.index.get()
 
   logScope:
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
     validator_index = vindex
     slot = slot
     wall_slot = currentSlot
@@ -419,7 +419,7 @@ proc publishBlockV2(vc: ValidatorClientRef, currentSlot, slot: Slot,
     vindex = validator.index.get()
 
   logScope:
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
     validator_index = vindex
     slot = slot
     wall_slot = currentSlot
@@ -642,7 +642,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     vindex = validator.index.get()
 
   logScope:
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
     validator_index = vindex
     slot = slot
     wall_slot = currentSlot
@@ -702,7 +702,7 @@ proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
     raise exc
   except CatchableError:
     error "Unexpected error encountered while proposing block",
-          slot = slot, validator = shortLog(validator)
+          slot = slot, validator = validatorLog(validator)
 
 proc contains(data: openArray[RestProposerDuty], task: ProposerTask): bool =
   for item in data:

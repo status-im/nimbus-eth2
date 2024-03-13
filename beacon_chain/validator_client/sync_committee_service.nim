@@ -37,20 +37,27 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
     vindex = duty.validator_index
     validator = vc.getValidatorForDuties(
       duty.pubkey, slot, slashingSafe = true).valueOr: return false
+
+  logScope:
+    validator = validatorLog(validator)
+    block_root = shortLog(beaconBlockRoot)
+    slot = slot
+
+  let
     message =
       block:
         let res = await getSyncCommitteeMessage(validator, fork,
                                                 genesisValidatorsRoot,
                                                 slot, beaconBlockRoot)
         if res.isErr():
-          warn "Unable to sign committee message using remote signer",
-               validator = shortLog(validator), slot = slot,
-               block_root = shortLog(beaconBlockRoot)
+          warn "Unable to sign committee message using remote signer"
           return
         res.get()
 
-  debug "Sending sync committee message", message = shortLog(message),
-        validator = shortLog(validator), validator_index = vindex,
+  logScope:
+    message = shortLog(message)
+
+  debug "Sending sync committee message",
         delay = vc.getDelay(message.slot.sync_committee_message_deadline())
 
   let res =
@@ -58,9 +65,6 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
       await vc.submitPoolSyncCommitteeSignature(message, ApiStrategyKind.First)
     except ValidatorApiError as exc:
       warn "Unable to publish sync committee message",
-           message = shortLog(message),
-           validator = shortLog(validator),
-           validator_index = vindex,
            reason = exc.getFailureReason()
       return false
     except CancelledError:
@@ -68,8 +72,7 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
       return false
     except CatchableError as exc:
       error "Unexpected error occurred while publishing sync committee message",
-            message = shortLog(message), validator = shortLog(validator),
-            validator_index = vindex, error = exc.name, reason = exc.msg
+            error = exc.name, reason = exc.msg
       return false
 
   let
@@ -80,11 +83,9 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
     beacon_sync_committee_messages_sent.inc()
     beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
     notice "Sync committee message published",
-           message = shortLog(message), validator = shortLog(validator),
            validator_index = vindex, delay = delay, duration = dur
   else:
     warn "Sync committee message was not accepted by beacon node",
-         message = shortLog(message), validator = shortLog(validator),
          validator_index = vindex, delay = delay, duration = dur
   res
 
@@ -151,6 +152,10 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     fork = vc.forkAtEpoch(slot.epoch)
 
+  logScope:
+    validator = validatorLog(validator)
+    contribution = shortLog(proof.contribution)
+
   let signature =
     block:
       let res =
@@ -162,22 +167,16 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
           return false
         except CatchableError as exc:
           error "Unexpected error occurred while signing sync contribution",
-                validator = shortLog(validator),
-                contribution = shortLog(proof.contribution),
                 error = exc.name, reason = exc.msg
           return false
 
       if res.isErr():
         warn "Unable to sign sync committee contribution using remote signer",
-             validator = shortLog(validator),
-             contribution = shortLog(proof.contribution),
              reason = res.error()
         return false
       res.get()
 
   debug "Sending sync contribution",
-        contribution = shortLog(proof.contribution),
-        validator = shortLog(validator), validator_index = validatorIdx,
         delay = vc.getDelay(slot.sync_contribution_deadline())
 
   let restSignedProof = RestSignedContributionAndProof.init(
@@ -189,31 +188,22 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
                                             ApiStrategyKind.First)
     except ValidatorApiError as exc:
       warn "Unable to publish sync contribution",
-           contribution = shortLog(proof.contribution),
-           validator = shortLog(validator), validator_index = validatorIdx,
-           reason = exc.msg, reason = exc.getFailureReason()
+           reason = exc.getFailureReason()
       false
     except CancelledError:
-      debug "Publication proces of sync contribution was interrupted"
+      debug "Publication process of sync contribution was interrupted"
       return false
     except CatchableError as err:
       error "Unexpected error occurred while publishing sync contribution",
-            contribution = shortLog(proof.contribution),
-            validator = shortLog(validator),
             error = err.name, reason = err.msg
       false
 
   let dur = Moment.now() - startTime
   if res:
     beacon_sync_committee_contributions_sent.inc()
-    notice "Sync contribution published",
-           validator = shortLog(validator), validator_index = validatorIdx,
-           duration = dur
+    notice "Sync contribution published", duration = dur
   else:
-    warn "Sync contribution was not accepted by beacon node",
-         contribution = shortLog(proof.contribution),
-         validator = shortLog(validator), validator_index = validatorIdx,
-         duration = dur
+    warn "Sync contribution was not accepted by beacon node", duration = dur
   res
 
 proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
@@ -223,6 +213,10 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
   let
     vc = service.client
     startTime = Moment.now()
+
+  logScope:
+    slot = slot
+    block_root = shortLog(beaconBlockRoot)
 
   var (contributions, pendingFutures, contributionsMap) =
     block:
@@ -285,8 +279,6 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
                     Opt.some(future.read())
                   except ValidatorApiError as exc:
                     warn "Unable to get sync message contribution data",
-                         slot = slot,
-                         beacon_block_root = shortLog(beaconBlockRoot),
                          reason = exc.getFailureReason()
                     Opt.none(SyncCommitteeContribution)
                   except CancelledError as exc:
@@ -295,8 +287,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
                     raise exc
                   except CatchableError as exc:
                     error "Unexpected error occurred while getting sync " &
-                          "message contribution", slot = slot,
-                      beacon_block_root = shortLog(beaconBlockRoot),
+                          "message contribution",
                       error = exc.name, reason = exc.msg
                     Opt.none(SyncCommitteeContribution)
 
@@ -347,10 +338,10 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
           failed_to_create = len(pendingAggregates) - len(contributions),
           failed_to_deliver = statistics[1],
           not_accepted = statistics[2],
-          delay = delay, duration = dur, slot = slot
+          delay = delay, duration = dur
 
   else:
-    debug "No contribution and proofs scheduled for the slot", slot = slot
+    debug "No contribution and proofs scheduled for the slot"
 
 proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                          slot: Slot,
@@ -360,9 +351,12 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
 
   await vc.waitForBlock(slot, syncCommitteeMessageSlotOffset)
 
+  logScope:
+    slot = slot
+
   block:
     let delay = vc.getDelay(slot.sync_committee_message_deadline())
-    debug "Producing sync committee messages", delay = delay, slot = slot,
+    debug "Producing sync committee messages", delay = delay,
           duties_count = len(duties)
 
   let beaconBlockRoot =
@@ -378,7 +372,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
           res.data.root
         else:
           if res.execution_optimistic.get():
-            notice "Execution client not in sync", slot = slot
+            notice "Execution client not in sync"
             return
           res.data.root
       except ValidatorApiError as exc:
@@ -390,14 +384,14 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
         return
       except CatchableError as exc:
         error "Unexpected error while requesting sync message block root",
-              error = exc.name, reason = exc.msg, slot = slot
+              error = exc.name, reason = exc.msg
         return
 
   try:
     await service.produceAndPublishSyncCommitteeMessages(
       slot, beaconBlockRoot, duties)
   except ValidatorApiError as exc:
-    warn "Unable to proceed sync committee messages", slot = slot,
+    warn "Unable to proceed sync committee messages",
          duties_count = len(duties), reason = exc.getFailureReason()
     return
   except CancelledError:
@@ -405,8 +399,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     return
   except CatchableError as exc:
     error "Unexpected error while producing sync committee messages",
-          slot = slot, duties_count = len(duties),
-          error = exc.name, reason = exc.msg
+          duties_count = len(duties), error = exc.name, reason = exc.msg
     return
 
   let currentTime = vc.beaconClock.now()
@@ -428,8 +421,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     return
   except CatchableError as exc:
     error "Unexpected error while producing sync committee contributions",
-          slot = slot, duties_count = len(duties),
-          error = exc.name, reason = exc.msg
+          duties_count = len(duties), error = exc.name, reason = exc.msg
     return
 
 proc processSyncCommitteeTasks(service: SyncCommitteeServiceRef,
@@ -439,12 +431,15 @@ proc processSyncCommitteeTasks(service: SyncCommitteeServiceRef,
     duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
     timeout = vc.beaconClock.durationToNextSlot()
 
+  logScope:
+    slot = slot
+
   try:
     await service.publishSyncMessagesAndContributions(slot,
                                                       duties).wait(timeout)
   except AsyncTimeoutError:
     warn "Unable to publish sync committee messages and contributions in time",
-         slot = slot, timeout = timeout
+         timeout = timeout
   except CancelledError as exc:
     debug "Sync committee publish task has been interrupted"
     raise exc

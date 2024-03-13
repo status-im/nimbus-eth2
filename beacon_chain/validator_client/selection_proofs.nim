@@ -494,7 +494,7 @@ proc fillSyncCommitteeSelectionProofs*(
                 warn "Found sync committee selection proof which was not " &
                      "requested",
                      slot = slot, subcommittee_index = subcommittee_index,
-                     validator = shortLog(validator),
+                     validator = validatorLog(validator),
                      selection_proof = shortLog(selection.selection_proof)
                 continue
               res.get()
