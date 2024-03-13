@@ -217,7 +217,7 @@ proc fillAttestationSelectionProofs*(
                 notice "Found missing validator while processing " &
                        "beacon committee selections", validator_index = vindex,
                        slot = selection.slot,
-                       validator = shortLog(key.get()),
+                       pubkey = shortLog(key.get()),
                        selection_proof = shortLog(selection.selection_proof)
                 continue
 
@@ -483,7 +483,7 @@ proc fillSyncCommitteeSelectionProofs*(
                 notice "Found missing validator while processing " &
                        "sync committee selections", validator_index = vindex,
                        slot = slot,
-                       validator = shortLog(key.get()),
+                       pubkey = shortLog(key.get()),
                        selection_proof = shortLog(selection.selection_proof)
                 continue
           request =

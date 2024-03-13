@@ -698,7 +698,7 @@ proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
     await vc.publishBlock(currentSlot, slot, validator)
   except CancelledError as exc:
     debug "Block proposing process was interrupted",
-          slot = slot, validator = shortLog(proposerKey)
+          slot = slot, validator = validatorLog(validator)
     raise exc
   except CatchableError:
     error "Unexpected error encountered while proposing block",
@@ -723,12 +723,12 @@ proc checkDuty(duty: RestProposerDuty, epoch: Epoch, slot: Slot): bool =
       true
     else:
       warn "Block proposal duty is in the far future, ignoring",
-           duty_slot = duty.slot, validator = shortLog(duty.pubkey),
+           duty_slot = duty.slot, pubkey = shortLog(duty.pubkey),
            wall_slot = slot, last_slot_in_epoch = (lastSlot - 1'u64)
       false
   else:
     warn "Block proposal duty is in the past, ignoring", duty_slot = duty.slot,
-         validator = shortLog(duty.pubkey), wall_slot = slot
+         pubkey = shortLog(duty.pubkey), wall_slot = slot
     false
 
 proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
@@ -755,20 +755,20 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
               # Task is no more relevant, so cancel it.
               debug "Cancelling running proposal duty tasks",
                     slot = task.duty.slot,
-                    validator = shortLog(task.duty.pubkey)
+                    pubkey = shortLog(task.duty.pubkey)
               task.proposeFut.cancelSoon()
               task.randaoFut.cancelSoon()
             else:
               # If task is already running for proper slot, we keep it alive.
               debug "Keep running previous proposal duty tasks",
                     slot = task.duty.slot,
-                    validator = shortLog(task.duty.pubkey)
+                    pubkey = shortLog(task.duty.pubkey)
               res.add(task)
 
           for duty in duties:
             if duty notin res:
-              debug "New proposal duty received", slot = duty.slot,
-                    validator = shortLog(duty.pubkey)
+              info "Received new proposer duty", slot = duty.slot,
+                    pubkey = shortLog(duty.pubkey)
               if checkDuty(duty, epoch, currentSlot):
                 let task = vc.spawnProposalTask(duty)
                 if duty.slot in hashset:
@@ -789,8 +789,8 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
         var hashset = initHashSet[Slot]()
         var res: seq[ProposerTask]
         for duty in duties:
-          debug "New proposal duty received", slot = duty.slot,
-                validator = shortLog(duty.pubkey)
+          info "Received new proposer duty", slot = duty.slot,
+                pubkey = shortLog(duty.pubkey)
           if checkDuty(duty, epoch, currentSlot):
             let task = vc.spawnProposalTask(duty)
             if duty.slot in hashset:

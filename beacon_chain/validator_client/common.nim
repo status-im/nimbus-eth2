@@ -1003,7 +1003,7 @@ proc getValidatorRegistration(
      ): Result[PendingValidatorRegistration, RegistrationKind] =
   if validator.index.isNone():
     debug "Validator registration missing validator index",
-          validator = shortLog(validator)
+          validator = validatorLog(validator)
     return err(RegistrationKind.MissingIndex)
 
   let
@@ -1039,13 +1039,13 @@ proc getValidatorRegistration(
       if not(sigfut.completed()):
         let exc = sigfut.error()
         debug "Got unexpected exception while signing validator registration",
-              validator = shortLog(validator), error_name = $exc.name,
-              error_msg = $exc.msg
+              validator = validatorLog(validator), error = exc.name,
+              reason = exc.msg
         return err(RegistrationKind.ErrorSignature)
       let sigres = sigfut.value()
       if sigres.isErr():
         debug "Failed to get signature for validator registration",
-              validator = shortLog(validator), error = sigres.error()
+              validator = validatorLog(validator), reason = sigres.error()
         return err(RegistrationKind.NoSignature)
       registration.signature = sigres.get()
       # Updating cache table with new signed registration data
