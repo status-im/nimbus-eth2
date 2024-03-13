@@ -211,7 +211,7 @@ typedef struct ETHForkDigests ETHForkDigests;
  * Creates a fork digests cache for a given beacon state.
  *
  * - The fork digests cache must be destroyed with `ETHForkDigestsDestroy`
- *    once no longer needed, to release memory.
+ *   once no longer needed, to release memory.
  *
  * @param      cfg                  Ethereum Consensus Layer network configuration.
  * @param      state                Beacon state.
@@ -244,13 +244,15 @@ typedef struct ETHBeaconClock ETHBeaconClock;
  * - The beacon clock must be destroyed with `ETHBeaconClockDestroy`
  *   once no longer needed, to release memory.
  *
+ * @param      cfg                  Ethereum Consensus Layer network configuration.
  * @param      state                Beacon state.
  *
  * @return Pointer to an initialized beacon clock based on the beacon state or
  *         NULL if the state contained an invalid time.
  */
 ETH_RESULT_USE_CHECK
-ETHBeaconClock *ETHBeaconClockCreateFromState(const ETHBeaconState *state);
+ETHBeaconClock *ETHBeaconClockCreateFromState(
+    const ETHConsensusConfig *cfg, const ETHBeaconState *state);
 
 /**
  * Destroys a beacon clock.

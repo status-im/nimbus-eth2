@@ -230,6 +230,7 @@ proc ETHForkDigestsDestroy(forkDigests: ptr ForkDigests) {.exported.} =
   forkDigests.destroy()
 
 proc ETHBeaconClockCreateFromState(
+    cfg: ptr RuntimeConfig,
     state: ptr ForkedHashedBeaconState): ptr BeaconClock {.exported.} =
   ## Creates a beacon clock for a given beacon state's `genesis_time` field.
   ##
@@ -237,11 +238,12 @@ proc ETHBeaconClockCreateFromState(
   ##   once no longer needed, to release memory.
   ##
   ## Parameters:
+  ## * `cfg` - Ethereum Consensus Layer network configuration.
   ## * `state` - Beacon state.
   ##
   ## Returns:
-  ## * Pointer to an initialized beacon clock based on the beacon state or NULL
-  ##   if the state contained an invalid time.
+  ## * Pointer to an initialized beacon clock based on the beacon state or
+  ##   NULL if the state contained an invalid time.
   let beaconClock = BeaconClock.new()
   beaconClock[] =
     BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
