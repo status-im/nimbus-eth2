@@ -102,17 +102,20 @@ func parentOrSlot*(bs: BlockSlot): BlockSlot =
   else:
     BlockSlot(blck: bs.blck, slot: bs.slot - 1)
 
+# This is used to detect internal inconsistencies, e.g., circular references.
+# Note that `BlockRef` is only used for the non-finalized chain segment.
+const defaultMaxDepth = 1'i64 shl 24  # More than enough for years
+
 func getDepth*(a, b: BlockRef): tuple[ancestor: bool, depth: int] =
   var b = b
   var depth = 0
-  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
   while true:
     if a == b:
       return (true, depth)
 
     # for now, use an assert for block chain length since a chain this long
     # indicates a circular reference here..
-    doAssert depth < maxDepth
+    doAssert depth < defaultMaxDepth
     depth += 1
 
     if a.slot >= b.slot or b.parent.isNil:
@@ -132,9 +135,8 @@ func link*(parent, child: BlockRef) =
 
   child.parent = parent
 
-func get_ancestor*(blck: BlockRef, slot: Slot,
-    maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
-    BlockRef =
+func get_ancestor*(
+    blck: BlockRef, slot: Slot, maxDepth = defaultMaxDepth): BlockRef =
   ## https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
