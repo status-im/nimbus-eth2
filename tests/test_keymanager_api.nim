@@ -7,7 +7,7 @@
 
 {.used.}
 {.push raises: [].}
-# TODO (cheatfate): This test is going to be rewrited from scratch.
+# TODO (cheatfate): This test is going to be rewritten from scratch.
 {.pop.}
 
 import
