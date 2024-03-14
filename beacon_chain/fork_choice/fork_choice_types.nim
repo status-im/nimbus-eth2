@@ -109,6 +109,7 @@ type
     bid*: BlockId
     parent*: Option[Index]
     checkpoints*: FinalityCheckpoints
+    sharedFinalizedEpoch*: Epoch
     weight*: int64
     invalid*: bool
     bestChild*: Option[Index]
