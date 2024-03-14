@@ -33,7 +33,8 @@ import
     validator],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance, attestation_pool,
-    sync_committee_msg_pool, validator_change_pool, consensus_manager],
+    sync_committee_msg_pool, validator_change_pool, consensus_manager,
+    common_tools],
   ../el/el_manager,
   ../networking/eth2_network,
   ../sszdump, ../sync/sync_manager,
@@ -220,6 +221,11 @@ proc getValidatorForDuties*(
 
   node.attachedValidators[].getValidatorForDuties(
     key.toPubKey(), slot, slashingSafe)
+
+proc getGraffitiBytes*(
+    node: BeaconNode, validator: AttachedValidator): GraffitiBytes =
+  getGraffiti(node.config.validatorsDir, node.config.defaultGraffitiBytes(),
+              validator.pubkey)
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ## TODO This function is here as a placeholder for some better heurestics to
@@ -797,7 +803,7 @@ proc getBlindedBlockParts[
 proc getBuilderBid[SBBB: deneb_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     validator_pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
-    validator_index: ValidatorIndex):
+    graffitiBytes: GraffitiBytes, validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async: (raises: [CancelledError]).} =
   ## Returns the unsigned blinded block obtained from the Builder API.
   ## Used by the BN's own validators, but not the REST server
@@ -808,7 +814,7 @@ proc getBuilderBid[SBBB: deneb_mev.SignedBlindedBeaconBlock](
 
   let blindedBlockParts = await getBlindedBlockParts[EPH](
     node, payloadBuilderClient, head, validator_pubkey, slot, randao,
-    validator_index, node.graffitiBytes)
+    validator_index, graffitiBytes)
   if blindedBlockParts.isErr:
     # Not signed yet, fine to try to fall back on EL
     beacon_block_builder_missed_with_fallback.inc()
@@ -949,7 +955,8 @@ proc collectBids(
       if usePayloadBuilder:
         when not (EPS is bellatrix.ExecutionPayloadForSigning):
           getBuilderBid[SBBB](node, payloadBuilderClient, head,
-                              validator_pubkey, slot, randao, validator_index)
+                              validator_pubkey, slot, randao, graffitiBytes,
+                              validator_index)
         else:
           let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
           fut.complete(BlindedBlockResult[SBBB].err(
@@ -1027,12 +1034,13 @@ proc proposeBlockAux(
     genesis_validators_root: Eth2Digest,
     localBlockValueBoost: uint8): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
+    graffitiBytes = node.getGraffitiBytes(validator)
     payloadBuilderClient =
       node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
 
     collectedBids = await collectBids(
       SBBB, EPS, node, payloadBuilderClient, validator.pubkey, validator_index,
-      node.graffitiBytes, head, slot, randao)
+      graffitiBytes, head, slot, randao)
 
     useBuilderBlock =
       if collectedBids.builderBid.isSome():

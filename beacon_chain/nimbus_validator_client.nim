@@ -391,6 +391,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         vc.config.secretsDir,
         vc.config.defaultFeeRecipient,
         vc.config.suggestedGasLimit,
+        vc.config.defaultGraffitiBytes,
         Opt.none(string),
         nil,
         vc.beaconClock.getBeaconTimeFn,

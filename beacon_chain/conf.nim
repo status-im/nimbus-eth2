@@ -1435,6 +1435,12 @@ func defaultFeeRecipient*(conf: AnyConf): Opt[Eth1Address] =
     # https://github.com/nim-lang/Nim/issues/19802
     (static(Opt.none Eth1Address))
 
+func defaultGraffitiBytes*(conf: AnyConf): GraffitiBytes =
+  if conf.graffiti.isSome:
+    conf.graffiti.get
+  else:
+    defaultGraffitiBytes()
+
 proc loadJwtSecret(
     rng: var HmacDrbgContext,
     dataDir: string,

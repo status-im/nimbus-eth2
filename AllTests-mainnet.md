@@ -533,6 +533,17 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Graffiti management [Beacon Node] [Preset: mainnet]
+```diff
++ Configuring the graffiti [Beacon Node] [Preset: mainnet]                                   OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
++ Obtaining the graffiti of a missing validator returns 404 [Beacon Node] [Preset: mainnet]  OK
++ Obtaining the graffiti of an unconfigured validator returns the suggested default [Beacon  OK
++ Setting the graffiti on a missing validator creates a record for it [Beacon Node] [Preset: OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
@@ -1006,4 +1017,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 675/680 Fail: 0/680 Skip: 5/680
+OK: 682/687 Fail: 0/687 Skip: 5/687
