@@ -31,7 +31,7 @@ from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 export json_serialization, base, kzg4844
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -62,7 +62,7 @@ type
     blockValue*: Wei
     blobsBundle*: BlobsBundle
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -322,7 +322,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data

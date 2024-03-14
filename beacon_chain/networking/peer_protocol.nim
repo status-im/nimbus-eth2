@@ -58,7 +58,7 @@ func forkDigestAtEpoch(state: PeerSyncNetworkState,
                        epoch: Epoch): ForkDigest =
   state.forkDigests[].atEpoch(epoch, state.cfg)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/p2p-interface.md#status
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#status
 proc getCurrentStatus(state: PeerSyncNetworkState): StatusMsg =
   let
     dag = state.dag
@@ -103,7 +103,7 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg):
   if state.forkDigestAtEpoch(wallSlot.epoch) != status.forkDigest:
     return err("fork digests differ")
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/p2p-interface.md#status
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#status
   if dag != nil:
     if status.finalizedEpoch <= dag.finalizedHead.slot.epoch:
       let blockId = dag.getBlockIdAtSlot(status.finalizedEpoch.start_slot())
@@ -170,7 +170,7 @@ p2pProtocol PeerSync(version = 1,
     {.libp2pProtocol("ping", 1).} =
     peer.network.metadata.seq_number
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/p2p-interface.md#transitioning-from-v1-to-v2
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#transitioning-from-v1-to-v2
   proc getMetaData(peer: Peer): uint64
     {.libp2pProtocol("metadata", 1).} =
     raise newException(InvalidInputsError, "GetMetaData v1 unsupported")

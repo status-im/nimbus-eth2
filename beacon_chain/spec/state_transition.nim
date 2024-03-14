@@ -371,7 +371,7 @@ func partialBeaconBlock*(
   when consensusFork >= ConsensusFork.Bellatrix:
     res.body.execution_payload = execution_payload.executionPayload
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/capella/validator.md#block-proposal
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/validator.md#block-proposal
   when consensusFork >= ConsensusFork.Capella:
     res.body.bls_to_execution_changes =
       validator_changes.bls_to_execution_changes
@@ -440,7 +440,7 @@ proc makeBeaconBlockWithRewards*(
             transactions_root.get
 
           when executionPayload is deneb.ExecutionPayloadForSigning:
-            # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#beaconblockbody
+            # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
               [hash_tree_root(randao_reveal),
                hash_tree_root(eth1_data),

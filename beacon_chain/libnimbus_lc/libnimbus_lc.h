@@ -94,7 +94,7 @@ typedef struct ETHConsensusConfig ETHConsensusConfig;
  *         based on the given `config.yaml` file content - If successful.
  * @return `NULL` - If the given `config.yaml` is malformed or incompatible.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/configs/README.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/configs/README.md
  */
 ETH_RESULT_USE_CHECK
 ETHConsensusConfig *ETHConsensusConfigCreateFromYaml(const char *configFileContent);
@@ -150,10 +150,10 @@ typedef struct ETHBeaconState ETHBeaconState;
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/configs/README.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/configs/README.md
  */
 ETH_RESULT_USE_CHECK
 ETHBeaconState *ETHBeaconStateCreateFromSsz(
@@ -325,8 +325,8 @@ typedef struct ETHLightClientStore ETHLightClientStore;
  *
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/light-client/light-client.md
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/light-client.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
  */
 ETH_RESULT_USE_CHECK
 ETHLightClientStore *ETHLightClientStoreCreateFromBootstrap(
@@ -598,7 +598,7 @@ const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(
  * @return Whether or not the next sync committee is currently known.
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/light-client/light-client.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/light-client.md
  */
 ETH_RESULT_USE_CHECK
 bool ETHLightClientStoreIsNextSyncCommitteeKnown(const ETHLightClientStore *store);
@@ -775,7 +775,7 @@ const ETHRoot *ETHBeaconBlockHeaderGetBodyRoot(const ETHBeaconBlockHeader *beaco
  *
  * @return Pointer to a copy of the given header's execution block hash.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#executionpayloadheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
  */
 ETH_RESULT_USE_CHECK
 ETHRoot *ETHLightClientHeaderCopyExecutionHash(
@@ -798,7 +798,7 @@ typedef struct ETHExecutionPayloadHeader ETHExecutionPayloadHeader;
  *
  * @return Execution payload header.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#executionpayloadheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
  */
 ETH_RESULT_USE_CHECK
 const ETHExecutionPayloadHeader *ETHLightClientHeaderGetExecution(

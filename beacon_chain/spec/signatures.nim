@@ -59,7 +59,7 @@ func compute_epoch_signing_root*(
   let domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
   compute_signing_root(epoch, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     privkey: ValidatorPrivKey): CookedSig =
@@ -86,7 +86,7 @@ func compute_block_signing_root*(
       fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
   compute_signing_root(blck, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#signature
 func get_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     root: Eth2Digest, privkey: ValidatorPrivKey): CookedSig =
@@ -115,7 +115,7 @@ func compute_aggregate_and_proof_signing_root*(
       fork, DOMAIN_AGGREGATE_AND_PROOF, epoch, genesis_validators_root)
   compute_signing_root(aggregate_and_proof, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/validator.md#broadcast-aggregate
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
                                         aggregate_and_proof: AggregateAndProof,
                                         privkey: ValidatorPrivKey): CookedSig =
@@ -143,7 +143,7 @@ func compute_attestation_signing_root*(
       fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
   compute_signing_root(attestation_data, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
@@ -268,7 +268,7 @@ proc verify_voluntary_exit_signature*(
 
     blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#prepare-sync-committee-message
 func compute_sync_committee_message_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, beacon_block_root: Eth2Digest): Eth2Digest =
@@ -303,7 +303,7 @@ proc verify_sync_committee_signature*(
 
   blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#aggregation-selection
 func compute_sync_committee_selection_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, subcommittee_index: SyncSubcommitteeIndex): Eth2Digest =
@@ -334,7 +334,7 @@ proc verify_sync_committee_selection_proof*(
 
     blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#signature
 func compute_contribution_and_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     msg: ContributionAndProof): Eth2Digest =
@@ -352,7 +352,7 @@ proc get_contribution_and_proof_signature*(
 
   blsSign(privkey, signing_root.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#aggregation-selection
 func is_sync_committee_aggregator*(signature: ValidatorSig): bool =
   let
     signatureDigest = eth2digest(signature.blob)

@@ -398,7 +398,7 @@ proc collectSignatureSets*(
 
       sigs.add voluntary_exit_signature_set(
         # https://eips.ethereum.org/EIPS/eip-7044
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
         voluntary_exit_fork, genesis_validators_root, volex.message, key,
         volex.signature.load.valueOr do:
           return err(

@@ -69,7 +69,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to an Altair BeaconState for in-place SSZ
   # reading and writing
   AltairBeaconStateNoImmutableValidators* = object
@@ -127,7 +127,7 @@ type
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a Bellatrix BeaconState for in-place SSZ
   # reading and writing
   BellatrixBeaconStateNoImmutableValidators* = object
