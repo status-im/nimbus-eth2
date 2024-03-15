@@ -82,9 +82,9 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
                                        childIdx: Index): FcResult[void]
 
 func nodeIsViableForHead(
-    self: ProtoArray, node: ProtoNode, nodeIdx: Index): bool
+    self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool
 func nodeLeadsToViableHead(
-    self: ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool]
+    self: var ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool]
 
 # ProtoArray routines
 # ----------------------------------------------------------------------
@@ -158,6 +158,11 @@ func applyScoreChanges*(self: var ProtoArray,
       indicesLen: self.indices.len)
 
   self.currentEpoch = currentEpoch
+
+  doAssert checkpoints.finalized.epoch >= self.checkpoints.finalized.epoch
+  doAssert checkpoints.finalized.epoch > self.checkpoints.finalized.epoch or
+    checkpoints.finalized.root == self.checkpoints.finalized.root or
+    self.checkpoints.finalized.epoch == GENESIS_EPOCH
   self.checkpoints = checkpoints
 
   ## Alias
@@ -499,7 +504,7 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
   ok()
 
 func nodeLeadsToViableHead(
-    self: ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool] =
+    self: var ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool] =
   ## Indicates if the node itself or its best-descendant are viable
   ## for blockchain head
   let bestDescendantIsViableForHead = block:
@@ -517,7 +522,7 @@ func nodeLeadsToViableHead(
   ok(bestDescendantIsViableForHead or self.nodeIsViableForHead(node, nodeIdx))
 
 func nodeIsViableForHead(
-    self: ProtoArray, node: ProtoNode, nodeIdx: Index): bool =
+    self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool =
   ## This is the equivalent of `filter_block_tree` function in consensus specs
   ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#filter_block_tree
 
@@ -554,18 +559,38 @@ func nodeIsViableForHead(
       false
     elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
       true
+    elif node.sharedFinalizedEpoch == self.checkpoints.finalized.epoch:
+      # Already checked to share history with `self.checkpoints.finalized`.
+      # `self.checkpoints.finalized` cannot reorg, see `applyScoreChanges`
+      true
     else:
-      let finalizedSlot = self.checkpoints.finalized.epoch.start_slot
+      # Check that this node is not going to be pruned
+      let 
+        finalizedEpoch = self.checkpoints.finalized.epoch
+        finalizedSlot = finalizedEpoch.start_slot
       var ancestor = some node
-      while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot:
+      while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot and
+          ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch:
         if ancestor.unsafeGet.parent.isSome:
           ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
         else:
           ancestor.reset()
-      if ancestor.isSome:
-        ancestor.unsafeGet.bid.root == self.checkpoints.finalized.root
-      else:
+      if ancestor.isNone:
         false
+      elif ancestor.unsafeGet.sharedFinalizedEpoch != finalizedEpoch and
+          ancestor.unsafeGet.bid.root != self.checkpoints.finalized.root:
+        false
+      else:
+        # An ancestor was already checked to share canonical history,
+        # or we reached the `finalizedSlot` and the root matches expectations
+        let ancestorSlot = ancestor.unsafeGet.bid.slot
+        var idx = nodeIdx
+        template mutableNode: untyped = self.nodes.buf[idx - self.nodes.offset]
+        while mutableNode.bid.slot > ancestorSlot:
+          mutableNode.sharedFinalizedEpoch = finalizedEpoch
+          idx = mutableNode.parent.unsafeGet
+        mutableNode.sharedFinalizedEpoch = finalizedEpoch
+        true
 
 func propagateInvalidity*(
     self: var ProtoArray, startPhysicalIdx: Index) =
