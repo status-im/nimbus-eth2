@@ -62,7 +62,7 @@ proc makeDeposit*(
   result = DepositData(
     pubkey: pubkey,
     withdrawal_credentials: withdrawal_credentials,
-    amount: MAX_EFFECTIVE_BALANCE)
+    amount: MAX_EFFECTIVE_BALANCE.Gwei)
 
   if skipBlsValidation notin flags:
     result.signature = get_deposit_signature(cfg, result, privkey).toValidatorSig()

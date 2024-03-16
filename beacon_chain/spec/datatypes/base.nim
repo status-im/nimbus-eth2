@@ -63,7 +63,7 @@
 import
   std/[macros, hashes, sets, strutils, tables, typetraits],
   results,
-  stew/[assign2, byteutils, endians2],
+  stew/[assign2, base10, byteutils, endians2],
   chronicles,
   json_serialization,
   ssz_serialization/types as sszTypes,
@@ -122,22 +122,39 @@ template maxSize*(n: int) {.pragma.}
 
 type
   Wei* = UInt256
-  Gwei* = uint64
+  Gwei* = distinct uint64
   Ether* = distinct uint64
 
 template ethAmountUnit*(typ: type) {.dirty.} =
-  # Arithmetic
   func `+`*(x, y: typ): typ {.borrow.}
   func `-`*(x, y: typ): typ {.borrow.}
   func `*`*(x: typ, y: distinctBase(typ)): typ {.borrow.}
   func `*`*(x: distinctBase(typ), y: typ): typ {.borrow.}
-
-  # Arithmetic, changing type
   func `div`*(x, y: typ): distinctBase(typ) {.borrow.}
+  func `div`*(x: typ, y: distinctBase(typ)): typ {.borrow.}
+  func `mod`*(x, y: typ): typ {.borrow.}
 
-  # Comparison
+  func `+=`*(x: var typ, y: typ) {.borrow.}
+
   func `<`*(x, y: typ): bool {.borrow.}
+  func `<=`*(x, y: typ): bool {.borrow.}
+  func `==`*(x, y: typ): bool {.borrow.}
 
+  func `$`*(x: typ): string {.borrow.}
+
+  func u256*(n: typ): UInt256 {.borrow.}
+
+  proc toString*(B: typedesc[Base10], value: typ): string {.borrow.}
+
+  proc writeValue*(writer: var JsonWriter, value: typ) {.raises: [IOError].} =
+    writer.writeValue(distinctBase(value))
+
+  proc readValue*(
+      reader: var JsonReader,
+      value: var typ) {.raises: [IOError, SerializationError].} =
+    reader.readValue(distinctBase(value))
+
+ethAmountUnit Gwei
 ethAmountUnit Ether
 
 type
@@ -758,8 +775,8 @@ template lenu64*(x: untyped): untyped =
 func `$`*(v: ForkDigest | Version | DomainType): string =
   toHex(distinctBase(v))
 
-func toGaugeValue*(x: uint64 | Epoch | Slot): int64 =
-  if x > uint64(int64.high):
+func toGaugeValue*[T: uint64 | Gwei | Slot | Epoch](x: T): int64 =
+  if x > uint64(int64.high).T:
     int64.high
   else:
     int64(x)

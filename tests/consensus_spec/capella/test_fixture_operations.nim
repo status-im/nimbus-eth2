@@ -104,7 +104,7 @@ suite baseDescription & "Attester Slashing " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)) > 0
+      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)) > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
@@ -175,7 +175,7 @@ suite baseDescription & "Proposer Slashing " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)) > 0
+      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)) > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
@@ -190,7 +190,7 @@ suite baseDescription & "Sync Aggregate " & preset():
     var cache: StateCache
     doAssert (? process_sync_aggregate(
       preState, syncAggregate, get_total_active_balance(preState, cache),
-      {}, cache)) > 0
+      {}, cache)) > 0.Gwei
     ok()
 
   for path in walkTests(OpSyncAggregateDir):

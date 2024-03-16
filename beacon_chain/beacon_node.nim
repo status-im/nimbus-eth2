@@ -89,7 +89,7 @@ type
     processor*: ref Eth2Processor
     blockProcessor*: ref BlockProcessor
     consensusManager*: ref ConsensusManager
-    attachedValidatorBalanceTotal*: uint64
+    attachedValidatorBalanceTotal*: Gwei
     gossipState*: GossipState
     blocksGossipState*: GossipState
     beaconClock*: BeaconClock

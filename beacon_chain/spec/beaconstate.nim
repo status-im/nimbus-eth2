@@ -29,14 +29,14 @@ func increase_balance*(balance: var Gwei, delta: Gwei) =
 func increase_balance*(
     state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Increase the validator balance at index ``index`` by ``delta``.
-  if delta != 0: # avoid dirtying the balance cache if not needed
+  if delta != 0.Gwei: # avoid dirtying the balance cache if not needed
     increase_balance(state.balances.mitem(index), delta)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(balance: var Gwei, delta: Gwei) =
   balance =
     if delta > balance:
-      0'u64
+      0.Gwei
     else:
       balance - delta
 
@@ -44,7 +44,7 @@ func decrease_balance*(
     state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Decrease the validator balance at index ``index`` by ``delta``, with
   ## underflow protection.
-  if delta != 0: # avoid dirtying the balance cache if not needed
+  if delta != 0.Gwei: # avoid dirtying the balance cache if not needed
     decrease_balance(state.balances.mitem(index), delta)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#deposits
@@ -54,7 +54,8 @@ func get_validator_from_deposit*(deposit: DepositData):
   let
     amount = deposit.amount
     effective_balance = min(
-      amount - amount mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+      amount - amount mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
+      MAX_EFFECTIVE_BALANCE.Gwei)
 
   Validator(
     pubkeyData: HashedValidatorPubKey.init(deposit.pubkey),
@@ -349,13 +350,13 @@ template get_total_balance(
   var res = 0.Gwei
   for validator_index in validator_indices:
     res += state.validators[validator_index].effective_balance
-  max(EFFECTIVE_BALANCE_INCREMENT, res)
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
 func is_eligible_for_activation_queue*(validator: Validator): bool =
   ## Check if ``validator`` is eligible to be placed into the activation queue.
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
-    validator.effective_balance == MAX_EFFECTIVE_BALANCE
+    validator.effective_balance == MAX_EFFECTIVE_BALANCE.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_eligible_for_activation
 func is_eligible_for_activation*(
@@ -619,11 +620,13 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment_sqrt(
     total_active_balance_sqrt: uint64): Gwei =
-  EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div total_active_balance_sqrt
+  EFFECTIVE_BALANCE_INCREMENT.Gwei * BASE_REWARD_FACTOR div
+    total_active_balance_sqrt
 
 func get_base_reward_per_increment*(
     total_active_balance: Gwei): Gwei =
-  get_base_reward_per_increment_sqrt(integer_squareroot(total_active_balance))
+  get_base_reward_per_increment_sqrt(
+    integer_squareroot(distinctBase(total_active_balance)))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
@@ -633,7 +636,8 @@ func get_base_reward(
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
   let increments =
-    state.validators[index].effective_balance div EFFECTIVE_BALANCE_INCREMENT
+    state.validators[index].effective_balance div
+    EFFECTIVE_BALANCE_INCREMENT.Gwei
   increments * base_reward_per_increment
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestations
@@ -701,11 +705,12 @@ proc check_bls_to_execution_change*(
 
   ok()
 
-func get_proposer_reward*(state: ForkyBeaconState,
-                          attestation: SomeAttestation,
-                          base_reward_per_increment: Gwei,
-                          cache: var StateCache,
-                          epoch_participation: var EpochParticipationFlags): uint64 =
+func get_proposer_reward*(
+    state: ForkyBeaconState,
+    attestation: SomeAttestation,
+    base_reward_per_increment: Gwei,
+    cache: var StateCache,
+    epoch_participation: var EpochParticipationFlags): Gwei =
   let participation_flag_indices = get_attestation_participation_flag_indices(
     state, attestation.data, state.slot - attestation.data.slot)
   for index in get_attesting_indices_iter(
@@ -724,7 +729,7 @@ func get_proposer_reward*(state: ForkyBeaconState,
     (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
     WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
 
-  return result div proposer_reward_denominator
+  result div proposer_reward_denominator
 
 proc process_attestation*(
     state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
@@ -811,7 +816,8 @@ func get_next_sync_committee_keys(
       candidate_index = active_validator_indices[shuffled_index]
       random_byte = eth2digest(hash_buffer).data[i mod 32]
       effective_balance = state.validators[candidate_index].effective_balance
-    if effective_balance * MAX_RANDOM_BYTE >= MAX_EFFECTIVE_BALANCE * random_byte:
+    if effective_balance * MAX_RANDOM_BYTE >=
+        MAX_EFFECTIVE_BALANCE.Gwei * random_byte:
       res[index] = state.validators[candidate_index].pubkey
       inc index
     i += 1'u64
@@ -827,7 +833,7 @@ func is_fully_withdrawable_validator(
     validator: Validator, balance: Gwei, epoch: Epoch): bool =
   ## Check if ``validator`` is fully withdrawable.
   has_eth1_withdrawal_credential(validator) and
-    validator.withdrawable_epoch <= epoch and balance > 0
+    validator.withdrawable_epoch <= epoch and balance > 0.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
 func is_partially_withdrawable_validator(
@@ -835,8 +841,8 @@ func is_partially_withdrawable_validator(
   ## Check if ``validator`` is partially withdrawable.
   let
     has_max_effective_balance =
-      validator.effective_balance == MAX_EFFECTIVE_BALANCE
-    has_excess_balance = balance > MAX_EFFECTIVE_BALANCE
+      validator.effective_balance == MAX_EFFECTIVE_BALANCE.Gwei
+    has_excess_balance = balance > MAX_EFFECTIVE_BALANCE.Gwei
   has_eth1_withdrawal_credential(validator) and
     has_max_effective_balance and has_excess_balance
 
@@ -868,7 +874,7 @@ func get_expected_withdrawals*(
       var w = Withdrawal(
         index: withdrawal_index,
         validator_index: validator_index,
-        amount: balance - MAX_EFFECTIVE_BALANCE)
+        amount: balance - MAX_EFFECTIVE_BALANCE.Gwei)
       w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
       withdrawals.add w
       withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
@@ -974,9 +980,10 @@ proc initialize_beacon_state_from_eth1(
       validator = addr state.validators.mitem(vidx)
 
     validator.effective_balance = min(
-      balance - balance mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+      balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
+      MAX_EFFECTIVE_BALANCE.Gwei)
 
-    if validator.effective_balance == MAX_EFFECTIVE_BALANCE:
+    if validator.effective_balance == MAX_EFFECTIVE_BALANCE.Gwei:
       validator.activation_eligibility_epoch = GENESIS_EPOCH
       validator.activation_epoch = GENESIS_EPOCH
 
@@ -1091,9 +1098,10 @@ proc initialize_beacon_state_from_eth1*(
       validator = addr state.validators.mitem(vidx)
 
     validator.effective_balance = min(
-      balance - balance mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+      balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
+      MAX_EFFECTIVE_BALANCE.Gwei)
 
-    if validator.effective_balance == MAX_EFFECTIVE_BALANCE:
+    if validator.effective_balance == MAX_EFFECTIVE_BALANCE.Gwei:
       validator.activation_eligibility_epoch = GENESIS_EPOCH
       validator.activation_epoch = GENESIS_EPOCH
 

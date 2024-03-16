@@ -188,19 +188,19 @@ when isMainModule:
   func parseRow(csvRow: CsvRow): RewardsAndPenalties =
     result = RewardsAndPenalties(
       source_outcome: parseBiggestInt(csvRow[0]),
-      max_source_reward: parseBiggestUInt(csvRow[1]),
+      max_source_reward: parseBiggestUInt(csvRow[1]).Gwei,
       target_outcome: parseBiggestInt(csvRow[2]),
-      max_target_reward: parseBiggestUInt(csvRow[3]),
+      max_target_reward: parseBiggestUInt(csvRow[3]).Gwei,
       head_outcome: parseBiggestInt(csvRow[4]),
-      max_head_reward: parseBiggestUInt(csvRow[5]),
+      max_head_reward: parseBiggestUInt(csvRow[5]).Gwei,
       inclusion_delay_outcome: parseBiggestInt(csvRow[6]),
-      max_inclusion_delay_reward: parseBiggestUInt(csvRow[7]),
+      max_inclusion_delay_reward: parseBiggestUInt(csvRow[7]).Gwei,
       sync_committee_outcome: parseBiggestInt(csvRow[8]),
-      max_sync_committee_reward: parseBiggestUInt(csvRow[9]),
+      max_sync_committee_reward: parseBiggestUInt(csvRow[9]).Gwei,
       proposer_outcome: parseBiggestInt(csvRow[10]),
-      inactivity_penalty: parseBiggestUInt(csvRow[11]),
+      inactivity_penalty: parseBiggestUInt(csvRow[11]).Gwei,
       slashing_outcome: parseBiggestInt(csvRow[12]),
-      deposits: parseBiggestUInt(csvRow[13]))
+      deposits: parseBiggestUInt(csvRow[13]).Gwei)
     if csvRow[14].len > 0:
       result.inclusion_delay = some(parseBiggestUInt(csvRow[14]))
 

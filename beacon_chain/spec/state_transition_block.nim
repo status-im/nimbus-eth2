@@ -489,7 +489,7 @@ proc process_operations(cfg: RuntimeConfig,
 func get_participant_reward*(total_active_balance: Gwei): Gwei =
   let
     total_active_increments =
-      total_active_balance div EFFECTIVE_BALANCE_INCREMENT
+      total_active_balance div EFFECTIVE_BALANCE_INCREMENT.Gwei
     total_base_rewards =
       get_base_reward_per_increment(total_active_balance) *
         total_active_increments

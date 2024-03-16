@@ -998,6 +998,16 @@ proc readValue*(reader: var JsonReader[RestJson], value: var UInt256) {.
     raiseUnexpectedValue(reader,
                          "UInt256 value should be a valid decimal string")
 
+## Gwei
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: Gwei) {.raises: [IOError].} =
+  writer.writeValue(distinctBase(value))
+
+proc readValue*(
+    reader: var JsonReader[RestJson],
+    value: var Gwei) {.raises: [IOError, SerializationError].} =
+  reader.readValue(distinctBase(value))
+
 ## Slot
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Slot) {.raises: [IOError].} =

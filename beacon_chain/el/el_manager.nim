@@ -1371,7 +1371,7 @@ func depositEventsToBlocks(depositsList: openArray[JsonString]): seq[Eth1Block] 
     lastEth1Block.deposits.add DepositData(
       pubkey: ValidatorPubKey.init(pubkey.toArray),
       withdrawal_credentials: Eth2Digest(data: withdrawalCredentials.toArray),
-      amount: bytes_to_uint64(amount.toArray),
+      amount: bytes_to_uint64(amount.toArray).Gwei,
       signature: ValidatorSig.init(signature.toArray))
 
 type

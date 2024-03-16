@@ -100,10 +100,10 @@ proc getStatus(validator: Validator,
       ok(ValidatorFilterKind.ExitedSlashed)
   elif validator.withdrawable_epoch <= current_epoch:
     # withdrawal
-    if validator.effective_balance != 0:
+    if validator.effective_balance != 0.Gwei:
       ok(ValidatorFilterKind.WithdrawalPossible)
     else:
-      # validator.effective_balance == 0
+      # validator.effective_balance == 0.Gwei
       ok(ValidatorFilterKind.WithdrawalDone)
   else:
     err("Invalid validator status")

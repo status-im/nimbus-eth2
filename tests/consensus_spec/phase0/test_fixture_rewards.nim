@@ -58,7 +58,7 @@ proc runTest(rewardsDir, identifier: string) =
   info.process_attestations(state[], cache)
   let
     total_balance = info.balances.current_epoch
-    total_balance_sqrt = integer_squareroot(total_balance)
+    total_balance_sqrt = integer_squareroot(distinctBase(total_balance))
 
   var
     sourceDeltas2 = Deltas.init(state[].validators.len)

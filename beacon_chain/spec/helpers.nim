@@ -25,10 +25,14 @@ import
 export
   eth2_merkleization, forks, rlp, ssz_codec
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md#constants
+const ETH_TO_GWEI = 1_000_000_000.Gwei
+
 func toEther*(gwei: Gwei): Ether =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md#constants
-  const ETH_TO_GWEI = 1_000_000_000
   (gwei div ETH_TO_GWEI).Ether
+
+func toGwei*(eth: Ether): Gwei =
+  distinctBase(eth) * ETH_TO_GWEI
 
 type
   ExecutionHash256* = eth_types.Hash256
@@ -452,7 +456,7 @@ func toExecutionWithdrawal*(
     index: withdrawal.index,
     validatorIndex: withdrawal.validator_index,
     address: EthAddress withdrawal.address.data,
-    amount: withdrawal.amount)
+    amount: distinctBase(withdrawal.amount))
 
 # https://eips.ethereum.org/EIPS/eip-4895
 proc computeWithdrawalsTrieRoot*(

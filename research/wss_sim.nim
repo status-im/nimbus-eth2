@@ -120,7 +120,7 @@ cli do(validatorsDir: string, secretsDir: string,
         active = withState(state[]):
           get_active_validator_indices_len(forkyState.data, slot.epoch)
         balance = block:
-          var b: uint64
+          var b: Gwei
           for k, _ in validators:
             if is_active_validator(getStateField(state[], validators).asSeq[k], slot.epoch):
               b += getStateField(state[], balances).asSeq[k]

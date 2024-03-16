@@ -24,7 +24,7 @@ proc initGenesisState*(
     cfg = defaultRuntimeConfig): ref ForkedHashedBeaconState =
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
-      amountInEth = 32, # We create canonical validators with 32 Eth
+      amountInEth = 32.Ether, # We create canonical validators with 32 Eth
       flags = {}
     )
 

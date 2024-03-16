@@ -74,8 +74,8 @@ type
 
   # https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/rewards#rewards-tests
   Deltas* = object
-    rewards*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
-    penalties*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    rewards*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+    penalties*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#eth1block
   Eth1Block* = object
