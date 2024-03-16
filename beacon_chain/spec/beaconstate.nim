@@ -9,7 +9,7 @@ import
 
 from std/algorithm import fill
 
-export extras, forks, validator
+export forks
 
 func increase_balance(balance: var Gwei, delta: Gwei) =
   balance += delta
@@ -139,22 +139,6 @@ template get_total_balance(
   for validator_index in validator_indices:
     res += state.validators[validator_index].effective_balance
   max(EFFECTIVE_BALANCE_INCREMENT, res)
-
-func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
-  if not (data.target.epoch == epoch(data.slot)):
-    return err("Target epoch doesn't match attestation slot")
-
-  ok(data.slot)
-
-func check_attestation_index*(
-    index, committees_per_slot: uint64):
-    Result[CommitteeIndex, cstring] =
-  CommitteeIndex.init(index, committees_per_slot)
-
-func check_attestation_index*(
-    data: AttestationData, committees_per_slot: uint64):
-    Result[CommitteeIndex, cstring] =
-  check_attestation_index(data.index, committees_per_slot)
 
 func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei =
 
