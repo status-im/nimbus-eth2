@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[algorithm, sequtils, tables, sets],
+  std/[sequtils, tables, sets],
   stew/[arrayops, assign2, byteutils],
   results, snappy,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
@@ -28,7 +28,7 @@ proc putBlock(
     dag: ChainDAGRef, signedBlock: ForkyTrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
-proc updateState*(
+proc updateState(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
     save: bool, cache: var StateCache): bool {.gcsafe.}
 
@@ -597,8 +597,7 @@ proc advanceSlots*(
     loadStateCache(dag, cache, stateBid, getStateField(state, slot).epoch)
 
     process_slots(
-      dag.cfg, state, getStateField(state, slot) + 1, cache, info,
-      dag.updateFlags).expect("process_slots shouldn't fail when state slot is correct")
+      dag.cfg, state, getStateField(state, slot) + 1, cache, info, {}).expect("process_slots shouldn't fail when state slot is correct")
     if save:
       dag.putState(state, stateBid)
 
@@ -626,38 +625,32 @@ proc applyBlock(
     let data = getBlock(dag, bid, phase0.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
-      dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      dag.cfg, state, data, cache, info, {slotProcessed}, noRollback)
   of ConsensusFork.Altair:
     let data = getBlock(dag, bid, altair.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
-      dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      dag.cfg, state, data, cache, info, {slotProcessed}, noRollback)
   of ConsensusFork.Bellatrix:
     let data = getBlock(dag, bid, bellatrix.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
-      dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      dag.cfg, state, data, cache, info, {slotProcessed}, noRollback)
   of ConsensusFork.Capella:
     let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
-      dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      dag.cfg, state, data, cache, info, {slotProcessed}, noRollback)
   of ConsensusFork.Deneb:
     let data = getBlock(dag, bid, deneb.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
-      dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      dag.cfg, state, data, cache, info, {slotProcessed}, noRollback)
   of ConsensusFork.Electra:
     let data = getBlock(dag, bid, electra.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
-      dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      dag.cfg, state, data, cache, info, {slotProcessed}, noRollback)
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            updateFlags: UpdateFlags,
@@ -685,10 +678,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       genesis: genesisRoot.map(
         proc(x: auto): auto = BlockId(root: x, slot: GENESIS_SLOT)),
       tail: tail,
-
-      # The only allowed flag right now is strictVerification, as the others all
-      # allow skipping some validation.
-      updateFlags: updateFlags * {strictVerification},
       cfg: cfg,
     )
     loadTick = Moment.now()
@@ -796,8 +785,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     quit 1
 
   dag.finalizedHead = headRef.atSlot(finalizedSlot)
-  dag.lastPrunePoint = dag.finalizedHead.toBlockSlotId().expect("not nil")
-
   doAssert dag.finalizedHead.blck != nil,
     "The finalized head should exist at the slot"
 
@@ -834,37 +821,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         tail = shortLog(dag.tail), finalized = shortLog(finalized)
       quit 1
 
-  dag.backfill = block:
-    let backfillSlot = db.finalizedBlocks.low.expect("tail at least")
-    if backfillSlot <= dag.horizon:
-      # Backfill done, no need to load anything
-      BeaconBlockSummary()
-    elif backfillSlot < dag.tail.slot:
-      let backfillRoot = db.finalizedBlocks.get(backfillSlot).expect(
-        "low to be loadable")
-
-      db.getBeaconBlockSummary(backfillRoot).expect(
-        "Backfill block must have a summary: " & $backfillRoot)
-    elif dag.containsBlock(dag.tail):
-      db.getBeaconBlockSummary(dag.tail.root).expect(
-        "Tail block must have a summary: " & $dag.tail.root)
-    else:
-      BeaconBlockSummary(
-        slot: dag.tail.slot + 1,
-        parent_root: dag.tail.root)
-
   dag.forkDigests = newClone ForkDigests.init(
     cfg, getStateField(dag.headState, genesis_validators_root))
 
   dag.updateValidatorKeys(getStateField(dag.headState, validators).asSeq())
-
-  dag.lastHistoryPruneHorizon = dag.horizon()
-  dag.lastHistoryPruneBlockHorizon = block:
-    let boundary = min(dag.tail.slot, dag.horizon())
-    if boundary.epoch() >= EPOCHS_PER_STATE_SNAPSHOT:
-      start_slot(boundary.epoch() - EPOCHS_PER_STATE_SNAPSHOT)
-    else:
-      Slot(0)
 
   dag
 
@@ -984,7 +944,7 @@ proc computeRandaoMix(
 
   ok mix
 
-proc updateState*(
+proc updateState(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
     save: bool, cache: var StateCache): bool =
 
