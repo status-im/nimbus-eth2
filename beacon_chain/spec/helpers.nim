@@ -2,10 +2,10 @@
 
 import
   stew/[byteutils, endians2, objects],
-  "."/[eth2_merkleization, forks, ssz_codec]
+  "."/[eth2_merkleization, forks]
 
 export
-  eth2_merkleization, forks, ssz_codec
+  eth2_merkleization, forks
 
 type
   FinalityCheckpoints* = object
@@ -85,7 +85,6 @@ func get_seed*(
 
 func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
     Eth2Digest =
-  static: doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
   let mix = get_randao_mix(state, # Avoid underflow
     epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
   state.get_seed(epoch, domain_type, mix)
