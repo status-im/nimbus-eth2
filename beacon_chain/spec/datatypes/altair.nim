@@ -65,10 +65,6 @@ const
   CURRENT_SYNC_COMMITTEE_GINDEX* = 54.GeneralizedIndex  # current_sync_committee
   NEXT_SYNC_COMMITTEE_GINDEX* = 55.GeneralizedIndex  # next_sync_committee
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#inactivity-penalties
-  INACTIVITY_SCORE_BIAS* = 4
-  INACTIVITY_SCORE_RECOVERY_RATE* = 16
-
   SYNC_SUBCOMMITTEE_SIZE* = SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT
 
 # "Note: The sum of the weights equal WEIGHT_DENOMINATOR."
