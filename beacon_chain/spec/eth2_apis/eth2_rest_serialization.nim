@@ -29,8 +29,8 @@ export
   json_serialization, net, sets, rest_types, slashing_protection_common,
   jsonSerializationResults, rest_keymanager_types
 
-from web3/primitives import BlockHash
-export primitives.BlockHash
+from web3/primitives import BlockHash, BlockNumber
+export primitives.BlockHash, primitives.BlockNumber
 
 func decodeMediaType*(
     contentType: Opt[ContentTypeData]): Result[MediaType, string] =
@@ -958,6 +958,16 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
     value = res.get()
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
+
+## BlockNumber
+proc writeValue*(
+    w: var JsonWriter[RestJson], value: BlockNumber) {.raises: [IOError].} =
+  w.writeValue(distinctBase(value))
+
+proc readValue*(
+    reader: var JsonReader[RestJson],
+    value: var BlockNumber) {.raises: [IOError, SerializationError].} =
+  reader.readValue(distinctBase(value))
 
 ## RestNumeric
 proc writeValue*(w: var JsonWriter[RestJson],
