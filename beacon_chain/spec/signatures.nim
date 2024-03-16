@@ -6,12 +6,7 @@ func get_epoch_signature*(
 
 func compute_block_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader): Eth2Digest =
-  let
-    epoch = epoch(slot)
-    domain = get_domain(
-      fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
-  compute_signing_root(blck, domain)
+    blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader): Eth2Digest = default(Eth2Digest)
 
 func get_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,

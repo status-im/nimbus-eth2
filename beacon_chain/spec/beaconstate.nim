@@ -140,21 +140,6 @@ template get_total_balance(
     res += state.validators[validator_index].effective_balance
   max(EFFECTIVE_BALANCE_INCREMENT, res)
 
-iterator get_attesting_indices_iter*(state: ForkyBeaconState,
-                                     data: AttestationData,
-                                     bits: CommitteeValidatorsBits,
-                                     cache: var StateCache): ValidatorIndex =
-
-  let committee_index = CommitteeIndex.init(data.index)
-  if committee_index.isErr() or bits.lenu64 != get_beacon_committee_len(
-      state, data.slot, committee_index.get(), cache):
-    discard
-  else:
-    for index_in_committee, validator_index in get_beacon_committee(
-        state, data.slot, committee_index.get(), cache):
-      if bits[index_in_committee]:
-        yield validator_index
-
 func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
   if not (data.target.epoch == epoch(data.slot)):
     return err("Target epoch doesn't match attestation slot")
