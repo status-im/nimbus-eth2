@@ -183,38 +183,6 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
     cache.total_active_balance[epoch] = tab
     return tab
 
-func get_next_sync_committee_keys(
-    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState):
-    array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
-
-  let epoch = get_current_epoch(state) + 1
-
-  const MAX_RANDOM_BYTE = 255
-  let
-    active_validator_indices = get_active_validator_indices(state, epoch)
-    active_validator_count = uint64(len(active_validator_indices))
-    seed = get_seed(state, epoch, DOMAIN_SYNC_COMMITTEE)
-  var
-    i = 0'u64
-    index = 0
-    res: array[SYNC_COMMITTEE_SIZE, ValidatorPubKey]
-    hash_buffer: array[40, byte]
-  hash_buffer[0..31] = seed.data
-  while index < SYNC_COMMITTEE_SIZE:
-    hash_buffer[32..39] = uint_to_bytes(uint64(i div 32))
-    let
-      shuffled_index = compute_shuffled_index(
-        uint64(i mod active_validator_count), active_validator_count, seed)
-      candidate_index = active_validator_indices[shuffled_index]
-      random_byte = eth2digest(hash_buffer).data[i mod 32]
-      effective_balance = state.validators[candidate_index].effective_balance
-    if effective_balance * MAX_RANDOM_BYTE >= MAX_EFFECTIVE_BALANCE * random_byte:
-      res[index] = state.validators[candidate_index].pubkey
-      inc index
-    i += 1'u64
-  res
-
 func has_eth1_withdrawal_credential*(validator: Validator): bool =
   validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
 
