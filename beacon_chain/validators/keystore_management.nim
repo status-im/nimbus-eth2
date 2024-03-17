@@ -28,8 +28,8 @@ when defined(windows):
 {.localPassC: "-fno-lto".} # no LTO for crypto
 
 const
-  KeystoreFileName* = "keystore.json"
-  RemoteKeystoreFileName* = "remote_keystore.json"
+  KeystoreFileName = "keystore.json"
+  RemoteKeystoreFileName = "remote_keystore.json"
   FeeRecipientFilename = "suggested_fee_recipient.hex"
   GasLimitFilename = "suggested_gas_limit.json"
   BuilderConfigPath = "payload_builder.json"
@@ -37,62 +37,62 @@ const
   MaxKeystoreFileSize = 65536
 
 type
-  WalletPathPair* = object
-    wallet*: Wallet
-    path*: string
+  WalletPathPair = object
+    wallet: Wallet
+    path: string
 
-  CreatedWallet* = object
-    walletPath*: WalletPathPair
-    seed*: KeySeed
+  CreatedWallet = object
+    walletPath: WalletPathPair
+    seed: KeySeed
 
   KmResult[T] = Result[T, cstring]
 
-  RemoveValidatorStatus* {.pure.} = enum
+  RemoveValidatorStatus {.pure.} = enum
     deleted = "Deleted"
     notFound = "Not found"
 
-  AddValidatorStatus* {.pure.} = enum
+  AddValidatorStatus {.pure.} = enum
     existingArtifacts = "Keystore artifacts already exists"
     failed = "Validator not added"
 
   AddValidatorFailure = object
-    status*: AddValidatorStatus
-    message*: string
+    status: AddValidatorStatus
+    message: string
 
   ImportResult[T] = Result[T, AddValidatorFailure]
 
-  ValidatorPubKeyToDataFn* =
+  ValidatorPubKeyToDataFn =
     proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
          {.raises: [], gcsafe.}
 
-  GetCapellaForkVersionFn* =
+  GetCapellaForkVersionFn =
     proc (): Opt[Version] {.raises: [], gcsafe.}
-  GetDenebForkEpochFn* =
+  GetDenebForkEpochFn =
     proc (): Opt[Epoch] {.raises: [], gcsafe.}
-  GetForkFn* =
+  GetForkFn =
     proc (epoch: Epoch): Opt[Fork] {.raises: [], gcsafe.}
-  GetGenesisFn* =
+  GetGenesisFn =
     proc (): Eth2Digest {.raises: [], gcsafe.}
 
-  KeymanagerHost* = object
-    validatorPool*: ref ValidatorPool
-    keystoreCache*: KeystoreCacheRef
-    rng*: ref HmacDrbgContext
-    keymanagerToken*: string
-    validatorsDir*: string
-    secretsDir*: string
-    defaultFeeRecipient*: Opt[Eth1Address]
-    defaultGasLimit*: uint64
-    defaultBuilderAddress*: Opt[string]
-    getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
-    getBeaconTimeFn*: GetBeaconTimeFn
-    getCapellaForkVersionFn*: GetCapellaForkVersionFn
-    getDenebForkEpochFn*: GetDenebForkEpochFn
-    getForkFn*: GetForkFn
-    getGenesisFn*: GetGenesisFn
+  KeymanagerHost = object
+    validatorPool: ref ValidatorPool
+    keystoreCache: KeystoreCacheRef
+    rng: ref HmacDrbgContext
+    keymanagerToken: string
+    validatorsDir: string
+    secretsDir: string
+    defaultFeeRecipient: Opt[Eth1Address]
+    defaultGasLimit: uint64
+    defaultBuilderAddress: Opt[string]
+    getValidatorAndIdxFn: ValidatorPubKeyToDataFn
+    getBeaconTimeFn: GetBeaconTimeFn
+    getCapellaForkVersionFn: GetCapellaForkVersionFn
+    getDenebForkEpochFn: GetDenebForkEpochFn
+    getForkFn: GetForkFn
+    getGenesisFn: GetGenesisFn
 
-  MultipleKeystoresDecryptor* = object
-    previouslyUsedPassword*: string
+  MultipleKeystoresDecryptor = object
+    previouslyUsedPassword: string
 
   QueryResult = Result[seq[KeystoreData], string]
 
@@ -100,10 +100,10 @@ const
   minPasswordLen = 12
   minPasswordEntropy = 60.0
 
-func dispose*(decryptor: var MultipleKeystoresDecryptor) =
+func dispose(decryptor: var MultipleKeystoresDecryptor) =
   burnMem(decryptor.previouslyUsedPassword)
 
-func init*(T: type KeymanagerHost,
+func init(T: type KeymanagerHost,
            validatorPool: ref ValidatorPool,
            keystoreCache: KeystoreCacheRef,
            rng: ref HmacDrbgContext,
@@ -135,7 +135,7 @@ func init*(T: type KeymanagerHost,
     getForkFn: getForkFn,
     getGenesisFn: getGenesisFn)
 
-proc echoP*(msg: string) =
+proc echoP(msg: string) =
   ## Prints a paragraph aligned to 80 columns
   echo ""
   echo wrapWords(msg, 80)
@@ -157,7 +157,7 @@ func init(T: type AddValidatorFailure, status: AddValidatorStatus,
           msg = ""): AddValidatorFailure {.raises: [].} =
   AddValidatorFailure(status: status, message: msg)
 
-proc checkAndCreateDataDir*(dataDir: string): bool =
+proc checkAndCreateDataDir(dataDir: string): bool =
   when defined(posix):
     let requiredPerms = 0o700
     if isDir(dataDir):
@@ -208,7 +208,7 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
 
   return true
 
-proc checkSensitiveFilePermissions*(filePath: string): bool =
+proc checkSensitiveFilePermissions(filePath: string): bool =
   ## Check if ``filePath`` has only "(600) rw-------" permissions.
   ## Procedure returns ``false`` if permissions are different and we can't
   ## correct them.
@@ -405,7 +405,7 @@ proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
   success = true
   Opt.some(KeystoreData.init(res.get(), keystore, handle))
 
-proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
+proc loadKeystore(validatorsDir, secretsDir, keyName: string,
                    nonInteractive: bool,
                    cache: KeystoreCacheRef): Opt[KeystoreData] =
   let
@@ -420,7 +420,7 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
     error "Unable to find any keystore files", keystorePath
     Opt.none(KeystoreData)
 
-proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
+proc removeValidatorFiles(validatorsDir, secretsDir, keyName: string,
                           ): KmResult[RemoveValidatorStatus] {.
      raises: [].} =
   let
@@ -468,11 +468,11 @@ proc existsKeystore(keystoreDir: string): bool {.
      raises: [].} =
   fileExists(keystoreDir / KeystoreFileName)
 
-proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl):
+proc queryValidatorsSource(web3signerUrl: Web3SignerUrl):
     Future[QueryResult] {.async: (raises: [CancelledError]).} =
   return QueryResult.err("")
 
-iterator listLoadableKeys*(validatorsDir, secretsDir: string): CookedPubKey =
+iterator listLoadableKeys(validatorsDir, secretsDir: string): CookedPubKey =
   const IncorrectName = "Incorrect keystore directory name, ignoring"
   try:
     for kind, file in walkDir(validatorsDir):
@@ -557,7 +557,7 @@ iterator listLoadableKeystores*(config: AnyConf,
     yield el
 
 type
-  ValidatorConfigFileStatus* = enum
+  ValidatorConfigFileStatus = enum
     noSuchValidator
     malformedConfigFile
 
@@ -580,7 +580,7 @@ func builderConfigPath(validatorsDir: string,
 from std/strutils import
   cmpIgnoreCase, endsWith, parseBiggestUint, startsWith, strip, toLowerAscii
 
-proc getSuggestedFeeRecipient*(
+proc getSuggestedFeeRecipient(
     validatorsDir: string, pubkey: ValidatorPubKey,
     defaultFeeRecipient: Eth1Address):
     Result[Eth1Address, ValidatorConfigFileStatus] =
@@ -608,7 +608,7 @@ proc getSuggestedFeeRecipient*(
       err = exc.msg
     err malformedConfigFile
 
-proc getSuggestedGasLimit*(
+proc getSuggestedGasLimit(
     validatorsDir: string,
     pubkey: ValidatorPubKey,
     defaultGasLimit: uint64): Result[uint64, ValidatorConfigFileStatus] =
@@ -639,7 +639,7 @@ type
     payloadBuilderEnable: bool
     payloadBuilderUrl: string
 
-proc getBuilderConfig*(
+proc getBuilderConfig(
     validatorsDir: string, pubkey: ValidatorPubKey,
     defaultBuilderAddress: Opt[string]):
     Result[Opt[string], ValidatorConfigFileStatus] =
@@ -675,7 +675,7 @@ proc getBuilderConfig*(
       Opt.none string)
 
 type
-  KeystoreGenerationErrorKind* = enum
+  KeystoreGenerationErrorKind = enum
     FailedToCreateValidatorsDir
     FailedToCreateKeystoreDir
     FailedToCreateSecretsDir
@@ -684,8 +684,8 @@ type
     DuplicateKeystoreDir
     DuplicateKeystoreFile
 
-  KeystoreGenerationError* = object
-    case kind*: KeystoreGenerationErrorKind
+  KeystoreGenerationError = object
+    case kind: KeystoreGenerationErrorKind
     of FailedToCreateKeystoreDir,
        FailedToCreateValidatorsDir,
        FailedToCreateSecretsDir,
@@ -693,14 +693,14 @@ type
        FailedToCreateKeystoreFile,
        DuplicateKeystoreDir,
        DuplicateKeystoreFile:
-      error*: string
+      error: string
 
-func mapErrTo*[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
+func mapErrTo[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
     Result[T, KeystoreGenerationError] =
   r.mapErr(proc (e: E): KeystoreGenerationError =
     KeystoreGenerationError(kind: v, error: $e))
 
-proc loadNetKeystore*(keystorePath: string,
+proc loadNetKeystore(keystorePath: string,
                       insecurePwd: Opt[string]): Opt[lcrypto.PrivateKey] =
 
   if not(checkSensitiveFilePermissions(keystorePath)):
@@ -744,7 +744,7 @@ proc loadNetKeystore*(keystorePath: string,
     else:
       return
 
-proc saveNetKeystore*(rng: var HmacDrbgContext, keystorePath: string,
+proc saveNetKeystore(rng: var HmacDrbgContext, keystorePath: string,
                       netKey: lcrypto.PrivateKey, insecurePwd: Opt[string]
                      ): Result[void, KeystoreGenerationError] =
   let password =
@@ -770,7 +770,7 @@ proc saveNetKeystore*(rng: var HmacDrbgContext, keystorePath: string,
           key_path = keystorePath
     res.mapErrTo(FailedToCreateKeystoreFile)
 
-proc createLocalValidatorFiles*(
+proc createLocalValidatorFiles(
        secretsDir, validatorsDir, keystoreDir,
        secretFile, passwordAsString, keystoreFile,
        encodedStorage: string
@@ -859,7 +859,7 @@ proc createLockedLocalValidatorFiles(
   success = true
   ok(lock)
 
-proc createRemoteValidatorFiles*(
+proc createRemoteValidatorFiles(
        validatorsDir, keystoreDir, keystoreFile, encodedStorage: string
      ): Result[void, KeystoreGenerationError] {.raises: [].} =
   var
@@ -911,7 +911,7 @@ proc createLockedRemoteValidatorFiles(
   success = true
   ok(lock)
 
-proc saveKeystore*(
+proc saveKeystore(
        rng: var HmacDrbgContext,
        validatorsDir, secretsDir: string,
        signingKey: ValidatorPrivKey,
@@ -980,7 +980,7 @@ proc saveLockedKeystore(
                                                keystoreFile, encodedStorage)
   ok(lock)
 
-proc importKeystore*(pool: var ValidatorPool,
+proc importKeystore(pool: var ValidatorPool,
                      rng: var HmacDrbgContext,
                      validatorsDir, secretsDir: string,
                      keystore: Keystore,
@@ -1024,7 +1024,7 @@ func gasLimitPath(host: KeymanagerHost,
                   pubkey: ValidatorPubKey): string =
   host.validatorsDir.gasLimitPath(pubkey)
 
-proc removeFeeRecipientFile*(host: KeymanagerHost,
+proc removeFeeRecipientFile(host: KeymanagerHost,
                              pubkey: ValidatorPubKey): Result[void, string] =
   let path = host.feeRecipientPath(pubkey)
   if fileExists(path):
@@ -1034,7 +1034,7 @@ proc removeFeeRecipientFile*(host: KeymanagerHost,
 
   return ok()
 
-proc removeGasLimitFile*(host: KeymanagerHost,
+proc removeGasLimitFile(host: KeymanagerHost,
                          pubkey: ValidatorPubKey): Result[void, string] =
   let path = host.gasLimitPath(pubkey)
   if fileExists(path):
@@ -1044,7 +1044,7 @@ proc removeGasLimitFile*(host: KeymanagerHost,
 
   return ok()
 
-proc setFeeRecipient*(host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipient: Eth1Address): Result[void, string] =
+proc setFeeRecipient(host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipient: Eth1Address): Result[void, string] =
   let validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
 
   ? secureCreatePath(validatorKeystoreDir).mapErr(proc(e: auto): string =
@@ -1053,7 +1053,7 @@ proc setFeeRecipient*(host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipien
   io2.writeFile(validatorKeystoreDir / FeeRecipientFilename, $feeRecipient)
     .mapErr(proc(e: auto): string = "Failed to write fee recipient file: " & $e)
 
-proc setGasLimit*(host: KeymanagerHost,
+proc setGasLimit(host: KeymanagerHost,
                   pubkey: ValidatorPubKey,
                   gasLimit: uint64): Result[void, string] =
   let validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
@@ -1066,7 +1066,7 @@ proc setGasLimit*(host: KeymanagerHost,
 
 from ".."/spec/beaconstate import has_eth1_withdrawal_credential
 
-proc getValidatorWithdrawalAddress*(
+proc getValidatorWithdrawalAddress(
     host: KeymanagerHost, pubkey: ValidatorPubKey): Opt[Eth1Address] =
   if host.getValidatorAndIdxFn.isNil:
     Opt.none Eth1Address
@@ -1084,14 +1084,14 @@ proc getValidatorWithdrawalAddress*(
       else:
         Opt.none Eth1Address
 
-func getPerValidatorDefaultFeeRecipient*(
+func getPerValidatorDefaultFeeRecipient(
     defaultFeeRecipient: Opt[Eth1Address],
     withdrawalAddress: Opt[Eth1Address]): Eth1Address =
   defaultFeeRecipient.valueOr:
     withdrawalAddress.valueOr:
       (static(default(Eth1Address)))
 
-proc getSuggestedFeeRecipient*(
+proc getSuggestedFeeRecipient(
     host: KeymanagerHost, pubkey: ValidatorPubKey,
     defaultFeeRecipient: Eth1Address):
     Result[Eth1Address, ValidatorConfigFileStatus] =
@@ -1107,17 +1107,17 @@ proc getSuggestedFeeRecipient(
       pubkey, perValidatorDefaultFeeRecipient).valueOr:
     perValidatorDefaultFeeRecipient
 
-proc getSuggestedGasLimit*(
+proc getSuggestedGasLimit(
     host: KeymanagerHost,
     pubkey: ValidatorPubKey): Result[uint64, ValidatorConfigFileStatus] =
   host.validatorsDir.getSuggestedGasLimit(pubkey, host.defaultGasLimit)
 
-proc getBuilderConfig*(
+proc getBuilderConfig(
     host: KeymanagerHost, pubkey: ValidatorPubKey):
     Result[Opt[string], ValidatorConfigFileStatus] =
   host.validatorsDir.getBuilderConfig(pubkey, host.defaultBuilderAddress)
 
-proc addValidator*(
+proc addValidator(
     host: KeymanagerHost, keystore: KeystoreData,
     withdrawalAddress: Opt[Eth1Address]) =
   let
@@ -1194,7 +1194,7 @@ proc saveWallet(wallet: Wallet, outWalletPath: string): Result[void, string] =
 
   ok()
 
-proc saveWallet*(wallet: WalletPathPair): Result[void, string] =
+proc saveWallet(wallet: WalletPathPair): Result[void, string] =
   saveWallet(wallet.wallet, wallet.path)
 
 proc readPasswordInput(prompt: string, password: var string): bool =
@@ -1234,7 +1234,7 @@ proc resetAttributesNoError() =
     try: stdout.resetAttributes()
     except IOError: discard
 
-proc importKeystoreFromFile*(
+proc importKeystoreFromFile(
     decryptor: var MultipleKeystoresDecryptor,
     fileName: string
   ): Result[ValidatorPrivKey, string] =
@@ -1263,7 +1263,7 @@ proc importKeystoreFromFile*(
     else:
       return err("Invalid keystore format")
 
-proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
+proc importKeystoresFromDir(rng: var HmacDrbgContext, meth: ImportMethod,
                              importedDir, validatorsDir, secretsDir: string) =
   var password: string  # TODO consider using a SecretString type
   defer: burnMem(password)
@@ -1378,7 +1378,7 @@ template clearScreen =
 
 import std/strutils
 
-proc loadWallet*(fileName: string): Result[Wallet, string] =
+proc loadWallet(fileName: string): Result[Wallet, string] =
   try:
     ok Json.loadFile(fileName, Wallet)
   except SerializationError as err:
@@ -1386,7 +1386,7 @@ proc loadWallet*(fileName: string): Result[Wallet, string] =
   except IOError as err:
     err "Error accessing wallet file \"" & fileName & "\": " & err.msg
 
-proc findWallet*(config: BeaconNodeConf,
+proc findWallet(config: BeaconNodeConf,
                  name: WalletName): Result[Opt[WalletPathPair], string] =
   var walletFiles = newSeq[string]()
   try:
