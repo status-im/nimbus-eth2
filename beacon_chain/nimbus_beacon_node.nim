@@ -15,16 +15,9 @@ import
 from ./spec/datatypes/deneb import SignedBeaconBlock
 
 # import libp2p/protocols/pubsub/gossipsub
-import std/[sets, sequtils]
-import chronos, chronicles, metrics
-import chronos/ratelimit
 import libp2p/protocols/pubsub/pubsub,
        libp2p/protocols/pubsub/floodsub,
        libp2p/protocols/pubsub/pubsubpeer,
-       libp2p/protocols/pubsub/peertable,
-       libp2p/protocols/pubsub/mcache,
-       libp2p/protocols/pubsub/timedcache,
-       libp2p/protocols/pubsub/rpc/[messages, message, protobuf],
        libp2p/protocols/protocol,
        libp2p/protocols/../stream/connection,
        libp2p/protocols/../peerinfo,
