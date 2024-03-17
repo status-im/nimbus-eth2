@@ -133,8 +133,7 @@ proc makeBeaconBlockForHeadAndSlot(
           "given-payload")
         fut.complete(modified_execution_payload)
         fut
-      # TODO do something random here, doesn't matter except structurally
-      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
+      elif slot.epoch < node.cfg.BELLATRIX_FORK_EPOCH or
            not state[].is_merge_transition_complete:
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
           "empty-payload")
@@ -161,8 +160,7 @@ proc makeBeaconBlockForHeadAndSlot(
       return err("Unable to get execution payload")
 
   let blck = makeBeaconBlock(
-      # ok, need RuntimeConfig still
-      node.dag.cfg,
+      node.cfg,
       state[],
       validator_index,
       randao_reveal,
@@ -492,8 +490,7 @@ proc proposeBlock(node: BeaconNode,
     return
 
   let
-    # TODO RuntimeConfig again, maybe attach to node
-    fork = node.dag.cfg.forkAtEpoch(slot.epoch)
+    fork = node.cfg.forkAtEpoch(slot.epoch)
     # TODO pull g_v_r out of DAG
     genesis_validators_root = getStateField(node.dag.headState, genesis_validators_root)
     randao = block:
@@ -510,8 +507,7 @@ proc proposeBlock(node: BeaconNode,
       type1, type2, node, validator, validator_pubkey, validator_index, head, slot, randao, fork,
         genesis_validators_root, node.config.localBlockValueBoost)
 
-  # TODO RuntimeConfig
-  discard withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
+  discard withConsensusFork(node.cfg.consensusForkAtEpoch(slot.epoch)):
     when consensusFork >= ConsensusFork.Electra:
       debugRaiseAssert "proposeBlock; fill in Electra support"
       default(BlockRef)
@@ -520,8 +516,6 @@ proc proposeBlock(node: BeaconNode,
         consensusFork.SignedBlindedBeaconBlock,
         consensusFork.ExecutionPayloadForSigning)
     else:
-      # Bellatrix MEV is not supported; this signals that, because it triggers
-      # intentional SignedBlindedBeaconBlock/ExecutionPayload mismatches.
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock,
         bellatrix.ExecutionPayloadForSigning)
