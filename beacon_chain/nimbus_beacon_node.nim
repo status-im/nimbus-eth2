@@ -17,6 +17,8 @@ from ./spec/datatypes/deneb import SignedBeaconBlock
 import libp2p/protocols/pubsub/pubsub
 import libp2p/protocols/pubsub/gossipsub
 
+import "."/consensus_object_pools/blockchain_dag
+
 proc loadChainDag(
     config: BeaconNodeConf,
     cfg: RuntimeConfig,
@@ -46,7 +48,6 @@ proc initFullNode(
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
 
-  node.dag = dag
   node.router = new MessageRouter
 
   await node.addValidators()
@@ -175,6 +176,12 @@ proc init*(T: type BeaconNode,
 
   node
 
+func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
+  let newRef = BlockRef.init(
+    root, Opt.none Eth2Digest, executionValid = false,
+    0.Slot)
+  return ok(newRef)
+
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   let
@@ -184,7 +191,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   if wallSlot > 2:
     quit(0)
 
-  await handleProposal(node, node.dag.head, wallSlot)
+  await handleProposal(node, getBlockRef2(ZERO_HASH).get, wallSlot)
   quit 0
 
 proc start*(node: BeaconNode) {.raises: [CatchableError].} =

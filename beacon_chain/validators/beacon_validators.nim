@@ -60,6 +60,8 @@ func validatorKey2(
   doAssert foo.isOk
   foo
 
+import ".."/consensus_object_pools/block_dag
+
 proc getValidatorForDuties*(
     node: BeaconNode, idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
@@ -131,8 +133,7 @@ proc makeBeaconBlockForHeadAndSlot(
           "given-payload")
         fut.complete(modified_execution_payload)
         fut
-      elif slot.epoch < node.cfg.BELLATRIX_FORK_EPOCH or
-           not state[].is_merge_transition_complete:
+      elif slot.epoch < node.cfg.BELLATRIX_FORK_EPOCH:
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
           "empty-payload")
         fut.complete(Opt.some(default(PayloadType)))
@@ -511,6 +512,10 @@ proc proposeBlock(node: BeaconNode,
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock,
         bellatrix.ExecutionPayloadForSigning)
+
+proc getProposer(
+    head: BlockRef, slot: Slot): Opt[ValidatorIndex] =
+  Opt.some(0.ValidatorIndex)
 
 proc handleProposal*(node: BeaconNode, head: BlockRef, slot: Slot) {.async: (raises: [CancelledError]).} =
   let

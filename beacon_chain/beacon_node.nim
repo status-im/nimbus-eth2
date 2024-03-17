@@ -2,16 +2,18 @@ import
   chronos,
   "."/[beacon_clock, beacon_chain_db, conf],
   ./el/el_manager,
-  ./consensus_object_pools/blockchain_dag,
+  ./spec/forks,
   ./validators/[
     message_router, validator_pool,
     keystore_management]
+
+import "."/consensus_object_pools/block_dag
 
 export
   chronos,
   beacon_clock, beacon_chain_db, conf,
   el_manager,
-  blockchain_dag,
+  forks,
   base, message_router, validator_pool
 
 type
@@ -19,7 +21,6 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
-    dag*: ChainDAGRef
     elManager*: ELManager
     keystoreCache*: KeystoreCacheRef
     genesisSnapshotContent*: string
