@@ -4,7 +4,6 @@ import
   std/[os, times],
   chronos,
   stew/[byteutils, io2],
-  eth/p2p/discoveryv5/[enr, random2],
   ./networking/[network_metadata_downloads],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/deposit_snapshots,
