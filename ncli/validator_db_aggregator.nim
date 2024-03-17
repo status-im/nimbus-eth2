@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   stew/[io2, byteutils], chronicles, confutils, snappy,
   ../beacon_chain/spec/datatypes/base,
@@ -155,7 +157,7 @@ proc advanceEpochs*(aggregator: var ValidatorDbAggregator, epoch: Epoch,
 
 when isMainModule:
   import std/streams
-  from std/os import fileExists
+  from std/os import commandLineParams, fileExists
   from std/parsecsv import CsvParser, CsvRow, open, readRow
   from std/strutils import parseBiggestInt, parseBiggestUInt
 
@@ -164,8 +166,9 @@ when isMainModule:
 
   var shouldShutDown = false
 
-  proc determineStartAndEndEpochs(config: AggregatorConf):
-      tuple[startEpoch, endEpoch: Epoch] =
+  proc determineStartAndEndEpochs(
+      config: AggregatorConf
+  ): tuple[startEpoch, endEpoch: Epoch] {.raises: [OSError, ValueError].} =
     if config.startEpoch.isNone or config.endEpoch.isNone:
       (result.startEpoch, result.endEpoch) = getUnaggregatedFilesEpochRange(
         config.inputDir.string)
@@ -182,10 +185,11 @@ when isMainModule:
     for epoch in startEpoch .. endEpoch:
       let filePath = getFilePathForEpoch(epoch, dir)
       if not filePath.fileExists:
-        fatal "File for epoch does not exist.", epoch = epoch, filePath = filePath
+        fatal "File for epoch does not exist.",
+              epoch = epoch, filePath = filePath
         quit QuitFailure
 
-  func parseRow(csvRow: CsvRow): RewardsAndPenalties =
+  func parseRow(csvRow: CsvRow): RewardsAndPenalties {.raises: [ValueError].} =
     result = RewardsAndPenalties(
       source_outcome: parseBiggestInt(csvRow[0]),
       max_source_reward: parseBiggestUInt(csvRow[1]),
@@ -204,8 +208,9 @@ when isMainModule:
     if csvRow[14].len > 0:
       result.inclusion_delay = some(parseBiggestUInt(csvRow[14]))
 
-  proc aggregateEpochs(startEpoch, endEpoch: Epoch, resolution: uint,
-                       inputDir, outputDir: string) =
+  proc aggregateEpochs(
+      startEpoch, endEpoch: Epoch, resolution: uint,
+      inputDir, outputDir: string) {.raises: [IOError, OSError, ValueError].} =
     if startEpoch > endEpoch:
       fatal "Start epoch cannot be larger than the end one.",
             startEpoch = startEpoch, endEpoch = endEpoch
@@ -253,8 +258,21 @@ when isMainModule:
     when defined(posix):
       c_signal(SIGTERM, exitOnSigterm)
 
-    let config = load AggregatorConf
-    let (startEpoch, endEpoch) = config.determineStartAndEndEpochs
+    let
+      config =
+        try:
+          load AggregatorConf
+        except ConfigurationError, OSError:
+          fatal "Loading config from command line failed",
+                cmdLine = commandLineParams(), err = getCurrentExceptionMsg()
+          quit QuitFailure
+      (startEpoch, endEpoch) =
+        try:
+          config.determineStartAndEndEpochs()
+        except IOError, OSError, ValueError:
+          fatal "Failed to determine start and end epochs",
+                inputDir = config.inputDir, err = getCurrentExceptionMsg()
+          quit QuitFailure
     if endEpoch == 0:
       fatal "Not found epoch info files in the directory.",
             inputDir = config.inputDir
@@ -268,7 +286,13 @@ when isMainModule:
       else:
         config.inputDir
 
-    aggregateEpochs(startEpoch, endEpoch, config.resolution,
-                    config.inputDir.string, outputDir.string)
+    try:
+      aggregateEpochs(
+        startEpoch, endEpoch, config.resolution,
+        config.inputDir.string, outputDir.string)
+    except IOError, OSError, ValueError:
+      fatal "Failed to aggregate epochs",
+            inputDir = config.inputDir, err = getCurrentExceptionMsg()
+      quit QuitFailure
 
   main()
