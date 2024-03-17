@@ -346,8 +346,6 @@ func builderBetterBid(
   scaledBuilderValue >
     scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
 
-import ../consensus_object_pools/blockchain_dag
-
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
     validator: AttachedValidator, validator_pubkey: ValidatorPubKey, validator_index: ValidatorIndex,
