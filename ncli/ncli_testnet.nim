@@ -50,46 +50,17 @@ type
         desc: "The number of validator deposits in the newly created chain"
         name: "total-validators" .}: uint64
 
-      bootstrapPort* {.
-        desc: "The TCP/UDP port that will be used by the bootstrap node"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "bootstrap-port" .}: Port
-
       dataDir* {.
         desc: "Nimbus data directory where the keys of the bootstrap node will be placed"
         name: "data-dir" .}: OutDir
-
-      netKeyFile* {.
-        desc: "Source of network (secp256k1) private key file"
-        name: "netkey-file" .}: OutFile
-
-      netKeyInsecurePassword* {.
-        desc: "Use pre-generated INSECURE password for network private key file"
-        defaultValue: false,
-        name: "insecure-netkey-password" .}: bool
 
       genesisTime* {.
         desc: "Unix epoch time of the network genesis"
         name: "genesis-time" .}: Option[uint64]
 
-      genesisOffset* {.
-        desc: "Seconds from now to add to genesis time"
-        name: "genesis-offset" .}: Option[int]
-
       executionGenesisBlock* {.
         desc: "The execution genesis block in a merged testnet"
         name: "execution-genesis-block" .}: Option[InputFile]
-
-      capellaForkEpoch* {.
-        defaultValue: FAR_FUTURE_EPOCH
-        desc: "The epoch of the Capella hard-fork"
-        name: "capella-fork-epoch" .}: Epoch
-
-      denebForkEpoch* {.
-        defaultValue: FAR_FUTURE_EPOCH
-        desc: "The epoch of the Deneb hard-fork"
-        name: "deneb-fork-epoch" .}: Epoch
 
       outputGenesis* {.
         desc: "Output file where to write the initial state snapshot"
@@ -98,10 +69,6 @@ type
       outputDepositTreeSnapshot* {.
         desc: "Output file where to write the initial deposit tree snapshot"
         name: "output-deposit-tree-snapshot" .}: OutFile
-
-      outputBootstrapFile* {.
-        desc: "Output file with list of bootstrap nodes for the network"
-        name: "output-bootstrap-file" .}: OutFile
 
 type
   PubKeyBytes = DynamicBytes[48, 48]
@@ -185,7 +152,7 @@ proc doCreateTestnet*(config: CliConfig,
     startTime = if config.genesisTime.isSome:
       config.genesisTime.get
     else:
-      uint64(times.toUnix(times.getTime()) + config.genesisOffset.get(0))
+      uint64(times.toUnix(times.getTime()))
     outGenesis = config.outputGenesis.string
     eth1Hash = mockEth1BlockHash
     cfg = getRuntimeConfig(config.eth2Network)

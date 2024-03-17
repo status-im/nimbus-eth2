@@ -1,7 +1,7 @@
 import
   std/os,
-  stint, json_serialization, confutils,
-  chronos, blscurve, libp2p/crypto/crypto as lcrypto,
+  json_serialization, confutils,
+  chronos, blscurve,
   stew/[byteutils, io2],
 
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
@@ -73,17 +73,13 @@ BELLATRIX_FORK_EPOCH: 0
   else:
     quit 1
 
-  let createTestnetConf = try: ncli_testnet.CliConfig.load(cmdLine = mapIt([
+  let createTestnetConf = try: ncli_testnet.CliConfig.load(cmdLine = @[
     "createTestnet",
     "--data-dir=" & dataDir,
     "--total-validators=" & $simulationDepositsCount,
     "--deposits-file=" & depositsFile,
     "--output-genesis=" & genesisFile,
-    "--output-deposit-tree-snapshot=" & depositTreeSnapshotFile,
-    "--output-bootstrap-file=" & bootstrapEnrFile,
-    "--netkey-file=network_key.json",
-    "--insecure-netkey-password=true",
-    "--genesis-offset=0"], it))
+    "--output-deposit-tree-snapshot=" & depositTreeSnapshotFile])
   except Exception as exc: # TODO Fix confutils exceptions
     raiseAssert exc.msg
 
@@ -154,12 +150,12 @@ proc startBeaconNode() {.raises: [CatchableError].} =
 
   copyHalfValidators(nodeDataDir, true)
 
-  let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
+  let runNodeConf = try: BeaconNodeConf.load(cmdLine = @[
     "--network=" & dataDir,
     "--data-dir=" & nodeDataDir,
     "--validators-dir=" & nodeValidatorsDir,
     "--secrets-dir=" & nodeSecretsDir,
-    "--no-el"], it))
+    "--no-el"])
   except Exception as exc: # TODO fix confutils exceptions
     raiseAssert exc.msg
 
