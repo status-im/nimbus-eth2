@@ -13,12 +13,8 @@ import
   ".."/networking/network_metadata,
   ./validator_pool
 
-from std/terminal import
-  ForegroundColor, Style, readPasswordFromStdin, getch, resetAttributes,
-  setForegroundColor, setStyle
-
 export
-  keystore, validator_pool, crypto, rand, Web3SignerUrl
+  keystore, validator_pool, crypto, rand
 
 {.localPassC: "-fno-lto".} # no LTO for crypto
 
@@ -39,67 +35,6 @@ func init*(T: type KeystoreData,
     version: uint64(keystore.version),
     pubkey: privateKey.toPubKey().toPubKey()
   )
-
-proc checkSensitiveFilePermissions(filePath: string): bool =
-  ## Check if ``filePath`` has only "(600) rw-------" permissions.
-  ## Procedure returns ``false`` if permissions are different and we can't
-  ## correct them.
-  when defined(windows):
-    let cres = checkCurrentUserOnlyACL(filePath)
-    if cres.isErr():
-      fatal "Could not check file's ACL",
-             key_path = filePath, errorCode = $cres.error,
-             errorMsg = ioErrorMsg(cres.error)
-      return false
-    else:
-      if cres.get() == false:
-        fatal "File has insecure permissions", key_path = filePath
-        return false
-  else:
-    let requiredPerms = 0o600
-    let currPermsRes = getPermissions(filePath)
-    if currPermsRes.isErr():
-      error "Could not check file permissions",
-            key_path = filePath, errorCode = $currPermsRes.error,
-            errorMsg = ioErrorMsg(currPermsRes.error)
-      return false
-    else:
-      let currPerms = currPermsRes.get()
-      if currPerms != requiredPerms:
-        warn "File has insecure permissions. Correcting them.",
-              key_path = filePath
-        let newPermsRes = setPermissions(filePath, requiredPerms)
-        if newPermsRes.isErr():
-          fatal "Could not set data directory permissions",
-                 key_path = filePath,
-                 errorCode = $newPermsRes.error,
-                 errorMsg = ioErrorMsg(newPermsRes.error)
-          return false
-
-  return true
-
-proc keyboardGetPassword[T](prompt: string, attempts: int,
-                            pred: proc(p: string): KsResult[T] {.
-     gcsafe, raises: [].}): KsResult[T] =
-  var
-    remainingAttempts = attempts
-    counter = 1
-
-  while remainingAttempts > 0:
-    let passphrase =
-      try:
-        readPasswordFromStdin(prompt)
-      except IOError:
-        error "Could not read password from stdin"
-        return
-    os.sleep(1000 * counter)
-    let res = pred(passphrase)
-    if res.isOk():
-      return res
-    else:
-      inc(counter)
-      dec(remainingAttempts)
-  err("Failed to decrypt keystore")
 
 proc loadSecretFile(path: string): KsResult[KeystorePass] {.
      raises: [].} =
@@ -147,10 +82,6 @@ proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
         data
 
   if fileExists(passphrasePath):
-    if not(checkSensitiveFilePermissions(passphrasePath)):
-      error "Password file has insecure permissions", key_path = keystorePath
-      return Opt.none(KeystoreData)
-
     let passphrase =
       block:
         let res = loadSecretFile(passphrasePath)
@@ -169,29 +100,10 @@ proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
             secure_path = passphrasePath
       return Opt.none(KeystoreData)
 
-  if nonInteractive:
-    error "Unable to load validator key store. Please ensure matching " &
-          "passphrase exists in the secrets dir", key_path = keystorePath,
-          key_name = keyName, validatorsDir, secretsDir = secretsDir
-    return Opt.none(KeystoreData)
-
-  let prompt = "Please enter passphrase for key \"" &
-               (validatorsDir / keyName) & "\": "
-  let res = keyboardGetPassword[ValidatorPrivKey](prompt, 3,
-    proc (password: string): KsResult[ValidatorPrivKey] =
-      let decrypted = decryptKeystore(keystore, KeystorePass.init password,
-                                      cache)
-      if decrypted.isErr():
-        error "Keystore decryption failed. Please try again",
-              keystore_path = keystorePath
-      decrypted
-  )
-
-  if res.isErr():
-    return Opt.none(KeystoreData)
-
-  success = true
-  Opt.some(KeystoreData.init(res.get(), keystore, handle))
+  error "Unable to load validator key store. Please ensure matching " &
+        "passphrase exists in the secrets dir", key_path = keystorePath,
+        key_name = keyName, validatorsDir, secretsDir = secretsDir
+  return Opt.none(KeystoreData)
 
 proc loadKeystore(validatorsDir, secretsDir, keyName: string,
                    nonInteractive: bool,
@@ -425,10 +337,6 @@ proc generateDeposits*(cfg: RuntimeConfig,
   ok deposits
 
 type
-  # This is not particularly well-standardized yet.
-  # Some relevant code for generating (1) and validating (2) the data can be found below:
-  # 1) https://github.com/ethereum/eth2.0-deposit-cli/blob/dev/eth2deposit/credentials.py
-  # 2) https://github.com/ethereum/eth2.0-deposit/blob/dev/src/pages/UploadValidator/validateDepositKey.ts
   LaunchPadDeposit* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
