@@ -176,17 +176,6 @@ proc getBlock(
     T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
   dag.db.getBlock(bid.root, T)
 
-proc getForkedBlock(
-    dag: ChainDAGRef, bid: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
-
-  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-  result.ok(ForkedTrustedSignedBeaconBlock(kind: fork))
-  withBlck(result.get()):
-    type T = type(forkyBlck)
-    forkyBlck = getBlock(dag, bid, T).valueOr:
-      result.err()
-      return
-
 proc getBlockId(db: BeaconChainDB, root: Eth2Digest): Opt[BlockId] =
   block: # We might have a summary in the database
     let summary = db.getBeaconBlockSummary(root)
@@ -215,15 +204,6 @@ proc getBlockId(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
       return ok(blck.get().bid)
 
   dag.db.getBlockId(root)
-
-proc getForkedBlock(
-    dag: ChainDAGRef, root: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
-  let bid = dag.getBlockId(root)
-  if bid.isSome():
-    dag.getForkedBlock(bid.get())
-  else:
-    # In case we didn't have a summary - should be rare, but ..
-    dag.db.getForkedBlock(root)
 
 func parent(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
   if bid.slot == 0:
@@ -537,15 +517,6 @@ proc getStateByParent(
 
   dag.db.getState(
     dag.cfg, summary.parent_root, parentMinSlot..slot, state, rollback)
-
-proc getBlockIdAtSlot(
-    dag: ChainDAGRef, state: ForkyHashedBeaconState, slot: Slot): Opt[BlockId] =
-  if slot >= state.data.slot:
-    Opt.some state.latest_block_id
-  elif state.data.slot <= slot + SLOTS_PER_HISTORICAL_ROOT:
-    dag.getBlockId(state.data.get_block_root_at_slot(slot))
-  else:
-    Opt.none(BlockId)
 
 proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
   let slot = getStateField(state, slot)

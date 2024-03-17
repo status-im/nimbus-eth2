@@ -14,40 +14,15 @@ import
 
 from ./spec/datatypes/deneb import SignedBeaconBlock
 
-import libp2p/protocols/pubsub/pubsub
+#import libp2p/protocols/pubsub/pubsub
 import libp2p/protocols/pubsub/gossipsub
 
 import "."/consensus_object_pools/blockchain_dag
 
-proc loadChainDag(
-    config: BeaconNodeConf,
-    cfg: RuntimeConfig,
-    db: BeaconChainDB,
-    networkGenesisValidatorsRoot: Opt[Eth2Digest]): ChainDAGRef =
-  var dag: ChainDAGRef
-
-  let
-    chainDagFlags =
-      if config.strictVerification: {strictVerification}
-      else: {}
-  dag = ChainDAGRef.init(
-    cfg, db, chainDagFlags, config.eraDir)
-
-  if networkGenesisValidatorsRoot.isSome:
-    let databaseGenesisValidatorsRoot =
-      getStateField(dag.headState, genesis_validators_root)
-    if networkGenesisValidatorsRoot.get != databaseGenesisValidatorsRoot:
-      quit 1
-
-  dag
-
 proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
-    dag: ChainDAGRef,
     getBeaconTime: GetBeaconTimeFn) {.async.} =
-  template config(): auto = node.config
-
   node.router = new MessageRouter
 
   await node.addValidators()
@@ -147,10 +122,7 @@ proc init*(T: type BeaconNode,
   doAssert not genesisState.isNil
 
   let
-    dag = loadChainDag(
-      config, cfg, db,
-      networkGenesisValidatorsRoot)
-    genesisTime = getStateField(dag.headState, genesis_time)
+    genesisTime = getStateField(genesisState[], genesis_time)
     beaconClock = BeaconClock.init(genesisTime).valueOr:
       quit 1
 
@@ -172,7 +144,7 @@ proc init*(T: type BeaconNode,
     cfg: cfg,
     genesisState: genesisState)
 
-  await node.initFullNode(rng, dag, getBeaconTime)
+  await node.initFullNode(rng, getBeaconTime)
 
   node
 
@@ -186,7 +158,6 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   let
     wallSlot = wallTime.slotOrZero
-    expectedSlot = lastSlot + 1
 
   if wallSlot > 2:
     quit(0)
