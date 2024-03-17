@@ -6,9 +6,9 @@ import
   chronos,
   chronicles,
   ../spec/network,
-  ./activity_metrics,
-  ../spec/datatypes/deneb
+  ./activity_metrics
 from  ../spec/state_transition_block import validate_blobs
+import ".."/spec/forks
 
 type
   BlobSidecars* = seq[ref BlobSidecar]
@@ -16,11 +16,8 @@ type
 
 from ".."/consensus_object_pools/block_dag import BlockRef
 from ".."/consensus_object_pools/block_pools_types import ChainDAGRef, VerifierError
-import ".."/spec/forks
-
 
 proc addBlock*(
-    #self: var BlockProcessor,
     blck: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars], maybeFinalized = false,
     validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
