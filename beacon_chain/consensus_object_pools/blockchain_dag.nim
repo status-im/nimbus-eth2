@@ -60,7 +60,7 @@ template is_merge_transition_complete*(
     else:
       false
 
-func getBlockRef*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockRef] =
+func getBlockRef(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
     root, Opt.none Eth2Digest, executionValid = false,
     0.Slot)

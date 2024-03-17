@@ -456,7 +456,7 @@ proc proposeBlockAux(
     let
       newBlockRef = (
         # I don't ... think this is used in a significant way? but probably first thing
-        await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt, node.dag)
+        await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
       ).valueOr:
         return head # Errors logged in router
 

@@ -13,8 +13,14 @@ type
   BlobSidecars* = seq[ref BlobSidecar]
   MessageRouter* = object
 
-from ".."/consensus_object_pools/block_dag import BlockRef
+from ".."/consensus_object_pools/block_dag import BlockRef, init
 from ".."/consensus_object_pools/block_pools_types import ChainDAGRef, VerifierError
+
+func getBlockRef(root: Eth2Digest): Opt[BlockRef] =
+  let newRef = BlockRef.init(
+    root, Opt.none Eth2Digest, executionValid = false,
+    0.Slot)
+  return ok(newRef)
 
 proc addBlock(
     blck: ForkedSignedBeaconBlock,
@@ -24,7 +30,7 @@ proc addBlock(
 type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[seq[BlobSidecar]], dag: ChainDAGRef):
+    blobsOpt: Opt[seq[BlobSidecar]]):
     Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   block:
     when typeof(blck).kind >= ConsensusFork.Deneb:
@@ -66,7 +72,7 @@ proc routeSignedBeaconBlock*(
       # If it's duplicate, there's an existing BlockRef to return. The block
       # shouldn't be finalized already because that requires a couple epochs
       # before occurring, so only check non-finalized resolved blockrefs.
-      let blockRef = dag.getBlockRef(blck.root)
+      let blockRef = getBlockRef(blck.root)
       if blockRef.isErr:
         warn "Unable to add routed duplicate block to block pool",
           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
@@ -74,7 +80,7 @@ proc routeSignedBeaconBlock*(
       ok(blockRef)
 
 
-  let blockRef = dag.getBlockRef(blck.root)
+  let blockRef = getBlockRef(blck.root)
   if blockRef.isErr:
     warn "Block finalised while waiting for block processor",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
