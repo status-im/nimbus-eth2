@@ -1,7 +1,5 @@
 import
   chronos,
-
-  # Local modules
   "."/[beacon_clock, beacon_chain_db, conf],
   ./el/el_manager,
   ./consensus_object_pools/blockchain_dag,
@@ -28,6 +26,7 @@ type
     beaconClock*: BeaconClock
     router*: ref MessageRouter
     cfg*: RuntimeConfig
+    genesisState*: ref ForkedHashedBeaconState
 
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1

@@ -48,7 +48,7 @@ proc getValidator*(validators: auto,
 proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
   for keystore in listLoadableKeystores(node.config, node.keystoreCache):
     let
-      data = withState(node.dag.headState):
+      data = withState(node.genesisState[]):
         getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
       v = node.attachedValidators[].addValidator(keystore, default(Eth1Address), 30000000)
     v.updateValidator(data)
@@ -491,8 +491,7 @@ proc proposeBlock(node: BeaconNode,
 
   let
     fork = node.cfg.forkAtEpoch(slot.epoch)
-    # TODO pull g_v_r out of DAG
-    genesis_validators_root = getStateField(node.dag.headState, genesis_validators_root)
+    genesis_validators_root = getStateField(node.genesisState[], genesis_validators_root)
     randao = block:
       let res = await validator.getEpochSignature(
         fork, genesis_validators_root, slot.epoch)

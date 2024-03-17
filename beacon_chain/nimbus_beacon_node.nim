@@ -92,8 +92,9 @@ proc init*(T: type BeaconNode,
 
   var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
+  var genesisState = checkpointState
   if not ChainDAGRef.isInitialized(db).isOk():
-    let genesisState = if checkpointState != nil and getStateField(checkpointState[], slot) == 0:
+    genesisState = if checkpointState != nil and getStateField(checkpointState[], slot) == 0:
       checkpointState
     else:
       let genesisBytes = block:
@@ -143,6 +144,8 @@ proc init*(T: type BeaconNode,
     if not checkpointState.isNil:
       quit 1
 
+  doAssert not genesisState.isNil
+
   let
     dag = loadChainDag(
       config, cfg, db,
@@ -166,7 +169,8 @@ proc init*(T: type BeaconNode,
     elManager: elManager,
     keystoreCache: keystoreCache,
     beaconClock: beaconClock,
-    cfg: cfg)
+    cfg: cfg,
+    genesisState: genesisState)
 
   await node.initFullNode(rng, dag, getBeaconTime)
 
