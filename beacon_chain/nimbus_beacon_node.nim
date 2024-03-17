@@ -217,7 +217,6 @@ proc start*(node: BeaconNode) {.raises: [CatchableError].} =
     wallTime = node.beaconClock.now()
 
   asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
-  asyncSpawn runOnSecondLoop(node)
 
   while true:
     poll() # if poll fails, the network is broken
