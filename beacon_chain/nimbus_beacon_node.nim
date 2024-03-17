@@ -15,11 +15,8 @@ import
 from ./spec/datatypes/deneb import SignedBeaconBlock
 
 import libp2p/protocols/pubsub/pubsub,
-       libp2p/protocols/pubsub/floodsub,
-       libp2p/protocols/pubsub/pubsubpeer,
-       libp2p/protocols/../utility,
-       libp2p/protocols/../switch
-import libp2p/protocols/pubsub/gossipsub/[types, scoring, behavior], libp2p/utils/heartbeat
+       libp2p/protocols/pubsub/floodsub
+import libp2p/protocols/pubsub/gossipsub/[types, scoring]
 import libp2p/protocols/pubsub/gossipsub
 
 proc loadChainDag(
