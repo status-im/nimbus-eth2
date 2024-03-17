@@ -6,7 +6,7 @@ import
   stew/[assign2, byteutils],
   chronos,
   ../spec/[
-    eth2_merkleization, forks, helpers, network, signatures, state_transition,
+    eth2_merkleization, forks, helpers, signatures, state_transition,
     validator],
   ../consensus_object_pools/blockchain_dag,
   ".."/[conf, beacon_clock, beacon_node],

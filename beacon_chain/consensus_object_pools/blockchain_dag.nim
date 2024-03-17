@@ -1113,6 +1113,8 @@ proc preInit*(
 
 proc getProposer*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot): Opt[ValidatorIndex] =
+  # WARN WARN WARN this uses updateState
+  return Opt.some(0.ValidatorIndex)
   let
     epochRef = dag.getEpochRef(head.bid, slot.epoch(), false).valueOr:
       return Opt.none(ValidatorIndex)
@@ -1129,7 +1131,6 @@ proc getProposer*(
 proc getProposalState*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot, cache: var StateCache):
     Result[ref ForkedHashedBeaconState, cstring] =
-
   let state = assignClone(dag.clearanceState)
 
   var

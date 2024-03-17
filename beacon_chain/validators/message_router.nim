@@ -5,7 +5,6 @@ import
   std/sequtils,
   chronos,
   chronicles,
-  ../spec/network,
   ./activity_metrics
 from  ../spec/state_transition_block import validate_blobs
 import ".."/spec/forks

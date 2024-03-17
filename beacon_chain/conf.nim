@@ -5,7 +5,7 @@ import
   confutils, confutils/defs, confutils/std/net,
   stew/[io2, byteutils],
   json_serialization, web3/[primitives, confutils_defs],
-  ./spec/[keystore, network, crypto],
+  ./spec/[keystore, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata,
   ./filepath
@@ -14,9 +14,7 @@ from std/os import getHomeDir, parentDir, `/`
 from std/strutils import parseBiggestUInt, replace
 export
   uri,
-  defaultEth2TcpPort,
-  defs, parseCmdArg, completeCmdArg, network_metadata,
-  network
+  defs, parseCmdArg, completeCmdArg, network_metadata
 
 {.pragma: windowsOnly, hidden.}
 {.pragma: posixOnly.}
@@ -234,18 +232,6 @@ type
         defaultValue: ""
         name: "bootstrap-file" .}: InputFile
 
-      tcpPort* {.
-        desc: "Listening TCP port for Ethereum LibP2P traffic"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "tcp-port" .}: Port
-
-      udpPort* {.
-        desc: "Listening UDP port for node discovery"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "udp-port" .}: Port
-
       maxPeers* {.
         desc: "The target number of peers to connect to"
         defaultValue: 160 # 5 (fanout) * 64 (subnets) / 2 (subs) for a heathy mesh
@@ -384,12 +370,6 @@ type
         defaultValue: false
         name: "rest" .}: bool
 
-      restPort* {.
-        desc: "Port for the REST server"
-        defaultValue: defaultEth2RestPort
-        defaultValueDesc: $defaultEth2RestPortDesc
-        name: "rest-port" .}: Port
-
       restAllowedOrigin* {.
         desc: "Limit the access to the REST API to a particular hostname " &
               "(for CORS-enabled clients such as browsers)"
@@ -431,12 +411,6 @@ type
         desc: "Enable the REST keymanager API"
         defaultValue: false
         name: "keymanager" .}: bool
-
-      keymanagerPort* {.
-        desc: "Listening port for the REST keymanager API"
-        defaultValue: defaultEth2RestPort
-        defaultValueDesc: $defaultEth2RestPortDesc
-        name: "keymanager-port" .}: Port
 
       keymanagerAllowedOrigin* {.
         desc: "Limit the access to the Keymanager API to a particular hostname " &
