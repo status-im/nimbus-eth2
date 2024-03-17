@@ -4,7 +4,7 @@ import
   std/[os, times],
   chronos,
   stew/io2,
-  ./networking/[network_metadata_downloads],
+  ./networking/network_metadata_downloads,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/deposit_snapshots,
   ./validators/[keystore_management, beacon_validators],
@@ -14,10 +14,26 @@ import
 
 from ./spec/datatypes/deneb import SignedBeaconBlock
 
-from
-  libp2p/protocols/pubsub/gossipsub
-import
-  validateParameters, init
+# import libp2p/protocols/pubsub/gossipsub
+import std/[sets, sequtils]
+import chronos, chronicles, metrics
+import chronos/ratelimit
+import libp2p/protocols/pubsub/pubsub,
+       libp2p/protocols/pubsub/floodsub,
+       libp2p/protocols/pubsub/pubsubpeer,
+       libp2p/protocols/pubsub/peertable,
+       libp2p/protocols/pubsub/mcache,
+       libp2p/protocols/pubsub/timedcache,
+       libp2p/protocols/pubsub/rpc/[messages, message, protobuf],
+       libp2p/protocols/protocol,
+       libp2p/protocols/../stream/connection,
+       libp2p/protocols/../peerinfo,
+       libp2p/protocols/../peerid,
+       libp2p/protocols/../utility,
+       libp2p/protocols/../switch
+import stew/results
+import libp2p/protocols/pubsub/gossipsub/[types, scoring, behavior], libp2p/utils/heartbeat
+import libp2p/protocols/pubsub/gossipsub
 
 proc loadChainDag(
     config: BeaconNodeConf,
