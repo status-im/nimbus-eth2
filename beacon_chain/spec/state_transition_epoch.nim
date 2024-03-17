@@ -1088,9 +1088,11 @@ func process_sync_committee_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#inactivity-scores
 template compute_inactivity_update(
+    cfg: RuntimeConfig,
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState,
-    info: altair.EpochInfo, pre_inactivity_score: uint64): uint64 =
+    info: altair.EpochInfo,
+    pre_inactivity_score: uint64): uint64 =
   let previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
 
   # Increase the inactivity score of inactive validators
@@ -1105,7 +1107,8 @@ template compute_inactivity_update(
   # Decrease the inactivity score of all eligible validators during a
   # leak-free epoch
   if not_in_inactivity_leak:
-    inactivity_score -= min(INACTIVITY_SCORE_RECOVERY_RATE.uint64, inactivity_score)
+    inactivity_score -=
+      min(cfg.INACTIVITY_SCORE_RECOVERY_RATE, inactivity_score)
   inactivity_score
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#inactivity-scores
@@ -1129,7 +1132,7 @@ func process_inactivity_updates*(
     let
       pre_inactivity_score = state.inactivity_scores.asSeq()[index]
       inactivity_score =
-        compute_inactivity_update(state, info, pre_inactivity_score)
+        compute_inactivity_update(cfg, state, info, pre_inactivity_score)
 
     # Most inactivity scores remain at 0 - avoid invalidating cache
     if pre_inactivity_score != inactivity_score:
