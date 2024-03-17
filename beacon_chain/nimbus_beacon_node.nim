@@ -14,17 +14,11 @@ import
 
 from ./spec/datatypes/deneb import SignedBeaconBlock
 
-# import libp2p/protocols/pubsub/gossipsub
 import libp2p/protocols/pubsub/pubsub,
        libp2p/protocols/pubsub/floodsub,
        libp2p/protocols/pubsub/pubsubpeer,
-       libp2p/protocols/protocol,
-       libp2p/protocols/../stream/connection,
-       libp2p/protocols/../peerinfo,
-       libp2p/protocols/../peerid,
        libp2p/protocols/../utility,
        libp2p/protocols/../switch
-import stew/results
 import libp2p/protocols/pubsub/gossipsub/[types, scoring, behavior], libp2p/utils/heartbeat
 import libp2p/protocols/pubsub/gossipsub
 
