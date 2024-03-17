@@ -23,13 +23,7 @@ type
   Eth1Address = web3.Address
 
   StartUpCommand {.pure.} = enum
-    generateDeposits
     createTestnet
-    run
-    sendDeposits
-    analyzeLogs
-    deployDepositContract
-    sendEth
 
   CliConfig* = object
     web3Url* {.
@@ -52,44 +46,6 @@ type
       name: "network" }: Option[string]
 
     case cmd* {.command.}: StartUpCommand
-    of StartUpCommand.deployDepositContract:
-      discard
-
-    of StartUpCommand.sendEth:
-      toAddress* {.name: "to".}: Eth1Address
-      valueEth* {.name: "eth".}: string
-
-    of StartUpCommand.generateDeposits:
-      simulationDepositsCount* {.
-        desc: "The number of validator keystores to generate"
-        name: "count" }: Natural
-
-      outValidatorsDir* {.
-        desc: "A directory to store the generated validator keystores"
-        name: "out-validators-dir" }: OutDir
-
-      outSecretsDir* {.
-        desc: "A directory to store the generated keystore password files"
-        name: "out-secrets-dir" }: OutDir
-
-      outDepositsFile* {.
-        desc: "A LaunchPad deposits file to write"
-        name: "out-deposits-file" }: OutFile
-
-      threshold* {.
-        defaultValue: 1
-        desc: "Used to generate distributed keys"
-        name: "threshold" }: uint32
-
-      remoteValidatorsCount* {.
-        defaultValue: 0
-        desc: "The number of distributed validators validator"
-        name: "remote-validators-count" }: uint32
-
-      remoteSignersUrls* {.
-        desc: "URLs of the remote signers"
-        name: "remote-signer" }: seq[string]
-
     of StartUpCommand.createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
@@ -151,73 +107,6 @@ type
       outputBootstrapFile* {.
         desc: "Output file with list of bootstrap nodes for the network"
         name: "output-bootstrap-file" .}: OutFile
-
-    of StartUpCommand.sendDeposits:
-      depositsFile* {.
-        desc: "A LaunchPad deposits file"
-        name: "deposits-file" }: InputFile
-
-      depositContractAddress* {.
-        desc: "Address of the deposit contract"
-        name: "deposit-contract" }: Eth1Address
-
-      minDelay* {.
-        defaultValue: 0.0
-        desc: "Minimum possible delay between making two deposits (in seconds)"
-        name: "min-delay" }: float
-
-      maxDelay* {.
-        defaultValue: 0.0
-        desc: "Maximum possible delay between making two deposits (in seconds)"
-        name: "max-delay" }: float
-
-    of StartUpCommand.run:
-      discard
-
-    of StartUpCommand.analyzeLogs:
-      logFiles* {.
-        desc: "Specifies one or more log files",
-        abbr: "f",
-        name: "log-file" .}: seq[string]
-
-      simDir* {.
-        desc: "Specifies path to eth2_network_simulation directory",
-        defaultValue: "",
-        name: "sim-dir" .}: string
-
-      netDir* {.
-        desc: "Specifies path to network build directory",
-        defaultValue: "",
-        name: "net-dir" .}: string
-
-      logDir* {.
-        desc: "Specifies path with bunch of logs",
-        defaultValue: "",
-        name: "log-dir" .}: string
-
-      ignoreSerializationErrors* {.
-        desc: "Ignore serialization errors while parsing log files",
-        defaultValue: true,
-        name: "ignore-errors" .}: bool
-
-      dumpSerializationErrors* {.
-        desc: "Dump full serialization errors while parsing log files",
-        defaultValue: false ,
-        name: "dump-errors" .}: bool
-
-      nodes* {.
-        desc: "Specifies node names which logs will be used",
-        name: "nodes" .}: seq[string]
-
-      allowedLag* {.
-        desc: "Allowed latency lag multiplier",
-        defaultValue: 2.0,
-        name: "lag" .}: float
-
-      constPreset* {.
-        desc: "The const preset being used"
-        defaultValue: "mainnet"
-        name: "const-preset" .}: string
 
 type
   PubKeyBytes = DynamicBytes[48, 48]
