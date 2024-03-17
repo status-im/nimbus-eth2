@@ -5,8 +5,6 @@ import
 
   stew/[assign2, byteutils],
   chronos,
-  chronicles/timings,
-  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[
     eth2_merkleization, forks, helpers, network, signatures, state_transition,
     validator],
@@ -48,19 +46,10 @@ proc getValidator*(validators: auto,
                                validator: validators[idx])
 
 proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
-  info "Loading validators", validatorsDir = node.config.validatorsDir(),
-                keystore_cache_available = not(isNil(node.keystoreCache))
-  let epoch = node.currentSlot().epoch
-
   for keystore in listLoadableKeystores(node.config, node.keystoreCache):
     let
       data = withState(node.dag.headState):
         getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
-      index =
-        if data.isSome():
-          Opt.some(data.get().index)
-        else:
-          Opt.none(ValidatorIndex)
       v = node.attachedValidators[].addValidator(keystore, default(Eth1Address), 30000000)
     v.updateValidator(data)
 
@@ -71,6 +60,7 @@ proc getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator
 proc getValidatorForDuties*(
     node: BeaconNode, idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
+  # TODO mock this
   let key = ? node.dag.validatorKey(idx)
 
   node.attachedValidators[].getValidatorForDuties(
@@ -84,53 +74,14 @@ type
     deposits*: seq[Deposit]
     hasMissingDeposits*: bool
 
-proc getBlockProposalEth1Data*(node: BeaconNode,
-                               state: ForkedHashedBeaconState):
-                               BlockProposalEth1Data = default(BlockProposalEth1Data)
+proc getBlockProposalEth1Data(node: BeaconNode,
+                              state: ForkedHashedBeaconState):
+                              BlockProposalEth1Data = default(BlockProposalEth1Data)
 
-from web3/engine_api_types import PayloadExecutionStatus
-from ../spec/datatypes/capella import BeaconBlock, ExecutionPayload
-from ../spec/datatypes/deneb import BeaconBlock, ExecutionPayload, shortLog
 from ../spec/beaconstate import get_expected_withdrawals
+import chronicles
 
-proc getExecutionPayload(
-    PayloadType: type ForkyExecutionPayloadForSigning,
-    node: BeaconNode, head: BlockRef, proposalState: ref ForkedHashedBeaconState,
-    validator_index: ValidatorIndex): Future[Opt[PayloadType]]
-    {.async: (raises: [CancelledError], raw: true).} =
-
-  let
-    epoch = withState(proposalState[]):
-      forkyState.data.slot.epoch
-    feeRecipient = block:
-      let pubkey = node.dag.validatorKey(validator_index)
-      default(Eth1Address)
-
-    executionHead = withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Bellatrix:
-        forkyState.data.latest_execution_payload_header.block_hash
-      else:
-        (static(default(Eth2Digest)))
-    timestamp = withState(proposalState[]):
-      compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
-    random = withState(proposalState[]):
-      get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
-    withdrawals = withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Capella:
-        get_expected_withdrawals(forkyState.data)
-      else:
-        @[]
-
-  info "Requesting engine payload",
-    executionHead = shortLog(executionHead),
-    validatorIndex = validator_index,
-    feeRecipient = $feeRecipient
-
-  node.elManager.getPayload(
-      PayloadType, static(default(Eth2Digest)), executionHead, static(default(Eth2Digest)),
-      static(default(Eth2Digest)), timestamp, random, feeRecipient, withdrawals)
-
-proc makeBeaconBlockForHeadAndSlot*(
+proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
@@ -148,9 +99,7 @@ proc makeBeaconBlockForHeadAndSlot*(
   let
     # The clearance state already typically sits at the right slot per
     # `advanceClearanceState`
-
-    # TODO can use `valueOr:`/`return err($error)` if/when
-    # https://github.com/status-im/nim-stew/issues/161 is addressed
+    # TODO mock this
     maybeState = node.dag.getProposalState(head, slot, cache)
 
   if maybeState.isErr:
@@ -184,6 +133,7 @@ proc makeBeaconBlockForHeadAndSlot*(
           "given-payload")
         fut.complete(modified_execution_payload)
         fut
+      # TODO do something random here, doesn't matter except structurally
       elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
            not state[].is_merge_transition_complete:
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
@@ -211,6 +161,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       return err("Unable to get execution payload")
 
   let blck = makeBeaconBlock(
+      # ok, need RuntimeConfig still
       node.dag.cfg,
       state[],
       validator_index,
@@ -240,7 +191,7 @@ proc makeBeaconBlockForHeadAndSlot*(
   else:
     err(blck.error)
 
-proc makeBeaconBlockForHeadAndSlot*(
+proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot):
@@ -252,20 +203,6 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root = Opt.none(Eth2Digest),
     withdrawals_root = Opt.none(Eth2Digest),
     kzg_commitments = Opt.none(KzgCommitments))
-
-proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
-    blck: deneb.BeaconBlock,
-    blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
-  var blindedBlock: T
-
-  assign(
-    blindedBlock.message.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.message.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
-
-  blindedBlock
 
 proc blindedBlockCheckSlashingAndSign[
     T:
@@ -525,6 +462,7 @@ proc proposeBlockAux(
     # - Nim v1.6.18 (a749a8b742bd0a4272c26a65517275db4720e58a)
     let
       newBlockRef = (
+        # I don't ... think this is used in a significant way? but probably first thing
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt, node.dag)
       ).valueOr:
         return head # Errors logged in router
@@ -554,7 +492,9 @@ proc proposeBlock(node: BeaconNode,
     return
 
   let
+    # TODO RuntimeConfig again, maybe attach to node
     fork = node.dag.cfg.forkAtEpoch(slot.epoch)
+    # TODO pull g_v_r out of DAG
     genesis_validators_root = getStateField(node.dag.headState, genesis_validators_root)
     randao = block:
       let res = await validator.getEpochSignature(
@@ -570,6 +510,7 @@ proc proposeBlock(node: BeaconNode,
       type1, type2, node, validator, validator_pubkey, validator_index, head, slot, randao, fork,
         genesis_validators_root, node.config.localBlockValueBoost)
 
+  # TODO RuntimeConfig
   discard withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
     when consensusFork >= ConsensusFork.Electra:
       debugRaiseAssert "proposeBlock; fill in Electra support"
@@ -587,9 +528,9 @@ proc proposeBlock(node: BeaconNode,
 
 proc handleProposal*(node: BeaconNode, head: BlockRef, slot: Slot) {.async: (raises: [CancelledError]).} =
   let
+    # TODO actual DAG stuff, but if can get rid of rest, can probably fake it, it's a ValidatorIndex
     proposer = node.dag.getProposer(head, slot).valueOr:
       return
-    proposerKey = node.dag.validatorKey(proposer).get().toPubKey
     validator = node.getValidatorForDuties(proposer, slot).valueOr:
       return
 
