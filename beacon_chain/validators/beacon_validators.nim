@@ -54,8 +54,6 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
       echo data.get.validator.pubkey
     v.updateValidator(data)
 
-import ../consensus_object_pools/blockchain_dag
-
 func validatorKey2(
     index: ValidatorIndex or uint64): Opt[CookedPubKey] =
   let foo = ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[].load()
@@ -347,6 +345,8 @@ func builderBetterBid(
     scaledEngineValue = engineValue shr scalingBits
   scaledBuilderValue >
     scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
+
+import ../consensus_object_pools/blockchain_dag
 
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,

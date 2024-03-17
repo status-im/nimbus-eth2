@@ -61,7 +61,10 @@ template is_merge_transition_complete*(
       false
 
 func getBlockRef*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockRef] =
-  return ok(dag.head)
+  let newRef = BlockRef.init(
+    root, Opt.none Eth2Digest, executionValid = false,
+    0.Slot)
+  return ok(newRef)
 
 func getBlockIdAtSlot(
     state: ForkyHashedBeaconState, slot: Slot): Opt[BlockSlotId] =
