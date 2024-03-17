@@ -1,5 +1,4 @@
-import
-  ./datatypes/phase0, ./helpers, ./eth2_merkleization
+import ./forks
 
 func get_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch): CookedSig = default(CookedSig)

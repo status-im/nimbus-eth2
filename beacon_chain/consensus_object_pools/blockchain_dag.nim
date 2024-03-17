@@ -1113,20 +1113,7 @@ proc preInit*(
 
 proc getProposer*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot): Opt[ValidatorIndex] =
-  # WARN WARN WARN this uses updateState
-  return Opt.some(0.ValidatorIndex)
-  let
-    epochRef = dag.getEpochRef(head.bid, slot.epoch(), false).valueOr:
-      return Opt.none(ValidatorIndex)
-
-    slotInEpoch = slot.since_epoch_start()
-
-  let proposer = epochRef.beacon_proposers[slotInEpoch]
-  if proposer.isSome():
-    if proposer.get().uint64 >= dag.db.immutableValidators.lenu64():
-      return Opt.none(ValidatorIndex)
-
-  proposer
+  Opt.some(0.ValidatorIndex)
 
 proc getProposalState*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot, cache: var StateCache):

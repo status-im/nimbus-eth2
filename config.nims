@@ -92,10 +92,6 @@ switch("warning", "CaseTransition:off")
 # do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
 switch("warning", "ObservableStores:off")
 
-# Too many right now to read compiler output. Warnings are legitimate, but
-# should be fixed out-of-band of `unstable` branch.
-switch("warning", "BareExcept:off")
-
 --define:kzgExternalBlst
 
 # ############################################################
