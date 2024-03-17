@@ -57,7 +57,7 @@ switch("passL", "-fno-omit-frame-pointer")
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
 
-when true:
+when false:
   --define:nimStackTraceOverride
   switch("import", "libbacktrace")
 

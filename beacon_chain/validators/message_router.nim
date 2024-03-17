@@ -17,7 +17,7 @@ type
 from ".."/consensus_object_pools/block_dag import BlockRef
 from ".."/consensus_object_pools/block_pools_types import ChainDAGRef, VerifierError
 
-proc addBlock*(
+proc addBlock(
     blck: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars], maybeFinalized = false,
     validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
