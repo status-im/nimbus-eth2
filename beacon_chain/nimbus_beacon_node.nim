@@ -3,7 +3,7 @@
 import
   std/[os, times],
   chronos,
-  stew/[byteutils, io2],
+  stew/io2,
   ./networking/[network_metadata_downloads],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/deposit_snapshots,
@@ -37,10 +37,6 @@ proc loadChainDag(
     let databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
     if networkGenesisValidatorsRoot.get != databaseGenesisValidatorsRoot:
-      fatal "The specified --data-dir contains data for a different network",
-            networkGenesisValidatorsRoot = networkGenesisValidatorsRoot.get,
-            databaseGenesisValidatorsRoot,
-            dataDir = config.dataDir
       quit 1
 
   dag
@@ -65,13 +61,6 @@ proc init*(T: type BeaconNode,
   template cfg: auto = metadata.cfg
   template eth1Network: auto = metadata.eth1Network
 
-  if metadata.genesis.kind == BakedIn:
-    if config.genesisState.isSome:
-      warn "The --genesis-state option has no effect on networks with built-in genesis state"
-
-    if config.genesisStateUrl.isSome:
-      warn "The --genesis-state-url option has no effect on networks with built-in genesis state"
-
   let
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
@@ -81,16 +70,11 @@ proc init*(T: type BeaconNode,
       newClone(readSszForkedHashedBeaconState(
         cfg, readAllBytes(checkpointStatePath).tryGet()))
     except SszError as err:
-      fatal "Checkpoint state loading failed",
-            err = formatMsg(err, checkpointStatePath)
       quit 1
     except CatchableError as err:
-      fatal "Failed to read checkpoint state file", err = err.msg
       quit 1
 
     if not getStateField(tmp[], slot).is_epoch:
-      fatal "--finalized-checkpoint-state must point to a state for an epoch slot",
-        slot = getStateField(tmp[], slot)
       quit 1
     tmp
   else:
@@ -102,11 +86,8 @@ proc init*(T: type BeaconNode,
       depositTreeSnapshot = try:
         SSZ.loadFile(depositTreeSnapshotPath, DepositTreeSnapshot)
       except SszError as err:
-        fatal "Deposit tree snapshot loading failed",
-              err = formatMsg(err, depositTreeSnapshotPath)
         quit 1
       except CatchableError as err:
-        fatal "Failed to read deposit tree snapshot file", err = err.msg
         quit 1
     db.putDepositTreeSnapshot(depositTreeSnapshot)
 
@@ -120,15 +101,11 @@ proc init*(T: type BeaconNode,
         if metadata.genesis.kind != BakedIn and config.genesisState.isSome:
           let res = io2.readAllBytes(config.genesisState.get.string)
           res.valueOr:
-            error "Failed to read genesis state file", err = res.error.ioErrorMsg
             quit 1
         elif metadata.hasGenesis:
           try:
             await metadata.fetchGenesisBytes(config.genesisStateUrl)
           except CatchableError as err:
-            error "Failed to obtain genesis state",
-                  source = metadata.genesis.sourceDesc,
-                  err = err.msg
             quit 1
         else:
           @[]
@@ -137,27 +114,16 @@ proc init*(T: type BeaconNode,
         try:
           newClone readSszForkedHashedBeaconState(cfg, genesisBytes)
         except CatchableError as err:
-          error "Invalid genesis state",
-                size = genesisBytes.len,
-                digest = eth2digest(genesisBytes),
-                err = err.msg
           quit 1
       else:
         nil
 
     if genesisState == nil and checkpointState == nil:
-      fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
-            "with the network configuration"
       quit 1
 
     if not genesisState.isNil and not checkpointState.isNil:
       if getStateField(genesisState[], genesis_validators_root) !=
           getStateField(checkpointState[], genesis_validators_root):
-        fatal "Checkpoint state does not match genesis - check the --network parameter",
-          rootFromGenesis = getStateField(
-            genesisState[], genesis_validators_root),
-          rootFromCheckpoint = getStateField(
-            checkpointState[], genesis_validators_root)
         quit 1
 
     try:
@@ -173,12 +139,9 @@ proc init*(T: type BeaconNode,
 
       doAssert ChainDAGRef.isInitialized(db).isOk(), "preInit should have initialized db"
     except CatchableError as exc:
-      error "Failed to initialize database", err = exc.msg
       quit 1
   else:
     if not checkpointState.isNil:
-      fatal "A database already exists, cannot start from given checkpoint",
-        dataDir = config.dataDir
       quit 1
 
   let
@@ -187,7 +150,6 @@ proc init*(T: type BeaconNode,
       networkGenesisValidatorsRoot)
     genesisTime = getStateField(dag.headState, genesis_time)
     beaconClock = BeaconClock.init(genesisTime).valueOr:
-      fatal "Invalid genesis time in state", genesisTime
       quit 1
 
     getBeaconTime = beaconClock.getBeaconTimeFn()
@@ -212,12 +174,7 @@ proc init*(T: type BeaconNode,
 
   let
     keystoreCache = KeystoreCacheRef.init()
-    slashingProtectionDB =
-      SlashingProtectionDB.init(
-          getStateField(dag.headState, genesis_validators_root),
-          config.validatorsDir(), "")
-    validatorPool = newClone(ValidatorPool.init(
-      slashingProtectionDB))
+    validatorPool = new ValidatorPool
 
   let node = BeaconNode(
     nickname: "foobar",

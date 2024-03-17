@@ -43,15 +43,9 @@ proc prepareNetwork =
     cfg = defaultRuntimeConfig
 
   let vres = secureCreatePath(validatorsDir)
-  if vres.isErr():
-    warn "Could not create validators folder",
-          path = validatorsDir, err = ioErrorMsg(vres.error)
-
   let sres = secureCreatePath(secretsDir)
   if sres.isErr():
-    warn "Could not create secrets folder",
-          path = secretsDir, err = ioErrorMsg(sres.error)
-
+    discard
   let deposits = generateDeposits(
     cfg,
     rng[],
@@ -62,14 +56,12 @@ proc prepareNetwork =
     KeystoreMode.Fast)
 
   if deposits.isErr:
-    fatal "Failed to generate deposits", err = deposits.error
     quit 1
 
   let launchPadDeposits =
     mapIt(deposits.value, LaunchPadDeposit.init(cfg, it))
 
   Json.saveFile(depositsFile, launchPadDeposits)
-  notice "Deposit data written", filename = depositsFile
 
   let runtimeConfigWritten = secureWriteFile(runtimeConfigFile, """
 ALTAIR_FORK_EPOCH: 0
@@ -77,9 +69,8 @@ BELLATRIX_FORK_EPOCH: 0
 """)
 
   if runtimeConfigWritten.isOk:
-    notice "Run-time config written", filename = runtimeConfigFile
+    discard
   else:
-    fatal "Failed to write run-time config", filename = runtimeConfigFile
     quit 1
 
   let createTestnetConf = try: ncli_testnet.CliConfig.load(cmdLine = mapIt([
@@ -100,7 +91,6 @@ BELLATRIX_FORK_EPOCH: 0
 
   let tokenFileRes = secureWriteFile(tokenFilePath, correctTokenValue)
   if tokenFileRes.isErr:
-    fatal "Failed to create token file", err = deposits.error
     quit 1
 
 proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
@@ -109,8 +99,6 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
   block:
     let status = secureCreatePath(dstValidatorsDir)
     if status.isErr():
-      fatal "Could not create node validators folder",
-             path = dstValidatorsDir, err = ioErrorMsg(status.error)
       quit 1
 
   let dstSecretsDir = dstDataDir / "secrets"
@@ -118,8 +106,6 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
   block:
     let status = secureCreatePath(dstSecretsDir)
     if status.isErr():
-      fatal "Could not create node secrets folder",
-             path = dstSecretsDir, err = ioErrorMsg(status.error)
       quit 1
 
   var validatorIdx = 0
@@ -131,8 +117,6 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
         secretRes = readAllChars(secretFile)
 
       if secretRes.isErr:
-        fatal "Failed to read secret file",
-               path = secretFile, err = $secretRes.error
         quit 1
 
       let
@@ -140,8 +124,6 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
         secretFileStatus = secureWriteFile(dstSecretFile, secretRes.get)
 
       if secretFileStatus.isErr:
-        fatal "Failed to write secret file",
-               path = dstSecretFile, err = $secretFileStatus.error
         quit 1
 
       let
@@ -149,8 +131,6 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
         validatorDirRes = secureCreatePath(dstValidatorDir)
 
       if validatorDirRes.isErr:
-        fatal "Failed to create validator dir",
-               path = dstValidatorDir, err = $validatorDirRes.error
         quit 1
 
       let
@@ -158,8 +138,6 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
         readKeystoreRes = readAllChars(keystoreFile)
 
       if readKeystoreRes.isErr:
-        fatal "Failed to read keystore file",
-               path = keystoreFile, err = $readKeystoreRes.error
         quit 1
 
       let
@@ -167,8 +145,6 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
         writeKeystoreRes = secureWriteFile(dstKeystore, readKeystoreRes.get)
 
       if writeKeystoreRes.isErr:
-        fatal "Failed to write keystore file",
-               path = dstKeystore, err = $writeKeystoreRes.error
         quit 1
 
     inc validatorIdx

@@ -484,9 +484,7 @@ proc proposeBlockAux(
       signingRoot = compute_block_signing_root(
         fork, genesis_validators_root, slot, blockRoot)
 
-      notSlashable = node.attachedValidators
-        .slashingProtection
-        .registerBlock(validator_index, validator_pubkey, slot, signingRoot)
+      notSlashable = registerBlock(validator_index, validator_pubkey, slot, signingRoot)
 
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",

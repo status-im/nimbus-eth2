@@ -61,7 +61,6 @@ type
 
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
-    slashingProtection*: SlashingProtectionDB
 
   AddValidatorProc* = proc(keystore: KeystoreData) {.gcsafe, raises: [].}
 
@@ -74,11 +73,6 @@ func shortLog*(v: AttachedValidator): string =
     shortLog(v.pubkey)
   of ValidatorKind.Remote:
     shortLog(v.pubkey)
-
-func init*(T: type ValidatorPool,
-           slashingProtectionDB: SlashingProtectionDB): T =
-  T(
-    slashingProtection: slashingProtectionDB)
 
 template count*(pool: ValidatorPool): int =
   len(pool.validators)

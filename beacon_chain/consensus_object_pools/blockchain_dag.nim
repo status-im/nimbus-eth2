@@ -780,8 +780,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     stateFork = getStateField(dag.headState, fork)
 
   if stateFork.current_version != configFork.current_version:
-    error "State from database does not match network, check --network parameter",
-      tail = dag.tail, headRef, stateFork, configFork
     quit 1
 
   dag.finalizedHead = headRef.atSlot(finalizedSlot)
@@ -816,9 +814,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     let finalized = db.finalizedBlocks.get(db.finalizedBlocks.high.get()).expect(
       "tail at least")
     if finalized != dag.finalizedHead.blck.root:
-      error "Head does not lead to finalized block, database corrupt?",
-        head = shortLog(head), finalizedHead = shortLog(dag.finalizedHead),
-        tail = shortLog(dag.tail), finalized = shortLog(finalized)
       quit 1
 
   dag.forkDigests = newClone ForkDigests.init(

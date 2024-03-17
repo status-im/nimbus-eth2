@@ -220,8 +220,6 @@ proc doCreateTestnet*(config: CliConfig,
   let launchPadDeposits = try:
     Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
   except SerializationError as err:
-    error "Invalid LaunchPad deposits file",
-          err = formatMsg(err, config.testnetDepositsFile.string)
     quit 1
 
   var deposits: seq[DepositData]
@@ -244,20 +242,16 @@ proc doCreateTestnet*(config: CliConfig,
 
   if config.executionGenesisBlock.isSome:
     if not fileExists(config.executionGenesisBlock.get.string):
-      error "The specified execution genesis block file doesn't exist"
       quit 1
 
     let genesisBlockContents = readAllChars(config.executionGenesisBlock.get.string)
     if genesisBlockContents.isErr:
-      error "Failed to read the specified execution genesis block file"
       quit 1
 
     try:
       let blockAsJson = genesisBlockContents.get
       genesisBlock = JrpcConv.decode(blockAsJson, BlockObject)
     except CatchableError as err:
-      error "Failed to load the genesis block from json",
-            err = err.msg
       quit 1
 
   template createAndSaveState(genesisExecutionPayloadHeader: auto): Eth2Digest =
@@ -337,40 +331,3 @@ proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
     let accounts = await result.provider.eth_accounts()
     doAssert(accounts.len > 0)
     result.defaultAccount = accounts[0]
-
-# TODO: async functions should note take `seq` inputs because
-#       this leads to full copies.
-proc sendDeposits(deposits: seq[LaunchPadDeposit],
-                  web3Url, privateKey: string,
-                  depositContractAddress: Eth1Address,
-                  delayGenerator: DelayGenerator = nil) {.async.} =
-  notice "Sending deposits",
-    web3 = web3Url,
-    depositContract = depositContractAddress
-
-  var web3 = await initWeb3(web3Url, privateKey)
-  let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
-  let depositContract = web3.contractSender(DepositContract,
-                                            Eth1Address depositContractAddress)
-  for i in 4200 ..< deposits.len:
-    let dp = deposits[i] as DepositData
-
-    while true:
-      try:
-        let tx = depositContract.deposit(
-          PubKeyBytes(@(dp.pubkey.toRaw())),
-          WithdrawalCredentialsBytes(@(dp.withdrawal_credentials.data)),
-          SignatureBytes(@(dp.signature.toRaw())),
-          FixedBytes[32](hash_tree_root(dp).data))
-
-        let status = await tx.send(value = 32.u256.ethToWei, gasPrice = gasPrice)
-
-        info "Deposit sent", tx = $status
-
-        if delayGenerator != nil:
-          await sleepAsync(delayGenerator())
-
-        break
-      except CatchableError:
-        await sleepAsync(chronos.seconds 60)
-        web3 = await initWeb3(web3Url, privateKey)

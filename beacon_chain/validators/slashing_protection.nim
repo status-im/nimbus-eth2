@@ -2,37 +2,33 @@
 
 import
   std/os,
-  eth/db/[kvstore, kvstore_sqlite3],
   results,
   stew/byteutils,
-  chronicles, chronicles/timings,
+  chronicles/timings,
   ../spec/datatypes/base,
   ./slashing_protection_common,
   ./slashing_protection_v2
 
-export slashing_protection_common, kvstore, kvstore_sqlite3
-
-export chronicles
-
+export slashing_protection_common
 
 type
-  SlashProtDBMode* = enum
+  SlashProtDBMode = enum
     kCompleteArchive # Complete Format V2 backend (saves all attestations)
     kLowWatermark    # Low-Watermark Format V2 backend (prunes attestations)
 
-  SlashingProtectionDB* = ref object
+  SlashingProtectionDB = ref object
     ## Database storing the blocks attested
     ## by validators attached to a beacon node
     ## or validator client.
-    db_v2*: SlashingProtectionDB_v2
+    db_v2: SlashingProtectionDB_v2
     modes: set[SlashProtDBMode]
 
 
-func version*(_: type SlashingProtectionDB): static int =
+func version(_: type SlashingProtectionDB): static int =
   2
 
 
-proc init*(
+proc init(
        T: type SlashingProtectionDB,
        genesis_validators_root: Eth2Digest,
        basePath, dbname: string,
@@ -47,7 +43,7 @@ proc init*(
   new result
   result.modes = modes
 
-proc init*(
+proc init(
        T: type SlashingProtectionDB,
        genesis_validators_root: Eth2Digest,
        basePath, dbname: string
@@ -57,7 +53,7 @@ proc init*(
     modes = {kLowWatermark}
   )
 
-proc loadUnchecked*(
+proc loadUnchecked(
        T: type SlashingProtectionDB,
        basePath, dbname: string, readOnly: bool
      ): SlashingProtectionDB {.raises:[IOError].}=
@@ -73,22 +69,21 @@ proc loadUnchecked*(
     error "Failed to load the Slashing protection database", err = err.msg
     quit 1
 
-proc checkSlashableBlockProposal*(
+proc checkSlashableBlockProposal(
        db: SlashingProtectionDB,
        index: ValidatorIndex,
        validator: ValidatorPubKey,
        slot: Slot
      ): Result[void, BadProposal] =
-  checkSlashableBlockProposal(db.db_v2, Opt.some(index), validator, slot)
+  checkSlashableBlockProposal(Opt.some(index), validator, slot)
 
 proc registerBlock*(
-       db: SlashingProtectionDB,
        index: ValidatorIndex,
        validator: ValidatorPubKey,
        slot: Slot, block_signing_root: Eth2Digest): Result[void, BadProposal] =
-  registerBlock(db.db_v2, Opt.some(index), validator, slot, block_signing_root)
+  registerBlock(Opt.some(index), validator, slot, block_signing_root)
 
-template withContext*(db: SlashingProtectionDB, body: untyped): untyped =
+template withContext(db: SlashingProtectionDB, body: untyped): untyped =
   db.db_v2.withContext:
     template registerAttestationInContext(
       index: ValidatorIndex,
