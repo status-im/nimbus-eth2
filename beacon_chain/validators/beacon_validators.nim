@@ -57,16 +57,15 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
 import ../consensus_object_pools/blockchain_dag
 
 func validatorKey2(
-    dag: ChainDAGRef, index: ValidatorIndex or uint64): Opt[CookedPubKey] =
+    index: ValidatorIndex or uint64): Opt[CookedPubKey] =
   let foo = ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[].load()
   doAssert foo.isOk
-  #dag.db.immutableValidators.load(index)
   foo
 
 proc getValidatorForDuties*(
     node: BeaconNode, idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
-  let key = ? node.dag.validatorKey2(0.ValidatorIndex)
+  let key = ? validatorKey2(0.ValidatorIndex)
 
   node.attachedValidators[].getValidatorForDuties(
     key.toPubKey(), slot, slashingSafe)
