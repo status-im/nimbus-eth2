@@ -476,43 +476,6 @@ type
         defaultValue: true
         name: "doppelganger-detection" .}: bool
 
-      syncHorizon* {.
-        hidden
-        desc: "Number of empty slots to process before considering the client out of sync"
-        defaultValue: MaxEmptySlotCount
-        defaultValueDesc: "50"
-        name: "sync-horizon" .}: uint64
-
-      terminalTotalDifficultyOverride* {.
-        hidden
-        desc: "Deprecated for removal"
-        name: "terminal-total-difficulty-override" .}: Option[string]
-
-      validatorMonitorAuto* {.
-        desc: "Monitor validator activity automatically for validators active on this beacon node"
-        defaultValue: true
-        name: "validator-monitor-auto" .}: bool
-
-      validatorMonitorPubkeys* {.
-        desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled"
-        name: "validator-monitor-pubkey" .}: seq[ValidatorPubKey]
-
-      validatorMonitorDetails* {.
-        desc: "Publish detailed metrics for each validator individually - may incur significant overhead with large numbers of validators"
-        defaultValue: false
-        name: "validator-monitor-details" .}: bool
-
-      validatorMonitorTotals* {.
-        hidden
-        desc: "Deprecated in favour of --validator-monitor-details"
-        name: "validator-monitor-totals" .}: Option[bool]
-
-      safeSlotsToImportOptimistically* {.
-        # Never unhidden or documented, and deprecated > 22.9.1
-        hidden
-        desc: "Deprecated for removal"
-        name: "safe-slots-to-import-optimistically" .}: Option[uint16]
-
       # Same option as appears in Lighthouse and Prysm
       # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
       # https://github.com/prysmaticlabs/prysm/pull/10312

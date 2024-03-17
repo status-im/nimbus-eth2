@@ -156,40 +156,22 @@ proc init*(T: type BeaconNode,
 
   let elManager = default(ELManager)
 
-  proc getValidatorAndIdx(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
-    withState(dag.headState):
-      getValidator(forkyState().data.validators.asSeq(), pubkey)
-
-  func getCapellaForkVersion(): Opt[Version] =
-    Opt.some(cfg.CAPELLA_FORK_VERSION)
-
-  func getDenebForkEpoch(): Opt[Epoch] =
-    Opt.some(cfg.DENEB_FORK_EPOCH)
-
-  proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
-    Opt.some(dag.cfg.forkAtEpoch(epoch))
-
-  proc getGenesisRoot(): Eth2Digest =
-    getStateField(dag.headState, genesis_validators_root)
-
   let
     keystoreCache = KeystoreCacheRef.init()
     validatorPool = new ValidatorPool
 
   let node = BeaconNode(
-    nickname: "foobar",
     db: db,
     config: config,
     attachedValidators: validatorPool,
     elManager: elManager,
     keystoreCache: keystoreCache,
-    beaconClock: beaconClock)
+    beaconClock: beaconClock,
+    cfg: cfg)
 
   await node.initFullNode(rng, dag, getBeaconTime)
 
   node
-
-from ./spec/validator import get_beacon_proposer_indices
 
 proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
@@ -203,13 +185,6 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   await handleProposal(node, node.dag.head, wallSlot)
   quit 0
 
-proc runOnSecondLoop(node: BeaconNode) {.async.} =
-  const
-    sleepTime = chronos.seconds(1)
-  while true:
-    let start = chronos.now(chronos.Moment)
-    await chronos.sleepAsync(sleepTime)
-
 proc start*(node: BeaconNode) {.raises: [CatchableError].} =
   echo "foo"
   node.elManager.start()
@@ -219,4 +194,4 @@ proc start*(node: BeaconNode) {.raises: [CatchableError].} =
   asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
 
   while true:
-    poll() # if poll fails, the network is broken
+    poll()
