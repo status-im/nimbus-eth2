@@ -263,13 +263,6 @@ proc doCreateTestnet*(config: CliConfig,
 
     doAssert initialState.validators.len > 0
 
-    # let outGenesisExt = splitFile(outGenesis).ext
-    #if cmpIgnoreCase(outGenesisExt, ".json") == 0:
-
-    # let outGenesisJson = outGenesis & ".json"
-    # RestJson.saveFile(outGenesisJson, initialState, pretty = true)
-    # info "JSON genesis file written", path = outGenesisJson
-
     let outSszGenesis = outGenesis.changeFileExt "ssz"
     SSZ.saveFile(outSszGenesis, initialState[])
     SSZ.saveFile(
@@ -288,46 +281,3 @@ proc doCreateTestnet*(config: CliConfig,
       createAndSaveState(genesisBlock as capella.ExecutionPayloadHeader)
     else:
       createAndSaveState(genesisBlock as bellatrix.ExecutionPayloadHeader)
-
-  let bootstrapFile = string config.outputBootstrapFile
-  if bootstrapFile.len > 0:
-    let
-      forkId = getENRForkID(
-        cfg,
-        Epoch(0),
-        genesisValidatorsRoot)
-    echo "Wrote ", bootstrapFile
-
-proc deployContract(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
-  let tr = EthSend(
-    `from`: web3.defaultAccount,
-    data: code,
-    gas: Quantity(3000000).some,
-    gasPrice: Quantity(1).some)
-
-  let r = await web3.send(tr)
-  result = await web3.getMinedTransactionReceipt(r)
-
-proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
-  let tr = EthSend(
-    `from`: web3.defaultAccount,
-    gas: Quantity(3000000).some,
-    gasPrice: Quantity(1).some,
-    value: some(valueEth.u256 * 1000000000000000000.u256),
-    to: some(to))
-  web3.send(tr)
-
-type
-  DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
-
-func ethToWei(eth: UInt256): UInt256 =
-  eth * 1000000000000000000.u256
-
-proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
-  result = await newWeb3(web3Url)
-  if privateKey.len != 0:
-    result.privateKey = some(keys.PrivateKey.fromHex(privateKey)[])
-  else:
-    let accounts = await result.provider.eth_accounts()
-    doAssert(accounts.len > 0)
-    result.defaultAccount = accounts[0]
