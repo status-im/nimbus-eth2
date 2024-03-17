@@ -36,11 +36,6 @@ type
       desc: "Private key of the controlling account"
       name: "private-key" }: string
 
-    askForKey* {.
-      defaultValue: false
-      desc: "Ask for an Eth1 private key interactively"
-      name: "ask-for-key" }: bool
-
     eth2Network* {.
       desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
@@ -155,46 +150,6 @@ func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest)
 
-from ".."/beacon_chain/spec/datatypes/capella import ExecutionPayloadHeader
-
-func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
-  T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
-    state_root: blk.stateRoot as Eth2Digest,
-    receipts_root: blk.receiptsRoot as Eth2Digest,
-    logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
-    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE),
-    block_number: uint64 blk.number,
-    gas_limit: uint64 blk.gasLimit,
-    gas_used: uint64 blk.gasUsed,
-    timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
-    base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
-    block_hash: blk.hash as Eth2Digest,
-    transactions_root: blk.transactionsRoot as Eth2Digest,
-    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest)
-
-from ".."/beacon_chain/spec/datatypes/deneb import ExecutionPayloadHeader
-
-func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
-  T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
-    state_root: blk.stateRoot as Eth2Digest,
-    receipts_root: blk.receiptsRoot as Eth2Digest,
-    logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
-    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE),
-    block_number: uint64 blk.number,
-    gas_limit: uint64 blk.gasLimit,
-    gas_used: uint64 blk.gasUsed,
-    timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
-    base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
-    block_hash: blk.hash as Eth2Digest,
-    transactions_root: blk.transactionsRoot as Eth2Digest,
-    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
-    blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
-    excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
-
 from ".."/beacon_chain/spec/deposit_snapshots import DepositTreeSnapshot
 
 func createDepositTreeSnapshot(deposits: seq[DepositData],
@@ -232,7 +187,7 @@ proc doCreateTestnet*(config: CliConfig,
     else:
       uint64(times.toUnix(times.getTime()) + config.genesisOffset.get(0))
     outGenesis = config.outputGenesis.string
-    eth1Hash = mockEth1BlockHash # TODO: Can we set a more appropriate value?
+    eth1Hash = mockEth1BlockHash
     cfg = getRuntimeConfig(config.eth2Network)
 
   # This is intentionally left default initialized, when the user doesn't
@@ -240,44 +195,19 @@ proc doCreateTestnet*(config: CliConfig,
   # then be considered non-finalized merged state according to the spec.
   var genesisBlock = BlockObject()
 
-  if config.executionGenesisBlock.isSome:
-    if not fileExists(config.executionGenesisBlock.get.string):
-      quit 1
+  let genesisExecutionPayloadHeader = genesisBlock as bellatrix.ExecutionPayloadHeader
+  var initialState = newClone(initialize_beacon_state_from_eth1(
+      cfg, eth1Hash, startTime, deposits, genesisExecutionPayloadHeader,
+      {skipBlsValidation}))
+  initialState.genesis_time = startTime
 
-    let genesisBlockContents = readAllChars(config.executionGenesisBlock.get.string)
-    if genesisBlockContents.isErr:
-      quit 1
+  doAssert initialState.validators.len > 0
 
-    try:
-      let blockAsJson = genesisBlockContents.get
-      genesisBlock = JrpcConv.decode(blockAsJson, BlockObject)
-    except CatchableError as err:
-      quit 1
-
-  template createAndSaveState(genesisExecutionPayloadHeader: auto): Eth2Digest =
-    var initialState = newClone(initialize_beacon_state_from_eth1(
-        cfg, eth1Hash, startTime, deposits, genesisExecutionPayloadHeader,
-        {skipBlsValidation}))
-    # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
-    initialState.genesis_time = startTime
-
-    doAssert initialState.validators.len > 0
-
-    let outSszGenesis = outGenesis.changeFileExt "ssz"
-    SSZ.saveFile(outSszGenesis, initialState[])
-    SSZ.saveFile(
-      config.outputDepositTreeSnapshot.string,
-      createDepositTreeSnapshot(
-        deposits,
-        genesisExecutionPayloadHeader.block_hash,
-        genesisExecutionPayloadHeader.block_number))
-
-    initialState[].genesis_validators_root
-
-  let genesisValidatorsRoot =
-    if config.denebForkEpoch == 0:
-      createAndSaveState(genesisBlock as deneb.ExecutionPayloadHeader)
-    elif config.capellaForkEpoch == 0:
-      createAndSaveState(genesisBlock as capella.ExecutionPayloadHeader)
-    else:
-      createAndSaveState(genesisBlock as bellatrix.ExecutionPayloadHeader)
+  let outSszGenesis = outGenesis.changeFileExt "ssz"
+  SSZ.saveFile(outSszGenesis, initialState[])
+  SSZ.saveFile(
+    config.outputDepositTreeSnapshot.string,
+    createDepositTreeSnapshot(
+      deposits,
+      genesisExecutionPayloadHeader.block_hash,
+      genesisExecutionPayloadHeader.block_number))
