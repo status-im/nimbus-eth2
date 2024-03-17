@@ -807,7 +807,7 @@ proc preInit*(
       discard db.getGenesisBlock().isSome()
 
 proc getProposer*(
-    dag: ChainDAGRef, head: BlockRef, slot: Slot): Opt[ValidatorIndex] =
+    head: BlockRef, slot: Slot): Opt[ValidatorIndex] =
   Opt.some(0.ValidatorIndex)
 
 proc getProposalState*(

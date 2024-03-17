@@ -447,13 +447,8 @@ proc proposeBlockAux(
         else:
           Opt.none(seq[BlobSidecar])
 
-    # BIG BUG SOURCE: The `let` below cannot be combined with the others above!
-    # If combined, there are sometimes `SIGSEGV` during `test_keymanager_api`.
-    # This has only been observed on macOS (aarch64) in Jenkins, not on GitHub.
-    #
     # - macOS 14.2.1 (23C71)
     # - Xcode 15.1 (15C65)
-    # - Nim v1.6.18 (a749a8b742bd0a4272c26a65517275db4720e58a)
     let
       newBlockRef = (
         # I don't ... think this is used in a significant way? but probably first thing
@@ -518,7 +513,7 @@ proc proposeBlock(node: BeaconNode,
 proc handleProposal*(node: BeaconNode, head: BlockRef, slot: Slot) {.async: (raises: [CancelledError]).} =
   let
     # TODO actual DAG stuff, but if can get rid of rest, can probably fake it, it's a ValidatorIndex
-    proposer = node.dag.getProposer(head, slot).valueOr:
+    proposer = getProposer(head, slot).valueOr:
       return
     validator = node.getValidatorForDuties(proposer, slot).valueOr:
       return
