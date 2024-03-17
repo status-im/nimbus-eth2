@@ -8,7 +8,6 @@ import
   ../spec/[
     eth2_merkleization, forks, helpers, signatures, state_transition,
     validator],
-  ../consensus_object_pools/blockchain_dag,
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     keystore_management, slashing_protection, validator_pool]
@@ -53,6 +52,8 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
       v = node.attachedValidators[].addValidator(keystore, default(Eth1Address), 30000000)
     v.updateValidator(data)
 
+import ../consensus_object_pools/blockchain_dag
+
 proc getValidatorForDuties*(
     node: BeaconNode, idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
@@ -92,11 +93,7 @@ proc makeBeaconBlockForHeadAndSlot(
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   var cache = StateCache()
 
-  let
-    # The clearance state already typically sits at the right slot per
-    # `advanceClearanceState`
-    # TODO mock this
-    maybeState = node.dag.getProposalState(head, slot, cache)
+  let maybeState = node.getProposalState(head, slot, cache)
 
   if maybeState.isErr:
     return err($maybeState.error)

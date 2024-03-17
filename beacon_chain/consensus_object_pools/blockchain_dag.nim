@@ -809,11 +809,3 @@ proc preInit*(
 proc getProposer*(
     head: BlockRef, slot: Slot): Opt[ValidatorIndex] =
   Opt.some(0.ValidatorIndex)
-
-proc getProposalState*(
-    dag: ChainDAGRef, head: BlockRef, slot: Slot, cache: var StateCache):
-    Result[ref ForkedHashedBeaconState, cstring] =
-  let state = assignClone(dag.clearanceState)
-  loadStateCache(dag, cache, head.bid, slot.epoch)
-
-  ok state
