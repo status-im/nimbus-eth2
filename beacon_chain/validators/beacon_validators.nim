@@ -53,10 +53,6 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
       v = node.attachedValidators[].addValidator(keystore, default(Eth1Address), 30000000)
     v.updateValidator(data)
 
-proc getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator] =
-  let key = ? node.dag.validatorKey(idx)
-  node.attachedValidators[].getValidator(key.toPubKey())
-
 proc getValidatorForDuties*(
     node: BeaconNode, idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
