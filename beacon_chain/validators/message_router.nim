@@ -12,9 +12,13 @@ import ".."/spec/forks
 type
   BlobSidecars* = seq[ref BlobSidecar]
   MessageRouter* = object
+  VerifierError* {.pure.} = enum
+    Invalid
+    MissingParent
+    UnviableFork
+    Duplicate
 
 from ".."/consensus_object_pools/block_dag import BlockRef, init
-from ".."/consensus_object_pools/block_pools_types import ChainDAGRef, VerifierError
 
 func getBlockRef(root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
