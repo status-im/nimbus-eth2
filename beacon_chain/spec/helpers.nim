@@ -1,21 +1,11 @@
-{.push raises: [].}
-
 import
   stew/[byteutils, endians2, objects],
   "."/[eth2_merkleization, forks]
 
-export
-  eth2_merkleization, forks
-
-type
-  FinalityCheckpoints* = object
-    justified*: Checkpoint
-    finalized*: Checkpoint
-
-func is_active_validator*(validator: Validator, epoch: Epoch): bool =
+func is_active_validator(validator: Validator, epoch: Epoch): bool =
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-iterator get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
+iterator get_active_validator_indices(state: ForkyBeaconState, epoch: Epoch):
     ValidatorIndex =
   for vidx in state.validators.vindices:
     if is_active_validator(state.validators[vidx], epoch):
@@ -31,7 +21,7 @@ func get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   state.slot.epoch
 
-func get_current_epoch*(state: ForkedHashedBeaconState): Epoch =
+func get_current_epoch(state: ForkedHashedBeaconState): Epoch =
   withState(state): get_current_epoch(forkyState.data)
 
 func get_previous_epoch(
@@ -74,7 +64,7 @@ func get_domain(
     state: ForkyBeaconState, domain_type: DomainType, epoch: Epoch): Eth2Domain =
   get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
 
-func get_seed*(
+func get_seed(
     state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType,
     mix: Eth2Digest): Eth2Digest =
   var seed_input : array[4+8+32, byte]
@@ -112,10 +102,3 @@ func create_blob_sidecars*(
       sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
     res.add(sidecar)
   res
-
-func is_merge_transition_complete*(
-    state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState): bool =
-  const defaultExecutionPayloadHeader =
-    default(typeof(state.latest_execution_payload_header))
-  state.latest_execution_payload_header != defaultExecutionPayloadHeader

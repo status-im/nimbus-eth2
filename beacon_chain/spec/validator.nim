@@ -1,3 +1,5 @@
+import ./digest
+import ./forks
 import ./helpers
 export helpers
 

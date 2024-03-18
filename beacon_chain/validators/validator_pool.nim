@@ -6,7 +6,7 @@ import
   json_serialization/std/net,
   presto/client,
 
-  ../spec/[keystore, signatures, helpers, crypto],
+  ../spec/[keystore, signatures, crypto],
   ../spec/datatypes/[phase0, altair],
   ../filepath, ../conf,
   ./slashing_protection
@@ -169,6 +169,8 @@ proc getValidatorForDuties*(
     return Opt.none(AttachedValidator)
 
   return Opt.some(validator)
+
+import ".."/spec/forks
 
 proc getBlockSignature*(fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,

@@ -1,5 +1,5 @@
 import
-  ../spec/[beaconstate, helpers],
+  ../spec/beaconstate,
   ../spec/forks,
   "."/block_pools_types
 
