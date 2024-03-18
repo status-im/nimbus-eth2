@@ -49,6 +49,10 @@ switch("passC", "-fvisibility=hidden")
 switch("passC", "-fno-omit-frame-pointer")
 switch("passL", "-fno-omit-frame-pointer")
 
+when false:
+  switch("passC", "-fstack-protector-all")
+  switch("passL", "-fstack-protector-all")
+
 --threads:on
 --opt:speed
 --mm:refc
