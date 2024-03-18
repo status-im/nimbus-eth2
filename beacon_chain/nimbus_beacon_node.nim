@@ -14,10 +14,7 @@ import
 
 from ./spec/datatypes/deneb import SignedBeaconBlock
 
-#import libp2p/protocols/pubsub/pubsub
 import libp2p/protocols/pubsub/gossipsub
-
-import "."/consensus_object_pools/blockchain_dag
 
 proc initFullNode(
     node: BeaconNode,
@@ -26,6 +23,9 @@ proc initFullNode(
   node.router = new MessageRouter
 
   await node.addValidators()
+
+from "."/consensus_object_pools/blockchain_dag import preInit
+from "."/consensus_object_pools/block_pools_types import ChainDAGRef
 
 proc init*(T: type BeaconNode,
            rng: ref HmacDrbgContext,
@@ -142,6 +142,8 @@ proc init*(T: type BeaconNode,
   await node.initFullNode(rng, getBeaconTime)
 
   node
+
+from "."/consensus_object_pools/block_dag import BlockRef, init
 
 func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
