@@ -4,7 +4,6 @@ import
   results,
   stew/[bitseqs, endians2, objects, byteutils],
   blscurve,
-  chronicles,
   bearssl/rand,
   json_serialization
 
