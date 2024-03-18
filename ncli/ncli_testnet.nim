@@ -133,7 +133,6 @@ func createDepositTreeSnapshot(deposits: seq[DepositData],
     blockHeight: blockHeight)
 
 import ssz_serialization
-import ".."/beacon_chain/extras
 import ".."/beacon_chain/spec/ssz_codec
 
 proc doCreateTestnet*(config: CliConfig,
@@ -164,8 +163,7 @@ proc doCreateTestnet*(config: CliConfig,
 
   let genesisExecutionPayloadHeader = genesisBlock as bellatrix.ExecutionPayloadHeader
   var initialState = newClone(initialize_beacon_state_from_eth1(
-      cfg, eth1Hash, startTime, deposits, genesisExecutionPayloadHeader,
-      {skipBlsValidation}))
+      cfg, eth1Hash, startTime, deposits, genesisExecutionPayloadHeader))
   initialState.genesis_time = startTime
 
   doAssert initialState.validators.len > 0

@@ -172,7 +172,6 @@ proc makeBeaconBlockForHeadAndSlot(
       payload,
       noRollback, # Temporary state - no need for rollback
       cache,
-      verificationFlags = {},
       transactions_root = transactions_root,
       execution_payload_root = execution_payload_root,
       kzg_commitments = kzg_commitments).mapErr do (error: cstring) -> string:
