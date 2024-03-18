@@ -135,7 +135,6 @@ proc init*(T: type BeaconNode,
     validatorPool = new ValidatorPool
 
   let node = BeaconNode(
-    db: db,
     config: config,
     attachedValidators: validatorPool,
     elManager: elManager,

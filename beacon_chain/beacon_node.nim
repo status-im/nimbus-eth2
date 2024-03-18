@@ -18,7 +18,6 @@ export
 
 type
   BeaconNode* = ref object
-    db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
     elManager*: ELManager
