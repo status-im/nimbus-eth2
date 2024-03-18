@@ -51,10 +51,6 @@ proc routeSignedBeaconBlock*(
 
   let
     delay = 0
-    # The block (and blobs, if present) passed basic gossip validation
-    # - we can "safely" broadcast it now. In fact, per the spec, we
-    # should broadcast it even if it later fails to apply to our
-    # state.
 
   var blobRefs = Opt.none(BlobSidecars)
   let added = await addBlock(

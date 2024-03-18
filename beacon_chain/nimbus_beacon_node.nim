@@ -63,12 +63,11 @@ proc init*(T: type BeaconNode,
         quit 1
       except CatchableError as err:
         quit 1
-    db.putDepositTreeSnapshot(depositTreeSnapshot)
 
   var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
   var genesisState = checkpointState
-  if not ChainDAGRef.isInitialized(db).isOk():
+  if true:
     genesisState = if checkpointState != nil and getStateField(checkpointState[], slot) == 0:
       checkpointState
     else:
@@ -103,7 +102,6 @@ proc init*(T: type BeaconNode,
 
     try:
       if not genesisState.isNil:
-        ChainDAGRef.preInit(db, genesisState[])
         networkGenesisValidatorsRoot =
           Opt.some(getStateField(genesisState[], genesis_validators_root))
 
@@ -111,8 +109,6 @@ proc init*(T: type BeaconNode,
         if genesisState.isNil or
             getStateField(checkpointState[], slot) != GENESIS_SLOT:
           ChainDAGRef.preInit(db, checkpointState[])
-
-      doAssert ChainDAGRef.isInitialized(db).isOk(), "preInit should have initialized db"
     except CatchableError as exc:
       quit 1
   else:
