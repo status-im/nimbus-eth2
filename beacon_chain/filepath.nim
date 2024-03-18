@@ -7,7 +7,6 @@
 
 {.push raises: [].}
 
-import chronicles
 import stew/io2
 import spec/keystore
 
