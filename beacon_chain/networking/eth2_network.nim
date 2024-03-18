@@ -2255,10 +2255,15 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     discoveryForkId = getDiscoveryForkID(
       cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
 
-    (extIp, extTcpPort, extUdpPort) = try: setupAddress(
-      config.nat, config.listenAddress, config.tcpPort, config.udpPort,
-      clientId)
-    except CatchableError as exc: raise exc
+    listenAddress =
+      if config.listenAddress.isSome():
+        config.listenAddress.get()
+      else:
+        getAutoAddress(Port(0)).toIpAddress()
+
+    (extIp, extTcpPort, extUdpPort) =
+      setupAddress(config.nat, listenAddress, config.tcpPort,
+                   config.udpPort, clientId)
 
     directPeers = block:
       var res: DirectPeers
@@ -2278,7 +2283,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
+    hostAddress = tcpEndPoint(listenAddress, config.tcpPort)
     announcedAddresses =
       if extIp.isNone() or extTcpPort.isNone(): @[]
       else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
