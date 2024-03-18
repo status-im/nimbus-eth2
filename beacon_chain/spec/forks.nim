@@ -5,7 +5,6 @@ import
   results,
   stew/assign2,
   chronicles,
-  ../extras,
   "."/[
     block_id, eth2_merkleization, eth2_ssz_serialization,
     presets],
@@ -13,7 +12,7 @@ import
   ./mev/bellatrix_mev, ./mev/capella_mev, ./mev/deneb_mev
 
 export
-  extras, block_id, phase0, altair, bellatrix, capella, deneb, electra,
+  block_id, phase0, altair, bellatrix, capella, deneb, electra,
   eth2_merkleization, eth2_ssz_serialization,
   presets, capella_mev, deneb_mev
 

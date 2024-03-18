@@ -1,5 +1,4 @@
 import
-  ../extras,
   "."/[eth2_merkleization, forks, validator]
 
 from std/algorithm import fill
@@ -174,9 +173,7 @@ proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
-    execution_payload_header: ForkyExecutionPayloadHeader,
-    flags: UpdateFlags = {}): auto =
-
+    execution_payload_header: ForkyExecutionPayloadHeader): auto =
   doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
 
   const consensusFork = typeof(execution_payload_header).kind
