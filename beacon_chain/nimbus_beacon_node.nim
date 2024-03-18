@@ -108,7 +108,7 @@ proc init*(T: type BeaconNode,
       if not checkpointState.isNil:
         if genesisState.isNil or
             getStateField(checkpointState[], slot) != GENESIS_SLOT:
-          ChainDAGRef.preInit(db, checkpointState[])
+          ChainDAGRef.preInit(checkpointState[])
     except CatchableError as exc:
       quit 1
   else:

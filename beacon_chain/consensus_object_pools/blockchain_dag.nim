@@ -754,31 +754,15 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstrin
   ok()
 
 proc preInit*(
-    T: type ChainDAGRef, db: BeaconChainDB, state: ForkedHashedBeaconState) =
+    T: type ChainDAGRef, state: ForkedHashedBeaconState) =
   doAssert getStateField(state, slot).is_epoch,
     "Can only initialize database from epoch states"
 
   withState(state):
-    db.putState(forkyState)
-
     if forkyState.data.slot == GENESIS_SLOT:
       let blck = get_initial_beacon_block(forkyState)
-      db.putBlock(blck)
-      db.putGenesisBlock(blck.root)
-      db.putHeadBlock(blck.root)
-      db.putTailBlock(blck.root)
     else:
       let blockRoot = forkyState.latest_block_root()
-      # We write a summary but not the block contents - these will have to be
-      # backfilled from the network
-      db.putBeaconBlockSummary(blockRoot, BeaconBlockSummary(
-        slot: forkyState.data.latest_block_header.slot,
-        parent_root: forkyState.data.latest_block_header.parent_root
-      ))
-      db.putHeadBlock(blockRoot)
-      db.putTailBlock(blockRoot)
-
-      discard db.getGenesisBlock().isSome()
 
 proc getProposer*(
     head: BlockRef, slot: Slot): Opt[ValidatorIndex] =

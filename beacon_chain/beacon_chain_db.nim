@@ -461,19 +461,7 @@ proc new*(T: type BeaconChainDBV0,
           db: SqStoreRef,
           readOnly = false
     ): BeaconChainDBV0 =
-  var
-    # V0 compatibility tables - these were created WITHOUT ROWID which is slow
-    # for large blobs
-    backendV0 = kvStore db.openKvStore(
-      readOnly = db.readOnly or readOnly).expectDb()
-    # state_no_validators is similar to state_no_validators2 but uses a
-    # different key encoding and was created WITHOUT ROWID
-    stateStoreV0 = kvStore db.openKvStore(
-      "state_no_validators", readOnly = db.readOnly or readOnly).expectDb()
-
   BeaconChainDBV0(
-      backend: backendV0,
-      stateStore: stateStoreV0,
   )
 
 proc new*(T: type BeaconChainDB,
