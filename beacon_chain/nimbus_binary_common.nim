@@ -1,16 +1,11 @@
 {.push raises: [].}
 
 import
-  # Standard library
   std/[tables, strutils, terminal, typetraits],
-
-  # Nimble packages
   chronicles, chronos, confutils, presto,
   chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
-
-  # Local modules
-  ./spec/[helpers, keystore],
+  ./spec/keystore,
   ./spec/datatypes/base,
   "."/[beacon_clock, conf]
 

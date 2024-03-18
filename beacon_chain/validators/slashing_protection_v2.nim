@@ -4,7 +4,6 @@ import
   std/tables,
   results,
   ../spec/datatypes/base,
-  ../spec/helpers,
   ./slashing_protection_common
 
 type

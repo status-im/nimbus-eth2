@@ -1,11 +1,9 @@
 {.push raises: [].}
 
 import
-  chronicles,
   results,
   "."/[
-    beaconstate, eth2_merkleization, forks, helpers,
-    validator]
+    beaconstate, eth2_merkleization, forks]
 
 export results
 
@@ -40,9 +38,7 @@ type
     proc(state: var T) {.gcsafe, noSideEffect, raises: [].}
   RollbackForkedHashedProc* = RollbackHashedProc[ForkedHashedBeaconState]
 
-func noRollback*() =
-  trace "Skipping rollback of broken state"
-
+func noRollback*() = discard
 
 func process_slot*(
     state: var ForkyBeaconState, pre_state_root: Eth2Digest) =
@@ -68,23 +64,12 @@ proc advance_slot(
 
   ok()
 
-func noRollback*(state: var phase0.HashedBeaconState) =
-  trace "Skipping rollback of broken phase 0 state"
-
-func noRollback*(state: var altair.HashedBeaconState) =
-  trace "Skipping rollback of broken Altair state"
-
-func noRollback*(state: var bellatrix.HashedBeaconState) =
-  trace "Skipping rollback of broken Bellatrix state"
-
-func noRollback*(state: var capella.HashedBeaconState) =
-  trace "Skipping rollback of broken Capella state"
-
-func noRollback*(state: var deneb.HashedBeaconState) =
-  trace "Skipping rollback of broken Deneb state"
-
-func noRollback*(state: var electra.HashedBeaconState) =
-  trace "Skipping rollback of broken Electra state"
+func noRollback*(state: var phase0.HashedBeaconState) = discard
+func noRollback*(state: var altair.HashedBeaconState) = discard
+func noRollback*(state: var bellatrix.HashedBeaconState) = discard
+func noRollback*(state: var capella.HashedBeaconState) = discard
+func noRollback*(state: var deneb.HashedBeaconState) = discard
+func noRollback*(state: var electra.HashedBeaconState) = discard
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
@@ -109,8 +94,7 @@ proc state_transition_block_aux(
 
   ok()
 
-func noRollback*(state: var ForkedHashedBeaconState) =
-  trace "Skipping rollback of broken state"
+func noRollback*(state: var ForkedHashedBeaconState) = discard
 
 proc state_transition_block*(
     cfg: RuntimeConfig,
