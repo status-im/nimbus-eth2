@@ -4,7 +4,7 @@ import
   stew/[arrayops, byteutils, io2, objects],
   serialization, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
-  ./networking/network_metadata, ./beacon_chain_db_immutable,
+  ./networking/network_metadata,
   ./spec/[deposit_snapshots,
           eth2_ssz_serialization,
           eth2_merkleization,
@@ -98,10 +98,6 @@ func subkey[N: static int](kind: DbKeyKind, key: array[N, byte]):
 
 func subkey(kind: type phase0.BeaconState, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)
-
-func subkey(
-    kind: type Phase0BeaconStateNoImmutableValidators, key: Eth2Digest): auto =
-  subkey(kHashToStateOnlyMutableValidators, key.data)
 
 func subkey(kind: type phase0.SignedBeaconBlock, key: Eth2Digest): auto =
   subkey(kHashToBlock, key.data)
