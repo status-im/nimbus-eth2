@@ -146,8 +146,6 @@ proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
     inc validatorIdx
 
 proc startBeaconNode() {.raises: [CatchableError].} =
-  let rng = HmacDrbgContext.new()
-
   copyHalfValidators(nodeDataDir, true)
 
   let runNodeConf = try: BeaconNodeConf.load(cmdLine = @[
@@ -161,16 +159,11 @@ proc startBeaconNode() {.raises: [CatchableError].} =
 
   let
     metadata = loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
-    node = waitFor BeaconNode.init(rng, runNodeConf, metadata)
+    node = waitFor BeaconNode.init(runNodeConf, metadata)
 
-  node.start() # This will run until the node is terminated by
-               #  setting its `bnStatus` to `Stopping`.
+  node.start()
 
-const
-  password = "7465737470617373776f7264f09f9491"
-  secretBytes = hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
-  salt = hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
-  iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
+const secretBytes = hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
 
 if dirExists(dataDir):
   os.removeDir dataDir

@@ -284,8 +284,6 @@ proc saveKeystore(
                               keystoreFile, encodedStorage)
   ok()
 
-from ".."/spec/beaconstate import has_eth1_withdrawal_credential
-
 proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var HmacDrbgContext,
                        seed: KeySeed,
