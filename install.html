@@ -986,20 +986,6 @@
   
   
     <li class="md-nav__item">
-      <a href="prater.html" class="md-nav__link">
-        Prater testnet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="holesky.html" class="md-nav__link">
         Holešky testnet
       </a>
@@ -1716,7 +1702,7 @@
 <div class="tabbed-block">
 <p>On common Linux distributions the dependencies can be installed with:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Debian and Ubuntu</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>sudo apt-get install build-essential git cmake
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>sudo apt-get install build-essential git-lfs cmake
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Fedora</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>dnf install @development-tools cmake
@@ -1747,12 +1733,12 @@
 </div>
 <div class="tabbed-block">
 <ul>
-<li>Install the <a href="https://termux.com">Termux</a> app from FDroid or the Google Play store</li>
+<li>Install the <a href="https://termux.dev/en/">Termux</a> app from FDroid or the Google Play store</li>
 <li>Install a <a href="https://wiki.termux.com/wiki/PRoot">PRoot</a> of your choice following the instructions for your preferred distribution.
 Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (the most common architecture for Android devices).</li>
 </ul>
 <p>Assuming you use Ubuntu PRoot:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>apt install build-essential git
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>apt install build-essential git-lfs
 </code></pre></div>
 </div>
 </div>
@@ -1765,7 +1751,7 @@ You should be fine as long as you haven't changed the time and date settings on 
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Linux</label><label for="__tabbed_2_2">Windows, macOS</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<p>On Linux, it is recommended to install <a href="https://chrony.tuxfamily.org/">chrony</a>.</p>
+<p>On Linux, it is recommended to install <a href="https://chrony-project.org">chrony</a>.</p>
 <p>To install it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Debian and Ubuntu</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>sudo apt-get install -y chrony

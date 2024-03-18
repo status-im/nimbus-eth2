@@ -1058,20 +1058,6 @@
   
   
     <li class="md-nav__item">
-      <a href="prater.html" class="md-nav__link">
-        Prater testnet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="holesky.html" class="md-nav__link">
         Holešky testnet
       </a>
@@ -1860,7 +1846,7 @@ Since the merge 🐼, execution clients can no longer run standalone.</p>
 <tbody>
 <tr>
 <td>Disk usage</td>
-<td>~70GB</td>
+<td>~200GB</td>
 <td><strong>&lt;1MB</strong></td>
 </tr>
 <tr>
@@ -1960,7 +1946,7 @@ The following sections explain how to do this for certain EL clients.</p>
 </div>
 <h2 id="running-the-light-client">Running the light client</h2>
 <p>The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
+This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
 <h3 id="1-obtaining-a-trusted-block-root">1. Obtaining a trusted block root</h3>
 <p>A block root may be obtained from another trusted beacon node, or from a trusted provider.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Trusted beacon node</label><label for="__tabbed_4_2">Beaconcha.in</label></div>
@@ -2014,7 +2000,7 @@ Note that a new trusted block root is required when restarting.</p>
 <p>After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data.
 You should see logs similar to the following:</p>
 <h3 id="nimbus">Nimbus</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>NOT 2022-11-21 18:00:23.666+01:00 Starting light client                      topics=&quot;lightcl&quot; trusted_block_root=some(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>NTC 2022-11-21 18:00:23.666+01:00 Starting light client                      topics=&quot;lightcl&quot; trusted_block_root=some(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c)
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>...
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>INF 2022-11-21 18:01:24.001+01:00 Slot start                                 slot=1109707 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms495us
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>INF 2022-11-21 18:01:24.734+01:00 Exchanged engine configuration             topics=&quot;eth1&quot; terminalTotalDifficulty=17000000000000000 terminalBlockHash=0x0000000000000000000000000000000000000000000000000000000000000000 terminalBlockNumber=0
@@ -2031,17 +2017,17 @@ You should see logs similar to the following:</p>
 <a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>WRN 2022-11-21 18:03:31.419+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
 <a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>INF 2022-11-21 18:03:36.001+01:00 Slot start                                 slot=1109718 epoch=34678 sync=synced peers=7 head=c5464508:1109716 finalized=c092a1d1:1109216 delay=1ms98us
 <a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109717, proposer_index: 835, parent_root: \&quot;c5464508\&quot;, state_root: \&quot;13f823f8\&quot;))&quot;
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>NOT 2022-11-21 18:03:40.012+01:00 New LC optimistic block                    opt=99ab28aa:1109717 wallSlot=1109718
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>NTC 2022-11-21 18:03:40.012+01:00 New LC optimistic block                    opt=99ab28aa:1109717 wallSlot=1109718
 <a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
 <a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
 <a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
 <a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
 <a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109718, proposer_index: 1202, parent_root: \&quot;99ab28aa\&quot;, state_root: \&quot;7f7f88d2\&quot;))&quot;
-<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>NOT 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt=ab007266:1109718 wallSlot=1109720
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>NTC 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt=ab007266:1109718 wallSlot=1109720
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
+<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
 As this is a new protocol, not all implementations are supporting it yet.
 Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.</p>
 </div>

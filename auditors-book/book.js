@@ -68,7 +68,7 @@ function playground_text(playground, hidden = true) {
     }
 
     // updates the visibility of play button based on `no_run` class and
-    // used crates vs ones available on https://play.rust-lang.org
+    // used crates vs ones available on http://play.rust-lang.org
     function update_play_button(pre_block, playground_crates) {
         var play_button = pre_block.querySelector(".play-button");
 
@@ -179,7 +179,7 @@ function playground_text(playground, hidden = true) {
     // even if highlighting doesn't apply
     code_nodes.forEach(function (block) { block.classList.add('hljs'); });
 
-    Array.from(document.querySelectorAll("code.hljs")).forEach(function (block) {
+    Array.from(document.querySelectorAll("code.language-rust")).forEach(function (block) {
 
         var lines = Array.from(block.querySelectorAll('.boring'));
         // If no lines were hidden, return
@@ -346,7 +346,7 @@ function playground_text(playground, hidden = true) {
         }
 
         setTimeout(function () {
-            themeColorMetaTag.content = getComputedStyle(document.documentElement).backgroundColor;
+            themeColorMetaTag.content = getComputedStyle(document.body).backgroundColor;
         }, 1);
 
         if (window.ace && window.editors) {
@@ -441,7 +441,7 @@ function playground_text(playground, hidden = true) {
 })();
 
 (function sidebar() {
-    var body = document.querySelector("body");
+    var html = document.querySelector("html");
     var sidebar = document.getElementById("sidebar");
     var sidebarLinks = document.querySelectorAll('#sidebar a');
     var sidebarToggleButton = document.getElementById("sidebar-toggle");
@@ -449,8 +449,8 @@ function playground_text(playground, hidden = true) {
     var firstContact = null;
 
     function showSidebar() {
-        body.classList.remove('sidebar-hidden')
-        body.classList.add('sidebar-visible');
+        html.classList.remove('sidebar-hidden')
+        html.classList.add('sidebar-visible');
         Array.from(sidebarLinks).forEach(function (link) {
             link.setAttribute('tabIndex', 0);
         });
@@ -471,8 +471,8 @@ function playground_text(playground, hidden = true) {
     });
 
     function hideSidebar() {
-        body.classList.remove('sidebar-visible')
-        body.classList.add('sidebar-hidden');
+        html.classList.remove('sidebar-visible')
+        html.classList.add('sidebar-hidden');
         Array.from(sidebarLinks).forEach(function (link) {
             link.setAttribute('tabIndex', -1);
         });
@@ -483,14 +483,14 @@ function playground_text(playground, hidden = true) {
 
     // Toggle sidebar
     sidebarToggleButton.addEventListener('click', function sidebarToggle() {
-        if (body.classList.contains("sidebar-hidden")) {
+        if (html.classList.contains("sidebar-hidden")) {
             var current_width = parseInt(
                 document.documentElement.style.getPropertyValue('--sidebar-width'), 10);
             if (current_width < 150) {
                 document.documentElement.style.setProperty('--sidebar-width', '150px');
             }
             showSidebar();
-        } else if (body.classList.contains("sidebar-visible")) {
+        } else if (html.classList.contains("sidebar-visible")) {
             hideSidebar();
         } else {
             if (getComputedStyle(sidebar)['transform'] === 'none') {
@@ -506,14 +506,14 @@ function playground_text(playground, hidden = true) {
     function initResize(e) {
         window.addEventListener('mousemove', resize, false);
         window.addEventListener('mouseup', stopResize, false);
-        body.classList.add('sidebar-resizing');
+        html.classList.add('sidebar-resizing');
     }
     function resize(e) {
         var pos = (e.clientX - sidebar.offsetLeft);
         if (pos < 20) {
             hideSidebar();
         } else {
-            if (body.classList.contains("sidebar-hidden")) {
+            if (html.classList.contains("sidebar-hidden")) {
                 showSidebar();
             }
             pos = Math.min(pos, window.innerWidth - 100);
@@ -522,7 +522,7 @@ function playground_text(playground, hidden = true) {
     }
     //on mouseup remove windows functions mousemove & mouseup
     function stopResize(e) {
-        body.classList.remove('sidebar-resizing');
+        html.classList.remove('sidebar-resizing');
         window.removeEventListener('mousemove', resize, false);
         window.removeEventListener('mouseup', stopResize, false);
     }
@@ -551,41 +551,33 @@ function playground_text(playground, hidden = true) {
             firstContact = null;
         }
     }, { passive: true });
+
+    // Scroll sidebar to current active section
+    var activeSection = document.getElementById("sidebar").querySelector(".active");
+    if (activeSection) {
+        // https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollIntoView
+        activeSection.scrollIntoView({ block: 'center' });
+    }
 })();
 
 (function chapterNavigation() {
     document.addEventListener('keydown', function (e) {
         if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) { return; }
         if (window.search && window.search.hasFocus()) { return; }
-        var html = document.querySelector('html');
 
-        function next() {
-            var nextButton = document.querySelector('.nav-chapters.next');
-            if (nextButton) {
-                window.location.href = nextButton.href;
-            }
-        }
-        function prev() {
-            var previousButton = document.querySelector('.nav-chapters.previous');
-            if (previousButton) {
-                window.location.href = previousButton.href;
-            }
-        }
         switch (e.key) {
             case 'ArrowRight':
                 e.preventDefault();
-                if (html.dir == 'rtl') {
-                    prev();
-                } else {
-                    next();
+                var nextButton = document.querySelector('.nav-chapters.next');
+                if (nextButton) {
+                    window.location.href = nextButton.href;
                 }
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
-                if (html.dir == 'rtl') {
-                    next();
-                } else {
-                    prev();
+                var previousButton = document.querySelector('.nav-chapters.previous');
+                if (previousButton) {
+                    window.location.href = previousButton.href;
                 }
                 break;
         }
@@ -684,14 +676,13 @@ function playground_text(playground, hidden = true) {
         }, { passive: true });
     })();
     (function controllBorder() {
-        function updateBorder() {
+        menu.classList.remove('bordered');
+        document.addEventListener('scroll', function () {
             if (menu.offsetTop === 0) {
                 menu.classList.remove('bordered');
             } else {
                 menu.classList.add('bordered');
             }
-        }
-        updateBorder();
-        document.addEventListener('scroll', updateBorder, { passive: true });
+        }, { passive: true });
     })();
 })();

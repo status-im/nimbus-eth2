@@ -927,20 +927,6 @@
   
   
     <li class="md-nav__item">
-      <a href="prater.html" class="md-nav__link">
-        Prater testnet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="holesky.html" class="md-nav__link">
         Holešky testnet
       </a>
@@ -1730,15 +1716,15 @@ When used with more than 10 validators, it may adversely impact performance of m
 Other nodes pick it up and package the message into an aggregate and later a block.
 The block is included in the canonical chain and a reward is given two epochs (~13 minutes) later.</p>
 <p>The monitor tracks each of these actions and will in detailed mode log each step at the <code>INF</code> level.
-If any step is missed (irrespective of detail mode), a <code>NOT</code> log is shown instead.</p>
+If any step is missed (irrespective of detail mode), a <code>NTC</code> log is shown instead.</p>
 <p>The typical life cycle of an attestation might look something like the following:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>INF 2021-11-22 11:32:44.228+01:00 Attestation seen                           topics=&quot;val_mon&quot; attestation=&quot;(aggregation_bits: 0b0000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, data: (slot: 2656363, index: 11, beacon_block_root: \&quot;bbe7fc25\&quot;, source: \&quot;83010:a8a1b125\&quot;, target: \&quot;83011:6db281cd\&quot;), signature: \&quot;b88ef2f2\&quot;)&quot; src=api epoch=83011 validator=b93c290b
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>INF 2021-11-22 11:32:51.293+01:00 Attestation included in aggregate          topics=&quot;val_mon&quot; aggregate=&quot;(aggregation_bits: 0b1111111101011111001101111111101100111111110100111011111110110101110111111010111111011101111011101111111111101111100001111111100111, data: (slot: 2656363, index: 11, beacon_block_root: \&quot;bbe7fc25\&quot;, source: \&quot;83010:a8a1b125\&quot;, target: \&quot;83011:6db281cd\&quot;), signature: \&quot;8576b3fc\&quot;)&quot; src=gossip epoch=83011 validator=b93c290b
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>INF 2021-11-22 11:33:07.193+01:00 Attestation included in block              attestation_data=&quot;(slot: 2656364, index: 9, beacon_block_root: \&quot;c7761767\&quot;, source: \&quot;83010:a8a1b125\&quot;, target: \&quot;83011:6db281cd\&quot;)&quot; block_slot=2656365 inclusion_lag_slots=0 epoch=83011 validator=b65b6e1b
 </code></pre></div>
 <p>The life cycle of a particular message can be traced by following the <code>epoch=.... validator=...</code> fields in the message.</p>
-<p>Failures at any point are recorded at a higher logging level, such as <code>NOT</code>(ice):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>NOT 2021-11-17 20:53:42.108+01:00 Attestation failed to match head           topics=&quot;chaindag&quot; epoch=81972 validator=...
+<p>Failures at any point are recorded at a higher logging level, such as <code>NTC</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>NTC 2021-11-17 20:53:42.108+01:00 Attestation failed to match head           topics=&quot;chaindag&quot; epoch=81972 validator=...
 </code></pre></div>
 <p>Failures are reported with a lag of two epochs (~13 minutes).
 To examine the log for potential root causes, the logs from the epoch in the failure message should be looked at.</p>

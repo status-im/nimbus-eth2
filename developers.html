@@ -927,20 +927,6 @@
   
   
     <li class="md-nav__item">
-      <a href="prater.html" class="md-nav__link">
-        Prater testnet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="holesky.html" class="md-nav__link">
         Holešky testnet
       </a>
@@ -1610,6 +1596,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sync-from-a-specific-peer" class="md-nav__link">
+    Sync from a specific peer
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1879,6 +1872,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sync-from-a-specific-peer" class="md-nav__link">
+    Sync from a specific peer
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1903,7 +1903,7 @@
 <h2 id="helpful-resources">Helpful resources</h2>
 <ul>
 <li><a href="https://github.com/ethereum/consensus-specs/">Ethereum consensus spec</a></li>
-<li><a href="https://eth2book.info/bellatrix/">Ben Edgington's annotated spec</a></li>
+<li><a href="https://eth2book.info/capella/">Ben Edgington's annotated spec</a></li>
 <li><a href="https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md">Vitalik's annotated spec</a></li>
 </ul>
 <h2 id="nim-programming-language">Nim programming language</h2>
@@ -2061,7 +2061,7 @@ Usually 1 - 100, but can be higher on multi-core CPUs.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Clear data files from your last run and start the simulation with a new genesis block:</span>
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>make <span class="nv">VALIDATORS</span><span class="o">=</span><span class="m">192</span> <span class="nv">NODES</span><span class="o">=</span><span class="m">6</span> <span class="nv">USER_NODES</span><span class="o">=</span><span class="m">1</span> local-testnet-minimal
 </code></pre></div>
-<p>If you’d like to see the nodes running on separated sub-terminals inside one big window, install <a href="https://www.vanheusden.com/multitail/index.php">Multitail</a> (if you're on a Mac, follow the instructions <a href="https://brewinstall.org/Install-multitail-on-Mac-with-Brew/">here</a>), then:</p>
+<p>If you’d like to see the nodes running on separated sub-terminals inside one big window, install <a href="https://www.vanheusden.com/multitail/">Multitail</a> (if you're on a Mac, follow the instructions <a href="https://brewinstall.org/Install-multitail-on-Mac-with-Brew/">here</a>), then:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>USE_MULTITAIL=&quot;yes&quot; make local-testnet-minimal
 </code></pre></div>
 <p>You’ll get something like this (click for full size):</p>
@@ -2086,6 +2086,9 @@ Experiment with changing the number of slots, validators, etc. to get different 
 </ul>
 <p>For example, to run the block simulator for 384 slots, with 20,000 validators, and an average of 66% of attesters doing their work every slot, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>build/block_sim --slots=384 --validators=20000 --attesterRatio=0.66
+</code></pre></div>
+<h2 id="sync-from-a-specific-peer">Sync from a specific peer</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>build/nimbus_beacon_node --no-el --discv5:off --tcp-port<span class="o">=</span><span class="m">9876</span> --direct-peer<span class="o">=</span><span class="s2">&quot;/ip4/127.0.0.1/tcp/9000/p2p/</span><span class="k">$(</span>curl -s -X <span class="s1">&#39;GET&#39;</span> <span class="s1">&#39;http://localhost:5052/eth/v1/node/identity&#39;</span> -H <span class="s1">&#39;accept: application/json&#39;</span> <span class="p">|</span> jq  -r .data.peer_id<span class="k">)</span><span class="s2">&quot;</span>
 </code></pre></div>
 
               

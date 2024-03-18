@@ -1136,20 +1136,6 @@
   
   
     <li class="md-nav__item">
-      <a href="prater.html" class="md-nav__link">
-        Prater testnet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="holesky.html" class="md-nav__link">
         Holešky testnet
       </a>
@@ -2030,12 +2016,12 @@ Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).<
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please <a href="https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426">read this recommended fix</a>.</p>
+<p>If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please <a href="https://forums.raspberrypi.com/viewtopic.php?t=245931#p1501426">read this recommended fix</a>.</p>
 </div>
 <h2 id="steps">Steps</h2>
 <h3 id="1-download-raspberry-pi-imager">1. Download Raspberry Pi Imager</h3>
 <p><a href="https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/">Raspberry Pi Imager</a> is an imaging utility that makes it simple to manage your microSD card with Raspberry Pi OS (the free Pi operating system based on Debian, previously called Raspbian).</p>
-<p>You can find the <a href="https://www.learnenough.com/command-line-tutorial/basics">download</a> link for your operating system here: <a href="https://downloads.raspberrypi.org/imager/imager_1.4.exe">Windows</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4.dmg">macOS</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb">Ubuntu</a>.</p>
+<p>You can find the download link for your operating system here: <a href="https://downloads.raspberrypi.org/imager/imager_1.4.exe">Windows</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4.dmg">macOS</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb">Ubuntu</a>.</p>
 <h3 id="2-download-64-bit-raspberry-pi-os">2. Download 64-bit Raspberry Pi OS</h3>
 <p>You need to install the 64-bit version of Raspberry Pi OS.
 You can find the latest version, <a href="https://downloads.raspberrypi.org/raspios_arm64/images/">here</a>.</p>
@@ -2078,7 +2064,7 @@ The first one, which is the smaller one, is the <code>boot</code> partition.</p>
 See <a href="https://en.wikipedia.org/wiki/ISO_3166-1">Wikipedia</a> for a list of 2 letter <code>ISO 3166-1</code> country codes.</p>
 </div>
 <h3 id="6-enable-ssh-using-linux-or-macos">6. Enable SSH (using Linux or macOS)</h3>
-<p>You can <a href="https://www.raspberrypi.org/documentation/remote-access/ssh/">access the command line</a> of a Raspberry Pi remotely from another computer or device on the same network using <a href="https://en.wikipedia.org/wiki/Ssh_(Secure_Shell)">SSH</a>.</p>
+<p>You can <a href="https://www.raspberrypi.com/documentation/computers/remote-access.html">access the command line</a> of a Raspberry Pi remotely from another computer or device on the same network using <a href="https://en.wikipedia.org/wiki/Ssh_(Secure_Shell)">SSH</a>.</p>
 <p>While SSH is not enabled by default, you can enable it by placing a file named <code>ssh</code>, without any extension, onto the boot partition of the SD card.</p>
 <p>When the Pi boots, it will look for the <code>ssh</code> file.
 If it is found, SSH is enabled and the file is deleted.
@@ -2170,7 +2156,7 @@ So you'll need to <code>ssh</code> into your Pi again:</p>
 <a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>rpi-clone sda
 </code></pre></div>
 </div>
-<p>For more on <code>raspi-config</code>, see <a href="https://www.raspberrypi.org/documentation/configuration/raspi-config.md">here</a>.</p>
+<p>For more on <code>raspi-config</code>, see <a href="https://www.raspberrypi.com/documentation/computers/configuration.html">here</a>.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>To shutdown your Pi safely, run <code>sudo shutdown -h now</code></p>
@@ -2287,10 +2273,10 @@ For instructions on how to do so, see the <a href="eth1.html">eth1 page</a>.</p>
 <a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>INF 2023-10-01 11:25:35.921+01:00 Block dag initialized
 <a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>INF 2023-10-01 11:25:37.073+01:00 Generating new networking key
 <a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>...
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>NOT 2023-10-01 11:25:45.267+00:00 Local validator attached                   tid=22009 file=validator_pool.nim:33 pubkey=95e3cbe88c71ab2d0e3053b7b12ead329a37e9fb8358bdb4e56251993ab68e46b9f9fa61035fe4cf2abf4c07dfad6c45 validator=95e3cbe8
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>NTC 2023-10-01 11:25:45.267+00:00 Local validator attached                   tid=22009 file=validator_pool.nim:33 pubkey=95e3cbe88c71ab2d0e3053b7b12ead329a37e9fb8358bdb4e56251993ab68e46b9f9fa61035fe4cf2abf4c07dfad6c45 validator=95e3cbe8
 <a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>...
-<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>NOT 2023-10-01 11:25:59.512+00:00 Eth1 sync progress                         topics=&quot;eth1&quot; tid=21914 blockNumber=3836397 depositsProcessed=106147
-<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>NOT 2023-10-01 11:26:02.574+00:00 Eth1 sync progress                         topics=&quot;eth1&quot; tid=21914 blockNumber=3841412 depositsProcessed=106391
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>NTC 2023-10-01 11:25:59.512+00:00 Eth1 sync progress                         topics=&quot;eth1&quot; tid=21914 blockNumber=3836397 depositsProcessed=106147
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>NTC 2023-10-01 11:26:02.574+00:00 Eth1 sync progress                         topics=&quot;eth1&quot; tid=21914 blockNumber=3841412 depositsProcessed=106391
 <a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>...
 <a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>INF 2023-10-01 11:26:31.000+00:00 Slot start                                 topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:505 lastSlot=96566 scheduledSlot=96567 beaconTime=1w6d9h53m24s944us774ns peers=7 head=b54486c4:96563 headEpoch=3017 finalized=2f5d12e4:96479 finalizedEpoch=3014
 <a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>INF 2023-10-01 11:26:36.285+00:00 Slot end                                   topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
@@ -2304,7 +2290,7 @@ You should see something like:</p>
 <p class="admonition-title">Note</p>
 <p>15 - 20 peers and an average sync speed of <strong>0.5 - 1.0</strong> blocks per second is normal on <code>Holesky</code> with a Pi.
 If your sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter.
-See <a href="https://www.raspberrypi.org/forums/viewtopic.php?f=28&amp;t=245931">this post</a> for a recommended workaround.</p>
+See <a href="https://forums.raspberrypi.com/viewtopic.php?f=28&amp;t=245931">this post</a> for a recommended workaround.</p>
 </div>
 <h2 id="mainnet-advice">Mainnet advice</h2>
 <p>Whether or not your Pi is up to the task will depend on a number of factors such as SSD speed, network connectivity, etc.
@@ -2316,7 +2302,7 @@ If you have no trouble syncing and attesting on Holesky, your setup should good 
 
 <p>Although we don't expect a modern Pi to fail, we recommend buying a spare Pi, and enterprise grade SSD, on the off-chance it does; keep your original SD around, to make it easy for you to copy the image over.</p>
 <h3 id="systemd">Systemd</h3>
-<p>Now that you have Nimbus up and running, we recommend <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">setting up a systemd service</a> with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly).</p>
+<p>Now that you have Nimbus up and running, we recommend <a href="https://www.raspberrypi.com/documentation/computers/remote-access.html#server-configuration">setting up a systemd service</a> with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly).</p>
 <p>Systemd will also ensure your validator keeps running when you exit your ssh session (<code>Ctrl-C</code>) and/or switch off your laptop.</p>
 <p>For the details on how to do this, see our <a href="beacon-node-systemd.html">systemd guide</a>.</p>
 

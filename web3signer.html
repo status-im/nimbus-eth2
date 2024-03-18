@@ -927,20 +927,6 @@
   
   
     <li class="md-nav__item">
-      <a href="prater.html" class="md-nav__link">
-        Prater testnet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="holesky.html" class="md-nav__link">
         Holešky testnet
       </a>
@@ -1678,7 +1664,7 @@
 
 
 <h1 id="web3signer">Web3Signer</h1>
-<p><a href="https://docs.web3signer.consensys.net/en/latest/">Web3Signer</a> is a remote signing server developed by Consensys.
+<p><a href="https://docs.web3signer.consensys.io">Web3Signer</a> is a remote signing server developed by Consensys.
 It offers a <a href="https://consensys.github.io/web3signer/web3signer-eth2.html">standardized REST API</a> allowing the Nimbus beacon node or validator client to operate without storing any validator keys locally.</p>
 <p>You can instruct Nimbus to connect to a Web3Signer instance by supplying the <code>--web3-signer-url</code> command-line option. Since Nimbus obtains the list of validator keys automatically through the <a href="https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST"><code>/api/v1/eth2/publicKeys</code></a> Web3Signer API endpoint, no further configuration is required.</p>
 <div class="admonition info">
@@ -1795,7 +1781,7 @@ Naturally, this value must be lower than the total number of specified remote si
 The described implementation may be incomplete and is subject to change in future releases.</p>
 </div>
 <p>The verifying Web3Signer is an experimental extension to the <a href="https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN">Web3Signer protocol</a> which allows the remote signer to verify certain details of the signed blocks before creating a signature (for example, the signer may require the signed block to have a particular fee recipient value).</p>
-<p>To enable this use case, the <code>BLOCK_V2</code> request type of the <code>/api/v1/eth2/sign/{identifier}</code> endpoint is extended with an additional array field named <code>proofs</code>. The array consists of objects with the properties <code>index</code>, <code>proof</code> and <code>value</code>, where <code>index</code> is an arbitrary <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/ssz/merkle-proofs.md#generalized-merkle-tree-index">generalized index</a> of any property nested under the block body and <code>proof</code> is its corresponding Merkle proof against the block body root included in the request. The <code>value</code> property is optional and it is included only when the SSZ hash of the field included in the Merkle proof doesn't match its value.</p>
+<p>To enable this use case, the <code>BLOCK_V2</code> request type of the <code>/api/v1/eth2/sign/{identifier}</code> endpoint is extended with an additional array field named <code>proofs</code>. The array consists of objects with the properties <code>index</code>, <code>proof</code> and <code>value</code>, where <code>index</code> is an arbitrary <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0/ssz/merkle-proofs.md#generalized-merkle-tree-index">generalized index</a> of any property nested under the block body and <code>proof</code> is its corresponding Merkle proof against the block body root included in the request. The <code>value</code> property is optional and it is included only when the SSZ hash of the field included in the Merkle proof doesn't match its value.</p>
 <p>Since the generalized index of a particular field may change in a hard-fork, in the remote keystore format the proven fields are usually specified by their name:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>{
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  &quot;version&quot;: 3,
@@ -1811,7 +1797,7 @@ The described implementation may be incomplete and is subject to change in futur
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>}
 </code></pre></div>
 <p>Nimbus automatically computes the generalized index depending on the currently active fork.
-The remote signer is expected to verify the incoming Merkle proof through the standardized <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/beacon-chain.md#is_valid_merkle_branch">is_valid_merkle_branch</a> function by utilizing a similar automatic mapping mechanism for the generalized index.</p>
+The remote signer is expected to verify the incoming Merkle proof through the standardized <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_valid_merkle_branch">is_valid_merkle_branch</a> function by utilizing a similar automatic mapping mechanism for the generalized index.</p>
 <p>You can instruct Nimbus to use the verifying Web3Signer protocol by either supplying the <code>--verifying-web3-signer</code> command-line option or by creating a remote keystore file in the format described above. You can use the command-line option <code>--proven-block-property</code> once or multiple times to enumerate the properties of the block for which Merkle proofs will be supplied.</p>
 
               

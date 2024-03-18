@@ -927,20 +927,6 @@
   
   
     <li class="md-nav__item">
-      <a href="prater.html" class="md-nav__link">
-        Prater testnet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="holesky.html" class="md-nav__link">
         Holešky testnet
       </a>
@@ -1699,6 +1685,11 @@
 </div>
 <p>Ethereum consensus nodes are required to keep a minimum of 5 months of historical block data ensuring the health of the network.</p>
 <p>Nimbus can be configured to either retain or remove historical data past that point using the <code>--history</code> option. By default, Nimbus prunes historical data.</p>
+<div class="admonition note">
+<p class="admonition-title">EIP-4844 blob archival</p>
+<p>In the default <code>prune</code> mode, EIP-4844 blobs are retained for ~18 days. To retain blobs beyond that, enable <code>--history=archive</code> which also archives blob data in the Nimbus database.</p>
+<p>Future versions of Nimbus will allow exporting retained blobs to <a href="https://github.com/status-im/nimbus-eth2/pull/5882">erb</a> files.</p>
+</div>
 <h2 id="history-modes">History modes</h2>
 <p>The history mode controls how far back Nimbus supports answering historical queries in the <a href="rest-api.html">REST API</a>.
 It does not affect the ability to perform validator duties.</p>

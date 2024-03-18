@@ -1028,20 +1028,6 @@
   
   
     <li class="md-nav__item">
-      <a href="prater.html" class="md-nav__link">
-        Prater testnet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="holesky.html" class="md-nav__link">
         Holešky testnet
       </a>
@@ -1800,12 +1786,12 @@ The same user can also be used for the execution client.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>sudo useradd -g nimbus nimbus -m -d /var/lib/nimbus
 </code></pre></div>
 <h3 id="2-create-the-service-file">2. Create the service file</h3>
-<p><code>systemd</code> services are created by placing a <a href="https://www.freedesktop.org/software/systemd/man/systemd.service.html">service</a> file in <code>/etc/systemd/system</code>, or, if Nimbus was installed by a package manager, <code>/usr/lib/systemd/system</code>.</p>
+<p><code>systemd</code> services are created by placing a <a href="https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html">service</a> file in <code>/etc/systemd/system</code>, or, if Nimbus was installed by a package manager, <code>/usr/lib/systemd/system</code>.</p>
 <p>A good starting point is the <a href="https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_src/nimbus_beacon_node/image/lib/systemd/system/nimbus_beacon_node.service">example service file</a> in the Nimbus repository.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Download example service file and save it to `/etc/systemd/system/nimbus_beacon_node.service`</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_src/nimbus_beacon_node/image/lib/systemd/system/nimbus_beacon_node.service <span class="p">|</span> sudo tee /etc/systemd/system/nimbus_beacon_node.service &gt; /dev/null
 </code></pre></div>
-<p>The format of service files is documented in the <a href="https://www.freedesktop.org/software/systemd/man/systemd.service.html">systemd manual</a>.</p>
+<p>The format of service files is documented in the <a href="https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html">systemd manual</a>.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Automatic restarts increase the risk that the doppelganger detection fails - set <code>RestartPreventExitStatus=129</code> to prevent this from happening</p>
@@ -1882,7 +1868,7 @@ Some guides use <code>--data-dir=/var/lib/nimbus</code> instead.</p>
 <h2 id="further-examples">Further examples</h2>
 <ul>
 <li>A <a href="https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service">service template file</a> by Pawel Bylica which allows you to start two services at the same time, e.g. <code>nimbus@holesky.service</code> and <code>nimbus@mainnet.service</code>.</li>
-<li>The <a href="https://github.com/diglos/ethereumonarm/blob/main/fpm-package-builder/nimbus/extras/nimbus.service">EthereumOnARM</a> project maintains a service file as part of their Ethereum installation package repository.</li>
+<li>The <a href="https://github.com/EOA-Blockchain-Labs/ethereumonarm/blob/main/fpm-package-builder/l1-clients/consensus-layer/nimbus/extras/nimbus-beacon.service">EthereumOnARM</a> project maintains a service file as part of their Ethereum installation package repository.</li>
 </ul>
 
               
