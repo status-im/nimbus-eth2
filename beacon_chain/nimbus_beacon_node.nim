@@ -4,7 +4,6 @@ import
   std/[os, times],
   chronos,
   stew/io2,
-  ./networking/network_metadata_downloads,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/deposit_snapshots,
   ./validators/[keystore_management, beacon_validators],
@@ -76,7 +75,7 @@ proc init*(T: type BeaconNode,
             quit 1
         elif metadata.hasGenesis:
           try:
-            await metadata.fetchGenesisBytes(config.genesisStateUrl)
+            metadata.fetchGenesisBytes()
           except CatchableError as err:
             quit 1
         else:

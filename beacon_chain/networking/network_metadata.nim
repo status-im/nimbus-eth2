@@ -1,12 +1,3 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
-{.push raises: [].}
-
 import
   std/[sequtils, strutils, os],
   stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
@@ -476,3 +467,17 @@ else:
 
   func bakedGenesisValidatorsRoot*(metadata: Eth2NetworkMetadata): Opt[Eth2Digest] =
     Opt.none Eth2Digest
+
+import stew/io2
+
+proc fetchGenesisBytes*(
+    metadata: Eth2NetworkMetadata): seq[byte] =
+  case metadata.genesis.kind
+  of NoGenesis:
+    raiseAssert "fetchGenesisBytes should be called only when metadata.hasGenesis is true"
+  of BakedIn:
+    result = @(metadata.genesis.bakedBytes)
+  of BakedInUrl:
+    raiseAssert "genesis state downlading unsuppoorted"
+  of UserSuppliedFile:
+    result = readAllBytes(metadata.genesis.path).tryGet()
