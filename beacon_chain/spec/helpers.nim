@@ -119,11 +119,3 @@ func is_merge_transition_complete*(
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
-
-func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
-  when typeof(blck).kind >= ConsensusFork.Bellatrix:
-    const defaultExecutionPayload =
-      default(typeof(blck.body.execution_payload))
-    blck.body.execution_payload != defaultExecutionPayload
-  else:
-    false

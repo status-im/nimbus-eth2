@@ -99,11 +99,6 @@ func get_shuffled_active_validator_indices*(
   withState(state):
     cache.get_shuffled_active_validator_indices(forkyState.data, epoch)
 
-func count_active_validators*(state: ForkyBeaconState,
-                              epoch: Epoch,
-                              cache: var StateCache): uint64 =
-  cache.get_shuffled_active_validator_indices(state, epoch).lenu64
-
 template compute_shuffled_index_aux(
     index: uint64, index_count: uint64, seed: Eth2Digest, iter: untyped):
     uint64 =
@@ -140,11 +135,6 @@ func compute_shuffled_index*(
     index: uint64, index_count: uint64, seed: Eth2Digest): uint64 =
   compute_shuffled_index_aux(index, index_count, seed) do:
     0'u8 ..< SHUFFLE_ROUND_COUNT.uint8
-
-func compute_inverted_shuffled_index*(
-    index: uint64, index_count: uint64, seed: Eth2Digest): uint64 =
-  compute_shuffled_index_aux(index, index_count, seed) do:
-    countdown(SHUFFLE_ROUND_COUNT.uint8 - 1, 0'u8, 1)
 
 template compute_proposer_index(state: ForkyBeaconState,
     indices: openArray[ValidatorIndex], seed: Eth2Digest,
@@ -210,25 +200,6 @@ func get_beacon_proposer_index*(
       cache.beacon_proposer_indices[epoch_slot] = pi
 
     return res
-
-func get_beacon_proposer_indices*(
-    state: ForkyBeaconState, shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
-    seq[Opt[ValidatorIndex]] =
-  var
-    buffer {.noinit.}: array[32 + 8, byte]
-    res: seq[Opt[ValidatorIndex]]
-
-  buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
-  let epoch_shuffle_seed = get_seed(state, epoch, DOMAIN_BEACON_ATTESTER)
-
-  for epoch_slot in epoch.slots():
-    buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
-    res.add (
-      compute_proposer_index(state, shuffled_indices, eth2digest(buffer)) do:
-        compute_inverted_shuffled_index(
-          shuffled_index, seq_len, epoch_shuffle_seed))
-
-  res
 
 func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):
     Opt[ValidatorIndex] =
