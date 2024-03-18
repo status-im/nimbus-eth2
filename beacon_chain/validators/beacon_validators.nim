@@ -305,7 +305,7 @@ proc collectBids(
       elif usePayloadBuilder:
         notice "Payload builder error",
           slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-          err = payloadBuilderBidFut.value().error()
+          err = ""
         Opt.none(BuilderBid[SBBB])
       else:
         # Effectively the same case, but without the log message
@@ -323,7 +323,7 @@ proc collectBids(
       else:
         notice "Engine block building error",
           slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-          err = engineBlockFut.value.error()
+          err = ""
         Opt.none(EngineBid)
     else:
       notice "Engine block building failed",
@@ -375,13 +375,11 @@ proc proposeBlockAux(
       info "Compared engine and builder block bids",
         localBlockValueBoost,
         useBuilderBlock,
-        builderBlockValue =
-          toString(collectedBids.builderBid.value().blockValue, 10),
-        engineBlockValue =
-          toString(collectedBids.engineBid.value().blockValue, 10)
+        builderBlockValue = "",
+        engineBlockValue = ""
     else:
       info "Did not receive expected builder bid; using engine block",
-        engineBlockValue = collectedBids.engineBid.value().blockValue
+        engineBlockValue = ""
   else:
     # Similar three cases: builder bid expected and absent, builder bid
     # expected and present, and builder bid not expected. However, only
