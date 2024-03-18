@@ -1,15 +1,8 @@
-{.push raises: [].}
-
 import
-  stew/assign2,
-  json_serialization/std/sets,
   ../extras,
-  ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, validator]
 
 from std/algorithm import fill
-
-export forks
 
 func increase_balance(balance: var Gwei, delta: Gwei) =
   balance += delta
@@ -48,9 +41,6 @@ func get_validator_from_deposit(deposit: DepositData):
     effective_balance: effective_balance
   )
 
-func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
-  epoch + 1 + MAX_SEED_LOOKAHEAD
-
 func genesis_time_from_eth1_timestamp(
     cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
@@ -60,8 +50,6 @@ func get_initial_beacon_block*(state: phase0.HashedBeaconState):
   let message = phase0.TrustedBeaconBlock(
     slot: state.data.slot,
     state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
   phase0.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
@@ -70,8 +58,6 @@ func get_initial_beacon_block*(state: altair.HashedBeaconState):
   let message = altair.TrustedBeaconBlock(
     slot: state.data.slot,
     state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
   altair.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
@@ -80,8 +66,6 @@ func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
   let message = bellatrix.TrustedBeaconBlock(
     slot: state.data.slot,
     state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
   bellatrix.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
@@ -90,8 +74,6 @@ func get_initial_beacon_block*(state: capella.HashedBeaconState):
   let message = capella.TrustedBeaconBlock(
     slot: state.data.slot,
     state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
   capella.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
@@ -100,8 +82,6 @@ func get_initial_beacon_block*(state: deneb.HashedBeaconState):
   let message = deneb.TrustedBeaconBlock(
     slot: state.data.slot,
     state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
   deneb.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
@@ -112,12 +92,10 @@ func get_initial_beacon_block*(state: electra.HashedBeaconState):
   let message = electra.TrustedBeaconBlock(
     slot: state.data.slot,
     state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
   electra.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-func get_block_root_at_slot*(state: ForkyBeaconState, slot: Slot): Eth2Digest =
+func get_block_root_at_slot(state: ForkyBeaconState, slot: Slot): Eth2Digest =
 
   doAssert slot + SLOTS_PER_HISTORICAL_ROOT > slot
 
@@ -129,28 +107,6 @@ func get_block_root_at_slot(
     state: ForkedHashedBeaconState, slot: Slot): Eth2Digest =
   withState(state):
     get_block_root_at_slot(forkyState.data, slot)
-
-func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
-  get_block_root_at_slot(state, epoch.start_slot())
-
-template get_total_balance(
-    state: ForkyBeaconState, validator_indices: untyped): Gwei =
-  var res = 0.Gwei
-  for validator_index in validator_indices:
-    res += state.validators[validator_index].effective_balance
-  max(EFFECTIVE_BALANCE_INCREMENT, res)
-
-func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei =
-
-  let epoch = state.get_current_epoch()
-
-  cache.total_active_balance.withValue(epoch, tab) do:
-    return tab[]
-  do:
-    let tab = get_total_balance(
-      state, cache.get_shuffled_active_validator_indices(state, epoch))
-    cache.total_active_balance[epoch] = tab
-    return tab
 
 func has_eth1_withdrawal_credential*(validator: Validator): bool =
   validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
@@ -293,62 +249,14 @@ proc initialize_beacon_state_from_eth1*(
 func latest_block_root(state: ForkyBeaconState, state_root: Eth2Digest):
     Eth2Digest =
   if state.slot == state.latest_block_header.slot:
-    # process_slot will not yet have updated the header of the "current" block -
-    # similar to block creation, we fill it in with the state root
     var tmp = state.latest_block_header
     tmp.state_root = state_root
     hash_tree_root(tmp)
   elif state.slot <=
       (state.latest_block_header.slot + SLOTS_PER_HISTORICAL_ROOT):
-    # block_roots is limited to about a day - see assert in
-    # `get_block_root_at_slot`
     state.get_block_root_at_slot(state.latest_block_header.slot)
   else:
-    # Reallly long periods of empty slots - unlikely but possible
     hash_tree_root(state.latest_block_header)
 
 func latest_block_root*(state: ForkyHashedBeaconState): Eth2Digest =
   latest_block_root(state.data, state.root)
-
-func latest_block_root*(state: ForkedHashedBeaconState): Eth2Digest =
-  withState(state): latest_block_root(forkyState)
-
-func dependent_root*(state: ForkyHashedBeaconState, epoch: Epoch): Eth2Digest =
-  if epoch > state.data.slot.epoch:
-    state.latest_block_root
-  elif epoch == Epoch(0):
-    if state.data.slot == Slot(0):
-      state.latest_block_root
-    else:
-      state.data.get_block_root_at_slot(Slot(0))
-  else:
-    let dependent_slot = epoch.start_slot - 1
-    if state.data.slot <= dependent_slot + SLOTS_PER_HISTORICAL_ROOT:
-      state.data.get_block_root_at_slot(epoch.start_slot - 1)
-    else:
-      Eth2Digest() # "don't know"
-
-func proposer_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
-  state.dependent_root(state.data.slot.epoch)
-
-func latest_block_id*(state: ForkyHashedBeaconState): BlockId =
-  BlockId(
-    root: state.latest_block_root,
-    slot: state.data.latest_block_header.slot)
-
-func latest_block_id*(state: ForkedHashedBeaconState): BlockId =
-  withState(state): forkyState.latest_block_id()
-
-func matches_block_slot(
-    state: ForkyHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
-  slot == state.data.slot and block_root == state.latest_block_root
-func matches_block_slot*(
-    state: ForkedHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
-  withState(state): forkyState.matches_block_slot(block_root, slot)
-
-func can_advance_slots(
-    state: ForkyHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
-  target_slot >= state.data.slot and block_root == state.latest_block_root
-func can_advance_slots*(
-    state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
-  withState(state): forkyState.can_advance_slots(block_root, target_slot)

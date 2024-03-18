@@ -18,7 +18,6 @@ import libp2p/protocols/pubsub/gossipsub
 
 proc initFullNode(
     node: BeaconNode,
-    rng: ref HmacDrbgContext,
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   node.router = new MessageRouter
 
@@ -28,7 +27,6 @@ from "."/consensus_object_pools/blockchain_dag import preInit
 from "."/consensus_object_pools/block_pools_types import ChainDAGRef
 
 proc init*(T: type BeaconNode,
-           rng: ref HmacDrbgContext,
            config: BeaconNodeConf,
            metadata: Eth2NetworkMetadata): Future[BeaconNode]
           {.async.} =
@@ -139,7 +137,7 @@ proc init*(T: type BeaconNode,
     cfg: cfg,
     genesisState: genesisState)
 
-  await node.initFullNode(rng, getBeaconTime)
+  await node.initFullNode(getBeaconTime)
 
   node
 
