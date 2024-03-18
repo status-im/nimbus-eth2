@@ -102,8 +102,8 @@ proc new*(T: type Eth2DiscoveryProtocol,
       enrAutoUpdate = config.enrAutoUpdate, rng = rng)
   else:
     newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
-      bindPort = config.udpPort, enrAutoUpdate = config.enrAutoUpdate,
-      rng = rng)
+      bindPort = config.udpPort, bindIp = Opt.none(IpAddress),
+      enrAutoUpdate = config.enrAutoUpdate, rng = rng)
 
 func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =
   if discoveryForkId.fork_digest == peerForkId.fork_digest:
