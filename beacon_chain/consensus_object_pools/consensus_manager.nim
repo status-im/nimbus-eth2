@@ -155,8 +155,10 @@ func setOptimisticHead*(
     bid: BlockId, execution_block_hash: Eth2Digest) =
   self.optimisticHead = (bid: bid, execution_block_hash: execution_block_hash)
 
-proc updateExecutionClientHead(self: ref ConsensusManager,
-                               newHead: BeaconHead): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
+proc updateExecutionClientHead*(
+    self: ref ConsensusManager,
+    newHead: BeaconHead
+): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
   let headExecutionBlockHash =
     self.dag.loadExecutionBlockHash(newHead.blck).valueOr:
       # `BlockRef` are only created for blocks that have passed
