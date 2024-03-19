@@ -165,16 +165,15 @@ proc advanceClearanceState*(
 
     dag.advanceSlots(dag.clearanceState, next, true, cache, info)
 
+    logScope:
+      oldSlot = clearanceSlot
+      newSlot = next
+      updateStateDur = Moment.now() - startTick
     if not chainIsDegraded:
-      debug "Prepared clearance state for next block",
-        oldSlot = clearanceSlot, newSlot = next,
-        updateStateDur = Moment.now() - startTick
+      debug "Prepared clearance state for next block"
     else:
-      let activeBalance = withEpochInfo(info):
-        info.balances.current_epoch
-      info "Prepared clearance state for next block",
-        oldSlot = clearanceSlot, newSlot = next, activeBalance,
-        updateStateDur = Moment.now() - startTick
+      let activeBalance = withEpochInfo(info): info.balances.current_epoch
+      info "Prepared clearance state for next block", activeBalance
 
 proc checkHeadBlock*(
     dag: ChainDAGRef, signedBlock: ForkySignedBeaconBlock):
