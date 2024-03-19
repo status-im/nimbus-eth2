@@ -22,17 +22,6 @@ type
   BNStartUpCmd* {.pure.} = enum
     noCommand
 
-  WalletsCmd* {.pure.} = enum
-    create  = "Creates a new EIP-2386 wallet"
-    restore = "Restores a wallet from cold storage"
-    list    = "Lists details about all wallets"
-
-  DepositsCmd* {.pure.} = enum
-    createTestnetDeposits = "Creates validator keystores and deposits for testnet usage"
-    `import` = "Imports password-protected keystores interactively"
-    # status   = "Displays status information about all deposits"
-    exit     = "Submits a validator voluntary exit"
-
   SNStartUpCmd* = enum
     SNNoCommand
 
@@ -324,120 +313,6 @@ type
         defaultValue: 0
         name: "stop-at-synced-epoch" .}: uint64
 
-      statusBarEnabled* {.
-        posixOnly
-        desc: "Display a status bar at the bottom of the terminal screen"
-        defaultValue: true
-        name: "status-bar" .}: bool
-
-      statusBarContents* {.
-        posixOnly
-        desc: "Textual template for the contents of the status bar"
-        defaultValue: "peers: $connected_peers;" &
-                      "finalized: $finalized_root:$finalized_epoch;" &
-                      "head: $head_root:$head_epoch:$head_epoch_slot$next_consensus_fork;" &
-                      "time: $epoch:$epoch_slot ($slot);" &
-                      "sync: $sync_status|" &
-                      "ETH: $attached_validators_balance"
-        defaultValueDesc: ""
-        name: "status-bar-contents" .}: string
-
-      rpcEnabled* {.
-        # Deprecated > 1.7.0
-        hidden
-        desc: "Deprecated for removal"
-        name: "rpc" .}: Option[bool]
-
-      rpcPort* {.
-        # Deprecated > 1.7.0
-        hidden
-        desc: "Deprecated for removal"
-        name: "rpc-port" .}: Option[Port]
-
-      rpcAddress* {.
-        # Deprecated > 1.7.0
-        hidden
-        desc: "Deprecated for removal"
-        name: "rpc-address" .}: Option[IpAddress]
-
-      restEnabled* {.
-        desc: "Enable the REST server"
-        defaultValue: false
-        name: "rest" .}: bool
-
-      restAllowedOrigin* {.
-        desc: "Limit the access to the REST API to a particular hostname " &
-              "(for CORS-enabled clients such as browsers)"
-        name: "rest-allow-origin" .}: Option[string]
-
-      restCacheSize* {.
-        defaultValue: 3
-        desc: "The maximum number of recently accessed states that are kept in " &
-              "memory. Speeds up requests obtaining information for consecutive " &
-              "slots or epochs."
-        name: "rest-statecache-size" .}: Natural
-
-      restCacheTtl* {.
-        defaultValue: 60
-        desc: "The number of seconds to keep recently accessed states in memory"
-        name: "rest-statecache-ttl" .}: Natural
-
-      restRequestTimeout* {.
-        defaultValue: 0
-        defaultValueDesc: "infinite"
-        desc: "The number of seconds to wait until complete REST request " &
-              "will be received"
-        name: "rest-request-timeout" .}: Natural
-
-      restMaxRequestBodySize* {.
-        defaultValue: 16_384
-        desc: "Maximum size of REST request body (kilobytes)"
-        name: "rest-max-body-size" .}: Natural
-
-      restMaxRequestHeadersSize* {.
-        defaultValue: 128
-        desc: "Maximum size of REST request headers (kilobytes)"
-        name: "rest-max-headers-size" .}: Natural
-        ## NOTE: If you going to adjust this value please check value
-        ## ``ClientMaximumValidatorIds`` and comments in
-        ## `spec/eth2_apis/rest_types.nim`. This values depend on each other.
-
-      keymanagerEnabled* {.
-        desc: "Enable the REST keymanager API"
-        defaultValue: false
-        name: "keymanager" .}: bool
-
-      keymanagerAllowedOrigin* {.
-        desc: "Limit the access to the Keymanager API to a particular hostname " &
-              "(for CORS-enabled clients such as browsers)"
-        name: "keymanager-allow-origin" .}: Option[string]
-
-      keymanagerTokenFile* {.
-        desc: "A file specifying the authorization token required for accessing the keymanager API"
-        name: "keymanager-token-file" .}: Option[InputFile]
-
-      lightClientDataServe* {.
-        desc: "Serve data for enabling light clients to stay in sync with the network"
-        defaultValue: true
-        name: "light-client-data-serve" .}: bool
-
-      inProcessValidators* {.
-        desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
-        defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
-        name: "in-process-validators" .}: bool
-
-      doppelgangerDetection* {.
-        desc: "If enabled, the beacon node prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself. This protects against slashing (due to double-voting) but means you will miss two attestations when restarting."
-        defaultValue: true
-        name: "doppelganger-detection" .}: bool
-
-      # Same option as appears in Lighthouse and Prysm
-      # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
-      # https://github.com/prysmaticlabs/prysm/pull/10312
-      suggestedFeeRecipient* {.
-        desc: "Suggested fee recipient"
-        name: "suggested-fee-recipient" .}: Option[Address]
-
   AnyConf* = BeaconNodeConf
 
 proc defaultDataDir*[Conf](config: Conf): string =
@@ -449,18 +324,6 @@ proc defaultDataDir*[Conf](config: Conf): string =
     ".cache" / "nimbus"
 
   getHomeDir() / dataDir / "BeaconNode"
-
-func dumpDir(config: AnyConf): string =
-  config.dataDir / "dump"
-
-func dumpDirInvalid*(config: AnyConf): string =
-  config.dumpDir / "invalid" # things that failed validation
-
-func dumpDirIncoming*(config: AnyConf): string =
-  config.dumpDir / "incoming" # things that couldn't be validated (missingparent etc)
-
-func dumpDirOutgoing*(config: AnyConf): string =
-  config.dumpDir / "outgoing" # things we produced
 
 func parseCmdArg*(T: type Eth2Digest, input: string): T
                  {.raises: [ValueError].} =
@@ -545,7 +408,6 @@ proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
     else:
       # Presumably other configurations can have other defaults, but for now
       # this simplifies the flow
-      fatal "Must specify network on non-mainnet node"
       quit 1
 
 template loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata =
