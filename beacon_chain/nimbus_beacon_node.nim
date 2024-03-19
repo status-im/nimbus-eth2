@@ -144,7 +144,7 @@ from "."/consensus_object_pools/block_dag import BlockRef, init
 
 func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
-    root, Opt.none Eth2Digest, executionValid = false,
+    root,
     0.Slot)
   return ok(newRef)
 
