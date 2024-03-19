@@ -10,7 +10,7 @@
 import
   std/[algorithm, sequtils, tables, sets],
   stew/[arrayops, assign2, byteutils],
-  metrics, results, snappy, chronicles,
+  chronos, metrics, results, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
   ../spec/forks,
@@ -1004,6 +1004,13 @@ proc applyBlock(
 
   ok()
 
+proc resetChainProgressWatchdog*(dag: ChainDAGRef) =
+  dag.lastChainProgress = Moment.now()
+
+proc chainIsProgressing*(dag: ChainDAGRef): bool =
+  const watchdogDuration = chronos.minutes(60)
+  dag.lastChainProgress + watchdogDuration >= Moment.now()
+
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
            eraPath = ".",
@@ -1044,6 +1051,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       # allow skipping some validation.
       updateFlags: updateFlags * {strictVerification},
       cfg: cfg,
+      lastChainProgress: Moment.now(),
 
       vanityLogs: vanityLogs,
 

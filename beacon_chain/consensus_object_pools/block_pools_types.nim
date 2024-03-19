@@ -206,6 +206,9 @@ type
 
     cfg*: RuntimeConfig
 
+    lastChainProgress*: Moment
+      ## Indicates the last wall time at which meaningful progress was made
+      
     shufflingRefs*: LRUCache[16, ShufflingRef]
 
     epochRefs*: LRUCache[32, EpochRef]

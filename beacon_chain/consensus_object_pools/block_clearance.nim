@@ -81,6 +81,7 @@ proc addResolvedHeadBlock(
     epochRef = dag.getEpochRef(state, cache)
     epochRefTick = Moment.now()
 
+  dag.resetChainProgressWatchdog()
   debug "Block resolved",
     blockRoot = shortLog(blockRoot),
     blck = shortLog(trustedBlock.message),
@@ -134,7 +135,8 @@ proc checkStateTransition(
   else:
     ok()
 
-proc advanceClearanceState*(dag: ChainDAGRef) =
+proc advanceClearanceState*(
+    dag: ChainDAGRef, wallSlot: Slot, chainIsDegraded: bool) =
   # When the chain is synced, the most likely block to be produced is the block
   # right after head - we can exploit this assumption and advance the state
   # to that slot before the block arrives, thus allowing us to do the expensive
@@ -143,8 +145,18 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
   # first be seen - later, this state will be copied to the head state!
   let advanced = withState(dag.clearanceState):
     forkyState.data.slot > forkyState.data.latest_block_header.slot
-  if not advanced:
-    let next = getStateField(dag.clearanceState, slot) + 1
+  if not advanced or chainIsDegraded:
+    let
+      clearanceSlot = getStateField(dag.clearanceState, slot)
+      next =
+        if not chainIsDegraded:
+          clearanceSlot + 1
+        else:
+          # The chain seems to have halted.
+          # Advance one epoch at a time to avoid long lag spikes
+          # so that new blocks may be produced once more
+          let maxSlot = max(clearanceSlot, wallSlot)
+          min((clearanceSlot.epoch + 1).start_slot, maxSlot)
 
     let startTick = Moment.now()
     var
@@ -153,8 +165,16 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
 
     dag.advanceSlots(dag.clearanceState, next, true, cache, info)
 
-    debug "Prepared clearance state for next block",
-      next, updateStateDur = Moment.now() - startTick
+    if not chainIsDegraded:
+      debug "Prepared clearance state for next block",
+        oldSlot = clearanceSlot, newSlot = next,
+        updateStateDur = Moment.now() - startTick
+    else:
+      let activeBalance = withEpochInfo(info):
+        info.balances.current_epoch
+      info "Prepared clearance state for next block",
+        oldSlot = clearanceSlot, newSlot = next, activeBalance,
+        updateStateDur = Moment.now() - startTick
 
 proc checkHeadBlock*(
     dag: ChainDAGRef, signedBlock: ForkySignedBeaconBlock):

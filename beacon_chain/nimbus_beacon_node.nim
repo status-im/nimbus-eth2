@@ -1542,7 +1542,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # probability of being prepared for the block that will arrive and the
     # epoch processing that follows
     await sleepAsync(advanceCutoff.offset)
-    node.dag.advanceClearanceState()
+    node.dag.advanceClearanceState(slot,
+      chainIsDegraded = (node.syncStatus(head) == ChainSyncStatus.Degraded))
 
   # Prepare action tracker for the next slot
   node.consensusManager[].actionTracker.updateSlot(slot + 1)
