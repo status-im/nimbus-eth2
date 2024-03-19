@@ -7,8 +7,7 @@ import
   json_serialization, web3/[primitives, confutils_defs],
   ./spec/[keystore, crypto],
   ./spec/datatypes/base,
-  ./networking/network_metadata,
-  ./filepath
+  ./networking/network_metadata
 
 from std/os import getHomeDir, parentDir, `/`
 from std/strutils import parseBiggestUInt, replace
@@ -22,10 +21,6 @@ export
 type
   BNStartUpCmd* {.pure.} = enum
     noCommand
-    deposits
-    wallets
-    web3
-    trustedNodeSync
 
   WalletsCmd* {.pure.} = enum
     create  = "Creates a new EIP-2386 wallet"
@@ -431,20 +426,6 @@ type
         defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
         name: "in-process-validators" .}: bool
 
-      discv5Enabled* {.
-        desc: "Enable Discovery v5"
-        defaultValue: true
-        name: "discv5" .}: bool
-
-      dumpEnabled* {.
-        desc: "Write SSZ dumps of blocks, attestations and states to data dir"
-        defaultValue: false
-        name: "dump" .}: bool
-
-      directPeers* {.
-        desc: "The list of privileged, secure and known peers to connect and maintain the connection to. This requires a not random netkey-file. In the multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>, or enr format (enr:-xx). Peering agreements are established out of band and must be reciprocal"
-        name: "direct-peer" .}: seq[string]
-
       doppelgangerDetection* {.
         desc: "If enabled, the beacon node prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself. This protects against slashing (due to double-voting) but means you will miss two attestations when restarting."
         defaultValue: true
@@ -456,171 +437,6 @@ type
       suggestedFeeRecipient* {.
         desc: "Suggested fee recipient"
         name: "suggested-fee-recipient" .}: Option[Address]
-
-      suggestedGasLimit* {.
-        desc: "Suggested gas limit"
-        defaultValue: defaultGasLimit
-        name: "suggested-gas-limit" .}: uint64
-
-      payloadBuilderEnable* {.
-        desc: "Enable external payload builder"
-        defaultValue: false
-        name: "payload-builder" .}: bool
-
-      payloadBuilderUrl* {.
-        desc: "Payload builder URL"
-        defaultValue: ""
-        name: "payload-builder-url" .}: string
-
-      # Flag name and semantics borrowed from Prysm
-      # https://github.com/prysmaticlabs/prysm/pull/12227/files
-      localBlockValueBoost* {.
-        desc: "Increase execution layer block values for builder bid comparison by a percentage"
-        defaultValue: 0
-        name: "local-block-value-boost" .}: uint8
-
-      historyMode* {.
-        desc: "Retention strategy for historical data (archive/prune)"
-        defaultValue: HistoryMode.Prune
-        name: "history".}: HistoryMode
-
-      # https://notes.ethereum.org/@bbusa/dencun-devnet-6
-      # "Please ensure that there is a way for us to specify the file through a
-      # runtime flag such as --trusted-setup-file (or similar)."
-      trustedSetupFile* {.
-        hidden
-        desc: "Experimental, debug option; could disappear at any time without warning"
-        name: "temporary-debug-trusted-setup-file" .}: Option[string]
-
-      bandwidthEstimate* {.
-        hidden
-        desc: "Bandwidth estimate for the node (bits per second)"
-        name: "debug-bandwidth-estimate" .}: Option[Natural]
-
-    of BNStartUpCmd.wallets:
-      case walletsCmd* {.command.}: WalletsCmd
-      of WalletsCmd.create:
-        nextAccount* {.
-          desc: "Initial value for the 'nextaccount' property of the wallet"
-          name: "next-account" .}: Option[Natural]
-
-        createdWalletFileFlag* {.
-          desc: "Output wallet file"
-          name: "out" .}: Option[OutFile]
-
-      of WalletsCmd.restore:
-        restoredWalletFileFlag* {.
-          desc: "Output wallet file"
-          name: "out" .}: Option[OutFile]
-
-        restoredDepositsCount* {.
-          desc: "Expected number of deposits to recover. If not specified, " &
-                "Nimbus will try to guess the number by inspecting the latest " &
-                "beacon state"
-          name: "deposits".}: Option[Natural]
-
-      of WalletsCmd.list:
-        discard
-
-    of BNStartUpCmd.deposits:
-      case depositsCmd* {.command.}: DepositsCmd
-      of DepositsCmd.createTestnetDeposits:
-        totalDeposits* {.
-          desc: "Number of deposits to generate"
-          defaultValue: 1
-          name: "count" .}: int
-
-        outValidatorsDir* {.
-          desc: "Output folder for validator keystores"
-          defaultValue: "validators"
-          name: "out-validators-dir" .}: string
-
-        outSecretsDir* {.
-          desc: "Output folder for randomly generated keystore passphrases"
-          defaultValue: "secrets"
-          name: "out-secrets-dir" .}: string
-
-        outDepositsFile* {.
-          desc: "The name of generated deposits file"
-          name: "out-deposits-file" .}: Option[OutFile]
-
-        newWalletFileFlag* {.
-          desc: "Output wallet file"
-          name: "new-wallet-file" .}: Option[OutFile]
-
-      #[
-      of DepositsCmd.status:
-        discard
-      ]#
-
-      of DepositsCmd.`import`:
-        importedDepositsDir* {.
-          argument
-          desc: "A directory with keystores to import" .}: Option[InputDir]
-
-        importMethod* {.
-          desc: "Specifies which import method will be used (" &
-                "normal, single-salt)"
-          defaultValue: ImportMethod.Normal
-          name: "method" .}: ImportMethod
-
-      of DepositsCmd.exit:
-        exitedValidators* {.
-          desc: "One or more validator index, public key or a keystore path of " &
-                "the exited validator(s)"
-          name: "validator" .}: seq[string]
-
-        exitAllValidatorsFlag* {.
-          desc: "Exit all validators in the specified data directory or validators directory"
-          defaultValue: false
-          name: "all" .}: bool
-
-        exitAtEpoch* {.
-          name: "epoch"
-          defaultValueDesc: "immediately"
-          desc: "The desired exit epoch" .}: Option[uint64]
-
-        printData* {.
-          desc: "Print signed exit message instead of publishing it"
-          defaultValue: false
-          name: "print" .}: bool
-
-    of BNStartUpCmd.web3:
-      case web3Cmd* {.command.}: Web3Cmd
-      of Web3Cmd.test:
-        web3TestUrl* {.
-          argument
-          desc: "The web3 provider URL to test"
-          name: "url" .}: Uri
-
-    of BNStartUpCmd.trustedNodeSync:
-      stateId* {.
-        desc: "State id to sync to - this can be \"finalized\", a slot number or state hash or \"head\""
-        name: "state-id"
-      .}: Option[string]
-
-      blockId* {.
-        hidden
-        desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\" (deprecated)"
-      .}: Option[string]
-
-      lcTrustedBlockRoot* {.
-        desc: "Recent trusted finalized block root to initialize light client from"
-        name: "trusted-block-root" .}: Option[Eth2Digest]
-
-      backfillBlocks* {.
-        desc: "Backfill blocks directly from REST server instead of fetching via API"
-        defaultValue: true
-        name: "backfill" .}: bool
-
-      reindex* {.
-        desc: "Recreate historical state index at end of backfill, allowing full history access (requires full backfill)"
-        defaultValue: false .}: bool
-
-      downloadDepositSnapshot* {.
-        desc: "Also try to download a snapshot of the deposit contract state"
-        defaultValue: false
-        name: "with-deposit-snapshot" .}: bool
 
   AnyConf* = BeaconNodeConf
 
@@ -645,21 +461,6 @@ func dumpDirIncoming*(config: AnyConf): string =
 
 func dumpDirOutgoing*(config: AnyConf): string =
   config.dumpDir / "outgoing" # things we produced
-
-proc createDumpDirs*(config: BeaconNodeConf) =
-  proc fail {.noreturn.} =
-    raiseAssert "createDumpDirs should be used only in the right context"
-
-  case config.cmd
-  of BNStartUpCmd.noCommand:
-    if config.dumpEnabled:
-      if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
-        discard
-      if (let res = secureCreatePath(config.dumpDirIncoming); res.isErr):
-        discard
-      if (let res = secureCreatePath(config.dumpDirOutgoing); res.isErr):
-        discard
-  else: fail()
 
 func parseCmdArg*(T: type Eth2Digest, input: string): T
                  {.raises: [ValueError].} =
@@ -723,45 +524,11 @@ func eraDir*(config: BeaconNodeConf): string =
   # The era directory should be shared between networks of the same type..
   string config.eraDirFlag.get(InputDir(config.dataDir / "era"))
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
-func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
-  proc fail {.noreturn.} =
-    raiseAssert "outWalletFile should be used only in the right context"
-
-  case config.cmd
-  of wallets:
-    case config.walletsCmd
-    of WalletsCmd.create: config.createdWalletFileFlag
-    of WalletsCmd.restore: config.restoredWalletFileFlag
-    of WalletsCmd.list: fail()
-  of deposits:
-    case config.depositsCmd
-    of DepositsCmd.createTestnetDeposits: config.newWalletFileFlag
-    else: fail()
-  else:
-    fail()
-{.pop.}
-
 func databaseDir*(dataDir: OutDir): string =
   dataDir / "db"
 
 template databaseDir*(config: AnyConf): string =
   config.dataDir.databaseDir
-
-func runAsService*(config: BeaconNodeConf): bool =
-  case config.cmd
-  of noCommand:
-    config.runAsServiceFlag
-  else:
-    false
-
-func web3SignerUrls*(conf: AnyConf): seq[Web3SignerUrl] =
-  for url in conf.web3Signers:
-    result.add Web3SignerUrl(url: url)
-
-  for url in conf.verifyingWeb3Signers:
-    result.add Web3SignerUrl(url: url,
-                             provenBlockProperties: conf.provenBlockProperties)
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =

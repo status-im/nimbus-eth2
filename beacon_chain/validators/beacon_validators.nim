@@ -495,7 +495,7 @@ proc proposeBlock(node: BeaconNode,
   template proposeBlockContinuation(type1, type2: untyped): auto =
     await proposeBlockAux(
       type1, type2, node, validator, validator_pubkey, validator_index, head, slot, randao, fork,
-        genesis_validators_root, node.config.localBlockValueBoost)
+        genesis_validators_root, 0)
 
   discard withConsensusFork(node.cfg.consensusForkAtEpoch(slot.epoch)):
     when consensusFork >= ConsensusFork.Electra:
