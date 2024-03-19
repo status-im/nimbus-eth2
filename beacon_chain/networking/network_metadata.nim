@@ -341,9 +341,9 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
         let res = loadEth2NetworkMetadata(networkName)
         res.valueOr:
           quit 1
-      except IOError as exc:
+      except IOError:
         quit 1
-      except PresetFileError as exc:
+      except PresetFileError:
         quit 1
     else:
       quit 1
