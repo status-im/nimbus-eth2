@@ -1548,7 +1548,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
     # If the chain has halted, we have to ensure that the EL gets synced
     # so that we can perform validator duties again
-    if not dag.head.executionValid and not dag.chainIsProgressing():
+    if not node.dag.head.executionValid and not node.dag.chainIsProgressing():
       let beaconHead = node.attestationPool[].getBeaconHead(head)
       discard await node.consensusManager.updateExecutionClientHead(beaconHead)
 
