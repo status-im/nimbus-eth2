@@ -1270,7 +1270,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       if slot > head.slot: (slot - head.slot).uint64
       else: 0'u64
     isBehind =
-      headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER
+      headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER and
+      node.syncStatus(head) == ChainSyncStatus.Syncing
     targetGossipState =
       getTargetGossipState(
         slot.epoch,
