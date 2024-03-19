@@ -103,7 +103,7 @@ type
     indices*: Table[Eth2Digest, Index]
     currentEpochTips*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
-    previousProposerBoostScore*: uint64
+    previousProposerBoostScore*: Gwei
 
   ProtoNode* = object
     bid*: BlockId

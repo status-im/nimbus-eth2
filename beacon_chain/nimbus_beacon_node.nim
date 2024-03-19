@@ -1204,16 +1204,17 @@ proc maybeUpdateActionTrackerNextEpoch(
       # functions get_flag_index_deltas() and get_inactivity_penalty_deltas().
       #
       # There are no penalties associated with TIMELY_HEAD_FLAG_INDEX, but a
-      # reward exists. effective_balance == MAX_EFFECTIVE_BALANCE ensures if
-      # even so, then the effective balance cannot change as a result.
+      # reward exists. effective_balance == MAX_EFFECTIVE_BALANCE.Gwei ensures
+      # if even so, then the effective balance cannot change as a result.
       #
       # It's not truly necessary to avoid all rewards and penalties, but only
       # to bound them to ensure they won't unexpected alter effective balance
       # during the upcoming epoch transition.
       #
-      # During genesis epoch, the check for epoch participation is against current,
-      # not previous, epoch, and therefore there's a possibility of checking for if
-      # a validator has participated in an epoch before it will happen.
+      # During genesis epoch, the check for epoch participation is against
+      # current, not previous, epoch, and therefore there's a possibility of
+      # checking for if a validator has participated in an epoch before it will
+      # happen.
       #
       # Because process_rewards_and_penalties() in epoch processing happens
       # before the current/previous participation swap, previous is correct
@@ -1234,7 +1235,7 @@ proc maybeUpdateActionTrackerNextEpoch(
 
       if  participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
           participation_flags.has_flag(TIMELY_TARGET_FLAG_INDEX) and
-          effective_balance == MAX_EFFECTIVE_BALANCE and
+          effective_balance == MAX_EFFECTIVE_BALANCE.Gwei and
           forkyState.data.slot.epoch != GENESIS_EPOCH and
           forkyState.data.inactivity_scores.item(
             nextEpochFirstProposer) == 0 and
@@ -1956,13 +1957,13 @@ proc start*(node: BeaconNode) {.raises: [CatchableError].} =
   node.elManager.start()
   node.run()
 
-func formatGwei(amount: uint64): string =
+func formatGwei(amount: Gwei): string =
   # TODO This is implemented in a quite a silly way.
   # Better routines for formatting decimal numbers
   # should exists somewhere else.
   let
-    eth = amount div 1000000000
-    remainder = amount mod 1000000000
+    eth = distinctBase(amount) div 1000000000
+    remainder = distinctBase(amount) mod 1000000000
 
   result = $eth
   if remainder != 0:

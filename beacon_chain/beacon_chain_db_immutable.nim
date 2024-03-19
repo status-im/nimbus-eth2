@@ -44,13 +44,13 @@ type
 
     # Registry
     validators*: HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64]
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
       ## Per-epoch sums of slashed effective balances
 
     # Attestations
@@ -97,13 +97,13 @@ type
 
     # Registry
     validators*: HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64]
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
       ## Per-epoch sums of slashed effective balances
 
     # Participation
@@ -155,13 +155,13 @@ type
 
     # Registry
     validators*: HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64]
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
       ## Per-epoch sums of slashed effective balances
 
     # Participation

@@ -10,7 +10,7 @@
 import ".."/datatypes/[altair, capella]
 from stew/byteutils import to0xHex
 
-from ../eth2_merkleization import hash_tree_root
+from ../eth2_merkleization import fromSszBytes, hash_tree_root, toSszType
 
 type
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody

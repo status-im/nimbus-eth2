@@ -13,11 +13,14 @@ import
   ../beacon_chain/spec/[
     forks, state_transition, state_transition_block]
 
-from "."/helpers/math_helpers import round_multiple_down
 from ".."/beacon_chain/bloomfilter import constructBloomFilter
 
+func round_multiple_down(x: Gwei, n: Gwei): Gwei =
+  ## Round the input to the previous multiple of "n"
+  x - x mod n
+
 proc valid_deposit(state: var ForkyHashedBeaconState) =
-  const deposit_amount = MAX_EFFECTIVE_BALANCE
+  const deposit_amount = MAX_EFFECTIVE_BALANCE.Gwei
   let validator_index = state.data.validators.len
   let deposit = mockUpdateStateForNewDeposit(
                   state.data,
@@ -30,7 +33,7 @@ proc valid_deposit(state: var ForkyHashedBeaconState) =
   let pre_balance = if validator_index < pre_val_count:
                       state.data.balances.item(validator_index)
                     else:
-                      0
+                      0.Gwei
   doAssert process_deposit(
     defaultRuntimeConfig, state.data,
     constructBloomFilter(state.data.validators.asSeq)[], deposit, {}).isOk
@@ -39,8 +42,10 @@ proc valid_deposit(state: var ForkyHashedBeaconState) =
   doAssert state.data.balances.item(validator_index) == pre_balance + deposit.data.amount
   doAssert state.data.validators.item(validator_index).effective_balance ==
     round_multiple_down(
-      min(MAX_EFFECTIVE_BALANCE, state.data.balances.item(validator_index)),
-      EFFECTIVE_BALANCE_INCREMENT
+      min(
+        MAX_EFFECTIVE_BALANCE.Gwei,
+        state.data.balances.item(validator_index)),
+      EFFECTIVE_BALANCE_INCREMENT.Gwei
     )
   state.root = hash_tree_root(state.data)
 

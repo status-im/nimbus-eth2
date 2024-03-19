@@ -719,13 +719,13 @@ func init*(t: typedesc[RestBlockInfo],
     RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
-           balance: uint64, status: string,
+           balance: Gwei, status: string,
            validator: Validator): RestValidator =
   RestValidator(index: index, balance: Base10.toString(balance),
                 status: status, validator: validator)
 
 func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
-           balance: uint64): RestValidatorBalance =
+           balance: Gwei): RestValidatorBalance =
   RestValidatorBalance(index: index, balance: Base10.toString(balance))
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,

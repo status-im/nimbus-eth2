@@ -72,7 +72,7 @@ suite baseDescription & "Attestation " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attestation(
-      preState, attestation, {}, 0.Gwei, cache)) == 0
+      preState, attestation, {}, 0.Gwei, cache)) == 0.Gwei
     ok()
 
   for path in walkTests(OpAttestationsDir):
@@ -86,7 +86,7 @@ suite baseDescription & "Attester Slashing " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)) > 0
+      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)) > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
@@ -126,7 +126,7 @@ suite baseDescription & "Proposer Slashing " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)) > 0
+      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)) > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):

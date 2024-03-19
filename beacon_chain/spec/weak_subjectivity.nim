@@ -29,8 +29,8 @@ func compute_weak_subjectivity_period(
     ws_period = cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   let
     N = get_active_validator_indices_len(state, get_current_epoch(state))
-    t = (get_total_active_balance(state, cache) div N).toEther
-  const T = MAX_EFFECTIVE_BALANCE.toEther
+    t = (get_total_active_balance(state, cache) div N).toEther()
+  const T = MAX_EFFECTIVE_BALANCE.Gwei.toEther()
   let delta = cfg.get_validator_churn_limit(state, cache)
   const
     Delta = MAX_DEPOSITS * SLOTS_PER_EPOCH

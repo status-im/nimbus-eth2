@@ -42,19 +42,19 @@ logScope: topics = "consens"
 # Accessors that implement the max condition in `get_total_balance`:
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_total_balance
 template current_epoch*(v: TotalBalances): Gwei =
-  max(EFFECTIVE_BALANCE_INCREMENT, v.current_epoch_raw)
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.current_epoch_raw)
 template previous_epoch*(v: TotalBalances): Gwei =
-  max(EFFECTIVE_BALANCE_INCREMENT, v.previous_epoch_raw)
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.previous_epoch_raw)
 template current_epoch_attesters*(v: TotalBalances): Gwei =
-  max(EFFECTIVE_BALANCE_INCREMENT, v.current_epoch_attesters_raw)
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.current_epoch_attesters_raw)
 template current_epoch_target_attesters*(v: TotalBalances): Gwei =
-  max(EFFECTIVE_BALANCE_INCREMENT, v.current_epoch_target_attesters_raw)
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.current_epoch_target_attesters_raw)
 template previous_epoch_attesters*(v: TotalBalances): Gwei =
-  max(EFFECTIVE_BALANCE_INCREMENT, v.previous_epoch_attesters_raw)
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.previous_epoch_attesters_raw)
 template previous_epoch_target_attesters*(v: TotalBalances): Gwei =
-  max(EFFECTIVE_BALANCE_INCREMENT, v.previous_epoch_target_attesters_raw)
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.previous_epoch_target_attesters_raw)
 template previous_epoch_head_attesters*(v: TotalBalances): Gwei =
-  max(EFFECTIVE_BALANCE_INCREMENT, v.previous_epoch_head_attesters_raw)
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.previous_epoch_head_attesters_raw)
 
 func init*(info: var phase0.EpochInfo, state: phase0.BeaconState) =
   info.balances = TotalBalances()
@@ -218,12 +218,12 @@ func get_unslashed_participating_balances*(
 
   for flag_index in TimelyFlag:
     res.previous_epoch[flag_index] =
-      max(EFFECTIVE_BALANCE_INCREMENT, res.previous_epoch[flag_index])
+      max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res.previous_epoch[flag_index])
 
   res.current_epoch_TIMELY_TARGET =
-    max(EFFECTIVE_BALANCE_INCREMENT, res.current_epoch_TIMELY_TARGET)
+    max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res.current_epoch_TIMELY_TARGET)
 
-  res.current_epoch = max(EFFECTIVE_BALANCE_INCREMENT, res.current_epoch)
+  res.current_epoch = max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res.current_epoch)
 
   res
 
@@ -504,24 +504,26 @@ func is_in_inactivity_leak(finality_delay: uint64): bool =
 func get_finality_delay*(state: ForkyBeaconState): uint64 =
   get_previous_epoch(state) - state.finalized_checkpoint.epoch
 
-func get_attestation_component_reward*(attesting_balance: Gwei,
-                                       total_balance: Gwei,
-                                       base_reward: uint64,
-                                       finality_delay: uint64): Gwei =
+func get_attestation_component_reward*(
+    attesting_balance: Gwei,
+    total_balance: Gwei,
+    base_reward: Gwei,
+    finality_delay: uint64): Gwei =
   if is_in_inactivity_leak(finality_delay):
     # Since full base reward will be canceled out by inactivity penalty deltas,
     # optimal participation receives full base reward compensation here.
     base_reward
   else:
     let reward_numerator =
-      base_reward * (attesting_balance div EFFECTIVE_BALANCE_INCREMENT)
-    reward_numerator div (total_balance div EFFECTIVE_BALANCE_INCREMENT)
+      base_reward * (attesting_balance div EFFECTIVE_BALANCE_INCREMENT.Gwei)
+    reward_numerator div (total_balance div EFFECTIVE_BALANCE_INCREMENT.Gwei)
 
-func get_attestation_component_delta(is_unslashed_attester: bool,
-                                     attesting_balance: Gwei,
-                                     total_balance: Gwei,
-                                     base_reward: uint64,
-                                     finality_delay: uint64): RewardDelta =
+func get_attestation_component_delta(
+    is_unslashed_attester: bool,
+    attesting_balance: Gwei,
+    total_balance: Gwei,
+    base_reward: Gwei,
+    finality_delay: uint64): RewardDelta =
   # Helper with shared logic for use by get source, target, and head deltas
   # functions
   if is_unslashed_attester:
@@ -534,10 +536,11 @@ func get_attestation_component_delta(is_unslashed_attester: bool,
     RewardDelta(penalties: base_reward)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#components-of-attestation-deltas
-func get_source_delta*(validator: RewardStatus,
-                       base_reward: uint64,
-                       balances: TotalBalances,
-                       finality_delay: uint64): RewardDelta =
+func get_source_delta*(
+    validator: RewardStatus,
+    base_reward: Gwei,
+    balances: TotalBalances,
+    finality_delay: uint64): RewardDelta =
   ## Return attester micro-rewards/penalties for source-vote for each validator.
   get_attestation_component_delta(
     validator.is_previous_epoch_attester.isSome() and
@@ -547,10 +550,11 @@ func get_source_delta*(validator: RewardStatus,
     base_reward,
     finality_delay)
 
-func get_target_delta*(validator: RewardStatus,
-                       base_reward: uint64,
-                       balances: TotalBalances,
-                       finality_delay: uint64): RewardDelta =
+func get_target_delta*(
+    validator: RewardStatus,
+    base_reward: Gwei,
+    balances: TotalBalances,
+    finality_delay: uint64): RewardDelta =
   ## Return attester micro-rewards/penalties for target-vote for each validator.
   get_attestation_component_delta(
     validator.flags.contains(RewardFlags.isPreviousEpochTargetAttester) and
@@ -560,10 +564,11 @@ func get_target_delta*(validator: RewardStatus,
     base_reward,
     finality_delay)
 
-func get_head_delta*(validator: RewardStatus,
-                     base_reward: uint64,
-                     balances: TotalBalances,
-                     finality_delay: uint64): RewardDelta =
+func get_head_delta*(
+    validator: RewardStatus,
+    base_reward: Gwei,
+    balances: TotalBalances,
+    finality_delay: uint64): RewardDelta =
   ## Return attester micro-rewards/penalties for head-vote for each validator.
   get_attestation_component_delta(
     validator.flags.contains(RewardFlags.isPreviousEpochHeadAttester) and
@@ -573,9 +578,9 @@ func get_head_delta*(validator: RewardStatus,
     base_reward,
     finality_delay)
 
-func get_inclusion_delay_delta*(validator: RewardStatus,
-                                base_reward: uint64):
-                                  (RewardDelta, Opt[(uint64, RewardDelta)]) =
+func get_inclusion_delay_delta*(
+    validator: RewardStatus,
+    base_reward: Gwei): (RewardDelta, Opt[(uint64, RewardDelta)]) =
   ## Return proposer and inclusion delay micro-rewards/penalties for each validator.
   if validator.is_previous_epoch_attester.isSome() and ((not validator.flags.contains(RewardFlags.isSlashed))):
     let
@@ -589,9 +594,10 @@ func get_inclusion_delay_delta*(validator: RewardStatus,
       proposer_index = inclusion_info.proposer_index;
     return (delta, Opt.some((proposer_index, proposer_delta)))
 
-func get_inactivity_penalty_delta*(validator: RewardStatus,
-                                   base_reward: Gwei,
-                                   finality_delay: uint64): RewardDelta =
+func get_inactivity_penalty_delta*(
+    validator: RewardStatus,
+    base_reward: Gwei,
+    finality_delay: uint64): RewardDelta =
   ## Return inactivity reward/penalty deltas for each validator.
   var delta: RewardDelta
 
@@ -615,11 +621,10 @@ func get_inactivity_penalty_delta*(validator: RewardStatus,
 func get_attestation_deltas(
     state: phase0.BeaconState, info: var phase0.EpochInfo) =
   ## Update rewards with attestation reward/penalty deltas for each validator.
-
   let
     finality_delay = get_finality_delay(state)
     total_balance = info.balances.current_epoch
-    total_balance_sqrt = integer_squareroot(total_balance)
+    total_balance_sqrt = integer_squareroot(distinctBase(total_balance))
   # Filter out ineligible validators. All sub-functions of the spec do this
   # except for `get_inclusion_delay_deltas`. It's safe to do so here because
   # any validator that is in the unslashed indices of the matching source
@@ -664,15 +669,17 @@ func get_base_reward_increment*(
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
   let increments =
-    state.validators[index].effective_balance div EFFECTIVE_BALANCE_INCREMENT
+    state.validators[index].effective_balance div
+    EFFECTIVE_BALANCE_INCREMENT.Gwei
   increments * base_reward_per_increment
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_flag_index_reward*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState,
-    base_reward: Gwei, active_increments: Gwei,
-    unslashed_participating_increments: Gwei,
+    base_reward: Gwei,
+    active_increments: uint64,
+    unslashed_participating_increments: uint64,
     weight, finality_delay: uint64): Gwei =
   if not is_in_inactivity_leak(finality_delay):
     let reward_numerator =
@@ -683,13 +690,14 @@ func get_flag_index_reward*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_unslashed_participating_increment*(
-    info: altair.EpochInfo | bellatrix.BeaconState, flag_index: TimelyFlag): Gwei =
-  info.balances.previous_epoch[flag_index] div EFFECTIVE_BALANCE_INCREMENT
+    info: altair.EpochInfo | bellatrix.BeaconState,
+    flag_index: TimelyFlag): uint64 =
+  info.balances.previous_epoch[flag_index] div EFFECTIVE_BALANCE_INCREMENT.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_active_increments*(
-    info: altair.EpochInfo | bellatrix.BeaconState): Gwei =
-  info.balances.current_epoch div EFFECTIVE_BALANCE_INCREMENT
+    info: altair.EpochInfo | bellatrix.BeaconState): uint64 =
+  info.balances.current_epoch div EFFECTIVE_BALANCE_INCREMENT.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
@@ -699,12 +707,14 @@ template get_flag_and_inactivity_delta(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState,
     base_reward_per_increment: Gwei, finality_delay: uint64,
-    previous_epoch: Epoch, active_increments: Gwei,
+    previous_epoch: Epoch,
+    active_increments: uint64,
     penalty_denominator: uint64,
     epoch_participation: ptr EpochParticipationFlags,
-    participating_increments: array[3, Gwei], info: var altair.EpochInfo,
-    vidx: ValidatorIndex):
-    (ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei) =
+    participating_increments: array[3, uint64],
+    info: var altair.EpochInfo,
+    vidx: ValidatorIndex
+): (ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei) =
   let
     base_reward = get_base_reward_increment(state, vidx, base_reward_per_increment)
     pflags =
@@ -728,13 +738,13 @@ template get_flag_and_inactivity_delta(
         participating_increments[ord(flag)],
         PARTICIPATION_FLAG_WEIGHTS[flag], finality_delay)
     else:
-      0
+      0.Gwei
 
   template penalty(flag: untyped): untyped =
     if not has_flag(pflags, flag):
       base_reward * PARTICIPATION_FLAG_WEIGHTS[flag] div WEIGHT_DENOMINATOR
     else:
-      0
+      0.Gwei
 
   let inactivity_penalty =
     if has_flag(pflags, TIMELY_TARGET_FLAG_INDEX):
@@ -893,7 +903,7 @@ func process_registry_updates*(
         get_current_epoch(state) + 1
 
     if is_active_validator(state.validators.item(vidx), get_current_epoch(state)) and
-        state.validators.item(vidx).effective_balance <= cfg.EJECTION_BALANCE:
+        state.validators.item(vidx).effective_balance <= cfg.EJECTION_BALANCE.Gwei:
       ? initiate_validator_exit(cfg, state, vidx, cache)
 
     let validator = unsafeAddr state.validators.item(vidx)
@@ -950,7 +960,7 @@ func get_slashing_penalty*(validator: Validator,
                           adjusted_total_slashing_balance,
                           total_balance: Gwei): Gwei =
   # Factored out from penalty numerator to avoid uint64 overflow
-  const increment = EFFECTIVE_BALANCE_INCREMENT
+  const increment = EFFECTIVE_BALANCE_INCREMENT.Gwei
   let penalty_numerator = validator.effective_balance div increment *
                           adjusted_total_slashing_balance
   penalty_numerator div total_balance * increment
@@ -983,7 +993,8 @@ func process_eth1_data_reset*(state: var ForkyBeaconState) =
 template effective_balance_might_update*(
     balance: Gwei, effective_balance: Gwei): bool =
   const
-    HYSTERESIS_INCREMENT = EFFECTIVE_BALANCE_INCREMENT div HYSTERESIS_QUOTIENT
+    HYSTERESIS_INCREMENT =
+      EFFECTIVE_BALANCE_INCREMENT.Gwei div HYSTERESIS_QUOTIENT
     DOWNWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_DOWNWARD_MULTIPLIER
     UPWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_UPWARD_MULTIPLIER
   balance + DOWNWARD_THRESHOLD < effective_balance or
@@ -999,8 +1010,8 @@ func process_effective_balance_updates*(state: var ForkyBeaconState) =
     if effective_balance_might_update(balance, effective_balance):
       let new_effective_balance =
         min(
-          balance - balance mod EFFECTIVE_BALANCE_INCREMENT,
-          MAX_EFFECTIVE_BALANCE)
+          balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
+          MAX_EFFECTIVE_BALANCE.Gwei)
       # Protect against unnecessary cache invalidation
       if new_effective_balance != effective_balance:
         state.validators.mitem(vidx).effective_balance = new_effective_balance
@@ -1081,7 +1092,7 @@ template compute_inactivity_update(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState,
     info: altair.EpochInfo,
-    pre_inactivity_score: Gwei): Gwei =
+    pre_inactivity_score: uint64): uint64 =
   let previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
 
   # Increase the inactivity score of inactive validators

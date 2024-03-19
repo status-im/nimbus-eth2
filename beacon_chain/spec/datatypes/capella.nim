@@ -557,7 +557,7 @@ type
 
     # Mod-increment
     randao_mix*: Eth2Digest
-    slashing*: uint64
+    slashing*: Gwei
 
     # Represent in full; for the next epoch, current_epoch_participation in
     # epoch n is previous_epoch_participation in epoch n+1 but this doesn't
