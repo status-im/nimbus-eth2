@@ -356,9 +356,6 @@ func isSynced*(m: ELManager): bool =
 template eth1ChainBlocks*(m: ELManager): Deque[Eth1Block] =
   m.eth1Chain.blocks
 
-template toGaugeValue(x: Quantity): int64 =
-  toGaugeValue(distinctBase x)
-
 # TODO: Add cfg validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
@@ -1514,10 +1511,10 @@ func earliestBlockOfInterest(
     (2 * m.cfg.ETH1_FOLLOW_DISTANCE) +
     votedBlocksSafetyMargin
 
-  if latestEth1BlockNumber > blocksOfInterestRange:
+  if latestEth1BlockNumber > blocksOfInterestRange.Eth1BlockNumber:
     latestEth1BlockNumber - blocksOfInterestRange
   else:
-    0
+    0.Eth1BlockNumber
 
 proc syncBlockRange(m: ELManager,
                     connection: ELConnection,
@@ -1744,13 +1741,13 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
     except CatchableError as err:
       warn "Failed to obtain the latest block from the EL", err = err.msg
       raise err
-    latestBlockNumber = Eth1BlockNumber(latestBlock.number)
+    latestBlockNumber = latestBlock.number
 
     m.syncTargetBlock = some(
-      if Eth1BlockNumber(latestBlock.number) > m.cfg.ETH1_FOLLOW_DISTANCE:
-        Eth1BlockNumber(latestBlock.number) - m.cfg.ETH1_FOLLOW_DISTANCE
+      if latestBlock.number > m.cfg.ETH1_FOLLOW_DISTANCE.Eth1BlockNumber:
+        latestBlock.number - m.cfg.ETH1_FOLLOW_DISTANCE
       else:
-        Eth1BlockNumber(0))
+        0.Eth1BlockNumber)
     if m.syncTargetBlock.get <= eth1SyncedTo:
       # The chain reorged to a lower height.
       # It's relatively safe to ignore that.
@@ -1766,7 +1763,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
                              depositContract,
                              eth1SyncedTo + 1,
                              m.syncTargetBlock.get,
-                             m.earliestBlockOfInterest(Eth1BlockNumber latestBlock.number))
+                             m.earliestBlockOfInterest(latestBlock.number))
 
     eth1SyncedTo = m.syncTargetBlock.get
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
@@ -1858,4 +1855,4 @@ proc testWeb3Provider*(web3Url: Uri,
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
   discard request "Deposit root":
-    ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64)
+    ns.get_deposit_root.call(blockNumber = latestBlock.number)

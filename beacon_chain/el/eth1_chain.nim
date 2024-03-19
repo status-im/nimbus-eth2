@@ -13,7 +13,7 @@ import
   ../beacon_chain_db,
   ../spec/[deposit_snapshots, digest, eth2_merkleization, forks, network],
   ../spec/datatypes/base,
-  web3/[primitives, eth_api_types],
+  web3/[conversions, eth_api_types],
   ./merkle_minimal
 
 export beacon_chain_db, deques, digest, base, forks
@@ -30,8 +30,11 @@ declarePublicGauge eth1_finalized_deposits,
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
 
+template toGaugeValue*(x: Quantity | BlockNumber): int64 =
+  toGaugeValue(distinctBase x)
+
 type
-  Eth1BlockNumber* = uint64
+  Eth1BlockNumber* = BlockNumber
   Eth1BlockTimestamp* = uint64
 
   Eth1BlockObj* = object
@@ -169,7 +172,7 @@ proc pruneOldBlocks(chain: var Eth1Chain, depositIndex: uint64) =
     chain.db.putDepositContractSnapshot DepositContractSnapshot(
       eth1Block: lastBlock.hash,
       depositContractState: chain.finalizedDepositsMerkleizer.toDepositContractState,
-      blockHeight: lastBlock.number)
+      blockHeight: distinctBase(lastBlock.number))
 
     eth1_finalized_head.set lastBlock.number.toGaugeValue
     eth1_finalized_deposits.set lastBlock.depositCount.toGaugeValue
