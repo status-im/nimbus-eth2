@@ -2,9 +2,9 @@
 
 import
   std/[json, options],
-  chronos, bearssl/rand, confutils, stint, json_serialization,
+  chronos, bearssl/rand, confutils, json_serialization,
   web3, eth/keys, eth/p2p/discoveryv5/random2,
-  stew/[io2, byteutils], json_rpc/jsonmarshal,
+  stew/[io2, byteutils],
   ../beacon_chain/conf,
   ../beacon_chain/spec/eth2_merkleization,
   ../beacon_chain/spec/datatypes/base,
