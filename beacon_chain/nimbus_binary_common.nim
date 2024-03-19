@@ -1,5 +1,3 @@
-{.push raises: [].}
-
 import
   std/[tables, strutils, terminal, typetraits],
   chronicles, chronos, confutils, presto,
@@ -16,43 +14,6 @@ type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
                            lastSlot: Slot): Future[bool] {.gcsafe,
   raises: [].}
-
-# silly chronicles, colors is a compile-time property
-when defaultChroniclesStream.outputs.type.arity == 2:
-  func stripAnsi(v: string): string =
-    var
-      res = newStringOfCap(v.len)
-      i: int
-
-    while i < v.len:
-      let c = v[i]
-      if c == '\x1b':
-        var
-          x = i + 1
-          found = false
-
-        while x < v.len: # look for [..m
-          let c2 = v[x]
-          if x == i + 1:
-            if c2 != '[':
-              break
-          else:
-            if c2 in {'0'..'9'} + {';'}:
-              discard # keep looking
-            elif c2 == 'm':
-              i = x + 1
-              found = true
-              break
-            else:
-              break
-          inc x
-
-        if found: # skip adding c
-          continue
-      res.add c
-      inc i
-
-    res
 
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
@@ -120,7 +81,7 @@ proc setupLogging*(
       writeAndFlush(stdout, msg)
 
     proc noColorsFlush(logLevel: LogLevel, msg: LogOutputStr) =
-      writeAndFlush(stdout, stripAnsi(msg))
+      writeAndFlush(stdout, msg)
 
     let fileWriter =
       if logFile.isSome():
