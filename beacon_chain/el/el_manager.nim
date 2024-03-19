@@ -620,7 +620,8 @@ proc getBlockByHash(rpcClient: RpcClient, hash: BlockHash): Future[BlockObject] 
 proc getBlockByNumber*(rpcClient: RpcClient,
                        number: Eth1BlockNumber): Future[BlockObject] =
   let hexNumber = try:
-    &"0x{number:X}" # No leading 0's!
+    let num = distinctBase(number)
+    &"0x{num:X}" # No leading 0's!
   except ValueError as exc:
     # Since the format above is valid, failing here should not be possible
     raiseAssert exc.msg
