@@ -800,18 +800,15 @@ template withEpochInfo*(
   template info: untyped {.inject.} = x.altairData
   body
 
-{.push warning[ProveField]:off.}
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
-  if tgt.kind == src.kind:
-    withState(tgt):
-      template forkyTgt: untyped = forkyState
-      template forkySrc: untyped = src.forky(consensusFork)
-      assign(forkyTgt, forkySrc)
-  else:
-    # Ensure case object and discriminator get updated simultaneously, even
-    # with nimOldCaseObjects. This is infrequent.
-    tgt = src
-{.pop.}
+  if tgt.kind != src.kind:
+    # Avoid temporary with ref
+    tgt = (ref ForkedHashedBeaconState)(kind: src.kind)[]
+
+  withState(tgt):
+    template forkyTgt: untyped = forkyState
+    template forkySrc: untyped = src.forky(consensusFork)
+    assign(forkyTgt, forkySrc)
 
 template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # The use of `unsafeAddr` avoids excessive copying in certain situations, e.g.,
