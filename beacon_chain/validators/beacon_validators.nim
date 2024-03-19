@@ -259,13 +259,18 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
   let numPeers = len(node.network.peers)
   if numPeers <= node.config.maxPeers div 2:
     # We may have poor connectivity, wait until more peers are available
+    info "Chain appears to have stalled, but have low peers",
+      numPeers, maxPeers = node.config.maxPeers
     node.dag.resetChainProgressWatchdog()
     return ChainSyncStatus.Syncing
 
   for peer in node.network.peerPool.peers:
-    if peer.getHeadSlot() > head.slot:
+    let peerSlot = peer.getHeadSlot()
+    if peerSlot > head.slot:
       # A peer indicates that they are on a later slot, wait for sync manager
       # to progress, or for it to kick the peer if they are faking the status
+      info "Chain appears to have stalled, but peer indicates higher progress",
+        headSlot = head.slot, peerSlot, peerScore = peer.getScore()
       node.dag.resetChainProgressWatchdog()
       return ChainSyncStatus.Syncing
 
