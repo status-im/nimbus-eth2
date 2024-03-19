@@ -158,3 +158,49 @@ proc start*(node: BeaconNode) {.raises: [CatchableError].} =
 
   while true:
     poll()
+
+when isMainModule:
+  import
+    std/os,
+    confutils,
+    chronos,
+
+    ../beacon_chain/[conf, filepath, beacon_node]
+  const
+    simulationDepositsCount = 128
+    dataDir = "./test_keymanager_api"
+    validatorsDir = dataDir / "validators"
+    secretsDir = dataDir / "secrets"
+    depositsFile = dataDir / "deposits.json"
+    runtimeConfigFile = dataDir / "config.yaml"
+    genesisFile = dataDir / "genesis.ssz"
+    depositTreeSnapshotFile = dataDir / "deposit_tree_snapshot.ssz"
+    bootstrapEnrFile = dataDir / "bootstrap_node.enr"
+    tokenFilePath = dataDir / "keymanager-token.txt"
+    correctTokenValue = "some secret token"
+    defaultFeeRecipient = Eth1Address.fromHex("0x000000000000000000000000000000000000DEAD")
+    defaultGasLimit = 30_000_000
+  
+    nodeDataDir = dataDir / "node-0"
+    nodeValidatorsDir = nodeDataDir / "validators"
+    nodeSecretsDir = nodeDataDir / "secrets"
+
+  proc startBeaconNode() {.raises: [CatchableError].} =
+    #copyHalfValidators(nodeDataDir, true)
+  
+    let runNodeConf = try: BeaconNodeConf.load(cmdLine = @[
+      "--network=" & dataDir,
+      "--data-dir=" & nodeDataDir,
+      "--validators-dir=" & nodeValidatorsDir,
+      "--secrets-dir=" & nodeSecretsDir,
+      "--no-el"])
+    except Exception as exc: # TODO fix confutils exceptions
+      raiseAssert exc.msg
+  
+    let
+      metadata = loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
+      node = waitFor BeaconNode.init(runNodeConf, metadata)
+  
+    node.start()
+  
+  startBeaconNode()

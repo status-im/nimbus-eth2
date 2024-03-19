@@ -49,7 +49,7 @@ fi
 build/generate_makefile "nimcache/release/${BINARY}/${PROJECT_NAME}.json" "nimcache/release/${BINARY}/${BINARY}.makefile"
 # Don't swallow stderr, in case it's important.
 [[ "$V" == "0" ]] && exec >/dev/null
-"${MAKE}" -f "nimcache/release/${BINARY}/${BINARY}.makefile" --no-print-directory build
+make -f "nimcache/release/${BINARY}/${BINARY}.makefile" --no-print-directory build
 
 if uname | grep -qi darwin || [[ -n "${FORCE_DSYMUTIL}" ]]; then
   [[ -z "${DSYMUTIL}" ]] && DSYMUTIL="dsymutil"
