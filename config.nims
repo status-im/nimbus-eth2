@@ -49,7 +49,7 @@ switch("passC", "-fvisibility=hidden")
 switch("passC", "-fno-omit-frame-pointer")
 switch("passL", "-fno-omit-frame-pointer")
 
-when false:
+when true:
   --define:nimStackTraceOverride
   switch("import", "libbacktrace")
 
