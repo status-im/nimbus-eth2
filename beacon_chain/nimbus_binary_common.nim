@@ -221,8 +221,7 @@ proc sleepAsync*(t: TimeDiff): Future[void] =
   sleepAsync(nanoseconds(
     if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
 
-proc runSlotLoop*[T](node: T, startTime: BeaconTime,
-                     slotProc: SlotStartProc[T]) {.async.} =
+proc runSlotLoop*[T](node: T, startTime: BeaconTime) {.async.} =
   var
     curSlot = startTime.slotOrZero()
     nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
@@ -252,9 +251,8 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
     if wallSlot > nextSlot + SLOTS_PER_EPOCH:
       curSlot = wallSlot - SLOTS_PER_EPOCH
 
-    let breakLoop = await slotProc(node, wallTime, curSlot)
-    if breakLoop:
-      break
+    await handleProposal(node, getBlockRef2(ZERO_HASH).get, wallSlot)
+    quit 0
 
     curSlot = wallSlot
     nextSlot = wallSlot + 1

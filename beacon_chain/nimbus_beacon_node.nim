@@ -148,24 +148,13 @@ func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
     0.Slot)
   return ok(newRef)
 
-proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
-                 lastSlot: Slot): Future[bool] {.async.} =
-  let
-    wallSlot = wallTime.slotOrZero
-
-  if wallSlot > 2:
-    quit(0)
-
-  await handleProposal(node, getBlockRef2(ZERO_HASH).get, wallSlot)
-  quit 0
-
 proc start*(node: BeaconNode) {.raises: [CatchableError].} =
   echo "foo"
   node.elManager.start()
   let
     wallTime = node.beaconClock.now()
 
-  asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
+  asyncSpawn runSlotLoop(node, wallTime)
 
   while true:
     poll()
