@@ -44,7 +44,7 @@ import
     keystore_management, slashing_protection, validator_duties, validator_pool],
   ".."/spec/mev/rest_deneb_mev_calls
 
-from std/sequtils import mapIt
+from std/sequtils import countIt, mapIt
 from eth/async_utils import awaitWithTimeout
 
 # Metrics for tracking attestation and beacon block loss
@@ -259,20 +259,20 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
   let numPeers = len(node.network.peers)
   if numPeers <= node.config.maxPeers div 2:
     # We may have poor connectivity, wait until more peers are available
-    info "Chain appears to have stalled, but have low peers",
+    warn "Chain appears to have stalled, but have low peers",
       numPeers, maxPeers = node.config.maxPeers
     node.dag.resetChainProgressWatchdog()
     return ChainSyncStatus.Syncing
 
-  for peer in node.network.peerPool.peers:
-    let peerSlot = peer.getHeadSlot()
-    if peerSlot > head.slot:
-      # A peer indicates that they are on a later slot, wait for sync manager
-      # to progress, or for it to kick the peer if they are faking the status
-      info "Chain appears to have stalled, but peer indicates higher progress",
-        headSlot = head.slot, peerSlot, peerScore = peer.getScore()
-      node.dag.resetChainProgressWatchdog()
-      return ChainSyncStatus.Syncing
+  let numPeersWithHigherProgress =
+    node.network.peerPool.peers.countIt(it.getHeadSlot() > head.slot)
+  if numPeersWithHigherProgress > node.config.maxPeers div 8:
+    # A peer indicates that they are on a later slot, wait for sync manager
+    # to progress, or for it to kick the peer if they are faking the status
+    warn "Chain appears to have stalled, but peers indicate higher progress",
+      numPeersWithHigherProgress, numPeers, maxPeers = node.config.maxPeers
+    node.dag.resetChainProgressWatchdog()
+    return ChainSyncStatus.Syncing
 
   # We are on the latest slot among all of our peers, and there has been no
   # chain progress for an extended period of time.
