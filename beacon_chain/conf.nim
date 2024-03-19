@@ -290,6 +290,7 @@ type
 
       listenAddress* {.
         desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
+        defaultValueDesc: "*"
         name: "listen-address" .}: Option[IpAddress]
 
       tcpPort* {.
@@ -1498,4 +1499,4 @@ proc formatIt*(v: Option[IpAddress]): string =
   if v.isSome():
     $v.get()
   else:
-    $getAutoAddress(Port(0)).toIpAddress()
+    "*"
