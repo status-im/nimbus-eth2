@@ -1793,15 +1793,15 @@ proc updateState*(
         # eventually reach bs
         ancestors.add(cur.bid)
 
-      if cur.slot == GENESIS_SLOT or
-          (cur.slot.epoch +  uint64(EPOCHS_PER_STATE_SNAPSHOT) * 2 < startEpoch):
+      if cur.slot == GENESIS_SLOT or (cur.slot < dag.finalizedHead.slot and
+          cur.slot.epoch + uint64(EPOCHS_PER_STATE_SNAPSHOT) * 2 < startEpoch):
         # We've either walked two full state snapshot lengths or hit the tail
         # and still can't find a matching state: this can happen when
         # starting the node from an arbitrary finalized checkpoint and not
         # backfilling the states
         notice "Request for pruned historical state",
           request = shortLog(bsi), tail = shortLog(dag.tail),
-          cur = shortLog(cur)
+          cur = shortLog(cur), finalized = shortLog(dag.finalizedHead)
         return false
 
       # Move slot by slot to capture epoch boundary states
