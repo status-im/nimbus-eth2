@@ -168,6 +168,7 @@ proc advanceClearanceState*(
     logScope:
       oldSlot = clearanceSlot
       newSlot = next
+      wallSlot
       updateStateDur = Moment.now() - startTick
     if not chainIsDegraded:
       debug "Prepared clearance state for next block"
