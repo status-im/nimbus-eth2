@@ -122,9 +122,9 @@ contract(DepositContract):
                deposit_data_root: FixedBytes[32])
 
 proc deployContract*(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
-  let tr = EthSend(
-    `from`: web3.defaultAccount,
-    data: code,
+  let tr = TransactionArgs(
+    `from`: web3.defaultAccount.some,
+    data: code.some,
     gas: Quantity(3000000).some,
     gasPrice: Quantity(1).some)
 
@@ -132,8 +132,12 @@ proc deployContract*(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async
   result = await web3.getMinedTransactionReceipt(r)
 
 proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
-  let tr = EthSend(
-    `from`: web3.defaultAccount,
+  let tr = TransactionArgs(
+    `from`: web3.defaultAccount.some,
+    # TODO: Force json-rpc to generate 'data' field
+    # should not be needed anymore, new execution-api schema
+    # is using `input` field
+    data: some(newSeq[byte]()), 
     gas: Quantity(3000000).some,
     gasPrice: Quantity(1).some,
     value: some(valueEth.u256 * 1000000000000000000.u256),
