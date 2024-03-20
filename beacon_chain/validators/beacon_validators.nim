@@ -267,7 +267,7 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
   let
     maxHeadSlot = node.dag.heads.foldl(max(a, b.slot), GENESIS_SLOT)
     numPeersWithHigherProgress = node.network.peerPool.peers
-      .countIt(it != nil and it.getHeadSlot() > maxHead)
+      .countIt(it != nil and it.getHeadSlot() > maxHeadSlot)
   if numPeersWithHigherProgress > node.config.maxPeers div 8:
     # A peer indicates that they are on a later slot, wait for sync manager
     # to progress, or for it to kick the peer if they are faking the status
