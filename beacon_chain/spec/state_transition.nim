@@ -1,7 +1,7 @@
 import
   results,
   "."/[
-    beaconstate, eth2_merkleization, forks]
+    eth2_merkleization, forks]
 
 export results
 
@@ -119,7 +119,6 @@ func partialBeaconBlock*(
   var res = consensusFork.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root,
     body: consensusFork.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1_data,

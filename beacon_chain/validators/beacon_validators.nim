@@ -83,7 +83,6 @@ proc getBlockProposalEth1Data(node: BeaconNode,
                               state: ForkedHashedBeaconState):
                               BlockProposalEth1Data = default(BlockProposalEth1Data)
 
-from ../spec/beaconstate import get_expected_withdrawals
 import chronicles
 
 proc makeBeaconBlockForHeadAndSlot(
@@ -119,8 +118,7 @@ proc makeBeaconBlockForHeadAndSlot(
         withState(state[]):
           when  consensusFork >= ConsensusFork.Capella and
                 PayloadType.kind >= ConsensusFork.Capella:
-            let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
-              get_expected_withdrawals(forkyState.data))
+            let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](@[])
             if  withdrawals_root.isNone or
                 hash_tree_root(withdrawals) != withdrawals_root.get:
               # If engine API returned a block, will use that

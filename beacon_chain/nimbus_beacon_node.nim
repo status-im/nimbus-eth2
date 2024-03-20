@@ -20,7 +20,6 @@ proc initFullNode(
   await node.addValidators()
 
 import
-  "."/spec/beaconstate,
   "."/spec/forks,
   "."/consensus_object_pools/block_pools_types
 
@@ -35,9 +34,9 @@ proc preInit(
 
   withState(state):
     if forkyState.data.slot == GENESIS_SLOT:
-      discard get_initial_beacon_block(forkyState)
+      discard 0
     else:
-      discard forkyState.latest_block_root()
+      discard 0
 
 proc init*(T: type BeaconNode,
            config: BeaconNodeConf,
