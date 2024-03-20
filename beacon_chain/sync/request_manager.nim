@@ -261,7 +261,7 @@ proc requestManagerBlockLoop(
         verifiers.add rman.blockVerifier(
           blck.asSigned(), maybeFinalized = false)
       try:
-        await allFutures(verifiers):
+        await allFutures(verifiers)
       except CancelledError as exc:
         for blockRoot in blockRoots:
           rman.quarantine[].addMissing blockRoot
@@ -364,7 +364,7 @@ proc requestManagerBlobLoop(
           continue
         verifiers.add rman.blockVerifier(blck, maybeFinalized = false)
       try:
-        await allFutures(verifiers):
+        await allFutures(verifiers)
       except CancelledError as exc:
         var futs = newSeqOfCap[Future[void].Raising([])](verifiers.len)
         for verifier in verifiers:
