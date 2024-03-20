@@ -212,7 +212,6 @@ proc makeBeaconBlockForHeadAndSlot(
       default(BeaconBlockValidatorChanges),
       SyncAggregate.init(),
       payload,
-      noRollback, # Temporary state - no need for rollback
       cache,
       transactions_root = transactions_root,
       execution_payload_root = execution_payload_root,
