@@ -30,10 +30,7 @@ proc init*(T: type BeaconNode,
            metadata: Eth2NetworkMetadata): Future[BeaconNode]
           {.async.} =
   template cfg: auto = metadata.cfg
-  template eth1Network: auto = metadata.eth1Network
-
-  let
-    db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
+  discard BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   let checkpointState = if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
@@ -54,12 +51,10 @@ proc init*(T: type BeaconNode,
   if config.finalizedDepositTreeSnapshot.isSome:
     let
       depositTreeSnapshotPath = config.finalizedDepositTreeSnapshot.get.string
-      depositTreeSnapshot = try:
-        SSZ.loadFile(depositTreeSnapshotPath, DepositTreeSnapshot)
-      except SszError as err:
-        quit 1
-      except CatchableError as err:
-        quit 1
+    discard try:
+      SSZ.loadFile(depositTreeSnapshotPath, DepositTreeSnapshot)
+    except CatchableError:
+      quit 1
 
   var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
@@ -76,7 +71,7 @@ proc init*(T: type BeaconNode,
         elif metadata.hasGenesis:
           try:
             metadata.fetchGenesisBytes()
-          except CatchableError as err:
+          except CatchableError:
             quit 1
         else:
           @[]
@@ -84,7 +79,7 @@ proc init*(T: type BeaconNode,
       if genesisBytes.len > 0:
         try:
           newClone readSszForkedHashedBeaconState(cfg, genesisBytes)
-        except CatchableError as err:
+        except CatchableError:
           quit 1
       else:
         nil
@@ -106,7 +101,7 @@ proc init*(T: type BeaconNode,
         if genesisState.isNil or
             getStateField(checkpointState[], slot) != GENESIS_SLOT:
           ChainDAGRef.preInit(checkpointState[])
-    except CatchableError as exc:
+    except CatchableError:
       quit 1
   else:
     if not checkpointState.isNil:
@@ -148,7 +143,7 @@ func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
     0.Slot)
   return ok(newRef)
 
-proc start*(node: BeaconNode) {.raises: [CatchableError].} =
+proc start(node: BeaconNode) {.raises: [CatchableError].} =
   echo "foo"
   node.elManager.start()
   let
@@ -167,20 +162,7 @@ when isMainModule:
 
     ../beacon_chain/[conf, filepath, beacon_node]
   const
-    simulationDepositsCount = 128
     dataDir = "./test_keymanager_api"
-    validatorsDir = dataDir / "validators"
-    secretsDir = dataDir / "secrets"
-    depositsFile = dataDir / "deposits.json"
-    runtimeConfigFile = dataDir / "config.yaml"
-    genesisFile = dataDir / "genesis.ssz"
-    depositTreeSnapshotFile = dataDir / "deposit_tree_snapshot.ssz"
-    bootstrapEnrFile = dataDir / "bootstrap_node.enr"
-    tokenFilePath = dataDir / "keymanager-token.txt"
-    correctTokenValue = "some secret token"
-    defaultFeeRecipient = Eth1Address.fromHex("0x000000000000000000000000000000000000DEAD")
-    defaultGasLimit = 30_000_000
-  
     nodeDataDir = dataDir / "node-0"
     nodeValidatorsDir = nodeDataDir / "validators"
     nodeSecretsDir = nodeDataDir / "secrets"
