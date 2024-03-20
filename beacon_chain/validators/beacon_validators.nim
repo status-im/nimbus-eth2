@@ -6,7 +6,7 @@ import
   stew/[assign2, byteutils],
   chronos,
   ../spec/[
-    eth2_merkleization, forks, helpers, signatures, state_transition],
+    eth2_merkleization, forks, helpers, signatures],
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     slashing_protection]
@@ -127,6 +127,25 @@ proc getBlockProposalEth1Data(node: BeaconNode,
                               BlockProposalEth1Data = default(BlockProposalEth1Data)
 
 import chronicles
+
+proc makeBeaconBlock(
+    cfg: RuntimeConfig,
+    state: var ForkedHashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    validator_changes: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate,
+    executionPayload: ForkyExecutionPayloadForSigning,
+    cache: var StateCache,
+    transactions_root: Opt[Eth2Digest],
+    execution_payload_root: Opt[Eth2Digest],
+    kzg_commitments: Opt[KzgCommitments]):
+    Result[ForkedBeaconBlock, cstring] =
+  ok(default(ForkedBeaconBlock))
 
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
