@@ -1,6 +1,6 @@
 import
   chronos,
-  ../spec/[keystore, signatures, crypto]
+  ../spec/[datatypes/base, signatures, crypto]
 type
   ValidatorKind* {.pure.} = enum
     Local, Remote
@@ -8,7 +8,6 @@ type
     index: ValidatorIndex
     validator: Validator
   AttachedValidator* = ref object
-    data*: KeystoreData
     case kind*: ValidatorKind
     of ValidatorKind.Local:
       discard
@@ -21,9 +20,9 @@ type
 func shortLog*(v: AttachedValidator): string =
   case v.kind
   of ValidatorKind.Local:
-    shortLog(v.data.pubkey)
+    ""
   of ValidatorKind.Remote:
-    shortLog(v.data.pubkey)
+    ""
 import ".."/spec/forks
 proc getBlockSignature*(fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,

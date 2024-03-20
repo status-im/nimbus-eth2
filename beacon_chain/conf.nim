@@ -3,7 +3,7 @@ import
   confutils, confutils/defs, confutils/std/net,
   stew/[io2, byteutils],
   json_serialization,
-  ./spec/[keystore, crypto],
+  ./spec/crypto,
   ./spec/datatypes/base,
   ./networking/network_metadata
 

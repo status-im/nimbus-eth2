@@ -57,7 +57,6 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
 
 import ".."/consensus_object_pools/block_dag
 let pk = ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]
-import ".."/spec/keystore
 proc getValidatorForDuties*(
     node: BeaconNode, idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
@@ -68,7 +67,6 @@ proc getValidatorForDuties*(
       key.toPubKey(), slot, slashingSafe)
   else:
     ok AttachedValidator(
-      data: KeystoreData(pubkey: pk),
       kind: ValidatorKind.Local,
       index: Opt.some 0.ValidatorIndex,
       validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
@@ -525,4 +523,4 @@ proc handleProposal*(node: BeaconNode, head: BlockRef, slot: Slot) {.async: (rai
     validator = node.getValidatorForDuties(proposer, slot).valueOr:
       return
 
-  await proposeBlock(node, validator, validator.data.pubkey, proposer, head, slot)
+  await proposeBlock(node, validator, pk, proposer, head, slot)

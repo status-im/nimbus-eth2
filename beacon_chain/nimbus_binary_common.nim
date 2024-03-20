@@ -3,7 +3,6 @@ import
   chronicles, chronos, confutils, presto,
   chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
-  ./spec/keystore,
   ./spec/datatypes/base,
   "."/[beacon_clock, conf]
 
