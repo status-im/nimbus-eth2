@@ -4,8 +4,7 @@ import
   ./el/el_manager,
   ./spec/forks,
   ./validators/[
-    message_router, validator_pool,
-    keystore_management]
+    message_router, validator_pool]
 
 import "."/consensus_object_pools/block_dag
 
@@ -21,7 +20,6 @@ type
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
     elManager*: ELManager
-    keystoreCache*: KeystoreCacheRef
     genesisSnapshotContent*: string
     beaconClock*: BeaconClock
     router*: ref MessageRouter

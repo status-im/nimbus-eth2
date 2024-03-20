@@ -10,7 +10,7 @@ import
     validator],
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
-    keystore_management, slashing_protection, validator_pool]
+    slashing_protection, validator_pool]
 
 from std/sequtils import mapIt
 import ".."/spec/mev/[capella_mev, deneb_mev]
@@ -45,14 +45,15 @@ proc getValidator*(validators: auto,
                                validator: validators[idx])
 
 proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
-  for keystore in listLoadableKeystores(node.config, node.keystoreCache):
-    let
-      data = withState(node.genesisState[]):
-        getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
-      v = node.attachedValidators[].addValidator(keystore, default(Eth1Address), 30000000)
-    if data.get.index == 0:
-      echo data.get.validator.pubkey
-    v.updateValidator(data)
+  when false:
+    for keystore in listLoadableKeystores(node.config, node.keystoreCache):
+      let
+        data = withState(node.genesisState[]):
+          getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+        v = node.attachedValidators[].addValidator(keystore, default(Eth1Address), 30000000)
+      if data.get.index == 0:
+        echo data.get.validator.pubkey
+      v.updateValidator(data)
 
 func validatorKey2(
     index: ValidatorIndex or uint64): Opt[CookedPubKey] =
@@ -61,14 +62,22 @@ func validatorKey2(
   foo
 
 import ".."/consensus_object_pools/block_dag
-
+let pk = ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]
+import ".."/spec/keystore
 proc getValidatorForDuties*(
     node: BeaconNode, idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
-  let key = ? validatorKey2(0.ValidatorIndex)
+  when false:
+    let key = ? validatorKey2(0.ValidatorIndex)
 
-  node.attachedValidators[].getValidatorForDuties(
-    key.toPubKey(), slot, slashingSafe)
+    node.attachedValidators[].getValidatorForDuties(
+      key.toPubKey(), slot, slashingSafe)
+  else:
+    ok AttachedValidator(
+      data: KeystoreData(pubkey: pk),
+      kind: ValidatorKind.Local,
+      index: Opt.some 0.ValidatorIndex,
+      validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool = true
 

@@ -5,20 +5,20 @@ import
   ../spec/datatypes/altair
 export altair
 type
-  ValidatorKind {.pure.} = enum
+  ValidatorKind* {.pure.} = enum
     Local, Remote
   ValidatorAndIndex* = object
     index*: ValidatorIndex
     validator*: Validator
   AttachedValidator* = ref object
-    data: KeystoreData
-    case kind: ValidatorKind
+    data*: KeystoreData
+    case kind*: ValidatorKind
     of ValidatorKind.Local:
       discard
     of ValidatorKind.Remote:
       discard
-    index: Opt[ValidatorIndex]
-    validator: Opt[Validator]
+    index*: Opt[ValidatorIndex]
+    validator*: Opt[Validator]
   SignatureResult = Result[ValidatorSig, string]
   ValidatorPool* = object
     validators: Table[ValidatorPubKey, AttachedValidator]
@@ -62,7 +62,7 @@ proc updateValidator*(
   if validator.index != Opt.some data.index:
     validator.index = Opt.some data.index
     validator.validator = Opt.some data.validator
-proc getValidatorForDuties*(
+proc getValidatorForDuties(
     pool: ValidatorPool, key: ValidatorPubKey, slot: Slot,
     slashingSafe: bool):
     Opt[AttachedValidator] =

@@ -271,7 +271,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#validator
   Validator* = object
-    pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
+    pubkey*: ValidatorPubKey
 
     withdrawal_credentials*: Eth2Digest
       ## Commitment to pubkey for withdrawals and transfers
@@ -499,9 +499,6 @@ func pubkey*(v: HashedValidatorPubKey): ValidatorPubKey =
     ValidatorPubKey()
   else:
     v.value[].key
-
-template pubkey*(v: Validator): ValidatorPubKey =
-  v.pubkeyData.pubkey
 
 func hash_tree_root*(v: HashedValidatorPubKey): Eth2Digest =
   if isNil(v.value):

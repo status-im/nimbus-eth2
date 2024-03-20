@@ -57,6 +57,9 @@ when false:
   switch("passC", "-fstack-protector-all")
   switch("passL", "-fstack-protector-all")
 
+when false:
+  --linedir:off
+
 --threads:on
 --opt:speed
 --mm:refc

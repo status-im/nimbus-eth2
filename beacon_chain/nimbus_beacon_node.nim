@@ -3,7 +3,7 @@ import
   chronos,
   stew/io2,
   ./spec/datatypes/[altair, bellatrix, phase0],
-  ./validators/[keystore_management, beacon_validators],
+  ./validators/beacon_validators,
   "."/[
     beacon_node,
     nimbus_binary_common]
@@ -123,14 +123,12 @@ proc init*(T: type BeaconNode,
   let elManager = default(ELManager)
 
   let
-    keystoreCache = KeystoreCacheRef.init()
     validatorPool = new ValidatorPool
 
   let node = BeaconNode(
     config: config,
     attachedValidators: validatorPool,
     elManager: elManager,
-    keystoreCache: keystoreCache,
     beaconClock: beaconClock,
     cfg: cfg,
     genesisState: genesisState)
