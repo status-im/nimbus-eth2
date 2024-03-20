@@ -28,9 +28,6 @@ const
   SyncWorkersCount* = 10
     ## Number of sync workers to spawn
 
-  StatusUpdateInterval* = chronos.minutes(1)
-    ## Minimum time between two subsequent calls to update peer's status
-
   StatusExpirationTime* = chronos.minutes(2)
     ## Time time it takes for the peer's status information to expire.
 
@@ -256,83 +253,90 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
       ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
   ok()
 
-proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
-    {.async: (raises: [CancelledError]).} =
+proc updateStatus[A, B](
+    man: SyncManager[A, B],
+    index: int,
+    peer: A): Future[Opt[Slot]] {.async: (raises: [CancelledError]).} =
   logScope:
+    peer = peer
+    direction = man.direction
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
     index = index
     sync_ident = man.ident
     topics = "syncman"
 
-  var
-    headSlot = man.getLocalHeadSlot()
-    wallSlot = man.getLocalWallSlot()
-    peerSlot = peer.getHeadSlot()
+  let peerSlot = peer.getHeadSlot()
+  trace "Updating peer's status information",
+        wall_clock_slot = man.getLocalWallSlot(),
+        remote_head_slot = peerSlot,
+        local_head_slot = man.getLocalHeadSlot()
 
-  block: # Check that peer status is recent and relevant
-    logScope:
-      peer = peer
-      direction = man.direction
+  if not(await peer.updateStatus()):
+    peer.updateScore(PeerScoreNoStatus)
+    debug "Failed to get remote peer's status, exiting",
+          peer_head_slot = peerSlot
+    return Opt.none Slot
 
-    debug "Peer's syncing status", wall_clock_slot = wallSlot,
-          remote_head_slot = peerSlot, local_head_slot = headSlot
+  let newPeerSlot = peer.getHeadSlot()
+  if peerSlot >= newPeerSlot:
+    peer.updateScore(PeerScoreStaleStatus)
+    debug "Peer's status information is stale",
+          wall_clock_slot = man.getLocalWallSlot(),
+          remote_old_head_slot = peerSlot,
+          local_head_slot = man.getLocalHeadSlot(),
+          remote_new_head_slot = newPeerSlot
+  else:
+    debug "Peer's status information updated",
+          wall_clock_slot = man.getLocalWallSlot(),
+          remote_old_head_slot = peerSlot,
+          local_head_slot = man.getLocalHeadSlot(),
+          remote_new_head_slot = newPeerSlot
+    peer.updateScore(PeerScoreGoodStatus)
 
-    let
-      peerStatusAge = Moment.now() - peer.getStatusLastTime()
-      needsUpdate =
-        # Latest status we got is old
-        peerStatusAge >= StatusExpirationTime or
-        # The point we need to sync is close to where the peer is
-        man.getFirstSlot() >= peerSlot
+  Opt.some newPeerSlot
 
-    if needsUpdate:
-      man.workers[index].status = SyncWorkerStatus.UpdatingStatus
+proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
+    {.async: (raises: [CancelledError]).} =
+  logScope:
+    peer = peer
+    direction = man.direction
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    index = index
+    sync_ident = man.ident
+    topics = "syncman"
 
-      # Avoid a stampede of requests, but make them more frequent in case the
-      # peer is "close" to the slot range of interest
-      if peerStatusAge < StatusExpirationTime div 2:
-        await sleepAsync(StatusExpirationTime div 2 - peerStatusAge)
-
-      trace "Updating peer's status information", wall_clock_slot = wallSlot,
-            remote_head_slot = peerSlot, local_head_slot = headSlot
-
-      if not(await peer.updateStatus()):
-        peer.updateScore(PeerScoreNoStatus)
-        debug "Failed to get remote peer's status, exiting",
-              peer_head_slot = peerSlot
-
-        return
-
-      let newPeerSlot = peer.getHeadSlot()
-      if peerSlot >= newPeerSlot:
-        peer.updateScore(PeerScoreStaleStatus)
-        debug "Peer's status information is stale",
-              wall_clock_slot = wallSlot, remote_old_head_slot = peerSlot,
-              local_head_slot = headSlot, remote_new_head_slot = newPeerSlot
+  # Check that peer status is recent
+  var peerSlot = peer.getHeadSlot()
+  let
+    peerStatusAge = Moment.now() - peer.getStatusLastTime()
+    didUpdateStatus =
+      if peerStatusAge >= StatusExpirationTime:
+        man.workers[index].status = SyncWorkerStatus.UpdatingStatus
+        peerSlot = (await man.updateStatus(index, peer)).valueOr: return
+        true
       else:
-        debug "Peer's status information updated", wall_clock_slot = wallSlot,
-              remote_old_head_slot = peerSlot, local_head_slot = headSlot,
-              remote_new_head_slot = newPeerSlot
-        peer.updateScore(PeerScoreGoodStatus)
-        peerSlot = newPeerSlot
+        peerSlot = peer.getHeadSlot()
+        debug "Peer's syncing status",
+              wall_clock_slot = man.getLocalWallSlot(),
+              remote_head_slot = peerSlot,
+              local_head_slot = man.getLocalHeadSlot()
+        false
 
-    # Time passed - enough to move slots, if sleep happened
-    headSlot = man.getLocalHeadSlot()
-    wallSlot = man.getLocalWallSlot()
-
+  # Check if sync operation is complete
   if man.remainingSlots() <= man.maxHeadAge:
-    logScope:
-      peer = peer
-      direction = man.direction
-
     case man.direction
     of SyncQueueKind.Forward:
-      info "We are in sync with network", wall_clock_slot = wallSlot,
-            remote_head_slot = peerSlot, local_head_slot = headSlot
+      info "We are in sync with the network",
+           wall_clock_slot = man.getLocalWallSlot(),
+           remote_head_slot = peerSlot,
+           local_head_slot = man.getLocalHeadSlot()
     of SyncQueueKind.Backward:
-      info "Backfill complete", wall_clock_slot = wallSlot,
-            remote_head_slot = peerSlot, local_head_slot = headSlot
+      info "Backfill complete",
+           wall_clock_slot = man.getLocalWallSlot(),
+           remote_head_slot = peerSlot,
+           local_head_slot = man.getLocalHeadSlot()
 
     # We clear SyncManager's `notInSyncEvent` so all the workers will become
     # sleeping soon.
@@ -340,31 +344,42 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     return
 
   # Find out if the peer potentially can give useful blocks - in the case of
-  # forward sync, they can be useful if they have blocks newer than our head -
+  # forward sync, they can be useful if they have blocks newer than finalized -
   # in the case of backwards sync, they're useful if they have blocks newer than
   # the backfill point
-  if man.getFirstSlot() >= peerSlot:
+  if man.getSafeSlot() >= peerSlot:
     # This is not very good solution because we should not discriminate and/or
     # penalize peers which are in sync process too, but their latest head is
-    # lower then our latest head. We should keep connections with such peers
+    # lower then our finalized. We should keep connections with such peers
     # (so this peers are able to get in sync using our data), but we should
     # not use this peers for syncing because this peers are useless for us.
     # Right now we decreasing peer's score a bit, so it will not be
     # disconnected due to low peer's score, but new fresh peers could replace
     # peers with low latest head.
-    debug "Peer's head slot is lower then local head slot", peer = peer,
-          wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
+    debug "Peer's head slot is lower then local safe slot",
+          wall_clock_slot = man.getLocalWallSlot(),
+          remote_head_slot = peerSlot,
+          local_safe_slot = man.getSafeSlot(),
           local_last_slot = man.getLastSlot(),
-          local_first_slot = man.getFirstSlot(),
-          direction = man.direction
+          local_first_slot = man.getFirstSlot()
     peer.updateScore(PeerScoreUseless)
     return
 
-  # Wall clock keeps ticking, so we need to update the queue
+  # Try to obtain a request based on current peer status
   man.queue.updateLastSlot(man.getLastSlot())
+  var req = man.queue.pop(peerSlot, peer)
+  if req.isEmpty() and not didUpdateStatus:
+    man.workers[index].status = SyncWorkerStatus.UpdatingStatus
 
+    # Avoid a stampede of requests, but make them more frequent in case the
+    # peer is "close" to the slot range of interest
+    if peerStatusAge < StatusExpirationTime div 2:
+      await sleepAsync(StatusExpirationTime div 2 - peerStatusAge)
+
+    peerSlot = (await man.updateStatus(index, peer)).valueOr: return
+    man.queue.updateLastSlot(man.getLastSlot())
+    req = man.queue.pop(peerSlot, peer)
   man.workers[index].status = SyncWorkerStatus.Requesting
-  let req = man.queue.pop(peerSlot, peer)
   if req.isEmpty():
     # SyncQueue could return empty request in 2 cases:
     # 1. There no more slots in SyncQueue to download (we are synced, but
@@ -374,16 +389,21 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     # To avoid endless loop we going to wait for RESP_TIMEOUT time here.
     # This time is enough for all pending requests to finish and it is also
     # enough for main sync loop to clear ``notInSyncEvent``.
-    debug "Empty request received from queue, exiting", peer = peer,
-          local_head_slot = headSlot, remote_head_slot = peerSlot,
+    debug "Empty request received from queue, exiting",
+          local_head_slot = man.getLocalHeadSlot(),
+          remote_head_slot = peerSlot,
           queue_input_slot = man.queue.inpSlot,
           queue_output_slot = man.queue.outSlot,
-          queue_last_slot = man.queue.finalSlot, direction = man.direction
+          queue_last_slot = man.queue.finalSlot
     await sleepAsync(RESP_TIMEOUT_DUR)
+    if man.notInSyncEvent.isSet:
+      peer.updateScore(PeerScoreUseless)
     return
 
-  debug "Creating new request for peer", wall_clock_slot = wallSlot,
-        remote_head_slot = peerSlot, local_head_slot = headSlot,
+  debug "Creating new request for peer",
+        wall_clock_slot = man.getLocalWallSlot(),
+        remote_head_slot = peerSlot,
+        local_head_slot = man.getLocalHeadSlot(),
         request = req
 
   man.workers[index].status = SyncWorkerStatus.Downloading
@@ -404,8 +424,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     peer.updateScore(PeerScoreBadResponse)
     man.queue.push(req)
     warn "Received blocks sequence is not in requested range",
-          blocks_count = len(blockData), blocks_map = blockSmap,
-          request = req
+         blocks_count = len(blockData), blocks_map = blockSmap, request = req
     return
 
   func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
@@ -424,8 +443,8 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
         return
       let blobData = blobs.get().asSeq()
       let blobSmap = getShortMap(req, blobData)
-      debug "Received blobs on request", blobs_count = len(blobData),
-                      blobs_map = blobSmap, request = req
+      debug "Received blobs on request",
+            blobs_count = len(blobData), blobs_map = blobSmap, request = req
 
       if len(blobData) > 0:
         let slots = mapIt(blobData, it[].signed_block_header.message.slot)
@@ -434,24 +453,23 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           peer.updateScore(PeerScoreBadResponse)
           man.queue.push(req)
           warn "Received blobs sequence is not in requested range",
-            blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
-                          request = req
+               blobs_count = len(blobData), blobs_map = blobSmap, request = req
           return
       let groupedBlobs = groupBlobs(req, blockData, blobData)
       if groupedBlobs.isErr():
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
         info "Received blobs sequence is inconsistent",
-          blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
+             blobs_map = blobSmap, request = req, msg = groupedBlobs.error()
         return
       if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
         peer.updateScore(PeerScoreBadResponse)
         man.queue.push(req)
         warn "Received blobs sequence is invalid",
-          blobs_count = len(blobData),
-          blobs_map = getShortMap(req, blobData),
-          request = req,
-          msg = checkRes.error
+             blobs_count = len(blobData),
+             blobs_map = blobSmap,
+             request = req,
+             msg = checkRes.error
         return
       Opt.some(groupedBlobs.get())
     else:
