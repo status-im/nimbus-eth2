@@ -1,35 +1,24 @@
 import
-  std/[sequtils, strutils, os],
+  std/[strutils, os],
   stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
-  web3/[conversions],
-  web3/primitives as web3types,
   eth/common/eth_types_json_serialization,
   ../spec/[eth2_ssz_serialization, forks]
 
-export
-  web3types, conversions, RuntimeConfig
+export RuntimeConfig
 
 const
   vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
 
 type
-  Eth1BlockHash = web3types.BlockHash
-
   Eth1Network = enum
     mainnet
-    goerli
     sepolia
-    holesky
 
   GenesisMetadataKind* = enum
     NoGenesis
     UserSuppliedFile
     BakedIn
     BakedInUrl
-
-  DownloadInfo = object
-    url: string
-    digest: Eth2Digest
 
   GenesisMetadata = object
     case kind*: GenesisMetadataKind
@@ -58,27 +47,10 @@ type
 func hasGenesis*(metadata: Eth2NetworkMetadata): bool =
   metadata.genesis.kind != NoGenesis
 
-proc readBootstrapNodes(path: string): seq[string] {.raises: [IOError].} =
-  if fileExists(path):
-    splitLines(readFile(path)).
-      filterIt(it.startsWith("enr:")).
-      mapIt(it.strip())
-  else:
-    @[]
-
-proc readBootEnr(path: string): seq[string] {.raises: [IOError].} =
-  if fileExists(path):
-    splitLines(readFile(path)).
-      filterIt(it.startsWith("- enr:")).
-      mapIt(it[2..^1].strip())
-  else:
-    @[]
-
 proc loadEth2NetworkMetadata*(
     path: string,
     eth1Network = none(Eth1Network),
     isCompileTime = false,
-    downloadGenesisFrom = none(DownloadInfo),
     useBakedInGenesis = none(string)
 ): Result[Eth2NetworkMetadata, string] {.raises: [IOError, PresetFileError].} =
 
@@ -90,8 +62,6 @@ proc loadEth2NetworkMetadata*(
       deployBlockPath = path & "/deploy_block.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       depositContractBlockHashPath = path & "/deposit_contract_block_hash.txt"
-      bootstrapNodesPath = path & "/bootstrap_nodes.txt"
-      bootEnrPath = path & "/boot_enr.yaml"
       runtimeConfig = if fileExists(configPath):
         let (cfg, unknowns) = readRuntimeConfig(configPath)
         if unknowns.len > 0:
@@ -141,10 +111,6 @@ proc loadEth2NetworkMetadata*(
       else:
         default(Eth2Digest)
 
-      bootstrapNodes = deduplicate(
-        readBootstrapNodes(bootstrapNodesPath) &
-        readBootEnr(bootEnrPath))
-
       genesisDepositsSnapshot = if fileExists(genesisDepositsSnapshotPath):
         readFile(genesisDepositsSnapshotPath)
       else:
@@ -153,15 +119,10 @@ proc loadEth2NetworkMetadata*(
     ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
-      bootstrapNodes: bootstrapNodes,
       depositContractBlock: depositContractBlock,
       depositContractBlockHash: depositContractBlockHash,
       genesis:
-        if downloadGenesisFrom.isSome:
-          GenesisMetadata(kind: BakedInUrl,
-                          url: downloadGenesisFrom.get.url,
-                          digest: downloadGenesisFrom.get.digest)
-        elif useBakedInGenesis.isSome:
+        if useBakedInGenesis.isSome:
           GenesisMetadata(kind: BakedIn, networkName: useBakedInGenesis.get)
         elif fileExists(genesisPath) and not isCompileTime:
           GenesisMetadata(kind: UserSuppliedFile, path: genesisPath)
@@ -178,13 +139,11 @@ proc loadEth2NetworkMetadata*(
 proc loadCompileTimeNetworkMetadata(
     path: string,
     eth1Network = none(Eth1Network),
-    useBakedInGenesis = none(string),
-    downloadGenesisFrom = none(DownloadInfo)): Eth2NetworkMetadata =
+    useBakedInGenesis = none(string)): Eth2NetworkMetadata =
   if fileExists(path & "/config.yaml"):
     try:
       let res = loadEth2NetworkMetadata(
         path, eth1Network, isCompileTime = true,
-        downloadGenesisFrom = downloadGenesisFrom,
         useBakedInGenesis = useBakedInGenesis)
       if res.isErr:
         macros.error "The current build is misconfigured. " &
@@ -205,9 +164,6 @@ when const_preset == "mainnet":
     mainnetGenesis = slurp(
       vendorDir & "/eth2-networks/shared/mainnet/genesis.ssz")
 
-    praterGenesis = slurp(
-      vendorDir & "/goerli/prater/genesis.ssz")
-
     sepoliaGenesis = slurp(
       vendorDir & "/sepolia/bepolia/genesis.ssz")
 
@@ -217,28 +173,16 @@ when const_preset == "mainnet":
       some mainnet,
       useBakedInGenesis = some "mainnet")
 
-    praterMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/goerli/prater",
-      some goerli,
-      useBakedInGenesis = some "prater")
-
-    holeskyMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/holesky/custom_config_data",
-      some holesky,
-      downloadGenesisFrom = some DownloadInfo(
-        url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.9.1/holesky-genesis.ssz.sz",
-        digest: Eth2Digest.fromHex "0x0ea3f6f9515823b59c863454675fefcd1d8b4f2dbe454db166206a41fda060a0"))
-
     sepoliaMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/sepolia/bepolia",
       some sepolia,
       useBakedInGenesis = some "sepolia")
 
   static:
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
+    for network in [mainnetMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
 
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
+    for network in [mainnetMetadata, sepoliaMetadata]:
       doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
@@ -261,25 +205,10 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       quit 1
 
   let metadata =
-    when const_preset == "gnosis":
-      case toLowerAscii(networkName)
-      of "gnosis":
-        gnosisMetadata
-      of "gnosis-chain":
-        gnosisMetadata
-      of "chiado":
-        chiadoMetadata
-      else:
-        loadRuntimeMetadata()
-
-    elif const_preset == "mainnet":
+    when const_preset == "mainnet":
       case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
-      of "prater", "goerli":
-        praterMetadata
-      of "holesky":
-        holeskyMetadata
       of "sepolia":
         sepoliaMetadata
       else:
@@ -290,23 +219,6 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
 
   metadata
 
-proc getRuntimeConfig(eth2Network: Option[string]): RuntimeConfig =
-  let metadata =
-    if eth2Network.isSome:
-      getMetadataForNetwork(eth2Network.get)
-    else:
-      when const_preset == "mainnet":
-        mainnetMetadata
-      elif const_preset == "gnosis":
-        gnosisMetadata
-      else:
-        # This is a non-standard build (i.e. minimal), and the function was
-        # most likely executed in a test. The best we can do is return a fully
-        # default config:
-        return defaultRuntimeConfig
-
-  metadata.cfg
-
 when const_preset in ["mainnet", "gnosis"]:
   template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
     `networkName Genesis`.toOpenArrayByte(0, `networkName Genesis`.high)
@@ -316,10 +228,6 @@ when const_preset in ["mainnet", "gnosis"]:
       "Baked-in genesis states for the official Ethereum " &
       "networks are available only in the mainnet build of Nimbus"
 
-    availableOnlyInGnosisBuild =
-      "Baked-in genesis states for the Gnosis network " &
-      "are available only in the gnosis build of Nimbus"
-
   template bakedBytes(metadata: GenesisMetadata): auto =
     case metadata.networkName
     of "mainnet":
@@ -327,26 +235,11 @@ when const_preset in ["mainnet", "gnosis"]:
         bakedInGenesisStateAsBytes mainnet
       else:
         raiseAssert availableOnlyInMainnetBuild
-    of "prater":
-      when const_preset == "mainnet":
-        bakedInGenesisStateAsBytes prater
-      else:
-        raiseAssert availableOnlyInMainnetBuild
     of "sepolia":
       when const_preset == "mainnet":
         bakedInGenesisStateAsBytes sepolia
       else:
         raiseAssert availableOnlyInMainnetBuild
-    of "gnosis":
-      when const_preset == "gnosis":
-        bakedInGenesisStateAsBytes gnosis
-      else:
-        raiseAssert availableOnlyInGnosisBuild
-    of "chiado":
-      when const_preset == "gnosis":
-        bakedInGenesisStateAsBytes chiado
-      else:
-        raiseAssert availableOnlyInGnosisBuild
     else:
       raiseAssert "The baked network metadata should use one of the name above"
 

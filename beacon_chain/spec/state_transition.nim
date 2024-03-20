@@ -1,36 +1,9 @@
-{.push raises: [].}
-
 import
   results,
   "."/[
     beaconstate, eth2_merkleization, forks]
 
 export results
-
-proc verify_block_signature(
-    state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
-    Result[void, cstring] =
-  let
-    proposer_index = signed_block.message.proposer_index
-  if proposer_index >= state.validators.lenu64:
-   return err("block: invalid proposer index")
-
-  ok()
-
-func verifyStateRoot(
-    state: ForkyBeaconState,
-    blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
-    Result[void, cstring] =
-  let state_root = hash_tree_root(state)
-  if state_root != blck.state_root:
-    err("block: state root verification failed")
-  else:
-    ok()
-
-func verifyStateRoot(
-    state: ForkyBeaconState, blck: ForkyTrustedBeaconBlock):
-    Result[void, cstring] =
-  ok()
 
 type
   RollbackProc* = proc() {.gcsafe, noSideEffect, raises: [].}
