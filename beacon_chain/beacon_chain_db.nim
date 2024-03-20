@@ -5,8 +5,7 @@ import
   serialization, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata,
-  ./spec/[deposit_snapshots,
-          eth2_ssz_serialization,
+  ./spec/[eth2_ssz_serialization,
           eth2_merkleization,
           forks,
           presets,
@@ -17,7 +16,7 @@ from ./spec/datatypes/capella import BeaconState
 from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
 export
   eth2_ssz_serialization, eth2_merkleization, kvstore,
-  kvstore_sqlite3, deposit_snapshots
+  kvstore_sqlite3
 type
   DbSeq[T] = object
     insertStmt: SqliteStmt[openArray[byte], void]

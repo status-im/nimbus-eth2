@@ -1,10 +1,8 @@
-{.push raises: [].}
-
 import
   std/[options, unicode, uri],
   confutils, confutils/defs, confutils/std/net,
   stew/[io2, byteutils],
-  json_serialization, web3/[primitives, confutils_defs],
+  json_serialization,
   ./spec/[keystore, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata
@@ -270,48 +268,6 @@ type
       genesisState* {.
         desc: "SSZ file specifying the genesis state of the network (for networks without a built-in genesis state)"
         name: "genesis-state" .}: Option[InputFile]
-
-      genesisStateUrl* {.
-        desc: "URL for obtaining the genesis state of the network (for networks without a built-in genesis state)"
-        name: "genesis-state-url" .}: Option[Uri]
-
-      finalizedDepositTreeSnapshot* {.
-        desc: "SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot"
-        name: "finalized-deposit-tree-snapshot" .}: Option[InputFile]
-
-      finalizedCheckpointBlock* {.
-        hidden
-        desc: "SSZ file specifying a recent finalized block"
-        name: "finalized-checkpoint-block" .}: Option[InputFile]
-
-      nodeName* {.
-        desc: "A name for this node that will appear in the logs. " &
-              "If you set this to 'auto', a persistent automatically generated ID will be selected for each --data-dir folder"
-        defaultValue: ""
-        name: "node-name" .}: string
-
-      graffiti* {.
-        desc: "The graffiti value that will appear in proposed blocks. " &
-              "You can use a 0x-prefixed hex encoded string to specify raw bytes"
-        name: "graffiti" .}: Option[GraffitiBytes]
-
-      strictVerification* {.
-        hidden
-        desc: "Specify whether to verify finalization occurs on schedule (debug only)"
-        defaultValue: false
-        name: "verify-finalization" .}: bool
-
-      stopAtEpoch* {.
-        hidden
-        desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
-        defaultValue: 0
-        name: "debug-stop-at-epoch" .}: uint64
-
-      stopAtSyncedEpoch* {.
-        hidden
-        desc: "The synced epoch at which to exit the program. (for testing purposes)"
-        defaultValue: 0
-        name: "stop-at-synced-epoch" .}: uint64
 
   AnyConf* = BeaconNodeConf
 

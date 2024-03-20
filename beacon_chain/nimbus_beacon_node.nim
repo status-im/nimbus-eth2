@@ -3,7 +3,6 @@ import
   chronos,
   stew/io2,
   ./spec/datatypes/[altair, bellatrix, phase0],
-  ./spec/deposit_snapshots,
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node,
@@ -60,14 +59,6 @@ proc init*(T: type BeaconNode,
     tmp
   else:
     nil
-
-  if config.finalizedDepositTreeSnapshot.isSome:
-    let
-      depositTreeSnapshotPath = config.finalizedDepositTreeSnapshot.get.string
-    discard try:
-      SSZ.loadFile(depositTreeSnapshotPath, DepositTreeSnapshot)
-    except CatchableError:
-      quit 1
 
   var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
