@@ -143,6 +143,12 @@ proc advanceClearanceState*(
   # epoch transition ahead of time.
   # Notably, we use the clearance state here because that's where the block will
   # first be seen - later, this state will be copied to the head state!
+
+  if chainIsDegraded and dag.clearanceState.latest_block_id != dag.head.bid:
+    # The last block that was resolved may not be canonical.
+    # If that's the case, we first have to copy `headState` to `clearanceState`
+    assign(dag.clearanceState, dag.headState)
+
   let advanced = withState(dag.clearanceState):
     forkyState.data.slot > forkyState.data.latest_block_header.slot
   if not advanced or chainIsDegraded:
