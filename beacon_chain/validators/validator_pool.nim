@@ -16,7 +16,6 @@ type
     index*: Opt[ValidatorIndex]
     validator*: Opt[Validator]
   SignatureResult = Result[ValidatorSig, string]
-  ValidatorPool* = object
 func shortLog*(v: AttachedValidator): string =
   case v.kind
   of ValidatorKind.Local:

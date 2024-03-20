@@ -18,7 +18,6 @@ export
 type
   BeaconNode* = ref object
     config*: BeaconNodeConf
-    attachedValidators*: ref ValidatorPool
     elManager*: ELManager
     genesisSnapshotContent*: string
     beaconClock*: BeaconClock

@@ -120,12 +120,8 @@ proc init*(T: type BeaconNode,
 
   let elManager = default(ELManager)
 
-  let
-    validatorPool = new ValidatorPool
-
   let node = BeaconNode(
     config: config,
-    attachedValidators: validatorPool,
     elManager: elManager,
     beaconClock: beaconClock,
     cfg: cfg,
