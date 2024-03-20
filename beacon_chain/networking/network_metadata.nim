@@ -6,31 +6,16 @@ import
   eth/common/eth_types_json_serialization,
   ../spec/[eth2_ssz_serialization, forks]
 
-# TODO(zah):
-# We can compress the embedded states with snappy before embedding them here.
-
-# ATTENTION! This file is intentionally avoiding the Nim `/` operator for
-# constructing paths. The standard operator is relying the `DirSep` constant
-# which depends on the selected target OS (when doing cross-compilation), so
-# the compile-time manipulation of paths performed here will break (e.g. when
-# cross-compiling for Windows from Linux)
-#
-# Nim seems to need a more general solution for detecting the host OS during
-# compilation, so a host OS specific separator can be used when deriving paths
-# from `currentSourcePath`.
-
 export
   web3types, conversions, RuntimeConfig
 
 const
   vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
 
-  incbinEnabled* = sizeof(pointer) == 8
-
 type
-  Eth1BlockHash* = web3types.BlockHash
+  Eth1BlockHash = web3types.BlockHash
 
-  Eth1Network* = enum
+  Eth1Network = enum
     mainnet
     goerli
     sepolia
@@ -42,44 +27,38 @@ type
     BakedIn
     BakedInUrl
 
-  DownloadInfo* = object
+  DownloadInfo = object
     url: string
     digest: Eth2Digest
 
-  GenesisMetadata* = object
+  GenesisMetadata = object
     case kind*: GenesisMetadataKind
     of NoGenesis:
       discard
     of UserSuppliedFile:
-      path*: string
+      path: string
     of BakedIn:
-      networkName*: string
+      networkName: string
     of BakedInUrl:
-      url*: string
-      digest*: Eth2Digest
+      url: string
+      digest: Eth2Digest
 
   Eth2NetworkMetadata* = object
-    # If the eth1Network is specified, the ELManager will perform some
-    # additional checks to ensure we are connecting to a web3 provider
-    # serving data for the same network. The value can be set to `None`
-    # for custom networks and testing purposes.
-    eth1Network*: Option[Eth1Network]
+    eth1Network: Option[Eth1Network]
     cfg*: RuntimeConfig
 
-    # Parsing `enr.Records` is still not possible at compile-time
-    bootstrapNodes*: seq[string]
+    bootstrapNodes: seq[string]
 
-    depositContractBlock*: uint64
-    depositContractBlockHash*: Eth2Digest
+    depositContractBlock: uint64
+    depositContractBlockHash: Eth2Digest
 
     genesis*: GenesisMetadata
-    genesisDepositsSnapshot*: string
+    genesisDepositsSnapshot: string
 
 func hasGenesis*(metadata: Eth2NetworkMetadata): bool =
   metadata.genesis.kind != NoGenesis
 
-proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError].} =
-  # Read a list of ENR values from a YAML file containing a flat list of entries
+proc readBootstrapNodes(path: string): seq[string] {.raises: [IOError].} =
   if fileExists(path):
     splitLines(readFile(path)).
       filterIt(it.startsWith("enr:")).
@@ -87,8 +66,7 @@ proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError].} =
   else:
     @[]
 
-proc readBootEnr*(path: string): seq[string] {.raises: [IOError].} =
-  # Read a list of ENR values from a YAML file containing a flat list of entries
+proc readBootEnr(path: string): seq[string] {.raises: [IOError].} =
   if fileExists(path):
     splitLines(readFile(path)).
       filterIt(it.startsWith("- enr:")).
@@ -103,8 +81,6 @@ proc loadEth2NetworkMetadata*(
     downloadGenesisFrom = none(DownloadInfo),
     useBakedInGenesis = none(string)
 ): Result[Eth2NetworkMetadata, string] {.raises: [IOError, PresetFileError].} =
-  # Load data in eth2-networks format
-  # https://github.com/eth-clients/eth2-networks
 
   try:
     let
@@ -224,80 +200,16 @@ proc loadCompileTimeNetworkMetadata(
   else:
     macros.error "config.yaml not found for network '" & path
 
-when const_preset == "gnosis":
-  when incbinEnabled:
-    let
-      gnosisGenesis* {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
-      gnosisGenesisSize* {.importc: "gnosis_mainnet_genesis_size".}: int
-
-      chiadoGenesis* {.importc: "gnosis_chiado_genesis".}: ptr UncheckedArray[byte]
-      chiadoGenesisSize* {.importc: "gnosis_chiado_genesis_size".}: int
-
-    # let `.incbin` in assembly file find the binary file through search path
-    {.passc: "-I" & vendorDir.}
-    {.compile: "network_metadata_gnosis.S".}
-
-  else:
-    const
-      gnosisGenesis* = slurp(
-        vendorDir & "/gnosis-chain-configs/mainnet/genesis.ssz")
-
-      chiadoGenesis* = slurp(
-        vendorDir & "/gnosis-chain-configs/chiado/genesis.ssz")
-
+when const_preset == "mainnet":
   const
-    gnosisMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/gnosis-chain-configs/mainnet",
-      none(Eth1Network),
-      useBakedInGenesis = some "gnosis")
+    mainnetGenesis = slurp(
+      vendorDir & "/eth2-networks/shared/mainnet/genesis.ssz")
 
-    chiadoMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/gnosis-chain-configs/chiado",
-      none(Eth1Network),
-      useBakedInGenesis = some "chiado")
+    praterGenesis = slurp(
+      vendorDir & "/goerli/prater/genesis.ssz")
 
-  static:
-    for network in [gnosisMetadata, chiadoMetadata]:
-      checkForkConsistency(network.cfg)
-
-    for network in [gnosisMetadata, chiadoMetadata]:
-      doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
-      static: doAssert ConsensusFork.high == ConsensusFork.Electra
-
-elif const_preset == "mainnet":
-  when incbinEnabled:
-    # Nim is very inefficent at loading large constants from binary files so we
-    # use this trick instead which saves significant amounts of compile time
-    {.push hint[GlobalVar]:off.}
-    let
-      mainnetGenesis* {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
-      mainnetGenesisSize* {.importc: "eth2_mainnet_genesis_size".}: int
-
-      praterGenesis* {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
-      praterGenesisSize* {.importc: "eth2_goerli_genesis_size".}: int
-
-      sepoliaGenesis* {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
-      sepoliaGenesisSize* {.importc: "eth2_sepolia_genesis_size".}: int
-    {.pop.}
-
-    # let `.incbin` in assembly file find the binary file through search path
-    {.passc: "-I" & vendorDir.}
-    {.compile: "network_metadata_mainnet.S".}
-
-  else:
-    const
-      mainnetGenesis* = slurp(
-        vendorDir & "/eth2-networks/shared/mainnet/genesis.ssz")
-
-      praterGenesis* = slurp(
-        vendorDir & "/goerli/prater/genesis.ssz")
-
-      sepoliaGenesis* = slurp(
-        vendorDir & "/sepolia/bepolia/genesis.ssz")
+    sepoliaGenesis = slurp(
+      vendorDir & "/sepolia/bepolia/genesis.ssz")
 
   const
     mainnetMetadata = loadCompileTimeNetworkMetadata(
@@ -378,15 +290,7 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
 
   metadata
 
-proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig =
-  ## Returns the run-time config for a network specified on the command line
-  ## If the network is not explicitly specified, the function will act as the
-  ## regular Nimbus binary, returning the mainnet config.
-  ##
-  ## TODO the assumption that the input variable is a CLI config option is not
-  ## quite appropriate in such as low-level function. The "assume mainnet by
-  ## default" behavior is something that should be handled closer to the `conf`
-  ## layer.
+proc getRuntimeConfig(eth2Network: Option[string]): RuntimeConfig =
   let metadata =
     if eth2Network.isSome:
       getMetadataForNetwork(eth2Network.get)
@@ -405,10 +309,7 @@ proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig =
 
 when const_preset in ["mainnet", "gnosis"]:
   template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
-    when incbinEnabled:
-      `networkName Genesis`.toOpenArray(0, `networkName GenesisSize` - 1)
-    else:
-      `networkName Genesis`.toOpenArrayByte(0, `networkName Genesis`.high)
+    `networkName Genesis`.toOpenArrayByte(0, `networkName Genesis`.high)
 
   const
     availableOnlyInMainnetBuild =
@@ -419,7 +320,7 @@ when const_preset in ["mainnet", "gnosis"]:
       "Baked-in genesis states for the Gnosis network " &
       "are available only in the gnosis build of Nimbus"
 
-  template bakedBytes*(metadata: GenesisMetadata): auto =
+  template bakedBytes(metadata: GenesisMetadata): auto =
     case metadata.networkName
     of "mainnet":
       when const_preset == "mainnet":
@@ -462,10 +363,10 @@ when const_preset in ["mainnet", "gnosis"]:
     else:
       Opt.none Eth2Digest
 else:
-  func bakedBytes*(metadata: GenesisMetadata): seq[byte] =
+  func bakedBytes(metadata: GenesisMetadata): seq[byte] =
     raiseAssert "Baked genesis states are not available in the current build mode"
 
-  func bakedGenesisValidatorsRoot*(metadata: Eth2NetworkMetadata): Opt[Eth2Digest] =
+  func bakedGenesisValidatorsRoot(metadata: Eth2NetworkMetadata): Opt[Eth2Digest] =
     Opt.none Eth2Digest
 
 import stew/io2
