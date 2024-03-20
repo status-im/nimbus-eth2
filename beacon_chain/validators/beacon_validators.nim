@@ -6,8 +6,7 @@ import
   stew/[assign2, byteutils],
   chronos,
   ../spec/[
-    eth2_merkleization, forks, helpers, signatures, state_transition,
-    validator],
+    eth2_merkleization, forks, helpers, signatures, state_transition],
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     slashing_protection, validator_pool]
