@@ -44,7 +44,6 @@ proc init*(T: type BeaconNode,
            metadata: Eth2NetworkMetadata): Future[BeaconNode]
           {.async.} =
   template cfg: auto = metadata.cfg
-  discard BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   let checkpointState = if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string

@@ -1,6 +1,6 @@
 import
   chronos,
-  "."/[beacon_clock, beacon_chain_db, conf],
+  "."/[beacon_clock, conf],
   ./el/el_manager,
   ./spec/forks,
   ./validators/[
@@ -10,7 +10,7 @@ import "."/consensus_object_pools/block_dag
 
 export
   chronos,
-  beacon_clock, beacon_chain_db, conf,
+  beacon_clock, conf,
   el_manager,
   forks,
   base, message_router, validator_pool
