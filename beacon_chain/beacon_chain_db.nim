@@ -10,8 +10,7 @@ import
           forks,
           presets,
           state_transition],
-  ./spec/datatypes/[phase0, altair, bellatrix],
-  "."/filepath
+  ./spec/datatypes/[phase0, altair, bellatrix]
 from ./spec/datatypes/capella import BeaconState
 from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
 export
@@ -211,7 +210,7 @@ proc new(T: type BeaconChainDBV0,
     ): BeaconChainDBV0 =
   BeaconChainDBV0(
   )
-proc new*(T: type BeaconChainDB,
+proc new(T: type BeaconChainDB,
           db: SqStoreRef,
           cfg: RuntimeConfig = defaultRuntimeConfig
     ): BeaconChainDB =
@@ -285,7 +284,7 @@ proc new*(T: type BeaconChainDB,
       SqStoreRef.init("", "test", readOnly = readOnly, inMemory = true).expect(
         "working database (out of memory?)")
     else:
-      if (let res = secureCreatePath(dir); res.isErr):
+      if (let res = createPath(dir, 0o700); res.isErr):
         quit 1
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()

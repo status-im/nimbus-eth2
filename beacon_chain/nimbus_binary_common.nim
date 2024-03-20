@@ -42,7 +42,6 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
 
 when defaultChroniclesStream.outputs.type.arity == 2:
   from std/os import splitFile
-  from "."/filepath import secureCreatePath
 
 proc setupFileLimits*() =
   when not defined(windows):
@@ -87,7 +86,7 @@ proc setupLogging*(
         let
           logFile = logFile.get.string
           logFileDir = splitFile(logFile).dir
-          lres = secureCreatePath(logFileDir)
+          lres = createPath(logFileDir, 0o700)
         if lres.isOk():
           try:
             let

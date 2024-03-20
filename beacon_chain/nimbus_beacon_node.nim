@@ -159,7 +159,7 @@ proc start(node: BeaconNode) {.raises: [CatchableError].} =
 when isMainModule:
   import
     confutils,
-    ../beacon_chain/[conf, filepath]
+    ../beacon_chain/conf
   const
     dataDir = "./test_keymanager_api"
     nodeDataDir = dataDir / "node-0"
