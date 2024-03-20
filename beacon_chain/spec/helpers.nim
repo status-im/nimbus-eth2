@@ -1,5 +1,5 @@
 import
-  stew/[byteutils, endians2, objects],
+  stew/[byteutils, endians2],
   "."/[eth2_merkleization, forks]
 
 func is_active_validator(validator: Validator, epoch: Epoch): bool =

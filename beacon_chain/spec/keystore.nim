@@ -1,25 +1,20 @@
 {.push raises: [].}
 
 import
-  # Standard library
-  std/[math, parseutils, strformat, strutils, typetraits, unicode,
+  std/[math, strformat, strutils, typetraits, unicode,
        uri, hashes],
-  # Third-party libraries
   normalize,
-  # Status libraries
   results,
   stew/[base10, io2, endians2], stew/shims/macros,
   eth/keyfile/uuid, blscurve,
   json_serialization, json_serialization/std/options,
   chronos/timer,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
-  # Local modules
   libp2p/crypto/crypto as lcrypto,
   ./datatypes/base,  ./signatures
 
 export base, uri, io2, options
 
-# We use `ncrutils` for constant-time hexadecimal encoding/decoding procedures.
 import nimcrypto/utils as ncrutils
 
 export
@@ -31,120 +26,109 @@ type
   KeystoreMode* = enum
     Secure, Fast
 
-  ChecksumFunctionKind* = enum
+  ChecksumFunctionKind = enum
     sha256Checksum = "sha256"
 
-  Sha256Params* = object
-  Sha256Digest* = MDigest[256]
+  Sha256Params = object
+  Sha256Digest = MDigest[256]
 
-  ChecksumBytes* = distinct seq[byte]
+  ChecksumBytes = distinct seq[byte]
 
-  Checksum* = object
-    case function*: ChecksumFunctionKind
+  Checksum = object
+    case function: ChecksumFunctionKind
     of sha256Checksum:
-      params*: Sha256Params
-      message*: Sha256Digest
+      params: Sha256Params
+      message: Sha256Digest
 
-  Aes128CtrIv* = distinct seq[byte]
+  Aes128CtrIv = distinct seq[byte]
 
-  Aes128CtrParams* = object
-    iv*: Aes128CtrIv
+  Aes128CtrParams = object
+    iv: Aes128CtrIv
 
-  CipherFunctionKind* = enum
+  CipherFunctionKind = enum
     aes128CtrCipher = "aes-128-ctr"
 
-  CipherBytes* = distinct seq[byte]
+  CipherBytes = distinct seq[byte]
 
-  Cipher* = object
-    case function*: CipherFunctionKind
+  Cipher = object
+    case function: CipherFunctionKind
     of aes128CtrCipher:
-      params*: Aes128CtrParams
-    message*: CipherBytes
+      params: Aes128CtrParams
+    message: CipherBytes
 
   KdfKind* = enum
     kdfPbkdf2 = "pbkdf2"
     kdfScrypt = "scrypt"
 
-  ScryptSalt* = distinct seq[byte]
+  ScryptSalt = distinct seq[byte]
 
-  ScryptParams* = object
-    dklen*: uint64
-    n*, p*, r*: int
-    salt*: ScryptSalt
+  ScryptParams = object
+    dklen: uint64
+    n, p, r: int
+    salt: ScryptSalt
 
   Pbkdf2Salt* = distinct seq[byte]
 
-  PrfKind* = enum # Pseudo-random-function Kind
+  PrfKind = enum # Pseudo-random-function Kind
     HmacSha256 = "hmac-sha256"
 
-  Pbkdf2Params* = object
-    dklen*: uint64
-    c*: uint64
-    prf*: PrfKind
-    salt*: Pbkdf2Salt
+  Pbkdf2Params = object
+    dklen: uint64
+    c: uint64
+    prf: PrfKind
+    salt: Pbkdf2Salt
 
-  DecryptionStatus* = enum
+  DecryptionStatus = enum
     Success = "Success"
     InvalidPassword = "Invalid password"
     InvalidKeystore = "Invalid keystore"
 
-  # https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md#specification
-  Wallet* = object
-    uuid*: UUID
-    name*: WalletName
-    version*: uint
-    walletType* {.serializedFieldName: "type"}: string
-    # TODO: The use of `JsonString` can be removed once we
-    #       solve the serialization problem for `Crypto[T]`
-    crypto*: Crypto
-    nextAccount* {.serializedFieldName: "nextaccount".}: Natural
-
-  Kdf* = object
-    case function*: KdfKind
+  Kdf = object
+    case function: KdfKind
     of kdfPbkdf2:
-      pbkdf2Params* {.serializedFieldName: "params".}: Pbkdf2Params
+      pbkdf2Params {.serializedFieldName: "params".}: Pbkdf2Params
     of kdfScrypt:
-      scryptParams* {.serializedFieldName: "params".}: ScryptParams
-    message*: string
+      scryptParams {.serializedFieldName: "params".}: ScryptParams
+    message: string
 
-  Crypto* = object
-    kdf*: Kdf
-    checksum*: Checksum
-    cipher*: Cipher
+  Crypto = object
+    kdf: Kdf
+    checksum: Checksum
+    cipher: Cipher
 
   Keystore* = object
-    crypto*: Crypto
+    crypto: Crypto
     description*: Option[string]
-    pubkey*: ValidatorPubKey
+    pubkey: ValidatorPubKey
     path*: KeyPath
     uuid*: string
     version*: int
 
-  RemoteKeystoreFlag* {.pure.} = enum
+  RemoteKeystoreFlag {.pure.} = enum
     IgnoreSSLVerification, DynamicKeystore
 
-  HttpHostUri* = distinct Uri
+  HttpHostUri = distinct Uri
 
-  RemoteSignerInfo* = object
-    url*: HttpHostUri
-    id*: uint32
-    pubkey*: ValidatorPubKey
+  RemoteSignerInfo = object
+    url: HttpHostUri
+    id: uint32
+    pubkey: ValidatorPubKey
 
   FileLockHandle* = ref object
     ioHandle*: IoLockHandle
     opened*: bool
 
-  RemoteSignerType* {.pure.} = enum
+  RemoteSignerType {.pure.} = enum
     Web3Signer, VerifyingWeb3Signer
 
-  ProvenProperty* = object
-    path*: string
-    description*: Option[string]
-    phase0Index*: Option[GeneralizedIndex]
-    altairIndex*: Option[GeneralizedIndex]
-    bellatrixIndex*: Option[GeneralizedIndex]
-    capellaIndex*: Option[GeneralizedIndex]
-    denebIndex*: Option[GeneralizedIndex]
+  ProvenProperty = object
+    path: string
+    description: Option[string]
+    phase0Index: Option[GeneralizedIndex]
+    altairIndex: Option[GeneralizedIndex]
+    bellatrixIndex: Option[GeneralizedIndex]
+    capellaIndex: Option[GeneralizedIndex]
+    denebIndex: Option[GeneralizedIndex]
 
   KeystoreData* = object
     version*: uint64
@@ -155,25 +139,25 @@ type
     path*: KeyPath
     uuid*: string
 
-  NetKeystore* = object
-    crypto*: Crypto
-    description*: Option[string]
-    pubkey*: lcrypto.PublicKey
-    uuid*: string
-    version*: int
+  NetKeystore = object
+    crypto: Crypto
+    description: Option[string]
+    pubkey: lcrypto.PublicKey
+    uuid: string
+    version: int
 
-  RemoteKeystore* = object
-    version*: uint64
-    description*: Option[string]
-    case remoteType*: RemoteSignerType
+  RemoteKeystore = object
+    version: uint64
+    description: Option[string]
+    case remoteType: RemoteSignerType
     of RemoteSignerType.Web3Signer:
       discard
     of RemoteSignerType.VerifyingWeb3Signer:
-      provenBlockProperties*: seq[ProvenProperty]
-    pubkey*: ValidatorPubKey
-    flags*: set[RemoteKeystoreFlag]
-    remotes*: seq[RemoteSignerInfo]
-    threshold*: uint32
+      provenBlockProperties: seq[ProvenProperty]
+    pubkey: ValidatorPubKey
+    flags: set[RemoteKeystoreFlag]
+    remotes: seq[RemoteSignerInfo]
+    threshold: uint32
 
   KsResult*[T] = Result[T, string]
 
@@ -181,21 +165,15 @@ type
     signingKeyKind # Also known as voting key
     withdrawalKeyKind
 
-  UUID* = distinct string
-  WalletName* = distinct string
-  Mnemonic* = distinct string
+  UUID = distinct string
+  WalletName = distinct string
+  Mnemonic = distinct string
   KeyPath* = distinct string
   KeySeed* = distinct seq[byte]
   KeystorePass* = object
     str*: string
 
-  Credentials* = object
-    mnemonic*: Mnemonic
-    keystore*: Keystore
-    signingKey*: ValidatorPrivKey
-    withdrawalKey*: ValidatorPrivKey
-
-  SimpleHexEncodedTypes* = ScryptSalt|ChecksumBytes|CipherBytes
+  SimpleHexEncodedTypes = ScryptSalt|ChecksumBytes|CipherBytes
 
   CacheItemFlag {.pure.} = enum
     Missing, Present
@@ -207,11 +185,11 @@ type
     decryptionKey: seq[byte]
     timestamp: Moment
 
-  KdfSaltKey* = distinct array[32, byte]
+  KdfSaltKey = distinct array[32, byte]
 
-  KeystoreCache* = object
-    expireTime*: Duration
-    table*: Table[KdfSaltKey, KeystoreCacheItem]
+  KeystoreCache = object
+    expireTime: Duration
+    table: Table[KdfSaltKey, KeystoreCacheItem]
 
   KeystoreCacheRef* = ref KeystoreCache
 
@@ -231,12 +209,11 @@ const
     prf: HmacSha256
   )
 
-  # https://eips.ethereum.org/EIPS/eip-2334
   eth2KeyPurpose = 12381
-  eth2CoinType* = 3600
+  eth2CoinType = 3600
   baseKeyPath* = [Natural eth2KeyPurpose, eth2CoinType]
 
-  KeystoreCachePruningTime* = 5.minutes
+  KeystoreCachePruningTime = 5.minutes
 
 UUID.serializesAsBaseIn Json
 KeyPath.serializesAsBaseIn Json
@@ -247,73 +224,26 @@ CipherFunctionKind.serializesAsTextInJson
 PrfKind.serializesAsTextInJson
 KdfKind.serializesAsTextInJson
 
-template `$`*(u: HttpHostUri): string =
+template `$`(u: HttpHostUri): string =
   `$`(Uri(u))
 
-template `==`*(lhs, rhs: HttpHostUri): bool =
+template `==`(lhs, rhs: HttpHostUri): bool =
   Uri(lhs) == Uri(rhs)
 
-template `<`*(lhs, rhs: HttpHostUri): bool =
+template `<`(lhs, rhs: HttpHostUri): bool =
   $Uri(lhs) < $Uri(rhs)
 
-template `$`*(m: Mnemonic): string =
+template `$`(m: Mnemonic): string =
   string(m)
 
-template `==`*(lhs, rhs: WalletName): bool =
+template `==`(lhs, rhs: WalletName): bool =
   string(lhs) == string(rhs)
 
-template `$`*(x: WalletName): string =
+template `$`(x: WalletName): string =
   string(x)
-
-# TODO: `burnMem` in nimcrypto could use distinctBase
-#       to make its usage less error-prone.
-template burnMem*(m: var (Mnemonic|string)) =
-  ncrutils.burnMem(string m)
-
-template burnMem*(m: var KeySeed) =
-  ncrutils.burnMem(distinctBase m)
-
-template burnMem*(m: var KeystorePass) =
-  ncrutils.burnMem(m.str)
-
-func longName*(wallet: Wallet): string =
-  if wallet.name.string == wallet.uuid.string:
-    wallet.name.string
-  else:
-    wallet.name.string & " (" & wallet.uuid.string & ")"
-
-func validateKeyPath*(path: string): Result[KeyPath, cstring] =
-  var digitCount: int
-  var number: BiggestUInt
-  try:
-    for elem in path.string.split("/"):
-      # TODO: doesn't "m" have to be the first character and is it the only
-      # place where it is valid?
-      if elem == "m":
-        continue
-      # parseBiggestUInt can raise if overflow
-      digitCount = elem.parseBiggestUInt(number)
-      if digitCount == 0:
-        return err("Invalid derivation path")
-  except ValueError:
-    return err("KeyPath contains invalid number(s)")
-
-  return ok(KeyPath path)
-
-iterator pathNodes(path: KeyPath): Natural =
-  # TODO: we have exceptions there
-  # and this iterator is used to derive secret keys
-  # if we fail we want to scrub secrets from memory
-  try:
-    for elem in path.string.split("/"):
-      if elem == "m": continue
-      yield parseBiggestUInt(elem)
-  except ValueError:
-    doAssert false, "Make sure you've validated the key path with `validateKeyPath`"
 
 func makeKeyPath*(validatorIdx: Natural,
                   keyType: Eth2KeyKind): KeyPath =
-  # https://eips.ethereum.org/EIPS/eip-2334
   let use = case keyType
             of withdrawalKeyKind: "0"
             of signingKeyKind: "0/0"
@@ -332,57 +262,23 @@ proc init*(T: type KeystorePass, input: string): T =
     if not isControlRune(rune):
       result.str.add rune
 
-func getSeed*(mnemonic: Mnemonic, password: KeystorePass): KeySeed =
-  # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
-  let salt = toNFKD("mnemonic" & password.str)
-  KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
-
-proc generateMnemonic*(
-    rng: var HmacDrbgContext,
-    entropyParam: openArray[byte] = @[]): Mnemonic = default(Mnemonic)
-
 proc deriveChildKey*(parentKey: ValidatorPrivKey,
                      index: Natural): ValidatorPrivKey =
   let success = derive_child_secretKey(SecretKey result,
                                        SecretKey parentKey,
                                        uint32 index)
-  # TODO `derive_child_secretKey` is reporting pre-condition
-  #       failures with return values. We should turn the checks
-  #       into asserts inside the function.
   doAssert success
 
 proc deriveMasterKey*(seed: KeySeed): ValidatorPrivKey =
   let success = derive_master_secretKey(SecretKey result,
                                         seq[byte] seed)
-  # TODO `derive_master_secretKey` is reporting pre-condition
-  #       failures with return values. We should turn the checks
-  #       into asserts inside the function.
   doAssert success
-
-proc deriveMasterKey*(mnemonic: Mnemonic,
-                      password: KeystorePass): ValidatorPrivKey =
-  deriveMasterKey(getSeed(mnemonic, password))
-
-proc deriveChildKey*(masterKey: ValidatorPrivKey,
-                     path: KeyPath): ValidatorPrivKey =
-  result = masterKey
-  for idx in pathNodes(path):
-    result = deriveChildKey(result, idx)
 
 proc deriveChildKey*(masterKey: ValidatorPrivKey,
                      path: openArray[Natural]): ValidatorPrivKey =
   result = masterKey
   for idx in path:
-    # TODO: we have exceptions in pathNodes unless `validateKeyPath`
-    # was called,
-    # and this iterator is used to derive secret keys
-    # if we fail we want to scrub secrets from memory
     result = deriveChildKey(result, idx)
-
-proc keyFromPath*(mnemonic: Mnemonic,
-                  password: KeystorePass,
-                  path: KeyPath): ValidatorPrivKey =
-  deriveChildKey(deriveMasterKey(mnemonic, password), path)
 
 proc shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   var ctx: sha256
@@ -398,7 +294,7 @@ proc writeJsonHexString(s: OutputStream, data: openArray[byte])
   s.write ncrutils.toHex(data, {HexFlags.LowerCase})
   s.write '"'
 
-proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
+proc readValue(r: var JsonReader, value: var Pbkdf2Salt)
                {.raises: [SerializationError, IOError].} =
   let s = r.readValue(string)
 
@@ -412,7 +308,7 @@ proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
     r.raiseUnexpectedValue(
       "The Pbkdf2Salt must be a valid hex string")
 
-proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
+proc readValue(r: var JsonReader, value: var Aes128CtrIv)
                {.raises: [SerializationError, IOError].} =
   let s = r.readValue(string)
 
@@ -425,7 +321,7 @@ proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
     r.raiseUnexpectedValue(
       "The aes-128-ctr IV must be a valid hex string")
 
-proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T) {.
+proc readValue[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T) {.
      raises: [SerializationError, IOError].} =
   value = T ncrutils.fromHex(r.readValue(string))
   if len(seq[byte](value)) == 0:
@@ -472,7 +368,7 @@ template readValueImpl(r: var JsonReader, value: var Checksum) =
       "'function', 'params', and 'message'")
 
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc readValue*(r: var JsonReader[DefaultFlavor], value: var Checksum)
+proc readValue(r: var JsonReader[DefaultFlavor], value: var Checksum)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
 {.pop.}
@@ -513,7 +409,7 @@ template readValueImpl(r: var JsonReader, value: var Cipher) =
       "'function', 'params', and 'message'")
 
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc readValue*(r: var JsonReader[DefaultFlavor], value: var Cipher)
+proc readValue(r: var JsonReader[DefaultFlavor], value: var Cipher)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
 {.pop.}
@@ -552,17 +448,16 @@ template readValueImpl(r: var JsonReader, value: var Kdf) =
       "The Kdf value should have sub-fields named 'function' and 'params'")
 
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc readValue*(r: var JsonReader[DefaultFlavor], value: var Kdf)
+proc readValue(r: var JsonReader[DefaultFlavor], value: var Kdf)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
 {.pop.}
 
-proc readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
+proc readValue(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
   static: raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
     "]` for `readValue` of `" & $typeof(value) & "`"
 
-# HttpHostUri
-proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
+proc readValue(reader: var JsonReader, value: var HttpHostUri) {.
      raises: [IOError, SerializationError].} =
   let svalue = reader.readValue(string)
   let res = parseUri(svalue)
@@ -572,12 +467,11 @@ proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
     reader.raiseUnexpectedValue("Missing URL hostname")
   value = HttpHostUri(res)
 
-proc writeValue*(
+proc writeValue(
     writer: var JsonWriter, value: HttpHostUri) {.raises: [IOError].} =
   writer.writeValue($distinctBase(value))
 
-# RemoteKeystore
-proc writeValue*(
+proc writeValue(
     writer: var JsonWriter, value: RemoteKeystore) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("version", value.version)
@@ -600,27 +494,7 @@ template writeValue*(w: var JsonWriter,
                      value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
   writeJsonHexString(w.stream, distinctBase value)
 
-func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, string] =
-  if propertyPath == ".execution_payload.fee_recipient":
-    ok ProvenProperty(
-      path: propertyPath,
-      bellatrixIndex: some GeneralizedIndex(401),
-      capellaIndex: some GeneralizedIndex(401),
-      denebIndex: some GeneralizedIndex(801))
-  elif propertyPath == ".graffiti":
-    ok ProvenProperty(
-      path: propertyPath,
-      # TODO: graffiti is present since genesis, so the correct index in the early
-      #       forks can be supplied here
-      bellatrixIndex: some GeneralizedIndex(18),
-      capellaIndex: some GeneralizedIndex(18),
-      denebIndex: some GeneralizedIndex(18))
-  else:
-    err("Keystores with proven properties different than " &
-        "`.execution_payload.fee_recipient` and `.graffiti` " &
-        "require a more recent version of Nimbus")
-
-proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
+proc readValue(reader: var JsonReader, value: var RemoteKeystore)
                {.raises: [SerializationError, IOError].} =
   var
     version: Option[uint64]
@@ -633,9 +507,6 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
     pubkey: Option[ValidatorPubKey]
     threshold: Option[uint32]
 
-  # TODO: implementing deserializers for versioned objects
-  #       manually is extremely error-prone. This should use
-  #       the auto-generated deserializer from nim-json-serialization
   for fieldName in readObjectFields(reader):
     case fieldName:
     of "pubkey":
@@ -817,7 +688,6 @@ func areValid(params: Pbkdf2Params): bool =
   if params.c == 0 or params.dklen < 32 or params.salt.bytes.len == 0:
     return false
 
-  # https://www.ietf.org/rfc/rfc2898.txt
   let hLen = case params.prf
     of HmacSha256: 256 / 8
   params.dklen <= high(uint32).uint64 * hLen.uint64
@@ -831,7 +701,7 @@ func areValid(params: ScryptParams): bool =
   params.p == scryptParams.p and
   params.salt.bytes.len > 0
 
-proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
+proc decryptCryptoField(crypto: Crypto, decKey: openArray[byte],
                          outSecret: var seq[byte]): DecryptionStatus =
   if crypto.cipher.message.bytes.len == 0:
     return DecryptionStatus.InvalidKeystore
@@ -857,7 +727,7 @@ proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
     aesCipher.clear()
   DecryptionStatus.Success
 
-proc getDecryptionKey*(crypto: Crypto, password: KeystorePass,
+proc getDecryptionKey(crypto: Crypto, password: KeystorePass,
                        decKey: var seq[byte]): DecryptionStatus =
   let res =
     case crypto.kdf.function
@@ -876,10 +746,9 @@ proc getDecryptionKey*(crypto: Crypto, password: KeystorePass,
   decKey = res
   DecryptionStatus.Success
 
-proc decryptCryptoField*(crypto: Crypto,
+proc decryptCryptoField(crypto: Crypto,
                          password: KeystorePass,
                          outSecret: var seq[byte]): DecryptionStatus =
-  # https://github.com/ethereum/wiki/wiki/Web3-Secret-Storage-Definition
   var decKey: seq[byte]
   if crypto.cipher.message.bytes.len == 0:
     return InvalidKeystore
@@ -897,14 +766,9 @@ template parseKeystore*(jsonContent: string): Keystore =
               requireAllFields = true,
               allowUnknownFields = true)
 
-template parseNetKeystore*(jsonContent: string): NetKeystore =
+template parseNetKeystore(jsonContent: string): NetKeystore =
   Json.decode(jsonContent, NetKeystore,
               requireAllFields = true,
-              allowUnknownFields = true)
-
-template parseRemoteKeystore*(jsonContent: string): RemoteKeystore =
-  Json.decode(jsonContent, RemoteKeystore,
-              requireAllFields = false,
               allowUnknownFields = true)
 
 proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
@@ -930,12 +794,11 @@ proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
         h.update(toBytesLE(uint64(params.r)))
   KdfSaltKey(digest.data)
 
-proc `==`*(a, b: KdfSaltKey): bool {.borrow.}
-proc hash*(salt: KdfSaltKey): Hash {.borrow.}
+proc `==`(a, b: KdfSaltKey): bool {.borrow.}
+proc hash(salt: KdfSaltKey): Hash {.borrow.}
 
 {.push warning[ProveField]:off.}
-func `==`*(a, b: Kdf): bool =
-  # We do not care about `message` field.
+func `==`(a, b: Kdf): bool =
   if a.function != b.function:
     return false
   case a.function
@@ -954,13 +817,8 @@ func `==`*(a, b: Kdf): bool =
     (seq[byte](aparams.salt) == seq[byte](bparams.salt))
 {.pop.}
 
-func `==`*(a, b: Cipher): bool =
-  # We do not care about `params` and `message` fields.
+func `==`(a, b: Cipher): bool =
   a.function == b.function
-
-func `==`*(a, b: KeystoreCacheItem): bool =
-  (a.kdf == b.kdf) and (a.cipher == b.cipher) and
-  (a.decryptionKey == b.decryptionKey)
 
 func init*(t: typedesc[KeystoreCacheRef],
            expireTime = KeystoreCachePruningTime): KeystoreCacheRef =
@@ -969,28 +827,13 @@ func init*(t: typedesc[KeystoreCacheRef],
     expireTime: expireTime
   )
 
-proc clear*(cache: KeystoreCacheRef) =
-  cache.table.clear()
-
-proc pruneExpiredKeys*(cache: KeystoreCacheRef) =
-  if cache.expireTime == InfiniteDuration:
-    return
-  let currentTime = Moment.now()
-  var keys: seq[KdfSaltKey]
-  for key, value in cache.table.mpairs():
-    if currentTime - value.timestamp >= cache.expireTime:
-      keys.add(key)
-      burnMem(value.decryptionKey)
-  for item in keys:
-    cache.table.del(item)
-
-proc init*(t: typedesc[KeystoreCacheItem], keystore: Keystore,
+proc init(t: typedesc[KeystoreCacheItem], keystore: Keystore,
            key: openArray[byte]): KeystoreCacheItem =
   KeystoreCacheItem(flag: CacheItemFlag.Present, kdf: keystore.crypto.kdf,
                     cipher: keystore.crypto.cipher, decryptionKey: @key,
                     timestamp: Moment.now())
 
-proc getCachedKey*(cache: KeystoreCacheRef,
+proc getCachedKey(cache: KeystoreCacheRef,
                    keystore: Keystore, password: KeystorePass): Opt[seq[byte]] =
   if isNil(cache): return Opt.none(seq[byte])
   let
@@ -1006,13 +849,13 @@ proc getCachedKey*(cache: KeystoreCacheRef,
   else:
     Opt.none(seq[byte])
 
-proc setCachedKey*(cache: KeystoreCacheRef, keystore: Keystore,
+proc setCachedKey(cache: KeystoreCacheRef, keystore: Keystore,
                    password: KeystorePass, key: openArray[byte]) =
   if isNil(cache): return
   let saltKey = keystore.getSaltKey(password)
   cache.table[saltKey] = KeystoreCacheItem.init(keystore, key)
 
-proc destroyCacheKey*(cache: KeystoreCacheRef,
+proc destroyCacheKey(cache: KeystoreCacheRef,
                       keystore: Keystore, password: KeystorePass) =
   if isNil(cache): return
   let saltKey = keystore.getSaltKey(password)
@@ -1052,41 +895,21 @@ proc decryptKeystore*(keystore: Keystore,
 
   ValidatorPrivKey.fromRaw(secret).mapErr(cstringToStr)
 
-proc decryptKeystore*(keystore: JsonString,
-                      password: KeystorePass,
-                      cache: KeystoreCacheRef): KsResult[ValidatorPrivKey] =
-  let keystore =
-    try:
-      parseKeystore(string(keystore))
-    except SerializationError as e:
-      return err(e.formatMsg("<keystore>"))
-
-  decryptKeystore(keystore, password, cache)
-
-proc decryptKeystore*(keystore: Keystore,
-                      password: KeystorePass): KsResult[ValidatorPrivKey] =
-  decryptKeystore(keystore, password, nil)
-
-proc decryptKeystore*(keystore: JsonString,
-                      password: KeystorePass): KsResult[ValidatorPrivKey] =
-  decryptKeystore(keystore, password, nil)
-
-proc writeValue*(
+proc writeValue(
     writer: var JsonWriter, value: lcrypto.PublicKey
 ) {.inline, raises: [IOError].} =
   writer.writeValue(ncrutils.toHex(value.getBytes().get(),
                                    {HexFlags.LowerCase}))
 
-proc readValue*(reader: var JsonReader, value: var lcrypto.PublicKey) {.
+proc readValue(reader: var JsonReader, value: var lcrypto.PublicKey) {.
      raises: [SerializationError, IOError].} =
   let res = init(lcrypto.PublicKey, reader.readValue(string))
   if res.isOk():
     value = res.get()
   else:
-    # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
-proc decryptNetKeystore*(nkeystore: NetKeystore,
+proc decryptNetKeystore(nkeystore: NetKeystore,
                          password: KeystorePass): KsResult[lcrypto.PrivateKey] =
   var secret: seq[byte]
   defer: burnMem(secret)
@@ -1101,7 +924,7 @@ proc decryptNetKeystore*(nkeystore: NetKeystore,
   else:
     err $status
 
-proc decryptNetKeystore*(nkeystore: JsonString,
+proc decryptNetKeystore(nkeystore: JsonString,
                          password: KeystorePass): KsResult[lcrypto.PrivateKey] =
   try:
     let keystore = parseNetKeystore(string nkeystore)
@@ -1173,28 +996,6 @@ proc createCryptoField(kdfKind: KdfKind,
       params: Aes128CtrParams(iv: Aes128CtrIv aesIv),
       message: CipherBytes cipherMsg))
 
-proc createNetKeystore*(kdfKind: KdfKind,
-                        rng: var HmacDrbgContext,
-                        privKey: lcrypto.PrivateKey,
-                        password = KeystorePass.init "",
-                        description = "",
-                        salt: openArray[byte] = @[],
-                        iv: openArray[byte] = @[]): NetKeystore =
-  let
-    secret = privKey.getBytes().get()
-    cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv)
-    pubkey = privKey.getPublicKey().get()
-    uuid = uuidGenerate().expect("Random bytes should be available")
-
-  NetKeystore(
-    crypto: cryptoField,
-    pubkey: pubkey,
-    description: if len(description) > 0: some(description)
-                 else: none[string](),
-    uuid: $uuid,
-    version: 1
-  )
-
 proc createKeystore*(kdfKind: KdfKind,
                      rng: var HmacDrbgContext,
                      privKey: ValidatorPrivKey,
@@ -1219,55 +1020,12 @@ proc createKeystore*(kdfKind: KdfKind,
     uuid: $uuid,
     version: 4)
 
-proc createRemoteKeystore*(pubKey: ValidatorPubKey, remoteUri: HttpHostUri,
-                           version = 1'u64, description = "",
-                           remoteType = RemoteSignerType.Web3Signer,
-                          flags: set[RemoteKeystoreFlag] = {}): RemoteKeystore =
-  let signerInfo = RemoteSignerInfo(
-    url: remoteUri,
-    pubkey: pubKey,
-    id: 0
-  )
-  RemoteKeystore(
-    version: version,
-    description: if len(description) > 0: some(description)
-                 else: none[string](),
-    remoteType: remoteType,
-    pubkey: pubKey,
-    remotes: @[signerInfo],
-    flags: flags
-  )
-
-proc createWallet*(kdfKind: KdfKind,
-                   rng: var HmacDrbgContext,
-                   seed: KeySeed,
-                   name = WalletName "",
-                   salt: openArray[byte] = @[],
-                   iv: openArray[byte] = @[],
-                   password = KeystorePass.init "",
-                   nextAccount = none(Natural),
-                   pretty = true): Wallet =
-  let
-    uuid = UUID $(uuidGenerate().expect("Random bytes should be available"))
-    crypto = createCryptoField(kdfKind, rng, distinctBase seed,
-                               password, salt, iv)
-  Wallet(
-    uuid: uuid,
-    name: if name.string.len > 0: name
-          else: WalletName(uuid),
-    version: 1,
-    walletType: "hierarchical deterministic",
-    crypto: crypto,
-    nextAccount: nextAccount.get(0))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/validator.md#bls_withdrawal_prefix
-func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
+func makeWithdrawalCredentials(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/deposit-contract.md#withdrawal-credentials
-proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
+proc makeWithdrawalCredentials(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 
 proc prepareDeposit*(cfg: RuntimeConfig,
