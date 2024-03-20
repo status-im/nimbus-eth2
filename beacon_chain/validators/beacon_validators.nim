@@ -57,6 +57,8 @@ proc getEpochSignature(v: AttachedValidator, fork: Fork,
 
 from std/sequtils import mapIt
 import ".."/spec/mev/[capella_mev, deneb_mev]
+from ".."/spec/datatypes/deneb import
+  BlobSidecar, Blobs, BlobsBundle, KzgProof, KzgProofs, kzg_commitment_inclusion_proof_gindex
 
 type
   EngineBid = tuple[
@@ -127,7 +129,8 @@ proc getBlockProposalEth1Data(node: BeaconNode,
                               BlockProposalEth1Data = default(BlockProposalEth1Data)
 
 import chronicles
-
+from ".."/spec/datatypes/capella import BeaconBlockValidatorChanges, shortLog
+from ".."/spec/datatypes/deneb import KzgCommitments, shortLog
 proc makeBeaconBlock(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
@@ -146,6 +149,8 @@ proc makeBeaconBlock(
     kzg_commitments: Opt[KzgCommitments]):
     Result[ForkedBeaconBlock, cstring] =
   ok(default(ForkedBeaconBlock))
+
+from ".."/spec/datatypes/capella import Withdrawal
 
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
@@ -339,7 +344,7 @@ proc collectBids(
   let
     payloadBuilderBidFut =
       if usePayloadBuilder:
-        when not (EPS is bellatrix.ExecutionPayloadForSigning):
+        when false:
           getBuilderBid[SBBB](node, head,
                               validator_pubkey, slot, randao, validator_index)
         else:
@@ -406,6 +411,7 @@ func builderBetterBid(
   scaledBuilderValue >
     scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
 
+from ".."/spec/datatypes/electra import SignedBeaconBlock, shortLog
 func create_blob_sidecars(
     forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
     kzg_proofs: KzgProofs,
@@ -429,6 +435,8 @@ func create_blob_sidecars(
       sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
     res.add(sidecar)
   res
+
+from ".."/spec/datatypes/bellatrix import shortLog
 
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,

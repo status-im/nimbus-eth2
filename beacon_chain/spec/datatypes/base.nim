@@ -668,7 +668,7 @@ template assignClone*[T: not ref](x: T): ref T =
   # slow - so `assignClone` should be used when RVO doesn't work. sigh.
   mixin assign
   let res = new typeof(x) # TODO safe to do noinit here?
-  assign(res[], x)
+  res[] = x
   res
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will

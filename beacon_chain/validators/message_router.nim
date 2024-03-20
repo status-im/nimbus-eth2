@@ -6,7 +6,8 @@ import
   chronos,
   chronicles,
   ./activity_metrics
-from  ../spec/state_transition_block import validate_blobs
+from ../spec/state_transition_block import validate_blobs
+from ".."/spec/datatypes/deneb import BlobSidecar
 import ".."/spec/forks
 
 type
