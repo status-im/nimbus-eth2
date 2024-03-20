@@ -310,13 +310,14 @@ proc addBlobless*(
   quarantine.missing.del(signedBlock.root)
   true
 
-func popBlobless*(quarantine: var Quarantine, root: Eth2Digest):
-         Opt[deneb.SignedBeaconBlock] =
+func popBlobless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
   var blck: deneb.SignedBeaconBlock
   if quarantine.blobless.pop(root, blck):
-    Opt.some(blck)
+    Opt.some(ForkedSignedBeaconBlock.init(blck))
   else:
-    Opt.none(deneb.SignedBeaconBlock)
+    Opt.none(ForkedSignedBeaconBlock)
 
 iterator peekBlobless*(quarantine: var Quarantine): deneb.SignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():

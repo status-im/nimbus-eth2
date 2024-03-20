@@ -303,15 +303,17 @@ proc processBlobSidecar*(
   let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
     let blobless = o.unsafeGet()
-
-    if self.blobQuarantine[].hasBlobs(blobless):
-      self.blockProcessor[].enqueueBlock(
-        MsgSource.gossip,
-        ForkedSignedBeaconBlock.init(blobless),
-        Opt.some(self.blobQuarantine[].popBlobs(block_root, blobless)))
-    else:
-      discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                            blobless)
+    withBlck(blobless):
+      when consensusFork >= ConsensusFork.Deneb:
+        if self.blobQuarantine[].hasBlobs(forkyBlck):
+          self.blockProcessor[].enqueueBlock(
+            MsgSource.gossip, blobless,
+            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
+        else:
+          discard self.quarantine[].addBlobless(
+            self.dag.finalizedHead.slot, forkyBlck)
+      else:
+        error "Received blob for pre-Deneb block", block_root
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
