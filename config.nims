@@ -52,6 +52,11 @@ switch("passL", "-fno-omit-frame-pointer")
 when true:
   --define:nimStackTraceOverride
   switch("import", "libbacktrace")
+else:
+  --define:noSignalHandler
+
+when true:
+  --tlsEmulation:off
 
 when false:
   switch("passC", "-fstack-protector-all")
