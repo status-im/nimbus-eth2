@@ -1,19 +1,19 @@
 {.push raises: [].}
 
 import
-  std/[math, strformat, strutils, typetraits, unicode,
-       uri, hashes],
-  normalize,
+  std/[math, strformat, typetraits, unicode,
+       hashes],
   results,
+  normalize,
   stew/[base10, io2, endians2], stew/shims/macros,
   eth/keyfile/uuid, blscurve,
   json_serialization, json_serialization/std/options,
   chronos/timer,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   libp2p/crypto/crypto as lcrypto,
-  ./datatypes/base,  ./signatures
+  ./datatypes/base
 
-export base, uri, io2, options
+export base, io2, options
 
 import nimcrypto/utils as ncrutils
 
@@ -104,31 +104,9 @@ type
     uuid*: string
     version*: int
 
-  RemoteKeystoreFlag {.pure.} = enum
-    IgnoreSSLVerification, DynamicKeystore
-
-  HttpHostUri = distinct Uri
-
-  RemoteSignerInfo = object
-    url: HttpHostUri
-    id: uint32
-    pubkey: ValidatorPubKey
-
   FileLockHandle* = ref object
     ioHandle*: IoLockHandle
     opened*: bool
-
-  RemoteSignerType {.pure.} = enum
-    Web3Signer, VerifyingWeb3Signer
-
-  ProvenProperty = object
-    path: string
-    description: Option[string]
-    phase0Index: Option[GeneralizedIndex]
-    altairIndex: Option[GeneralizedIndex]
-    bellatrixIndex: Option[GeneralizedIndex]
-    capellaIndex: Option[GeneralizedIndex]
-    denebIndex: Option[GeneralizedIndex]
 
   KeystoreData* = object
     version*: uint64
@@ -145,19 +123,6 @@ type
     pubkey: lcrypto.PublicKey
     uuid: string
     version: int
-
-  RemoteKeystore = object
-    version: uint64
-    description: Option[string]
-    case remoteType: RemoteSignerType
-    of RemoteSignerType.Web3Signer:
-      discard
-    of RemoteSignerType.VerifyingWeb3Signer:
-      provenBlockProperties: seq[ProvenProperty]
-    pubkey: ValidatorPubKey
-    flags: set[RemoteKeystoreFlag]
-    remotes: seq[RemoteSignerInfo]
-    threshold: uint32
 
   KsResult*[T] = Result[T, string]
 
@@ -223,15 +188,6 @@ ChecksumFunctionKind.serializesAsTextInJson
 CipherFunctionKind.serializesAsTextInJson
 PrfKind.serializesAsTextInJson
 KdfKind.serializesAsTextInJson
-
-template `$`(u: HttpHostUri): string =
-  `$`(Uri(u))
-
-template `==`(lhs, rhs: HttpHostUri): bool =
-  Uri(lhs) == Uri(rhs)
-
-template `<`(lhs, rhs: HttpHostUri): bool =
-  $Uri(lhs) < $Uri(rhs)
 
 template `$`(m: Mnemonic): string =
   string(m)
@@ -457,222 +413,9 @@ proc readValue(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
   static: raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
     "]` for `readValue` of `" & $typeof(value) & "`"
 
-proc readValue(reader: var JsonReader, value: var HttpHostUri) {.
-     raises: [IOError, SerializationError].} =
-  let svalue = reader.readValue(string)
-  let res = parseUri(svalue)
-  if res.scheme != "http" and res.scheme != "https":
-    reader.raiseUnexpectedValue("Incorrect URL scheme")
-  if len(res.hostname) == 0:
-    reader.raiseUnexpectedValue("Missing URL hostname")
-  value = HttpHostUri(res)
-
-proc writeValue(
-    writer: var JsonWriter, value: HttpHostUri) {.raises: [IOError].} =
-  writer.writeValue($distinctBase(value))
-
-proc writeValue(
-    writer: var JsonWriter, value: RemoteKeystore) {.raises: [IOError].} =
-  writer.beginRecord()
-  writer.writeField("version", value.version)
-  writer.writeField("pubkey", "0x" & value.pubkey.toHex())
-  writer.writeField("remotes", value.remotes)
-  writer.writeField("threshold", value.threshold)
-  case value.remoteType
-  of RemoteSignerType.Web3Signer:
-    writer.writeField("type", "web3signer")
-  of RemoteSignerType.VerifyingWeb3Signer:
-    writer.writeField("type", "verifying-web3signer")
-    writer.writeField("proven_block_properties", value.provenBlockProperties)
-  if value.description.isSome():
-    writer.writeField("description", value.description.get())
-  if RemoteKeystoreFlag.IgnoreSSLVerification in value.flags:
-    writer.writeField("ignore_ssl_verification", true)
-  writer.endRecord()
-
 template writeValue*(w: var JsonWriter,
                      value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
   writeJsonHexString(w.stream, distinctBase value)
-
-proc readValue(reader: var JsonReader, value: var RemoteKeystore)
-               {.raises: [SerializationError, IOError].} =
-  var
-    version: Option[uint64]
-    description: Option[string]
-    remote: Option[HttpHostUri]
-    remotes: Option[seq[RemoteSignerInfo]]
-    remoteType: Option[RemoteSignerType]
-    provenBlockProperties: Option[seq[ProvenProperty]]
-    ignoreSslVerification: Option[bool]
-    pubkey: Option[ValidatorPubKey]
-    threshold: Option[uint32]
-
-  for fieldName in readObjectFields(reader):
-    case fieldName:
-    of "pubkey":
-      if pubkey.isSome:
-        reader.raiseUnexpectedField("Multiple `pubkey` fields found",
-                                    "RemoteKeystore")
-      pubkey = some(reader.readValue(ValidatorPubKey))
-    of "remote":
-      if remote.isSome:
-        reader.raiseUnexpectedField("Multiple `remote` fields found",
-                                    "RemoteKeystore")
-      if remotes.isSome:
-        reader.raiseUnexpectedField("The `remote` field cannot be specified together with `remotes`",
-                                    "RemoteKeystore")
-      remote = some(reader.readValue(HttpHostUri))
-    of "remotes":
-      if remotes.isSome:
-        reader.raiseUnexpectedField("Multiple `remote` fields found",
-                                    "RemoteKeystore")
-      if remote.isSome:
-        reader.raiseUnexpectedField("The `remotes` field cannot be specified together with `remote`",
-                                    "RemoteKeystore")
-      if version.isNone:
-        reader.raiseUnexpectedField(
-          "The `remotes` field should be specified after the `version` field of the keystore",
-          "RemoteKeystore")
-      if version.get < 2:
-        reader.raiseUnexpectedField(
-          "The `remotes` field is valid only past version 2 of the remote keystore format",
-          "RemoteKeystore")
-      remotes = some(reader.readValue(seq[RemoteSignerInfo]))
-    of "version":
-      if version.isSome:
-        reader.raiseUnexpectedField("Multiple `version` fields found",
-                                    "RemoteKeystore")
-      version = some(reader.readValue(uint64))
-      if version.get > 3'u64:
-        reader.raiseUnexpectedValue(
-          "Remote keystore version " & $version.get &
-          " requires a more recent version of Nimbus")
-    of "description":
-      if description.isSome:
-        reader.raiseUnexpectedField("Multiple `description` fields found",
-                                    "RemoteKeystore")
-      description = some(reader.readValue(string))
-    of "ignore_ssl_verification":
-      if ignoreSslVerification.isSome:
-        reader.raiseUnexpectedField("Multiple conflicting options found",
-                                    "RemoteKeystore")
-      ignoreSslVerification = some(reader.readValue(bool))
-    of "type":
-      if remoteType.isSome:
-        reader.raiseUnexpectedField("Multiple `type` fields found",
-                                    "RemoteKeystore")
-      let remoteTypeValue = case reader.readValue(string).toLowerAscii()
-        of "web3signer":
-          RemoteSignerType.Web3Signer
-        of "verifying-web3signer":
-          RemoteSignerType.VerifyingWeb3Signer
-        else:
-          reader.raiseUnexpectedValue("Unsupported remote signer `type` value")
-      remoteType = some remoteTypeValue
-    of "proven_block_properties":
-      if provenBlockProperties.isSome:
-        reader.raiseUnexpectedField("Multiple `proven_block_properties` fields found",
-                                    "RemoteKeystore")
-      if version.isNone:
-        reader.raiseUnexpectedField(
-          "The `proven_block_properties` field should be specified after the `version` field of the keystore",
-          "RemoteKeystore")
-      if version.get < 3:
-        reader.raiseUnexpectedField(
-          "The `proven_block_properties` field is valid only past version 3 of the remote keystore format",
-          "RemoteKeystore")
-      if remoteType.isNone:
-        reader.raiseUnexpectedField(
-          "The `proven_block_properties` field should be specified after the `type` field of the keystore",
-          "RemoteKeystore")
-      if remoteType.get != RemoteSignerType.VerifyingWeb3Signer:
-        reader.raiseUnexpectedField(
-          "The `proven_block_properties` field can be specified only when the remote signer type is 'verifying-web3signer'",
-          "RemoteKeystore")
-      var provenProperties = reader.readValue(seq[ProvenProperty])
-      for prop in provenProperties.mitems:
-        if prop.path == ".execution_payload.fee_recipient":
-          prop.bellatrixIndex = some GeneralizedIndex(401)
-          prop.capellaIndex = some GeneralizedIndex(401)
-          prop.denebIndex = some GeneralizedIndex(801)
-        elif prop.path == ".graffiti":
-          # TODO: graffiti is present since genesis, so the correct index in the early
-          #       forks can be supplied here
-          prop.bellatrixIndex = some GeneralizedIndex(18)
-          prop.capellaIndex = some GeneralizedIndex(18)
-          prop.denebIndex = some GeneralizedIndex(18)
-        else:
-          reader.raiseUnexpectedValue("Keystores with proven properties different than " &
-                                      "`.execution_payload.fee_recipient` and `.graffiti` " &
-                                      "require a more recent version of Nimbus")
-      provenBlockProperties = some provenProperties
-    of "threshold":
-      if threshold.isSome:
-        reader.raiseUnexpectedField("Multiple `threshold` fields found",
-                                    "RemoteKeystore")
-      if version.isNone:
-        reader.raiseUnexpectedField(
-          "The `threshold` field should be specified after the `version` field of the keystore",
-          "RemoteKeystore")
-      if version.get < 2:
-        reader.raiseUnexpectedField(
-          "The `threshold` field is valid only past version 2 of the remote keystore format",
-          "RemoteKeystore")
-      threshold = some(reader.readValue(uint32))
-    else:
-      # Ignore unknown field names.
-      discard
-
-  if version.isNone():
-    reader.raiseUnexpectedValue("The required field `version` is missing")
-  if remotes.isNone():
-    if remote.isSome and pubkey.isSome:
-      remotes = some @[RemoteSignerInfo(
-        pubkey: pubkey.get,
-        id: 0,
-        url: remote.get
-      )]
-    else:
-      reader.raiseUnexpectedValue("The required field `remotes` is missing")
-
-  if threshold.isNone:
-    if remotes.get.len > 1:
-      reader.raiseUnexpectedValue("The `threshold` field must be specified when using distributed keystores")
-  else:
-    if threshold.get.uint64 > remotes.get.lenu64:
-      reader.raiseUnexpectedValue("The specified `threshold` must be lower than the number of remote signers")
-
-  if pubkey.isNone():
-    reader.raiseUnexpectedValue("Field `pubkey` is missing")
-
-  if version.get >= 3:
-    if remoteType.isNone:
-      reader.raiseUnexpectedValue("The required field `type` is missing")
-    case remoteType.get
-    of RemoteSignerType.Web3Signer:
-      discard
-    of RemoteSignerType.VerifyingWeb3Signer:
-      if provenBlockProperties.isNone:
-        reader.raiseUnexpectedValue("The required field `proven_block_properties` is missing")
-
-  value = case remoteType.get(RemoteSignerType.Web3Signer)
-    of RemoteSignerType.Web3Signer:
-      RemoteKeystore(
-        version: 2'u64,
-        pubkey: pubkey.get,
-        description: description,
-        remoteType: RemoteSignerType.Web3Signer,
-        remotes: remotes.get,
-        threshold: threshold.get(1))
-    of RemoteSignerType.VerifyingWeb3Signer:
-      RemoteKeystore(
-        version: 2'u64,
-        pubkey: pubkey.get,
-        description: description,
-        remoteType: RemoteSignerType.VerifyingWeb3Signer,
-        provenBlockProperties: provenBlockProperties.get,
-        remotes: remotes.get,
-        threshold: threshold.get(1))
 
 template bytes(value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv): seq[byte] =
   distinctBase value
@@ -931,111 +674,3 @@ proc decryptNetKeystore(nkeystore: JsonString,
     return decryptNetKeystore(keystore, password)
   except SerializationError as exc:
     return err(exc.formatMsg("<keystore>"))
-
-proc generateKeystoreSalt*(rng: var HmacDrbgContext): seq[byte] =
-  rng.generateBytes(keyLen)
-
-proc createCryptoField(kdfKind: KdfKind,
-                       rng: var HmacDrbgContext,
-                       secret: openArray[byte],
-                       password = KeystorePass.init "",
-                       salt: openArray[byte] = @[],
-                       iv: openArray[byte] = @[],
-                       mode = Secure): Crypto =
-  type AES = aes128
-
-  let kdfSalt =
-    if salt.len > 0:
-      doAssert salt.len == keyLen
-      @salt
-    else:
-      rng.generateBytes(keyLen)
-
-  let aesIv = if iv.len > 0:
-    doAssert iv.len == AES.sizeBlock
-    @iv
-  else:
-    rng.generateBytes(AES.sizeBlock)
-
-  var decKey: seq[byte]
-  let kdf = case kdfKind
-    of kdfPbkdf2:
-      var params = pbkdf2Params
-      params.salt = Pbkdf2Salt kdfSalt
-      if mode == Fast: params.c = 1
-      decKey = sha256.pbkdf2(password.str,
-                             kdfSalt,
-                             int params.c,
-                             int params.dklen)
-      Kdf(function: kdfPbkdf2, pbkdf2Params: params, message: "")
-    of kdfScrypt:
-      var params = scryptParams
-      params.salt = ScryptSalt kdfSalt
-      if mode == Fast: params.n = 1
-      decKey = @(scrypt(password.str, kdfSalt,
-                        params.n, params.r, params.p, keyLen))
-      Kdf(function: kdfScrypt, scryptParams: params, message: "")
-
-  var
-    aesCipher: CTR[AES]
-    cipherMsg = newSeq[byte](secret.len)
-
-  aesCipher.init(decKey.toOpenArray(0, 15), aesIv)
-  aesCipher.encrypt(secret, cipherMsg)
-  aesCipher.clear()
-
-  let sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
-
-  Crypto(
-    kdf: kdf,
-    checksum: Checksum(
-      function: sha256Checksum,
-      message: sum),
-    cipher: Cipher(
-      function: aes128CtrCipher,
-      params: Aes128CtrParams(iv: Aes128CtrIv aesIv),
-      message: CipherBytes cipherMsg))
-
-proc createKeystore*(kdfKind: KdfKind,
-                     rng: var HmacDrbgContext,
-                     privKey: ValidatorPrivKey,
-                     password = KeystorePass.init "",
-                     path = KeyPath "",
-                     description = "",
-                     salt: openArray[byte] = @[],
-                     iv: openArray[byte] = @[],
-                     mode = Secure): Keystore =
-  let
-    secret = privKey.toRaw[^32..^1]
-    cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv, mode)
-    pubkey = privKey.toPubKey()
-    uuid = uuidGenerate().expect("Random bytes should be available")
-
-  Keystore(
-    crypto: cryptoField,
-    pubkey: pubkey.toPubKey(),
-    path: path,
-    description: if len(description) > 0: some(description)
-                 else: none[string](),
-    uuid: $uuid,
-    version: 4)
-
-func makeWithdrawalCredentials(k: ValidatorPubKey): Eth2Digest =
-  var bytes = eth2digest(k.toRaw())
-  bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
-  bytes
-
-proc makeWithdrawalCredentials(k: CookedPubKey): Eth2Digest =
-  makeWithdrawalCredentials(k.toPubKey())
-
-proc prepareDeposit*(cfg: RuntimeConfig,
-                     withdrawalPubKey: CookedPubKey,
-                     signingKey: ValidatorPrivKey, signingPubKey: CookedPubKey,
-                     amount = MAX_EFFECTIVE_BALANCE.Gwei): DepositData =
-  var res = DepositData(
-    amount: amount,
-    pubkey: signingPubKey.toPubKey(),
-    withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
-
-  res.signature = get_deposit_signature(cfg, res).toValidatorSig()
-  return res
