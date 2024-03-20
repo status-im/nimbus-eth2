@@ -44,7 +44,7 @@ import
     keystore_management, slashing_protection, validator_duties, validator_pool],
   ".."/spec/mev/rest_deneb_mev_calls
 
-from std/sequtils import countIt, mapIt
+from std/sequtils import countIt, foldl, mapIt
 from eth/async_utils import awaitWithTimeout
 
 # Metrics for tracking attestation and beacon block loss
