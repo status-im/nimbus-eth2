@@ -2156,12 +2156,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
   if config.forkChoiceVersion.isNone:
-    config.forkChoiceVersion =
-      if metadata.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        # https://github.com/ethereum/pm/issues/844#issuecomment-1673359012
-        some(ForkChoiceVersion.Pr3431)
-      else:
-        some(ForkChoiceVersion.Stable)
+    config.forkChoiceVersion = some(ForkChoiceVersion.Pr3431)
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =
