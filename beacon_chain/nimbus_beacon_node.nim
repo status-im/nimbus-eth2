@@ -443,7 +443,9 @@ proc initFullNode(
       network: node.network)
     requestManager = RequestManager.init(
       node.network, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
-      (proc(): bool = node.syncStatus(dag.head) == ChainSyncStatus.Syncing),
+      (proc(): bool =
+        syncManager.inProgress and
+        node.syncStatus(dag.head) == ChainSyncStatus.Syncing),
       quarantine, blobQuarantine, rmanBlockVerifier)
 
   if node.config.lightClientDataServe:
