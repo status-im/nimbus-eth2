@@ -6,7 +6,7 @@ import
   stew/[assign2, byteutils],
   chronos,
   ../spec/[
-    eth2_merkleization, forks, helpers, signatures],
+    eth2_merkleization, forks, signatures],
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     slashing_protection]
@@ -405,6 +405,30 @@ func builderBetterBid(
     scaledEngineValue = engineValue shr scalingBits
   scaledBuilderValue >
     scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
+
+func create_blob_sidecars(
+    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    kzg_proofs: KzgProofs,
+    blobs: Blobs): seq[BlobSidecar] =
+  template kzg_commitments: untyped =
+    forkyBlck.message.body.blob_kzg_commitments
+  doAssert kzg_proofs.len == blobs.len
+  doAssert kzg_proofs.len == kzg_commitments.len
+
+  var res = newSeqOfCap[BlobSidecar](blobs.len)
+  let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
+  for i in 0 ..< blobs.lenu64:
+    var sidecar = BlobSidecar(
+      index: i,
+      blob: blobs[i],
+      kzg_commitment: kzg_commitments[i],
+      kzg_proof: kzg_proofs[i],
+      signed_block_header: signedBlockHeader)
+    forkyBlck.message.body.build_proof(
+      kzg_commitment_inclusion_proof_gindex(i),
+      sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
+    res.add(sidecar)
+  res
 
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
