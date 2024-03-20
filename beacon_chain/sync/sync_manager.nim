@@ -362,6 +362,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           local_safe_slot = man.getSafeSlot(),
           local_last_slot = man.getLastSlot(),
           local_first_slot = man.getFirstSlot()
+    await sleepAsync(RESP_TIMEOUT_DUR)
     peer.updateScore(PeerScoreUseless)
     return
 
