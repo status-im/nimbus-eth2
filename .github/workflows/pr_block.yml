@@ -21,7 +21,7 @@ jobs:
 
       - name: Close
         run: |
-          gh pr close ${{ github.event.pull_request.number }} --delete-branch --comment \
+          gh pr close ${{ github.event.pull_request.number }} --comment \
           'Pull requests to the `stable` branch are not allowed.
           Please open your pull request against the `unstable` branch.
           See https://nimbus.guide/contribute.html#build-and-deploy'
