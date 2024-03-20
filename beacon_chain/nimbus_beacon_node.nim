@@ -1,5 +1,3 @@
-{.push raises: [].}
-
 import
   std/[os, times],
   chronos,
@@ -22,8 +20,25 @@ proc initFullNode(
 
   await node.addValidators()
 
-from "."/consensus_object_pools/blockchain_dag import preInit
-from "."/consensus_object_pools/block_pools_types import ChainDAGRef
+import
+  "."/spec/beaconstate,
+  "."/spec/forks,
+  "."/consensus_object_pools/block_pools_types
+
+proc putBlock(
+    dag: ChainDAGRef, signedBlock: ForkyTrustedSignedBeaconBlock) =
+  dag.db.putBlock(signedBlock)
+
+proc preInit(
+    T: type ChainDAGRef, state: ForkedHashedBeaconState) =
+  doAssert getStateField(state, slot).is_epoch,
+    "Can only initialize database from epoch states"
+
+  withState(state):
+    if forkyState.data.slot == GENESIS_SLOT:
+      discard get_initial_beacon_block(forkyState)
+    else:
+      discard forkyState.latest_block_root()
 
 proc init*(T: type BeaconNode,
            config: BeaconNodeConf,
@@ -37,9 +52,7 @@ proc init*(T: type BeaconNode,
     let tmp = try:
       newClone(readSszForkedHashedBeaconState(
         cfg, readAllBytes(checkpointStatePath).tryGet()))
-    except SszError as err:
-      quit 1
-    except CatchableError as err:
+    except CatchableError:
       quit 1
 
     if not getStateField(tmp[], slot).is_epoch:
