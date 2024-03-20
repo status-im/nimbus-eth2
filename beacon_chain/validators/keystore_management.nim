@@ -1,20 +1,15 @@
-{.push raises: [].}
-
 import
-  std/[os, unicode],
+  std/os,
   chronicles, chronos, json_serialization,
-  bearssl/rand,
   serialization, blscurve, eth/common/eth_types, confutils,
   ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
   stew/io2, libp2p/crypto/crypto as lcrypto,
-  nimcrypto/utils as ncrutils,
   ".."/[conf, filepath, beacon_clock],
-  ".."/networking/network_metadata,
   ./validator_pool
 
 export
-  keystore, validator_pool, crypto, rand
+  keystore, validator_pool, crypto
 
 {.localPassC: "-fno-lto".} # no LTO for crypto
 
@@ -119,9 +114,6 @@ proc loadKeystore(validatorsDir, secretsDir, keyName: string,
     error "Unable to find any keystore files", keystorePath
     Opt.none(KeystoreData)
 
-func fsName(pubkey: ValidatorPubKey|CookedPubKey): string =
-  "0x" & pubkey.toHex()
-
 func checkKeyName(keyName: string): Result[void, string] =
   const keyAlphabet = {'a'..'f', 'A'..'F', '0'..'9'}
   if len(keyName) != KeyNameSize:
@@ -179,183 +171,3 @@ iterator listLoadableKeystores*(config: AnyConf,
                                   config.nonInteractive,
                                   cache):
     yield el
-
-type
-  KeystoreGenerationErrorKind = enum
-    FailedToCreateValidatorsDir
-    FailedToCreateKeystoreDir
-    FailedToCreateSecretsDir
-    FailedToCreateSecretFile
-    FailedToCreateKeystoreFile
-    DuplicateKeystoreDir
-    DuplicateKeystoreFile
-
-  KeystoreGenerationError = object
-    case kind: KeystoreGenerationErrorKind
-    of FailedToCreateKeystoreDir,
-       FailedToCreateValidatorsDir,
-       FailedToCreateSecretsDir,
-       FailedToCreateSecretFile,
-       FailedToCreateKeystoreFile,
-       DuplicateKeystoreDir,
-       DuplicateKeystoreFile:
-      error: string
-
-func mapErrTo[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
-    Result[T, KeystoreGenerationError] =
-  r.mapErr(proc (e: E): KeystoreGenerationError =
-    KeystoreGenerationError(kind: v, error: $e))
-
-proc createLocalValidatorFiles(
-       secretsDir, validatorsDir, keystoreDir,
-       secretFile, passwordAsString, keystoreFile,
-       encodedStorage: string
-     ): Result[void, KeystoreGenerationError] {.raises: [].} =
-
-  var success = false # becomes true when everything is created successfully
-
-  # secretsDir:
-  let secretsDirExisted: bool = dirExists(secretsDir)
-  if not(secretsDirExisted):
-    ? secureCreatePath(secretsDir).mapErrTo(FailedToCreateSecretsDir)
-  defer:
-    if not (success or secretsDirExisted):
-      discard io2.removeDir(secretsDir)
-
-  # validatorsDir:
-  let validatorsDirExisted: bool = dirExists(validatorsDir)
-  if not(validatorsDirExisted):
-    ? secureCreatePath(validatorsDir).mapErrTo(FailedToCreateValidatorsDir)
-  defer:
-    if not (success or validatorsDirExisted):
-      discard io2.removeDir(validatorsDir)
-
-  # keystoreDir:
-  ? secureCreatePath(keystoreDir).mapErrTo(FailedToCreateKeystoreDir)
-  defer:
-    if not success:
-      discard io2.removeDir(keystoreDir)
-
-  # secretFile:
-  ? secureWriteFile(secretFile,
-                    passwordAsString).mapErrTo(FailedToCreateSecretFile)
-  defer:
-    if not success:
-      discard io2.removeFile(secretFile)
-
-  # keystoreFile:
-  ? secureWriteFile(keystoreFile,
-                    encodedStorage).mapErrTo(FailedToCreateKeystoreFile)
-
-  success = true
-  ok()
-
-proc saveKeystore(
-       rng: var HmacDrbgContext,
-       validatorsDir, secretsDir: string,
-       signingKey: ValidatorPrivKey,
-       signingPubKey: CookedPubKey,
-       signingKeyPath: KeyPath,
-       password: string,
-       salt: openArray[byte] = @[],
-       mode = Secure
-     ): Result[void, KeystoreGenerationError] {.raises: [].} =
-  let
-    keypass = KeystorePass.init(password)
-    keyName = signingPubKey.fsName
-    keystoreDir = validatorsDir / keyName
-    keystoreFile = keystoreDir / KeystoreFileName
-
-  if dirExists(keystoreDir):
-    return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
-      error: "Keystore directory already exists"))
-  if fileExists(keystoreFile):
-    return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
-      error: "Keystore file already exists"))
-
-  let keyStore = createKeystore(kdfPbkdf2, rng, signingKey,
-                                keypass, signingKeyPath,
-                                mode = mode, salt = salt)
-  let encodedStorage = Json.encode(keyStore)
-
-  ? createLocalValidatorFiles(secretsDir, validatorsDir,
-                              keystoreDir,
-                              secretsDir / keyName, keypass.str,
-                              keystoreFile, encodedStorage)
-  ok()
-
-proc generateDeposits*(cfg: RuntimeConfig,
-                       rng: var HmacDrbgContext,
-                       seed: KeySeed,
-                       firstValidatorIdx, totalNewValidators: int,
-                       validatorsDir: string,
-                       secretsDir: string,
-                       mode = Secure): Result[seq[DepositData],
-                                              KeystoreGenerationError] =
-  var deposits: seq[DepositData]
-
-  notice "Generating deposits", totalNewValidators, validatorsDir, secretsDir
-
-  # We'll reuse a single variable here to make the secret
-  # scrubbing (burnMem) easier to handle:
-  var baseKey = deriveMasterKey(seed)
-  defer: burnMem(baseKey)
-  baseKey = deriveChildKey(baseKey, baseKeyPath)
-
-  var
-    salt = rng.generateKeystoreSalt()
-    password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
-
-  defer:
-    burnMem(salt)
-    burnMem(password)
-
-  let localValidatorsCount = totalNewValidators
-  for i in 0 ..< localValidatorsCount:
-    let validatorIdx = firstValidatorIdx + i
-
-    # We'll reuse a single variable here to make the secret
-    # scrubbing (burnMem) easier to handle:
-    var derivedKey = baseKey
-    defer: burnMem(derivedKey)
-    derivedKey = deriveChildKey(derivedKey, validatorIdx)
-    derivedKey = deriveChildKey(derivedKey, 0) # This is witdrawal key
-    let withdrawalPubKey = derivedKey.toPubKey
-    derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
-    let signingPubKey = derivedKey.toPubKey
-
-    ? saveKeystore(rng, validatorsDir, secretsDir,
-                   derivedKey, signingPubKey,
-                   makeKeyPath(validatorIdx, signingKeyKind), password.str,
-                   salt, mode)
-
-    deposits.add prepareDeposit(
-      cfg, withdrawalPubKey, derivedKey, signingPubKey)
-
-  ok deposits
-
-type
-  LaunchPadDeposit* = object
-    pubkey*: ValidatorPubKey
-    withdrawal_credentials*: Eth2Digest
-    amount*: Gwei
-    signature*: ValidatorSig
-    deposit_message_root*: Eth2Digest
-    deposit_data_root*: Eth2Digest
-    fork_version*: Version
-
-func init*(T: type LaunchPadDeposit,
-           cfg: RuntimeConfig, d: DepositData): T =
-  T(pubkey: d.pubkey,
-    withdrawal_credentials: d.withdrawal_credentials,
-    amount: d.amount,
-    signature: d.signature,
-    deposit_message_root: hash_tree_root(d as DepositMessage),
-    deposit_data_root: hash_tree_root(d),
-    fork_version: cfg.GENESIS_FORK_VERSION)
-
-func `as`*(copied: LaunchPadDeposit, T: type DepositData): T =
-  T(pubkey: copied.pubkey,
-    withdrawal_credentials: copied.withdrawal_credentials,
-    amount: copied.amount,
-    signature: copied.signature)
