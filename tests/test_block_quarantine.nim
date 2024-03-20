@@ -77,3 +77,44 @@ suite "Block quarantine":
 
       b5.root notin quarantine.blobless
       b6.root notin quarantine.blobless
+
+  test "Recursive missing parent":
+    let
+      b0 = makeBlock(Slot 0, ZERO_HASH)
+      b1 = makeBlock(Slot 1, b0.root)
+      b2 = makeBlock(Slot 2, b1.root)
+
+    var quarantine: Quarantine
+    check:
+      b0.root notin quarantine.missing
+      b1.root notin quarantine.missing
+      b2.root notin quarantine.missing
+
+      # Add b2
+      quarantine.addOrphan(Slot 0, b2).isOk
+      b0.root notin quarantine.missing
+      b1.root in quarantine.missing
+      b2.root notin quarantine.missing
+
+      # Add b1
+      quarantine.addOrphan(Slot 0, b1).isOk
+      b0.root in quarantine.missing
+      b1.root notin quarantine.missing
+      b2.root notin quarantine.missing
+
+      # Re-add b2
+      quarantine.addOrphan(Slot 0, b2).isOk
+      b0.root in quarantine.missing
+      b1.root notin quarantine.missing
+      b2.root notin quarantine.missing
+
+    # Empty missing
+    while quarantine.missing.len > 0:
+      discard quarantine.checkMissing(max = 5)
+
+    check:
+      # Re-add b2
+      quarantine.addOrphan(Slot 0, b2).isOk
+      b0.root in quarantine.missing
+      b1.root notin quarantine.missing
+      b2.root notin quarantine.missing

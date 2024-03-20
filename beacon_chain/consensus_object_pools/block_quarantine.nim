@@ -16,6 +16,8 @@ import
 export tables, forks
 
 const
+  MaxRetriesPerMissingItem = 7
+    ## Exponential backoff, double interval between each attempt
   MaxMissingItems = 1024
     ## Arbitrary
   MaxOrphans = SLOTS_PER_EPOCH * 3
@@ -83,7 +85,7 @@ func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
   var done: seq[Eth2Digest]
 
   for k, v in quarantine.missing.mpairs():
-    if v.tries > 8:
+    if v.tries > static(1 shl MaxRetriesPerMissingItem):
       done.add(k)
 
   for k in done:
@@ -97,32 +99,30 @@ func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
       if result.len >= max:
         break
 
-# TODO stew/sequtils2
-template anyIt(s, pred: untyped): bool =
-  # https://github.com/nim-lang/Nim/blob/v1.6.10/lib/pure/collections/sequtils.nim#L753-L775
-  # without the items(...)
-  var result = false
-  for it {.inject.} in s:
-    if pred:
-      result = true
-      break
-  result
-
 func addMissing*(quarantine: var Quarantine, root: Eth2Digest) =
   ## Schedule the download a the given block
   if quarantine.missing.len >= MaxMissingItems:
     return
 
-  if root in quarantine.unviable:
-    # Won't get anywhere with this block
-    return
+  var r = root
+  while true:
+    if r in quarantine.unviable:
+      # Won't get anywhere with this block
+      return
 
-  # It's not really missing if we're keeping it in the quarantine
-  if anyIt(quarantine.orphans.keys,  it[0] == root):
-    return
+    # It's not really missing if we're keeping it in the quarantine.
+    # In that case, add the next missing parent root instead
+    var found = false
+    for k, blck in quarantine.orphans:
+      if k[0] == r:
+        r = getForkedBlockField(blck, parent_root)
+        found = true
+        break
 
-  # Add if it's not there, but don't update missing counter
-  discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
+    # Add if it's not there, but don't update missing counter
+    if not found:
+      discard quarantine.missing.hasKeyOrPut(r, MissingBlock())
+      break
 
 func removeOrphan*(
     quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
