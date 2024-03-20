@@ -2315,7 +2315,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       historyLength: 6,
       historyGossip: 3,
       fanoutTTL: chronos.seconds(60),
-      seenTTL: chronos.seconds(385),
+      # 2 epochs matching maximum valid attestation lifetime
+      seenTTL: chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
       gossipThreshold: -4000,
       publishThreshold: -8000,
       graylistThreshold: -16000, # also disconnect threshold
