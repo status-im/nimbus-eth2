@@ -4,7 +4,7 @@ import
   ./el/el_manager,
   ./spec/forks,
   ./validators/[
-    message_router, validator_pool]
+    message_router]
 
 import "."/consensus_object_pools/block_dag
 
@@ -13,7 +13,7 @@ export
   beacon_clock, conf,
   el_manager,
   forks,
-  base, message_router, validator_pool
+  base, message_router
 
 type
   BeaconNode* = ref object
