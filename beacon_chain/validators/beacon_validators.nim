@@ -44,7 +44,7 @@ import
     keystore_management, slashing_protection, validator_duties, validator_pool],
   ".."/spec/mev/rest_deneb_mev_calls
 
-from std/sequtils import countIt, mapIt
+from std/sequtils import countIt, foldl, mapIt
 from eth/async_utils import awaitWithTimeout
 
 # Metrics for tracking attestation and beacon block loss
@@ -256,7 +256,7 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
     # Chain is progressing, we are out of sync
     return ChainSyncStatus.Syncing
 
-  let numPeers = len(node.network.peers)
+  let numPeers = len(node.network.peerPool)
   if numPeers <= node.config.maxPeers div 4:
     # We may have poor connectivity, wait until more peers are available
     warn "Chain appears to have stalled, but have low peers",
@@ -264,13 +264,16 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
     node.dag.resetChainProgressWatchdog()
     return ChainSyncStatus.Syncing
 
-  let numPeersWithHigherProgress = node.network.peerPool.peers
-    .countIt(it != nil and it.getHeadSlot() > head.slot)
+  let
+    maxHeadSlot = node.dag.heads.foldl(max(a, b.slot), GENESIS_SLOT)
+    numPeersWithHigherProgress = node.network.peerPool.peers
+      .countIt(it != nil and it.getHeadSlot() > maxHeadSlot)
   if numPeersWithHigherProgress > node.config.maxPeers div 8:
     # A peer indicates that they are on a later slot, wait for sync manager
     # to progress, or for it to kick the peer if they are faking the status
     warn "Chain appears to have stalled, but peers indicate higher progress",
-      numPeersWithHigherProgress, numPeers, maxPeers = node.config.maxPeers
+      numPeersWithHigherProgress, numPeers, maxPeers = node.config.maxPeers,
+      head, maxHeadSlot
     node.dag.resetChainProgressWatchdog()
     return ChainSyncStatus.Syncing
 
