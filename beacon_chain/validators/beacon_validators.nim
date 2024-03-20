@@ -44,7 +44,7 @@ import
     keystore_management, slashing_protection, validator_duties, validator_pool],
   ".."/spec/mev/rest_deneb_mev_calls
 
-from std/sequtils import mapIt
+from std/sequtils import countIt, mapIt
 from eth/async_utils import awaitWithTimeout
 
 # Metrics for tracking attestation and beacon block loss
@@ -227,29 +227,66 @@ proc getGraffitiBytes*(
   getGraffiti(node.config.validatorsDir, node.config.defaultGraffitiBytes(),
               validator.pubkey)
 
-proc isSynced*(node: BeaconNode, head: BlockRef): bool =
-  ## TODO This function is here as a placeholder for some better heurestics to
-  ##      determine if we're in sync and should be producing blocks and
-  ##      attestations. Generally, the problem is that slot time keeps advancing
-  ##      even when there are no blocks being produced, so there's no way to
-  ##      distinguish validators geniunely going missing from the node not being
-  ##      well connected (during a network split or an internet outage for
-  ##      example). It would generally be correct to simply keep running as if
-  ##      we were the only legit node left alive, but then we run into issues:
-  ##      with enough many empty slots, the validator pool is emptied leading
-  ##      to empty committees and lots of empty slot processing that will be
-  ##      thrown away as soon as we're synced again.
+type ChainSyncStatus* {.pure.} = enum
+  Syncing,
+  Synced,
+  Degraded
 
+proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
+  ## Generally, the problem is that slot time keeps advancing
+  ## even when there are no blocks being produced, so there's no way to
+  ## distinguish validators geniunely going missing from the node not being
+  ## well connected (during a network split or an internet outage for
+  ## example). It would generally be correct to simply keep running as if
+  ## we were the only legit node left alive, but then we run into issues:
+  ## with enough many empty slots, the validator pool is emptied leading
+  ## to empty committees and lots of empty slot processing that will be
+  ## thrown away as soon as we're synced again.
   let
     # The slot we should be at, according to the clock
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
 
-  # TODO if everyone follows this logic, the network will not recover from a
-  #      halt: nobody will be producing blocks because everone expects someone
-  #      else to do it
-  not wallSlot.afterGenesis or
-    head.slot + node.config.syncHorizon >= wallSlot.slot
+  if not wallSlot.afterGenesis or
+      head.slot + node.config.syncHorizon >= wallSlot.slot:
+    node.dag.resetChainProgressWatchdog()
+    return ChainSyncStatus.Synced
+
+  if node.dag.chainIsProgressing():
+    # Chain is progressing, we are out of sync
+    return ChainSyncStatus.Syncing
+
+  let numPeers = len(node.network.peers)
+  if numPeers <= node.config.maxPeers div 4:
+    # We may have poor connectivity, wait until more peers are available
+    warn "Chain appears to have stalled, but have low peers",
+      numPeers, maxPeers = node.config.maxPeers
+    node.dag.resetChainProgressWatchdog()
+    return ChainSyncStatus.Syncing
+
+  let numPeersWithHigherProgress = node.network.peerPool.peers
+    .countIt(it != nil and it.getHeadSlot() > head.slot)
+  if numPeersWithHigherProgress > node.config.maxPeers div 8:
+    # A peer indicates that they are on a later slot, wait for sync manager
+    # to progress, or for it to kick the peer if they are faking the status
+    warn "Chain appears to have stalled, but peers indicate higher progress",
+      numPeersWithHigherProgress, numPeers, maxPeers = node.config.maxPeers
+    node.dag.resetChainProgressWatchdog()
+    return ChainSyncStatus.Syncing
+
+  # We are on the latest slot among all of our peers, and there has been no
+  # chain progress for an extended period of time.
+  let clearanceSlot = getStateField(node.dag.clearanceState, slot)
+  if clearanceSlot + node.config.syncHorizon < wallSlot.slot:
+    # If we were to propose a block now, we would incur a large lag spike
+    # that makes our block be way too late to be gossiped
+    return ChainSyncStatus.Degraded
+
+  # It is reasonable safe to assume that the network has halted, resume duties
+  ChainSyncStatus.Synced
+
+proc isSynced*(node: BeaconNode, head: BlockRef): bool =
+  node.syncStatus(head) == ChainSyncStatus.Synced
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
     {.async: (raises: [CancelledError]).} =
