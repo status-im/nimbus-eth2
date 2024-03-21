@@ -313,7 +313,7 @@ proc processBlobSidecar*(
           discard self.quarantine[].addBlobless(
             self.dag.finalizedHead.slot, forkyBlck)
       else:
-        error "Received blob for pre-Deneb block", block_root
+        raiseAssert "Could not have been added as blobless"
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
