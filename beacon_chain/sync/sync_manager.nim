@@ -392,7 +392,8 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
   if blocks.isErr():
     peer.updateScore(PeerScoreNoValues)
     man.queue.push(req)
-    debug "Failed to receive blocks on request", request = req
+    debug "Failed to receive blocks on request",
+          request = req, err = blocks.error
     return
   let blockData = blocks.get().asSeq()
   let blockSmap = getShortMap(req, blockData)
@@ -420,7 +421,8 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       if blobs.isErr():
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
-        debug "Failed to receive blobs on request", request = req
+        debug "Failed to receive blobs on request",
+              request = req, err = blobs.error
         return
       let blobData = blobs.get().asSeq()
       let blobSmap = getShortMap(req, blobData)
