@@ -122,7 +122,6 @@ proc getBlockProposalEth1Data(node: BeaconNode,
                               state: ForkedHashedBeaconState):
                               BlockProposalEth1Data = default(BlockProposalEth1Data)
 
-import chronicles
 from ".."/spec/datatypes/capella import BeaconBlockValidatorChanges, Withdrawal, shortLog
 proc makeBeaconBlock(
     cfg: RuntimeConfig,
@@ -199,14 +198,11 @@ proc makeBeaconBlockForHeadAndSlot(
     eth1Proposal = node.getBlockProposalEth1Data(state[])
 
   if false:
-    warn ""
     return err("Eth1 deposits not available")
 
   let
     payloadRes = await payloadFut
     payload = payloadRes.valueOr:
-      warn "Unable to get execution payload. Skipping block proposal",
-        slot, validator_index
       return err("Unable to get execution payload")
 
   let blck = makeBeaconBlock(
@@ -225,8 +221,6 @@ proc makeBeaconBlockForHeadAndSlot(
       transactions_root = transactions_root,
       execution_payload_root = execution_payload_root,
       kzg_commitments = kzg_commitments).mapErr do (error: cstring) -> string:
-    warn "Cannot create block for proposal",
-      slot, head = shortLog(head), error
     $error
 
   var blobsBundleOpt = Opt.none(BlobsBundle)
@@ -317,6 +311,8 @@ proc proposeBlockMEV(
     Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
   err "foo"
 
+import chronicles
+
 proc collectBids(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
     validator_pubkey: ValidatorPubKey,
@@ -352,17 +348,13 @@ proc collectBids(
       if payloadBuilderBidFut.value().isOk:
         Opt.some(payloadBuilderBidFut.value().value())
       elif usePayloadBuilder:
-        notice "Payload builder error",
-          slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-          err = ""
+        echo "Payload builder error"
         Opt.none(BuilderBid[SBBB])
       else:
         # Effectively the same case, but without the log message
         Opt.none(BuilderBid[SBBB])
     else:
-      notice "Payload builder bid request failed",
-        slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-        err = payloadBuilderBidFut.error.msg
+      echo "Payload builder bid request failed"
       Opt.none(BuilderBid[SBBB])
 
   let engineBid =
@@ -370,14 +362,10 @@ proc collectBids(
       if engineBlockFut.value.isOk:
         Opt.some(engineBlockFut.value().value())
       else:
-        notice "Engine block building error",
-          slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-          err = ""
+        echo "Engine block building error"
         Opt.none(EngineBid)
     else:
-      notice "Engine block building failed",
-        slot, head = shortLog(head), validator = shortLog(validator_pubkey),
-        err = engineBlockFut.error.msg
+      echo "Engine block building failed"
       Opt.none(EngineBid)
 
   Bids[SBBB](
@@ -446,19 +434,12 @@ proc proposeBlockAux(
 
   if collectedBids.engineBid.isSome():
     if collectedBids.builderBid.isSome():
-      info "Compared engine and builder block bids",
-        localBlockValueBoost,
-        useBuilderBlock,
-        builderBlockValue = "",
-        engineBlockValue = ""
+      echo "Compared engine and builder block bids"
     else:
-      info "Did not receive expected builder bid; using engine block",
-        engineBlockValue = ""
+      echo "Did not receive expected builder bid; using engine block"
   else:
     if collectedBids.builderBid.isSome:
-      info "Did not receive expected engine bid; using builder block",
-        builderBlockValue =
-          collectedBids.builderBid.value().blockValue
+      echo "Did not receive expected engine bid; using builder block"
 
   if useBuilderBlock:
     let
@@ -471,10 +452,7 @@ proc proposeBlockAux(
 
     return maybeUnblindedBlock.valueOr:
       warn "Blinded block proposal incomplete",
-        head = shortLog(head), slot, validator_index,
-        validator = shortLog(validator),
-        err = maybeUnblindedBlock.error,
-        blindedBlck = shortLog(blindedBlock)
+       foo = maybeUnblindedBlock.error
       return head
 
   let engineBid = collectedBids.engineBid.value()
@@ -489,10 +467,9 @@ proc proposeBlockAux(
 
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",
-        blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
+        blockRoot = shortLog(blockRoot),
+        blck = shortLog(forkyBlck),
         signingRoot = shortLog(signingRoot),
-        validator = validator_pubkey,
-        slot = slot,
         existingProposal = notSlashable.error
       return head
 
@@ -502,8 +479,6 @@ proc proposeBlockAux(
           let res = await getBlockSignature(
             fork, genesis_validators_root, slot, blockRoot, engineBid.blck)
           if res.isErr():
-            warn "Unable to sign block",
-                 validator = shortLog(validator), error_msg = res.error()
             return head
           res.get()
       signedBlock = consensusFork.SignedBeaconBlock(
@@ -521,7 +496,6 @@ proc proposeBlockAux(
     # - Xcode 15.1 (15C65)
     let
       newBlockRef = (
-        # I don't ... think this is used in a significant way? but probably first thing
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
       ).valueOr:
         return head # Errors logged in router
@@ -529,9 +503,12 @@ proc proposeBlockAux(
     if newBlockRef.isNone():
       return head # Validation errors logged in router
 
+    echo "foo 1"
+
     notice "Block proposed",
-      blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
-      signature = shortLog(signature), validator = shortLog(validator)
+      blockRoot = shortLog(blockRoot)
+
+    echo "foo 2"
 
     return newBlockRef.get()
 
@@ -542,10 +519,7 @@ proc proposeBlock(node: BeaconNode,
                   head: BlockRef,
                   slot: Slot) {.async: (raises: [CancelledError]).} =
   if head.slot >= slot:
-    warn "Skipping proposal, have newer head already",
-      headSlot = shortLog(head.slot),
-      headBlockRoot = shortLog(head.root),
-      slot = shortLog(slot)
+    echo "Skipping proposal, have newer head already"
     return
 
   let
@@ -555,8 +529,6 @@ proc proposeBlock(node: BeaconNode,
       let res = await validator.getEpochSignature(
         fork, genesis_validators_root, slot.epoch)
       if res.isErr():
-        warn "Unable to generate randao reveal",
-             validator = shortLog(validator), error_msg = res.error()
         return
       res.get()
 

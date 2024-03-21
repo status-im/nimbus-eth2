@@ -5,10 +5,6 @@ import std/strutils
 const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
 
 if getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
-   # BEWARE
-   # In Nim 1.6, config files are evaluated with a working directory
-   # matching where the Nim command was invocated. This means that we
-   # must do all file existance checks with full absolute paths:
    system.fileExists(currentDir & "nimbus-build-system.paths"):
   include "nimbus-build-system.paths"
 
@@ -22,8 +18,6 @@ else:
   let nimCachePath = nimCachePathOverride
 switch("nimcache", nimCachePath)
 
-# `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
-# With LTO enabled, optimization flags should be passed to both compiler and linker!
 if defined(release) and not defined(disableLTO):
   # "-w" is not passed to the compiler during linking, so we need to disable
   # some warnings by hand.
