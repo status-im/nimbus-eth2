@@ -419,6 +419,16 @@ proc initFullNode(
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars),
                                     maybeFinalized = maybeFinalized)
+    rmanBlockLoader = proc(
+        blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
+      dag.getForkedBlock(blockRoot)
+    rmanBlobLoader = proc(
+        blobId: BlobIdentifier): Opt[ref BlobSidecar] =
+      var blob_sidecar = BlobSidecar.new()
+      if dag.db.getBlobSidecar(blobId.block_root, blobId.index, blob_sidecar[]):
+        Opt.some blob_sidecar
+      else:
+        Opt.none(ref BlobSidecar)
 
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -444,7 +454,8 @@ proc initFullNode(
     requestManager = RequestManager.init(
       node.network, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
-      quarantine, blobQuarantine, rmanBlockVerifier)
+      quarantine, blobQuarantine, rmanBlockVerifier,
+      rmanBlockLoader, rmanBlobLoader)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
